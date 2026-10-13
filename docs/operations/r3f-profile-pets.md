@@ -8,9 +8,14 @@ still governs production native sessions, integrations and distribution.
 ## Available behavior
 
 Profile (`/sigil`, alias `/profile`) centers the owned Archer avatar, with a
-compact saved identity, level and trophy. Basic customization previews four
-supplied hairstyles, Light/Dark hair, Fair/Tan skin and Aqua/Nature/Fire/Dark
-outfit palettes. Save persists confirmed appearance through the self-scoped
+compact saved identity, level and trophy. Basic customization offers four
+supplied hairstyles, Light/Dark/Brown/Orange/Grey hair, Fair/Tan skin,
+Aqua/Nature/Fire/Dark outfit palettes and three independent Archer costume
+designs, three faces with matching eyebrows and rounded/pointed ears. A reviewed v2 runtime release
+renders these 2,880 combinations with
+supplied Idle; the legacy static release still renders its original 64 choices.
+It cannot silently substitute a different look for an expanded selection.
+Save persists confirmed appearance through the self-scoped
 `POST /api/character/avatar/` endpoint. Existing earned cosmetics, trophy,
 account settings and profile actions remain available below the avatar.
 
@@ -63,9 +68,38 @@ The owner accepted the recorded Archer pack for Profile on October 12. Run
 after the owned bird conversion. The private Archer export is 235,276 bytes,
 with 298,146 bytes of supplied palette images. Reimport checks verified the
 four hairstyles and outfit/skin combinations without changing purchased inputs.
-Archer uses a relaxed static pose: the supplied Idle has different bind matrices
-and is explicitly unaccepted. No new clothing, fitting or animation is authored.
-Migration `0024` adds avatar preferences; appearance changes grant no awards.
+That historical Archer export uses a relaxed static pose: its supplied Idle
+has different bind matrices and was not accepted. Migration `0024` adds avatar
+preferences; appearance changes grant no awards.
+
+The expanded converter keeps each of the three original body rigs in its own
+GLB. A privately reviewed source map identifies each actual geometry, texture,
+material, Idle take and head bone. Supplied rotation deltas are retargeted through each body's own
+hierarchy, retaining its original joint offsets, UVs and weights. The publisher's
+Idle rig has different proportions; copying its world joint positions would
+stretch the costumes. Topology, rotation transfer, preserved target proportions,
+child translation and scale are checked before baking. Reimport checks measure moving skinned vertices and attached
+head/hair parts before review. No new animation is authored. Conversion support
+and synthetic tests do not accept the real artwork; the original pack, Blender
+conversion and visual review are still required. See the
+[private release contract](licensed-avatar-art.md#expanded-identity-and-supplied-idle).
+
+October 13 private source verification completed with the owner's uploaded
+original pack and Blender 4.2. All three costumes retain their 40-bone rigs,
+eight modules, UVs, original weights and a 41-sample, 1.333-second supplied Idle.
+GLB reimport surface error is at most 9.58 micrometers and head attachment error
+at most 0.614 micrometers. Thirty actual start/midpoint renders cover all three
+costumes, both ear shapes, all hair/face choices and supplied skin/palette colors.
+These are private desktop conversion checks, not phone or public-delivery
+acceptance. Source hashes remained unchanged; recovery assets are outside Git.
+
+Archer 03 has one vertex with five bone influences. Truncating it to four
+changes its animated surface by 17.3 mm. The converter preserves all influences;
+`avatarSkinning.js` adds bounded eight-influence position/normal shader terms
+and matching CPU bounds/picking. It restores the GLTFLoader's first-set weight
+normalization on private cloned geometry, leaving cached source data untouched.
+The actual complete-weight export reimports with only 4.86 micrometers of
+surface error. Removing the extra-weight path would regress the third costume.
 
 ## Development native shell
 

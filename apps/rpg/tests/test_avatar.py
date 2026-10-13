@@ -15,8 +15,9 @@ from config.tests.factories import make_family
 
 
 CHOICES = {
-    "hair_style": "hair-04", "hair_color": "light",
-    "skin_tone": "tan", "outfit": "fire",
+    "hair_style": "hair-04", "hair_color": "brown",
+    "skin_tone": "tan", "outfit": "fire", "outfit_style": "archer-03", "face_style": "face-03",
+    "head_style": "head-01",
 }
 FIXED_NOW = datetime(2026, 10, 12, 18, 0, tzinfo=datetime_timezone.utc)
 
@@ -127,6 +128,86 @@ class AvatarPreferencesTests(APITestCase):
                     response = self.post({key: value})
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.data["avatar_preferences"], {**AVATAR_DEFAULTS, key: value})
+
+    def test_expanded_hair_colors_and_costumes_are_accepted_independently(self):
+        # Keep these literal choices independent of the server option table so
+        # this acceptance test fails before the expanded identity is supported.
+        for costume in ("archer-01", "archer-02", "archer-03"):
+            for hair_color in ("brown", "orange", "grey"):
+                with self.subTest(costume=costume, hair_color=hair_color):
+                    preferences = {**CHOICES, "outfit_style": costume, "hair_color": hair_color}
+                    response = self.post(preferences)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data["avatar_preferences"], preferences)
+                    self.profile.refresh_from_db()
+                    self.assertEqual(self.profile.avatar_preferences, preferences)
+
+    def test_all_three_verified_faces_are_accepted(self):
+        for face_style in ("face-01", "face-02", "face-03"):
+            with self.subTest(face_style=face_style):
+                preferences = {**CHOICES, "face_style": face_style}
+                response = self.post(preferences)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["avatar_preferences"], preferences)
+                self.profile.refresh_from_db()
+                self.assertEqual(self.profile.avatar_preferences, preferences)
+
+    def test_both_verified_heads_are_accepted(self):
+        for head_style in ("head-01", "head-02"):
+            with self.subTest(head_style=head_style):
+                preferences = {**CHOICES, "head_style": head_style}
+                response = self.post(preferences)
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["avatar_preferences"], preferences)
+                self.profile.refresh_from_db()
+                self.assertEqual(self.profile.avatar_preferences, preferences)
+
+    def test_legacy_appearance_keeps_choices_and_projects_default_costume_without_writes(self):
+        for hair_color in ("dark", "light"):
+            with self.subTest(hair_color=hair_color):
+                legacy = {
+                    "hair_style": "hair-03", "hair_color": hair_color,
+                    "skin_tone": "tan", "outfit": "aqua",
+                }
+                self.profile.avatar_preferences = legacy
+                self.profile.save(update_fields=["avatar_preferences"])
+                before = self.snapshot()
+                response = self.client.get("/api/character/")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["avatar_preferences"], {
+                    **legacy, "outfit_style": "archer-01", "face_style": "face-01", "head_style": "head-02",
+                })
+                self.assertEqual(self.snapshot(), before)
+
+    def test_omitting_costume_in_a_save_resets_it_to_the_original_style(self):
+        self.assertEqual(self.post(CHOICES).status_code, 200)
+        legacy = {key: value for key, value in CHOICES.items() if key != "outfit_style"}
+        response = self.post(legacy)
+        self.assertEqual(response.status_code, 200)
+        expected = {**legacy, "outfit_style": "archer-01"}
+        self.assertEqual(response.data["avatar_preferences"], expected)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar_preferences, expected)
+
+    def test_omitting_face_in_a_save_resets_it_to_the_original_style(self):
+        self.assertEqual(self.post(CHOICES).status_code, 200)
+        legacy = {key: value for key, value in CHOICES.items() if key != "face_style"}
+        response = self.post(legacy)
+        self.assertEqual(response.status_code, 200)
+        expected = {**legacy, "face_style": "face-01"}
+        self.assertEqual(response.data["avatar_preferences"], expected)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar_preferences, expected)
+
+    def test_omitting_head_in_a_save_resets_it_to_the_existing_pointed_ears(self):
+        self.assertEqual(self.post(CHOICES).status_code, 200)
+        legacy = {key: value for key, value in CHOICES.items() if key != "head_style"}
+        response = self.post(legacy)
+        self.assertEqual(response.status_code, 200)
+        expected = {**legacy, "head_style": "head-02"}
+        self.assertEqual(response.data["avatar_preferences"], expected)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar_preferences, expected)
 
     def test_invalid_preferences_and_unknown_fields_are_rejected_without_writes(self):
         before = self.snapshot()

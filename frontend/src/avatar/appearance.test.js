@@ -15,6 +15,28 @@ const manifest = {
 const files = ['archer.glb', 'fair-nature.png', 'tan-fire.png', 'hair-dark.png', 'hair-light.png', 'face-dark.png', 'face-light.png'];
 const urls = Object.fromEntries(files.map((file) => [`./licensed/${file}`, `/assets/${file}`]));
 
+// Synthetic runtime contracts; these do not establish purchased-art readiness.
+const expandedManifest = {
+  schema_version: 2,
+  models: Object.fromEntries(['archer-01', 'archer-02', 'archer-03'].map((style) => [style, { file: `${style}.glb`, idle_clip: 'Idle' }])),
+  parts: {
+    body: 'Body',
+    head: { 'head-01': 'Head Rounded', 'head-02': 'Head Pointed' }, face: 'Face',
+    hair: Object.fromEntries(['hair-01', 'hair-02', 'hair-03', 'hair-04'].map((key) => [key, key])),
+  },
+  textures: {
+    outfit: Object.fromEntries(['archer-01', 'archer-02', 'archer-03'].flatMap((style) =>
+      ['fair', 'tan'].flatMap((skin) => ['aqua', 'nature', 'fire', 'dark'].map((outfit) =>
+        [`${style}:${skin}:${outfit}`, `${style}-${skin}-${outfit}.png`])))),
+    hair: Object.fromEntries(['light', 'dark', 'brown', 'orange', 'grey'].map((color) => [color, `hair-${color}.png`])),
+    face: Object.fromEntries(['face-01', 'face-02', 'face-03'].flatMap((face) =>
+      ['light', 'dark', 'brown', 'orange', 'grey'].map((color) => [`${face}:${color}`, `${face}-${color}.png`]))),
+  },
+};
+const expandedUrls = Object.fromEntries([
+  ...Object.values(expandedManifest.models).map((model) => model.file), ...Object.values(expandedManifest.textures).flatMap(Object.values),
+].map((file) => [`./licensed/${file}`, `/assets/${file}`]));
+
 describe('owned Archer appearance', () => {
   it('selects the exact supplied body, hair and face texture variants', () => {
     const appearance = resolveAvatarAppearance({ hair_style: 'hair-03', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' }, manifest, urls);
@@ -31,5 +53,52 @@ describe('owned Archer appearance', () => {
 
   it('uses stable defaults for missing or unsupported saved fields', () => {
     expect(normalizeAvatarPreferences({ hair_style: 'unknown', outfit: 'unknown', arbitrary: 'secret' })).toEqual(AVATAR_DEFAULTS);
+  });
+
+  it('resolves every expanded identity to its exact body, palette and matching brows', () => {
+    let resolved = 0;
+    for (const outfit_style of ['archer-01', 'archer-02', 'archer-03']) {
+      for (const skin_tone of ['fair', 'tan']) {
+        for (const outfit of ['aqua', 'nature', 'fire', 'dark']) {
+          for (const hair_color of ['light', 'dark', 'brown', 'orange', 'grey']) {
+            for (const hair_style of ['hair-01', 'hair-02', 'hair-03', 'hair-04']) {
+              for (const face_style of ['face-01', 'face-02', 'face-03']) {
+                for (const head_style of ['head-01', 'head-02']) {
+                  const appearance = resolveAvatarAppearance({ outfit_style, skin_tone, outfit, hair_color, hair_style, face_style, head_style }, expandedManifest, expandedUrls);
+                  expect(appearance).toMatchObject({
+                    url: `/assets/${outfit_style}.glb`, outfitStyle: outfit_style, hairStyle: hair_style, headStyle: head_style, idleClip: 'Idle',
+                    textures: {
+                      body: `/assets/${outfit_style}-${skin_tone}-${outfit}.png`,
+                      hair: `/assets/hair-${hair_color}.png`, face: `/assets/${face_style}-${hair_color}.png`,
+                    },
+                  });
+                  resolved += 1;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(resolved).toBe(2880);
+  });
+
+  it('preserves legacy appearances without substituting unsupported expanded choices', () => {
+    expect(resolveAvatarAppearance({ hair_color: 'brown' }, manifest, urls)).toBeNull();
+    expect(resolveAvatarAppearance({ outfit_style: 'archer-02' }, manifest, urls)).toBeNull();
+    expect(resolveAvatarAppearance({ face_style: 'face-02' }, manifest, urls)).toBeNull();
+    expect(resolveAvatarAppearance({ head_style: 'head-01' }, manifest, urls)).toBeNull();
+    expect(resolveAvatarAppearance({}, manifest, urls)).toMatchObject({ outfitStyle: 'archer-01', idleClip: null });
+  });
+
+  it('requires the selected expanded mesh, texture and accepted Idle declaration', () => {
+    const preferences = { outfit_style: 'archer-02', hair_color: 'grey' };
+    const withoutBody = { ...expandedManifest, models: { 'archer-01': expandedManifest.models['archer-01'] } };
+    expect(resolveAvatarAppearance(preferences, withoutBody, expandedUrls)).toBeNull();
+    expect(resolveAvatarAppearance(preferences, { ...expandedManifest, parts: { ...expandedManifest.parts, head: { 'head-01': 'Head Rounded' } } }, expandedUrls)).toBeNull();
+    expect(resolveAvatarAppearance(preferences, expandedManifest, { ...expandedUrls, './licensed/face-01-grey.png': undefined })).toBeNull();
+    for (const idle_clip of [undefined, null, 'Walk']) {
+      expect(resolveAvatarAppearance(preferences, { ...expandedManifest, models: { ...expandedManifest.models, 'archer-02': { file: 'archer-02.glb', idle_clip } } }, expandedUrls)).toBeNull();
+    }
   });
 });

@@ -22,9 +22,12 @@
   "active_trophy_badge": null,
   "avatar_preferences": {
     "hair_style": "hair-04",
-    "hair_color": "light",
+    "hair_color": "grey",
     "skin_tone": "tan",
-    "outfit": "fire"
+    "outfit": "fire",
+    "outfit_style": "archer-03",
+    "face_style": "face-02",
+    "head_style": "head-01"
   },
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00"

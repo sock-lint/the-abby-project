@@ -6,8 +6,9 @@ import { setToken } from '../../api/client';
 import AvatarCustomizer from './AvatarCustomizer';
 import { AVATAR_DEFAULTS } from '../../avatar/preferences';
 import * as api from '../../api';
+import { spyHandler } from '../../test/spy';
 
-vi.mock('./AvatarPreview', () => ({ default: ({ preferences }) => <div role="img" aria-label={`Avatar preview: ${preferences.hair_style}, ${preferences.outfit}`} /> }));
+vi.mock('./AvatarPreview', () => ({ default: ({ preferences }) => <div role="img" aria-label={`Avatar preview: ${preferences.hair_style}, ${preferences.outfit}`} data-face={preferences.face_style} data-head={preferences.head_style} /> }));
 
 beforeEach(() => {
   setToken('synthetic-avatar-review');
@@ -15,6 +16,62 @@ beforeEach(() => {
 });
 
 describe('AvatarCustomizer', () => {
+  it('previews and saves rounded ears independently from the default pointed head', async () => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const confirmed = { avatar_preferences: { ...AVATAR_DEFAULTS, head_style: 'head-01' } };
+    const save = spyHandler('post', /\/api\/character\/avatar\/$/, confirmed);
+    server.use(save.handler);
+    renderWithProviders(<AvatarCustomizer profile={{ avatar_preferences: AVATAR_DEFAULTS }} onSaved={onSaved} />);
+    await user.click(screen.getByRole('button', { name: 'Customize character' }));
+    expect(screen.getByRole('combobox', { name: 'Ears' })).toHaveValue('head-02');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Ears' }), screen.getByRole('option', { name: 'Rounded' }));
+    expect(screen.getByRole('img', { name: 'Avatar preview: hair-01, nature' })).toHaveAttribute('data-head', 'head-01');
+    expect(save.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Save character' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ avatar_preferences: confirmed.avatar_preferences });
+    expect(save.calls[0].url).toMatch(/\/api\/character\/avatar\/$/);
+    expect(onSaved).toHaveBeenCalledWith(confirmed);
+  });
+  it.each([['face-01', 'Face 1'], ['face-02', 'Face 2'], ['face-03', 'Face 3']])('previews and saves the selected %s texture family', async (face_style, label) => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const confirmed = { avatar_preferences: { ...AVATAR_DEFAULTS, hair_color: 'grey', face_style } };
+    const save = spyHandler('post', /\/api\/character\/avatar\/$/, confirmed);
+    server.use(save.handler);
+    renderWithProviders(<AvatarCustomizer profile={{ avatar_preferences: AVATAR_DEFAULTS }} onSaved={onSaved} />);
+    await user.click(screen.getByRole('button', { name: 'Customize character' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Face' }), screen.getByRole('option', { name: label }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Hair color' }), 'grey');
+    expect(screen.getByRole('img', { name: 'Avatar preview: hair-01, nature' })).toHaveAttribute('data-face', face_style);
+    expect(save.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Save character' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ avatar_preferences: confirmed.avatar_preferences });
+    expect(save.calls[0].url).toMatch(/\/api\/character\/avatar\/$/);
+    expect(onSaved).toHaveBeenCalledWith(confirmed);
+  });
+
+  it.each(['brown', 'orange', 'grey'])('previews and saves a separate outfit style and %s hair with matching server options', async (hair_color) => {
+    const user = userEvent.setup();
+    const onSaved = vi.fn();
+    const confirmed = { avatar_preferences: { ...AVATAR_DEFAULTS, outfit_style: 'archer-03', hair_color, outfit: 'fire' } };
+    const save = spyHandler('post', /\/api\/character\/avatar\/$/, confirmed);
+    server.use(save.handler);
+    renderWithProviders(<AvatarCustomizer profile={{ avatar_preferences: AVATAR_DEFAULTS }} onSaved={onSaved} />);
+    await user.click(screen.getByRole('button', { name: 'Customize character' }));
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Outfit style' }), 'archer-03');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Hair color' }), hair_color);
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Outfit' }), 'fire');
+    expect(save.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Save character' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ avatar_preferences: confirmed.avatar_preferences });
+    expect(save.calls[0].url).toMatch(/\/api\/character\/avatar\/$/);
+    expect(onSaved).toHaveBeenCalledWith(confirmed);
+  });
+
   it('shows the avatar immediately and saves appearance through the real API wrapper', async () => {
     const user = userEvent.setup();
     const onSaved = vi.fn();
