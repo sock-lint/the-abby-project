@@ -29,12 +29,21 @@ def _grade_xp_tags():
 
 
 def _fingerprint(data):
+    result_key = "report_card" if "report_card" in data else "grade"
     normalized = {
-        "grade": data["grade"], "reflection": data.get("reflection", ""),
+        result_key: data[result_key], "reflection": data.get("reflection", ""),
         "occurred_on": data["occurred_on"].isoformat(), "is_private": data.get("is_private", True),
     }
     payload = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _result_title(data):
+    if "report_card" in data:
+        report = data["report_card"]
+        year = report["school_year"]
+        return f"{report['period_type'].title()} {report['period_number']} report card · {year}–{(year + 1) % 100:02d}"
+    return f"{data['grade']['subject']} · {data['grade']['assessment']}"[:160]
 
 
 def _replay(entry, fingerprint):
@@ -70,16 +79,17 @@ class GradeService:
         if replay is not None:
             return replay
         day = data["occurred_on"]
+        result_key = "report_card" if "report_card" in data else "grade"
         try:
             with transaction.atomic():
                 entry = ChronicleEntry.objects.create(
                     user=user, kind=ChronicleEntry.Kind.GRADE, occurred_on=day,
                     chapter_year=_chapter_year_for(day), is_private=data.get("is_private", True),
-                    title=f"{data['grade']['subject']} · {data['grade']['assessment']}"[:160],
+                    title=_result_title(data),
                     summary=data.get("reflection", ""), icon_slug="graduation-cap",
                     client_entry_id=data["client_entry_id"],
                     metadata={
-                        "grade": data["grade"], "request_fingerprint": fingerprint,
+                        result_key: data[result_key], "request_fingerprint": fingerprint,
                         "request_occurred_on": day.isoformat(),
                     },
                 )
@@ -93,7 +103,8 @@ class GradeService:
         if prior_count == 0:
             receipt = award_verified_xp(
                 user, entry, tag_loader=_grade_xp_tags, pool=GRADE_XP_POOL,
-                source_label="Recorded a grade", badge_scopes={"skill_xp", "badges"},
+                source_label="Recorded a report card" if result_key == "report_card" else "Recorded a grade",
+                badge_scopes={"skill_xp", "badges"},
             )
         else:
             receipt = {"receipt_id": f"grade:{entry.pk}", "status": "daily_limit", "xp_awarded": 0, "skills": []}
@@ -114,8 +125,9 @@ class GradeService:
         serializer = GradeEntryWriteSerializer(data=submission, partial=True, context={"entry": entry})
         serializer.is_valid(raise_exception=True)
         data = serializer.validated_data
-        entry.metadata = {**entry.metadata, "grade": data["grade"]}
-        entry.title = f"{data['grade']['subject']} · {data['grade']['assessment']}"[:160]
+        result_key = "report_card" if "report_card" in data else "grade"
+        entry.metadata = {**entry.metadata, result_key: data[result_key]}
+        entry.title = _result_title(data)
         if "reflection" in data:
             entry.summary = data["reflection"]
         if "occurred_on" in data:

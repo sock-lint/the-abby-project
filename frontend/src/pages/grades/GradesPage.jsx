@@ -15,6 +15,7 @@ import { getChildren, getGrades } from '../../api';
 import { formatDate } from '../../utils/format';
 import { normalizeList } from '../../utils/api';
 import GradeEntryFormModal from './GradeEntryFormModal';
+import ReportCardFormModal from './ReportCardFormModal';
 
 export default function GradesPage() {
   const { user, isParent } = useRole();
@@ -52,8 +53,8 @@ function AccountGradesPage({ user, isParent }) {
       <div className="space-y-2">
         <h1 className="font-display text-lede">Grades over time</h1>
         <p className="text-body text-ink-secondary">{isParent
-          ? 'Shared school results and reflections, saved over time.'
-          : 'Record a school result and what you want to remember. Recording it counts; the reward does not depend on the grade.'}</p>
+          ? 'Shared school results, report cards and reflections, saved over time.'
+          : 'Record a school result or a quarter or semester report card. Recording it counts; the reward does not depend on the grade.'}</p>
       </div>
       {isParent && children?.length > 0 && (
         <SelectField
@@ -79,7 +80,7 @@ function AccountGradesPage({ user, isParent }) {
 function GradeHistory({ targetUserId, isParent }) {
   const [state, setState] = useState({ entries: null, count: 0, next: null, loading: true, error: null, moreError: null, loadingMore: false });
   const [reloadKey, setReloadKey] = useState(0);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(null);
   const generation = useRef(0);
   const pendingPage = useRef(null);
 
@@ -135,9 +136,12 @@ function GradeHistory({ targetUserId, isParent }) {
   return (
     <div className="space-y-4">
       {!isParent && (
-        <Button onClick={() => setCreating(true)} className="inline-flex items-center gap-2">
-          <BookOpen size={16} aria-hidden="true" /> Log a grade
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setCreating('grade')} className="inline-flex items-center gap-2">
+            <BookOpen size={16} aria-hidden="true" /> Log a grade
+          </Button>
+          <Button variant="secondary" onClick={() => setCreating('report_card')}>Log a report card</Button>
+        </div>
       )}
       <ErrorAlert message={state.error} onRetry={reload} />
       {state.entries === null ? (state.error ? null : <Loader />) : (
@@ -165,8 +169,11 @@ function GradeHistory({ targetUserId, isParent }) {
           {state.loading && <p role="status" className="text-body">Refreshing recorded grades…</p>}
         </>
       )}
-      {creating && (
-        <GradeEntryFormModal onClose={() => setCreating(false)} onSaved={() => { setCreating(false); reload(); }} />
+      {creating === 'grade' && (
+        <GradeEntryFormModal onClose={() => setCreating(null)} onSaved={() => { setCreating(null); reload(); }} />
+      )}
+      {creating === 'report_card' && (
+        <ReportCardFormModal onClose={() => setCreating(null)} onSaved={() => { setCreating(null); reload(); }} />
       )}
     </div>
   );
@@ -176,6 +183,8 @@ function GradeRecordCard({ entry, canEdit, onUpdated }) {
   const [editing, setEditing] = useState(false);
   const isPrivate = entry.is_private !== false;
   const grade = entry.metadata?.grade;
+  const isReportCard = Boolean(entry.metadata?.report_card);
+  const EntryForm = isReportCard ? ReportCardFormModal : GradeEntryFormModal;
   return (
     <li>
       <article className="parchment-card p-4 space-y-3" aria-labelledby={`grade-entry-${entry.id}-title`}>
@@ -191,9 +200,9 @@ function GradeRecordCard({ entry, canEdit, onUpdated }) {
         <GradeRecordDetails entry={entry} showSubject={false} />
         {entry.summary && <div className="space-y-2"><p className="font-semibold text-caption">Reflection</p><p className="text-body whitespace-pre-wrap break-words leading-relaxed">{entry.summary}</p></div>}
         <JournalConversation entry={entry} />
-        {canEdit && <Button variant="secondary" onClick={() => setEditing(true)} className="inline-flex items-center gap-2"><Pencil size={14} aria-hidden="true" /> Correct grade or sharing</Button>}
+        {canEdit && <Button variant="secondary" onClick={() => setEditing(true)} className="inline-flex items-center gap-2"><Pencil size={14} aria-hidden="true" /> {isReportCard ? 'Correct report card or sharing' : 'Correct grade or sharing'}</Button>}
       </article>
-      {editing && <GradeEntryFormModal mode="edit" entry={entry} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onUpdated(); }} />}
+      {editing && <EntryForm mode="edit" entry={entry} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onUpdated(); }} />}
     </li>
   );
 }

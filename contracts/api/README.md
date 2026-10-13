@@ -11,6 +11,10 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
 | `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
+| `report-card-created.json` | `POST /api/chronicle/grades/`; private quarterly report card with percentage, points and letter subjects and a verified recognition receipt |
+| `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
+| `report-card-corrected.json` | `PATCH /api/chronicle/301/grade/`; corrected and shared report card keeps its original save identity and reward receipt |
+| `report-card-invalid.json` | Report card rejected with HTTP 400 for an unknown subject field; indexed nested errors and no saved result or reward |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
@@ -267,7 +271,7 @@ copy of `unity/AbbyCamp`.
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -275,7 +279,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -291,7 +295,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
@@ -332,3 +336,38 @@ Run the producer and permission/state tests with a disposable test database:
 ```sh
 python manage.py test --settings=config.settings_test apps.rpg.tests.test_avatar config.tests.test_avatar_api_contract_fixtures
 ```
+
+## Quarter and semester report cards
+
+`config/tests/test_report_card_api_contract_fixtures.py` produces report card
+responses through the real child-authenticated grade endpoints with fixed
+families, identities, timestamps and PostgreSQL/SQLite sequence state. The React
+consumer in `frontend/src/api/reportCardContractFixtures.test.js` reads those
+same bodies through `writeGrade`, `getGrades` and `updateGradeEntry`, preserving
+decimal strings, pagination, reward receipts and nested field errors.
+
+Report cards remain Chronicle entries with `kind: "grade"`. Their result is
+stored in `metadata.report_card`, while individual assignment/class results
+continue using `metadata.grade`. To capture a card, submit `report_card` instead
+of the single-result fields, plus the existing `client_entry_id`, optional
+`reflection`, `occurred_on` and `is_private`. A card contains `period_type`
+(`quarter` or `semester`), integer `period_number` (1–4 for quarters or 1–2 for
+semesters), integer `school_year` (the starting year, 1–9998), and a `subjects`
+array containing 1–30 subjects with distinct names (case-insensitive). Each
+subject has a nonblank `subject` of at most 80 characters, `grade_format`, and
+only its active marking fields: `score` for percentages, `score` and `possible`
+for points, or `letter` for letters. Decimal values use the existing normalized
+string format; subjects may use different marking formats within one card.
+
+Corrections may supply individual period fields inside `report_card`; omitted
+period fields and subjects remain unchanged. A supplied `subjects` array replaces
+the entire list and must contain complete valid rows. Sharing-only changes
+preserve the saved card. Cards use the same author-only correction, default
+privacy and family sharing rules as other
+grades. UUID retries return the current saved entry, including later corrections,
+without creating another result or reward. Recognition follows the existing
+once-per-save-day grade policy: multiple subjects do not multiply XP, and a
+second report card or individual result that day receives a zero-XP
+`daily_limit` receipt. The producer checks persisted skill progress and the
+daily counter after replay, history reads and corrections; rejected nested
+fields consume no eligibility.
