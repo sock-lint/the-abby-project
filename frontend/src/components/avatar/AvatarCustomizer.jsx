@@ -12,6 +12,9 @@ const FIELDS = [
   ['hair_style', 'Hair style'],
   ['hair_color', 'Hair color'],
   ['skin_tone', 'Skin tone'],
+  ['face_style', 'Face'],
+  ['head_style', 'Ears'],
+  ['outfit_style', 'Outfit style'],
   ['outfit', 'Outfit'],
 ];
 
@@ -57,7 +60,7 @@ export default function AvatarCustomizer({ profile, onSaved }) {
     <section className="mt-4 space-y-3" aria-label="Your character">
       <div>
         <h2 className="font-body font-bold text-xl text-ink-primary">Your character</h2>
-        <p className="font-body text-caption text-ink-secondary">Choose your character’s hair, skin tone and outfit.</p>
+        <p className="font-body text-caption text-ink-secondary">Choose your character’s face, hair, skin tone, outfit style and color.</p>
       </div>
       <AvatarPreview preferences={preferences} />
       <Button variant="secondary" size="sm" className="inline-flex items-center gap-2" aria-expanded={editing} onClick={() => setEditing((value) => !value)}>

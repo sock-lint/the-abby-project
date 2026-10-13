@@ -24,7 +24,10 @@
     "hair_style": "hair-01",
     "hair_color": "dark",
     "skin_tone": "fair",
-    "outfit": "nature"
+    "outfit": "nature",
+    "outfit_style": "archer-01",
+    "face_style": "face-01",
+    "head_style": "head-02"
   },
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00"

@@ -42,7 +42,8 @@ class AvatarApiResponseFixtureTests(APITestCase):
         self.assertEqual(default["avatar_preferences"], AVATAR_DEFAULTS)
         self.assertEqual(self.profile.avatar_preferences, {})
         choices = {
-            "hair_style": "hair-04", "hair_color": "light", "skin_tone": "tan", "outfit": "fire",
+            "hair_style": "hair-04", "hair_color": "grey", "skin_tone": "tan",
+            "outfit": "fire", "outfit_style": "archer-03", "face_style": "face-02", "head_style": "head-01",
         }
         saved = self.assert_response_fixture(
             self.client.post("/api/character/avatar/", {"avatar_preferences": choices}, format="json"),
@@ -54,6 +55,21 @@ class AvatarApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.client.post(
             "/api/character/avatar/", {"avatar_preferences": choices}, format="json",
         ).json(), saved)
+
+    def test_legacy_avatar_projects_default_costume_without_persisting_a_read(self):
+        legacy = {
+            "hair_style": "hair-02", "hair_color": "light", "skin_tone": "tan", "outfit": "aqua",
+        }
+        self.profile.avatar_preferences = legacy
+        self.profile.save(update_fields=["avatar_preferences"])
+        before = CharacterProfile.objects.filter(pk=self.profile.pk).values().get()
+        response = self.assert_response_fixture(
+            self.client.get("/api/character/"), "character-avatar-legacy.json",
+        )
+        self.assertEqual(response["avatar_preferences"], {
+            **legacy, "outfit_style": "archer-01", "face_style": "face-01", "head_style": "head-02",
+        })
+        self.assertEqual(CharacterProfile.objects.filter(pk=self.profile.pk).values().get(), before)
 
     def test_invalid_appearance_fixture_has_no_write(self):
         before = CharacterProfile.objects.get(user=self.child).avatar_preferences

@@ -1,10 +1,11 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { AnimationMixer, Group, SRGBColorSpace, TextureLoader } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { prepareModel } from '../companion/prepareModel';
 import presentation from '../storybook/presentation.json';
 import { createAvatarReactions } from './avatarReactions';
+import { configureAvatarSkinMaterial, prepareAvatarSkinning, validateAvatarSkinning } from './avatarSkinning';
 import { AVATAR_CAMERA_POSITION, AVATAR_CAMERA_TARGET, connectAvatarCameraControls, createAvatarCameraControls, orbitAvatarCamera } from './avatarCamera';
 
 function AvatarCamera({ cameraReset, cameraOrbit }) {
@@ -28,7 +29,19 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
   const gltf = useLoader(GLTFLoader, appearance.url);
   const maps = useLoader(TextureLoader, Object.values(appearance.textures));
   const invalidate = useThree((state) => state.invalidate);
+  const clip = gltf.animations.find((entry) => entry.name === appearance.idleClip);
   const model = useMemo(() => {
+    // Validate before cloning GPU resources: an incomplete release must fall
+    // back without leaving an unmounted model's private resources behind.
+    if (appearance.idleClip && !clip) throw new Error('Avatar asset is missing its reviewed idle clip.');
+    const partNames = appearance.parts;
+    const selectedHair = partNames.hair[appearance.hairStyle];
+    const hairNames = Object.values(partNames.hair);
+    const headNames = typeof partNames.head === 'string' ? [partNames.head] : Object.values(partNames.head);
+    const selectedHead = typeof partNames.head === 'string' ? partNames.head : partNames.head[appearance.headStyle];
+    const required = [partNames.body, ...headNames, partNames.face, ...hairNames];
+    for (const name of required) if (!gltf.scene.getObjectByName(name)) throw new Error(`Avatar asset is missing ${name}.`);
+    validateAvatarSkinning(gltf.scene);
     const prepared = prepareModel(gltf.scene);
     const localTextures = maps.map((texture) => {
       const local = texture.clone();
@@ -38,36 +51,39 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
       return local;
     });
     const [body, hair, face] = localTextures;
-    const partNames = appearance.parts;
-    const selectedHair = partNames.hair[appearance.hairStyle];
-    const hairNames = Object.values(partNames.hair);
     const localMaterials = [];
     const localSkeletons = new Set();
-    const required = [partNames.body, partNames.head, partNames.face, ...hairNames];
-    for (const name of required) if (!prepared.scene.getObjectByName(name)) throw new Error(`Avatar asset is missing ${name}.`);
+    const localGeometries = [];
     prepared.scene.traverse((node) => {
       if (node.skeleton) localSkeletons.add(node.skeleton);
+      const skinGeometry = node.isSkinnedMesh ? prepareAvatarSkinning(node) : null;
+      if (skinGeometry) localGeometries.push(skinGeometry);
       if (hairNames.includes(node.name)) node.visible = node.name === selectedHair;
-      const texture = node.name === partNames.body || node.name === partNames.head ? body
+      if (headNames.includes(node.name)) node.visible = node.name === selectedHead;
+      const texture = node.name === partNames.body || headNames.includes(node.name) ? body
         : node.name === partNames.face ? face : hairNames.includes(node.name) ? hair : null;
       if (!texture || !node.material) return;
-      const replace = (material) => { const local = material.clone(); local.map = texture; local.needsUpdate = true; localMaterials.push(local); return local; };
+      const replace = (material) => { const local = material.clone(); local.map = texture; if (skinGeometry) configureAvatarSkinMaterial(local); local.needsUpdate = true; localMaterials.push(local); return local; };
       node.material = Array.isArray(node.material) ? node.material.map(replace) : replace(node.material);
     });
-    return { ...prepared, localMaterials, localTextures, localSkeletons };
-  }, [gltf, maps, appearance]);
+    return { ...prepared, localMaterials, localTextures, localSkeletons, localGeometries };
+  }, [gltf, maps, appearance, clip]);
   const reactions = useMemo(() => {
     const root = new Group();
     root.rotation.y = appearance.rotationY;
+    return { root, playback: createAvatarReactions(root) };
+  }, [appearance.rotationY]);
+  // A memo calculation can be repeated or discarded under StrictMode. Add
+  // the shared prepared scene only to the root that React actually commits.
+  useLayoutEffect(() => {
     model.scene.position.fromArray(model.position);
     model.scene.scale.setScalar(model.scale);
-    root.add(model.scene);
-    return { root, playback: createAvatarReactions(root) };
-  }, [model, appearance.rotationY]);
+    reactions.root.add(model.scene);
+    invalidate();
+    return () => { reactions.root.remove(model.scene); };
+  }, [model, reactions, invalidate]);
   const lastInteraction = useRef(0);
   const mixer = useMemo(() => new AnimationMixer(model.scene), [model]);
-  const clip = gltf.animations.find((entry) => entry.name === appearance.idleClip);
-  if (appearance.idleClip && !clip) throw new Error('Avatar asset is missing its reviewed idle clip.');
   useEffect(() => {
     if (clip) mixer.clipAction(clip).play();
     return () => { mixer.stopAllAction(); mixer.uncacheRoot(model.scene); };
@@ -79,6 +95,7 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
       model.localMaterials.forEach((material) => material.dispose());
       model.localTextures.forEach((texture) => texture.dispose());
       model.localSkeletons.forEach((skeleton) => skeleton.dispose());
+      model.localGeometries.forEach((geometry) => geometry.dispose());
     };
   }, [model, onReady, invalidate]);
   useEffect(() => {
@@ -93,7 +110,7 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
   }, [interaction, motionAllowed, reactions, invalidate]);
   useFrame((_state, delta) => {
     if (!motionAllowed) return;
-    if (clip) { mixer.update(Math.min(delta, 0.05)); invalidate(); }
+    if (clip) { mixer.update(Math.max(0, Math.min(delta, 0.05))); invalidate(); }
     if (reactions.playback.playing) { reactions.playback.update(delta); invalidate(); }
   });
   return <primitive object={reactions.root} dispose={null} />;
