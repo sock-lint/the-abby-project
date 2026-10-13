@@ -1,5 +1,24 @@
+import re
+
+from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
+
+
+ABBY_COOLIFY_RESOURCE_UUID = "lr5dn6lhga31vyk6u5qvhm4c"
+
+
+def _health_response(body, *, status=200):
+    """Expose only validated, nonsecret identity of the serving application."""
+    commit = getattr(settings, "SOURCE_COMMIT", "")
+    if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit):
+        body["commit"] = commit
+    resource_uuid = getattr(settings, "COOLIFY_RESOURCE_UUID", "")
+    if resource_uuid == ABBY_COOLIFY_RESOURCE_UUID:
+        body["resourceUuid"] = resource_uuid
+    response = JsonResponse(body, status=status)
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 class HealthCheckMiddleware:
@@ -18,7 +37,7 @@ class HealthCheckMiddleware:
             try:
                 connection.ensure_connection()
             except Exception:
-                return JsonResponse(
+                return _health_response(
                     {"status": "degraded", "db": "down"},
                     status=503,
                 )
@@ -37,8 +56,8 @@ class HealthCheckMiddleware:
                 if not ok:
                     body["storage_error"] = msg
                     body["status"] = "degraded"
-                    return JsonResponse(body, status=503)
-            return JsonResponse(body)
+                    return _health_response(body, status=503)
+            return _health_response(body)
         return self.get_response(request)
 
 
