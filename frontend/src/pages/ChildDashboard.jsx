@@ -35,6 +35,7 @@ import { RARITY_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 import RpgSprite from '../components/rpg/RpgSprite';
+import WellbeingCard from './dashboard/WellbeingCard';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -355,6 +356,8 @@ export default function ChildDashboard({ data, reload }) {
           </Button>
         </section>
       )}
+
+      <WellbeingCard />
 
       <AccordionSection
         index={0}

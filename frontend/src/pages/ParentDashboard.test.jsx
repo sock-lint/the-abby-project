@@ -29,6 +29,19 @@ const emptyDashboard = {
 };
 
 describe('ParentDashboard', () => {
+  it('keeps the daily gratitude pad off the parent Today screen', async () => {
+    const wellbeing = spyHandler('get', /\/api\/wellbeing\/today\/$/, {});
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json(emptyDashboard)),
+      wellbeing.handler,
+    ]);
+    expect(await screen.findByRole('heading', { name: /you're all caught up/i })).toBeInTheDocument();
+    expect(screen.queryByText(/today's note/i)).toBeNull();
+    expect(screen.queryByRole('textbox', { name: /Gratitude line/ })).toBeNull();
+    expect(wellbeing.calls).toHaveLength(0);
+  });
+
   it.each([
     { response: 'immediate', queueDelay: 0 },
     { response: 'slower than one second', queueDelay: 1500 },

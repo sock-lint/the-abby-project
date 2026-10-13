@@ -6,6 +6,7 @@ import QuestsHub from './index.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { buildUser } from '../../test/factories.js';
+import userEvent from '@testing-library/user-event';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -13,6 +14,22 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('QuestsHub', () => {
+  it('opens optional Challenges from Tasks and explains how they fit everyday work', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <QuestsHub />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('tab', { name: 'Challenges' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Challenges' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText(/Challenges are optional goals that add bonus rewards to the tasks you already do/)).toBeInTheDocument();
+  });
+
   it('renders the Tasks hub with Homework selected by default', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
