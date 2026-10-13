@@ -51,6 +51,9 @@ def spa_view(request):
     # the opener connection for that interaction; API/admin retain their
     # SecurityMiddleware policy.
     response["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    # Website-restricted Picker keys need the journal's origin as a referrer.
+    # Cross-site requests omit private SPA paths and query parameters.
+    response["Referrer-Policy"] = "strict-origin-when-cross-origin"
     # Force revalidation so browsers never serve a stale index.html whose
     # hashed asset references (CSS/JS) no longer exist after a redeploy.
     response["Cache-Control"] = "no-cache"

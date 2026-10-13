@@ -37,8 +37,13 @@ refresh token or client secret is sent to the browser. The API key, client ID,
 and project number are public browser configuration.
 
 The journal SPA sends `Cross-Origin-Opener-Policy: same-origin-allow-popups` so
-Google's authorization popup can communicate with its opener. Reverse proxies
-must preserve this header. API and admin responses keep their existing policy.
+Google's authorization popup can communicate with its opener. It also sends
+`Referrer-Policy: strict-origin-when-cross-origin` so website-restricted Picker
+keys can verify the journal's public origin. Cross-site referrers omit private
+SPA paths and query strings. Reverse proxies must preserve both headers,
+including on 304 responses. API and admin responses keep their existing policies.
+The HTML app shell declares the same referrer policy. Its content revision changes
+with the policy so an existing PWA receives it through the normal app update.
 Users must allow popups; an unavailable configuration or blocked SDK leaves
 manual links and uploads available.
 
@@ -53,7 +58,7 @@ Identity Services directly from the click. It requests `drive.file` with
 `include_granted_scopes: false` and verifies that the scope was granted. The
 access token stays in memory until the selected operation completes, is
 cancelled, or the Abby session changes. It never enters browser drafts,
-GoogleAccount, database rows, URLs, or Celery messages. Sign-in/Calendar token
+GoogleAccount, database rows, Abby navigation URLs, or Celery messages. Sign-in/Calendar token
 handling is unchanged.
 
 - `GET /api/auth/google/drive/config/` returns public `{configured, client_id, api_key,
@@ -85,7 +90,8 @@ Backend tests in `apps/google_integration/tests/test_drive.py` and
 `apps/ingestion/tests/test_google_drive.py` cover permissions, canonical metadata,
 resource keys, invalid/revoked access, bounded downloads, copied-file ingestion,
 and secret nonstorage. `config/tests/test_drive_popup_policy.py` checks the SPA
-opener header including a 304 response. Synthetic public config and metadata
+opener and referrer headers on 200 and 304 responses, and the unchanged private
+API/admin policies. Synthetic public config and metadata
 fixtures live in `contracts/api/fixtures/google-drive-*.json`; React and Django
 verify these responses together. Unity consumes neither new parent-only endpoint;
 its shared endpoint fixtures remain unchanged.
