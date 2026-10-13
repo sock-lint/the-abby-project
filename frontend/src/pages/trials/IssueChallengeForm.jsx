@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Sword, X } from 'lucide-react';
 import { createQuest } from '../../api';
 import SkillTagEditor from '../../components/SkillTagEditor';
@@ -39,6 +39,11 @@ const TRIGGER_OPTIONS = [
   ['savings_goal_complete', 'Savings goal hit'],
 ];
 
+// The chip inputs are sr-only, so the pill's focus-within ring is the only
+// keyboard focus indicator (same treatment as HomeworkSubmitSheet's picker).
+const CHIP_FOCUS_RING =
+  'focus-within:ring-2 focus-within:ring-sheikah-teal-deep focus-within:ring-offset-2 focus-within:ring-offset-ink-page';
+
 /**
  * IssueChallengeForm — parent-only "Create a challenge" toggle button plus
  * the collapsible form modal. Extracted verbatim from the old
@@ -56,6 +61,8 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
   const [show, setShow] = useState(false);
   const [challenge, setChallenge] = useState(DEFAULT_CHALLENGE);
   const [issuing, setIssuing] = useState(false);
+  const coopLabelId = useId();
+  const actionsLabelId = useId();
 
   const toggleCoopChild = (id) => {
     setChallenge((prev) => {
@@ -157,20 +164,27 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {challenge.is_coop ? (
               <div className="md:col-span-1">
-                <div className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
+                <div
+                  id={coopLabelId}
+                  className="font-script text-caption text-ink-whisper uppercase tracking-wider mb-1"
+                >
                   Co-op participants
                 </div>
                 {/* intentional: a multi-select chip strip, not a checkbox
                     list — the input is sr-only and the pill itself is the
                     control, so CheckboxField's visible box + label row is the
                     wrong primitive here. */}
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-ink-page-shadow bg-ink-page p-2">
+                <div
+                  role="group"
+                  aria-labelledby={coopLabelId}
+                  className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto rounded-lg border border-ink-page-shadow bg-ink-page p-2"
+                >
                   {children.map((c) => {
                     const checked = challenge.coop_user_ids.includes(String(c.id));
                     return (
                       <label
                         key={c.id}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${CHIP_FOCUS_RING} ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
                       >
                         <input
                           type="checkbox"
@@ -282,20 +296,27 @@ export default function IssueChallengeForm({ children = [], skills = [], onIssue
               Choose which actions count
             </summary>
             <div className="mt-2 space-y-2">
-              <div className="font-script text-caption text-ink-whisper">
+              <div
+                id={actionsLabelId}
+                className="font-script text-caption text-ink-whisper"
+              >
                 Leave all unchecked to count every action. Checking some
                 limits challenge progress to those actions.
               </div>
               {/* intentional: same sr-only chip strip as the co-op picker
                   above — the pill is the control, so CheckboxField does not
                   apply. */}
-              <div className="flex flex-wrap gap-1.5">
+              <div
+                role="group"
+                aria-labelledby={actionsLabelId}
+                className="flex flex-wrap gap-1.5"
+              >
                 {TRIGGER_OPTIONS.map(([slug, label]) => {
                   const checked = challenge.allowed_triggers.includes(slug);
                   return (
                     <label
                       key={slug}
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-full border text-caption font-body cursor-pointer ${CHIP_FOCUS_RING} ${checked ? 'border-sheikah-teal bg-sheikah-teal/15 text-sheikah-teal-deep' : 'border-ink-page-shadow text-ink-secondary'}`}
                     >
                       <input
                         type="checkbox"

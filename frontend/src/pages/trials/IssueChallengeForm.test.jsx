@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import IssueChallengeForm from './IssueChallengeForm.jsx';
@@ -88,5 +88,84 @@ describe('IssueChallengeForm', () => {
     expect(body.assigned_to).toBeUndefined();
     expect(body.trigger_filter).toEqual({ on_time: true });
     expect(onIssued).toHaveBeenCalledTimes(1);
+  });
+
+  describe('chip pickers', () => {
+    async function openCoopForm(user) {
+      await user.click(screen.getByRole('button', { name: /Create challenge/i }));
+      await user.click(screen.getByLabelText(/Shared challenge/i));
+      await user.click(screen.getByText(/Choose which actions count/i));
+    }
+
+    it('gives every co-op and action pill a focus-within ring', async () => {
+      renderForm();
+      const user = userEvent.setup();
+      await openCoopForm(user);
+      const coop = within(screen.getByRole('group', { name: /co-op participants/i }))
+        .getAllByRole('checkbox');
+      const actions = within(screen.getByRole('group', { name: /actions/i }))
+        .getAllByRole('checkbox');
+      expect(coop).toHaveLength(2);
+      expect(actions.length).toBeGreaterThan(0);
+      for (const box of [...coop, ...actions]) {
+        expect(box.closest('label').className).toMatch(/focus-within:ring/);
+      }
+    });
+
+    it('exposes the co-op participants as a named group of the child checkboxes', async () => {
+      renderForm();
+      const user = userEvent.setup();
+      await openCoopForm(user);
+      const group = screen.getByRole('group', { name: /co-op participants/i });
+      expect(within(group).getByRole('checkbox', { name: /Abby/i })).toBeInTheDocument();
+      expect(within(group).getByRole('checkbox', { name: /Beck/i })).toBeInTheDocument();
+    });
+
+    it('exposes the action pills as a named group of the trigger checkboxes', async () => {
+      renderForm();
+      const user = userEvent.setup();
+      await openCoopForm(user);
+      const group = screen.getByRole('group', { name: /actions/i });
+      expect(within(group).getByRole('checkbox', { name: /Chore completed/i })).toBeInTheDocument();
+      expect(within(group).getByRole('checkbox', { name: /Habit logged/i })).toBeInTheDocument();
+    });
+
+    it('still selects pills by keyboard and submits an unchanged body', async () => {
+      const createCalls = [];
+      server.use(
+        http.post('*/api/quests/', async ({ request }) => {
+          createCalls.push(await request.clone().json());
+          return HttpResponse.json({ id: 99 }, { status: 201 });
+        }),
+      );
+      renderForm();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /Create challenge/i }));
+      await user.type(screen.getByLabelText(/^Title$/i), 'Keyboard week');
+      await user.type(screen.getByLabelText(/Description/i), 'Keys only');
+      await user.click(screen.getByLabelText(/Shared challenge/i));
+
+      const abby = screen.getByRole('checkbox', { name: /Abby/i });
+      const beck = screen.getByRole('checkbox', { name: /Beck/i });
+      abby.focus();
+      await user.keyboard(' ');
+      await user.tab();
+      expect(beck).toHaveFocus();
+      await user.keyboard(' ');
+      expect(abby).toBeChecked();
+      expect(beck).toBeChecked();
+
+      await user.click(screen.getByText(/Choose which actions count/i));
+      const chore = screen.getByRole('checkbox', { name: /Chore completed/i });
+      chore.focus();
+      await user.keyboard(' ');
+      expect(chore).toBeChecked();
+
+      await user.click(screen.getByRole('button', { name: /^Assign challenge$/i }));
+      await waitFor(() => expect(createCalls).toHaveLength(1));
+      const body = createCalls[0];
+      expect(body.coop_user_ids.slice().sort()).toEqual([1, 2]);
+      expect(body.trigger_filter).toEqual({ allowed_triggers: ['chore_complete'] });
+    });
   });
 });
