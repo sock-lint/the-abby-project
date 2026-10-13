@@ -144,7 +144,7 @@ class ReportCardApiResponseFixtureTests(APITestCase):
         body = self.assert_response_fixture(
             self.post(invalid), "report-card-invalid.json", status=400,
         )
-        self.assertIn("xp_awarded", body["report_card"]["subjects"]["0"])
+        self.assertIn("xp_awarded", body["report_card"]["subjects"][0])
         self.assertFalse(ChronicleEntry.objects.filter(user=self.child).exists())
         self.assertFalse(GradeDailyCounter.objects.filter(user=self.child).exists())
         self.assertFalse(SkillProgress.objects.filter(user=self.child).exists())
