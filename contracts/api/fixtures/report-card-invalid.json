@@ -1,11 +1,9 @@
 {
   "report_card": {
-    "subjects": [
-      {
+    "subjects": {
+      "0": {
         "xp_awarded": "Unknown field."
-      },
-      {},
-      {}
-    ]
+      }
+    }
   }
 }

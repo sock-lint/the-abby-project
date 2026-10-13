@@ -66,8 +66,25 @@ class StrictFieldsSerializer(serializers.Serializer):
         return super().to_internal_value(data)
 
 
+class ReportCardSubjectListSerializer(serializers.ListSerializer):
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError as exc:
+            # DRF before 3.18 reports row errors as a list; keep the API's
+            # indexed object contract without losing each subject's position.
+            if isinstance(exc.detail, list):
+                raise serializers.ValidationError({
+                    str(index): error for index, error in enumerate(exc.detail) if error
+                }) from exc
+            raise
+
+
 class ReportCardSubjectSerializer(StrictFieldsSerializer, GradeValueSerializer):
     subject = serializers.CharField(max_length=80)
+
+    class Meta:
+        list_serializer_class = ReportCardSubjectListSerializer
 
     def validate(self, data):
         # Even a partial report-card PATCH replaces every supplied subject row.
