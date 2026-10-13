@@ -40,6 +40,20 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")
 
+    def test_owned_appearance_inventory_routes_to_each_features_editor(self):
+        cover = ItemDefinition.objects.create(
+            id=55, slug="cover-vigil", name="Night Vigil", icon="T",
+            item_type="cosmetic_theme", metadata={"theme": "vigil"},
+        )
+        UserInventory.objects.filter(user=self.child).exclude(item=self.frame).delete()
+        UserInventory.objects.create(id=75, user=self.child, item=cover, quantity=1)
+        body = self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-appearance.json")
+        by_type = {row["item"]["item_type"]: row for row in body}
+        self.assertEqual(by_type["cosmetic_frame"]["available_actions"][0]["to"], "/sigil")
+        self.assertEqual(by_type["cosmetic_theme"]["available_actions"], [{
+            "id": "equip", "label": "Change color theme", "to": "/settings#appearance",
+        }])
+
     def test_unavailable_mutations_have_no_consumption_or_loss(self):
         self.assert_response_fixture(self.client.post("/api/pets/hatch/", {"egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk}, format="json"), "pet-hatch-unavailable.json", status=400)
         self.assert_response_fixture(self.client.post("/api/character/equip/", {"item_id": self.accessory.pk}, format="json"), "cosmetic-equip-unavailable.json", status=400)

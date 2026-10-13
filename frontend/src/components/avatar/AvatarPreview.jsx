@@ -41,7 +41,7 @@ function Preview({ appearance }) {
 
   return (
     <div className="relative h-80 overflow-hidden rounded-2xl border border-ink-page-shadow bg-ink-page-aged" aria-busy={!!showScene && !ready}>
-      <div className="absolute inset-0" role="img" aria-label="Your Archer avatar">
+      <div className="absolute inset-0" role="img" aria-label="Your Archer character">
       {showScene && <div className="absolute inset-0" aria-hidden="true">
         <AvatarBoundary key={attempt} onFailure={onFailure}>
           <Suspense fallback={null}>
@@ -53,9 +53,9 @@ function Preview({ appearance }) {
       {(!showScene || !ready) && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
         <UserRound size={64} className="text-sheikah-teal-deep" aria-hidden="true" />
         <p className="font-body text-body text-ink-secondary" role="status">
-          {showScene ? 'Loading your avatar…' : 'The avatar preview is unavailable. You can still customize your look.'}
+          {showScene ? 'Loading your character…' : 'The character preview is unavailable. You can still customize your look.'}
         </p>
-        {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry avatar preview</Button>}
+        {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry character preview</Button>}
       </div>}
     </div>
   );

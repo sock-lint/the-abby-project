@@ -122,8 +122,12 @@ class MeView(APIView):
     def patch(self, request):
         user = request.user
         if "theme" in request.data:
-            user.theme = request.data["theme"]
-            user.save(update_fields=["theme"])
+            from apps.rpg.services import CosmeticService
+
+            try:
+                CosmeticService.select_theme(user, request.data["theme"])
+            except ValueError as exc:
+                return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         if "avatar" in request.FILES:
             if user.avatar:
                 user.avatar.delete(save=False)

@@ -10,7 +10,7 @@ import TrophySlot from './TrophySlot';
  * Compact identity, equipped title/frame and earned trophy. Stats summarize
  * confirmed activity without pushing customization below a large hero.
  */
-export default function SigilFrontispiece({ profile, onOpenTrophyPicker, children }) {
+export default function SigilFrontispiece({ profile, profilePicture, onOpenTrophyPicker, children }) {
   const displayName = profile.display_name || profile.username || '\u2014';
   const initial = (displayName[0] || '?').toUpperCase();
   const level = profile.level ?? 1;
@@ -46,12 +46,12 @@ export default function SigilFrontispiece({ profile, onOpenTrophyPicker, childre
               : undefined
           }
         >
-          <IlluminatedVersal
+          {profilePicture ? <img src={profilePicture} alt="Your profile picture" className="size-16 rounded-2xl object-cover" /> : <IlluminatedVersal
             letter={initial}
             size="md"
             tier={tier}
             progressPct={levelProgress}
-          />
+          />}
         </div>
 
         <div className="min-w-0 flex-1">

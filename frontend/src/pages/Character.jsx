@@ -19,7 +19,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
 import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
-import { applyTheme } from '../themes';
+import { themes, LEGACY_THEME_ALIASES } from '../themes';
 import { tierForProgress } from '../components/atlas/mastery.constants';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
@@ -28,6 +28,7 @@ import AdventuresEntry from './character/AdventuresEntry';
 import WellbeingCard from './character/WellbeingCard';
 import AvatarCustomizer from '../components/avatar/AvatarCustomizer';
 import SavedCosmetics from './character/SavedCosmetics';
+import ProfilePictureEditor from './character/ProfilePictureEditor';
 import { isCatalogAvailable } from '../utils/catalogAvailability';
 import {
   COSMETIC_CHAPTERS,
@@ -42,7 +43,7 @@ const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
  * shared account customization and trophy actions easy to reach.
  */
 export default function Character() {
-  const { user, setUser } = useAuth();
+  const { user } = useAuth();
   const {
     data: profile, loading: loadingProfile, error: profileError,
     reload: reloadProfile, setData: setProfileData,
@@ -62,7 +63,8 @@ export default function Character() {
   const [equipToast, setEquipToast] = useState(null);
   const [activeChapterSlot, setActiveChapterSlot] = useState(() => {
     try {
-      return window.localStorage?.getItem(ACTIVE_CHAPTER_KEY) || COSMETIC_CHAPTERS[0].slot;
+      const stored = window.localStorage?.getItem(ACTIVE_CHAPTER_KEY);
+      return COSMETIC_CHAPTERS.some((chapter) => chapter.slot === stored) ? stored : COSMETIC_CHAPTERS[0].slot;
     } catch {
       return COSMETIC_CHAPTERS[0].slot;
     }
@@ -98,7 +100,7 @@ export default function Character() {
 
   // Hoist mergeSlotCosmetics: compute owned/total per chapter once so the
   // collection cards and the active chapter share counts without re-walking the
-  // catalog four times. Memoized BEFORE the early-return guards so the hook
+  // catalog repeatedly. Memoized BEFORE the early-return guards so the hook
   // order stays stable across loading / loaded renders.
   const chapterEntriesBySlot = useMemo(() => {
     const out = {};
@@ -167,17 +169,6 @@ export default function Character() {
     setProfileData({ ...profile, [slot]: next });
     try {
       await equipCosmetic(itemId);
-      // Equipping a journal cover writes `User.theme` server-side
-      // (CosmeticService.equip), so mirror it locally: paint the cover AND
-      // move the auth user. Without the second half, `currentThemeName` below
-      // still reads the OLD cover, and CosmeticSigil's mouseleave — which on a
-      // phone fires on the next tap anywhere — repainted the page back to it,
-      // making a successful equip look like it silently failed.
-      const themeSlug = slot === 'active_theme' ? next?.metadata?.theme : null;
-      if (themeSlug) {
-        applyTheme(themeSlug);
-        if (user) setUser({ ...user, theme: themeSlug });
-      }
       const name = next?.name || cosmeticName(slot, itemId);
       setEquipToast({
         msg: name ? `${name} selected` : 'Cosmetic selected',
@@ -217,7 +208,8 @@ export default function Character() {
     finally { setWorking(null); }
   };
 
-  const currentThemeName = user?.theme || 'hyrule';
+  const currentThemeName = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
+  const currentTheme = themes[currentThemeName] || themes.hyrule;
 
   const shelfItems = COSMETIC_CHAPTERS.map((chapter) => {
     const entries = chapterEntriesBySlot[chapter.slot] || [];
@@ -260,7 +252,8 @@ export default function Character() {
         )}
       </AnimatePresence>
 
-      <SigilFrontispiece profile={profile} onOpenTrophyPicker={() => setPickerOpen(true)}>
+      <SigilFrontispiece profile={profile} profilePicture={user?.avatar} onOpenTrophyPicker={() => setPickerOpen(true)}>
+        <ProfilePictureEditor key={`picture-${user?.id}`} />
         <AvatarCustomizer key={user?.id} profile={profile} onSaved={(confirmed) => setProfileData((current) => ({ ...current, avatar_preferences: confirmed.avatar_preferences }))} />
       </SigilFrontispiece>
 
@@ -272,8 +265,13 @@ export default function Character() {
       <div className="space-y-1">
         <h2 className="font-body font-bold text-2xl text-ink-primary">Your look</h2>
         <p className="font-body text-body text-ink-secondary">
-          Choose your frame, title and app colors from your collection.
+          Choose your frame and title from your collection.
         </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-body text-body">
+        <p className="text-ink-secondary">Color theme: <span className="font-semibold text-ink-primary">{currentTheme.name}</span></p>
+        <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline underline-offset-4" to="/settings#appearance">Change color theme</Link>
       </div>
 
       <TomeShelf
@@ -289,7 +287,6 @@ export default function Character() {
         owned={(cosmetics?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
         catalog={(catalog?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
         activeId={profile[activeChapter.slot]?.id || null}
-        currentThemeName={currentThemeName}
         busy={working}
         onEquip={(itemId) => handleEquip(itemId, activeChapter.slot)}
         onUnequip={handleUnequip}

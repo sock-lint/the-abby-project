@@ -215,10 +215,15 @@ class UserInventorySerializer(serializers.ModelSerializer):
                 "to": f"/trials?scroll_item={item_id}",
             }],
         }
+        if item_type == ItemDefinition.ItemType.COSMETIC_THEME:
+            return [{
+                "id": "equip",
+                "label": "Change color theme",
+                "to": "/settings#appearance",
+            }]
         if item_type in (
             ItemDefinition.ItemType.COSMETIC_FRAME,
             ItemDefinition.ItemType.COSMETIC_TITLE,
-            ItemDefinition.ItemType.COSMETIC_THEME,
             ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY,
         ):
             return [{

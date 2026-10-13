@@ -150,14 +150,10 @@ class AvailableActionsByItemTypeTests(TestCase):
         self.assertEqual(actions[0]["label"], "Start challenge")
         self.assertEqual(actions[0]["to"], f"/trials?scroll_item={item.pk}")
 
-    def test_each_cosmetic_slot_routes_to_sigil_for_equip(self):
-        # Supported DOM cosmetic slots share the same equip action — the slot
-        # itself is dispatched server-side by ``CosmeticService.equip`` based
-        # on the item's ``item_type``.
+    def test_profile_cosmetic_slots_route_to_sigil_for_equip(self):
         for slot in (
             ItemDefinition.ItemType.COSMETIC_FRAME,
             ItemDefinition.ItemType.COSMETIC_TITLE,
-            ItemDefinition.ItemType.COSMETIC_THEME,
         ):
             with self.subTest(slot=slot):
                 item = self._entry_for(slot)
@@ -166,6 +162,12 @@ class AvailableActionsByItemTypeTests(TestCase):
                 self.assertEqual(actions[0]["id"], "equip")
                 self.assertEqual(actions[0]["label"], "Equip in Profile")
                 self.assertEqual(actions[0]["to"], "/sigil")
+
+    def test_color_theme_routes_to_settings_appearance(self):
+        item = self._entry_for(ItemDefinition.ItemType.COSMETIC_THEME, metadata={"theme": "vigil"})
+        self.assertEqual(self._actions_for(item), [{
+            "id": "equip", "label": "Change color theme", "to": "/settings#appearance",
+        }])
 
     def test_unavailable_saved_ingredients_and_accessories_do_not_advertise_new_actions(self):
         for item_type in (ItemDefinition.ItemType.EGG, ItemDefinition.ItemType.POTION, ItemDefinition.ItemType.COSMETIC_PET_ACCESSORY):

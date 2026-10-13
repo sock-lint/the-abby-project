@@ -5,10 +5,8 @@
 import { chapterMark } from '../../components/atlas/mastery.constants';
 
 /**
- * Supported profile cosmetic chapters. Letters are first-letter-of-slot
- * so the IlluminatedVersal drop-cap stays mnemonic (F for Frames, T for
- * Titles, B for Bindings/covers, P for Pet regalia). Chapter numbers
- * share the Meadow markers used by the badge collections.
+ * Profile cosmetic chapters. App color themes are selected in Settings.
+ * Chapter numbers share the Meadow markers used by the badge collections.
  */
 export const COSMETIC_CHAPTERS = [
   {
@@ -16,7 +14,7 @@ export const COSMETIC_CHAPTERS = [
     rubric: chapterMark(0),
     letter: 'F',
     name: 'Frames',
-    kicker: 'A colorful frame for your initial',
+    kicker: 'A colorful frame for your profile picture or initial',
   },
   {
     slot: 'active_title',
@@ -24,13 +22,6 @@ export const COSMETIC_CHAPTERS = [
     letter: 'T',
     name: 'Titles',
     kicker: 'A title that tells your story',
-  },
-  {
-    slot: 'active_theme',
-    rubric: chapterMark(2),
-    letter: 'C',
-    name: 'Journal Covers',
-    kicker: 'Choose your app colors',
   },
 ];
 

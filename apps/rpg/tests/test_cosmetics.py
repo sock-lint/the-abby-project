@@ -1,6 +1,9 @@
+from unittest.mock import patch
+
 from django.test import TestCase
 
 from apps.projects.models import User
+from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 from apps.rpg.services import CosmeticService
 
@@ -344,6 +347,73 @@ class StarterCoverGrantTests(TestCase):
         self.assertTrue(
             UserInventory.objects.filter(user=self.user, item=hyrule).exists()
         )
+
+
+class JournalCoverResetTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username="reset-cover", password="testpass")
+        self.default_cover = ItemDefinition.objects.create(
+            slug="cover-hyrule", name="Default cover", item_type="cosmetic_theme",
+            metadata={"theme": "hyrule"},
+        )
+        self.selected_cover = ItemDefinition.objects.create(
+            slug="cover-vigil", name="Selected cover", item_type="cosmetic_theme",
+            metadata={"theme": "vigil"},
+        )
+        UserInventory.objects.create(user=self.user, item=self.selected_cover, quantity=1)
+        self.profile = CharacterProfile.objects.get(user=self.user)
+        self.profile.active_theme = self.selected_cover
+        self.profile.level = 4
+        self.profile.login_streak = 7
+        self.profile.avatar_preferences = {"outfit": "aqua"}
+        self.profile.save()
+        self.user.theme = "vigil"
+        self.user.save(update_fields=["theme"])
+        CoinLedger.objects.create(user=self.user, amount=23, reason="adjustment")
+
+    def reset(self):
+        inventory_before = list(UserInventory.objects.order_by("pk").values())
+        coins_before = list(CoinLedger.objects.order_by("pk").values())
+        with patch("apps.achievements.services.BadgeService.evaluate_badges") as evaluate:
+            result = CosmeticService.unequip(self.user, "active_theme")
+        evaluate.assert_not_called()
+        self.assertEqual(result, {"slot": "active_theme"})
+        self.user.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.user.theme, "hyrule")
+        self.assertEqual(list(UserInventory.objects.order_by("pk").values()), inventory_before)
+        self.assertEqual(list(CoinLedger.objects.order_by("pk").values()), coins_before)
+        self.assertEqual(self.profile.level, 4)
+        self.assertEqual(self.profile.login_streak, 7)
+        self.assertEqual(self.profile.avatar_preferences, {"outfit": "aqua"})
+
+    def test_legacy_cover_removal_restores_owned_default_selection_without_rewards(self):
+        UserInventory.objects.create(user=self.user, item=self.default_cover, quantity=1)
+        self.reset()
+        self.assertEqual(self.profile.active_theme_id, self.default_cover.pk)
+
+    def test_legacy_cover_removal_uses_default_palette_without_granting_missing_cover(self):
+        self.reset()
+        self.assertIsNone(self.profile.active_theme_id)
+        self.assertFalse(UserInventory.objects.filter(user=self.user, item=self.default_cover).exists())
+
+    def test_zero_quantity_default_cover_is_not_selected(self):
+        UserInventory.objects.create(user=self.user, item=self.default_cover, quantity=0)
+        self.reset()
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_unavailable_default_cover_is_not_selected(self):
+        UserInventory.objects.create(user=self.user, item=self.default_cover, quantity=1)
+        with patch("apps.rpg.services.item_is_available", return_value=False):
+            self.reset()
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_malformed_default_cover_is_not_selected(self):
+        self.default_cover.metadata = {"theme": "vigil"}
+        self.default_cover.save(update_fields=["metadata"])
+        UserInventory.objects.create(user=self.user, item=self.default_cover, quantity=1)
+        self.reset()
+        self.assertIsNone(self.profile.active_theme_id)
 
 
 class CosmeticListingFiltersMalformedCoversTests(TestCase):

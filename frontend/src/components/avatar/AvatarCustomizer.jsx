@@ -45,19 +45,23 @@ export default function AvatarCustomizer({ profile, onSaved }) {
       if (!mounted.current || activeIdentity.current !== identity) return;
       setPreferences(normalizeAvatarPreferences(result.avatar_preferences));
       onSaved(result);
-      setMessage('Avatar saved.');
+      setMessage('Character saved.');
     } catch (error) {
-      if (mounted.current && activeIdentity.current === identity) setError(error.message || 'Could not save your avatar. Try again.');
+      if (mounted.current && activeIdentity.current === identity) setError(error.message || 'Could not save your character. Try again.');
     } finally {
       if (mounted.current && activeIdentity.current === identity) setWorking(false);
     }
   };
 
   return (
-    <section className="mt-4 space-y-3" aria-label="Your avatar">
+    <section className="mt-4 space-y-3" aria-label="Your character">
+      <div>
+        <h2 className="font-body font-bold text-xl text-ink-primary">Your character</h2>
+        <p className="font-body text-caption text-ink-secondary">Choose your character’s hair, skin tone and outfit.</p>
+      </div>
       <AvatarPreview preferences={preferences} />
       <Button variant="secondary" size="sm" className="inline-flex items-center gap-2" aria-expanded={editing} onClick={() => setEditing((value) => !value)}>
-        <SlidersHorizontal size={16} aria-hidden="true" /> Customize avatar <ChevronDown size={14} aria-hidden="true" />
+        <SlidersHorizontal size={16} aria-hidden="true" /> Customize character <ChevronDown size={14} aria-hidden="true" />
       </Button>
       {editing && <div className="space-y-3 rounded-2xl border border-ink-page-shadow bg-ink-page-aged p-3">
         <div className="grid grid-cols-2 gap-3">
@@ -67,7 +71,7 @@ export default function AvatarCustomizer({ profile, onSaved }) {
         </div>
         <ErrorAlert message={error} />
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={save} disabled={!changed || working}>{working ? 'Saving…' : 'Save avatar'}</Button>
+          <Button size="sm" onClick={save} disabled={!changed || working}>{working ? 'Saving…' : 'Save character'}</Button>
           <Button size="sm" variant="ghost" disabled={!changed || working} onClick={() => { setPreferences(saved); setError(''); setMessage(''); }}>Undo changes</Button>
         </div>
       </div>}

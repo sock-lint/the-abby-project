@@ -1,0 +1,64 @@
+[
+  {
+    "id": 74,
+    "item": {
+      "id": 54,
+      "name": "Gold Frame",
+      "description": "",
+      "icon": "G",
+      "sprite_key": "",
+      "item_type": "cosmetic_frame",
+      "type_display": "Avatar Frame",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "border_color": "#abcdef"
+      },
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "equip",
+        "label": "Equip in Profile",
+        "to": "/sigil"
+      }
+    ]
+  },
+  {
+    "id": 75,
+    "item": {
+      "id": 55,
+      "name": "Night Vigil",
+      "description": "",
+      "icon": "T",
+      "sprite_key": "",
+      "item_type": "cosmetic_theme",
+      "type_display": "Dashboard Theme",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "theme": "vigil"
+      },
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "equip",
+        "label": "Change color theme",
+        "to": "/settings#appearance"
+      }
+    ]
+  }
+]

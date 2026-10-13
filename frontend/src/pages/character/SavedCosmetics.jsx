@@ -1,7 +1,9 @@
 import Button from '../../components/Button';
+import { Link } from 'react-router-dom';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import { isCatalogAvailable } from '../../utils/catalogAvailability';
+import { itemDisplayName } from '../../utils/itemDisplayName';
 
 export default function SavedCosmetics({ cosmetics, profile, working, onRemove }) {
   const stored = Object.entries(cosmetics || {}).flatMap(([slot, items]) => (Array.isArray(items) ? items : [])
@@ -18,9 +20,11 @@ export default function SavedCosmetics({ cosmetics, profile, working, onRemove }
     </div>
     <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3 list-none">
       {stored.map(({ item, slot }) => <li key={item.id} className="rounded-xl border border-ink-page-shadow p-3 text-center">
-        <div className="flex justify-center"><RpgSprite spriteKey={item.sprite_key} icon={item.icon} size={40} alt={item.name} /></div>
-        <p className="mt-2 font-body font-semibold text-body text-ink-primary">{item.name}</p>
-        {profile[slot]?.id === item.id && <Button size="sm" variant="ghost" className="mt-2" disabled={working === slot} onClick={() => onRemove(slot)}>Remove previous selection</Button>}
+        <div className="flex justify-center"><RpgSprite spriteKey={item.sprite_key} icon={item.icon} size={40} alt={itemDisplayName(item)} /></div>
+        <p className="mt-2 font-body font-semibold text-body text-ink-primary">{itemDisplayName(item)}</p>
+        {profile[slot]?.id === item.id && (slot === 'active_theme'
+          ? <Link className="mt-2 inline-flex min-h-11 items-center text-caption text-sheikah-teal-deep underline" to="/settings#appearance">Change color theme</Link>
+          : <Button size="sm" variant="ghost" className="mt-2" disabled={working === slot} onClick={() => onRemove(slot)}>Remove previous selection</Button>)}
       </li>)}
     </ul>
   </ParchmentCard>;

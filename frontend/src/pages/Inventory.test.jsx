@@ -21,12 +21,25 @@ function renderInventory() {
         <Route path="/treasury" element={<Inventory />} />
         <Route path="/trials" element={<div>Trials destination</div>} />
         <Route path="/sigil" element={<div>Sigil destination</div>} />
+        <Route path="/settings" element={<div>Settings appearance destination</div>} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe('Inventory', () => {
+  it('uses the same theme name as Settings and routes its action to Appearance', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 9, quantity: 1, item: { id: 9, name: 'Hyrule Day', item_type: 'cosmetic_theme', rarity: 'common', icon: '📖', metadata: { theme: 'hyrule' } }, available_actions: [{ id: 'equip', label: 'Change color theme', to: '/settings#appearance' }] },
+    ])));
+    const user = userEvent.setup();
+    renderInventory();
+    expect(await screen.findByText('Memory Meadow')).toBeInTheDocument();
+    await user.type(screen.getByRole('searchbox', { name: /filter inventory/i }), 'Memory Meadow');
+    expect(screen.getByText('Memory Meadow')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Change color theme' }));
+    expect(await screen.findByText('Settings appearance destination')).toBeInTheDocument();
+  });
   it('keeps unsupported eggs and accessories as stored items without hatch or equip actions', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([
       { id: 1, quantity: 2, item: { id: 1, name: 'Earlier Egg', item_type: 'egg', rarity: 'common', icon: '🥚', catalog_available: false }, available_actions: [{ id: 'hatch', label: 'Hatch', to: '/bestiary?tab=hatchery' }] },

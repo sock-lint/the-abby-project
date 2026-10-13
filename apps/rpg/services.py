@@ -1189,6 +1189,30 @@ class CosmeticService:
     VALID_THEME_SLUGS = {
         "hyrule", "vigil", "sunlit", "snowquill", "verdant", "harvest",
     }
+    DEFAULT_THEME_SLUG = "hyrule"
+    LEGACY_THEME_ALIASES = {
+        "summer": "sunlit", "winter": "snowquill",
+        "spring": "verdant", "autumn": "harvest",
+    }
+
+    @staticmethod
+    def select_theme(user, theme):
+        """Keep legacy account-theme writes on the owned cosmetic equip path."""
+        from apps.rpg.models import ItemDefinition, UserInventory
+
+        if not isinstance(theme, str):
+            raise ValueError("Choose a valid color theme.")
+        theme_slug = CosmeticService.LEGACY_THEME_ALIASES.get(theme, theme)
+        if theme_slug not in CosmeticService.VALID_THEME_SLUGS:
+            raise ValueError("Choose a valid color theme.")
+        owned = UserInventory.objects.filter(
+            user=user, quantity__gte=1,
+            item__item_type=ItemDefinition.ItemType.COSMETIC_THEME,
+            item__metadata__theme=theme_slug,
+        ).order_by("pk").first()
+        if owned is None:
+            raise ValueError("You don't own that color theme.")
+        return CosmeticService.equip(user, owned.item_id)
 
     @staticmethod
     def is_valid_cosmetic(item) -> bool:
@@ -1325,15 +1349,32 @@ class CosmeticService:
     @staticmethod
     @transaction.atomic
     def unequip(user, slot):
-        """Clear a cosmetic slot."""
-        from apps.rpg.models import CharacterProfile
+        """Clear a cosmetic slot; a legacy cover removal restores default colors.
+
+        Select the default cover only when already owned and supported. This
+        operation never grants inventory or evaluates reward eligibility.
+        """
+        from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
         if slot not in CosmeticService.COSMETIC_SLOT_MAP.values():
             raise ValueError(f"Invalid slot: {slot}")
 
-        profile, _ = CharacterProfile.objects.get_or_create(user=user)
-        setattr(profile, slot, None)
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
+        replacement = None
+        if slot == "active_theme":
+            owned_default = UserInventory.objects.filter(
+                user=user, quantity__gte=1,
+                item__slug="cover-hyrule",
+                item__item_type=ItemDefinition.ItemType.COSMETIC_THEME,
+                item__metadata__theme=CosmeticService.DEFAULT_THEME_SLUG,
+            ).select_related("item").first()
+            if owned_default and item_is_available(owned_default.item):
+                replacement = owned_default.item
+        setattr(profile, slot, replacement)
         profile.save(update_fields=[slot, "updated_at"])
+        if slot == "active_theme":
+            user.theme = CosmeticService.DEFAULT_THEME_SLUG
+            user.save(update_fields=["theme"])
 
         return {"slot": slot}
 

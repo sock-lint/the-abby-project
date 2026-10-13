@@ -190,6 +190,13 @@ class MeViewTests(_Fixture):
         self.assertFalse(self.child.avatar)
 
     def test_theme_still_works(self):
+        from apps.rpg.models import ItemDefinition, UserInventory
+
+        cover = ItemDefinition.objects.create(
+            slug="cover-vigil", name="Night Vigil", item_type="cosmetic_theme",
+            metadata={"theme": "vigil"},
+        )
+        UserInventory.objects.create(user=self.child, item=cover, quantity=1)
         self.client.force_authenticate(self.child)
         resp = self.client.patch(
             "/api/auth/me/", {"theme": "vigil"}, format="json",
@@ -234,3 +241,91 @@ class MeViewTests(_Fixture):
         body = resp.json()
         self.assertIn("date_of_birth", body)
         self.assertIsNone(body["date_of_birth"])
+
+
+class MeThemeTests(_Fixture):
+    def setUp(self):
+        super().setUp()
+        from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+
+        self.client.force_authenticate(self.child)
+        self.cover = ItemDefinition.objects.create(
+            slug="cover-vigil", name="Night Vigil", item_type="cosmetic_theme",
+            metadata={"theme": "vigil"},
+        )
+        self.profile = CharacterProfile.objects.get(user=self.child)
+        self.child.theme = "hyrule"
+        self.child.save(update_fields=["theme"])
+        self.inventory_model = UserInventory
+
+    def test_legacy_theme_patch_updates_equipped_cover_and_palette_together(self):
+        self.inventory_model.objects.create(user=self.child, item=self.cover, quantity=1)
+        before = list(self.inventory_model.objects.order_by("pk").values())
+        response = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["theme"], "vigil")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.active_theme_id, self.cover.pk)
+        self.assertEqual(list(self.inventory_model.objects.order_by("pk").values()), before)
+
+    def test_legacy_alias_resolves_to_owned_cover(self):
+        from apps.rpg.models import ItemDefinition
+
+        cover = ItemDefinition.objects.create(
+            slug="cover-sunlit", name="Sunlit Field", item_type="cosmetic_theme",
+            metadata={"theme": "sunlit"},
+        )
+        self.inventory_model.objects.create(user=self.child, item=cover, quantity=1)
+        response = self.client.patch("/api/auth/me/", {"theme": "summer"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["theme"], "sunlit")
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.active_theme_id, cover.pk)
+
+    def test_legacy_theme_patch_cannot_select_an_unowned_cover(self):
+        response = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.child.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.child.theme, "hyrule")
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_legacy_theme_patch_cannot_use_another_family_members_inventory(self):
+        self.inventory_model.objects.create(user=self.parent, item=self.cover, quantity=1)
+        response = self.client.patch(
+            "/api/auth/me/", {"theme": "vigil", "user_id": self.parent.pk}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.child.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.child.theme, "hyrule")
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_legacy_theme_patch_cannot_select_a_zero_quantity_cover(self):
+        self.inventory_model.objects.create(user=self.child, item=self.cover, quantity=0)
+        response = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.child.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.child.theme, "hyrule")
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_legacy_theme_patch_keeps_supported_art_gate(self):
+        self.inventory_model.objects.create(user=self.child, item=self.cover, quantity=1)
+        with patch("apps.rpg.services.item_is_available", return_value=False):
+            response = self.client.patch("/api/auth/me/", {"theme": "vigil"}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.child.refresh_from_db()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.child.theme, "hyrule")
+        self.assertIsNone(self.profile.active_theme_id)
+
+    def test_legacy_theme_patch_rejects_unknown_and_non_string_values_without_writes(self):
+        for value in ("unknown", [], {}, None):
+            with self.subTest(theme=value):
+                response = self.client.patch("/api/auth/me/", {"theme": value}, format="json")
+                self.assertEqual(response.status_code, 400)
+                self.child.refresh_from_db()
+                self.profile.refresh_from_db()
+                self.assertEqual(self.child.theme, "hyrule")
+                self.assertIsNone(self.profile.active_theme_id)

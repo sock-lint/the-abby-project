@@ -11,12 +11,11 @@ import {
 
 describe('character.constants', () => {
   describe('COSMETIC_CHAPTERS', () => {
-    it('ships exactly three supported chapters in order', () => {
-      expect(COSMETIC_CHAPTERS).toHaveLength(3);
+    it('ships the two profile cosmetic chapters in order', () => {
+      expect(COSMETIC_CHAPTERS).toHaveLength(2);
       expect(COSMETIC_CHAPTERS.map((c) => c.slot)).toEqual([
         'active_frame',
         'active_title',
-        'active_theme',
       ]);
     });
 

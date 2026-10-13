@@ -24,6 +24,7 @@ import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { normalizeList } from '../utils/api';
+import { itemDisplayName } from '../utils/itemDisplayName';
 import { availableInventoryActions, isCatalogAvailable } from '../utils/catalogAvailability';
 import { RARITY_PILL_COLORS, RARITY_RING_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem } from '../motion/variants';
@@ -32,9 +33,9 @@ const TYPE_COMPARTMENTS = [
   { id: 'egg', label: 'Eggs', kicker: 'Eggs to hatch into pets', glyph: 'dragon-crest', icon: '🥚' },
   { id: 'potion', label: 'Potions', kicker: 'Choose a variant when hatching', glyph: 'rune-orb', icon: '🧪' },
   { id: 'food', label: 'Pet Food', kicker: 'pet food & snacks', glyph: 'flourish-corner', icon: '🍎' },
-  { id: 'cosmetic_frame', label: 'Avatar Frames', kicker: 'Frames for your profile', glyph: 'compass-rose', icon: '🖼' },
+  { id: 'cosmetic_frame', label: 'Profile frames', kicker: 'Frames for your profile', glyph: 'compass-rose', icon: '🖼' },
   { id: 'cosmetic_title', label: 'Titles', kicker: 'Titles for your profile', glyph: 'sheikah-eye', icon: '✒' },
-  { id: 'cosmetic_theme', label: 'Journal Covers', kicker: 'Colors for your app', glyph: 'flourish-corner', icon: '📔' },
+  { id: 'cosmetic_theme', label: 'Color themes', kicker: 'Colors for your app', glyph: 'flourish-corner', icon: '📔' },
   { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'Start a challenge', glyph: 'sheikah-eye', icon: '📜' },
   { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'Open to collect coins', glyph: 'wax-seal', icon: '💰' },
   { id: 'consumable', label: 'Single-use Items', kicker: 'Use an item for its effect', glyph: 'wax-seal', icon: '✨' },
@@ -67,7 +68,7 @@ export default function Inventory() {
     const q = filter.trim().toLowerCase();
     if (!q) return items;
     return items.filter((entry) => {
-      const name = (entry.item?.name || '').toLowerCase();
+      const name = itemDisplayName(entry.item).toLowerCase();
       const desc = (entry.item?.description || '').toLowerCase();
       return name.includes(q) || desc.includes(q);
     });
@@ -295,11 +296,11 @@ export default function Inventory() {
                         spriteKey={entry.item.sprite_key}
                         icon={entry.item.icon}
                         size={48}
-                        alt={entry.item.name}
+                        alt={itemDisplayName(entry.item)}
                       />
                     </div>
                     <div className="font-body text-caption font-medium truncate">
-                      {entry.item.name}
+                      {itemDisplayName(entry.item)}
                     </div>
                     <div className="flex items-center justify-center mt-1.5">
                       <span

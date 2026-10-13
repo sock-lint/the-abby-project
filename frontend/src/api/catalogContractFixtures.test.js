@@ -7,10 +7,22 @@ import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
 import inventory from '../../../contracts/api/fixtures/items-preserved-inventory.json';
+import appearanceInventory from '../../../contracts/api/fixtures/inventory-appearance.json';
 import hatchUnavailable from '../../../contracts/api/fixtures/pet-hatch-unavailable.json';
 import equipUnavailable from '../../../contracts/api/fixtures/cosmetic-equip-unavailable.json';
 
 describe('current owned-art API contracts', () => {
+  it('routes owned color themes to Settings and profile frames to Profile', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(appearanceInventory)));
+    const rows = await getInventory();
+    expect(rows).toEqual(appearanceInventory);
+    expect(rows.find((entry) => entry.item.item_type === 'cosmetic_theme').available_actions).toEqual([
+      { id: 'equip', label: 'Change color theme', to: '/settings#appearance' },
+    ]);
+    expect(rows.find((entry) => entry.item.item_type === 'cosmetic_frame').available_actions).toEqual([
+      { id: 'equip', label: 'Equip in Profile', to: '/sigil' },
+    ]);
+  });
   it('keeps supported offers separate from saved ownership', async () => {
     server.use(
       http.get('*/api/pets/codex/', () => HttpResponse.json(catalog)),

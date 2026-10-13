@@ -20,21 +20,21 @@ beforeEach(() => { fixture.props = null; fixture.error = null; fixture.missing =
 describe('AvatarPreview', () => {
   it('starts the avatar without an opt-in and keeps an accessible loading state', async () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
-    expect(screen.getByRole('img', { name: 'Your Archer avatar' })).toBeInTheDocument();
-    expect(screen.getByText('Loading your avatar…')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Your Archer character' })).toBeInTheDocument();
+    expect(screen.getByText('Loading your character…')).toBeInTheDocument();
     await screen.findByTestId('avatar-scene');
     act(() => fixture.props.onReady());
-    expect(screen.queryByText('Loading your avatar…')).toBeNull();
+    expect(screen.queryByText('Loading your character…')).toBeNull();
   });
 
   it('recovers WebGL loss and retries while retaining surrounding customization', async () => {
     const user = userEvent.setup();
-    render(<><AvatarPreview preferences={AVATAR_DEFAULTS} /><button>Customize avatar</button></>);
+    render(<><AvatarPreview preferences={AVATAR_DEFAULTS} /><button>Customize character</button></>);
     await screen.findByTestId('avatar-scene');
     act(() => fixture.props.onUnavailable());
     expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Customize avatar' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'Retry avatar preview' }));
+    expect(screen.getByRole('button', { name: 'Customize character' })).toBeEnabled();
+    await user.click(screen.getByRole('button', { name: 'Retry character preview' }));
     await screen.findByTestId('avatar-scene');
     expect(resetAvatarAssets).toHaveBeenCalledWith(expect.any(Object), []);
   });
@@ -46,7 +46,7 @@ describe('AvatarPreview', () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     await waitFor(() => expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument());
     fixture.error = null;
-    await user.click(screen.getByRole('button', { name: 'Retry avatar preview' }));
+    await user.click(screen.getByRole('button', { name: 'Retry character preview' }));
     await screen.findByTestId('avatar-scene');
     expect(resetAvatarAssets).toHaveBeenCalledWith(expect.any(Object), ['/synthetic-hair.png']);
     consoleError.mockRestore();
@@ -57,6 +57,6 @@ describe('AvatarPreview', () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     expect(screen.getByText(/preview is unavailable/)).toBeInTheDocument();
     expect(screen.queryByTestId('avatar-scene')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Retry avatar preview' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Retry character preview' })).toBeNull();
   });
 });
