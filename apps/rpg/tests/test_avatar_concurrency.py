@@ -66,7 +66,10 @@ class AvatarConcurrencyTests(TransactionTestCase):
 
     def test_avatar_waits_for_progression_write_and_preserves_latest_earned_state(self):
         frame = ItemDefinition.objects.create(name="Concurrent earned frame", item_type="cosmetic_frame")
-        preferences = {**AVATAR_DEFAULTS, "outfit": "fire", "hair_style": "hair-04"}
+        preferences = {
+            **AVATAR_DEFAULTS, "outfit": "fire", "hair_style": "hair-04",
+            "outfit_style": "archer-03", "hair_color": "grey", "face_style": "face-03", "head_style": "head-01",
+        }
         backend_pids = Queue()
         with ThreadPoolExecutor(max_workers=1) as executor:
             with transaction.atomic():
@@ -91,10 +94,10 @@ class AvatarConcurrencyTests(TransactionTestCase):
 
     def test_concurrent_full_replacements_return_their_own_confirmed_choices(self):
         choices = [
-            {"hair_style": "hair-01", "hair_color": "dark", "skin_tone": "fair", "outfit": "nature"},
-            {"hair_style": "hair-02", "hair_color": "light", "skin_tone": "tan", "outfit": "aqua"},
-            {"hair_style": "hair-03", "hair_color": "dark", "skin_tone": "tan", "outfit": "fire"},
-            {"hair_style": "hair-04", "hair_color": "light", "skin_tone": "fair", "outfit": "dark"},
+            {**AVATAR_DEFAULTS, "hair_style": "hair-01", "outfit_style": "archer-01"},
+            {**AVATAR_DEFAULTS, "hair_style": "hair-02", "hair_color": "brown", "skin_tone": "tan", "outfit": "aqua", "outfit_style": "archer-02", "face_style": "face-02", "head_style": "head-01"},
+            {**AVATAR_DEFAULTS, "hair_style": "hair-03", "hair_color": "orange", "skin_tone": "tan", "outfit": "fire", "outfit_style": "archer-03", "face_style": "face-03"},
+            {**AVATAR_DEFAULTS, "hair_style": "hair-04", "hair_color": "grey", "outfit": "dark", "outfit_style": "archer-02"},
         ]
         start = Barrier(len(choices))
         with ThreadPoolExecutor(max_workers=len(choices)) as executor:

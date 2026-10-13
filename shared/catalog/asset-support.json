@@ -15,10 +15,13 @@
   "avatar": {
     "source": "meshtint-female-archer-01",
     "hair_style": ["hair-01", "hair-02", "hair-03", "hair-04"],
-    "hair_color": ["light", "dark"],
+    "hair_color": ["light", "dark", "brown", "orange", "grey"],
     "skin_tone": ["fair", "tan"],
     "outfit": ["aqua", "nature", "fire", "dark"],
-    "capabilities": {"static_pose": true, "animation": false, "weapons": false, "fitted_creature_clothing": false}
+    "outfit_style": ["archer-01", "archer-02", "archer-03"],
+    "face_style": ["face-01", "face-02", "face-03"],
+    "head_style": ["head-01", "head-02"],
+    "capabilities": {"static_pose": true, "animation": true, "weapons": false, "fitted_creature_clothing": false}
   },
   "sources": [
     {
@@ -51,10 +54,11 @@
       "id": "meshtint-female-archer-01",
       "publisher": "Meshtint Studio",
       "pack": "Female Archer Pack 01",
-      "prepared_models": ["archer"],
-      "accepted_clips": [],
-      "owned_unprepared_modules": ["Female Archer 02", "Female Archer 03", "Female Hair For Hat", "Female Head 01", "Crown Eve", "Hood Mystical", "Mask Undercover", "Arrow", "Bow Greenhorn", "Bow Myth", "Bow Vines", "Quiver Angel", "Quiver Rook", "Quiver Tale"],
-      "owned_unprepared_materials": ["Hair Brown", "Hair Orange", "Hair Grey"],
+      "prepared_models": ["archer-01", "archer-02", "archer-03"],
+      "accepted_clips": {"archer-01": ["Idle"], "archer-02": ["Idle"], "archer-03": ["Idle"]},
+      "owned_unprepared_modules": ["Female Hair For Hat", "Crown Eve", "Hood Mystical", "Mask Undercover", "Arrow", "Bow Greenhorn", "Bow Myth", "Bow Vines", "Quiver Angel", "Quiver Rook", "Quiver Tale"],
+      "prepared_materials": ["Hair Black", "Hair Blonde", "Hair Brown", "Hair Orange", "Hair Grey"],
+      "owned_unprepared_materials": [],
       "supplies_creature_accessories": false
     }
   ],

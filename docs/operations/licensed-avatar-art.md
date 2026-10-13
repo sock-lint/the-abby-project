@@ -79,3 +79,78 @@ combinations. Hosted Frontend validation runs this gate. Real Archer rendering
 and physical-phone acceptance remain owner checks after the approved inputs
 are available. Rollback selects a previously accepted object and digest, then
 uses the normal reviewed deployment flow.
+
+## Expanded identity and supplied Idle
+
+Saved preferences now include `outfit_style` (`archer-01`, `archer-02`,
+`archer-03`) independently from the existing outfit palette. Brown, Orange and
+Grey join Light/Dark hair, with matching supplied eyebrow textures across three
+face choices (`face-01`, `face-02`, `face-03`, default `face-01`). The code
+also supports rounded/pointed ears (`head-01`/`head-02`, default `head-02`),
+for 2,880 combinations. This does not establish that a new private release
+has been converted, visually accepted or published. Existing static schema-v1
+releases remain valid for their original choices; unsupported selections retain
+the functional customization fallback.
+
+Schema-v2 manifests use `models` keyed by all three costume identifiers. Each
+entry has its own complete `file`, `idle_clip: "Idle"`, and `rotation_y`.
+`parts` keeps singular body/face names and four hair names; its `head` map
+contains both `head-01` and `head-02`. Each GLB contains all eight modules.
+`textures.outfit` has 24 `<style>:<skin>:<palette>` keys,
+`textures.hair` contains all five colors, and `textures.face` has 15
+`<face_style>:<hair_color>` entries. Reviewed
+source-map descriptors may explicitly share palette PNGs between costumes;
+the release contains exactly the distinct referenced GLBs/PNGs. The outer
+artifact schema remains version 1.
+
+Before public staging, every model must have a nonempty
+`animation_review_reference`, the real `animation_source_sha256`, and measured
+`animation_validation` from the private converter: `method` is
+`supplied-hierarchy-rotation-retarget-v1`; duration is positive and bounded to
+60 seconds; at least three frames and one moving vertex were checked.
+`source_rest_joint_difference` records the source's different proportions as
+a finite nonnegative diagnostic. `target_joint_error`, `rotation_delta_error`
+and `head_attachment_error` are at most 0.0001; `nonroot_translation_variation`
+and `source_scale_variation` are at most 0.00001; `reimport_max_vertex_error`
+is at most 0.001. Joint/translation/vertex metrics are in meters, rotation
+uses normalized sign-independent quaternion distance, and scale is unitless.
+Target joint offsets are preserved rather than imposing source proportions.
+The reference identifies an actual visual review, not a synthetic
+test or a converter-generated acceptance. Whole-release license/public-delivery
+acceptance still uses the existing owner prerequisite above.
+
+Staging independently checks that each self-contained GLB has only its named
+Idle clip, valid skeletal channels/keyframes, a weighted body and real joint
+motion. It imports only the renderer contract into the browser manifest;
+source hashes, private review references and conversion reports stay private.
+The renderer clones each rig, preserves its original weights, and pauses motion
+offscreen, in hidden tabs and for reduced motion. Switching costumes loads the
+matching complete model; it does not copy animation tracks onto another rig.
+
+Archer 03 requires its original fifth bone influence on one vertex. Exports
+retain paired `JOINTS_1`/`WEIGHTS_1` rather than truncating or refitting the art.
+The renderer's bounded extra-weight path clones geometry/materials, restores
+the loader-normalized first-set share and applies all weights to positions,
+normals and CPU bounds/picking. Staging requires paired valid sets, normalized
+combined weights and at most eight influences. Geometry and cloned resources
+are released with their avatar instance.
+
+Prepare the original pack privately, preserving its directory structure. The
+owner-provided inbox on this station is outside Git:
+`/home/ubuntu/.local/share/abby-assets/meshtint/female-archer-pack-01/`.
+Do not copy purchase records or credentials into the checkout. An inventoried
+source-map JSON identifies actual FBX/PSD/PNG/material paths under that pack;
+there are no guessed Brown/Orange/Grey face filenames. Run:
+
+```sh
+python scripts/r3f/prepare_archer.py --source <private-extracted-pack> \
+  --source-map <private-reviewed-inventory.json> --output <empty-ignored-export-dir> \
+  --blender <local-blender-executable>
+```
+
+Without `--source-map`, the existing static-v1 conversion remains available.
+Keep `delivery_review: private_evaluation` until actual artwork and applicable
+public delivery have been reviewed. Add `--animation-review-reference` only
+for an existing review record after verifying the complete conversion evidence.
+Real source reimport/render evidence and physical-phone graphics checks remain
+separate from hosted tests, which use synthetic geometry and public fallback.

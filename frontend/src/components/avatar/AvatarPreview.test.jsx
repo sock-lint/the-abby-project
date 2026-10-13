@@ -7,8 +7,9 @@ import { resetAvatarAssets } from '../../avatar/modelLoader';
 
 const fixture = vi.hoisted(() => ({ props: null, error: null, missing: false, motionAllowed: true }));
 vi.mock('../../companion/useSceneMotionAllowed', () => ({ default: () => fixture.motionAllowed }));
-vi.mock('../../avatar/appearance', () => ({ resolveAvatarAppearance: () => fixture.missing ? null : ({
-  url: '/synthetic-archer.glb', hairStyle: 'hair-01', textures: { body: '/synthetic-body.png', hair: '/synthetic-hair.png', face: '/synthetic-face.png' },
+vi.mock('../../avatar/appearance', () => ({ resolveAvatarAppearance: (preferences) => fixture.missing ? null : ({
+  url: preferences.outfit_style === 'archer-02' ? '/synthetic-archer-02.glb' : '/synthetic-archer.glb',
+  hairStyle: 'hair-01', textures: { body: '/synthetic-body.png', hair: '/synthetic-hair.png', face: '/synthetic-face.png' },
 }) }));
 vi.mock('../../avatar/modelLoader', () => ({ resetAvatarAssets: vi.fn() }));
 vi.mock('../../avatar/AvatarScene', () => ({ default: (props) => {
@@ -34,6 +35,22 @@ async function readyPreview() {
 }
 
 describe('AvatarPreview', () => {
+  it('starts a new outfit rig with a fresh loading state and cleared local interaction', async () => {
+    const { rerender } = render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
+    const canvas = await screen.findByTestId('avatar-scene');
+    act(() => fixture.props.onReady());
+    pointer('pointerdown', canvas);
+    pointer('pointerup', canvas);
+    expect(fixture.props.interaction.id).toBe(1);
+    rerender(<AvatarPreview preferences={{ ...AVATAR_DEFAULTS, outfit_style: 'archer-02' }} />);
+    await waitFor(() => expect(fixture.props.appearance.url).toBe('/synthetic-archer-02.glb'));
+    expect(screen.getByText('Loading your character…')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play animation' })).toBeDisabled();
+    expect(fixture.props.interaction).toEqual({ id: 0, action: null });
+    act(() => fixture.props.onReady());
+    expect(screen.queryByText('Loading your character…')).toBeNull();
+  });
+
   it('starts the character without an opt-in and keeps an accessible loading state', async () => {
     render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     expect(screen.getByRole('img', { name: 'Your Archer character' })).toBeInTheDocument();

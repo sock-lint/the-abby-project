@@ -15,6 +15,10 @@ const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const HAIR_STYLES = ['hair-01', 'hair-02', 'hair-03', 'hair-04'];
 const HAIR_COLORS = ['dark', 'light'];
 const OUTFITS = ['fair', 'tan'].flatMap((skin) => ['aqua', 'nature', 'fire', 'dark'].map((outfit) => `${skin}:${outfit}`));
+const COSTUMES = ['archer-01', 'archer-02', 'archer-03'];
+const FACES = ['face-01', 'face-02', 'face-03'];
+const HEADS = ['head-01', 'head-02'];
+const EXPANDED_HAIR_COLORS = [...HAIR_COLORS, 'brown', 'orange', 'grey'];
 
 function fail(message) { throw new Error(message); }
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -58,26 +62,57 @@ function validateConfig(config) {
 }
 
 function validateManifest(manifest) {
-  if (!object(manifest) || manifest.schema_version !== 1
+  if (!object(manifest) || ![1, 2].includes(manifest.schema_version)
     || manifest.delivery_review !== 'public_runtime_accepted'
     || !text(manifest.delivery_review_reference, 512)) fail('Avatar public runtime delivery has not been accepted.');
-  const model = manifest.models?.archer;
-  if (!hasKeys(manifest.models, ['archer']) || !object(model) || !filename(model.file, '.glb')
-    || model.idle_clip !== null || !Number.isFinite(model.rotation_y)
-    || (model.clips !== undefined && (!Array.isArray(model.clips) || model.clips.length))
-    || model.interaction_clips !== undefined) fail('Avatar model must be the accepted static Archer.');
+  const animated = manifest.schema_version === 2;
+  const modelKeys = animated ? COSTUMES : ['archer'];
+  if (!hasKeys(manifest.models, modelKeys)) fail('Avatar costume models are incomplete.');
+  for (const model of Object.values(manifest.models)) {
+    if (!object(model) || !filename(model.file, '.glb') || !Number.isFinite(model.rotation_y)
+      || model.idle_clip !== (animated ? 'Idle' : null) || model.interaction_clips !== undefined
+      || (model.clips !== undefined && (!Array.isArray(model.clips)
+        || (animated ? model.clips.length !== 1 || model.clips[0] !== 'Idle' : model.clips.length)))) {
+      fail('Avatar model contains an unreviewed capability.');
+    }
+    if (animated) {
+      const evidence = model.animation_validation;
+      if (!text(model.animation_review_reference, 512) || !SHA256.test(model.animation_source_sha256 ?? '')
+        || !hasKeys(evidence, ['method', 'duration_seconds', 'sampled_frames', 'moving_vertices',
+          'head_attachment_error', 'reimport_max_vertex_error', 'source_rest_joint_difference',
+          'target_joint_error', 'rotation_delta_error', 'nonroot_translation_variation', 'source_scale_variation'])
+        || evidence.method !== 'supplied-hierarchy-rotation-retarget-v1'
+        || !Number.isFinite(evidence.duration_seconds) || evidence.duration_seconds <= 0 || evidence.duration_seconds > 60
+        || !Number.isSafeInteger(evidence.sampled_frames) || evidence.sampled_frames < 3
+        || !Number.isSafeInteger(evidence.moving_vertices) || evidence.moving_vertices < 1
+        || !Number.isFinite(evidence.source_rest_joint_difference) || evidence.source_rest_joint_difference < 0
+        || Object.entries({ head_attachment_error: 0.0001, reimport_max_vertex_error: 0.001,
+          target_joint_error: 0.0001, rotation_delta_error: 0.0001,
+          nonroot_translation_variation: 0.00001, source_scale_variation: 0.00001 }).some(([key, limit]) =>
+          !Number.isFinite(evidence[key]) || evidence[key] < 0 || evidence[key] > limit)) {
+        fail('Avatar supplied Idle conversion has not been verified and reviewed.');
+      }
+    }
+  }
+  const modelFiles = Object.values(manifest.models).map((model) => model.file);
+  if (new Set(modelFiles).size !== modelFiles.length) fail('Avatar costumes must keep their complete matching models.');
   const parts = manifest.parts;
   if (!hasKeys(parts, ['body', 'head', 'face', 'hair']) || !hasKeys(parts.hair, HAIR_STYLES)) {
     fail('Avatar mesh parts are incomplete.');
   }
-  const names = [parts.body, parts.head, parts.face, ...Object.values(parts.hair)];
+  if (animated && !hasKeys(parts.head, HEADS)) fail('Avatar head choices are incomplete.');
+  const heads = animated ? Object.values(parts.head) : [parts.head];
+  const names = [parts.body, ...heads, parts.face, ...Object.values(parts.hair)];
   if (names.some((name) => !text(name, 128)) || new Set(names).size !== names.length) fail('Avatar mesh parts must have distinct names.');
   const textures = manifest.textures;
-  if (!hasKeys(textures, ['outfit', 'hair', 'face']) || !hasKeys(textures.outfit, OUTFITS)
-    || !hasKeys(textures.hair, HAIR_COLORS) || !hasKeys(textures.face, HAIR_COLORS)) fail('Avatar texture choices are incomplete.');
+  const outfitKeys = animated ? COSTUMES.flatMap((style) => OUTFITS.map((outfit) => `${style}:${outfit}`)) : OUTFITS;
+  const hairColors = animated ? EXPANDED_HAIR_COLORS : HAIR_COLORS;
+  const faceKeys = animated ? FACES.flatMap((style) => hairColors.map((color) => `${style}:${color}`)) : hairColors;
+  if (!hasKeys(textures, ['outfit', 'hair', 'face']) || !hasKeys(textures.outfit, outfitKeys)
+    || !hasKeys(textures.hair, hairColors) || !hasKeys(textures.face, faceKeys)) fail('Avatar texture choices are incomplete.');
   const images = [...Object.values(textures.outfit), ...Object.values(textures.hair), ...Object.values(textures.face)];
-  if (images.some((name) => !filename(name, '.png')) || new Set(images).size !== images.length) fail('Avatar texture filenames are invalid.');
-  return { model, names, inventory: [model.file, ...images] };
+  if (images.some((name) => !filename(name, '.png')) || (!animated && new Set(images).size !== images.length)) fail('Avatar texture filenames are invalid.');
+  return { models: manifest.models, names, inventory: [...modelFiles, ...new Set(images)], outfitKeys, hairColors, faceKeys, animated };
 }
 
 function validatePng(bytes) {
@@ -106,7 +141,7 @@ function validatePng(bytes) {
   fail('Avatar PNG is incomplete.');
 }
 
-function validateGlb(bytes, partNames) {
+function validateGlb(bytes, partNames, model) {
   if (bytes.length < 28 || bytes.readUInt32LE(0) !== 0x46546c67 || bytes.readUInt32LE(4) !== 2
     || bytes.readUInt32LE(8) !== bytes.length) fail('Avatar GLB header is invalid.');
   const chunks = [];
@@ -124,15 +159,16 @@ function validateGlb(bytes, partNames) {
   }
   const document = parseJson(chunks[0].bytes, 'Avatar GLB JSON is invalid.');
   if (!object(document) || document.asset?.version !== '2.0'
-    || ['extensionsUsed', 'extensionsRequired', 'animations'].some((key) => document[key] !== undefined
+    || ['extensionsUsed', 'extensionsRequired'].some((key) => document[key] !== undefined
       && (!Array.isArray(document[key]) || document[key].length))) fail('Avatar GLB contains unreviewed capabilities.');
-  // No URI, extension or script can hide in an embedded material or extras.
+  // The converter exports no extras. Runtime files cannot carry private
+  // source/review metadata, URIs, extensions or scripts in embedded objects.
   const pending = [document];
   while (pending.length) {
     const entry = pending.pop();
     if (!entry || typeof entry !== 'object') continue;
     for (const [key, value] of Object.entries(entry)) {
-      if (/^(uri|extensions|scripts?)$/i.test(key)) fail('Avatar GLB contains an external or unreviewed reference.');
+      if (/^(uri|extensions|extras|scripts?)$/i.test(key)) fail('Avatar GLB contains an external or unreviewed reference.');
       if (value && typeof value === 'object') pending.push(value);
     }
   }
@@ -213,6 +249,146 @@ function validateGlb(bytes, partNames) {
     const matches = [...reachable].filter((nodeIndex) => nodes[nodeIndex].name === name);
     if (matches.length !== 1 || !index(nodes[matches[0]].mesh, meshes)) fail('Avatar GLB is missing a selected mesh part.');
   }
+  validateIdle(document, chunks[1].bytes, reachable, model, partNames[0]);
+}
+
+function validateIdle(document, binary, reachable, model, bodyName) {
+  const animations = document.animations ?? [];
+  if (!Array.isArray(animations)) fail('Avatar animation list is invalid.');
+  if (model.idle_clip === null) {
+    if (animations.length) fail('Static avatar GLB contains unreviewed animation.');
+    return;
+  }
+  if (animations.length !== 1 || animations[0]?.name !== 'Idle') fail('Avatar GLB must contain only its reviewed Idle clip.');
+  const animation = animations[0];
+  const { accessors, bufferViews: views, nodes, meshes, skins = [] } = document;
+  if (!skins.length || !Array.isArray(animation.samplers) || !animation.samplers.length
+    || !Array.isArray(animation.channels) || !animation.channels.length) fail('Avatar Idle needs its matching rig and channels.');
+  const body = [...reachable].map((nodeIndex) => nodes[nodeIndex]).find((node) => node.name === bodyName);
+  if (!index(body?.skin, skins) || meshes[body.mesh].primitives.some((primitive) =>
+    !index(primitive.attributes.JOINTS_0, accessors) || !index(primitive.attributes.WEIGHTS_0, accessors))) {
+    fail('Avatar Idle needs a skinned body with supplied joint weights.');
+  }
+  const joints = new Set(skins[body.skin].joints);
+  const contributingJoints = new Set();
+  const targets = new Set();
+  const usedSamplers = new Set();
+  let movingJoint = false;
+  let duration = 0;
+  const values = (accessor, dimensions) => {
+    const view = views[accessor.bufferView];
+    const readers = { 5121: ['readUInt8', 1, 255], 5123: ['readUInt16LE', 2, 65535], 5126: ['readFloatLE', 4, 1] };
+    const [reader, size, maximum] = readers[accessor.componentType];
+    const stride = view.byteStride ?? dimensions * size;
+    const start = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
+    return Array.from({ length: accessor.count }, (_, entry) => Array.from({ length: dimensions }, (_, component) =>
+      binary[reader](start + entry * stride + component * size) / (accessor.normalized ? maximum : 1)));
+  };
+  const validateSkinAttributes = (skinned) => {
+    if (!index(skinned.mesh, meshes)) fail('Avatar skinned node must contain its matching mesh.');
+    const skinJoints = skins[skinned.skin].joints;
+    for (const primitive of meshes[skinned.mesh].primitives) {
+      const position = accessors[primitive.attributes.POSITION];
+      if (position.type !== 'VEC3' || position.componentType !== 5126
+        || Object.keys(primitive.attributes).some((key) => /^(JOINTS|WEIGHTS)_/.test(key) && !/^(JOINTS|WEIGHTS)_[01]$/.test(key))) {
+        fail('Avatar body joint and weight attributes are invalid.');
+      }
+      const sets = [0];
+      if (primitive.attributes.JOINTS_1 !== undefined || primitive.attributes.WEIGHTS_1 !== undefined) sets.push(1);
+      const influences = sets.map((set) => {
+        const joint = accessors[primitive.attributes[`JOINTS_${set}`]];
+        const weight = accessors[primitive.attributes[`WEIGHTS_${set}`]];
+        if (!joint || !weight
+          || joint.type !== 'VEC4' || ![5121, 5123].includes(joint.componentType)
+          || (joint.normalized !== undefined && joint.normalized !== false) || joint.count !== position.count
+          || weight.type !== 'VEC4' || ![5121, 5123, 5126].includes(weight.componentType) || weight.count !== position.count
+          || (weight.componentType === 5126
+            ? weight.normalized !== undefined && weight.normalized !== false : weight.normalized !== true)) {
+          fail('Avatar body requires paired valid joint and weight attributes.');
+        }
+        return { joints: values(joint, 4), weights: values(weight, 4) };
+      });
+      for (let vertex = 0; vertex < position.count; vertex++) {
+        let totalWeight = 0;
+        for (const influence of influences) {
+          const weights = influence.weights[vertex];
+          const jointValues = influence.joints[vertex];
+          if (jointValues.some((value) => !index(value, skinJoints))
+            || weights.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
+            fail('Avatar body requires finite normalized weights on valid joints.');
+          }
+          totalWeight += weights.reduce((sum, value) => sum + value, 0);
+          for (let component = 0; component < 4; component++) {
+            if (skinned === body && weights[component] > 0) contributingJoints.add(skinJoints[jointValues[component]]);
+          }
+        }
+        // Preserve up to eight supplied influences. Normalizing the first four
+        // alone discards the fifth weight present on the publisher's Archer03.
+        if (Math.abs(totalWeight - 1) > 0.001) fail('Avatar body combined weights must be normalized.');
+      }
+    }
+  };
+  for (const nodeIndex of reachable) {
+    const node = nodes[nodeIndex];
+    if (node.skin !== undefined) validateSkinAttributes(node);
+  }
+  // An animated ancestor deforms a descendant's weighted vertices too. Merely
+  // moving an unrelated, unweighted bone is not body animation.
+  const parents = new Map();
+  for (const nodeIndex of reachable) {
+    for (const child of nodes[nodeIndex].children ?? []) parents.set(child, nodeIndex);
+  }
+  for (const nodeIndex of [...contributingJoints]) {
+    let ancestor = parents.get(nodeIndex);
+    while (ancestor !== undefined) {
+      contributingJoints.add(ancestor);
+      ancestor = parents.get(ancestor);
+    }
+  }
+  for (const channel of animation.channels) {
+    if (!index(channel?.sampler, animation.samplers) || !reachable.has(channel?.target?.node)
+      || !['translation', 'rotation', 'scale'].includes(channel.target.path)) fail('Avatar Idle channel target is invalid.');
+    const target = `${channel.target.node}:${channel.target.path}`;
+    if (targets.has(target)) fail('Avatar Idle has duplicate channel targets.');
+    targets.add(target);
+    usedSamplers.add(channel.sampler);
+    const sampler = animation.samplers[channel.sampler];
+    if (!index(sampler?.input, accessors) || !index(sampler?.output, accessors)
+      || !['LINEAR', 'STEP'].includes(sampler.interpolation ?? 'LINEAR')) fail('Avatar Idle sampler is invalid.');
+    const input = accessors[sampler.input];
+    const output = accessors[sampler.output];
+    const dimensions = channel.target.path === 'rotation' ? 4 : 3;
+    if (input.type !== 'SCALAR' || input.componentType !== 5126 || input.count < 2
+      || output.componentType !== 5126 || output.type !== `VEC${dimensions}` || output.count !== input.count) {
+      fail('Avatar Idle keyframes are invalid.');
+    }
+    const times = values(input, 1).map(([time]) => time);
+    if (times.some((time, entry) => !Number.isFinite(time) || time < 0 || (entry > 0 && time <= times[entry - 1]))
+      || times.at(-1) <= times[0] || times.at(-1) > 60) fail('Avatar Idle timing is invalid.');
+    duration = Math.max(duration, times.at(-1));
+    const samples = values(output, dimensions);
+    if (samples.some((sample) => sample.some((value) => !Number.isFinite(value))
+      || (channel.target.path === 'rotation' && Math.abs(Math.hypot(...sample) - 1) > 0.01)
+      || (channel.target.path === 'scale' && sample.some((value) => value <= 0)))) fail('Avatar Idle transforms are invalid.');
+    const changed = (sample) => {
+      if (channel.target.path !== 'rotation') {
+        return sample.some((value, component) => Math.abs(value - samples[0][component]) > 0.000001);
+      }
+      // q and -q represent the same orientation. Normalize before comparing
+      // so harmless quaternion length rounding cannot claim physical motion.
+      const first = samples[0].map((value) => value / Math.hypot(...samples[0]));
+      const normalized = sample.map((value) => value / Math.hypot(...sample));
+      const sign = first.reduce((dot, value, component) => dot + value * normalized[component], 0) < 0 ? -1 : 1;
+      return normalized.some((value, component) => Math.abs(sign * value - first[component]) > 0.000001);
+    };
+    if (joints.has(channel.target.node) && contributingJoints.has(channel.target.node) && samples.some(changed)) {
+      movingJoint = true;
+    }
+  }
+  if (usedSamplers.size !== animation.samplers.length || !movingJoint) fail('Avatar Idle must animate its supplied skeleton.');
+  if (Math.abs(duration - model.animation_validation.duration_seconds) > 0.001) {
+    fail('Avatar Idle duration differs from its measured conversion evidence.');
+  }
 }
 
 export function validateAvatarBundle(bytes, expectedHash) {
@@ -221,7 +397,7 @@ export function validateAvatarBundle(bytes, expectedHash) {
   if (hash(bytes) !== expectedHash) fail('Avatar asset artifact digest does not match.');
   const bundle = parseJson(bytes, 'Avatar asset artifact JSON is invalid.');
   if (!hasKeys(bundle, ['schema_version', 'manifest', 'files']) || bundle.schema_version !== 1) fail('Avatar asset artifact schema is invalid.');
-  const { model, names, inventory } = validateManifest(bundle.manifest);
+  const { models, names, inventory, outfitKeys, hairColors, faceKeys } = validateManifest(bundle.manifest);
   if (!hasKeys(bundle.files, inventory)) fail('Avatar asset inventory differs from the accepted runtime files.');
   const files = new Map();
   for (const [name, file] of Object.entries(bundle.files)) {
@@ -232,7 +408,8 @@ export function validateAvatarBundle(bytes, expectedHash) {
     const content = Buffer.from(file.base64, 'base64');
     if (!content.length || content.length > MAX_FILE_BYTES || content.toString('base64') !== file.base64
       || hash(content) !== file.sha256) fail('Avatar asset file digest or size is invalid.');
-    if (name === model.file) validateGlb(content, names);
+    const model = Object.values(models).find((entry) => entry.file === name);
+    if (model) validateGlb(content, names, model);
     else validatePng(content);
     files.set(name, content);
   }
@@ -240,13 +417,13 @@ export function validateAvatarBundle(bytes, expectedHash) {
   // Vite imports this document eagerly, so stage only the renderer's contract.
   const select = (value, keys) => Object.fromEntries(keys.map((key) => [key, value[key]]));
   const manifest = {
-    schema_version: 1,
-    models: { archer: { file: model.file, idle_clip: null, rotation_y: model.rotation_y } },
+    schema_version: bundle.manifest.schema_version,
+    models: Object.fromEntries(Object.entries(models).map(([key, model]) => [key, select(model, ['file', 'idle_clip', 'rotation_y'])])),
     parts: { ...select(bundle.manifest.parts, ['body', 'head', 'face']), hair: select(bundle.manifest.parts.hair, HAIR_STYLES) },
     textures: {
-      outfit: select(bundle.manifest.textures.outfit, OUTFITS),
-      hair: select(bundle.manifest.textures.hair, HAIR_COLORS),
-      face: select(bundle.manifest.textures.face, HAIR_COLORS),
+      outfit: select(bundle.manifest.textures.outfit, outfitKeys),
+      hair: select(bundle.manifest.textures.hair, hairColors),
+      face: select(bundle.manifest.textures.face, faceKeys),
     },
   };
   return { manifest, files };

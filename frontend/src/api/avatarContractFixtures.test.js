@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import defaultCharacter from '../../../contracts/api/fixtures/character-avatar-default.json';
 import savedCharacter from '../../../contracts/api/fixtures/character-avatar-saved.json';
+import legacyCharacter from '../../../contracts/api/fixtures/character-avatar-legacy.json';
 import invalidAppearance from '../../../contracts/api/fixtures/character-avatar-invalid.json';
 import { server } from '../test/server';
 import { getCharacterProfile, saveAvatarPreferences } from './index';
@@ -24,6 +25,17 @@ describe('saved avatar responses through the shared React API client', () => {
     expect(new URL(requests[0].url).pathname).toBe('/api/character/avatar/');
     expect(requests[0].body).toEqual({ avatar_preferences: savedCharacter.avatar_preferences });
     expect(await getCharacterProfile()).toEqual(savedCharacter);
+  });
+
+  it('retains the original costume on legacy saved characters and consumes expanded identity choices', async () => {
+    server.use(http.get('*/api/character/', () => HttpResponse.json(legacyCharacter)));
+    const character = await getCharacterProfile();
+    expect(character.avatar_preferences).toEqual({
+      hair_style: 'hair-02', hair_color: 'light', skin_tone: 'tan', outfit: 'aqua', outfit_style: 'archer-01', face_style: 'face-01', head_style: 'head-02',
+    });
+    expect(savedCharacter.avatar_preferences).toEqual({
+      hair_style: 'hair-04', hair_color: 'grey', skin_tone: 'tan', outfit: 'fire', outfit_style: 'archer-03', face_style: 'face-02', head_style: 'head-01',
+    });
   });
 
   it('preserves validation errors without automatically retrying a rejected save', async () => {

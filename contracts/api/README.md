@@ -10,6 +10,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | --- | --- |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
+| `character-avatar-legacy.json` | `GET /api/character/`; a legacy four-option saved look retains its choices and projects the default costume, face and ears without writing |
 | `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
 | `report-card-created.json` | `POST /api/chronicle/grades/`; private quarterly report card with percentage, points and letter subjects and a verified recognition receipt |
 | `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
@@ -325,21 +326,29 @@ checks do not add a runtime banking client or include fixtures in player builds.
 
 `config/tests/test_avatar_api_contract_fixtures.py` produces the avatar fixtures
 through the real authenticated character endpoints. `avatar_preferences` contains
-`hair_style` (`hair-01` through `hair-04`), `hair_color` (`light` or `dark`),
-`skin_tone` (`fair` or `tan`), and `outfit` (`aqua`, `nature`, `fire`, or `dark`).
-Default options are `hair-01`, `dark`, `fair`, and `nature`. Reads normalize older
-empty or malformed stored options without writing to the profile.
+`hair_style` (`hair-01` through `hair-04`), `hair_color` (`light`, `dark`, `brown`,
+`orange`, or `grey`), `skin_tone` (`fair` or `tan`), `outfit` (`aqua`, `nature`,
+`fire`, or `dark`), `outfit_style` (`archer-01` through `archer-03`),
+`face_style` (`face-01` through `face-03`), and `head_style` (`head-01` or
+`head-02`, rounded/pointed ears). Default options are `hair-01`, `dark`, `fair`,
+`nature`, `archer-01`, `face-01`, and `head-02`.
+Reads normalize older empty or malformed stored options without writing to the
+profile. Legacy four-option looks retain their selected hair, skin and palette
+and project `outfit_style: archer-01`, `face_style: face-01` and
+`head_style: head-02` without changing stored preferences.
 
 `POST /api/character/avatar/` accepts exactly `{avatar_preferences: {...}}`.
 Each save replaces the full appearance: omitted options reset to defaults, and
-an empty preference object resets all four options. Unknown body/option fields,
+an empty preference object resets all seven options. Unknown body/option fields,
 invalid types/values, and query parameters are rejected. The endpoint only changes
 the authenticated account's preferences and timestamp; it cannot target another
 account, equip or grant inventory, change a trophy, or award XP/Coins. Repeating
 the same normalized appearance changes nothing, including the saved timestamp.
 The response is the complete character body, and later character reads retain
-the confirmed appearance. These choices identify prepared pack art independently
-from gameplay ownership or earned cosmetic slots.
+the confirmed appearance. These choices remain independent from gameplay
+ownership or earned cosmetic slots. Rendering needs the corresponding reviewed
+private runtime release; a legacy static release cannot substitute another look
+for an expanded choice. Idle playback is local presentation, not an API award.
 
 Run the producer and permission/state tests with a disposable test database:
 

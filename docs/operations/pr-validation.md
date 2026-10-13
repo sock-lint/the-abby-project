@@ -1,6 +1,6 @@
 # Pull request validation
 
-Updated October 12, 2026 for the React Three Fiber/Capacitor application.
+Updated October 13, 2026 for the React Three Fiber/Capacitor application.
 The owner authorized immediate Unity retirement because the app has no active
 users. The [historical Unity runner instructions](unity-pr-validation.md) remain
 available for source recovery, without active build or release requirements.
@@ -78,3 +78,10 @@ Private art does not enter hosted CI. Public builds exercise DOM/2D fallback;
 local/private builds also validate converted models. Physical phones, signed
 updates and lifecycle/media integration need acceptance outside these checks.
 A native bundle build does not establish full workflow parity.
+
+Backend validation also runs `python -m unittest discover -s scripts/r3f
+-p 'test_prepare_*.py' -v` against synthetic source/evidence fixtures. These
+check explicit source maps, preserved originals, private temporary output,
+review requirements and bounded conversion reports without Blender or paid art.
+The separate `test_blender_archer.py` math checks require local Blender/bpy;
+hosted guards do not claim that they or real Archer renders were executed.

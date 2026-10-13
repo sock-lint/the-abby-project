@@ -2,12 +2,37 @@ import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import playwrightUtils from 'playwright-core/lib/utilsBundle';
 import { stripVTControlCharacters } from 'node:util';
 
 let devServer;
 let origin;
 const privateArt = existsSync(fileURLToPath(new URL('../src/companion/licensed/manifest.json', import.meta.url)));
+const avatarManifestPath = fileURLToPath(new URL('../src/avatar/licensed/manifest.json', import.meta.url));
+const privateAvatarArt = existsSync(avatarManifestPath) && JSON.parse(readFileSync(avatarManifestPath, 'utf8')).schema_version === 2;
+const { PNG } = playwrightUtils;
+const sky = JSON.parse(readFileSync(fileURLToPath(new URL('../src/storybook/presentation.json', import.meta.url)), 'utf8')).palette.sky;
+const skyRgb = [1, 3, 5].map((index) => Number.parseInt(sky.slice(index, index + 2), 16));
+
+async function archerCapture(canvas, path) {
+  const bytes = await canvas.screenshot({ path, style: '.fixed, .sticky, [role="tooltip"] { visibility: hidden !important; }' });
+  const frame = PNG.sync.read(bytes);
+  let colored = 0;
+  let sampled = 0;
+  // Inspect the center of the canvas, excluding rounded borders and DOM
+  // overlays. A ready-but-empty sky cannot establish an Archer rendering pass.
+  for (let y = Math.floor(frame.height * 0.15); y < frame.height * 0.9; y += 1) {
+    for (let x = Math.floor(frame.width * 0.2); x < frame.width * 0.8; x += 1) {
+      const offset = (y * frame.width + x) * 4;
+      sampled += 1;
+      if (skyRgb.some((value, channel) => Math.abs(frame.data[offset + channel] - value) > 12)) colored += 1;
+    }
+  }
+  expect(colored / sampled, 'The actual Archer must visibly occupy the canvas before its animation is validated.').toBeGreaterThan(0.05);
+  return createHash('sha256').update(bytes).digest('hex');
+}
 const user = { id: 901, username: 'prototype-child', role: 'child', first_name: 'Prototype child', theme: 'hyrule' };
 const chick = {
   catalog_available: true,
@@ -15,10 +40,14 @@ const chick = {
   potion: { id: 942, name: 'Base', slug: 'base', rarity: 'common' },
   is_active: true, growth_points: 85, evolved_to_mount: false, happiness_level: 'happy',
 };
-const avatarDefaults = { hair_style: 'hair-01', hair_color: 'dark', skin_tone: 'fair', outfit: 'nature' };
+const avatarDefaults = {
+  hair_style: 'hair-01', hair_color: 'dark', skin_tone: 'fair', outfit: 'nature',
+  outfit_style: 'archer-01', face_style: 'face-01', head_style: 'head-02',
+};
 const avatarOptions = {
   hair_style: ['hair-01', 'hair-02', 'hair-03', 'hair-04'],
-  hair_color: ['light', 'dark'], skin_tone: ['fair', 'tan'], outfit: ['aqua', 'nature', 'fire', 'dark'],
+  hair_color: ['light', 'dark', 'brown', 'orange', 'grey'], skin_tone: ['fair', 'tan'], outfit: ['aqua', 'nature', 'fire', 'dark'],
+  outfit_style: ['archer-01', 'archer-02', 'archer-03'], face_style: ['face-01', 'face-02', 'face-03'], head_style: ['head-01', 'head-02'],
 };
 const food = { id: 903, item: { id: 904, name: 'Birdseed', icon: '🌾', sprite_key: 'food-birdseed', item_type: 'food' }, quantity: 3 };
 test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } });
@@ -54,7 +83,7 @@ test.afterAll(async () => {
   }
 });
 
-async function fixture(page, pet = chick, { mounts = [] } = {}) {
+async function fixture(page, pet = chick, { mounts = [], avatarPreferences = avatarDefaults } = {}) {
   const mutations = [];
   let ownedPet = { ...pet };
   const ownedMounts = [...mounts];
@@ -63,7 +92,7 @@ async function fixture(page, pet = chick, { mounts = [] } = {}) {
     id: 906, username: user.username, display_name: 'Prototype child', level: 3,
     login_streak: 2, longest_login_streak: 3, perfect_days_count: 1,
     active_frame: null, active_title: null, active_theme: null, active_pet_accessory: null,
-    active_trophy_badge: null, avatar_preferences: { ...avatarDefaults },
+    active_trophy_badge: null, avatar_preferences: { ...avatarPreferences },
   };
   await page.addInitScript(() => localStorage.setItem('abby_auth_token', 'synthetic-browser-profile-session'));
   await page.route('**/api/**', async (route) => {
@@ -93,7 +122,7 @@ async function fixture(page, pet = chick, { mounts = [] } = {}) {
     }
     const responses = {
       '/api/auth/me/': user,
-      '/api/character/': character,
+      '/api/character/': { ...character, avatar_preferences: { ...avatarDefaults, ...character.avatar_preferences } },
       '/api/cosmetics/': {}, '/api/cosmetics/catalog/': {},
       '/api/achievements/summary/': { badges_earned: [] },
       '/api/pets/stable/': { pets: [ownedPet], mounts: ownedMounts, total_possible: 1, breeding_available: false },
@@ -112,7 +141,10 @@ async function fixture(page, pet = chick, { mounts = [] } = {}) {
 
 test('profile has its Archer character and saves appearance without companion or reward actions', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
-  const mutations = await fixture(page);
+  // This retained four-option record predates the three new identity fields.
+  const mutations = await fixture(page, chick, { avatarPreferences: {
+    hair_style: 'hair-01', hair_color: 'dark', skin_tone: 'fair', outfit: 'nature',
+  } });
   await page.goto(`${origin}/profile`);
   await expect(page.getByRole('heading', { name: 'Prototype child', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Upload picture', exact: true })).toBeVisible();
@@ -124,22 +156,143 @@ test('profile has its Archer character and saves appearance without companion or
   await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Customize character' }).click();
   await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-01');
+  await expect(page.getByRole('combobox', { name: 'Outfit style' })).toHaveValue('archer-01');
+  await expect(page.getByRole('combobox', { name: 'Face', exact: true })).toHaveValue('face-01');
+  await expect(page.getByRole('combobox', { name: 'Ears', exact: true })).toHaveValue('head-02');
   await page.getByRole('combobox', { name: 'Hair style' }).selectOption('hair-04');
   await page.getByRole('combobox', { name: 'Hair color' }).selectOption('light');
   await page.getByRole('combobox', { name: 'Skin tone' }).selectOption('tan');
-  await page.getByRole('combobox', { name: 'Outfit' }).selectOption('fire');
+  await page.getByRole('combobox', { name: 'Outfit', exact: true }).selectOption('fire');
   expect(mutations).toEqual([]);
   await page.getByRole('button', { name: 'Save character' }).click();
   await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
   expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: {
-    avatar_preferences: { hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' },
+    avatar_preferences: { ...avatarDefaults, hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' },
   } }]);
   await page.reload();
   await page.getByRole('button', { name: 'Customize character' }).click();
   await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-04');
-  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('fire');
+  await expect(page.getByRole('combobox', { name: 'Outfit', exact: true })).toHaveValue('fire');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('profile-phone.png'), fullPage: true });
+});
+
+test('expanded character identity saves and reloads every supplied choice without earning anything', async ({ page }) => {
+  const mutations = await fixture(page);
+  const preferences = {
+    hair_style: 'hair-03', hair_color: 'orange', skin_tone: 'tan', outfit: 'aqua',
+    outfit_style: 'archer-03', face_style: 'face-03', head_style: 'head-01',
+  };
+  await page.goto(`${origin}/profile`);
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  const labels = { hair_style: 'Hair style', hair_color: 'Hair color', skin_tone: 'Skin tone', outfit: 'Outfit', outfit_style: 'Outfit style', face_style: 'Face', head_style: 'Ears' };
+  for (const [key, value] of Object.entries(preferences)) {
+    await page.getByRole('combobox', { name: labels[key], exact: true }).selectOption(value);
+  }
+  expect(mutations).toEqual([]);
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: preferences } }]);
+  await page.reload();
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  for (const [key, value] of Object.entries(preferences)) {
+    await expect(page.getByRole('combobox', { name: labels[key], exact: true })).toHaveValue(value);
+  }
+  expect(mutations).toHaveLength(1);
+});
+
+test('private Archer Idle renders moving skin, pauses for reduced motion and changes complete rigs locally', async ({ page }) => {
+  test.skip(!privateAvatarArt, 'Schema 2 owned Archer exports are intentionally absent from public CI.');
+  await page.setViewportSize({ width: 375, height: 812 });
+  const failures = [];
+  page.on('pageerror', (error) => failures.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error' && /THREE\.WebGLProgram|VALIDATE_STATUS|ERROR:\s*\d/.test(message.text())) failures.push(message.text());
+  });
+  const mutations = await fixture(page);
+  await page.goto(`${origin}/profile`);
+  const view = page.getByRole('group', { name: 'Character view' });
+  const canvas = view.locator('canvas');
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await expect(canvas).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play animation' })).toBeEnabled();
+  const first = await archerCapture(canvas, test.info().outputPath('archer-idle-first.png'));
+  await expect.poll(() => archerCapture(canvas), { message: 'The supplied Idle must change actual rendered canvas pixels.' }).not.toBe(first);
+  await archerCapture(canvas, test.info().outputPath('archer-idle-moving.png'));
+  expect(mutations).toEqual([]);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.getByRole('button', { name: 'Play animation' })).toBeDisabled();
+  await expect(page.getByText(/Animations are paused/)).toBeVisible();
+  let previousCapture;
+  let stableCaptures = 0;
+  // Allow a previously requested WebGL frame to finish, then require three
+  // consecutive stable rendered captures, not merely a disabled button.
+  await expect.poll(async () => {
+    const captured = await archerCapture(canvas);
+    stableCaptures = captured === previousCapture ? stableCaptures + 1 : 0;
+    previousCapture = captured;
+    return stableCaptures;
+  }, { intervals: [100, 250, 350], message: 'Reduced motion must settle and retain the same rendered pose.' }).toBe(3);
+  expect(await archerCapture(canvas, test.info().outputPath('archer-idle-paused.png'))).toBe(previousCapture);
+
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  let releaseRig;
+  const rigReady = new Promise((resolve) => { releaseRig = resolve; });
+  await page.route('**/archer-02.glb', async (route) => { await rigReady; await route.continue(); });
+  try {
+    await page.getByRole('combobox', { name: 'Outfit style' }).selectOption('archer-02');
+    await expect(view).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByText('Loading your character…')).toBeVisible();
+  } finally { releaseRig(); }
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await page.unroute('**/archer-02.glb');
+  await page.evaluate(() => {
+    window.__abbyAvatarLoadingPhases = [];
+    window.__abbyAvatarLoadingObserver = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.type === 'attributes' && record.target.getAttribute('aria-label') === 'Character view') {
+          window.__abbyAvatarLoadingPhases.push({ before: record.oldValue, after: record.target.getAttribute('aria-busy') });
+        }
+      }
+    });
+    window.__abbyAvatarLoadingObserver.observe(document.querySelector('section[aria-label="Your character"]'), {
+      subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['aria-busy'],
+    });
+  });
+  await page.getByRole('combobox', { name: 'Ears', exact: true }).selectOption('head-01');
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await expect.poll(() => page.evaluate(() => window.__abbyAvatarLoadingPhases.some((phase) => phase.before === 'true' && phase.after === 'false'))).toBe(true);
+  await page.evaluate(() => window.__abbyAvatarLoadingObserver.disconnect());
+  await page.getByRole('combobox', { name: 'Hair color' }).selectOption('brown');
+  await page.getByRole('combobox', { name: 'Face', exact: true }).selectOption('face-02');
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await archerCapture(canvas, test.info().outputPath('archer-outfit-2-rounded-face-2.png'));
+  // Costume 3 contains the publisher's fifth influence on one vertex. Force
+  // its actual shader to compile and render, retaining that all-weight pose.
+  await page.getByRole('combobox', { name: 'Outfit style' }).selectOption('archer-03');
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await expect(canvas).toBeVisible();
+  await archerCapture(canvas, test.info().outputPath('archer-outfit-3-rounded-face-2.png'));
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await view.scrollIntoViewIfNeeded();
+  await expect(page.getByRole('button', { name: 'Play animation' })).toBeEnabled();
+  const costume3First = await archerCapture(canvas);
+  await expect.poll(() => archerCapture(canvas), { message: 'Costume 3 must animate with its complete original skin influences.' }).not.toBe(costume3First);
+  await archerCapture(canvas, test.info().outputPath('archer-outfit-3-idle-moving.png'));
+  expect(mutations).toEqual([]);
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: {
+    avatar_preferences: { ...avatarDefaults, outfit_style: 'archer-03', head_style: 'head-01', hair_color: 'brown', face_style: 'face-02' },
+  } }]);
+  await page.reload();
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await expect(canvas).toBeVisible();
+  expect(mutations).toHaveLength(1);
+  expect(failures).toEqual([]);
 });
 
 test('the pet home opens real care controls at phone width and feeds only on explicit food selection', async ({ page }) => {
@@ -153,6 +306,7 @@ test('the pet home opens real care controls at phone width and feeds only on exp
   await expect(page.getByRole('status').filter({ hasText: 'Peep is happy to see you.' })).toBeVisible();
   await expect(page.getByRole('dialog', { name: 'Care for Peep' })).toHaveCount(0);
   expect(mutations).toEqual([]);
+  await page.getByRole('button', { name: 'Feed your companion' }).evaluate((button) => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
   await page.getByRole('button', { name: 'Feed your companion' }).click();
   const care = page.getByRole('dialog', { name: 'Care for Peep' });
   await expect(care).toBeVisible();
@@ -162,7 +316,9 @@ test('the pet home opens real care controls at phone width and feeds only on exp
   await expect(care).toHaveCount(0);
   expect(mutations).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Feed your companion' }).evaluate((button) => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
   await page.getByRole('button', { name: 'Feed your companion' }).click();
+  await expect(care).toBeVisible();
   await care.getByRole('button', { name: /Birdseed/ }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
   expect(mutations).toEqual([{ url: `${origin}/api/pets/902/feed/`, method: 'POST', body: { food_item_id: 904 } }]);

@@ -84,8 +84,9 @@ The October 12 source inventory distinguishes missing art from unprepared art:
 | Fledgling | Owned source FBX and staged Bird02 portrait | Preview only; no active GLB or intermediate earned stage |
 | Bat, Bee, Flower, Ghost, Mushroom, Spider | Owned icon pack 01 contains forms 01–03 for each | Unprepared 2D portraits; no matching owned 3D models or current species bindings |
 | Egg00–Egg03 | Four owned generic egg portraits | Unprepared inventory presentation, not distinct creature ownership |
-| Archer alternative bodies, head/hat hair, crown, hood, mask, bows, quivers | Owned FBX modules in Female Archer Pack 01 | Unprepared; no current saved avatar choices, weapon behavior or creature fittings |
-| Archer Brown/Orange/Grey hair materials | Owned source material choices | Unprepared palettes; saved choices currently remain Light/Dark |
+| Archer bodies, both heads and three faces | Owned FBX modules/face palettes in Female Archer Pack 01 | Prepared private three-costume Profile release; 2,880 saved identity choices with supplied Idle |
+| Archer hat hair, crown, hood, mask, bows, quivers and arrow | Owned FBX modules in Female Archer Pack 01 | Unprepared equipment; no weapon behavior or creature fittings |
+| Archer Brown/Orange/Grey hair materials | Owned source material choices | Prepared private palettes with matching eyebrows; five saved hair colors |
 | Kenney Fox/Dog | Retained CC0 models with original licenses | Available reference sources, not accepted R3F catalog or evolution bindings |
 | Other seeded species and potion variants | Legacy catalog/sprites are not matching Meshtint model ownership | Outside new acquisition offers; never inherit the ordinary Chick/Bird model |
 
@@ -257,7 +258,31 @@ this body rig and remain unaccepted; no retargeting or new animation was added.
 Saved appearance is separate from inventory, rewards, pet ownership and earned
 cosmetics. The same private-license/public-delivery and real-phone gates apply.
 
-Profile taps can play bounded local hop, twirl and bow movements of the entire
-approved static model. Its mesh modules and bones remain unchanged. Camera
-orbit, keyboard controls and reset are local presentation; no supplied Idle
-or other unaccepted skeletal take is enabled by these controls.
+That October 12 static release remains supported. The owner's October 13
+original-pack upload enabled a private expanded release with three supplied
+costume rigs, rounded/pointed ears, three face expressions, four hairstyles,
+five matching hair/eyebrow colors, two skins and four outfit palettes. Saved
+preferences remain free identity choices rather than inventory rewards.
+
+The supplied Idle has different anatomical proportions despite matching all
+40 bone identities and their hierarchy. `prepare_archer.py --source-map`
+retargets its rotations through each costume's own rest hierarchy, preserving
+the target's offsets, original UVs and weights. Each complete GLB retains
+eight modules and only the supplied 1.333-second Idle. Reimported geometry,
+joints, rotations and head attachment pass measured checks; original source
+hashes stay unchanged. Archer 03's original fifth influence is exported and
+rendered through the bounded extra-weight helper rather than truncated.
+Detailed evidence and recovery are in
+[the implementation record](../../docs/operations/r3f-profile-pets.md).
+
+The registry describes prepared private capabilities; its public-delivery
+state remains `private_evaluation`. New runtime art needs the separately
+recorded owner review and public-delivery acceptance in
+[private avatar builds](../../docs/operations/licensed-avatar-art.md).
+Source archives, conversion evidence and review records remain outside public
+Git. Physical-phone graphics acceptance is still separate.
+
+Profile taps retain bounded local hop, twirl and bow movements of the entire
+character. Camera orbit, keyboard controls, reset and Idle are local
+presentation and award nothing. Hidden/offscreen/reduced-motion views pause
+animation, and failures retain the functional DOM customization fallback.
