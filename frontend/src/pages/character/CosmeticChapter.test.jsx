@@ -27,7 +27,7 @@ describe('CosmeticChapter', () => {
     );
     expect(screen.getByRole('region', { name: frameChapter.name })).toBeInTheDocument();
     expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
-    expect(screen.getByText('A colorful frame for your initial')).toBeInTheDocument();
+    expect(screen.getByText('A colorful frame for your profile picture or initial')).toBeInTheDocument();
     expect(screen.getByText(/1 of 2/)).toBeInTheDocument();
   });
 
