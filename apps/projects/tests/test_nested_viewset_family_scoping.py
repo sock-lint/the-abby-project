@@ -11,6 +11,7 @@ in the QR payload to anyone with an ID.
 """
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -173,9 +174,9 @@ class ClockViewFamilyScopingTests(_TwoFamilyFixture):
 
     @patch("apps.timecards.services.timezone.localtime")
     def test_bravo_kid_can_still_clock_in_to_own_project(self, mock_local):
-        # Pin local time to noon: clock-in is refused 22:00-07:00, so an unpinned
-        # run inside quiet hours fails for reasons unrelated to family scoping.
-        mock_local.return_value = timezone.make_aware(timezone.datetime(2026, 4, 15, 12, 0))
+        # Pin to midday: ClockService rejects clock-ins 22:00-07:00 local, so
+        # an unpinned run during quiet hours returned 400 instead of 201.
+        mock_local.return_value = timezone.make_aware(datetime(2026, 4, 15, 12, 0))
         self.client.force_authenticate(self.fam_b.children[0])
         resp = self.client.post(
             "/api/clock/",
