@@ -16,6 +16,15 @@ vi.mock('../grades/GradeEntryFormModal', () => ({
   },
 }))
 
+vi.mock('../grades/ReportCardFormModal', () => ({
+  default: function ReportFormStub({ entry, onSaved }) {
+    return <div role="dialog" aria-label="Correct report card">
+      <p>Correcting school year {entry.metadata.report_card.school_year}</p>
+      <button onClick={() => onSaved(entry)}>Confirm report card correction</button>
+    </div>
+  },
+}))
+
 // Stub AnimatePresence so the modal mounts + unmounts synchronously.
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual('framer-motion')
@@ -41,6 +50,19 @@ function mountWithUser(entry, userFixture) {
 }
 
 describe('EntryDetailSheet', () => {
+  it('shows report card subjects and opens the report card correction form for its owner', async () => {
+    const entry = {
+      id: 40, kind: 'grade', user: 1, title: 'Semester 1 report card', is_private: true,
+      occurred_on: '2025-02-03', metadata: { report_card: {
+        school_year: 2024, period_type: 'semester', period_number: 1,
+        subjects: [{ subject: 'Science', grade_format: 'letter', letter: 'B+' }],
+      } },
+    }
+    const { user } = mountWithUser(entry, buildUser())
+    expect(screen.getByRole('table', { name: 'Report card grades' })).toHaveTextContent('ScienceB+')
+    await user.click(await screen.findByRole('button', { name: 'Correct report card or sharing' }))
+    expect(screen.getByRole('dialog', { name: 'Correct report card' })).toHaveTextContent('Correcting school year 2024')
+  })
   it('renders occurred_on + summary for a plain entry', () => {
     renderWithProviders(
       <EntryDetailSheet

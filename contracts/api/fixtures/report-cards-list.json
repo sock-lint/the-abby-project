@@ -1,0 +1,137 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 301,
+      "kind": "grade",
+      "occurred_on": "2026-10-09",
+      "chapter_year": 2026,
+      "title": "Quarter 1 report card · 2026–27",
+      "summary": "I kept up with my work this quarter.",
+      "icon_slug": "graduation-cap",
+      "event_slug": "",
+      "related_object_type": "",
+      "related_object_id": null,
+      "metadata": {
+        "report_card": {
+          "period_type": "quarter",
+          "period_number": 1,
+          "school_year": 2026,
+          "subjects": [
+            {
+              "subject": "Math",
+              "grade_format": "percentage",
+              "score": "92.5"
+            },
+            {
+              "subject": "Science",
+              "grade_format": "points",
+              "score": "11.25",
+              "possible": "10"
+            },
+            {
+              "subject": "English",
+              "grade_format": "letter",
+              "letter": "A-"
+            }
+          ]
+        },
+        "request_fingerprint": "f7266a8885279000825fd60efa3de323ee6c1da03cccb7b70a335a4891626dfa",
+        "request_occurred_on": "2026-10-09",
+        "reward_receipt": {
+          "receipt_id": "grade:301",
+          "status": "awarded",
+          "xp_awarded": 10,
+          "skills": [
+            {
+              "skill_id": 22,
+              "name": "Time Management",
+              "xp": 10
+            }
+          ],
+          "awarded_at": "2026-10-10T19:00:00+00:00",
+          "reward_day": "2026-10-10"
+        }
+      },
+      "viewed_at": null,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "is_private": true,
+      "user": 7,
+      "client_entry_id": "11111111-1111-4111-8111-111111111111",
+      "reward_receipt": {
+        "receipt_id": "grade:301",
+        "status": "awarded",
+        "xp_awarded": 10,
+        "skills": [
+          {
+            "skill_id": 22,
+            "name": "Time Management",
+            "xp": 10
+          }
+        ],
+        "awarded_at": "2026-10-10T19:00:00+00:00",
+        "reward_day": "2026-10-10"
+      }
+    },
+    {
+      "id": 302,
+      "kind": "grade",
+      "occurred_on": "2026-05-29",
+      "chapter_year": 2025,
+      "title": "Semester 2 report card · 2025–26",
+      "summary": "A whole semester of learning.",
+      "icon_slug": "graduation-cap",
+      "event_slug": "",
+      "related_object_type": "",
+      "related_object_id": null,
+      "metadata": {
+        "report_card": {
+          "period_type": "semester",
+          "period_number": 2,
+          "school_year": 2025,
+          "subjects": [
+            {
+              "subject": "Math",
+              "grade_format": "percentage",
+              "score": "92.5"
+            },
+            {
+              "subject": "Science",
+              "grade_format": "points",
+              "score": "11.25",
+              "possible": "10"
+            },
+            {
+              "subject": "English",
+              "grade_format": "letter",
+              "letter": "A-"
+            }
+          ]
+        },
+        "request_fingerprint": "9a398e322b42747b2e6ab6f73d912e9c5303aab198e99f46b0f860f5bcc2cac5",
+        "request_occurred_on": "2026-05-29",
+        "reward_receipt": {
+          "receipt_id": "grade:302",
+          "status": "daily_limit",
+          "xp_awarded": 0,
+          "skills": [],
+          "reward_day": "2026-10-10"
+        }
+      },
+      "viewed_at": null,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "is_private": true,
+      "user": 7,
+      "client_entry_id": "22222222-2222-4222-8222-222222222222",
+      "reward_receipt": {
+        "receipt_id": "grade:302",
+        "status": "daily_limit",
+        "xp_awarded": 0,
+        "skills": [],
+        "reward_day": "2026-10-10"
+      }
+    }
+  ]
+}

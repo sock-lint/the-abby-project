@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { gradeResultText } from './gradeDisplay';
 
 describe('grade result display', () => {
+  it('summarizes a report card without averaging its mixed grading formats', () => {
+    expect(gradeResultText({ metadata: { report_card: { subjects: [{}, {}] } } }))
+      .toBe('2 subject grades');
+    expect(gradeResultText({ metadata: { report_card: { subjects: [{}] } } }))
+      .toBe('1 subject grade');
+  });
   it('retains the recorded percentage precision', () => {
     expect(gradeResultText({ metadata: { grade: { grade_format: 'percentage', score: '87.50' } } }))
       .toBe('87.50%');

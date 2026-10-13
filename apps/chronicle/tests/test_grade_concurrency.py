@@ -119,3 +119,39 @@ class GradeConcurrencyTests(TransactionTestCase):
         self.assertEqual(ChronicleEntry.objects.filter(user=self.user, kind="grade").count(), 2)
         self.assertEqual(GradeDailyCounter.objects.get(user=self.user, occurred_on=timezone.localdate()).count, 2)
         self.assertEqual(SkillProgress.objects.get(user=self.user, skill=self.skill).xp_points, 10)
+
+    def test_concurrent_report_card_and_grade_share_daily_recognition(self):
+        report = {
+            "report_card": {
+                "period_type": "quarter", "period_number": 1, "school_year": 2025,
+                "subjects": [
+                    {"subject": "Math", "grade_format": "percentage", "score": "82.5"},
+                    {"subject": "Science", "grade_format": "letter", "letter": "A"},
+                ],
+            },
+            "client_entry_id": str(uuid4()),
+        }
+        first, second = self._overlapping_captures(report)
+        self.assertNotEqual(first["id"], second["id"])
+        self.assertEqual(first["receipt"]["status"], "awarded")
+        self.assertEqual(second["receipt"]["status"], "daily_limit")
+        self.assertEqual(ChronicleEntry.objects.filter(user=self.user, kind="grade").count(), 2)
+        self.assertEqual(GradeDailyCounter.objects.get(user=self.user, occurred_on=timezone.localdate()).count, 2)
+        self.assertEqual(SkillProgress.objects.get(user=self.user, skill=self.skill).xp_points, 10)
+
+    def test_concurrent_report_card_retry_preserves_one_entry(self):
+        self.payload = {
+            "report_card": {
+                "period_type": "semester", "period_number": 2, "school_year": 2025,
+                "subjects": [{"subject": "Math", "grade_format": "letter", "letter": "A"}],
+            },
+            "client_entry_id": str(uuid4()),
+        }
+        original, retry = self._overlapping_captures(dict(self.payload))
+        self.assertFalse(original["replayed"])
+        self.assertTrue(retry["replayed"])
+        self.assertEqual(original["id"], retry["id"])
+        self.assertEqual(original["receipt"], retry["receipt"])
+        self.assertEqual(ChronicleEntry.objects.filter(user=self.user, kind="grade").count(), 1)
+        self.assertEqual(GradeDailyCounter.objects.get(user=self.user, occurred_on=timezone.localdate()).count, 1)
+        self.assertEqual(SkillProgress.objects.get(user=self.user, skill=self.skill).xp_points, 10)

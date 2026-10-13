@@ -205,7 +205,7 @@ function GradeEntryForm({ mode = 'create', entry, userId, onSaved, onClose }) {
           </section>
         )}
         <TextField label="Subject or class" value={form.subject} maxLength={80} disabled={blocked} error={errors.subject} onChange={(event) => changeForm({ subject: event.target.value })} />
-        <TextField label="What was graded?" placeholder="Quiz, assignment, report card…" value={form.assessment} maxLength={80} disabled={blocked} error={errors.assessment} onChange={(event) => changeForm({ assessment: event.target.value })} />
+        <TextField label="What was graded?" placeholder="Quiz, assignment, class grade…" value={form.assessment} maxLength={80} disabled={blocked} error={errors.assessment} onChange={(event) => changeForm({ assessment: event.target.value })} />
         <SelectField label="Grade format" value={form.grade_format} disabled={blocked} error={errors.grade_format} onChange={(event) => changeForm({ grade_format: event.target.value })}>
           <option value="percentage">Percentage</option>
           <option value="points">Points</option>

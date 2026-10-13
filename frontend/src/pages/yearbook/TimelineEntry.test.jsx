@@ -29,6 +29,22 @@ function mountAsUser(entry, userFixture) {
 }
 
 describe('TimelineEntry', () => {
+  it('summarizes quarter report cards in the timeline and shows subject results in their detail', async () => {
+    const { user } = mountAsUser({
+      id: 40, kind: 'grade', user: 1, title: 'Quarter 2 report card', is_private: true,
+      occurred_on: '2026-01-10', metadata: { report_card: {
+        school_year: 2025, period_type: 'quarter', period_number: 2,
+        subjects: [
+          { subject: 'Math', grade_format: 'letter', letter: 'A' },
+          { subject: 'Science', grade_format: 'percentage', score: '90' },
+        ],
+      } },
+    }, buildUser())
+    expect(screen.getByText('2 subject grades')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Quarter 2 report card/ }))
+    expect(screen.getByRole('table', { name: 'Report card grades' })).toHaveTextContent('MathAScience90%')
+    expect(screen.queryByText('Result unavailable')).toBeNull()
+  })
   it('renders title + kind icon', () => {
     renderWithProviders(
       <TimelineEntry entry={{

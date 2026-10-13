@@ -7,6 +7,7 @@ import JournalConversation from '../../components/chronicle/JournalConversation'
 import GradeRecordDetails from '../../components/chronicle/GradeRecordDetails'
 import JournalEntryFormModal from './JournalEntryFormModal'
 import GradeEntryFormModal from '../grades/GradeEntryFormModal'
+import ReportCardFormModal from '../grades/ReportCardFormModal'
 import { useRole } from '../../hooks/useRole'
 import { formatDate } from '../../utils/format'
 
@@ -23,6 +24,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
   const [editing, setEditing] = useState(false)
   const isJournal = entry.kind === 'journal'
   const isGrade = entry.kind === 'grade'
+  const isReportCard = isGrade && Boolean(entry.metadata?.report_card)
   const isPersonalEntry = isJournal || isGrade
   const isOwner = isPersonalEntry && entry.user === user?.id
   const isSameDay = isJournal && entry.occurred_on === todayISO()
@@ -38,7 +40,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
   }
 
   if (editing) {
-    const EntryForm = isGrade ? GradeEntryFormModal : JournalEntryFormModal
+    const EntryForm = isReportCard ? ReportCardFormModal : isGrade ? GradeEntryFormModal : JournalEntryFormModal
     return (
       <EntryForm
         mode="edit"
@@ -90,7 +92,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
               className="flex items-center gap-2"
             >
               {canEdit || isGrade ? <Pencil size={14} aria-hidden="true" /> : <Users size={14} aria-hidden="true" />}
-              {isGrade ? 'Correct grade or sharing' : canEdit ? 'Edit' : 'Change sharing'}
+              {isReportCard ? 'Correct report card or sharing' : isGrade ? 'Correct grade or sharing' : canEdit ? 'Edit' : 'Change sharing'}
             </Button>
           </div>
         )}

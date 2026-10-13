@@ -21,6 +21,26 @@ vi.mock('./GradeEntryFormModal', () => ({
   },
 }));
 
+vi.mock('./ReportCardFormModal', () => ({
+  default: function ReportFormStub({ mode = 'create', entry, onSaved, onClose }) {
+    return <div role="dialog" aria-label={mode === 'edit' ? 'Correct recorded report card' : 'Record a report card'}>
+      {entry && <p>Correcting report card {entry.id}</p>}
+      <button onClick={() => onSaved(entry ?? { id: 100, kind: 'grade' })}>Finish saving report card</button>
+      <button onClick={onClose}>Cancel report card form</button>
+    </div>;
+  },
+}));
+
+function reportCardEntry(overrides = {}) {
+  return gradeEntry({
+    id: 40, title: 'Quarter 1 report card',
+    metadata: { report_card: {
+      period_type: 'quarter', period_number: 1, school_year: 2026,
+      subjects: [{ subject: 'Math', grade_format: 'letter', letter: 'A-' }],
+    } }, ...overrides,
+  });
+}
+
 function gradeEntry(overrides = {}) {
   return {
     id: 23, user: 1, kind: 'grade', title: 'Math · Fractions quiz', summary: 'I tried a new way to study.',
@@ -57,6 +77,39 @@ function OtherChildSaveHarness() {
 }
 
 describe('GradesPage', () => {
+  it('opens report card capture, reloads the multi-subject history and opens its own correction form', async () => {
+    let reads = 0;
+    server.use(http.get('*/api/chronicle/grades/', () => {
+      reads += 1;
+      return HttpResponse.json(page(reads === 1 ? [] : [reportCardEntry()]));
+    }));
+    const { user } = mount();
+    await user.click(await screen.findByRole('button', { name: 'Log a report card' }));
+    await user.click(screen.getByRole('button', { name: 'Finish saving report card' }));
+    expect(await screen.findByRole('heading', { name: 'Quarter 1 report card' })).toBeInTheDocument();
+    expect(screen.getByText('2026–2027')).toBeInTheDocument();
+    expect(screen.getByText('A-')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Correct report card or sharing' }));
+    expect(screen.getByRole('dialog', { name: 'Correct recorded report card' })).toHaveTextContent('Correcting report card 40');
+    expect(screen.queryByRole('dialog', { name: 'Correct recorded grade' })).toBeNull();
+  });
+
+  it('shows parents only the selected child’s shared report cards with family replies', async () => {
+    server.use(
+      http.get('*/api/children/', () => HttpResponse.json([{ id: 7, first_name: 'Abby' }])),
+      http.get('*/api/chronicle/grades/', () => HttpResponse.json(page([
+        reportCardEntry({ user: 7, is_private: false }),
+        reportCardEntry({ id: 41, user: 7, title: 'Private report card' }),
+        reportCardEntry({ id: 42, user: 8, is_private: false, title: 'Sibling report card' }),
+      ]))),
+    );
+    mount(buildParent());
+    expect(await screen.findByText('A-')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Family responses' })).toBeInTheDocument();
+    expect(screen.queryByText('Private report card')).toBeNull();
+    expect(screen.queryByText('Sibling report card')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Log a report card|Correct report card or sharing/ })).toBeNull();
+  });
   it('shows native grade formats and reflection while keeping private results Only you', async () => {
     server.use(http.get('*/api/chronicle/grades/', () => HttpResponse.json(page([
       gradeEntry(),
