@@ -7,6 +7,12 @@ import { formLabelClass } from '../../constants/styles';
 import Button from '../../components/Button';
 import { TextField, TextAreaField } from '../../components/form';
 
+// <input type="color"> only accepts #rrggbb; browsers reset anything else (e.g. #f00) to black.
+function toColorInputValue(color) {
+  const short = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(color || '');
+  return short ? `#${short[1]}${short[1]}${short[2]}${short[2]}${short[3]}${short[3]}` : color;
+}
+
 export default function CategoryFormModal({ item, onClose, onSaved }) {
   const isEdit = !!item;
   const colorId = useId();
@@ -48,7 +54,7 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
               id={colorId}
               type="color"
               className="w-full h-10 rounded-lg border border-ink-page-shadow bg-ink-page cursor-pointer"
-              value={form.color}
+              value={toColorInputValue(form.color)}
               onChange={onField('color')}
             />
           </div>

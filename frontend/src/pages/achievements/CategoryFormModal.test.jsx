@@ -35,7 +35,7 @@ describe('CategoryFormModal', () => {
   it('labels the color picker and shows the existing value', () => {
     render(
       <CategoryFormModal
-        item={{ id: 1, name: 'Art', icon: '🎨', color: '#ff0000', description: 'x' }}
+        item={{ id: 1, name: 'Art', icon: '🎨', color: '#f00', description: 'x' }}
         onClose={() => {}}
         onSaved={() => {}}
       />,
