@@ -34,6 +34,13 @@ export class RequestGate {
       if (!this.verified) return 'hold';
       return authorization === `Token ${this.token}` ? 'allow' : this.deny('IDENTITY');
     }
+    // Cloudflare injects this optional background JavaScript detection POST
+    // into otherwise read-only pages. Discard it without forwarding the body;
+    // credentialed, navigational and other mutation requests still fail closed.
+    if (method === 'POST' && !authorization && !navigation
+      && /^\/cdn-cgi\/challenge-platform\/h\/g\/jsd\/oneshot(?:\/|$)/.test(target.pathname)) {
+      return 'abort';
+    }
     const actor = this.credentials[this.role];
     if (method === 'POST' && target.pathname === '/api/auth/' && !authorization
       && body?.action === 'login' && body.username === actor.username && body.password === actor.password

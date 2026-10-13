@@ -71,7 +71,7 @@ export async function prepareGoogleDrivePicker(config) {
 }
 
 /** Call directly from a click after preparation. Aborting disposes the picker. */
-export function pickGoogleDriveFile(config, { pdfOnly = false, signal } = {}) {
+export function pickGoogleDriveFile(config, { pdfOnly = false, allowUpload = false, signal } = {}) {
   return new Promise((resolve, reject) => {
     let settled = false;
     let picker;
@@ -109,13 +109,16 @@ export function pickGoogleDriveFile(config, { pdfOnly = false, signal } = {}) {
             const api = window.google.picker;
             const view = new api.DocsView(api.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false);
             if (pdfOnly) view.setMimeTypes('application/pdf');
-            picker = new api.PickerBuilder()
-              .addView(view)
+            const builder = new api.PickerBuilder().addView(view);
+            // UploadView accepts all file types. Keep the PDF import chooser
+            // limited to existing PDFs instead of offering unfiltered uploads.
+            if (allowUpload && !pdfOnly) builder.addView(new api.DocsUploadView().setIncludeFolders(true));
+            picker = builder
               .setOAuthToken(accessToken)
               .setDeveloperKey(config.api_key)
               .setAppId(config.app_id)
               .setOrigin(window.location.origin)
-              .setTitle(pdfOnly ? 'Choose a school or project PDF' : 'Choose a project resource')
+              .setTitle(pdfOnly ? 'Choose a school or project PDF' : allowUpload ? 'Choose or upload a project resource' : 'Choose a project resource')
               .setCallback((data) => {
                 if (settled) return;
                 const action = data?.[api.Response.ACTION];
@@ -125,7 +128,12 @@ export function pickGoogleDriveFile(config, { pdfOnly = false, signal } = {}) {
                   return;
                 }
                 if (action !== api.Action.PICKED) return;
-                const doc = data[api.Response.DOCUMENTS]?.[0];
+                const docs = data[api.Response.DOCUMENTS];
+                if (docs?.length > 1) {
+                  finish(null, new Error('Choose one file to attach to this resource. Any uploaded files stay in Google Drive.'));
+                  return;
+                }
+                const doc = docs?.[0];
                 const fileId = doc?.[api.Document.ID];
                 if (!fileId || (pdfOnly && doc[api.Document.MIME_TYPE] !== 'application/pdf')) {
                   finish(null, new Error(pdfOnly ? 'Choose a PDF file from Google Drive.' : 'Google Drive did not return a file. Please try again.'));

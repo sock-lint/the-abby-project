@@ -12,7 +12,7 @@ import {
   validateIdentity, validateSourceManifest, writePrivateJson,
 } from './live-checks-contract.mjs';
 import { LiveProcessGroup } from './live-process-group.mjs';
-import { installRedirectFence, RequestGate } from '../e2e/live-smoke/request-gate.js';
+import { installRedirectFence, installRequestGate, RequestGate } from '../e2e/live-smoke/request-gate.js';
 
 const commit = 'a'.repeat(40);
 const sourceCommit = 'b'.repeat(40);
@@ -103,6 +103,57 @@ test('failed identity never releases private API reads', async () => {
   gate.cancel();
   assert.equal(await gate.identityReady, false);
   assert.equal(gate.verified, false);
+});
+
+test('observed Cloudflare background detection is discarded before forwarding in anonymous and verified contexts', async () => {
+  for (const role of ['parent', 'child']) {
+    const gate = new RequestGate(credentials(), role);
+    if (role === 'child') gate.accept(identity(role));
+    let handler;
+    const context = {
+      addInitScript: async () => {}, on: () => {},
+      route: async (_pattern, callback) => { handler = callback; },
+    };
+    await installRequestGate(context, gate);
+    const calls = [];
+    await handler({
+      request: () => ({
+        url: () => `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/g/jsd/oneshot/synthetic-challenge`,
+        method: () => 'POST', headers: () => ({}), isNavigationRequest: () => false,
+        postDataJSON: () => ({ synthetic: true }),
+      }),
+      abort: async (reason) => { calls.push(['abort', reason]); },
+      continue: async () => { calls.push(['continue']); },
+    });
+    assert.deepEqual(calls, [['abort', 'blockedbyclient']]);
+    gate.assertSafe();
+    assert.deepEqual([...gate.failures], []);
+  }
+});
+
+test('background detection exception is restricted to its observed method, origin, path boundary and uncredentialed non-navigation scope', () => {
+  const path = '/cdn-cgi/challenge-platform/h/g/jsd/oneshot';
+  const request = { url: `${LIVE_BASE_URL}${path}`, method: 'POST', navigation: false };
+  const quiet = new RequestGate(credentials(), 'parent');
+  assert.equal(quiet.inspect(request), 'abort');
+  quiet.assertSafe();
+  for (const change of [
+    { url: `${LIVE_BASE_URL}${path}-unrelated` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/g/jsd/r/synthetic` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/rum` },
+    { url: `${LIVE_BASE_URL}/api/projects/` },
+    { url: `${LIVE_BASE_URL}/api/auth/`, body: { action: 'logout' } },
+    { method: 'DELETE' }, { authorization: `Token ${identity().token}` }, { navigation: true },
+  ]) {
+    const gate = new RequestGate(credentials(), 'parent');
+    assert.equal(gate.inspect({ ...request, ...change }), 'abort');
+    assert.throws(() => gate.assertSafe(), { message: 'UNEXPECTED_MUTATION' });
+  }
+  for (const url of ['https://other.example' + path, 'https://private@abby.bos.lol' + path]) {
+    const gate = new RequestGate(credentials(), 'parent');
+    assert.equal(gate.inspect({ ...request, url, authorization: 'Token synthetic' }), 'abort');
+    assert.throws(() => gate.assertSafe(), { message: 'EXTERNAL_AUTH' });
+  }
 });
 
 test('partial private API failures become fixed codes without retaining error payloads', () => {
