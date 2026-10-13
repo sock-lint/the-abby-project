@@ -62,9 +62,15 @@ export default function AddResourceModal({ projectId, steps, onClose, onSaved })
     <BottomSheet title="Add Resource" onClose={onClose} disabled={saving || picking} focusSuspended={picking}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <ErrorAlert message={error} />
-        <GoogleDrivePickerButton onPick={handleDrivePick} onOpenChange={setPicking} disabled={saving} />
         <p className="text-caption text-ink-whisper">
-          Choose a Drive file or paste a link. Anyone opening a Drive resource needs access in Google Drive.
+          Choose an existing file or upload a PDF, photo, or other file to your Google Drive.
+          Uploaded files stay in Drive even if you cancel this form.
+        </p>
+        <GoogleDrivePickerButton allowUpload onPick={handleDrivePick} onOpenChange={setPicking} disabled={saving}>
+          Choose or upload with Google Drive
+        </GoogleDrivePickerButton>
+        <p className="text-caption text-ink-whisper">
+          You can also paste a link. Anyone opening a Drive resource needs access in Google Drive.
         </p>
         <TextField
           label="URL"

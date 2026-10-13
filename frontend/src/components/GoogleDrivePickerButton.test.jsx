@@ -45,7 +45,7 @@ describe('GoogleDrivePickerButton', () => {
     await waitFor(() => expect(resolved.calls).toHaveLength(1));
     expect(resolved.calls[0].body).toEqual(SELECTION);
     expect(resolved.calls[0].url).toMatch(/\/api\/auth\/google\/drive\/file\/$/);
-    expect(pickGoogleDriveFile).toHaveBeenCalledWith(CONFIG, { pdfOnly: true, signal: expect.any(AbortSignal) });
+    expect(pickGoogleDriveFile).toHaveBeenCalledWith(CONFIG, { pdfOnly: true, allowUpload: false, signal: expect.any(AbortSignal) });
     expect(onOpenChange.mock.calls).toEqual([[true], [false]]);
     expect(container.textContent).not.toContain(SELECTION.access_token);
     expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('synthetic-abby-token');
@@ -66,6 +66,16 @@ describe('GoogleDrivePickerButton', () => {
     await act(async () => saving.resolve());
     expect(screen.getByRole('button', { name: 'Attach Drive file' })).toBeEnabled();
     expect(onOpenChange.mock.calls).toEqual([[true], [false]]);
+  });
+
+  it('passes an explicit resource-upload option to the picker', async () => {
+    const user = userEvent.setup();
+    const onPick = vi.fn();
+    render(<GoogleDrivePickerButton onPick={onPick} allowUpload>Choose or upload with Google Drive</GoogleDrivePickerButton>);
+    const trigger = await screen.findByRole('button', { name: 'Choose or upload with Google Drive' });
+    await user.click(trigger);
+    expect(pickGoogleDriveFile).toHaveBeenCalledWith(CONFIG, { pdfOnly: false, allowUpload: true, signal: expect.any(AbortSignal) });
+    expect(onPick).toHaveBeenCalledWith(SELECTION);
   });
 
   it('handles cancellation without running onPick or showing an error', async () => {
