@@ -40,6 +40,8 @@ jobs:
       - run: npm ci
       - run: npm run test:native-config
       - run: npm run test:licensed-art
+      - run: npm run test:asset-config
+      - run: python3 -m unittest discover -s ../scripts/r3f -p test_woodland_texture_variant.py
       - run: npm run test:live-config
       - run: npm run lint
       - run: npm run test:coverage -- --maxWorkers=4

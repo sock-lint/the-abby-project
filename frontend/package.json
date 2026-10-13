@@ -20,7 +20,9 @@
     "test:live-config": "node --test scripts/live-checks-contract.check.mjs",
     "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs",
     "test:native-config": "node --test scripts/native-build-config.check.mjs",
-    "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg"
+    "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
+    "test:asset-config": "node --test scripts/asset-checks-contract.check.mjs",
+    "test:assets": "node scripts/run-asset-checks.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
