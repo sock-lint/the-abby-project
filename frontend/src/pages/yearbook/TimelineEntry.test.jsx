@@ -115,7 +115,7 @@ describe('TimelineEntry', () => {
     )
     // Wait for AuthProvider to settle /auth/me/ before asserting absence.
     await waitFor(() => expect(screen.getByText('My journal')).toBeInTheDocument())
-    expect(screen.getByText('Only you')).toBeInTheDocument()
+    expect(screen.getByText('Only me')).toBeInTheDocument()
   })
 
   it('identifies a shared journal for family readers', async () => {
@@ -123,7 +123,7 @@ describe('TimelineEntry', () => {
       { id: 6, kind: 'journal', is_private: false, title: 'Our afternoon', occurred_on: '2026-04-21', user: 1 },
       buildParent(),
     )
-    expect(await screen.findByText('Shared with family')).toBeInTheDocument()
+    expect(await screen.findByText('Shared with parents')).toBeInTheDocument()
   })
 
   it('shows the grade icon and updates a corrected native result immediately in the timeline', async () => {

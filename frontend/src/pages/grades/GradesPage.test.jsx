@@ -110,7 +110,7 @@ describe('GradesPage', () => {
     expect(screen.queryByText('Sibling report card')).toBeNull();
     expect(screen.queryByRole('button', { name: /Log a report card|Correct report card or sharing/ })).toBeNull();
   });
-  it('shows native grade formats and reflection while keeping private results Only you', async () => {
+  it('shows native grade formats and reflection while keeping private results Only me', async () => {
     server.use(http.get('*/api/chronicle/grades/', () => HttpResponse.json(page([
       gradeEntry(),
       gradeEntry({ id: 24, metadata: { grade: { subject: 'Science', assessment: 'Lab', grade_format: 'percentage', score: '87.5' } } }),
@@ -122,8 +122,8 @@ describe('GradesPage', () => {
     expect(await screen.findByText('8 / 10 points')).toBeInTheDocument();
     expect(screen.getByText('87.5%')).toBeInTheDocument();
     expect(screen.getByText('B+')).toBeInTheDocument();
-    expect(screen.getAllByText('Only you')).toHaveLength(2);
-    expect(screen.getByText('Shared with family')).toBeInTheDocument();
+    expect(screen.getAllByText('Only me')).toHaveLength(2);
+    expect(screen.getByText('Shared with parents')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Correct grade or sharing' })).toHaveLength(3);
     expect(screen.getAllByRole('button', { name: 'Family responses' })).toHaveLength(1);
     expect(screen.queryByText('Someone else’s result')).toBeNull();
@@ -216,7 +216,7 @@ describe('GradesPage', () => {
     const { user } = mount(buildParent());
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await screen.findByRole('textbox', { name: 'Your family response' });
-    await user.selectOptions(screen.getByLabelText('Grades for'), '8');
+    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
     expect(screen.queryByText('Abby reflection')).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Your family response' })).toBeNull();
     finishSecond();
@@ -280,10 +280,10 @@ describe('GradesPage', () => {
     );
     const { user } = mount(buildParent(), <OutsideSaveHarness />);
     await screen.findByText('7 reflection');
-    await user.selectOptions(screen.getByLabelText('Grades for'), '8');
+    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
     await screen.findByText('8 reflection');
     await user.click(screen.getByRole('button', { name: 'Acknowledge grade saved elsewhere' }));
-    expect(screen.getByLabelText('Grades for')).toHaveValue('8');
+    expect(screen.getByLabelText('Viewing')).toHaveValue('8');
     expect(screen.getByText('8 reflection')).toBeInTheDocument();
     expect(targets).toEqual([7, 8]);
   });
@@ -301,11 +301,11 @@ describe('GradesPage', () => {
     );
     const { user } = mount(buildParent(), <OtherChildSaveHarness />);
     await screen.findByText('7 reflection');
-    await user.selectOptions(screen.getByLabelText('Grades for'), '8');
+    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await user.type(await screen.findByLabelText('Your family response'), 'Keep this encouragement.');
     await user.click(screen.getByRole('button', { name: "Another child's grade saved" }));
-    expect(screen.getByLabelText('Grades for')).toHaveValue('8');
+    expect(screen.getByLabelText('Viewing')).toHaveValue('8');
     expect(screen.getByText('8 reflection')).toBeInTheDocument();
     expect(screen.getByLabelText('Your family response')).toHaveValue('Keep this encouragement.');
     expect(targets).toEqual([7, 8]);

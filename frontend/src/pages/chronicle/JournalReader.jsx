@@ -6,12 +6,13 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RuneBadge from '../../components/journal/RuneBadge';
 import JournalConversation from '../../components/chronicle/JournalConversation';
-import { SelectField } from '../../components/form';
+import ChildContext from '../../components/family/ChildContext';
+import useChildContext from '../../hooks/useChildContext';
+import { getToken } from '../../api/client';
 import TomeShelf from '../../components/atlas/TomeShelf';
 import { chapterMark, PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import { useRole } from '../../hooks/useRole';
-import { getChildren, getChronicleSummary, getTodayJournal } from '../../api';
-import { normalizeList } from '../../utils/api';
+import { getChronicleSummary, getTodayJournal } from '../../api';
 import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
 
 const ACTIVE_CHAPTER_KEY_PREFIX = 'atlas:journal:active-chapter:';
@@ -28,15 +29,13 @@ const ACTIVE_CHAPTER_KEY_PREFIX = 'atlas:journal:active-chapter:';
  * lock, dictation) stay in lockstep across both entry points.
  */
 export default function JournalReader() {
-  const { user, isParent } = useRole();
+  const { user } = useRole();
+  if (!user?.id) return <Loader />;
+  return <AccountJournalReader key={`${user.id}:${user.role}:${user.family?.id ?? ''}:${getToken()}`} />;
+}
 
-  // children === null means "not fetched yet" — distinct from [] which
-  // means "fetched, parent has no kids." Without this distinction the
-  // no-children empty state would flash on parent mount before getChildren
-  // resolves.
-  const [children, setChildren] = useState(null);
-  const [selectedChildId, setSelectedChildId] = useState(null);
-  const targetUserId = isParent ? selectedChildId : user?.id;
+function AccountJournalReader() {
+  const { user, isParent, children, selectedChild, targetUserId, selectChild, error: childError, reload: reloadChildren } = useChildContext();
 
   const [todayJournal, setTodayJournal] = useState(null);
 
@@ -57,27 +56,6 @@ export default function JournalReader() {
   // active id is derived during render so the shelf self-heals when the
   // chapter list shifts beneath us.
   const [activeChapterOverride, setActiveChapterOverride] = useState({});
-
-  // Parent path: load child list, default-select the first.
-  useEffect(() => {
-    if (!isParent) return undefined;
-    let cancelled = false;
-    getChildren()
-      .then((res) => {
-        if (cancelled) return;
-        const list = normalizeList(res);
-        setChildren(list);
-        if (list.length > 0) {
-          setSelectedChildId((prev) => prev ?? list[0].id);
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isParent]);
 
   // Child path: pre-fetch today's entry to label the write button.
   useEffect(() => {
@@ -124,13 +102,13 @@ export default function JournalReader() {
         label: c.label || `Year ${c.chapter_year}`,
         is_current: !!c.is_current,
         entries: (c.entries ?? [])
-          .filter((e) => e.kind === 'journal' && (!isParent || e.is_private === false))
+          .filter((e) => e.kind === 'journal' && e.user === targetUserId && (!isParent || e.is_private === false))
           .sort((a, b) => (b.occurred_on || '').localeCompare(a.occurred_on || '')),
       }))
       .filter((c) => c.entries.length > 0)
       .sort((a, b) => a.chapter_year - b.chapter_year);
     return buckets;
-  }, [chapters, isParent]);
+  }, [chapters, isParent, targetUserId]);
 
   const activeChapterId = useMemo(() => {
     if (!journalChapters || !journalChapters.length || !targetUserId) return null;
@@ -216,23 +194,8 @@ export default function JournalReader() {
         Keep your daily thoughts and memories in one place.
       </p>
 
-      {isParent && (children?.length ?? 0) > 0 && (
-        <div className="flex items-end justify-between gap-3">
-          <SelectField
-            id="journal-child-picker"
-            label="Reading"
-            value={selectedChildId ?? ''}
-            onChange={(e) => setSelectedChildId(parseInt(e.target.value, 10))}
-            className="flex-1 max-w-xs"
-          >
-            {children.map((child) => (
-              <option key={child.id} value={child.id}>
-                {child.first_name || child.username}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-      )}
+      {isParent && <ChildContext children={children} selectedChildId={selectedChild?.id} onSelect={selectChild} />}
+      {childError && <ErrorAlert message={childError} onRetry={reloadChildren} />}
 
       {!isParent && (
         <div className="flex justify-center">
@@ -247,7 +210,7 @@ export default function JournalReader() {
         </div>
       )}
 
-      <JournalBody
+      {!childError && <JournalBody
         error={error}
         chapters={journalChapters}
         activeChapter={activeChapter}
@@ -257,7 +220,7 @@ export default function JournalReader() {
         isParent={isParent}
         kids={children}
         targetUserId={targetUserId}
-      />
+      />}
 
       {modalOpen && (
         <JournalEntryFormModal
@@ -300,7 +263,7 @@ function JournalBody({
         {/* Kid-agnostic surface — the parent may have picked any child, so
             the copy stays pronoun-neutral rather than assuming a daughter. */}
         <p>{isParent
-          ? "When they share a journal entry with the family, it'll appear here."
+          ? "When they share a journal entry with parents in your family, it'll appear here."
           : "Write your first entry above. One per day, in your own words."}</p>
       </EmptyState>
     );
@@ -350,7 +313,7 @@ function JournalEntryCard({ entry }) {
             </h3>
           </div>
           <RuneBadge tone="ink" size="sm" icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}>
-            {isPrivate ? 'Only you' : 'Shared with family'}
+            {isPrivate ? 'Only me' : 'Shared with parents'}
           </RuneBadge>
         </header>
         {entry.summary && (
