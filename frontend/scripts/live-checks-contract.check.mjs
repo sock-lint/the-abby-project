@@ -105,6 +105,26 @@ test('failed identity never releases private API reads', async () => {
   assert.equal(gate.verified, false);
 });
 
+test('chronicle target-user reads are fenced to the verified dedicated actor before forwarding', () => {
+  for (const role of ['parent', 'child']) {
+    const allowed = role === 'parent' ? [21, 22] : [22];
+    for (const id of allowed) {
+      const gate = new RequestGate(credentials(), role);
+      gate.accept(identity(role));
+      assert.equal(gate.inspect({ url: `${LIVE_BASE_URL}/api/chronicle/entries/?user_id=${id}`,
+        method: 'GET', authorization: `Token ${identity(role).token}` }), 'allow');
+      gate.assertSafe();
+    }
+    for (const id of ['0', '999', 'undefined', '22&user_id=999', role === 'child' ? '21' : '23']) {
+      const gate = new RequestGate(credentials(), role);
+      gate.accept(identity(role));
+      assert.equal(gate.inspect({ url: `${LIVE_BASE_URL}/api/chronicle/entries/?user_id=${id}`,
+        method: 'GET', authorization: `Token ${identity(role).token}` }), 'abort');
+      assert.throws(() => gate.assertSafe(), { message: 'ISOLATION' });
+    }
+  }
+});
+
 test('observed Cloudflare background detection is discarded before forwarding in anonymous and verified contexts', async () => {
   for (const role of ['parent', 'child']) {
     const gate = new RequestGate(credentials(), role);

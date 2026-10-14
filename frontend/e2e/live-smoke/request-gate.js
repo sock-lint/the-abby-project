@@ -32,7 +32,15 @@ export class RequestGate {
     if (['GET', 'HEAD'].includes(method)) {
       if (!authorization) return 'allow';
       if (!this.verified) return 'hold';
-      return authorization === `Token ${this.token}` ? 'allow' : this.deny('IDENTITY');
+      if (authorization !== `Token ${this.token}`) return this.deny('IDENTITY');
+      if (target.pathname.startsWith('/api/chronicle/')) {
+        const users = target.searchParams.getAll('user_id');
+        const allowed = this.role === 'parent'
+          ? [String(this.credentials.parent.id), String(this.credentials.child.id)]
+          : [String(this.credentials.child.id)];
+        if (users.length > 1 || users.some(id => !allowed.includes(id))) return this.deny('ISOLATION');
+      }
+      return 'allow';
     }
     // Cloudflare injects this optional background JavaScript detection POST
     // into otherwise read-only pages. Discard it without forwarding the body;
