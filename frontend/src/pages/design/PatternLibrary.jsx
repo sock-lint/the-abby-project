@@ -19,6 +19,7 @@ import TabList from '../../components/layout/TabList';
 import ProgressBar from '../../components/ProgressBar';
 import NotificationToast from '../../components/NotificationToast';
 import ChildContext from '../../components/family/ChildContext';
+import AttachmentField from '../../components/attachments/AttachmentField';
 import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField } from '../../components/form';
 import { DesignPreviewContext } from './preview.context';
 
@@ -166,6 +167,17 @@ function NotificationExamples() {
   </Specimen>;
 }
 
+function AttachmentExample() {
+  const [file, setFile] = useState(null);
+  const [error, setError] = useState('');
+  return <Specimen id="design-attachments" title="Attachments" imports={'import AttachmentField from "../components/attachments/AttachmentField";'} guidance="File selection, replacement and removal stay local until explicit submission. Keep selected files and entered text after a failed upload. The owning form supplies actual accepted formats and validation; do not invent size limits or progress percentages." consumers={['pages/Portfolio.jsx', 'pages/forge/PrintRequestModal.jsx']}>
+    <ParchmentCard className="space-y-3">
+      <AttachmentField label="Example photo" file={file} onChange={next => { setFile(next); setError(''); }} accept="image/*" previewImage helpText="Local image preview only. This example never uploads the file." error={error} />
+      {file && <Button variant="secondary" onClick={() => setError('Example upload could not finish. Your selected file is still available for an explicit retry.')}>Preview upload failure</Button>}
+    </ParchmentCard>
+  </Specimen>;
+}
+
 export default function PatternLibrary() {
-  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /></div>;
+  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /><AttachmentExample /></div>;
 }

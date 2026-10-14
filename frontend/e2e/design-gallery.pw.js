@@ -173,3 +173,24 @@ test('design library preserves a dirty form and returns focus after saving', asy
   await expect(page.getByText('Example saved: Build a kite', { exact: true })).toBeVisible();
   await expect(opener).toBeFocused();
 });
+
+test('design library retains an attachment after failure and removes it locally', async ({ page }) => {
+  const writes = [];
+  page.on('request', request => {
+    if (['POST', 'PATCH', 'DELETE'].includes(request.method())) writes.push(request.url());
+  });
+  await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
+  const attachments = page.getByRole('region', { name: 'Attachments', exact: true });
+  await attachments.getByLabel('Example photo', { exact: true }).setInputFiles({
+    name: 'synthetic-photo.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eioAAAAASUVORK5CYII=', 'base64'),
+  });
+  await expect(attachments.getByText('synthetic-photo.png', { exact: true })).toBeVisible();
+  await attachments.getByRole('button', { name: 'Preview upload failure', exact: true }).click();
+  await expect(attachments.getByRole('alert')).toContainText('selected file is still available');
+  await expect(attachments.getByText('synthetic-photo.png', { exact: true })).toBeVisible();
+  await attachments.getByRole('button', { name: 'Remove example photo', exact: true }).click();
+  await expect(attachments.getByText('No file selected', { exact: true })).toBeVisible();
+  await expect(attachments.getByRole('alert')).toHaveCount(0);
+  expect(writes).toEqual([]);
+});

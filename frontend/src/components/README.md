@@ -38,6 +38,9 @@ Use the library's page recipes and interactive states when composing a screen:
 - Parent child selectors use `ChildContext` with a roster verified by
   `useChildContext`; a URL or remembered ID is never authorization. Audience
   copy names the actual readers: “Only me” and “Shared with parents.”
+- `AttachmentField` gives selected files a readable name/size, linked help and
+  errors, replace/remove controls and optional image preview. Its owning form
+  retains processing, validation and the explicit upload/retry contract.
 
 Every specimen includes imports, usage guidance and real consumer links. Keep
 its visible language aligned with the current names in `frontend/CLAUDE.md`;
