@@ -24,6 +24,11 @@ optional automatic daily bonus. Deletion voids the source contribution for unpai
 goals; it never resets the movement reward counter or rearms a paid occurrence.
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md).
 
+Deleting an activity type returns HTTP 409 when sessions or saved challenge goals
+reference it, preserving those records and goal promises. The existing `error`
+response names the blocking kind; shared types never expose a family's private
+goal names, children or goal counts in that message.
+
 ## Constants
 - `DAILY_REWARD_LIMIT = 3` — sessions per family-local day that earn movement XP and a drop roll; automatic goal progress has no three-session cap.
 - `INTENSITY_MULTIPLIER` — low 0.5×, medium 1.0×, high 1.5×.

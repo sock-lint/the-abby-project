@@ -262,7 +262,7 @@ def _process(activity):
     receipts = []
     if activity.voided:
         return receipts
-    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition"):
+    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition").order_by("pk"):
         if (goal.is_catalog and activity.trigger_type in {"homework_created", "creation_logged"}
                 and activity.context.get("catalog_eligible") is not True):
             continue

@@ -229,6 +229,19 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.client.get("/api/challenges/").json(), body)
         self.assertEqual(self.state(), paid)
 
+    def test_parent_and_catalog_goal_deltas_have_stable_ascending_identities(self):
+        self.assertEqual(self.create_goal().status_code, 201)
+        self.authenticate(self.child)
+        self.client.get("/api/challenges/")
+        first = self.log_run("0.75").json()["challenge_receipts"][0]
+        self.assertEqual([row["id"] for row in first["goals"]], ["goal:1", "goal:2"])
+        second = self.log_run("1.25").json()["challenge_receipts"][0]
+        self.assertEqual([row["id"] for row in second["goals"]], ["goal:1", "goal:2"])
+        self.assertTrue(all(row["completed"] for row in second["goals"]))
+        paid = self.state()
+        self.assertEqual(self.log_run("1.25").json()["challenge_receipts"][0], second)
+        self.assertEqual(self.state(), paid)
+
     def test_ended_windows_with_equal_deadlines_have_stable_newest_first_history(self):
         self.add_second_movement_catalog_goal()
         self.authenticate(self.child)

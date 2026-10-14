@@ -389,6 +389,8 @@ do not change the public response bodies.
 `recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`.
 Both receipt arrays use newest-first order, with descending saved row ID
 breaking equal timestamps; ended history uses the same rule for equal deadlines.
+Activity goal deltas follow the underlying goal records in ascending saved
+identity order; their public IDs continue to identify occurrences.
 Parents may select a same-family child with `user_id`; children cannot use that query to
 read another account. Goal IDs identify occurrences (`goal:1`), not catalog
 definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are

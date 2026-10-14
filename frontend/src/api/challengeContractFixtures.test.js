@@ -121,6 +121,7 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(saved.distance_unit).toBe('mi');
     expect(saved.challenge_receipts).toHaveLength(1);
     expect(saved.challenge_receipts[0].goals).toHaveLength(2);
+    expect(saved.challenge_receipts[0].goals.map((receipt) => receipt.id)).toEqual(['goal:1', 'goal:2']);
     expect(saved.challenge_receipts[0].goals.map((receipt) => receipt.id).sort())
       .toEqual(completedGoals.results.map((goal) => goal.id).sort());
     expect(submitted).toEqual([payload]);

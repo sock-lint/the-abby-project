@@ -12,6 +12,8 @@ Pinned invariants:
 7. The creator is always ``request.user`` — even when a parent submits.
 8. Seeded types (``created_by=None``) can only be deleted by parents.
 9. A type with any referencing session returns 409 on DELETE.
+10. Saved challenge goals also protect the type; conflict text describes
+    goals without disclosing private family details.
 """
 from __future__ import annotations
 
@@ -34,6 +36,7 @@ from apps.movement.services import (
     MovementTypeService,
 )
 from apps.projects.models import User
+from config.tests.factories import make_family
 
 
 class _TypeFixture(TestCase):
@@ -73,6 +76,73 @@ class _TypeFixture(TestCase):
             HTTP_AUTHORIZATION=f"Token {Token.objects.create(user=user).key}",
         )
         return client
+
+
+class GoalProtectedTypeDeleteTests(_TypeFixture):
+    def create_parent_type_and_goal(self):
+        family = make_family("Movement goal protection", parents=[{"username": "typegoalparent"}],
+                             children=[{"username": "typegoalchild"}])
+        parent, child = family.parents[0], family.children[0]
+        client = self._auth(parent)
+        response = client.post("/api/movement-types/", {
+            "name": "Goal Running", "primary_skill_id": self.running.pk,
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        movement_type = MovementType.objects.get(pk=response.data["id"])
+        response = client.post("/api/challenges/goals/", {
+            "user_id": child.pk, "name": "Private Running Goal", "trigger_type": "movement_session",
+            "movement_type_id": movement_type.pk, "metric": "distance", "target": "2", "unit": "mi",
+            "period": "this_week", "repeat_weekly": False, "coin_reward": 0, "xp_reward": 0,
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        return client, movement_type, child
+
+    def test_parent_goal_without_sessions_returns_clear_protected_type_conflict(self):
+        from apps.quests.models import ChallengeGoal, ChallengeOccurrence
+        client, movement_type, child = self.create_parent_type_and_goal()
+        self.assertFalse(MovementSession.objects.filter(movement_type=movement_type).exists())
+        response = client.delete(f"/api/movement-types/{movement_type.pk}/")
+        self.assertEqual(response.status_code, 409)
+        self.assertIn("goal", response.data["error"])
+        self.assertNotIn("0 session", response.data["error"])
+        self.assertNotIn("Private Running Goal", response.data["error"])
+        self.assertTrue(MovementType.objects.filter(pk=movement_type.pk).exists())
+        goal = ChallengeGoal.objects.get(user=child, movement_type=movement_type)
+        occurrence = ChallengeOccurrence.objects.get(goal=goal)
+        self.assertEqual((occurrence.progress, occurrence.status, occurrence.awarded_at), (0, "active", None))
+
+    def test_goal_and_session_conflict_describes_both_existing_blockers(self):
+        client, movement_type, child = self.create_parent_type_and_goal()
+        MovementSession.objects.create(user=child, movement_type=movement_type, duration_minutes=5,
+                                       intensity="medium", occurred_on=timezone.localdate())
+        response = client.delete(f"/api/movement-types/{movement_type.pk}/")
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data, {"error": "Already used in 1 session(s) and a saved challenge goal."})
+
+    def test_other_family_child_permission_denial_does_not_reveal_goal(self):
+        _, movement_type, child = self.create_parent_type_and_goal()
+        self.assertNotEqual(self.other_child.family_id, child.family_id)
+        response = self._auth(self.other_child).delete(f"/api/movement-types/{movement_type.pk}/")
+        self.assertEqual(response.status_code, 403)
+        self.assertNotIn("goal", str(response.data))
+        self.assertTrue(MovementType.objects.filter(pk=movement_type.pk).exists())
+
+    def test_shared_type_conflict_does_not_disclose_another_familys_goal(self):
+        client, movement_type, _ = self.create_parent_type_and_goal()
+        family = make_family("Other protected goals", parents=[{"username": "othertypegoalparent"}],
+                             children=[{"username": "othertypegoalchild"}])
+        private_name = "OTHER FAMILY PRIVATE TARGET"
+        response = self._auth(family.parents[0]).post("/api/challenges/goals/", {
+            "user_id": family.children[0].pk, "name": private_name, "trigger_type": "movement_session",
+            "movement_type_id": movement_type.pk, "metric": "distance", "target": "2", "unit": "mi",
+            "period": "this_week", "coin_reward": 0, "xp_reward": 0,
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        response = client.delete(f"/api/movement-types/{movement_type.pk}/")
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response.data, {"error": "Already used in a saved challenge goal."})
+        self.assertNotIn(private_name, str(response.data))
+        self.assertNotIn(family.children[0].username, str(response.data))
 
 
 class CreateTypeServiceTests(_TypeFixture):
@@ -355,6 +425,7 @@ class DeleteTypeRouteTests(_TypeFixture):
         client = self._auth(self.child)
         resp = client.delete(f"/api/movement-types/{mt.id}/")
         self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.data, {"error": "Already used in 1 session(s)."})
         self.assertTrue(MovementType.objects.filter(pk=mt.pk).exists())
 
 
