@@ -36,7 +36,7 @@ const TYPE_COMPARTMENTS = [
   { id: 'cosmetic_frame', label: 'Profile frames', kicker: 'Frames for your profile', glyph: 'compass-rose', icon: '🖼' },
   { id: 'cosmetic_title', label: 'Titles', kicker: 'Titles for your profile', glyph: 'sheikah-eye', icon: '✒' },
   { id: 'cosmetic_theme', label: 'Color themes', kicker: 'Colors for your app', glyph: 'flourish-corner', icon: '📔' },
-  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'Start a challenge', glyph: 'sheikah-eye', icon: '📜' },
+  { id: 'quest_scroll', label: 'Quest Scrolls', kicker: 'Saved scrolls · challenges progress automatically', glyph: 'sheikah-eye', icon: '📜' },
   { id: 'coin_pouch', label: 'Coin Pouches', kicker: 'Open to collect coins', glyph: 'wax-seal', icon: '💰' },
   { id: 'consumable', label: 'Single-use Items', kicker: 'Use an item for its effect', glyph: 'wax-seal', icon: '✨' },
   { id: 'saved', label: 'Saved collection', kicker: 'Items from your earlier collection', glyph: 'dragon-crest', icon: '🎒' },

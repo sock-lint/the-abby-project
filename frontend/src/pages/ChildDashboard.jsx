@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import PageShell from '../components/layout/PageShell';
 import * as Sentry from '@sentry/react';
 import {
-  completeChore, getActiveQuest, getCoinSummaryByDay, getRecentDrops,
+  completeChore, getCoinSummaryByDay, getRecentDrops,
   getStable, logHabitTap,
 } from '../api';
 import { hapticTap } from '../utils/haptics';
@@ -36,6 +36,8 @@ import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 import RpgSprite from '../components/rpg/RpgSprite';
 import WellbeingCard from './dashboard/WellbeingCard';
+import useChallenges from '../hooks/useChallenges';
+import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -66,7 +68,7 @@ function buildQuestLogFromActions(next_actions = []) {
 export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
   const { data: stableData } = useApi(getStable);
-  const { data: activeQuest } = useApi(getActiveQuest);
+  const { data: challenges, pinnedGoal, loading: challengesLoading, error: challengesError, reload: reloadChallenges } = useChallenges({ refreshKey: data });
   const { data: coinSummary } = useApi(getCoinSummaryByDay);
   const navigate = useNavigate();
   const [logExpanded, setLogExpanded] = useState(false);
@@ -212,7 +214,6 @@ export default function ChildDashboard({ data, reload }) {
           activeTimer: active_timer,
           rpg,
           nextAction: next_actions[0] || null,
-          activeQuest,
           weekday, dateStr,
           onCompleteChore: handleCompleteChore,
           onTapHabit: handleTapHabit,
@@ -220,7 +221,10 @@ export default function ChildDashboard({ data, reload }) {
         }}
       />
 
-      <DailyChallengeCard refreshKey={data} />
+      <ErrorAlert message={challengesError} />
+      {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
+      {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
+      <DailyChallengeCard challenge={challenges?.daily_bonus ?? null} />
 
       {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
         <ParchmentCard tone="bright">

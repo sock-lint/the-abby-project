@@ -6,7 +6,7 @@ import BottomSheet from '../BottomSheet';
 import {
   clockIn, clockOut, getProjects,
   getHomeworkDashboard,
-  getSavingsGoals, getInventory,
+  getSavingsGoals,
   getTodayJournal,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
@@ -210,7 +210,6 @@ export default function QuickActionsSheet({
   // Contextual enable/disable flags.
   const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
   const { data: goalsData } = useApi(isParent ? () => Promise.resolve([]) : getSavingsGoals);
-  const { data: inventoryData } = useApi(isParent ? () => Promise.resolve([]) : getInventory);
 
   // Projects load at the sheet level (shared with ClockPane) so the menu can
   // upgrade "Clock in" to a one-tap row for the remembered venture — clock-in
@@ -245,9 +244,6 @@ export default function QuickActionsSheet({
     ? normalizeList(hwDashboard.overdue)[0] || normalizeList(hwDashboard.today)[0]
     : null;
   const hasGoals = !isParent && normalizeList(goalsData).some((g) => !g.is_completed);
-  const hasScroll = !isParent && normalizeList(inventoryData).some(
-    (row) => row.item?.item_type === 'quest_scroll' && (row.quantity ?? 0) > 0,
-  );
 
   return (
     <>
@@ -395,15 +391,13 @@ export default function QuickActionsSheet({
                   }}
                 />
               )}
-              {hasScroll && (
-                <ActionRow
+              <ActionRow
                   icon={<Sparkles size={18} />}
-                  label="Start a challenge"
-                  hint="Spend a scroll"
+                  label="View challenges"
+                  hint="Matching goals progress automatically"
                   tone="moss"
                   onClick={() => { onClose(); navigate('/trials'); }}
                 />
-              )}
               <ActionRow
                 icon={<Box size={18} />}
                 label="Ask for a print"

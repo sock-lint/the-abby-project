@@ -1,17 +1,26 @@
 import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sword, X } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import { useQuestProgressToasts } from '../hooks/useQuestProgressToasts';
 import IconButton from './IconButton';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import { swipeToDismiss } from './toastSwipe';
+import { goalProgress } from '../pages/trials/goalDisplay';
+
+const MAX_VISIBLE_GOALS = 3;
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION_STANDARD);
     return () => clearTimeout(timer);
   }, [toast.id, onDismiss]);
+  const goals = toast.goals || [];
+  const visibleGoals = [...goals]
+    .sort((first, second) => Number(Boolean(second.completed)) - Number(Boolean(first.completed)))
+    .slice(0, MAX_VISIBLE_GOALS);
+  const remaining = goals.length - visibleGoals.length;
 
   return (
     <motion.div
@@ -25,11 +34,23 @@ function Toast({ toast, onDismiss }) {
       <Sword size={18} className="text-white shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <div className="text-caption font-semibold text-white">
-          +{toast.delta} toward {toast.name}
+          Challenge progress
         </div>
-        <div className="text-micro text-white/85">
-          {toast.percent}% complete
-        </div>
+        {visibleGoals.length > 0 && <ul aria-label="Updated challenges" className="text-caption text-white/95 mt-1 space-y-1">
+          {visibleGoals.map((goal) => <li key={goal.id}>
+            <span className="block truncate" title={goal.name}>{goal.name}</span>
+            <span>{goal.completed ? 'Completed' : goalProgress(goal)}
+              {goal.completed && goal.rewards && <> · +{goal.rewards.coins} coins · +{goal.rewards.xp} XP</>}
+            </span>
+          </li>)}
+        </ul>}
+        {toast.daily_bonus?.awarded && <div className="text-caption text-white/95 mt-1">Today&apos;s bonus · +{toast.daily_bonus.coins_awarded} coins · +{toast.daily_bonus.xp_awarded} XP</div>}
+        {remaining > 0 && <div className="text-caption text-white mt-1">
+          <div>+{remaining} more {remaining === 1 ? 'challenge' : 'challenges'}</div>
+          <Link to="/quests?tab=trials" onClick={() => onDismiss(toast.id)} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
+            View challenges
+          </Link>
+        </div>}
       </div>
       <IconButton
         onClick={() => onDismiss(toast.id)}
@@ -45,25 +66,27 @@ function Toast({ toast, onDismiss }) {
 }
 
 /**
- * QuestProgressToastStack — child-only floater that surfaces active-quest
- * progress increments. Polls /api/quests/active/ via the hook and emits
- * a 4s toast whenever current_progress climbs.
- *
- * Sibling of DropToastStack / SavingsToastStack / ApprovalToastStack;
- * stacked beneath them so the more emotional events (drops, approvals)
- * don't get hidden under a quest-progress floater.
+ * Child-only summaries of saved activity receipts. The bounded, keyboard-
+ * scrollable tray keeps large batches usable without covering the page.
  */
 export default function QuestProgressToastStack({ inline = false }) {
   const { toasts, dismiss } = useQuestProgressToasts();
 
   const items = (
-    <AnimatePresence>
-      {toasts.map((t) => (
-        <div key={t.id} className="pointer-events-auto">
-          <Toast toast={t} onDismiss={dismiss} />
-        </div>
-      ))}
-    </AnimatePresence>
+    <div
+      role={toasts.length ? 'region' : undefined}
+      aria-label={toasts.length ? 'Challenge updates' : undefined}
+      tabIndex={toasts.length ? 0 : undefined}
+      className="max-h-[min(50dvh,24rem)] overflow-x-hidden overflow-y-auto overscroll-contain space-y-2 pointer-events-auto empty:hidden"
+    >
+      <AnimatePresence>
+        {toasts.map((t) => (
+          <div key={t.id}>
+            <Toast toast={t} onDismiss={dismiss} />
+          </div>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 
   if (inline) return items;

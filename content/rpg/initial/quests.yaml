@@ -24,6 +24,11 @@
 #                    (unique) or "Category::Skill Name" (disambiguated),
 #                    optionally wrapped in a {skill, weight} mapping.
 #
+# Automatic catalog progress preserves source daily eligibility: the first
+# homework_created and first two creation_logged records per local day count.
+# Explicit parent-created goals can count all valid matching saved records.
+# Movement goal credit remains independent of the three-session XP/drop cap.
+
 # ── Reward rubric (informal — not validated, just a guide) ──────────────
 # Boss quests cluster into three loose tiers based on damage × duration.
 # Use these as a starting point when authoring; tweak for theme/difficulty.
@@ -45,7 +50,7 @@ quests:
   # New 150c/200xp lands it between Treasure Hunter (400dmg/10d→100c/200xp)
   # and Phoenix Rising (500dmg/30d→250c/300xp).
   - name: Dragon Slayer
-    description: The dragon returns every season — a blitz boss. One week to deal 500 damage. Every trigger counts. Best paired with a Scholar's Draught or Drop Charm.
+    description: "A one-week boss challenge: deal 500 damage through qualifying everyday activities. A Scholar's Draught boosts skill XP; a Drop Charm boosts drop chances."
     icon: "🐉"
     sprite_key: quest-dragon-slayer
     quest_type: boss
@@ -62,7 +67,7 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 1}
 
   - name: Feather Collector
-    description: Collect 10 phoenix feathers by completing any tasks.
+    description: "Gather 10 imaginary phoenix feathers through matching activity events. These are challenge progress, separate from inventory drops."
     icon: "🪶"
     sprite_key: quest-feather-collector
     quest_type: collection
@@ -100,7 +105,7 @@ quests:
 
   # ── New pixel-art quests ────────────────────────────────────────────────
   - name: Angler's Bounty
-    description: Earn drops from your daily efforts and reel in 5 fish-themed treasures.
+    description: "Reel in 5 imaginary treasures by clocking out, completing approved chores or homework, or finishing milestones. Inventory drops are separate."
     icon: "🎣"
     sprite_key: fishing-rod
     quest_type: collection
@@ -121,7 +126,7 @@ quests:
       - {skill: "Outdoors::Nature ID", weight: 1}
 
   - name: Backyard Botanist
-    description: Care for 3 things and watch your garden quest grow to bloom.
+    description: "Grow your imaginary garden with 3 approved chores or completed milestones. Any chore or milestone counts."
     icon: "🌱"
     sprite_key: plant-pot-fully-grown
     quest_type: collection
@@ -140,7 +145,7 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Iron Chef
-    description: Stock the pantry — collect 10 food drops to win the cook-off!
+    description: "Stock the imaginary pantry with 10 clock-outs, approved chores or homework, finished milestones, or positive habit taps. Inventory food drops are separate."
     icon: "🍳"
     sprite_key: cauldron-on-fire
     quest_type: collection
@@ -179,7 +184,7 @@ quests:
 
   # ── Scholar Track — homework-themed quests ─────────────────────────
   - name: Scholar's Week
-    description: Log 5 homework assignments this week — share what you're working on!
+    description: "Plan 5 homework assignments during this seven-day window. The first planned assignment each day counts; any homework subject qualifies."
     icon: "📓"
     sprite_key: quest-scholars-week
     quest_type: collection
@@ -264,7 +269,7 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 2}
 
   - name: Bounty Hunter
-    description: Win 3 bounty projects — the risky ones up for grabs.
+    description: "Complete 3 projects to collect your bounty. Any completed project counts."
     icon: "🎯"
     sprite_key: quest-bounty-hunter
     quest_type: collection
@@ -345,7 +350,7 @@ quests:
   # time-box; parents can skip or assign manually via the Quests MCP tools.
 
   - name: Summer Solstice
-    description: Celebrate the longest day — log 10 outdoor or hands-on activities in the sun.
+    description: "Celebrate the season with 10 clock-outs, approved chores, or completed milestones. Indoor and outdoor work both count."
     icon: "☀️"
     sprite_key: quest-summer-solstice
     quest_type: collection
@@ -365,7 +370,7 @@ quests:
       - {skill: "Outdoors::Nature ID", weight: 1}
 
   - name: Harvest Feast
-    description: Gather the autumn bounty — finish 5 cooking or outdoors projects.
+    description: "Gather an imaginary autumn bounty with 5 completed projects or milestones. Any project or milestone counts."
     icon: "🍂"
     sprite_key: quest-harvest-feast
     quest_type: collection
@@ -384,7 +389,7 @@ quests:
       - {skill: "Outdoors::Gardening", weight: 1}
 
   - name: Cold Snap
-    description: Winter break grind — 400 damage across homework + habits before school starts.
+    description: "A winter-themed boss challenge: deal 400 damage through approved homework, the first planned assignment each day, and positive habit taps."
     icon: "❄️"
     sprite_key: quest-cold-snap
     quest_type: boss
@@ -405,7 +410,7 @@ quests:
       - {skill: "Life Skills::Technical Writing", weight: 2}
 
   - name: Night Owl's Path
-    description: Clock in after 9 PM on 5 different days — for when inspiration strikes after dark.
+    description: "Finish 5 tracked work sessions by clocking out. Sessions count at any time of day, including multiple sessions on one day."
     icon: "🌙"
     sprite_key: quest-night-owl-path
     quest_type: collection
@@ -430,7 +435,7 @@ quests:
   # loader is upsert-by-name, so authoring them here backfills both fields.
 
   - name: Defeat the Doomscroll
-    description: The Doomscroll beast feeds on idle phone time. Only logged habits and finished homework weaken it — clock-ins and chores don't count. Land the killing blow before the first day of school.
+    description: "Weaken the imaginary Doomscroll beast through positive habit taps, approved homework, and the first planned assignment each day. Clock-outs and chores do not count."
     icon: "⚔️"
     sprite_key: quest-defeat-doomscroll
     quest_type: boss
@@ -450,7 +455,7 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Garden Pest Hunter
-    description: A swarm of hungry aphids is devouring the spring garden! Only outdoor work — chores, milestones, and focused project hours — drives them out.
+    description: "Defend an imaginary garden with 300 damage from clock-outs, approved chores, and completed milestones. Indoor and outdoor work both count."
     icon: "🐛"
     sprite_key: quest-garden-pest
     quest_type: boss
@@ -473,7 +478,7 @@ quests:
   # of "any task"). Delete via cleanup_rpg_catalog.
 
   - name: Seven Nights of Stories
-    description: Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed.
+    description: "Keep a comforting routine going with 5 positive habit taps. Any habit counts; taps need not be on consecutive days."
     icon: "📖"
     sprite_key: quest-seven-nights
     quest_type: collection
@@ -494,7 +499,7 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: First Week of Freshman Year
-    description: Survive the first week of high school by keeping the routine alive. Log 5 habits to clear it.
+    description: "A school-themed challenge: log 5 positive habit taps during its seven-day window."
     icon: "🎒"
     sprite_key: quest-first-week-freshman
     quest_type: collection
@@ -537,7 +542,7 @@ quests:
   # ── New quests (2026-04-22) ────────────────────────────────────────────
 
   - name: Daily Rituals
-    description: Log 3 habits today — the short-loop version of Weekly Reset.
+    description: "Log 3 positive habit taps during this one-day challenge window. The next window starts automatically."
     icon: "🔁"
     sprite_key: quest-daily-rituals
     quest_type: collection
@@ -557,7 +562,7 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Spring Planting
-    description: Welcome the growing season — finish 5 outdoor or cooking projects/chores.
+    description: "Welcome the growing season with 5 approved chores, completed milestones, or completed projects. Any subject counts."
     icon: "🌷"
     sprite_key: quest-spring-planting
     quest_type: collection
@@ -577,7 +582,7 @@ quests:
       - {skill: "Cooking::Meal Planning", weight: 1}
 
   - name: Autumn Leaves
-    description: Capture the shift of seasons — 7 outdoor activities before the leaves fall.
+    description: "Celebrate the season with 7 clock-outs, approved chores, or completed milestones. Indoor and outdoor work both count."
     icon: "🍁"
     sprite_key: quest-autumn-leaves
     quest_type: collection
@@ -600,7 +605,7 @@ quests:
   # Solstice. Ship pattern mirrors Summer Solstice: parent-assigned, any
   # trigger counts, rewards a seasonal theme cosmetic.
   - name: Winter Solstice
-    description: Stand against the longest night — 7 habits, chores, or projects through the dark half of the year.
+    description: "Brighten an imaginary winter with 7 clock-outs, approved chores, positive habit taps, or completed milestones."
     icon: "❄️"
     sprite_key: quest-winter-solstice
     quest_type: collection
@@ -619,7 +624,7 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 2}
 
   - name: May Day
-    description: Ring in summer's approach — 5 outdoor or craft activities in the first days of May.
+    description: "Celebrate a fresh start with 5 clock-outs, approved chores, or completed milestones. Any subject counts."
     icon: "🌼"
     sprite_key: quest-may-day
     quest_type: collection
@@ -643,7 +648,7 @@ quests:
   # generic Birthday Celebrant title; a year-specific cosmetic can be
   # authored per-year if desired.
   - name: Birthday Builder
-    description: Your birthday only comes once a year — log 3 things you love doing. One-day blitz.
+    description: "A birthday-themed one-day challenge: log 3 clock-outs, approved chores or homework, positive habit taps, completed projects, or completed milestones."
     icon: "🎂"
     sprite_key: quest-birthday-builder
     quest_type: collection
@@ -662,7 +667,7 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Apprentice Path
-    description: Unlock your first locked skill, then prove the apprentice knows the work — 200 damage across any trigger in 14 days.
+    description: "After earning Key Turner, deal 200 damage through qualifying activities during this 14-day window."
     icon: "🔑"
     sprite_key: quest-apprentice-path
     quest_type: boss
@@ -680,7 +685,7 @@ quests:
       - {skill: "Life Skills::Project Planning", weight: 1}
 
   - name: Comeback Kid
-    description: Your streak broke — but the road back is clear. Log 3 habits to rebuild momentum. Parent-assignable after a streak reset.
+    description: "Rebuild momentum with 3 positive habit taps during this seven-day challenge. Available even without a streak reset."
     icon: "🔥"
     sprite_key: quest-comeback-kid
     quest_type: collection
@@ -700,7 +705,7 @@ quests:
       - {skill: "Physical::Mindfulness", weight: 1}
 
   - name: Phoenix Rising
-    description: Rebuild something bigger than before. The Phoenix only rises from sustained rhythm — habits and homework keep the flame alive for 30 days.
+    description: "Rebuild momentum with 500 damage from positive habit taps, approved homework, and completed milestones or projects in 30 days."
     icon: "🔥"
     sprite_key: quest-phoenix-rising
     quest_type: boss
@@ -743,7 +748,7 @@ quests:
   # category's two most central skills, so 300 xp_reward splits cleanly.
 
   - name: Coder's Crucible
-    description: 300 damage across coding project hours + milestones. Paint the terminal green.
+    description: "An imaginary coding boss: deal 300 damage from clock-outs and completed milestones or projects. Any project subject counts."
     icon: "💻"
     sprite_key: quest-coders-crucible
     quest_type: boss
@@ -763,7 +768,7 @@ quests:
       - {skill: "Coding::Version Control", weight: 1}
 
   - name: Solder & Spark
-    description: Electronics boss fight. Land 250 damage by clocking soldering hours and clearing milestones.
+    description: "An imaginary electronics boss: deal 250 damage from clock-outs and completed milestones or projects. Any project subject counts."
     icon: "⚡"
     sprite_key: quest-solder-spark
     quest_type: boss
@@ -783,7 +788,7 @@ quests:
       - {skill: "Electronics::Wiring & Connectors", weight: 1}
 
   - name: Shop Class
-    description: Make something real. 300 damage across woodworking, making, and fab milestones — hand tools and CAD both count.
+    description: "An imaginary workshop boss: deal 300 damage from clock-outs and completed milestones or projects. Any project subject counts."
     icon: "🔨"
     sprite_key: quest-shop-class
     quest_type: boss
@@ -803,7 +808,7 @@ quests:
       - {skill: "Woodworking::Measuring & Marking", weight: 1}
 
   - name: The Maestro's Month
-    description: Music boss. Instrument practice, ear training, and composition — 250 damage over 30 days.
+    description: "An imaginary music boss: deal 250 damage from clock-outs, positive habit taps, and completed milestones or projects. Any subject counts."
     icon: "🎼"
     sprite_key: quest-maestros-month
     quest_type: boss
@@ -823,7 +828,7 @@ quests:
       - {skill: "Music::Ear Training", weight: 1}
 
   - name: Sketchbook Sprint
-    description: Art & crafts collection quest. Finish 4 projects or 8 milestones — painting, drawing, or sculpture all count.
+    description: "Fill an imaginary sketchbook by completing 4 projects. Any project subject counts; milestones alone do not count."
     icon: "🎨"
     sprite_key: quest-sketchbook-sprint
     quest_type: collection
@@ -843,7 +848,7 @@ quests:
       - {skill: "Art & Crafts::Color Theory", weight: 1}
 
   - name: Lab Notebook
-    description: Science method boss. Every observation, measurement, and documented experiment is a hit — 200 damage over 21 days.
+    description: "An imaginary science boss: deal 200 damage from clock-outs, approved homework, and completed milestones or projects. Any subject counts."
     icon: "🔬"
     sprite_key: quest-lab-notebook
     quest_type: boss
@@ -864,7 +869,7 @@ quests:
       - {skill: "Science::Documentation", weight: 1}
 
   - name: Open Road
-    description: Physical endurance quest. Cycling, running, swimming — any body-work logged as chore, habit, or project chips away. 200 damage, 21 days.
+    description: "An imaginary endurance boss: deal 200 damage from clock-outs, approved chores, positive habit taps, or completed projects. Any subject counts."
     icon: "🚴"
     sprite_key: quest-open-road
     quest_type: boss
@@ -884,7 +889,7 @@ quests:
       - {skill: "Physical::Strength", weight: 1}
 
   - name: Wordsmith's Week
-    description: Life Skills language track. 5 homework assignments, essays, or technical writing drafts — on-time submissions count double.
+    description: "Finish 5 homework assignments and receive parent approval during this challenge window. Each approval counts once, including on-time work."
     icon: "📝"
     sprite_key: quest-wordsmiths-week
     quest_type: collection
@@ -942,7 +947,7 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   - name: Summer Reading List
-    description: Log 5 homework assignments this week. Give reading the quest-bar treatment it deserves.
+    description: "Plan 5 homework assignments during this seven-day challenge window. The first planned assignment each day counts; any homework subject qualifies."
     icon: "📚"
     sprite_key: quest-summer-reading
     quest_type: collection
@@ -989,7 +994,7 @@ quests:
   # are declared in badges.yaml as quest_completed criteria.
 
   - name: Journeyman Trial
-    description: Second rung of the Master-of-Craft ladder. Reach Level 3 in any skill, then deal 350 damage in 21 days — crack open the journey.
+    description: "After earning Apprentice Path Complete, deal 350 damage through qualifying activities during this 21-day window."
     icon: "🔨"
     sprite_key: quest-journeyman-trial
     quest_type: boss
@@ -1033,7 +1038,7 @@ quests:
   # is a single event (the goal being marked complete).
 
   - name: Hoard Builder
-    description: Finish a savings goal of your choosing. Parent-assignable — pick the goal when you assign the quest.
+    description: "Finish one savings goal during this challenge window. Any completed savings goal counts unless a parent adds a specific goal filter."
     icon: "🏦"
     sprite_key: quest-hoard-builder
     quest_type: collection

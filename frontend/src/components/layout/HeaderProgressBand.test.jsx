@@ -1,63 +1,27 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import HeaderProgressBand from './HeaderProgressBand';
+import { renderWithProviders, screen, waitFor } from '../../test/render';
 import { server } from '../../test/server';
+import { buildChallengeGoal } from '../../test/challenges';
+import { buildUser } from '../../test/factories';
+import HeaderProgressBand from './HeaderProgressBand';
 
-describe('HeaderProgressBand', () => {
-  it('renders an inert divider when no quest is active', async () => {
-    server.use(http.get('*/api/quests/active/', () => HttpResponse.json(null)));
-    render(
-      <MemoryRouter>
-        <HeaderProgressBand />
-      </MemoryRouter>,
-    );
+beforeEach(() => { server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser()))); });
+
+describe('Pinned challenge header', () => {
+  it('stays empty when goals are unpinned, even while they progress', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json({ results: [buildChallengeGoal()], pin: null })));
+    renderWithProviders(<HeaderProgressBand />);
     await waitFor(() => expect(screen.queryByRole('button')).not.toBeInTheDocument());
   });
 
-  it('renders a progress-scaled button when a quest is active', async () => {
-    server.use(
-      http.get('*/api/quests/active/', () =>
-        HttpResponse.json({
-          id: 9, status: 'active',
-          progress_percent: 62, current_progress: 6, effective_target: 10,
-          definition: { name: 'Boss: Moblin' },
-        }),
-      ),
-    );
-    render(
-      <MemoryRouter>
-        <HeaderProgressBand />
-      </MemoryRouter>,
-    );
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /boss: moblin · 62% complete/i })).toBeInTheDocument(),
-    );
-  });
-
-  // The band is a real link to the quest, so it needs a real target: it used
-  // to be a 4px-tall button no fingertip can hit, with the quest name hidden
-  // in a hover-only tooltip that touch devices never show.
-  it('shows the quest name and percent inline on touch, in a min-h-11 target', async () => {
-    server.use(
-      http.get('*/api/quests/active/', () =>
-        HttpResponse.json({
-          id: 9, status: 'active',
-          progress_percent: 62, current_progress: 6, effective_target: 10,
-          definition: { name: 'Boss: Moblin' },
-        }),
-      ),
-    );
-    render(
-      <MemoryRouter>
-        <HeaderProgressBand />
-      </MemoryRouter>,
-    );
-
-    const band = await screen.findByRole('button', { name: /boss: moblin/i });
+  it('shows the exact server pin with fractional units and a full touch target', async () => {
+    const goal = buildChallengeGoal({ pinned: true });
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json({ results: [goal, buildChallengeGoal({ id: 'goal:12', name: 'Other goal' })], pin: goal.id })));
+    renderWithProviders(<HeaderProgressBand />);
+    const band = await screen.findByRole('button', { name: 'Pinned challenge: Run 2 miles this week · 0.75 / 2 miles' });
     expect(band.className).toContain('min-h-11');
-    expect(screen.getByText('Boss: Moblin')).toBeVisible();
-    expect(screen.getByText('62%')).toBeVisible();
+    expect(screen.getByText('0.75 / 2 miles')).toBeVisible();
+    expect(screen.queryByText('Other goal')).not.toBeInTheDocument();
   });
 });

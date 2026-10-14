@@ -5,6 +5,7 @@ import ModalActions from './ModalActions';
 import { TextField, SelectField, TextAreaField } from './form';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
+import { createRequestId } from '../utils/requestId';
 import {
   createMovementType,
   getSkills,
@@ -162,7 +163,7 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
   );
 }
 
-export default function MovementSessionLogModal({ onClose, onSaved }) {
+export default function MovementSessionLogModal({ onClose, onSaved, initialMovementTypeId = '' }) {
   const {
     data: typesData,
     loading: typesLoading,
@@ -171,10 +172,13 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
   const types = normalizeList(typesData);
 
   const [mode, setMode] = useState('log');
-  const [movementTypeId, setMovementTypeId] = useState('');
+  const [movementTypeId, setMovementTypeId] = useState(String(initialMovementTypeId));
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState('medium');
   const [notes, setNotes] = useState('');
+  const [distance, setDistance] = useState('');
+  const [distanceUnit, setDistanceUnit] = useState('mi');
+  const [requestId] = useState(createRequestId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -197,7 +201,7 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
     }
   }, [selectedType]);
 
-  const canSubmit = movementTypeId && duration > 0 && !saving;
+  const canSubmit = Boolean(selectedType) && duration > 0 && !saving;
 
   const handlePickerChange = (e) => {
     if (e.target.value === NEW_TYPE_SENTINEL) {
@@ -219,12 +223,17 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
     setSaving(true);
     setError('');
     try {
-      const saved = await logMovementSession({
+      const details = {
         movement_type_id: Number(movementTypeId),
         duration_minutes: Math.min(600, Math.max(1, Number(duration) || 1)),
         intensity,
         notes: notes.trim(),
-      });
+        ...(distance !== '' ? { distance, distance_unit: distanceUnit } : {}),
+      };
+      // Keep the identity even after edits to an uncertain save. If that
+      // request already succeeded, Django reports the conflict rather than
+      // silently recording a second run under a fresh identifier.
+      const saved = await logMovementSession({ ...details, client_request_id: requestId });
       onSaved?.(saved);
       onClose?.();
     } catch (err) {
@@ -241,7 +250,7 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
       title={title}
       onClose={onClose}
       disabled={saving}
-      dirty={Boolean(movementTypeId || notes) || duration !== 30 || intensity !== 'medium'}
+      dirty={Boolean(movementTypeId || notes || distance) || duration !== 30 || intensity !== 'medium'}
       // Sticky footer so the action row clears the on-screen keyboard while
       // the notes field has focus. Only in log mode — the "Add activity"
       // sub-form carries its own row inline.
@@ -299,6 +308,28 @@ export default function MovementSessionLogModal({ onClose, onSaved }) {
             onChange={(e) => setDuration(e.target.value)}
           />
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TextField
+              id="movement-distance"
+              label="Distance (optional)"
+              type="number"
+              min="0.001"
+              max="1000"
+              step="0.001"
+              value={distance}
+              onChange={(e) => setDistance(e.target.value)}
+              helpText="Add distance to count toward running or other distance goals."
+            />
+            <SelectField
+              id="movement-distance-unit"
+              label="Distance unit"
+              value={distanceUnit}
+              onChange={(e) => setDistanceUnit(e.target.value)}
+            >
+              <option value="mi">Miles</option>
+              <option value="km">Kilometres</option>
+            </SelectField>
+          </div>
           <SelectField
             id="movement-intensity"
             label="How hard?"

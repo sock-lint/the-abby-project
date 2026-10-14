@@ -227,3 +227,140 @@ class DailyChallenge(TimestampedModel):
         if self.target_value == 0:
             return 100
         return min(100, int(self.current_progress / self.target_value * 100))
+
+
+class ChallengeEnrollment(models.Model):
+    """First automatic tracking boundary; pins never change this date."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    starts_at = models.DateTimeField(default=timezone.now)
+    timezone_name = models.CharField(max_length=64, default="America/Phoenix")
+
+
+class ChallengeGoal(TimestampedModel):
+    """An immutable personal goal, from the catalog or a family assignment."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name="authored_challenge_goals",
+    )
+    catalog_definition = models.ForeignKey(
+        QuestDefinition, on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    is_catalog = models.BooleanField(default=False)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    metric = models.CharField(max_length=12, choices=[
+        ("count", "Actions"), ("minutes", "Minutes"),
+        ("distance", "Distance"), ("damage", "Boss damage"),
+    ])
+    target = models.DecimalField(max_digits=16, decimal_places=3)
+    unit = models.CharField(max_length=12, default="actions")
+    trigger_filter = models.JSONField(default=dict)
+    movement_type = models.ForeignKey(
+        "movement.MovementType", on_delete=models.PROTECT, null=True, blank=True,
+    )
+    timezone_name = models.CharField(max_length=64)
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    repeat_weekly = models.BooleanField(default=False)
+    repeat_days = models.PositiveIntegerField(default=0)
+    coin_reward = models.PositiveIntegerField(default=0)
+    xp_reward = models.PositiveIntegerField(default=0)
+    skill_tags = models.JSONField(default=list)
+    reward_items = models.JSONField(default=list)
+    request_id = models.UUIDField(null=True, blank=True)
+    request_fingerprint = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "catalog_definition"], name="unique_personal_catalog_goal"),
+            models.UniqueConstraint(fields=["created_by", "request_id"], name="unique_parent_goal_request"),
+        ]
+
+
+class ChallengeOccurrence(TimestampedModel):
+    """One fixed window and one possible payout, including weekly repeats."""
+
+    goal = models.ForeignKey(ChallengeGoal, on_delete=models.CASCADE, related_name="occurrences")
+    starts_at = models.DateTimeField()
+    ends_at = models.DateTimeField()
+    snapshot = models.JSONField(default=dict)
+    progress = models.DecimalField(max_digits=16, decimal_places=3, default=0)
+    status = models.CharField(max_length=12, default="active", choices=[
+        ("active", "Active"), ("completed", "Completed"), ("expired", "Expired"),
+    ])
+    completed_at = models.DateTimeField(null=True, blank=True)
+    awarded_at = models.DateTimeField(null=True, blank=True)
+    reward_receipt = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["goal", "starts_at"], name="unique_challenge_window",
+        )]
+        ordering = ["-starts_at", "pk"]
+
+
+class ChallengeActivity(TimestampedModel):
+    """A fact survives retries and deletions; never contains private journal prose."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    source_type = models.CharField(max_length=64)
+    source_id = models.CharField(max_length=100)
+    trigger_type = models.CharField(max_length=32)
+    occurred_at = models.DateTimeField()
+    occurred_on = models.DateField()
+    context = models.JSONField(default=dict)
+    voided = models.BooleanField(default=False)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["user", "source_type", "source_id", "trigger_type"],
+            name="unique_challenge_activity",
+        )]
+        indexes = [models.Index(fields=["user", "occurred_on"])]
+
+
+class ChallengeContribution(models.Model):
+    occurrence = models.ForeignKey(
+        ChallengeOccurrence, on_delete=models.CASCADE, related_name="contributions",
+    )
+    activity = models.ForeignKey(ChallengeActivity, on_delete=models.CASCADE)
+    amount = models.DecimalField(max_digits=16, decimal_places=3)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["occurrence", "activity"], name="unique_challenge_contribution",
+        )]
+
+
+class ChallengePin(TimestampedModel):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    occurrence = models.ForeignKey(ChallengeOccurrence, on_delete=models.SET_NULL, null=True)
+    legacy_quest = models.ForeignKey(Quest, on_delete=models.SET_NULL, null=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(
+            condition=~(models.Q(occurrence__isnull=False) & models.Q(legacy_quest__isnull=False)),
+            name="one_challenge_pin_target",
+        )]
+
+
+class DailyBonus(TimestampedModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    date = models.DateField()
+    timezone_name = models.CharField(max_length=64, default="America/Phoenix")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    awarded_at = models.DateTimeField(null=True, blank=True)
+    coin_reward = models.PositiveIntegerField(default=10)
+    xp_reward = models.PositiveIntegerField(default=20)
+    coins_awarded = models.PositiveIntegerField(default=0)
+    xp_awarded = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=["user", "date"], name="unique_daily_bonus",
+        )]

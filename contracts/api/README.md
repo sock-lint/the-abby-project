@@ -8,6 +8,18 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
+| `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
+| `challenge-pinned.json`, `challenge-unpinned.json` | `POST`/`DELETE /api/challenges/goal:1/pin/`; self-scoped presentation preference, without progress or rewards |
+| `challenge-run-first.json` | `POST /api/movement-sessions/`; real 0.75-mile run advances multiple goals and qualifies the daily bonus |
+| `challenges-partial.json` | Goal list retains progress on both the pinned distance goal and unpinned count goal, with the automatic daily reward receipt |
+| `challenge-run-completed.json` | Second real run adds 1.25 miles and completes matching goals while no goal is pinned |
+| `challenges-completed.json` | Completed occurrences retain reward previews and actual paid receipts; reopening the list awards nothing |
+| `challenges-boosted.json` | Daily Lucky Coin payout is distinct from its base preview; parent goal Coins retain the existing unboosted policy |
+| `challenges-items-delivered.json` | Actual frame delivery is recorded in the awarded receipt and persists without duplicate grants |
+| `challenges-items-skipped.json` | An egg becomes unavailable after the preview; completion records no item delivery |
+| `challenges-items-converted.json` | An egg for an already-owned mount is converted to Coins; the receipt distinguishes conversion from delivery |
+| `challenge-goal-invalid.json` | Invalid nonpositive target rejected with HTTP 400; no goal or reward persists |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
 | `character-avatar-legacy.json` | `GET /api/character/`; a legacy four-option saved look retains its choices and projects the default costume, face and ears without writing |
@@ -282,7 +294,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -290,7 +302,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -306,7 +318,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
@@ -355,6 +367,92 @@ Run the producer and permission/state tests with a disposable test database:
 ```sh
 python manage.py test --settings=config.settings_test apps.rpg.tests.test_avatar config.tests.test_avatar_api_contract_fixtures
 ```
+
+## Automatic challenges and measured movement
+
+`config/tests/test_challenge_api_contract_fixtures.py` creates a parent-authored
+running goal through the actual API and logs two real movement sessions. A
+separate eligible catalog goal advances without a pin. The second session
+completes both goals after the distance goal has been unpinned. Producer checks
+verify actual Coin ledger and skill progress, one automatic daily bonus, UUID
+retry safety, family isolation and unchanged rewards after reading the list.
+The same module runs actual pre-feature-to-current and `quests.0006` to `0007`
+migrations in disposable subprocesses. It verifies saved legacy quests, co-op
+participants, daily promises, paid/unpaid goal windows, contributions, receipts,
+inventory, Coins, skill XP and movement counters remain intact without payouts
+or invented distance. Retirement backfills private catalog origin and frozen
+name/type, leaves parent goals outside catalog history, and permits deletion of
+the original template while keeping saved goal promises. These private fields
+do not change the public response bodies.
+
+`GET /api/challenges/` returns `results`, the nullable `pin`, completed goal
+`recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`.
+Both receipt arrays use newest-first order, with descending saved row ID
+breaking equal timestamps; ended history uses the same rule for equal deadlines.
+Activity goal deltas follow the underlying goal records in ascending saved
+identity order; their public IDs continue to identify occurrences.
+Parents may select a same-family child with `user_id`; children cannot use that query to
+read another account. Goal IDs identify occurrences (`goal:1`), not catalog
+definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
+decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
+New catalog goals receive their full window on first automatic offer/evaluation,
+subject to cutover, template creation, badge and legacy cutoffs. Pending eligible
+saved work can anchor the first window; processed history does not replay, and
+later reads/pins never reset an existing window or paid receipt.
+`starts_at` and `ends_at` define the server window; `what_counts`
+describes the activity filter and catalog eligibility. Catalog planning says
+“planned homework (first per day)” and catalog creation says “logged creations
+(first two per day)”; parent-created goals count all valid matching records.
+The eligibility flag is private server state and is never authorable through the
+API. The action may include a movement type ID.
+
+`rewards` is the frozen preview. `reward_receipt` identifies the occurrence and
+reports `pending`, `awarded` or `legacy`, actual `coins_awarded`/`xp_awarded`, and
+a nullable `awarded_at`. Clients must not add either the preview or a replayed
+receipt to a balance. Awarded automatic receipts also expose persisted `items`
+outcomes as `{item_name, quantity}` rows. An egg converted to Coins additionally
+has `salvaged_to_coins`; that amount is already included in `coins_awarded`, and
+the row is not a delivered inventory item. Skipped unavailable items are absent
+from the outcome list. Pending and retained legacy receipts omit actual item
+outcomes. Clients show the frozen preview before award and recorded outcomes
+after award. `POST`/`DELETE /api/challenges/<id>/pin/` returns only the
+saved `{pin: <id|null>}` preference and cannot grant progress or rewards.
+
+Parent `POST /api/challenges/goals/` accepts the child, activity trigger, optional
+movement type, metric, target, unit, period and reward configuration. A stable
+optional `request_id` UUID makes identical parent-save retries return the same
+occurrence; changing details under that UUID returns HTTP 409. Weekly
+goals use the family's Monday-to-Sunday window, and `repeat_weekly` retains
+separate occurrences. Explicit midweek weekly creation includes existing saved
+matching work in that week and may complete immediately. XP rewards require
+skill tags. Nonpositive/fractional action targets and mismatched metric/units are
+rejected before saving.
+
+Movement saves accept optional decimal `distance`, `distance_unit: mi|km`, and
+`client_request_id`. The response preserves decimal-string `distance_meters`,
+display-unit `distance`, the UUID and saved activity receipts. A receipt wraps
+all matching goal deltas in `goals` and an optional newly paid `daily_bonus`.
+Display-unit distance rounds to the accepted three fractional digits and removes
+trailing zeros; goal contributions and totals use three-decimal `ROUND_HALF_UP`
+before persistence and completion checks.
+Repeating the same UUID and identical input returns the existing session and its
+original receipt; conflicting input is rejected. Old sessions return null
+distance and gain no invented mileage.
+
+The daily bonus payload exposes the server date/timezone, cumulative minutes,
+completion/award flags, base Coins/XP, actual awarded amounts, period end and a
+nullable receipt identity. Its day uses the family-local accepted/saved timestamp;
+weekly goal progress keeps the original work day. Completed legacy settlement
+retains its promised original date. Daily Coins keep Lucky Coin eligibility; goal Coins
+keep the legacy quest policy. XP receipts use the actual weighted skill credit,
+including existing rounding and boosts. A daily award requires qualifying saved
+work; opening Today is not a prerequisite or an award action.
+
+The React consumer `frontend/src/api/challengeContractFixtures.test.js` reads
+these exact server bodies through the shared API functions, verifies request
+verbs/bodies and preserves decimal strings, all goal deltas and reward receipts.
+See [automatic challenge operations](../../docs/operations/automatic-challenges.md)
+for rollout and repair boundaries.
 
 ## Quarter and semester report cards
 

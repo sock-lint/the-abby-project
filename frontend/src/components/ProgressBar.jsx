@@ -17,7 +17,7 @@ export default function ProgressBar({
     <div
       role="progressbar"
       aria-label={ariaLabel}
-      aria-valuenow={Math.round(safeValue)}
+      aria-valuenow={safeValue}
       aria-valuemin={0}
       aria-valuemax={max}
       className={`h-2 bg-ink-page-shadow/60 rounded-full overflow-hidden ${className}`}

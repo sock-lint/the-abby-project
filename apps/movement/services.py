@@ -81,6 +81,9 @@ class MovementSessionService:
         intensity: str = MovementSession.Intensity.MEDIUM,
         occurred_at=None,
         notes: str = "",
+        distance=None,
+        distance_unit="mi",
+        client_request_id=None,
     ) -> MovementSession:
         """Log a session, conditionally distribute XP + drop + quest progress.
 
@@ -101,7 +104,35 @@ class MovementSessionService:
             )
 
         clamped_minutes = min(int(duration_minutes), cls.MAX_DURATION_MINUTES)
-        day = (occurred_at or timezone.now()).date() if occurred_at else timezone.localdate()
+        from decimal import Decimal, InvalidOperation
+        from django.contrib.auth import get_user_model
+        # Serialize requests and all downstream goal/XP writes for this child.
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        if distance_unit not in ("mi", "km"):
+            raise MovementSessionError("Distance unit must be mi or km.")
+        distance_meters = None
+        if distance is not None:
+            try:
+                value = Decimal(str(distance))
+                if not value.is_finite() or value <= 0 or value > 1000 or value.as_tuple().exponent < -3:
+                    raise InvalidOperation
+                distance_meters = (value * Decimal("1609.344" if distance_unit == "mi" else "1000")).quantize(Decimal("0.001"))
+            except (InvalidOperation, ValueError):
+                raise MovementSessionError("Distance must be positive, finite, and have at most 3 decimal places.")
+        clean_notes = (notes or "")[:200]
+        if client_request_id is not None:
+            existing = MovementSession.objects.filter(user=user, client_request_id=client_request_id).first()
+            if existing is not None:
+                if (existing.movement_type_id != movement_type.pk or existing.duration_minutes != clamped_minutes
+                        or existing.intensity != intensity or existing.distance_meters != distance_meters
+                        or existing.distance_unit != distance_unit or existing.notes != clean_notes):
+                    raise MovementSessionError("This request was already saved with different session details.")
+                from apps.quests.models import ChallengeActivity
+                fact = ChallengeActivity.objects.filter(user=user, source_type="movement_session", source_id=str(existing.pk)).first()
+                existing._challenge_receipts = [fact.context["_receipt"]] if fact and fact.context.get("_receipt") else []
+                return existing
+        from apps.quests.activity import household_timezone
+        day = timezone.localdate(occurred_at or timezone.now(), timezone=household_timezone(user))
 
         prior_count = bump_daily_counter(MovementDailyCounter, user, day)
         is_xp_eligible = prior_count < cls.DAILY_REWARD_LIMIT
@@ -110,13 +141,20 @@ class MovementSessionService:
             user=user,
             movement_type=movement_type,
             duration_minutes=clamped_minutes,
+            distance_meters=distance_meters,
+            distance_unit=distance_unit,
+            client_request_id=client_request_id,
             intensity=intensity,
             occurred_on=day,
-            notes=(notes or "")[:200],
+            notes=clean_notes,
         )
 
         if is_xp_eligible:
             cls._award_session(user, session)
+
+        from apps.rpg.services import GameLoopService
+        activity_result = GameLoopService.record_challenge_activity(user, "movement_session", {"session_id": session.pk})
+        session._challenge_receipts = activity_result.get("challenge_receipts", [])
 
         return session
 
@@ -152,6 +190,7 @@ class MovementSessionService:
                 "session_id": session.id,
                 "movement_type_id": session.movement_type_id,
                 "duration_minutes": session.duration_minutes,
+                **({"distance_meters": str(session.distance_meters)} if session.distance_meters is not None else {}),
                 "intensity": session.intensity,
             },
             log=logger,

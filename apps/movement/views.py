@@ -32,7 +32,7 @@ class MovementTypeViewSet(viewsets.ModelViewSet):
     parent) add a new activity kind on the fly; child-created types become
     globally available, matching the self-reported doctrine that governs
     ``MovementSession``. DELETE is restricted to the creator (or a parent)
-    and blocks when any session already references the type.
+    and blocks when any session or saved challenge goal references the type.
 
     No PATCH/PUT — types are write-once for now. If a name needs fixing,
     delete and re-create before anyone has logged against it.
@@ -74,7 +74,7 @@ class MovementTypeViewSet(viewsets.ModelViewSet):
         )
 
     def destroy(self, request, *args, **kwargs):
-        """Creator or parent can delete; any existing session blocks it."""
+        """Creator or parent can delete; sessions and saved goals protect it."""
         instance = self.get_object()
         is_parent = request.user.role == "parent"
         is_creator = (
@@ -88,12 +88,22 @@ class MovementTypeViewSet(viewsets.ModelViewSet):
 
         try:
             instance.delete()
-        except ProtectedError:
+        except ProtectedError as exc:
+            from apps.quests.models import ChallengeGoal
             session_count = MovementSession.objects.filter(
                 movement_type=instance,
             ).count()
+            blockers = []
+            if session_count:
+                blockers.append(f"{session_count} session(s)")
+            if any(isinstance(protected, ChallengeGoal) for protected in exc.protected_objects):
+                # Types are shared catalog entries; do not disclose another
+                # family's goal names, child identities or private goal count.
+                blockers.append("a saved challenge goal")
+            error = (f"Already used in {' and '.join(blockers)}." if blockers
+                     else "This activity is still in use and cannot be deleted.")
             return Response(
-                {"error": f"Already used in {session_count} session(s)."},
+                {"error": error},
                 status=status.HTTP_409_CONFLICT,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -142,6 +152,9 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
                     "intensity", MovementSession.Intensity.MEDIUM,
                 ),
                 notes=write.validated_data.get("notes", ""),
+                distance=write.validated_data.get("distance"),
+                distance_unit=write.validated_data.get("distance_unit", "mi"),
+                client_request_id=write.validated_data.get("client_request_id"),
             )
         except MovementSessionError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
@@ -156,5 +169,11 @@ class MovementSessionViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         instance = self.get_object()
         if request.user.role != "parent" and instance.user_id != request.user.id:
             raise PermissionDenied("You can only delete your own sessions.")
-        instance.delete()
+        from django.db import transaction
+        from django.contrib.auth import get_user_model
+        from apps.quests.goals import void_activity
+        with transaction.atomic():
+            get_user_model().objects.select_for_update(no_key=True).get(pk=instance.user_id)
+            void_activity(instance.user, "movement_session", instance.pk)
+            instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)

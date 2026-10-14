@@ -379,6 +379,7 @@ class AwardService:
                 )
 
             if xp_breakdown:
+                awarded_xp = sum(row["value"] for row in xp_breakdown)
                 summary_suffix = ""
                 if project:
                     summary_suffix = f" · {project.title}"
@@ -391,22 +392,25 @@ class AwardService:
                 ActivityLogService.record(
                     category="award",
                     event_type="award.xp",
-                    summary=f"+{boosted_xp} XP distributed{summary_suffix}{boosted_suffix}",
+                    summary=f"+{awarded_xp} XP distributed{summary_suffix}{boosted_suffix}",
                     actor=created_by,
                     subject=user,
-                    xp_delta=int(boosted_xp),
+                    xp_delta=int(awarded_xp),
                     breakdown=xp_breakdown,
                     extras={
                         "project_id": project.pk if project else None,
                         "xp_base": int(xp),
                         "xp_boost_multiplier": xp_boost_mult,
-                        "xp_awarded": int(boosted_xp),
+                        "xp_awarded": int(awarded_xp),
                     },
                 )
 
             BadgeService.evaluate_badges(
                 user, created_by=created_by, scopes=badge_scopes,
             )
+            # A receipt describes direct XP actually credited by this grant;
+            # badge awards remain separate rewards. Callers may ignore it.
+            return {"xp_awarded": sum(row["value"] for row in xp_breakdown)}
 
     @staticmethod
     def _distribute_project_xp_logged(user, project, total_xp):
@@ -428,12 +432,11 @@ class AwardService:
         _lock_award_user(user)
         rows = []
         for skill, skill_xp in SkillService._iter_tagged_xp(tags, total_xp):
+            before = SkillProgress.objects.filter(user=user, skill=skill).values_list("xp_points", flat=True).first() or 0
             SkillService.award_xp(user, skill, skill_xp)
-            rows.append({
-                "label": skill.name,
-                "value": skill_xp,
-                "op": "+",
-            })
+            after = SkillProgress.objects.filter(user=user, skill=skill).values_list("xp_points", flat=True).first() or 0
+            if after > before:
+                rows.append({"label": skill.name, "value": after - before, "op": "+"})
         return rows
 
 

@@ -122,7 +122,7 @@ describe('QuickActionsSheet', () => {
     expect(within(submitSheet).getByText('Math packet')).toBeInTheDocument();
   });
 
-  it('reveals Start a challenge when a quest scroll is in inventory', async () => {
+  it('offers View challenges while preserving saved scroll inventory', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),
       http.get('*/api/savings-goals/', () => HttpResponse.json([])),
@@ -132,7 +132,7 @@ describe('QuickActionsSheet', () => {
         ]),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText(/start a challenge/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/view challenges/i)).toBeInTheDocument());
   });
 
   it('shows parent actions (Assign homework, Adjust coins, Adjust payment)', async () => {

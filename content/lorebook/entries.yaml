@@ -84,7 +84,8 @@ entries:
       - "Homework pays no money and no Coins."
       - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress."
       - "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time challenge filters and badge criteria."
-      - "The first homework create per child per local day can count for game-loop progress; create-delete-create cannot farm it."
+      - "The first planned homework assignment per child per local day can count for built-in challenges, drops, and streak credit; create-delete-create cannot farm it."
+      - "A parent's assigned planning goal can count every valid matching assignment, including later assignments that day."
       - "Children can self-plan AI breakdowns only when the due date is far enough out; parents can always plan."
     parent_knobs:
       settings:
@@ -160,8 +161,9 @@ entries:
       Choose the creative skills you used, and submit a creation for a
       parent to review for bonus XP.
     mechanics:
-      - "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and challenge progress."
+      - "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and built-in challenge progress."
       - "The 3rd and later Creations still appear in Gallery and Timeline but do not grant baseline XP that day."
+      - "A parent's assigned creation goal can count every valid matching creation, including later creations that day."
       - "The daily counter survives deletion, so create-delete-create cannot re-arm the XP window."
       - "A child can submit a Creation for parent bonus; approval grants a separate bonus XP pool, defaulting to 15 XP."
       - "Baseline XP goes to child-picked creative skills; parent bonus XP can use parent-authored bonus tags."
@@ -348,18 +350,26 @@ entries:
   - slug: quests
     title: Challenges
     icon: "⚔️"
-    audience_title: "Boss and collection challenges"
+    audience_title: "Goals that progress in the background"
     chapter: rpg_layer
-    summary: "Boss and collection challenges that progress through everyday activities."
+    summary: "Time-limited goals that progress automatically, plus one small daily bonus."
     kid_voice: |
       Challenges give you a goal to work toward through everyday activities.
-      Complete matching chores, project work, habits, or homework to damage
-      a boss or add to a collection.
+      Matching saved work counts toward every relevant goal. Pin a favorite
+      to see it on Today; work counts even when the goal is not pinned.
     mechanics:
-      - "A user has one active regular challenge at a time."
+      - "Every eligible goal progresses automatically; pinning only chooses the goal featured on Today."
+      - "Built-in challenges count the first planned homework assignment and first two logged creations each day. Extra valid records can count toward a parent's assigned goal."
+      - "Movement goal progress counts every valid saved session; its separate first-three-session XP and drop limit stays in place."
+      - "Challenges have a defined period. Badges remain permanent recognition and are earned separately."
+      - "Bonus awards do not recursively complete new challenges; default goals count effort, and expedition returns require an explicit rule."
+      - "Parent-created goals can measure activity counts, minutes, or distance, including running a chosen distance this week."
+      - "Weekly goals use Monday through Sunday in the family timezone. Late-approved work counts in its original period."
+      - "The daily bonus pays automatically once per family-local day for approved work, a completed project or milestone, or ten cumulative project/movement minutes."
+      - "Approved work earns its daily bonus on the day it is approved; its weekly goal progress still belongs to the original work period."
       - "Boss challenges use trigger damage; collection challenges count matching trigger events."
       - "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework."
-      - "Boss rage adds extra shield on idle days and decays when the child returns to activity."
+      - "Existing boss challenges retain their rage shield: it grows on idle days and decays when the child returns."
       - "Completing a challenge can award Coins, XP through challenge skill tags, and item rewards."
     parent_knobs:
       settings: []
@@ -378,15 +388,15 @@ entries:
       streak_credit: false
     trial_template: choice
     trial:
-      prompt: "Choose a challenge to try."
-      payoff: "Challenge begins · progress tracks matching activities"
+      prompt: "Pin a goal to follow on Today."
+      payoff: "Favorite featured · all matching goals keep progressing"
       choices:
         - label: "Boss · Dragon"
           icon: "🐉"
           outcome: "HP ticks down with each matching chore, hour of work, and habit."
         - label: "Collection · Pebbles"
           icon: "🪨"
-          outcome: "Each find adds one to the count."
+          outcome: "Each matching saved activity adds one to the count, even without a pin."
 
   - slug: pets
     title: Pets

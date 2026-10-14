@@ -494,6 +494,18 @@ class GameLoopService:
     """
 
     @staticmethod
+    def record_challenge_activity(user, trigger_type, context=None):
+        """Factual goals count saved work even when activity rewards are capped."""
+        from apps.quests.activity import record_activity
+        return record_activity(user, trigger_type, context)
+
+    @staticmethod
+    def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
+        """Persist a source-owned anti-farm decision before the game loop."""
+        from apps.quests.activity import freeze_catalog_eligibility
+        return freeze_catalog_eligibility(user, trigger_type, context, eligible=eligible)
+
+    @staticmethod
     def on_task_completed(user, trigger_type, context=None):
         if context is None:
             context = {}
@@ -702,6 +714,13 @@ def _step_daily_challenge(user, trigger_type, context, result):
         )
 
 
+def _step_automatic_challenges(user, trigger_type, context, result):
+    receipt = GameLoopService.record_challenge_activity(user, trigger_type, context)
+    result["challenge_goals"] = receipt["goals"]
+    result["daily_bonus"] = receipt["daily_bonus"]
+    result["challenge_receipts"] = receipt.get("challenge_receipts", [])
+
+
 def _step_chronicle_firsts(user, trigger_type, context, result):
     """Step 6: record first-ever events to the chronicle if applicable."""
     result["chronicle"] = GameLoopService._record_chronicle_firsts(
@@ -720,6 +739,7 @@ class _GameLoopPipeline:
         _step_drops,
         _step_quest_progress,
         _step_daily_challenge,
+        _step_automatic_challenges,
         _step_chronicle_firsts,
     )
 

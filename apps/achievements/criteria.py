@@ -347,7 +347,7 @@ def _quest_completed(user, c):
 
         {"quest_names": ["Quest A", "Quest B"]}
     """
-    from apps.quests.models import Quest
+    from apps.quests.models import ChallengeOccurrence, Quest
 
     names = c.get("quest_names")
     if names is None:
@@ -361,11 +361,20 @@ def _quest_completed(user, c):
         participants__user=user,
         status=Quest.Status.COMPLETED,
     )
+    # Parent-authored goals have their own promises and cannot impersonate a
+    # catalog quest's named badge or contribute to the quest completion ladder.
+    automatic = ChallengeOccurrence.objects.filter(
+        goal__user=user, status="completed", goal__is_catalog=True,
+    )
     if names:
         qs = qs.filter(definition__name__in=list(names))
+        automatic = automatic.filter(
+            models.Q(goal__catalog_definition__name__in=list(names))
+            | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_name__in=list(names))
+        )
     if count is not None:
-        return qs.count() >= int(count)
-    return qs.exists()
+        return qs.count() + automatic.count() >= int(count)
+    return qs.exists() or automatic.exists()
 
 
 # ---------------------------------------------------------------------------
@@ -749,12 +758,19 @@ def _boss_quests_completed(user, c):
 
         {"count": 5}  # default: 5
     """
-    from apps.quests.models import Quest, QuestDefinition
-    return Quest.objects.filter(
+    from apps.quests.models import ChallengeOccurrence, Quest, QuestDefinition
+    legacy_count = Quest.objects.filter(
         participants__user=user,
         status=Quest.Status.COMPLETED,
         definition__quest_type=QuestDefinition.QuestType.BOSS,
-    ).count() >= int(c.get("count", 5))
+    ).count()
+    automatic_count = ChallengeOccurrence.objects.filter(
+        goal__user=user, status="completed", goal__is_catalog=True,
+    ).filter(
+        models.Q(goal__catalog_definition__quest_type="boss")
+        | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_type="boss")
+    ).count()
+    return legacy_count + automatic_count >= int(c.get("count", 5))
 
 
 @criterion(Badge.CriteriaType.COLLECTION_QUESTS_COMPLETED, scopes={"quest"})
@@ -765,12 +781,19 @@ def _collection_quests_completed(user, c):
 
         {"count": 5}  # default: 5
     """
-    from apps.quests.models import Quest, QuestDefinition
-    return Quest.objects.filter(
+    from apps.quests.models import ChallengeOccurrence, Quest, QuestDefinition
+    legacy_count = Quest.objects.filter(
         participants__user=user,
         status=Quest.Status.COMPLETED,
         definition__quest_type=QuestDefinition.QuestType.COLLECTION,
-    ).count() >= int(c.get("count", 5))
+    ).count()
+    automatic_count = ChallengeOccurrence.objects.filter(
+        goal__user=user, status="completed", goal__is_catalog=True,
+    ).filter(
+        models.Q(goal__catalog_definition__quest_type="collection")
+        | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_type="collection")
+    ).count()
+    return legacy_count + automatic_count >= int(c.get("count", 5))
 
 
 @criterion(Badge.CriteriaType.CHRONICLE_MILESTONES_LOGGED, scopes={"chronicle"})

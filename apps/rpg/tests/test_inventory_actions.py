@@ -142,13 +142,13 @@ class AvailableActionsByItemTypeTests(TestCase):
         self.assertEqual(actions[0]["id"], "feed")
         self.assertEqual(actions[0]["to"], "/bestiary?tab=companions")
 
-    def test_quest_scroll_routes_to_trials_with_scroll_id(self):
+    def test_quest_scroll_opens_challenges_without_spending_or_selecting_it(self):
         item = self._entry_for(ItemDefinition.ItemType.QUEST_SCROLL)
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "start_quest")
-        self.assertEqual(actions[0]["label"], "Start challenge")
-        self.assertEqual(actions[0]["to"], f"/trials?scroll_item={item.pk}")
+        self.assertEqual(actions[0]["label"], "View challenges")
+        self.assertEqual(actions[0]["to"], "/quests?tab=trials")
 
     def test_profile_cosmetic_slots_route_to_sigil_for_equip(self):
         for slot in (

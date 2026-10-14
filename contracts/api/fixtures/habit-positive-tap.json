@@ -22,6 +22,9 @@
       "target": 2,
       "newly_completed": false
     },
-    "chronicle": null
+    "chronicle": null,
+    "challenge_goals": [],
+    "daily_bonus": null,
+    "challenge_receipts": []
   }
 }

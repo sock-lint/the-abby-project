@@ -150,7 +150,11 @@ class ChoreApprovalSkillXpTests(TestCase):
         ChoreService.approve_completion(completion, self.parent)
 
         progress = SkillProgress.objects.get(user=self.child, skill=self.skill)
-        self.assertEqual(progress.xp_points, 30)
+        # The activity keeps its 30 XP; the first approved task also settles
+        # today's distinct 20-XP bonus using the same declared skill.
+        self.assertEqual(progress.xp_points, 50)
+        from apps.quests.models import DailyBonus
+        self.assertEqual(DailyBonus.objects.get(user=self.child).xp_awarded, 20)
 
     def test_untagged_chore_still_awards_money_and_coins(self):
         """Back-compat: a chore without ChoreSkillTag rows awards no
@@ -171,8 +175,11 @@ class ChoreApprovalSkillXpTests(TestCase):
             status=ChoreCompletion.Status.PENDING,
         )
         ChoreService.approve_completion(completion, self.parent)
-        # No skill-tag rows → no SkillProgress row.
-        self.assertFalse(SkillProgress.objects.filter(user=self.child).exists())
+        # Untagged chores still add no activity XP. The separate daily bonus
+        # has an explicit Persistence fallback and pays just that 20 XP.
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 20)
+        from apps.quests.models import DailyBonus
+        self.assertEqual(DailyBonus.objects.get(user=self.child).xp_awarded, 20)
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)

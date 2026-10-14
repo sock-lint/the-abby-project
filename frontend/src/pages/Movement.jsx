@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, Activity } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import {
@@ -61,12 +62,23 @@ function SessionRow({ session, canDelete, onDelete }) {
 }
 
 export default function Movement() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, isParent } = useRole();
   const { data, loading, reload, error } = useApi(listMovementSessions);
-  const [logOpen, setLogOpen] = useState(false);
+  const [logOpen, setLogOpen] = useState(() => searchParams.get('log') === '1');
   const [pendingDelete, setPendingDelete] = useState(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState('');
+  const closeLog = () => {
+    setLogOpen(false);
+    if (searchParams.has('log')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('log');
+      next.delete('movement_type');
+      next.delete('movement_type_id');
+      setSearchParams(next, { replace: true });
+    }
+  };
 
   const sessions = normalizeList(data);
   const today = toISODate(new Date());
@@ -181,9 +193,10 @@ export default function Movement() {
 
       {logOpen && (
         <MovementSessionLogModal
-          onClose={() => setLogOpen(false)}
+          initialMovementTypeId={searchParams.get('movement_type') || searchParams.get('movement_type_id') || ''}
+          onClose={closeLog}
           onSaved={() => {
-            setLogOpen(false);
+            closeLog();
             reload();
           }}
         />
