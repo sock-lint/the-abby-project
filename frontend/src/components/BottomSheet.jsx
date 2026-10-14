@@ -9,6 +9,7 @@ import useVisualViewportInset from './modal/useVisualViewportInset';
 import { registerSheetHistory } from './modal/sheetHistory';
 import useIsDesktop from '../hooks/useIsDesktop';
 import useModalFocus from './modal/useModalFocus';
+import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 
 // Shared modal shell for every form dialog in the app. Dual-mode under the
 // "Sheikah Stamp" DNA:
@@ -20,6 +21,7 @@ import useModalFocus from './modal/useModalFocus';
 // wrapper cannot pass its CSS variables across the document.body boundary.
 export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle, focusSuspended = false }) {
   const reducedMotion = useReducedMotion();
+  usePwaUpdateGuard(Boolean(dirty || disabled || focusSuspended));
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const sheetHistoryId = useId();

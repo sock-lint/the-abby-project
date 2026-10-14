@@ -40,7 +40,7 @@ export default function OfflineReadyToast() {
             className="text-caption pointer-events-auto"
           >
             <CheckCircle2 size={18} aria-hidden="true" />
-            <span>Ready to work offline.</span>
+            <span>App saved on this device. Tasks and memories need a connection.</span>
           </NotificationToast>
         )}
       </AnimatePresence>

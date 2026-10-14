@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, act, waitFor } from '@testing-library/react';
+import { render, screen, act, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-// Mock the virtual module BEFORE importing the provider. The mock exposes
+// Mock worker registration before importing the provider. The mock exposes
 // captured callbacks and the updateSW function so tests can simulate SW
 // lifecycle events.
 const mockState = {
@@ -10,16 +10,18 @@ const mockState = {
   updateSW: vi.fn(),
 };
 
-vi.mock('virtual:pwa-register', () => ({
-  registerSW: vi.fn((opts) => {
+vi.mock('./registerPromptWorker', () => ({
+  registerPromptWorker: vi.fn((opts) => {
     mockState.registerSW = opts;
-    return mockState.updateSW;
+    return { update: mockState.updateSW, dispose: vi.fn() };
   }),
 }));
 
 // Import the provider AFTER the mock is set up.
 import { PwaStatusProvider } from './PwaStatusProvider';
 import { usePwaStatus } from './pwaStatus.context';
+import { useFormState } from '../hooks/useFormState';
+import BottomSheet from '../components/BottomSheet';
 
 function StatusProbe() {
   const { updateReady, offlineReady } = usePwaStatus();
@@ -41,10 +43,46 @@ function DismissButton() {
   return <button onClick={dismissOfflineReady}>dismiss</button>;
 }
 
+function DraftForm() {
+  const { form, set } = useFormState({ note: '' });
+  return <input aria-label="Unsaved note" value={form.note} onChange={(event) => set({ note: event.target.value })} />;
+}
+
 describe('PwaStatusProvider', () => {
   beforeEach(() => {
     mockState.registerSW = null;
     mockState.updateSW.mockReset();
+  });
+
+  it('preserves the waiting update and refuses activation while a form has unsaved work', async () => {
+    render(<PwaStatusProvider><StatusProbe /><ApplyButton /><DraftForm /></PwaStatusProvider>);
+    await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+    act(() => mockState.registerSW.onNeedRefresh());
+    fireEvent.change(screen.getByLabelText('Unsaved note'), { target: { value: 'Keep this private thought' } });
+    fireEvent.click(screen.getByText('apply'));
+    expect(mockState.updateSW).not.toHaveBeenCalled();
+    expect(screen.getByTestId('update-ready')).toHaveTextContent('true');
+    expect(screen.getByLabelText('Unsaved note')).toHaveValue('Keep this private thought');
+  });
+
+  it('a blocked request does not invent an update before any waiting-worker proof', async () => {
+    render(<PwaStatusProvider><StatusProbe /><ApplyButton /><DraftForm /></PwaStatusProvider>);
+    fireEvent.change(screen.getByLabelText('Unsaved note'), { target: { value: 'Keep this thought' } });
+    fireEvent.click(screen.getByText('apply'));
+    expect(mockState.updateSW).not.toHaveBeenCalled();
+    expect(screen.getByTestId('update-ready')).toHaveTextContent('false');
+  });
+
+  it('refuses activation during a busy sheet and releases its guard after unmount', async () => {
+    const view = render(<PwaStatusProvider><StatusProbe /><ApplyButton /><BottomSheet title="Saving" disabled onClose={() => {}}>In progress</BottomSheet></PwaStatusProvider>);
+    await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+    act(() => mockState.registerSW.onNeedRefresh());
+    fireEvent.click(screen.getByText('apply'));
+    expect(mockState.updateSW).not.toHaveBeenCalled();
+    expect(screen.getByTestId('update-ready')).toHaveTextContent('true');
+    view.rerender(<PwaStatusProvider><StatusProbe /><ApplyButton /></PwaStatusProvider>);
+    fireEvent.click(screen.getByText('apply'));
+    expect(mockState.updateSW).toHaveBeenCalledTimes(1);
   });
 
   it('starts with both flags false', () => {
@@ -83,7 +121,7 @@ describe('PwaStatusProvider', () => {
     expect(screen.getByTestId('offline-ready').textContent).toBe('true');
   });
 
-  it('applyUpdate calls updateSW(true)', async () => {
+  it('applyUpdate requests activation without delegating reload', async () => {
     const user = userEvent.setup();
     render(
       <PwaStatusProvider>
@@ -92,7 +130,7 @@ describe('PwaStatusProvider', () => {
     );
     await waitFor(() => expect(mockState.registerSW).not.toBeNull());
     await user.click(screen.getByText('apply'));
-    expect(mockState.updateSW).toHaveBeenCalledWith(true);
+    expect(mockState.updateSW).toHaveBeenCalledWith();
   });
 
   describe('applyUpdate reload safety net', () => {
@@ -163,6 +201,35 @@ describe('PwaStatusProvider', () => {
         swListeners.controllerchange();
       });
       expect(reloadSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('defers controller and timeout reload when new work opens after activation starts', async () => {
+      render(<PwaStatusProvider><StatusProbe /><ApplyButton /><DraftForm /></PwaStatusProvider>);
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      act(() => mockState.registerSW.onNeedRefresh());
+      fireEvent.click(screen.getByText('apply'));
+      fireEvent.change(screen.getByLabelText('Unsaved note'), { target: { value: 'Written during update' } });
+      act(() => swListeners.controllerchange());
+      act(() => vi.advanceTimersByTime(1500));
+      expect(reloadSpy).not.toHaveBeenCalled();
+      expect(screen.getByTestId('update-ready')).toHaveTextContent('true');
+      expect(screen.getByLabelText('Unsaved note')).toHaveValue('Written during update');
+      fireEvent.change(screen.getByLabelText('Unsaved note'), { target: { value: '' } });
+      fireEvent.click(screen.getByText('apply'));
+      act(() => vi.advanceTimersByTime(1500));
+      expect(reloadSpy).toHaveBeenCalledTimes(1);
+      expect(mockState.updateSW).toHaveBeenCalledTimes(1);
+    });
+
+    it('cancels the timeout and listener when its session provider unmounts', async () => {
+      const view = render(<PwaStatusProvider><ApplyButton /></PwaStatusProvider>);
+      await waitFor(() => expect(mockState.registerSW).not.toBeNull());
+      fireEvent.click(screen.getByText('apply'));
+      const staleListener = swListeners.controllerchange;
+      view.unmount();
+      act(() => staleListener());
+      act(() => vi.advanceTimersByTime(1500));
+      expect(reloadSpy).not.toHaveBeenCalled();
     });
 
     it('reloads via the timeout fallback when controllerchange never fires', async () => {

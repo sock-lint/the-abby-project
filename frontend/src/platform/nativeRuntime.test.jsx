@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, renderHook, screen, waitFor, act } from '@testing-library/react';
 import { Capacitor } from '@capacitor/core';
-import { registerSW } from 'virtual:pwa-register';
+import { registerPromptWorker } from '../pwa/registerPromptWorker';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import { PwaStatusProvider } from '../pwa/PwaStatusProvider';
@@ -13,7 +13,7 @@ import { logout, login } from '../api';
 import { getToken } from '../api/client';
 import { isNativeRuntime } from './runtime';
 
-vi.mock('virtual:pwa-register', () => ({ registerSW: vi.fn() }));
+vi.mock('../pwa/registerPromptWorker', () => ({ registerPromptWorker: vi.fn() }));
 const originalWorker = navigator.serviceWorker;
 
 beforeEach(() => {
@@ -49,7 +49,7 @@ describe('native browser-service guards', () => {
 
   it('keeps worker/update state inactive and applyUpdate inert', () => {
     render(<PwaStatusProvider><PwaProbe /></PwaStatusProvider>);
-    expect(registerSW).not.toHaveBeenCalled();
+    expect(registerPromptWorker).not.toHaveBeenCalled();
     const button = screen.getByRole('button', { name: 'false / false' });
     act(() => button.click());
     expect(localStorage.getItem('pwa:last-reload-attempt')).toBeNull();
