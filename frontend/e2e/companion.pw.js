@@ -14,12 +14,14 @@ const avatarManifestPath = fileURLToPath(new URL('../src/avatar/licensed/manifes
 const avatarSchema = existsSync(avatarManifestPath) ? JSON.parse(readFileSync(avatarManifestPath, 'utf8')).schema_version : null;
 const privateAvatarArt = [2, 3].includes(avatarSchema);
 const privateWardrobeArt = avatarSchema === 3;
+const avatarCatalog = JSON.parse(readFileSync(fileURLToPath(new URL('../../contracts/api/fixtures/avatar-catalog.json', import.meta.url)), 'utf8'));
+const archer = avatarCatalog.avatars.find((avatar) => avatar.id === 'female-archer');
 const { PNG } = playwrightUtils;
 const sky = JSON.parse(readFileSync(fileURLToPath(new URL('../src/storybook/presentation.json', import.meta.url)), 'utf8')).palette.sky;
 const skyRgb = [1, 3, 5].map((index) => Number.parseInt(sky.slice(index, index + 2), 16));
 
 async function archerCapture(canvas, path) {
-  const bytes = await canvas.screenshot({ path, style: '.fixed, .sticky, [role="tooltip"] { visibility: hidden !important; }' });
+  const bytes = await canvas.screenshot({ path, style: '[data-journal-sticky-header], [data-journal-bottom-nav], [role="tooltip"] { visibility: hidden !important; }' });
   const frame = PNG.sync.read(bytes);
   let colored = 0;
   let sampled = 0;
@@ -42,20 +44,27 @@ const chick = {
   potion: { id: 942, name: 'Base', slug: 'base', rarity: 'common' },
   is_active: true, growth_points: 85, evolved_to_mount: false, happiness_level: 'happy',
 };
+const legacyBindings = Object.entries(archer.accessory_bindings).filter(([, binding]) => binding.legacy_preference_key);
 const avatarDefaults = {
-  hair_style: 'hair-01', hair_color: 'dark', skin_tone: 'fair', outfit: 'nature',
-  outfit_style: 'archer-01', face_style: 'face-01', head_style: 'head-02',
-  headwear_style: 'none', mask_style: 'none', bow_style: 'none', quiver_style: 'none',
+  ...archer.defaults.appearance,
+  ...Object.fromEntries(legacyBindings.map(([slot, binding]) => [binding.legacy_preference_key, archer.defaults.accessories[slot]])),
 };
-const avatarOptions = {
-  hair_style: ['hair-01', 'hair-02', 'hair-03', 'hair-04'],
-  hair_color: ['light', 'dark', 'brown', 'orange', 'grey'], skin_tone: ['fair', 'tan'], outfit: ['aqua', 'nature', 'fire', 'dark'],
-  outfit_style: ['archer-01', 'archer-02', 'archer-03'], face_style: ['face-01', 'face-02', 'face-03'], head_style: ['head-01', 'head-02'],
-  headwear_style: ['none', 'crown-eve', 'hood-mystical'], mask_style: ['none', 'mask-undercover'],
-  bow_style: ['none', 'bow-greenhorn', 'bow-vines', 'bow-myth'], quiver_style: ['none', 'quiver-angel', 'quiver-rook', 'quiver-tale'],
-};
+function avatarConfiguration(preferences) {
+  return {
+    avatar_id: archer.id,
+    appearance: Object.fromEntries(Object.entries(archer.defaults.appearance).map(([key, value]) => [key, preferences[key] ?? value])),
+    accessories: {
+      ...archer.defaults.accessories,
+      ...Object.fromEntries(legacyBindings.map(([slot, binding]) => [slot, preferences[binding.legacy_preference_key] ?? archer.defaults.accessories[slot]])),
+    },
+  };
+}
+function legacyPreferences(configuration) {
+  return { ...configuration.appearance,
+    ...Object.fromEntries(legacyBindings.map(([slot, binding]) => [binding.legacy_preference_key, configuration.accessories[slot]])) };
+}
 const food = { id: 903, item: { id: 904, name: 'Birdseed', icon: '🌾', sprite_key: 'food-birdseed', item_type: 'food' }, quantity: 3 };
-test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } });
+test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] }, actionTimeout: 15_000 });
 
 test.beforeAll(async () => {
   devServer = spawn(process.execPath, [
@@ -97,7 +106,8 @@ async function fixture(page, pet = chick, { mounts = [], avatarPreferences = ava
     id: 906, username: user.username, display_name: 'Prototype child', level: 3,
     login_streak: 2, longest_login_streak: 3, perfect_days_count: 1,
     active_frame: null, active_title: null, active_theme: null, active_pet_accessory: null,
-    active_trophy_badge: null, avatar_preferences: { ...avatarPreferences },
+    active_trophy_badge: null, avatar_preferences: { ...avatarDefaults, ...avatarPreferences },
+    avatar_configuration: avatarConfiguration(avatarPreferences),
   };
   await page.addInitScript(() => localStorage.setItem('abby_auth_token', 'synthetic-browser-profile-session'));
   await page.route('**/api/**', async (route) => {
@@ -108,13 +118,17 @@ async function fixture(page, pet = chick, { mounts = [], avatarPreferences = ava
     if (request.method() !== 'GET') {
       const body = request.postDataJSON();
       mutations.push({ url: request.url(), method: request.method(), body });
-      if (path === '/api/character/avatar/' && request.method() === 'POST') {
-        const preferences = body?.avatar_preferences;
-        const valid = body && Object.keys(body).length === 1 && preferences && !Array.isArray(preferences)
-          && typeof preferences === 'object'
-          && Object.entries(preferences).every(([key, value]) => avatarOptions[key]?.includes(value));
+      if (path === '/api/character/avatar/configuration/' && request.method() === 'POST') {
+        const configuration = body?.avatar_configuration;
+        const valid = body && Object.keys(body).length === 1 && configuration?.avatar_id === archer.id
+          && Object.keys(configuration).length === 3
+          && ['appearance', 'accessories'].every((scope) => configuration[scope] && typeof configuration[scope] === 'object' && !Array.isArray(configuration[scope])
+            && Object.keys(configuration[scope]).length === Object.keys(archer.defaults[scope]).length
+            && Object.keys(archer.defaults[scope]).every((key) => Object.hasOwn(configuration[scope], key)))
+          && archer.groups.flatMap((group) => group.fields).every((field) => field.choices.some((choice) =>
+            choice.value === configuration[field.accessory_slot ? 'accessories' : 'appearance'][field.key]));
         if (!valid) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'Unsupported avatar appearance.' }) });
-        character = { ...character, avatar_preferences: { ...avatarDefaults, ...preferences } };
+        character = { ...character, avatar_preferences: legacyPreferences(configuration), avatar_configuration: structuredClone(configuration) };
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify(character) });
       }
       if (path === `/api/pets/${ownedPet.id}/feed/` && request.method() === 'POST') {
@@ -128,6 +142,7 @@ async function fixture(page, pet = chick, { mounts = [], avatarPreferences = ava
     const responses = {
       '/api/auth/me/': user,
       '/api/character/': { ...character, avatar_preferences: { ...avatarDefaults, ...character.avatar_preferences } },
+      '/api/character/avatar/catalog/': avatarCatalog,
       '/api/cosmetics/': {}, '/api/cosmetics/catalog/': {},
       '/api/achievements/summary/': { badges_earned: [] },
       '/api/pets/stable/': { pets: [ownedPet], mounts: ownedMounts, total_possible: 1, breeding_available: false },
@@ -156,28 +171,30 @@ test('profile has its Archer character and saves appearance without companion or
   await expect(page.getByText('Memory Meadow', { exact: true })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Change color theme' })).toHaveAttribute('href', '/settings#appearance');
   await expect(page.getByRole('tab', { name: /Covers/ })).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Your Archer character' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Your Female Archer avatar' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Customize avatar' })).toHaveAttribute('href', '/profile/customize');
+  await expect(page.getByRole('button', { name: 'Customize character' })).toHaveCount(0);
   await expect(page.locator('.companion-preview')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Customize character' }).click();
-  await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-01');
-  await expect(page.getByRole('combobox', { name: 'Outfit style' })).toHaveValue('archer-01');
+  await page.getByRole('link', { name: 'Customize avatar' }).click();
+  await expect(page).toHaveURL(`${origin}/profile/customize`);
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-01');
+  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('archer-01');
   await expect(page.getByRole('combobox', { name: 'Face', exact: true })).toHaveValue('face-01');
   await expect(page.getByRole('combobox', { name: 'Ears', exact: true })).toHaveValue('head-02');
-  await page.getByRole('combobox', { name: 'Hair style' }).selectOption('hair-04');
+  await page.getByRole('combobox', { name: 'Hairstyle' }).selectOption('hair-04');
   await page.getByRole('combobox', { name: 'Hair color' }).selectOption('light');
   await page.getByRole('combobox', { name: 'Skin tone' }).selectOption('tan');
-  await page.getByRole('combobox', { name: 'Outfit', exact: true }).selectOption('fire');
+  await page.getByRole('combobox', { name: 'Palette', exact: true }).selectOption('fire');
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: {
-    avatar_preferences: { ...avatarDefaults, hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' },
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: {
+    avatar_configuration: avatarConfiguration({ ...avatarDefaults, hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' }),
   } }]);
   await page.reload();
-  await page.getByRole('button', { name: 'Customize character' }).click();
-  await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-04');
-  await expect(page.getByRole('combobox', { name: 'Outfit', exact: true })).toHaveValue('fire');
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-04');
+  await expect(page.getByRole('combobox', { name: 'Palette', exact: true })).toHaveValue('fire');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('profile-phone.png'), fullPage: true });
 });
@@ -189,17 +206,16 @@ test('expanded character identity saves and reloads every supplied choice withou
     outfit_style: 'archer-03', face_style: 'face-03', head_style: 'head-01',
   };
   await page.goto(`${origin}/profile`);
-  await page.getByRole('button', { name: 'Customize character' }).click();
-  const labels = { hair_style: 'Hair style', hair_color: 'Hair color', skin_tone: 'Skin tone', outfit: 'Outfit', outfit_style: 'Outfit style', face_style: 'Face', head_style: 'Ears' };
+  await page.getByRole('link', { name: 'Customize avatar' }).click();
+  const labels = { hair_style: 'Hairstyle', hair_color: 'Hair color', skin_tone: 'Skin tone', outfit: 'Palette', outfit_style: 'Outfit', face_style: 'Face', head_style: 'Ears' };
   for (const [key, value] of Object.entries(preferences)) {
     await page.getByRole('combobox', { name: labels[key], exact: true }).selectOption(value);
   }
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: { ...avatarDefaults, ...preferences } } }]);
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: { avatar_configuration: avatarConfiguration({ ...avatarDefaults, ...preferences }) } }]);
   await page.reload();
-  await page.getByRole('button', { name: 'Customize character' }).click();
   for (const [key, value] of Object.entries(preferences)) {
     await expect(page.getByRole('combobox', { name: labels[key], exact: true })).toHaveValue(value);
   }
@@ -211,33 +227,32 @@ test('wardrobe presets and individual None choices save at phone width without r
   const identity = { ...avatarDefaults, hair_style: 'hair-04', hair_color: 'grey', outfit_style: 'archer-03', face_style: 'face-03', head_style: 'head-01', skin_tone: 'tan' };
   const mutations = await fixture(page, chick, { avatarPreferences: identity });
   await page.goto(`${origin}/profile`);
-  await page.getByRole('button', { name: 'Customize character' }).click();
-  const wardrobe = page.getByRole('group', { name: 'Wardrobe', exact: true });
+  await page.getByRole('link', { name: 'Customize avatar' }).click();
+  const wardrobe = page.getByRole('group', { name: 'Accessories', exact: true });
   await expect(wardrobe).toBeVisible();
-  for (const label of ['Headwear', 'Mask', 'Bow', 'Quiver']) await expect(wardrobe.getByRole('combobox', { name: label, exact: true })).toHaveValue('none');
-  await wardrobe.getByRole('button', { name: 'Dark', exact: true }).click();
-  await expect(wardrobe.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-04');
-  await expect(page.getByRole('combobox', { name: 'Outfit style' })).toHaveValue('archer-03');
-  await wardrobe.getByRole('combobox', { name: 'Bow', exact: true }).selectOption('none');
-  await expect(wardrobe.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await expect(wardrobe.getByRole('combobox', { name: label, exact: true })).toHaveValue('none');
+  await page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true }).click();
+  await expect(page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-04');
+  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('archer-03');
+  await wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }).selectOption('none');
+  await expect(page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'false');
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: {
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: { avatar_configuration: avatarConfiguration({
     ...identity, outfit: 'dark', headwear_style: 'hood-mystical', mask_style: 'mask-undercover', quiver_style: 'quiver-tale',
-  } } }]);
+  }) } }]);
   await page.reload();
-  await page.getByRole('button', { name: 'Customize character' }).click();
   await expect(wardrobe.getByRole('combobox', { name: 'Headwear', exact: true })).toHaveValue('hood-mystical');
-  await expect(wardrobe.getByRole('combobox', { name: 'Mask', exact: true })).toHaveValue('mask-undercover');
-  await expect(wardrobe.getByRole('combobox', { name: 'Bow', exact: true })).toHaveValue('none');
-  await expect(wardrobe.getByRole('combobox', { name: 'Quiver', exact: true })).toHaveValue('quiver-tale');
-  for (const label of ['Headwear', 'Mask', 'Quiver']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  await expect(wardrobe.getByRole('combobox', { name: 'Face accessory', exact: true })).toHaveValue('mask-undercover');
+  await expect(wardrobe.getByRole('combobox', { name: 'Left hand', exact: true })).toHaveValue('none');
+  await expect(wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true })).toHaveValue('quiver-tale');
+  for (const label of ['Headwear', 'Face accessory', 'Back accessory']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
   expect(mutations).toHaveLength(2);
-  expect(mutations[1].body.avatar_preferences).toEqual({ ...identity, outfit: 'dark' });
+  expect(mutations[1].body.avatar_configuration).toEqual(avatarConfiguration({ ...identity, outfit: 'dark' }));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('wardrobe-phone-controls.png'), fullPage: true });
 });
@@ -255,12 +270,12 @@ test('private Archer wardrobe renders supplied gear, retains Idle and restores s
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.getByRole('button', { name: 'Customize character' }).click();
-  const wardrobe = page.getByRole('group', { name: 'Wardrobe', exact: true });
+  await page.getByRole('link', { name: 'Customize avatar' }).click();
+  const wardrobe = page.getByRole('group', { name: 'Accessories', exact: true });
   for (const costume of ['archer-01', 'archer-02', 'archer-03']) {
-    await page.getByRole('combobox', { name: 'Outfit style' }).selectOption(costume);
+    await page.getByRole('combobox', { name: 'Outfit' }).selectOption(costume);
     for (const preset of ['Aqua', 'Nature', 'Fire', 'Dark']) {
-      await wardrobe.getByRole('button', { name: preset, exact: true }).click();
+      await page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: preset, exact: true }).click();
       await view.scrollIntoViewIfNeeded();
       await expect(view).toHaveAttribute('aria-busy', 'false');
       await expect(canvas).toBeVisible();
@@ -269,7 +284,7 @@ test('private Archer wardrobe renders supplied gear, retains Idle and restores s
   }
   // Compare deterministic reduced-motion captures within one palette. Adding
   // a real crown must change actual rendered pixels, not only the controls.
-  for (const label of ['Headwear', 'Mask', 'Bow', 'Quiver']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   const bare = await archerCapture(canvas, test.info().outputPath('wardrobe-none.png'));
@@ -277,19 +292,19 @@ test('private Archer wardrobe renders supplied gear, retains Idle and restores s
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   expect(await archerCapture(canvas, test.info().outputPath('wardrobe-crown.png'))).not.toBe(bare);
-  await wardrobe.getByRole('combobox', { name: 'Bow', exact: true }).selectOption('bow-myth');
-  await wardrobe.getByRole('combobox', { name: 'Quiver', exact: true }).selectOption('quiver-tale');
+  await wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }).selectOption('bow-myth');
+  await wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true }).selectOption('quiver-tale');
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   const first = await archerCapture(canvas);
   await expect.poll(() => archerCapture(canvas), { message: 'The fully equipped Archer must retain the supplied Idle.' }).not.toBe(first);
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: {
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: { avatar_configuration: avatarConfiguration({
     ...avatarDefaults, outfit_style: 'archer-03', outfit: 'dark', headwear_style: 'crown-eve', bow_style: 'bow-myth', quiver_style: 'quiver-tale',
-  } } }]);
+  }) } }]);
   await page.reload();
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
@@ -313,6 +328,8 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await expect(canvas).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reset view' })).toBeEnabled();
+  await expect(view).toHaveAccessibleDescription(/Tap for an animation/);
   await expect(page.getByRole('button', { name: 'Play animation' })).toBeEnabled();
   const first = await archerCapture(canvas, test.info().outputPath('archer-idle-first.png'));
   await expect.poll(() => archerCapture(canvas), { message: 'The supplied Idle must change actual rendered canvas pixels.' }).not.toBe(first);
@@ -334,14 +351,14 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
   }, { intervals: [100, 250, 350], message: 'Reduced motion must settle and retain the same rendered pose.' }).toBe(3);
   expect(await archerCapture(canvas, test.info().outputPath('archer-idle-paused.png'))).toBe(previousCapture);
 
-  await page.getByRole('button', { name: 'Customize character' }).click();
+  await page.getByRole('link', { name: 'Customize avatar' }).click();
   let releaseRig;
   const rigReady = new Promise((resolve) => { releaseRig = resolve; });
   await page.route('**/archer-02.glb', async (route) => { await rigReady; await route.continue(); });
   try {
-    await page.getByRole('combobox', { name: 'Outfit style' }).selectOption('archer-02');
+    await page.getByRole('combobox', { name: 'Outfit' }).selectOption('archer-02');
     await expect(view).toHaveAttribute('aria-busy', 'true');
-    await expect(page.getByText('Loading your character…')).toBeVisible();
+    await expect(page.getByText('Loading your avatar…')).toBeVisible();
   } finally { releaseRig(); }
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await page.unroute('**/archer-02.glb');
@@ -354,7 +371,7 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
         }
       }
     });
-    window.__abbyAvatarLoadingObserver.observe(document.querySelector('section[aria-label="Your character"]'), {
+    window.__abbyAvatarLoadingObserver.observe(document.querySelector('[data-avatar-preview]'), {
       subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['aria-busy'],
     });
   });
@@ -368,21 +385,22 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
   await archerCapture(canvas, test.info().outputPath('archer-outfit-2-rounded-face-2.png'));
   // Costume 3 contains the publisher's fifth influence on one vertex. Force
   // its actual shader to compile and render, retaining that all-weight pose.
-  await page.getByRole('combobox', { name: 'Outfit style' }).selectOption('archer-03');
+  await page.getByRole('combobox', { name: 'Outfit' }).selectOption('archer-03');
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await expect(canvas).toBeVisible();
   await archerCapture(canvas, test.info().outputPath('archer-outfit-3-rounded-face-2.png'));
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await view.scrollIntoViewIfNeeded();
-  await expect(page.getByRole('button', { name: 'Play animation' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Reset view' })).toBeEnabled();
+  await expect(view).toHaveAccessibleDescription(/Tap for an animation/);
   const costume3First = await archerCapture(canvas);
   await expect.poll(() => archerCapture(canvas), { message: 'Costume 3 must animate with its complete original skin influences.' }).not.toBe(costume3First);
   await archerCapture(canvas, test.info().outputPath('archer-outfit-3-idle-moving.png'));
   expect(mutations).toEqual([]);
-  await page.getByRole('button', { name: 'Save character' }).click();
-  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: {
-    avatar_preferences: { ...avatarDefaults, outfit_style: 'archer-03', head_style: 'head-01', hair_color: 'brown', face_style: 'face-02' },
+  await page.getByRole('button', { name: 'Save avatar' }).click();
+  await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: {
+    avatar_configuration: avatarConfiguration({ ...avatarDefaults, outfit_style: 'archer-03', head_style: 'head-01', hair_color: 'brown', face_style: 'face-02' }),
   } }]);
   await page.reload();
   await view.scrollIntoViewIfNeeded();
