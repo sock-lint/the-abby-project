@@ -41,12 +41,12 @@ export default function DesignEnvironment({ children }) {
             <SelectField label="Color theme" value={theme} onChange={event => setTheme(event.target.value)}>
               {Object.entries(themes).map(([key, cover]) => <option key={key} value={key}>{cover.name}</option>)}
             </SelectField>
-            <SelectField label="Preview width" value={width} onChange={event => setWidth(event.target.value)}>
+            <SelectField label="Content width" value={width} onChange={event => setWidth(event.target.value)}>
               <option value="responsive">Available width</option>
-              <option value="320">Small phone · 320px</option>
-              <option value="375">Phone · 375px</option>
-              <option value="768">Tablet · 768px</option>
-              <option value="1280">Desktop · 1280px</option>
+              <option value="320">Narrow content · 320px</option>
+              <option value="375">Narrow content · 375px</option>
+              <option value="768">Medium content · 768px</option>
+              <option value="1280">Wide content · 1280px</option>
             </SelectField>
             <SelectField label="Example role" value={role} onChange={event => setRole(event.target.value)}>
               <option value="child">Child</option>
@@ -60,6 +60,7 @@ export default function DesignEnvironment({ children }) {
             <CheckboxField label="Show navigation example" checked={chrome} onChange={event => setChrome(event.target.checked)} />
           </div>
           <p className="text-caption text-ink-secondary">Device motion preference: {deviceReducedMotion ? 'reduced' : 'standard'}. Use browser zoom and device settings to check the full accessibility behavior.</p>
+          <p className="text-caption text-ink-secondary">Content width constrains the examples; it does not change viewport media queries. Resize the browser or use its device tools to check phone layouts.</p>
           <nav aria-label="Design sections" className="flex flex-wrap gap-2">
             {[
               ['design-foundations', 'Foundations'], ['design-data', 'Data and feedback'],
@@ -75,7 +76,7 @@ export default function DesignEnvironment({ children }) {
           className="mx-auto min-w-0 w-full"
           style={{
             maxWidth: width === 'responsive' ? undefined : `${width}px`,
-            ...(largeText ? { '--text-body': '20px', '--text-caption': '17px', '--text-tiny': '16px', '--text-micro': '15px', '--text-base': '22px', '--text-sm': '19px' } : {}),
+            ...(largeText ? { '--text-body': '20px', '--text-caption': '17px', '--text-tiny': '16px', '--text-micro': '15px', '--text-base': '22px', '--text-sm': '19px', '--text-body--line-height': '1.5', '--text-caption--line-height': '1.5', '--text-tiny--line-height': '1.5', '--text-micro--line-height': '1.5' } : {}),
           }}
         >
           {chrome && <TabList tabs={navigation} activeId={activeChapter} onSelect={setActiveChapter} ariaLabel="Preview navigation" />}

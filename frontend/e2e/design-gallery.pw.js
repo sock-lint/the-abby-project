@@ -194,3 +194,21 @@ test('design library retains an attachment after failure and removes it locally'
   await expect(attachments.getByRole('alert')).toHaveCount(0);
   expect(writes).toEqual([]);
 });
+
+for (const theme of ['hyrule', 'vigil', 'sunlit', 'snowquill', 'verdant', 'harvest']) {
+  test(`design library enlarged content reflows on a real phone viewport on ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 740 });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${origin}/e2e/design-gallery-fixture.html?theme=${theme}`);
+    await page.getByRole('checkbox', { name: 'Long content', exact: true }).check();
+    await page.getByRole('checkbox', { name: 'Larger text', exact: true }).check();
+    await page.getByRole('combobox', { name: 'Example role', exact: true }).selectOption('parent');
+    await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
+    const notification = page.getByRole('group', { name: 'success notification example', exact: true });
+    await notification.getByRole('button', { name: 'Dismiss notification', exact: true }).click();
+    await expect(notification).toHaveCount(0);
+    await page.getByRole('button', { name: 'Restore notification examples', exact: true }).click();
+    await expect(notification).toBeVisible();
+  });
+}
