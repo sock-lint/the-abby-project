@@ -27,7 +27,11 @@
     "outfit": "fire",
     "outfit_style": "archer-03",
     "face_style": "face-02",
-    "head_style": "head-01"
+    "head_style": "head-01",
+    "headwear_style": "crown-eve",
+    "mask_style": "mask-undercover",
+    "bow_style": "bow-vines",
+    "quiver_style": "quiver-rook"
   },
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00"

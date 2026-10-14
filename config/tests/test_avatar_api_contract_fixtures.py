@@ -44,6 +44,8 @@ class AvatarApiResponseFixtureTests(APITestCase):
         choices = {
             "hair_style": "hair-04", "hair_color": "grey", "skin_tone": "tan",
             "outfit": "fire", "outfit_style": "archer-03", "face_style": "face-02", "head_style": "head-01",
+            "headwear_style": "crown-eve", "mask_style": "mask-undercover",
+            "bow_style": "bow-vines", "quiver_style": "quiver-rook",
         }
         saved = self.assert_response_fixture(
             self.client.post("/api/character/avatar/", {"avatar_preferences": choices}, format="json"),
@@ -68,6 +70,7 @@ class AvatarApiResponseFixtureTests(APITestCase):
         )
         self.assertEqual(response["avatar_preferences"], {
             **legacy, "outfit_style": "archer-01", "face_style": "face-01", "head_style": "head-02",
+            "headwear_style": "none", "mask_style": "none", "bow_style": "none", "quiver_style": "none",
         })
         self.assertEqual(CharacterProfile.objects.filter(pk=self.profile.pk).values().get(), before)
 

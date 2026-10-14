@@ -36,8 +36,55 @@ const expandedManifest = {
 const expandedUrls = Object.fromEntries([
   ...Object.values(expandedManifest.models).map((model) => model.file), ...Object.values(expandedManifest.textures).flatMap(Object.values),
 ].map((file) => [`./licensed/${file}`, `/assets/${file}`]));
+const wardrobeStyles = {
+  headwear: ['crown-eve', 'hood-mystical'], mask: ['mask-undercover'],
+  bow: ['bow-greenhorn', 'bow-vines', 'bow-myth'], quiver: ['quiver-angel', 'quiver-rook', 'quiver-tale'],
+};
+const wardrobeManifest = {
+  ...expandedManifest, schema_version: 3,
+  parts: { ...expandedManifest.parts, wardrobe: {
+    hair_for_hat: 'Hair for hat',
+    ...Object.fromEntries(Object.entries(wardrobeStyles).map(([slot, styles]) => [slot, Object.fromEntries(styles.map((style) => [style, style]))])),
+  } },
+  textures: { ...expandedManifest.textures, wardrobe: Object.fromEntries(Object.values(wardrobeStyles).flat().flatMap((style) =>
+    ['aqua', 'nature', 'fire', 'dark'].map((palette) => [`${style}:${palette}`, ['bow-greenhorn', 'quiver-rook'].includes(style) ? 'neutral.png' : `wardrobe-${palette}.png`]))),
+  },
+};
+const wardrobeUrls = { ...expandedUrls, ...Object.fromEntries(['neutral.png', ...['aqua', 'nature', 'fire', 'dark'].map((palette) => `wardrobe-${palette}.png`)]
+  .map((file) => [`./licensed/${file}`, `/assets/${file}`])) };
 
 describe('owned Archer appearance', () => {
+  it('requires a wardrobe-capable release instead of silently dropping saved equipment', () => {
+    for (const source of [manifest, expandedManifest]) {
+      for (const [slot, styles] of Object.entries(wardrobeStyles)) {
+        expect(resolveAvatarAppearance({ [`${slot}_style`]: styles[0] }, source, { ...urls, ...expandedUrls })).toBeNull();
+      }
+    }
+  });
+
+  it('resolves every supplied wardrobe piece in each palette with verified neutral aliases', () => {
+    for (const outfit of ['aqua', 'nature', 'fire', 'dark']) {
+      for (const [slot, styles] of Object.entries(wardrobeStyles)) {
+        for (const style of styles) {
+          const selected = resolveAvatarAppearance({ outfit, [`${slot}_style`]: style, hair_style: 'hair-04' }, wardrobeManifest, wardrobeUrls);
+          expect(selected).toMatchObject({ hairStyle: 'hair-04', wardrobe: { [slot]: style }, idleClip: 'Idle' });
+          expect(selected.textures[slot]).toBe(['bow-greenhorn', 'quiver-rook'].includes(style) ? '/assets/neutral.png' : `/assets/wardrobe-${outfit}.png`);
+          expect(Object.keys(selected.textures)).toEqual(['body', 'hair', 'face', slot]);
+        }
+      }
+    }
+    expect(resolveAvatarAppearance({}, wardrobeManifest, wardrobeUrls)).toMatchObject({
+      wardrobe: { headwear: 'none', mask: 'none', bow: 'none', quiver: 'none' },
+      textures: { body: '/assets/archer-01-fair-nature.png', hair: '/assets/hair-dark.png', face: '/assets/face-01-dark.png' },
+    });
+  });
+
+  it('requires the selected wardrobe texture and the complete wardrobe mesh contract', () => {
+    expect(resolveAvatarAppearance({ headwear_style: 'hood-mystical' }, wardrobeManifest, { ...wardrobeUrls, './licensed/wardrobe-nature.png': undefined })).toBeNull();
+    for (const wardrobe of [undefined, { ...wardrobeManifest.parts.wardrobe, hair_for_hat: undefined }, { ...wardrobeManifest.parts.wardrobe, bow: {} }]) {
+      expect(resolveAvatarAppearance({}, { ...wardrobeManifest, parts: { ...wardrobeManifest.parts, wardrobe } }, wardrobeUrls)).toBeNull();
+    }
+  });
   it('selects the exact supplied body, hair and face texture variants', () => {
     const appearance = resolveAvatarAppearance({ hair_style: 'hair-03', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' }, manifest, urls);
     expect(appearance.hairStyle).toBe('hair-03');

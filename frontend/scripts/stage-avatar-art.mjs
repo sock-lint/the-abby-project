@@ -19,6 +19,14 @@ const COSTUMES = ['archer-01', 'archer-02', 'archer-03'];
 const FACES = ['face-01', 'face-02', 'face-03'];
 const HEADS = ['head-01', 'head-02'];
 const EXPANDED_HAIR_COLORS = [...HAIR_COLORS, 'brown', 'orange', 'grey'];
+const WARDROBE = {
+  headwear: ['crown-eve', 'hood-mystical'],
+  mask: ['mask-undercover'],
+  bow: ['bow-greenhorn', 'bow-vines', 'bow-myth'],
+  quiver: ['quiver-angel', 'quiver-rook', 'quiver-tale'],
+};
+const WARDROBE_TEXTURE_KEYS = Object.values(WARDROBE).flat()
+  .flatMap((style) => ['aqua', 'nature', 'fire', 'dark'].map((palette) => `${style}:${palette}`));
 
 function fail(message) { throw new Error(message); }
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -62,10 +70,11 @@ function validateConfig(config) {
 }
 
 function validateManifest(manifest) {
-  if (!object(manifest) || ![1, 2].includes(manifest.schema_version)
+  if (!object(manifest) || ![1, 2, 3].includes(manifest.schema_version)
     || manifest.delivery_review !== 'public_runtime_accepted'
     || !text(manifest.delivery_review_reference, 512)) fail('Avatar public runtime delivery has not been accepted.');
-  const animated = manifest.schema_version === 2;
+  const animated = manifest.schema_version >= 2;
+  const wardrobe = manifest.schema_version === 3;
   const modelKeys = animated ? COSTUMES : ['archer'];
   if (!hasKeys(manifest.models, modelKeys)) fail('Avatar costume models are incomplete.');
   for (const model of Object.values(manifest.models)) {
@@ -97,22 +106,39 @@ function validateManifest(manifest) {
   const modelFiles = Object.values(manifest.models).map((model) => model.file);
   if (new Set(modelFiles).size !== modelFiles.length) fail('Avatar costumes must keep their complete matching models.');
   const parts = manifest.parts;
-  if (!hasKeys(parts, ['body', 'head', 'face', 'hair']) || !hasKeys(parts.hair, HAIR_STYLES)) {
+  if (!hasKeys(parts, ['body', 'head', 'face', 'hair', ...(wardrobe ? ['wardrobe'] : [])]) || !hasKeys(parts.hair, HAIR_STYLES)) {
     fail('Avatar mesh parts are incomplete.');
   }
   if (animated && !hasKeys(parts.head, HEADS)) fail('Avatar head choices are incomplete.');
   const heads = animated ? Object.values(parts.head) : [parts.head];
   const names = [parts.body, ...heads, parts.face, ...Object.values(parts.hair)];
-  if (names.some((name) => !text(name, 128)) || new Set(names).size !== names.length) fail('Avatar mesh parts must have distinct names.');
+  const wardrobeBindings = Object.create(null);
+  if (wardrobe) {
+    if (!hasKeys(parts.wardrobe, ['hair_for_hat', ...Object.keys(WARDROBE)])
+      || Object.entries(WARDROBE).some(([slot, styles]) => !hasKeys(parts.wardrobe[slot], styles))) {
+      fail('Avatar wardrobe modules are incomplete.');
+    }
+    names.push(parts.wardrobe.hair_for_hat, ...Object.keys(WARDROBE).flatMap((slot) => Object.values(parts.wardrobe[slot])));
+    wardrobeBindings[parts.wardrobe.hair_for_hat] = 'RigHead';
+    for (const [slot, bone] of Object.entries({ headwear: 'RigHead', mask: 'RigHead', bow: 'RigLPalm', quiver: 'RigRibcage' })) {
+      for (const name of Object.values(parts.wardrobe[slot])) wardrobeBindings[name] = bone;
+    }
+  }
+  // GLTFLoader uses these aliases as dictionary keys and sanitizes the
+  // animation-binding delimiters. Preserve exact names through both paths.
+  if (names.some((name) => !text(name, 128) || Object.hasOwn(Object.prototype, name) || /[[\].:/]/.test(name))
+    || new Set(names).size !== names.length) fail('Avatar mesh parts must have distinct loader-safe names.');
   const textures = manifest.textures;
   const outfitKeys = animated ? COSTUMES.flatMap((style) => OUTFITS.map((outfit) => `${style}:${outfit}`)) : OUTFITS;
   const hairColors = animated ? EXPANDED_HAIR_COLORS : HAIR_COLORS;
   const faceKeys = animated ? FACES.flatMap((style) => hairColors.map((color) => `${style}:${color}`)) : hairColors;
-  if (!hasKeys(textures, ['outfit', 'hair', 'face']) || !hasKeys(textures.outfit, outfitKeys)
-    || !hasKeys(textures.hair, hairColors) || !hasKeys(textures.face, faceKeys)) fail('Avatar texture choices are incomplete.');
-  const images = [...Object.values(textures.outfit), ...Object.values(textures.hair), ...Object.values(textures.face)];
+  if (!hasKeys(textures, ['outfit', 'hair', 'face', ...(wardrobe ? ['wardrobe'] : [])]) || !hasKeys(textures.outfit, outfitKeys)
+    || !hasKeys(textures.hair, hairColors) || !hasKeys(textures.face, faceKeys)
+    || (wardrobe && !hasKeys(textures.wardrobe, WARDROBE_TEXTURE_KEYS))) fail('Avatar texture choices are incomplete.');
+  const images = [...Object.values(textures.outfit), ...Object.values(textures.hair), ...Object.values(textures.face),
+    ...(wardrobe ? Object.values(textures.wardrobe) : [])];
   if (images.some((name) => !filename(name, '.png')) || (!animated && new Set(images).size !== images.length)) fail('Avatar texture filenames are invalid.');
-  return { models: manifest.models, names, inventory: [...modelFiles, ...new Set(images)], outfitKeys, hairColors, faceKeys, animated };
+  return { models: manifest.models, names, inventory: [...modelFiles, ...new Set(images)], outfitKeys, hairColors, faceKeys, animated, wardrobe, wardrobeBindings };
 }
 
 function validatePng(bytes) {
@@ -141,7 +167,7 @@ function validatePng(bytes) {
   fail('Avatar PNG is incomplete.');
 }
 
-function validateGlb(bytes, partNames, model) {
+function validateGlb(bytes, partNames, model, wardrobeBindings) {
   if (bytes.length < 28 || bytes.readUInt32LE(0) !== 0x46546c67 || bytes.readUInt32LE(4) !== 2
     || bytes.readUInt32LE(8) !== bytes.length) fail('Avatar GLB header is invalid.');
   const chunks = [];
@@ -249,10 +275,14 @@ function validateGlb(bytes, partNames, model) {
     const matches = [...reachable].filter((nodeIndex) => nodes[nodeIndex].name === name);
     if (matches.length !== 1 || !index(nodes[matches[0]].mesh, meshes)) fail('Avatar GLB is missing a selected mesh part.');
   }
-  validateIdle(document, chunks[1].bytes, reachable, model, partNames[0]);
+  if (Object.keys(wardrobeBindings).length && [...reachable].some((nodeIndex) =>
+    nodes[nodeIndex].mesh !== undefined && !partNames.includes(nodes[nodeIndex].name))) {
+    fail('Avatar wardrobe GLB contains undeclared mesh parts.');
+  }
+  validateIdle(document, chunks[1].bytes, reachable, model, partNames[0], wardrobeBindings);
 }
 
-function validateIdle(document, binary, reachable, model, bodyName) {
+function validateIdle(document, binary, reachable, model, bodyName, wardrobeBindings) {
   const animations = document.animations ?? [];
   if (!Array.isArray(animations)) fail('Avatar animation list is invalid.');
   if (model.idle_clip === null) {
@@ -270,6 +300,12 @@ function validateIdle(document, binary, reachable, model, bodyName) {
     fail('Avatar Idle needs a skinned body with supplied joint weights.');
   }
   const joints = new Set(skins[body.skin].joints);
+  const requiredAttachments = new Map();
+  for (const [name, bone] of Object.entries(wardrobeBindings)) {
+    const matches = [...joints].filter((joint) => reachable.has(joint) && nodes[joint].name === bone);
+    if (matches.length !== 1) fail('Avatar wardrobe needs its supplied attachment bones in the matching body rig.');
+    requiredAttachments.set(name, matches[0]);
+  }
   const contributingJoints = new Set();
   const targets = new Set();
   const usedSamplers = new Set();
@@ -323,6 +359,10 @@ function validateIdle(document, binary, reachable, model, bodyName) {
           totalWeight += weights.reduce((sum, value) => sum + value, 0);
           for (let component = 0; component < 4; component++) {
             if (skinned === body && weights[component] > 0) contributingJoints.add(skinJoints[jointValues[component]]);
+            if (requiredAttachments.has(skinned.name) && weights[component] > 0
+              && skinJoints[jointValues[component]] !== requiredAttachments.get(skinned.name)) {
+              fail('Avatar wardrobe weights must preserve their supplied rigid attachment bone.');
+            }
           }
         }
         // Preserve up to eight supplied influences. Normalizing the first four
@@ -341,6 +381,13 @@ function validateIdle(document, binary, reachable, model, bodyName) {
   const parents = new Map();
   for (const nodeIndex of reachable) {
     for (const child of nodes[nodeIndex].children ?? []) parents.set(child, nodeIndex);
+  }
+  for (const nodeIndex of reachable) {
+    const node = nodes[nodeIndex];
+    if (!requiredAttachments.has(node.name) || node.skin !== undefined) continue;
+    let ancestor = parents.get(nodeIndex);
+    while (ancestor !== undefined && !joints.has(ancestor)) ancestor = parents.get(ancestor);
+    if (ancestor !== requiredAttachments.get(node.name)) fail('Avatar wardrobe must follow its supplied attachment bone.');
   }
   for (const nodeIndex of [...contributingJoints]) {
     let ancestor = parents.get(nodeIndex);
@@ -401,7 +448,7 @@ export function validateAvatarBundle(bytes, expectedHash) {
   if (hash(bytes) !== expectedHash) fail('Avatar asset artifact digest does not match.');
   const bundle = parseJson(bytes, 'Avatar asset artifact JSON is invalid.');
   if (!hasKeys(bundle, ['schema_version', 'manifest', 'files']) || bundle.schema_version !== 1) fail('Avatar asset artifact schema is invalid.');
-  const { models, names, inventory, outfitKeys, hairColors, faceKeys } = validateManifest(bundle.manifest);
+  const { models, names, inventory, outfitKeys, hairColors, faceKeys, wardrobe, wardrobeBindings } = validateManifest(bundle.manifest);
   if (!hasKeys(bundle.files, inventory)) fail('Avatar asset inventory differs from the accepted runtime files.');
   const files = new Map();
   for (const [name, file] of Object.entries(bundle.files)) {
@@ -413,7 +460,7 @@ export function validateAvatarBundle(bytes, expectedHash) {
     if (!content.length || content.length > MAX_FILE_BYTES || content.toString('base64') !== file.base64
       || hash(content) !== file.sha256) fail('Avatar asset file digest or size is invalid.');
     const model = Object.values(models).find((entry) => entry.file === name);
-    if (model) validateGlb(content, names, model);
+    if (model) validateGlb(content, names, model, wardrobeBindings);
     else validatePng(content);
     files.set(name, content);
   }
@@ -430,6 +477,13 @@ export function validateAvatarBundle(bytes, expectedHash) {
       face: select(bundle.manifest.textures.face, faceKeys),
     },
   };
+  if (wardrobe) {
+    manifest.parts.wardrobe = {
+      hair_for_hat: bundle.manifest.parts.wardrobe.hair_for_hat,
+      ...Object.fromEntries(Object.entries(WARDROBE).map(([slot, styles]) => [slot, select(bundle.manifest.parts.wardrobe[slot], styles)])),
+    };
+    manifest.textures.wardrobe = select(bundle.manifest.textures.wardrobe, WARDROBE_TEXTURE_KEYS);
+  }
   return { manifest, files };
 }
 

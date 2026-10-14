@@ -1,8 +1,8 @@
 # Private Profile avatar builds
 
-The Profile preview resolves its Archer model, four hairstyles and supplied
-palette textures at Vite build time. The Meadow portrait release stages only
-storybook images; it cannot supply the avatar. A build without the separate
+The Profile preview resolves its Archer model, hairstyles, wardrobe modules and
+supplied palette textures at Vite build time. The Meadow portrait release stages
+only storybook images; it cannot supply the avatar. A build without the separate
 avatar inputs displays “The avatar preview is unavailable.”
 
 `Dockerfile` runs `frontend/scripts/stage-avatar-art.mjs` before Vite. Public
@@ -45,9 +45,10 @@ skin/outfit textures, two hair textures and two face textures. Include exactly
 the referenced GLB and PNG files. Limits are 8 MiB for the JSON artifact and
 2 MiB for each runtime file, with PNGs bounded to 2048 pixels. The GLB must be
 self-contained version 2 with its required mesh parts and no external references
-or extensions. Only the accepted static pose is supported; an unaccepted Idle
-clip fails validation. Artifact and individual file hashes are verified before
-atomic staging. Existing local staging directories are never overwritten.
+or extensions. Schema-v1 accepts only its reviewed static pose; schema-v2/v3
+require the separately reviewed supplied Idle described below. Artifact and
+individual file hashes are verified before atomic staging. Existing local
+staging directories are never overwritten.
 
 ## Build configuration
 
@@ -74,9 +75,10 @@ functional customization fallback. The final Django image receives only Vite's
 compiled output; private credentials remain build secrets.
 
 `npm run test:licensed-art` exercises synthetic staging, public skip/required
-behavior, integrity failures and a real Vite build that resolves all 64 avatar
-combinations. Hosted Frontend validation runs this gate. Real Archer rendering
-and physical-phone acceptance remain owner checks after the approved inputs
+behavior, integrity failures and real Vite builds covering 64 schema-v1,
+2,880 schema-v2 and 276,480 schema-v3 avatar combinations. Hosted Frontend
+validation runs this gate. Real Archer rendering and physical-phone acceptance
+remain owner checks after the approved inputs
 are available. Rollback selects a previously accepted object and digest, then
 uses the normal reviewed deployment flow.
 
@@ -159,3 +161,46 @@ public delivery have been reviewed. Add `--animation-review-reference` only
 for an existing review record after verifying the complete conversion evidence.
 Real source reimport/render evidence and physical-phone graphics checks remain
 separate from hosted tests, which use synthetic geometry and public fallback.
+
+## Supplied wardrobe
+
+Four saved presentation fields default to `none`: `headwear_style` (Crown Eve
+or Hood Mystical), `mask_style` (Mask Undercover), `bow_style` (Greenhorn,
+Vines or Myth), and `quiver_style` (Angel, Rook or Tale). Aqua, Nature, Fire
+and Dark presets change the outfit palette and those four fields, preserving
+costume, hair, skin, face and ears. Individual controls can remove any module.
+These are Profile preferences; saving them creates no inventory or rewards.
+
+Schema-v3 retains the complete schema-v2 models, identity modules and Idle
+contract, adding ten modules per costume: nine equipment meshes and supplied
+hat hair. `parts.wardrobe` contains `hair_for_hat` plus maps for `headwear`,
+`mask`, `bow` and `quiver`. `textures.wardrobe` has all 36
+`<module_style>:<outfit_palette>` bindings. Explicit shared PNG aliases are
+valid: the publisher's Greenhorn bow and Rook quiver use neutral supplied
+materials across all four palettes. The outer artifact remains schema-v1.
+
+The private schema-v3 source map pins actual module FBXs, material/texture
+bindings and costume/item prefabs. The converter derives the publisher's
+`+Head`, `+L Hand` and `+Back` socket transforms from those prefabs. It
+preserves supplied geometry and UVs, binding rigid modules to the matching
+costume's `RigHead`, `RigLPalm` and `RigRibcage` joints. No guessed fitting,
+additional bones or source animation changes are accepted. Private evidence
+includes unchanged source hashes, sampled attachment motion and GLB reimport
+checks. Public staging independently rejects undeclared visible meshes and
+modules attached or weighted to the wrong body joint.
+
+The renderer preserves the original identity framing, substitutes hat hair
+under the hood and restores the selected hairstyle when the hood is removed.
+The crown retains the selected ordinary hairstyle. Wardrobe changes keep the
+matching complete costume rig and supplied Idle; reduced-motion, offscreen,
+failure and retry behavior remain applicable. Older schema-v1/v2 releases
+support their existing choices; selections requiring wardrobe retain usable
+DOM customization with an unavailable preview until schema-v3 art is staged.
+
+The owner's accepted schema-v2 release for PR #210 does not establish visual
+acceptance of a new schema-v3 artifact. New wardrobe exports remain
+`private_evaluation` until the exact converted looks and delivery are accepted.
+Record that acceptance before preparing the immutable release object. Upload
+and settings changes use the explicitly scoped operator connection for the
+accepted artifact and Abby app; a missing upload route is an access hold,
+not a reason to repeat an existing owner acceptance or explore credentials.

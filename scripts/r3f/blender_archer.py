@@ -91,10 +91,11 @@ def at_frame(frame):
     bpy.context.view_layer.update()
 
 
-def vertices(mesh):
+def vertices(mesh, surface_only=False):
     graph = bpy.context.evaluated_depsgraph_get()
     evaluated = mesh.evaluated_get(graph)
-    result = [mesh.matrix_world @ vertex.co for vertex in evaluated.data.vertices]
+    used = {index for polygon in evaluated.data.polygons for index in polygon.vertices} if surface_only else None
+    result = [mesh.matrix_world @ vertex.co for vertex in evaluated.data.vertices if used is None or vertex.index in used]
     if not result or not all(math.isfinite(value) for vertex in result for value in vertex):
         raise ValueError('Supplied Idle produces invalid vertices')
     return result
@@ -236,6 +237,37 @@ def attach_head_module(mesh, armature, head_bone):
     return rest
 
 
+def attach_wardrobe_module(mesh, armature, attachment):
+    """Place an unchanged supplied mesh using its actual publisher socket."""
+    bone = attachment['bone']
+    if bone not in armature.data.bones:
+        raise ValueError('Wardrobe prefab joint is absent from its complete costume rig')
+    position = (armature.matrix_world @ armature.data.bones[bone].matrix_local).translation
+    if (position - Vector(attachment['bone_position'])).length > 0.0001:
+        raise ValueError('Wardrobe prefab joint differs from its actual costume rest joint')
+    socket = Matrix(attachment['world_matrix'])
+    scale = rigid_scale(socket)
+    if abs(scale - 1) > 0.00001:
+        raise ValueError('Wardrobe socket changes supplied module scale')
+    original_geometry = [vertex.co.copy() for vertex in mesh.data.vertices]
+    original_uv = uv_values(mesh)
+    mesh.matrix_world = socket @ Matrix.Rotation(math.pi / 2, 4, 'X') @ mesh.matrix_world
+    # FBX can contain a slightly posed palm even with animation import off.
+    # Check the unchanged source at REST, then restore its actual pose. This
+    # changes no joint/rest matrices, original geometry or animation keys.
+    position_mode = armature.data.pose_position
+    try:
+        armature.data.pose_position = 'REST'
+        bpy.context.view_layer.update()
+        rest = attach_head_module(mesh, armature, bone)
+    finally:
+        armature.data.pose_position = position_mode
+        bpy.context.view_layer.update()
+    if original_geometry != [vertex.co for vertex in mesh.data.vertices] or original_uv != uv_values(mesh):
+        raise ValueError('Wardrobe attachment changed supplied geometry or UVs')
+    return rest
+
+
 def convert_supplied_motion(source, target, frames):
     rest_difference = matching_rest_rigs(source, target)
     source_rest = {bone.name: source.matrix_world @ bone.matrix_local for bone in source.data.bones}
@@ -340,6 +372,7 @@ def prepare_modular(config):
     inventory, textures = config['source_map'], config['textures']
     evidence.mkdir(parents=True, exist_ok=True)
     reports = {}
+    wardrobe_reports = {}
     for style, filename in inventory['bodies'].items():
         reset()
         objects = import_fbx(source / filename)
@@ -359,6 +392,7 @@ def prepare_modular(config):
         body.data.materials.clear()
         body.data.materials.append(material('Archer Outfit Runtime', output / textures['outfit'][f'{style}:fair:nature']))
         modules = {}
+        module_bones = {}
         module_sources = [(f'Archer_Head_{index:02}', inventory['head'][key], 'outfit') for index, key in enumerate(('head-01', 'head-02'), 1)]
         module_sources.append(('Archer_Face', inventory['face'], 'face'))
         module_sources.extend((f'Archer_Hair_{index:02}', inventory['hair'][key], 'hair') for index, key in enumerate(('hair-01', 'hair-02', 'hair-03', 'hair-04'), 1))
@@ -373,23 +407,50 @@ def prepare_modular(config):
             mesh.data.materials.clear()
             mesh.data.materials.append(material(name + ' Runtime', output / texture))
             modules[name] = attach_head_module(mesh, rig, head_bone)
+            module_bones[name] = head_bone
             objects.extend(imported)
-        meshes = [body, *(bpy.data.objects[name] for name in modules)]
-        low, high = bounds(meshes)
+        base_meshes = [body, *(bpy.data.objects[name] for name in modules)]
+        # Equipment never changes the already reviewed body normalization.
+        low, high = bounds(base_meshes)
         if not 1.5 < high.z - low.z < 2 or abs(low.z) > 0.02:
             raise ValueError('Supplied costume modules do not form an upright body')
+        wardrobe_styles = {}
+        if config['schema_version'] == 3:
+            wardrobe = inventory['wardrobe']
+            choices = [('Archer_Hair_For_Hat', None, wardrobe['hair_for_hat'])]
+            for group in ('headwear', 'mask', 'bow', 'quiver'):
+                choices.extend(('Archer_' + key.replace('-', '_').title(), key, descriptor) for key, descriptor in wardrobe[group].items())
+            for name, key, descriptor in choices:
+                imported = import_fbx(source / descriptor['source'])
+                mesh = one_mesh(imported, name)
+                if any(obj.type == 'ARMATURE' for obj in imported):
+                    raise ValueError('Wardrobe module unexpectedly includes a separate rig')
+                mesh.name = name
+                attachment = config['wardrobe_attachments'][style][descriptor['attachment']]
+                modules[name] = attach_wardrobe_module(mesh, rig, attachment)
+                module_bones[name] = attachment['bone']
+                wardrobe_styles[name] = key
+                texture = textures['hair']['dark'] if key is None else textures['wardrobe'][f'{key}:nature']
+                mesh.data.materials.clear()
+                mesh.data.materials.append(material(name + ' Runtime', output / texture))
+                objects.extend(imported)
+        meshes = [body, *(bpy.data.objects[name] for name in modules)]
         idle_objects = import_fbx(source / inventory['idle'], use_anim=True)
         idle_rig, source_action, frames = supplied_idle(idle_objects)
         retarget_measurements, expected = convert_supplied_motion(idle_rig, rig, frames)
         start, end = source_action.frame_range
-        head_error = 0.0
+        head_error = wardrobe_error = 0.0
         for frame in frames:
             at_frame(frame)
             for name, rest_vertices in modules.items():
-                predicted = [expected[frame][head_bone] @ point for point in rest_vertices]
-                head_error = max(head_error, vertex_error(predicted, vertices(bpy.data.objects[name])))
-        if head_error > 0.0001 or original_body_uv != uv_values(body):
-            raise ValueError('Supplied Idle loses head attachment or body UVs')
+                predicted = [expected[frame][module_bones[name]] @ point for point in rest_vertices]
+                error = vertex_error(predicted, vertices(bpy.data.objects[name]))
+                if module_bones[name] == head_bone:
+                    head_error = max(head_error, error)
+                if name in wardrobe_styles:
+                    wardrobe_error = max(wardrobe_error, error)
+        if max(head_error, wardrobe_error) > 0.0001 or original_body_uv != uv_values(body):
+            raise ValueError('Supplied Idle loses rigid module attachment or body UVs')
         for obj in idle_objects:
             bpy.data.objects.remove(obj, do_unlink=True)
         bpy.data.actions.remove(source_action)
@@ -411,7 +472,7 @@ def prepare_modular(config):
         joint_snapshots = {}
         for fraction in checks:
             at_frame(start + (end - start) * fraction)
-            snapshots[fraction] = {mesh.name: vertices(mesh) for mesh in meshes}
+            snapshots[fraction] = {mesh.name: vertices(mesh, surface_only=mesh.name in wardrobe_styles) for mesh in meshes}
             joint_snapshots[fraction] = {bone.name: rig.matrix_world @ bone.matrix for bone in rig.pose.bones}
             if any((point - previous).length > 1.0 for point, previous in zip(snapshots[fraction]['Archer_Body'], snapshots[0]['Archer_Body'])):
                 raise ValueError('Supplied Idle produces excessive costume displacement')
@@ -437,6 +498,7 @@ def prepare_modular(config):
         if abs((runtime_end - runtime_start) / fps - (end - start) / fps) > 0.001:
             raise ValueError('Runtime Idle duration changed')
         worst = 0.0
+        module_errors = {}
         moving = set()
         runtime_first = None
         for fraction in checks:
@@ -453,21 +515,54 @@ def prepare_modular(config):
                 error = math.sqrt(sum((left - sign * right) ** 2 for left, right in zip(actual_rotation, expected_rotation)))
                 retarget_measurements['rotation_delta_error'] = max(retarget_measurements['rotation_delta_error'], error)
             for name, mesh in runtime_meshes.items():
-                actual = vertices(mesh)
-                worst = max(worst, surface_error(actual, snapshots[fraction][name]))
+                actual = vertices(mesh, surface_only=name in wardrobe_styles)
+                error = surface_error(actual, snapshots[fraction][name])
+                module_errors[name] = max(module_errors.get(name, 0), error)
+                worst = max(worst, error)
                 if name == 'Archer_Body':
                     if runtime_first is None:
                         runtime_first = actual
                     moving.update(index for index, (point, first) in enumerate(zip(actual, runtime_first)) if (point - first).length > 0.00001)
         if worst > 0.001 or not moving or retarget_measurements['target_joint_error'] > 0.0001 or retarget_measurements['rotation_delta_error'] > 0.0001:
-            raise ValueError(f'Reimported supplied Idle fails geometry/motion checks: surface_error={worst:.9g}, moving_vertices={len(moving)}, target_joint_error={retarget_measurements["target_joint_error"]:.9g}, rotation_delta_error={retarget_measurements["rotation_delta_error"]:.9g}')
+            raise ValueError(f'Reimported supplied Idle fails geometry/motion checks: surface_error={worst:.9g}, moving_vertices={len(moving)}, target_joint_error={retarget_measurements["target_joint_error"]:.9g}, rotation_delta_error={retarget_measurements["rotation_delta_error"]:.9g}, module_errors={module_errors}')
         scene = setup_render()
         # Evidence renders are reproducible on headless CPU-only hosts too.
         # Runtime GLB materials and browser rendering are validated separately.
         scene.render.engine = 'CYCLES'
         scene.cycles.device = 'CPU'
         scene.cycles.samples = 16
-        for color in config.get('review_colors', ('dark', 'light', 'brown', 'orange', 'grey')):
+        if config['schema_version'] == 3:
+            # Bow Vines contains six unused positions which belong to no face.
+            # Keep source data unchanged; glTF contains its complete 456 faces.
+            # Surface checks exclude only positions unused by every polygon.
+            unused = {name: len(modules[name]) - len(snapshots[0][name]) for name in wardrobe_styles}
+            wardrobe_reports[style] = {'module_count': 10, 'sampled_frames': len(frames), 'attachment_error': wardrobe_error, 'reimport_max_vertex_error': worst, 'source_geometry_and_uvs_preserved': True, 'joint_bindings': {name: module_bones[name] for name in wardrobe_styles}, 'unused_source_vertex_counts': unused}
+            recipes = [('aqua', 'crown-eve', 'none', 'bow-myth', 'quiver-angel', 'light'), ('nature', 'none', 'none', 'bow-greenhorn', 'quiver-rook', 'dark'), ('fire', 'hood-mystical', 'mask-undercover', 'bow-vines', 'quiver-tale', 'brown'), ('dark', 'crown-eve', 'mask-undercover', 'bow-vines', 'quiver-angel', 'grey')]
+            for index, (palette, headwear, mask, bow, quiver, color) in enumerate(recipes):
+                skin = 'fair' if index % 2 == 0 else 'tan'
+                selected = {headwear, mask, bow, quiver}
+                for name, mesh in runtime_meshes.items():
+                    mesh.hide_render = False
+                    if name in wardrobe_styles:
+                        key = wardrobe_styles[name]
+                        mesh.hide_render = headwear == 'none' if key is None else key not in selected
+                        texture = textures['hair'][color] if key is None else textures['wardrobe'][f'{key}:{palette}']
+                    elif name.startswith('Archer_Hair_'):
+                        mesh.hide_render = headwear != 'none' or name != f'Archer_Hair_{index % 4 + 1:02}'
+                        texture = textures['hair'][color]
+                    elif name == 'Archer_Face':
+                        texture = textures['face'][f'face-{index % 3 + 1:02}:{color}']
+                    else:
+                        if name.startswith('Archer_Head_'):
+                            mesh.hide_render = name != f'Archer_Head_{index % 2 + 1:02}'
+                        texture = textures['outfit'][f'{style}:{skin}:{palette}']
+                    mesh.data.materials.clear()
+                    mesh.data.materials.append(material(name + ' Wardrobe Review', output / texture))
+                for fraction in (0, 0.5):
+                    at_frame(runtime_start + (runtime_end - runtime_start) * fraction)
+                    scene.render.filepath = str(evidence / f'{style}-wardrobe-{palette}-{fraction}.png')
+                    bpy.ops.render.render(write_still=True)
+        for color in (() if config['schema_version'] == 3 else config.get('review_colors', ('dark', 'light', 'brown', 'orange', 'grey'))):
             index = ('dark', 'light', 'brown', 'orange', 'grey').index(color)
             # Include all four palettes and both skins, including the supplied
             # Tan Fire texture whose Archer03 prefab wrongly selects Fair.
@@ -490,11 +585,13 @@ def prepare_modular(config):
                 bpy.ops.render.render(write_still=True)
         reports[style] = {'method': 'supplied-hierarchy-rotation-retarget-v1', 'duration_seconds': (end - start) / fps, 'sampled_frames': len(frames), 'moving_vertices': len(moving), **retarget_measurements, 'head_attachment_error': head_error, 'reimport_max_vertex_error': worst}
     (evidence / 'validation.json').write_text(json.dumps(reports, indent=2) + '\n', encoding='utf-8')
+    if config['schema_version'] == 3:
+        (evidence / 'wardrobe-validation.json').write_text(json.dumps(wardrobe_reports, indent=2) + '\n', encoding='utf-8')
 
 
 def main():
     config = json.loads(Path(sys.argv[sys.argv.index('--') + 1]).read_text(encoding='utf-8'))
-    if config.get('schema_version') == 2:
+    if config.get('schema_version') in (2, 3):
         return prepare_modular(config)
     source, output, evidence = (Path(config[key]) for key in ('source', 'output', 'evidence'))
     evidence.mkdir(parents=True, exist_ok=True)

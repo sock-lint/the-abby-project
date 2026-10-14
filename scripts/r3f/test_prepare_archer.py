@@ -105,6 +105,90 @@ class ReviewedSourceMapTests(unittest.TestCase):
         self.assertEqual(list(output.iterdir()), [previous])
 
 
+class WardrobeSourceMapTests(unittest.TestCase):
+    def setUp(self):
+        ReviewedSourceMapTests.setUp(self)
+        self.config['schema_version'] = 3
+        self.config['head_bone'] = 'RigHead'
+        self.groups = {'headwear': ('crown-eve', 'hood-mystical'), 'mask': ('mask-undercover',), 'bow': ('bow-greenhorn', 'bow-vines', 'bow-myth'), 'quiver': ('quiver-angel', 'quiver-rook', 'quiver-tale')}
+        self.sockets = {'head': ('+ Head', 'RigHead'), 'left_hand': ('+ L Hand', 'RigLPalm'), 'back': ('+ Back', 'RigRibcage')}
+        (self.source / 'equipment.fbx').write_text('synthetic equipment')
+        metadata = self.source / 'Unity Metadata'
+        metadata.mkdir()
+        for name, number in (('equipment.fbx', 1), ('body.fbx', 2), ('palette.mat', 3), ('palette.png', 4)):
+            (metadata / (name + '.meta')).write_text(f'guid: {number:032x}\n')
+        (self.source / 'palette.mat').write_text(f'm_Name: Synthetic Palette\n- _MainTex:\n    m_Texture: {{fileID: 1, guid: {4:032x}, type: 3}}\n')
+        (self.source / 'equipment.prefab').write_text(f'--- !u!33 &1\nMeshFilter:\n  m_Mesh: {{fileID: 1, guid: {1:032x}, type: 3}}\n--- !u!23 &2\nMeshRenderer:\n  m_Materials:\n  - {{fileID: 1, guid: {3:032x}, type: 2}}\n')
+        nodes = [('Root', 0, (0, 0, 0)), ('RigHead', 1, (0, 1, 0)), ('RigLPalm', 1, (0.5, 0.5, 0)), ('RigRibcage', 1, (0, 0.6, 0)), ('+ Head', 2, (0, -1, 0)), ('+ L Hand', 3, (0.1, 0, 0)), ('+ Back', 4, (0, 0, -0.1))]
+        body = f'--- !u!137 &99\nSkinnedMeshRenderer:\n  m_Mesh: {{fileID: 1, guid: {2:032x}, type: 3}}\n'
+        for index, (name, parent, position) in enumerate(nodes, 1):
+            body += f'--- !u!1 &{index}\nGameObject:\n  m_Name: {name}\n--- !u!4 &{index + 10}\nTransform:\n  m_GameObject: {{fileID: {index}}}\n  m_Father: {{fileID: {parent + 10 if parent else 0}}}\n  m_LocalPosition: {{x: {position[0]}, y: {position[1]}, z: {position[2]}}}\n  m_LocalRotation: {{x: 0, y: 0, z: 0, w: 1}}\n  m_LocalScale: {{x: 1, y: 1, z: 1}}\n'
+        (self.source / 'body.prefab').write_text(body)
+        wardrobe = {'hair_for_hat': {'source': 'equipment.fbx', 'prefab': 'equipment.prefab', 'attachment': 'head'}}
+        for group, styles in self.groups.items():
+            socket = 'left_hand' if group == 'bow' else 'back' if group == 'quiver' else 'head'
+            wardrobe[group] = {style: {'source': 'equipment.fbx', 'prefab': 'equipment.prefab', 'attachment': socket} for style in styles}
+        wardrobe['attachments'] = {style: {key: {'prefab': 'body.prefab', 'point': point, 'bone': bone} for key, (point, bone) in self.sockets.items()} for style in prepare.OUTFIT_STYLES}
+        self.config['wardrobe'] = wardrobe
+        self.config['textures']['wardrobe'] = {f'{style}:{palette}': {'source': 'palette.png', 'material': 'palette.mat', 'prefab': 'equipment.prefab'} for styles in self.groups.values() for style in styles for palette in ('aqua', 'nature', 'fire', 'dark')}
+        for descriptor in self.config['textures']['hair'].values():
+            descriptor['material'] = 'palette.mat'
+
+    def tearDown(self):
+        self.temporary.cleanup()
+
+    def test_wardrobe_uses_actual_prefab_sockets_and_all_four_supplied_palettes(self):
+        checked = prepare.reviewed_source_map(self.source, self.config)
+        attachments = prepare.wardrobe_attachments(self.source, checked)
+        self.assertEqual(len(checked['textures']['wardrobe']), 36)
+        self.assertAlmostEqual(attachments['archer-01']['left_hand']['world_matrix'][0][3], -0.6)
+        self.assertAlmostEqual(attachments['archer-01']['left_hand']['world_matrix'][2][3], 0.5)
+        self.assertAlmostEqual(attachments['archer-01']['back']['world_matrix'][1][3], 0.1)
+        self.assertEqual(attachments['archer-01']['head']['bone'], 'RigHead')
+        self.assertIn('body.prefab', prepare.source_map_files(checked))
+        self.assertIn('Unity Metadata/equipment.fbx.meta', prepare.source_map_files(checked))
+
+    def test_missing_wardrobe_choice_or_palette_is_rejected(self):
+        for group, key in (('bow', 'bow-myth'), ('headwear', 'hood-mystical')):
+            config = deepcopy(self.config)
+            del config['wardrobe'][group][key]
+            with self.subTest(group=group), self.assertRaisesRegex(ValueError, 'reviewed choices'):
+                prepare.reviewed_source_map(self.source, config)
+        del self.config['textures']['wardrobe']['crown-eve:dark']
+        with self.assertRaisesRegex(ValueError, 'reviewed choices'):
+            prepare.reviewed_source_map(self.source, self.config)
+
+    def test_wrong_socket_parent_or_module_attachment_is_rejected(self):
+        self.config['wardrobe']['attachments']['archer-01']['head']['bone'] = 'RigLPalm'
+        with self.assertRaisesRegex(ValueError, 'parent bone'):
+            prepare.reviewed_source_map(self.source, self.config)
+        self.config['wardrobe']['attachments']['archer-01']['head']['bone'] = 'RigHead'
+        self.config['wardrobe']['bow']['bow-myth']['attachment'] = 'head'
+        with self.assertRaisesRegex(ValueError, 'attachment'):
+            prepare.reviewed_source_map(self.source, self.config)
+
+    def test_prefab_mesh_and_material_guids_must_match_the_actual_sources(self):
+        path = self.source / 'equipment.prefab'
+        original = path.read_text()
+        for number in (1, 3):
+            path.write_text(original.replace(f'{number:032x}', f'{9:032x}'))
+            with self.subTest(number=number), self.assertRaisesRegex(ValueError, 'GUID'):
+                prepare.reviewed_source_map(self.source, self.config)
+        path.write_text(original)
+
+    def test_prefab_external_paths_nonfinite_transforms_and_cycles_are_rejected(self):
+        config = deepcopy(self.config)
+        config['wardrobe']['hair_for_hat']['prefab'] = '../outside.prefab'
+        with self.assertRaisesRegex(ValueError, 'relative pack'):
+            prepare.reviewed_source_map(self.source, config)
+        path = self.source / 'body.prefab'
+        original = path.read_text()
+        for mutated in (original.replace('m_LocalPosition: {x: 0,', 'm_LocalPosition: {x: NaN,', 1), original.replace('m_Father: {fileID: 0}', 'm_Father: {fileID: 15}', 1)):
+            path.write_text(mutated)
+            with self.subTest(mutated=mutated[:30]), self.assertRaises(ValueError):
+                prepare.reviewed_source_map(self.source, self.config)
+
+
 class SuppliedAnimationEvidenceTests(unittest.TestCase):
     def setUp(self):
         self.report = {

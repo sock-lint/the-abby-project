@@ -16,7 +16,8 @@ class AvatarBoundary extends Component {
 
 export default function AvatarPreview({ preferences }) {
   const appearance = useMemo(() => resolveAvatarAppearance(preferences), [preferences]);
-  const identity = [appearance?.url, appearance?.hairStyle, appearance?.headStyle, ...Object.values(appearance?.textures || {})].join(':');
+  const identity = [appearance?.url, appearance?.hairStyle, appearance?.headStyle,
+    ...Object.values(appearance?.wardrobe || {}), ...Object.values(appearance?.textures || {})].join(':');
   return <Preview key={identity} appearance={appearance} />;
 }
 

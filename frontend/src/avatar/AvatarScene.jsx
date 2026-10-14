@@ -1,12 +1,34 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
-import { AnimationMixer, Group, SRGBColorSpace, TextureLoader } from 'three';
+import { AnimationMixer, Box3, Group, SRGBColorSpace, TextureLoader, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { prepareModel } from '../companion/prepareModel';
 import presentation from '../storybook/presentation.json';
 import { createAvatarReactions } from './avatarReactions';
 import { configureAvatarSkinMaterial, prepareAvatarSkinning, validateAvatarSkinning } from './avatarSkinning';
 import { AVATAR_CAMERA_POSITION, AVATAR_CAMERA_TARGET, connectAvatarCameraControls, createAvatarCameraControls, orbitAvatarCamera } from './avatarCamera';
+
+const WARDROBE_SLOTS = ['headwear', 'mask', 'bow', 'quiver'];
+
+function frameIdentity(scene, names) {
+  const bounds = new Box3();
+  const vertex = new Vector3();
+  // Keep the same identity framing as the original release. Equipment can
+  // extend beyond these meshes, and rigid modules can be children of a bone;
+  // measure each identity mesh's own vertices, excluding its descendants.
+  for (const name of names) {
+    const mesh = scene.getObjectByName(name);
+    for (let index = 0; index < (mesh.geometry?.attributes.position?.count || 0); index += 1) {
+      mesh.getVertexPosition(index, vertex);
+      bounds.expandByPoint(vertex.applyMatrix4(mesh.matrixWorld));
+    }
+  }
+  if (bounds.isEmpty()) throw new Error('Avatar identity geometry is missing.');
+  const size = bounds.getSize(new Vector3());
+  const center = bounds.getCenter(new Vector3());
+  const scale = 1.65 / Math.max(size.y, 0.001);
+  return { scale, position: [-center.x * scale, -bounds.min.y * scale, -center.z * scale] };
+}
 
 function AvatarCamera({ cameraReset, cameraOrbit }) {
   const camera = useThree((state) => state.camera);
@@ -35,11 +57,15 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
     // back without leaving an unmounted model's private resources behind.
     if (appearance.idleClip && !clip) throw new Error('Avatar asset is missing its reviewed idle clip.');
     const partNames = appearance.parts;
-    const selectedHair = partNames.hair[appearance.hairStyle];
+    const wardrobe = appearance.wardrobe && partNames.wardrobe;
+    const hood = appearance.wardrobe?.headwear === 'hood-mystical';
+    const selectedHair = hood ? wardrobe?.hair_for_hat : partNames.hair[appearance.hairStyle];
     const hairNames = Object.values(partNames.hair);
     const headNames = typeof partNames.head === 'string' ? [partNames.head] : Object.values(partNames.head);
     const selectedHead = typeof partNames.head === 'string' ? partNames.head : partNames.head[appearance.headStyle];
-    const required = [partNames.body, ...headNames, partNames.face, ...hairNames];
+    const identityNames = [partNames.body, ...headNames, partNames.face, ...hairNames];
+    const wardrobeNames = wardrobe ? WARDROBE_SLOTS.flatMap((slot) => Object.values(wardrobe[slot])) : [];
+    const required = [...identityNames, ...(wardrobe ? [wardrobe.hair_for_hat, ...wardrobeNames] : [])];
     for (const name of required) if (!gltf.scene.getObjectByName(name)) throw new Error(`Avatar asset is missing ${name}.`);
     validateAvatarSkinning(gltf.scene);
     const prepared = prepareModel(gltf.scene);
@@ -50,7 +76,10 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
       local.needsUpdate = true;
       return local;
     });
-    const [body, hair, face] = localTextures;
+    const textureMaps = Object.fromEntries(Object.keys(appearance.textures).map((key, index) => [key, localTextures[index]]));
+    const { body, hair, face } = textureMaps;
+    const selectedModules = wardrobe ? Object.fromEntries(WARDROBE_SLOTS.filter((slot) => appearance.wardrobe[slot] !== 'none')
+      .map((slot) => [wardrobe[slot][appearance.wardrobe[slot]], textureMaps[slot]])) : {};
     const localMaterials = [];
     const localSkeletons = new Set();
     const localGeometries = [];
@@ -59,14 +88,17 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
       const skinGeometry = node.isSkinnedMesh ? prepareAvatarSkinning(node) : null;
       if (skinGeometry) localGeometries.push(skinGeometry);
       if (hairNames.includes(node.name)) node.visible = node.name === selectedHair;
+      if (wardrobe && node.name === wardrobe.hair_for_hat) node.visible = hood;
+      if (wardrobeNames.includes(node.name)) node.visible = Object.hasOwn(selectedModules, node.name);
       if (headNames.includes(node.name)) node.visible = node.name === selectedHead;
       const texture = node.name === partNames.body || headNames.includes(node.name) ? body
-        : node.name === partNames.face ? face : hairNames.includes(node.name) ? hair : null;
+        : node.name === partNames.face ? face : hairNames.includes(node.name) || node.name === wardrobe?.hair_for_hat ? hair
+          : selectedModules[node.name];
       if (!texture || !node.material) return;
       const replace = (material) => { const local = material.clone(); local.map = texture; if (skinGeometry) configureAvatarSkinMaterial(local); local.needsUpdate = true; localMaterials.push(local); return local; };
       node.material = Array.isArray(node.material) ? node.material.map(replace) : replace(node.material);
     });
-    return { ...prepared, localMaterials, localTextures, localSkeletons, localGeometries };
+    return { ...prepared, ...(wardrobe ? frameIdentity(prepared.scene, identityNames) : {}), localMaterials, localTextures, localSkeletons, localGeometries };
   }, [gltf, maps, appearance, clip]);
   const reactions = useMemo(() => {
     const root = new Group();

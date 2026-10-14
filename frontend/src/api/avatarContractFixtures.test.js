@@ -27,14 +27,16 @@ describe('saved avatar responses through the shared React API client', () => {
     expect(await getCharacterProfile()).toEqual(savedCharacter);
   });
 
-  it('retains the original costume on legacy saved characters and consumes expanded identity choices', async () => {
+  it('retains legacy identity without wardrobe and consumes the exact saved equipment choices', async () => {
     server.use(http.get('*/api/character/', () => HttpResponse.json(legacyCharacter)));
     const character = await getCharacterProfile();
     expect(character.avatar_preferences).toEqual({
       hair_style: 'hair-02', hair_color: 'light', skin_tone: 'tan', outfit: 'aqua', outfit_style: 'archer-01', face_style: 'face-01', head_style: 'head-02',
+      headwear_style: 'none', mask_style: 'none', bow_style: 'none', quiver_style: 'none',
     });
     expect(savedCharacter.avatar_preferences).toEqual({
       hair_style: 'hair-04', hair_color: 'grey', skin_tone: 'tan', outfit: 'fire', outfit_style: 'archer-03', face_style: 'face-02', head_style: 'head-01',
+      headwear_style: 'crown-eve', mask_style: 'mask-undercover', bow_style: 'bow-vines', quiver_style: 'quiver-rook',
     });
   });
 

@@ -7,11 +7,16 @@ AVATAR_OPTIONS = {
     "outfit_style": ("archer-01", "archer-02", "archer-03"),
     "face_style": ("face-01", "face-02", "face-03"),
     "head_style": ("head-01", "head-02"),
+    "headwear_style": ("none", "crown-eve", "hood-mystical"),
+    "mask_style": ("none", "mask-undercover"),
+    "bow_style": ("none", "bow-greenhorn", "bow-vines", "bow-myth"),
+    "quiver_style": ("none", "quiver-angel", "quiver-rook", "quiver-tale"),
 }
 AVATAR_DEFAULTS = {
     "hair_style": "hair-01", "hair_color": "dark",
     "skin_tone": "fair", "outfit": "nature", "outfit_style": "archer-01", "face_style": "face-01",
     "head_style": "head-02",
+    "headwear_style": "none", "mask_style": "none", "bow_style": "none", "quiver_style": "none",
 }
 
 

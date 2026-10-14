@@ -1,12 +1,17 @@
-import { normalizeAvatarPreferences } from './preferences';
+import { AVATAR_OPTIONS, normalizeAvatarPreferences } from './preferences';
 
 const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, import: 'default' });
 const assets = import.meta.glob('./licensed/*.{glb,png}', { eager: true, query: '?url', import: 'default' });
 
 export function resolveAvatarAppearance(preferences, source = manifests['./licensed/manifest.json'], urls = assets) {
-  if (![1, 2].includes(source?.schema_version)) return null;
+  if (![1, 2, 3].includes(source?.schema_version)) return null;
   const selected = normalizeAvatarPreferences(preferences);
-  const expanded = source.schema_version === 2;
+  const expanded = source.schema_version >= 2;
+  const hasWardrobe = source.schema_version === 3;
+  const wardrobe = Object.fromEntries(['headwear', 'mask', 'bow', 'quiver'].map((slot) => [slot, selected[`${slot}_style`]]));
+  if (!hasWardrobe && Object.values(wardrobe).some((style) => style !== 'none')) return null;
+  if (hasWardrobe && (!source.parts?.wardrobe?.hair_for_hat || Object.keys(wardrobe).some((slot) =>
+    AVATAR_OPTIONS[`${slot}_style`].some(({ value }) => value !== 'none' && !source.parts.wardrobe[slot]?.[value])))) return null;
   // An older staged release can still show its original appearances, but it
   // must not depict a different body, face or hair color than the saved selection.
   if (!expanded && (selected.outfit_style !== 'archer-01' || selected.face_style !== 'face-01'
@@ -20,6 +25,8 @@ export function resolveAvatarAppearance(preferences, source = manifests['./licen
     body: source.textures?.outfit?.[outfitKey],
     hair: source.textures?.hair?.[selected.hair_color],
     face: source.textures?.face?.[faceKey],
+    ...(hasWardrobe ? Object.fromEntries(Object.entries(wardrobe).filter(([, style]) => style !== 'none')
+      .map(([slot, style]) => [slot, source.textures?.wardrobe?.[`${style}:${selected.outfit}`]])) : {}),
   };
   const resolved = Object.fromEntries(Object.entries(files).map(([key, file]) => [key, file && urls[`./licensed/${file}`]]));
   if (Object.values(resolved).some((url) => !url)
@@ -33,6 +40,7 @@ export function resolveAvatarAppearance(preferences, source = manifests['./licen
     hairStyle: selected.hair_style,
     outfitStyle: selected.outfit_style,
     headStyle: selected.head_style,
-    textures: { body: resolved.body, hair: resolved.hair, face: resolved.face },
+    wardrobe: hasWardrobe ? wardrobe : null,
+    textures: Object.fromEntries(Object.entries(resolved).filter(([key]) => key !== 'model')),
   };
 }
