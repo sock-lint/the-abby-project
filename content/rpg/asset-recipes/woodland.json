@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "target": "woodland",
+  "operation": "woodland-texture-limit",
+  "maxDimension": 256
+}
