@@ -22,6 +22,16 @@ function buildAssignment(over = {}) {
 }
 
 describe('AssignmentCard', () => {
+  it('shows the saved assignment instructions without exposing private notes', () => {
+    render(<AssignmentCard assignment={buildAssignment({
+      description: 'Read pages 12–14, then answer questions 1–3 in complete sentences.',
+      notes: 'Private parent planning notes',
+    })} onSubmit={vi.fn()} />);
+
+    expect(screen.getByText('Read pages 12–14, then answer questions 1–3 in complete sentences.')).toBeVisible();
+    expect(screen.queryByText('Private parent planning notes')).not.toBeInTheDocument();
+  });
+
   it('exports the saved homework due date to Google without private assignment details', async () => {
     const { user } = render(
       <AssignmentCard assignment={buildAssignment({ description: 'Private class notes' })} />,

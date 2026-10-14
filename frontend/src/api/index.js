@@ -135,7 +135,7 @@ export const getTimeEntries = () => api.get('/time-entries/');
 export const voidTimeEntry = (id) => api.post(`/time-entries/${id}/void/`);
 
 // Timecards
-export const getTimecards = () => api.get('/timecards/');
+export const getTimecards = ({ page } = {}) => api.get(`/timecards/${page ? `?page=${encodeURIComponent(page)}` : ''}`);
 export const getTimecard = (id) => api.get(`/timecards/${id}/`);
 export const approveTimecard = (id, notes) =>
   api.post(`/timecards/${id}/approve/`, { notes });
