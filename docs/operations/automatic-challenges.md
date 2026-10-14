@@ -5,6 +5,9 @@ every eligible goal in the background. Pinning changes which goal is featured
 on Today; it neither enrolls the child nor determines whether their work counts.
 Badges remain permanent recognition of milestones, skills and sustained effort.
 A single activity can count toward a daily bonus, a challenge and a badge.
+Named and collection-quest badges require completion of the real catalog
+challenge. A parent goal's title or measurement does not grant those badges or
+unlock a catalog storyline.
 
 ## Activity, periods and rewards
 

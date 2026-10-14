@@ -361,10 +361,14 @@ def _quest_completed(user, c):
         participants__user=user,
         status=Quest.Status.COMPLETED,
     )
-    automatic = ChallengeOccurrence.objects.filter(goal__user=user, status="completed")
+    # Parent-authored goals have their own promises and cannot impersonate a
+    # catalog quest's named badge or contribute to the quest completion ladder.
+    automatic = ChallengeOccurrence.objects.filter(
+        goal__user=user, status="completed", goal__catalog_definition__isnull=False,
+    )
     if names:
         qs = qs.filter(definition__name__in=list(names))
-        automatic = automatic.filter(goal__name__in=list(names))
+        automatic = automatic.filter(goal__catalog_definition__name__in=list(names))
     if count is not None:
         return qs.count() + automatic.count() >= int(count)
     return qs.exists() or automatic.exists()
@@ -778,7 +782,7 @@ def _collection_quests_completed(user, c):
         definition__quest_type=QuestDefinition.QuestType.COLLECTION,
     ).count()
     automatic_count = ChallengeOccurrence.objects.filter(
-        goal__user=user, status="completed", goal__metric="count",
+        goal__user=user, status="completed", goal__catalog_definition__quest_type="collection",
     ).count()
     return legacy_count + automatic_count >= int(c.get("count", 5))
 
