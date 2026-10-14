@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { MotionConfig, useReducedMotion } from 'framer-motion';
+import { MotionConfig } from 'framer-motion';
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import { SelectField, CheckboxField } from '../../components/form';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import TabList from '../../components/layout/TabList';
@@ -26,7 +27,7 @@ export default function DesignEnvironment({ children }) {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [chrome, setChrome] = useState(false);
   const [activeChapter, setActiveChapter] = useState('Today');
-  const deviceReducedMotion = useReducedMotion();
+  const deviceReducedMotion = usePrefersReducedMotion();
 
   useEffect(() => { applyTheme(theme); }, [theme]);
   useEffect(() => {
