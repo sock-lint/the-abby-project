@@ -35,6 +35,9 @@ synthetic catalog bindings. Regression coverage is in
 - `BadgeService` — badge evaluation across all criterion types.
 - `AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, xp_tags, xp_source_label, badge_scopes, …)` — **unified distribution helper**. Paired XP + coin + optional money ledger entry. Single entry point for all award flows. Applies `xp_boost_multiplier(user)` from `apps/rpg/services` before distributing XP (boosted total flows through tag-weighted splits; original base preserved in activity extras). Inner `CoinService`/`PaymentService` calls are wrapped in `activity_scope(suppress_inner_ledger=True)` to avoid double-logging. `badge_scopes` limits badge evaluation to the relevant criterion families for performance (see Badge Scopes below).
 
+The `perfect_timecard` criterion recognizes approved and closed weeks. Closing
+an approved zero-dollar week preserves its eligibility for later badge evaluation.
+
 ## XP transactions and lock order
 
 Every skill-progress or badge-evaluation mutation entry point opens an atomic

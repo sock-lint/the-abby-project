@@ -6,6 +6,7 @@ const STATUS_ICONS = {
   approved: Check,
   fulfilled: Check,
   paid: Check,
+  closed: Check,
   pending: Clock,
   in_review: Eye,
   in_progress: Clock,
