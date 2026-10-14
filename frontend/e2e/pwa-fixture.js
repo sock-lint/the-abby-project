@@ -37,15 +37,19 @@ export async function buildReleases() {
         import { createRoot } from 'react-dom/client';
         import { PwaStatusProvider } from '${sourceImport('pwa/PwaStatusProvider.jsx')}';
         import UpdateBanner from '${sourceImport('pwa/UpdateBanner.jsx')}';
+        import { usePwaUpdateGuard } from '${sourceImport('pwa/usePwaUpdateGuard.js')}';
         import '${sourceImport('index.css')}';
         import './main.css';
-        function Fixture() {
+        function ReleaseContent() {
           const [lazy, setLazy] = useState('');
-          return <PwaStatusProvider><UpdateBanner /><h1 id="release">Release ${label}</h1>
+          const [draft, setDraft] = useState('');
+          usePwaUpdateGuard(Boolean(draft));
+          return <><UpdateBanner /><h1 id="release">Release ${label}</h1>
+            <label>Synthetic unsaved note<input value={draft} onChange={event => setDraft(event.target.value)} /></label>
             <button onClick={async () => setLazy((await import('./lazy.js')).message)}>Load lazy fixture</button>
-            <p id="lazy">{lazy}</p></PwaStatusProvider>;
+            <p id="lazy">{lazy}</p></>;
         }
-        createRoot(document.getElementById('root')).render(<Fixture />);
+        createRoot(document.getElementById('root')).render(<PwaStatusProvider><ReleaseContent /></PwaStatusProvider>);
       `);
       await writeFile(join(sourceDirectory, 'main.css'), `#release { color: ${label === 'A' ? 'rgb(17, 34, 51)' : 'rgb(51, 34, 17)'}; }`);
       await writeFile(join(sourceDirectory, 'lazy.js'), `import './lazy.css'; export const message = 'Lazy ${label}';`);
