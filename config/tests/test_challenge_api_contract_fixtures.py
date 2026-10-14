@@ -201,6 +201,45 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.client.credentials()
         self.assertEqual(self.client.get("/api/challenges/").status_code, 401)
 
+    def add_second_movement_catalog_goal(self):
+        return QuestDefinition.objects.create(
+            id=52, name="Another two movement sessions", quest_type="collection", target_value=2,
+            duration_days=7, trigger_filter={"allowed_triggers": ["movement_session"]},
+            coin_reward=2, xp_reward=0, is_system=True,
+        )
+
+    def test_receipt_timestamps_tie_without_changing_newest_first_order_or_awards(self):
+        from apps.quests.models import ChallengeActivity, ChallengeOccurrence
+        self.add_second_movement_catalog_goal()
+        self.authenticate(self.child)
+        self.client.get("/api/challenges/")
+        first = self.log_run("0.75").json()["challenge_receipts"][0]
+        second = self.log_run("1.25").json()["challenge_receipts"][0]
+        self.assertEqual(len(set(ChallengeActivity.objects.values_list("created_at", flat=True))), 1)
+        self.assertEqual(len(set(ChallengeOccurrence.objects.values_list("awarded_at", flat=True))), 1)
+        paid = self.state()
+        body = self.client.get("/api/challenges/").json()
+        # Confirm the complete recorded outcomes and balances before checking
+        # ordering: a tie must not swap which activity earned the daily bonus.
+        self.assertEqual(sorted(body["challenge_receipts"], key=lambda row: row["id"]), [first, second])
+        self.assertEqual(self.state(), paid)
+        self.assertEqual(body["challenge_receipts"], [second, first])
+        ids = [row["id"] for row in body["recent_receipts"]]
+        self.assertEqual(ids, sorted(ids, key=lambda key: int(key.split(":")[1]), reverse=True))
+        self.assertEqual(self.client.get("/api/challenges/").json(), body)
+        self.assertEqual(self.state(), paid)
+
+    def test_ended_windows_with_equal_deadlines_have_stable_newest_first_history(self):
+        self.add_second_movement_catalog_goal()
+        self.authenticate(self.child)
+        self.client.get("/api/challenges/")
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=8)):
+            body = self.client.get("/api/challenges/").json()
+        self.assertEqual([row["status"] for row in body["results"]], ["expired", "expired"])
+        ids = [row["id"] for row in body["results"]]
+        self.assertEqual(ids, sorted(ids, key=lambda key: int(key.split(":")[1]), reverse=True))
+        self.assertEqual(self.state(), ([], []))
+
     def test_daily_receipt_reports_lucky_coin_actual_amount_with_unchanged_goal_reward(self):
         created = self.create_goal(target="0.75", name="Run 0.75 miles this week")
         self.assertEqual(created.status_code, 201, created.content)

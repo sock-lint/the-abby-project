@@ -522,8 +522,8 @@ def list_goals(user):
     pin_id = _pin_id(pin)
     occurrences = ChallengeOccurrence.objects.filter(goal__user=user, goal__family_id=user.family_id).select_related("goal")
     active = list(occurrences.filter(starts_at__lte=now, ends_at__gt=now))
-    recent = list(occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at")[:20])
-    terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at")[:20])
+    recent = list(occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at", "-pk")[:20])
+    terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at", "-pk")[:20])
     future = list(occurrences.filter(starts_at__gt=now, goal__is_catalog=False))
     unique = {row.pk: row for row in active + recent + terminal + future}
     if pin.occurrence_id:
@@ -534,7 +534,7 @@ def list_goals(user):
     rows = [occurrence_payload(row, pin_id) for row in unique.values()]
     rows += [_legacy_payload(row, pin_id) for row in legacy.filter(status="active")]
     rows += [_legacy_payload(row, pin_id) for row in legacy.exclude(status="active")[:20]]
-    receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at")[:20]
+    receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
     return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts]}
 

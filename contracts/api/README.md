@@ -386,8 +386,10 @@ the original template while keeping saved goal promises. These private fields
 do not change the public response bodies.
 
 `GET /api/challenges/` returns `results`, the nullable `pin`, completed goal
-`recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`. Parents
-may select a same-family child with `user_id`; children cannot use that query to
+`recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`.
+Both receipt arrays use newest-first order, with descending saved row ID
+breaking equal timestamps; ended history uses the same rule for equal deadlines.
+Parents may select a same-family child with `user_id`; children cannot use that query to
 read another account. Goal IDs identify occurrences (`goal:1`), not catalog
 definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
 decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.

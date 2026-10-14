@@ -70,6 +70,15 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(goals.daily_bonus).toMatchObject({ coin_reward: 10, coins_awarded: 20, awarded: true });
   });
 
+  it('preserves newest-first activity and completion receipts when server timestamps tie', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(completedGoals)));
+    const saved = await getChallenges();
+    expect(saved.challenge_receipts.map((row) => row.id)).toEqual(['activity:2', 'activity:1']);
+    expect(saved.challenge_receipts[0].daily_bonus).toBeNull();
+    expect(saved.challenge_receipts[1].daily_bonus.awarded).toBe(true);
+    expect(saved.recent_receipts.map((row) => row.id)).toEqual(['goal:2', 'goal:1']);
+  });
+
   it.each([
     ['delivered', deliveredItems, [{ item_name: 'Fixture frame', quantity: 1 }], 5],
     ['skipped', skippedItems, [], 5],
