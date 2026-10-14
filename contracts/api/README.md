@@ -58,6 +58,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `greenlight-preview.json` | `POST /api/payments/greenlight/preview/`; match candidate, new transfer and excluded card purchase, without writes |
 | `greenlight-reconcile.json` | `POST /api/payments/greenlight/reconcile/`; one existing payout matched and one new payout recorded |
 | `greenlight-overview-reconciled.json` | Final overview after reconciliation; debt decreases, pending hourly earnings and balance observation stay separate |
+| `timecard-closed.json`, `timecard-closed-detail.json` | Parent `POST /api/timecards/13/close/` and later detail read; approved $0 week closes without a payout, retaining hours and approval audit |
 | `pets-stable.json` | `GET /api/pets/stable/`, owned pets and mounts with nested species/potions, growth, happiness and active state |
 | `pets-stable-empty.json` | Same stable endpoint with no owned companions; catalog total remains populated |
 | `pets-stable-restricted-empty.json` | Empty stable with a restricted species; `total_possible` counts only supported potion combinations |

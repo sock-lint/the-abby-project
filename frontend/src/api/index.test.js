@@ -200,6 +200,7 @@ const CASES = [
   ['getTimecard', [5], /\/api\/timecards\/5\/$/, 'GET'],
   ['approveTimecard', [5, 'ok'], /\/api\/timecards\/5\/approve\/$/, 'POST'],
   ['disputeTimecard', [5], /\/api\/timecards\/5\/dispute\/$/, 'POST'],
+  ['closeTimecard', [5], /\/api\/timecards\/5\/close\/$/, 'POST'],
   ['markTimecardPaid', [5, 10], /\/api\/timecards\/5\/mark-paid\/$/, 'POST'],
 
   ['getBalance', [], /\/api\/balance\/$/, 'GET'],

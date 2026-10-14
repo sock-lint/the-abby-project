@@ -134,6 +134,24 @@ class GreenlightApiResponseFixtureTests(APITestCase):
     def overview(self):
         return self.client.get("/api/payments/greenlight/overview/", {"user_id": self.child.pk})
 
+    def test_zero_timecard_closes_without_a_payout_and_remains_readable(self):
+        path = "/api/timecards/13/close/"
+        closed = self.assert_response_fixture(
+            self.client.post(path, {}, format="json"), "timecard-closed.json",
+        )
+        self.assertEqual(closed["status"], "closed")
+        self.assertEqual(closed["total_hours"], "0.10")
+        self.assertEqual(closed["total_earnings"], "0.00")
+        self.assertEqual(closed["decided_by"], self.parent.pk)
+        self.assertEqual(self.client.post(path, {}, format="json").json(), closed)
+        detail = self.assert_response_fixture(
+            self.client.get("/api/timecards/13/"), "timecard-closed-detail.json",
+        )
+        self.assertEqual(detail["status"], "closed")
+        self.assertEqual(detail["total_hours"], closed["total_hours"])
+        self.assertFalse(PaymentLedger.objects.filter(timecard_id=13).exists())
+        self.assertEqual(self.overview().json()["approved_timecards"][0]["id"], self.approved.pk)
+
     def test_manual_payout_and_statement_reconciliation_preserve_distinct_balances(self):
         missing = self.assert_response_fixture(self.overview(), "greenlight-overview-no-snapshot.json")
         self.assertEqual(missing["owed_balance"], "25.00")

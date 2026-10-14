@@ -116,6 +116,15 @@ class TimecardViewSet(RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet):
         TimecardService.approve_timecard(timecard, request.user, notes)
         return Response(TimecardSerializer(timecard).data)
 
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def close(self, request, pk=None):
+        timecard = self.get_object()
+        try:
+            TimecardService.close_timecard(timecard, request.user)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(TimecardSerializer(timecard).data)
+
     @action(detail=True, methods=["post"])
     def dispute(self, request, pk=None):
         timecard = self.get_object()

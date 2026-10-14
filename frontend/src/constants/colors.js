@@ -15,6 +15,7 @@ export const STATUS_COLORS = {
   pending: 'bg-gold-leaf/15 text-ink-primary border border-gold-leaf/40',
   approved: 'bg-moss/20 text-ink-primary border border-moss/40',
   paid: 'bg-moss/25 text-ink-primary border border-moss/50',
+  closed: 'bg-moss/25 text-ink-primary border border-moss/50',
   disputed: 'bg-ember/20 text-ink-primary border border-ember/40',
   voided: 'bg-ember-deep/20 text-ink-primary border border-ember-deep/40',
   // Redemption statuses

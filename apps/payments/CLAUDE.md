@@ -25,6 +25,8 @@ Greenlight credentials, or claim compatibility with a native provider export.
   Pending/disputed/unlinked hourly credits are withheld, with positive net
   credits calculated per card; approved payable is clamped to zero and never
   exceeds the signed owed balance. Other authorized ledger earnings are payable.
+  Closed zero-dollar timecards retain their approved history; closing never
+  creates a payout or causes their hourly credits to become pending again.
   Money-to-Coins approval uses the same user lock before its balance check/debit.
 - A timecard-associated Greenlight confirmation requires an approved, unpaid
   card and its exact full amount. It atomically writes the payout and paid status.
@@ -43,7 +45,9 @@ Children can read only their own overview. No mutation is available to children.
 - `GET overview/?user_id=ID`: `user_id`, `owed_balance`, `approved_payable`,
   `pending_hourly`, nullable `balance_snapshot`, `approved_timecards`, `payouts`.
   `approved_timecards` includes only approved, unpaid cards with positive totals;
-  nonpositive cards retain their approval without a payment or payout ledger row.
+  Nonpositive cards do not create a payment or payout ledger row. An approved
+  exactly-zero card can be marked complete through the separate timecard `close`
+  action; closed cards are retained as history, outside payment selection.
   Child requests may omit `user_id`. Payout amounts are positive display values;
   `id` is the linked ledger ID, and `transferred_on` is null for legacy entries
   without recorded external metadata. Legacy dates are unknown, so matching

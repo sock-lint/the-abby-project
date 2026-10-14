@@ -86,7 +86,7 @@ export const handlers = [
   http.post(/\/api\/time-entries\/\d+\/void\/$/, ok),
   http.get('*/api/timecards/', empty),
   http.get(/\/api\/timecards\/\d+\/$/, () => HttpResponse.json({ id: 1, entries: [] })),
-  http.post(/\/api\/timecards\/\d+\/(approve|dispute|mark-paid)\/$/, ok),
+  http.post(/\/api\/timecards\/\d+\/(approve|dispute|close|mark-paid)\/$/, ok),
 
   // Payments
   http.get('*/api/payments/summary-by-day/', () => HttpResponse.json({ days: 30, series: [] })),
