@@ -109,6 +109,7 @@ class AvatarPreferencesTests(APITestCase):
         for profile in after["profiles"]:
             if profile["user_id"] == self.child.pk:
                 profile["avatar_preferences"] = {}
+                profile["avatar_configuration"] = {}
                 profile["updated_at"] = next(row["updated_at"] for row in before["profiles"] if row["user_id"] == self.child.pk)
         self.assertEqual(after, before)
 
@@ -152,6 +153,7 @@ class AvatarPreferencesTests(APITestCase):
             if profile["user_id"] == self.child.pk:
                 prior = next(row for row in before["profiles"] if row["user_id"] == self.child.pk)
                 profile["avatar_preferences"] = prior["avatar_preferences"]
+                profile["avatar_configuration"] = prior["avatar_configuration"]
                 profile["updated_at"] = prior["updated_at"]
         self.assertEqual(comparable, before)
         with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=2)):

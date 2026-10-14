@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import JournalShell from './JournalShell.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
@@ -19,7 +19,8 @@ function renderShell({ route = '/', element }) {
       <AuthProvider>
         <Routes>
           <Route element={<JournalShell />}>
-            <Route path="/" element={element || <div>home</div>} />
+            <Route path={route} element={element || <div>home</div>} />
+            {route !== '/' && <Route path="/" element={<div>home</div>} />}
           </Route>
         </Routes>
       </AuthProvider>
@@ -28,6 +29,20 @@ function renderShell({ route = '/', element }) {
 }
 
 describe('JournalShell', () => {
+  it('keeps floating clock actions clear of the avatar editor and restores them when leaving', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/clock/', () => HttpResponse.json({ status: 'active', clock_in: new Date().toISOString() })),
+    );
+    const user = userEvent.setup();
+    renderShell({ route: '/profile/customize', element: <><p>Avatar preview and options</p><Link to="/">Finish customizing</Link></> });
+    expect(await screen.findByText('Avatar preview and options')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Quick actions/ })).toBeNull();
+    expect(screen.queryByText('Tap for quick actions')).toBeNull();
+    await user.click(screen.getByRole('link', { name: 'Finish customizing' }));
+    expect(await screen.findByRole('button', { name: 'Quick actions (clocked in)' })).toBeInTheDocument();
+  });
+
   it('renders nav + outlet content', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

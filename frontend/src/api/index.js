@@ -541,6 +541,8 @@ export const listPendingCreations = () => api.get('/creations/pending/');
 
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
+export const getAvatarCatalog = () => api.get('/character/avatar/catalog/');
+export const saveAvatarConfiguration = (avatar_configuration) => api.post('/character/avatar/configuration/', { avatar_configuration });
 export const saveAvatarPreferences = (avatar_preferences) => api.post('/character/avatar/', { avatar_preferences });
 export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');

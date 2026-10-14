@@ -9,7 +9,7 @@ from django.db import close_old_connections, connection, transaction
 from django.test import TransactionTestCase, override_settings, skipUnlessDBFeature
 from rest_framework.test import APIClient
 
-from apps.rpg.avatar import AVATAR_DEFAULTS
+from apps.rpg.avatar import AVATAR_DEFAULTS, configuration_from_preferences
 from apps.rpg.models import CharacterProfile, ItemDefinition
 from config.tests.factories import make_family
 
@@ -26,7 +26,7 @@ class AvatarConcurrencyTests(TransactionTestCase):
         self.profile.login_streak = 4
         self.profile.save()
 
-    def save_avatar(self, preferences, *, backend_pids=None, start=None):
+    def save_avatar(self, preferences, *, backend_pids=None, start=None, generic=False):
         close_old_connections()
         try:
             # A regression should fail boundedly instead of hanging CI forever.
@@ -42,7 +42,8 @@ class AvatarConcurrencyTests(TransactionTestCase):
             if start is not None:
                 start.wait(timeout=5)
             response = client.post(
-                "/api/character/avatar/", {"avatar_preferences": preferences}, format="json",
+                "/api/character/avatar/configuration/" if generic else "/api/character/avatar/",
+                {"avatar_configuration" if generic else "avatar_preferences": preferences}, format="json",
             )
             return response.status_code, response.json()
         finally:
@@ -108,5 +109,47 @@ class AvatarConcurrencyTests(TransactionTestCase):
             self.assertEqual(body["avatar_preferences"], preferences)
         self.profile.refresh_from_db()
         self.assertIn(self.profile.avatar_preferences, choices)
+        self.assertEqual(self.profile.level, 3)
+        self.assertEqual(self.profile.login_streak, 4)
+
+    def test_generic_configuration_waits_for_progression_lock_and_keeps_both_appearance_fields(self):
+        preferences = {**AVATAR_DEFAULTS, "hair_color": "orange", "bow_style": "bow-vines", "quiver_style": "quiver-tale"}
+        configuration = configuration_from_preferences(preferences)
+        backend_pids = Queue()
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            with transaction.atomic():
+                locked = CharacterProfile.objects.select_for_update().get(pk=self.profile.pk)
+                future = executor.submit(self.save_avatar, configuration, generic=True, backend_pids=backend_pids)
+                self.assert_waiting_for_row_lock(backend_pids.get(timeout=5))
+                locked.level = 9
+                locked.login_streak = 14
+                locked.save(update_fields=["level", "login_streak", "updated_at"])
+            status, body = future.result(timeout=10)
+        self.assertEqual(status, 200)
+        self.assertEqual(body["avatar_configuration"], configuration)
+        self.assertEqual(body["avatar_preferences"], preferences)
+        self.assertEqual(body["level"], 9)
+        self.assertEqual(body["login_streak"], 14)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar_configuration, configuration)
+        self.assertEqual(self.profile.avatar_preferences, preferences)
+        self.assertEqual(self.profile.level, 9)
+
+    def test_generic_and_legacy_concurrent_saves_return_consistent_confirmed_fields(self):
+        generic_preferences = {**AVATAR_DEFAULTS, "hair_color": "grey", "bow_style": "bow-myth", "quiver_style": "quiver-rook"}
+        legacy_preferences = {**AVATAR_DEFAULTS, "hair_style": "hair-03", "headwear_style": "hood-mystical", "bow_style": "bow-vines"}
+        start = Barrier(2)
+        generic_configuration = configuration_from_preferences(generic_preferences)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            generic = executor.submit(self.save_avatar, generic_configuration, generic=True, start=start)
+            legacy = executor.submit(self.save_avatar, legacy_preferences, start=start)
+            results = [generic.result(timeout=15), legacy.result(timeout=15)]
+        for preferences, (status, body) in zip((generic_preferences, legacy_preferences), results):
+            self.assertEqual(status, 200)
+            self.assertEqual(body["avatar_preferences"], preferences)
+            self.assertEqual(body["avatar_configuration"], configuration_from_preferences(preferences))
+        self.profile.refresh_from_db()
+        self.assertIn(self.profile.avatar_preferences, [generic_preferences, legacy_preferences])
+        self.assertEqual(self.profile.avatar_configuration, configuration_from_preferences(self.profile.avatar_preferences))
         self.assertEqual(self.profile.level, 3)
         self.assertEqual(self.profile.login_streak, 4)

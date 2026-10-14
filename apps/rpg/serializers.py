@@ -2,7 +2,10 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
-from .avatar import AVATAR_DEFAULTS, AVATAR_OPTIONS, avatar_appearance
+from .avatar import (
+    AVATAR_DEFAULTS, AVATAR_OPTIONS, AvatarConfigurationError, avatar_appearance,
+    normalize_avatar_configuration, saved_avatar_configuration,
+)
 from .catalog_support import item_is_available
 
 
@@ -38,6 +41,25 @@ class AvatarPreferencesUpdateSerializer(serializers.Serializer):
         return {**AVATAR_DEFAULTS, **value}
 
 
+class AvatarConfigurationUpdateSerializer(serializers.Serializer):
+    """Self-only generic replacement; base controls and fitted shared items."""
+
+    avatar_configuration = serializers.JSONField()
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict):
+            unknown = set(data) - set(self.fields)
+            if unknown:
+                raise serializers.ValidationError({key: ["This field is not supported."] for key in sorted(unknown)})
+        return super().to_internal_value(data)
+
+    def validate_avatar_configuration(self, value):
+        try:
+            return normalize_avatar_configuration(value)
+        except AvatarConfigurationError as error:
+            raise serializers.ValidationError(error.errors) from error
+
+
 class CharacterProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     display_name = serializers.CharField(source="user.display_label", read_only=True)
@@ -47,6 +69,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
     active_pet_accessory = serializers.SerializerMethodField()
     active_trophy_badge = serializers.SerializerMethodField()
     avatar_preferences = serializers.SerializerMethodField()
+    avatar_configuration = serializers.SerializerMethodField()
     # Active-boost timers — surface the seconds-remaining so the frontend
     # can render a countdown chip. Null when the boost is inactive (either
     # never used or already expired). The model still owns the absolute
@@ -83,6 +106,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "active_pet_accessory",
             "active_trophy_badge",
             "avatar_preferences",
+            "avatar_configuration",
             "created_at",
             "updated_at",
         ]
@@ -90,6 +114,9 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
     def get_avatar_preferences(self, obj):
         return avatar_appearance(obj.avatar_preferences)
+
+    def get_avatar_configuration(self, obj):
+        return saved_avatar_configuration(obj.avatar_configuration, obj.avatar_preferences)
 
     @staticmethod
     def _seconds_until(expires_at):

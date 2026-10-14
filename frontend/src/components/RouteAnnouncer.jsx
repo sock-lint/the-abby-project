@@ -9,6 +9,7 @@ const ROUTE_TITLES = {
   '/atlas': 'Progress',
   '/chronicle': 'Memories',
   '/sigil': 'Profile',
+  '/profile/customize': 'Customize avatar',
   '/clock': 'Time tracking',
   '/manage': 'Manage',
   '/activity': 'Activity',

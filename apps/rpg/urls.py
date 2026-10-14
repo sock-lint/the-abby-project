@@ -5,6 +5,8 @@ from . import sprite_admin_views, views
 urlpatterns = [
     path("character/", views.CharacterView.as_view(), name="character"),
     path("character/avatar/", views.AvatarPreferencesView.as_view(), name="character-avatar"),
+    path("character/avatar/catalog/", views.AvatarCatalogView.as_view(), name="avatar-catalog"),
+    path("character/avatar/configuration/", views.AvatarConfigurationView.as_view(), name="avatar-configuration"),
     path("streaks/", views.StreakView.as_view(), name="streaks"),
     path("inventory/", views.InventoryView.as_view(), name="inventory"),
     path(

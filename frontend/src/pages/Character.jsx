@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import {
   getCharacterProfile,
+  getAvatarCatalog,
   getCosmetics,
   getCosmeticCatalog,
   getBadges,
@@ -24,7 +25,7 @@ import { tierForProgress } from '../components/atlas/mastery.constants';
 import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
-import AvatarCustomizer from '../components/avatar/AvatarCustomizer';
+import AvatarPreview from '../components/avatar/AvatarPreview';
 import SavedCosmetics from './character/SavedCosmetics';
 import ProfilePictureEditor from './character/ProfilePictureEditor';
 import { isCatalogAvailable } from '../utils/catalogAvailability';
@@ -46,6 +47,7 @@ export default function Character() {
     data: profile, loading: loadingProfile, error: profileError,
     reload: reloadProfile, setData: setProfileData,
   } = useApi(getCharacterProfile);
+  const { data: avatarCatalog } = useApi(getAvatarCatalog);
   const {
     data: cosmetics, loading: loadingCosmetics, error: cosmeticsError, reload: reloadCosmetics,
   } = useApi(getCosmetics);
@@ -208,6 +210,9 @@ export default function Character() {
 
   const currentThemeName = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
   const currentTheme = themes[currentThemeName] || themes.hyrule;
+  const avatarId = profile.avatar_configuration?.avatar_id || avatarCatalog?.default_avatar_id;
+  const avatarDefinition = Array.isArray(avatarCatalog?.avatars)
+    ? avatarCatalog.avatars.find((avatar) => avatar.id === avatarId) : undefined;
 
   const shelfItems = COSMETIC_CHAPTERS.map((chapter) => {
     const entries = chapterEntriesBySlot[chapter.slot] || [];
@@ -252,7 +257,13 @@ export default function Character() {
 
       <SigilFrontispiece profile={profile} profilePicture={user?.avatar} onOpenTrophyPicker={() => setPickerOpen(true)}>
         <ProfilePictureEditor key={`picture-${user?.id}`} />
-        <AvatarCustomizer key={user?.id} profile={profile} onSaved={(confirmed) => setProfileData((current) => ({ ...current, avatar_preferences: confirmed.avatar_preferences }))} />
+        <section className="mt-4 space-y-3" aria-label="Your avatar">
+          <h2 className="font-body font-bold text-xl text-ink-primary">Your avatar</h2>
+          <AvatarPreview key={user?.id} preferences={profile.avatar_preferences} configuration={profile.avatar_configuration}
+            avatarDefinition={avatarDefinition
+              || (profile.avatar_configuration ? { id: profile.avatar_configuration.avatar_id, label: 'saved', renderer_adapter: '' } : undefined)} />
+          <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline underline-offset-4" to="/profile/customize">Customize avatar</Link>
+        </section>
       </SigilFrontispiece>
 
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-body font-semibold text-sheikah-teal-deep">
