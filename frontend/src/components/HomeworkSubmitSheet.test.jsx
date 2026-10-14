@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import HomeworkSubmitSheet from './HomeworkSubmitSheet';
 import { server } from '../test/server.js';
@@ -14,6 +14,7 @@ vi.mock('framer-motion', async () => {
 const assignment = {
   id: 42,
   title: 'Reading log',
+  description: '',
   subject: 'reading',
   timeliness_preview: { timeliness: 'on_time' },
 };
@@ -22,6 +23,64 @@ const assignment = {
 const inSheet = () => within(document.body);
 
 describe('HomeworkSubmitSheet', () => {
+  it('shows assignment instructions before proof controls without exposing private notes', () => {
+    render(<HomeworkSubmitSheet assignment={{
+      ...assignment, description: 'Read chapter 4 and summarize its main idea.',
+      notes: 'Private parent planning notes',
+    }} onClose={vi.fn()} />);
+
+    const instructions = screen.getByText('Read chapter 4 and summarize its main idea.');
+    expect(instructions).toBeVisible();
+    expect(instructions.compareDocumentPosition(screen.getByLabelText(/add proof photos/i)) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText('Private parent planning notes')).not.toBeInTheDocument();
+  });
+
+  it('loads instructions for a Today summary and offers retry when the detail read fails', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const details = spyHandler('get', /\/api\/homework\/42\/$/, () => {
+      attempts += 1;
+      return attempts === 1
+        ? HttpResponse.json({ detail: 'Instructions are unavailable.' }, { status: 503 })
+        : { ...assignment, description: 'Explain the ending in your own words.', notes: 'Private parent planning notes' };
+    });
+    server.use(details.handler);
+    render(<HomeworkSubmitSheet assignment={{ id: 42, title: 'Reading log' }} onClose={vi.fn()} />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Instructions are unavailable.');
+    await user.click(within(alert).getByRole('button', { name: /try again/i }));
+    expect(await screen.findByText('Explain the ending in your own words.')).toBeVisible();
+    expect(details.calls).toHaveLength(2);
+    expect(details.calls[1].url).toMatch(/\/homework\/42\/$/);
+    expect(screen.queryByText('Private parent planning notes')).not.toBeInTheDocument();
+  });
+
+  it('does not show late instructions from a closed assignment in a reopened sheet', async () => {
+    let finishFirst;
+    const firstResponse = new HttpResponse(new ReadableStream({
+      start(controller) {
+        finishFirst = () => {
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ id: 42, description: 'Old assignment instructions' })));
+          controller.close();
+        };
+      },
+    }), { headers: { 'Content-Type': 'application/json' } });
+    const first = spyHandler('get', /\/api\/homework\/42\/$/, firstResponse);
+    const second = spyHandler('get', /\/api\/homework\/43\/$/, { id: 43, description: 'Current assignment instructions' });
+    server.use(first.handler, second.handler);
+    const view = render(<HomeworkSubmitSheet assignment={{ id: 42, title: 'First assignment' }} onClose={vi.fn()} />);
+    try {
+      await waitFor(() => expect(first.calls).toHaveLength(1));
+      view.rerender(<HomeworkSubmitSheet assignment={null} onClose={vi.fn()} />);
+      view.rerender(<HomeworkSubmitSheet assignment={{ id: 43, title: 'Second assignment' }} onClose={vi.fn()} />);
+      expect(await screen.findByText('Current assignment instructions')).toBeVisible();
+    } finally {
+      await act(async () => { finishFirst(); });
+    }
+    expect(screen.queryByText('Old assignment instructions')).not.toBeInTheDocument();
+  });
+
   it('renders nothing when assignment is null', () => {
     render(<HomeworkSubmitSheet assignment={null} onClose={vi.fn()} onSubmitted={vi.fn()} />);
     expect(screen.queryByText(/affix photographic evidence/i)).not.toBeInTheDocument();

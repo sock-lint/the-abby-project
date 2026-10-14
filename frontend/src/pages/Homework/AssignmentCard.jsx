@@ -44,6 +44,12 @@ export default function AssignmentCard({
           }} />
         )}
       </div>
+      {a.description && (
+        <div className="rounded-xl bg-ink-page px-3 py-2 space-y-1">
+          <p className="font-body font-semibold text-caption text-ink-secondary">Instructions</p>
+          <p className="font-body text-body text-ink-primary whitespace-pre-wrap break-words">{a.description}</p>
+        </div>
+      )}
       <div className="flex gap-2 flex-wrap items-center">
         {!sub && (
           <Button

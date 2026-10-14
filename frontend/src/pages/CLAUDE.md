@@ -87,6 +87,29 @@ The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/in
 - `/habits` → `/quests?tab=rituals`
 - `/trials` → `/quests?tab=trials` via `TrialsLegacyRedirect()` in [`App.jsx`](/frontend/src/App.jsx) (preserves older `/trials?scroll=<itemId>` links without consuming the saved scroll).
 
+### Task actions and history
+
+Homework cards and proof sheets show the assignment description, preserving
+line breaks without displaying private notes. Sheets opened from Today fetch
+missing instructions through the assignment detail endpoint, with loading and
+retry states. Parent homework decisions disable review actions while saving;
+failures stay with the submission and retry the same decision.
+
+Assigned children can open `/clock?project=ID` from a workable project's
+“Work on this project” action. The clock verifies that exact assignment before
+offering an explicit clock-in; an unavailable target never falls back to a
+remembered project. An existing timer always shows its actual project.
+
+Payments and Timecards use `usePagedList` for complete history, totals and
+“Load more” recovery. Requests rebuild page numbers through the known API
+helpers with the current filters; server `next` URLs are never fetch targets.
+Filter/account changes fence older requests, and refreshing after a decision
+reloads the already-loaded pages so an older week remains visible.
+
+Reward requests show an accessible receipt from the saved redemption status
+and frozen coin cost, with a direct history view. A failed follow-up read keeps
+that receipt and offers read-only refresh instead of repeating the request.
+
 ### Shared folio shell
 
 [`pages/quests/QuestFolio.jsx`](/frontend/src/pages/quests/QuestFolio.jsx) is the verso/recto shell shared by Ventures, Duties, Study, Rituals, Movement. Modeled on the former Skills layout at `pages/achievements/FolioSpread.jsx` but parameterized so a tab can fill in its own letter / title / stats / progress without dragging the skill-tree XP math along.

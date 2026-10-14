@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
 import { Plus } from 'lucide-react';
 import { CoinIcon } from '../components/icons/JournalIcons';
@@ -16,6 +16,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import PageShell from '../components/layout/PageShell';
+import ParchmentCard from '../components/journal/ParchmentCard';
 import SectionHeader from '../components/SectionHeader';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
@@ -70,12 +71,21 @@ export default function Rewards() {
   const [showExchange, setShowExchange] = useState(false);
   const [outOfStock, setOutOfStock] = useState(null);
   const [confirmRedeem, setConfirmRedeem] = useState(null);
+  const [redemptionReceipt, setRedemptionReceipt] = useState(null);
+  const [showRequestHistory, setShowRequestHistory] = useState(false);
+  const receiptRef = useRef(null);
   const [shopFilter, setShopFilter] = useSearchParamState('q', '');
   const [adjustParam, setAdjustParam] = useSearchParamState('adjust', '');
   // ?adjust=1 opens the coin adjuster straight from the quick-actions FAB
   // and the dashboard's Quick adjusts row (same shape as ?new=1 on Forge).
   const [showCoinAdjust, setShowCoinAdjust] = useState(adjustParam === '1');
   const { confirmState, askConfirm, closeConfirm } = useConfirmState();
+
+  useEffect(() => {
+    // The shop can be a long grid. Bring the saved result into view when its
+    // confirmation sheet closes, without animating or moving keyboard focus.
+    if (redemptionReceipt) receiptRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [redemptionReceipt]);
 
   // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
   // remounts tab bodies) doesn't re-open it.
@@ -94,6 +104,7 @@ export default function Rewards() {
   // coins are held the moment the request posts and a kid can't cancel it.
   const handleRedeem = (reward) => {
     setError('');
+    setRedemptionReceipt(null);
     setConfirmRedeem(reward);
   };
 
@@ -114,7 +125,8 @@ export default function Rewards() {
     }
     setPendingId(reward.id);
     try {
-      await redeemReward(reward.id);
+      const redemption = await redeemReward(reward.id);
+      setRedemptionReceipt({ ...redemption, reward: redemption?.reward || reward });
       hapticSuccess();
       refresh();
     } catch (e) {
@@ -196,6 +208,14 @@ export default function Rewards() {
 
   const rewards = normalizeList(rewardsData);
   const redemptions = normalizeList(redemptionsData);
+  // The POST receipt survives a failed follow-up read. If history has a newer
+  // decision for the same request, present that server-confirmed state instead.
+  const currentReceipt = redemptionReceipt && (
+    redemptions.find((r) => r.id === redemptionReceipt.id) || redemptionReceipt
+  );
+  const receiptHistory = currentReceipt?.id && !redemptions.some((r) => r.id === currentReceipt.id)
+    ? [currentReceipt, ...redemptions]
+    : redemptions;
   const exchanges = normalizeList(exchangeData);
   // null = we don't know (fetch failed). Downstream treats unknown as
   // "let them try" rather than as zero.
@@ -249,6 +269,43 @@ export default function Rewards() {
       </header>
 
       <ErrorAlert message={error} />
+
+      {currentReceipt && (
+        <ParchmentCard ref={receiptRef} className="border-moss/40 space-y-3">
+          <div role="status" aria-label="Reward request update" aria-atomic="true" className="space-y-2">
+            <h2 className="font-body text-lede font-semibold text-moss">
+              {currentReceipt.status === 'pending'
+                ? 'Request sent — awaiting parent approval'
+                : currentReceipt.status === 'fulfilled'
+                  ? 'Reward received'
+                  : currentReceipt.status === 'denied'
+                    ? 'Reward request declined'
+                    : 'Reward request sent'}
+            </h2>
+            <p className="font-body text-body font-semibold break-words">{currentReceipt.reward.name}</p>
+            {currentReceipt.coin_cost_snapshot != null && (
+              <p className="font-body text-body text-ink-secondary">
+                {currentReceipt.coin_cost_snapshot} coins {currentReceipt.status === 'pending'
+                  ? 'held for this request. Rejected requests return your coins.'
+                  : currentReceipt.status === 'fulfilled'
+                    ? 'spent on this reward.'
+                    : currentReceipt.status === 'denied'
+                      ? 'returned after this request was declined.'
+                      : 'at the time of this request.'}
+              </p>
+            )}
+          </div>
+          {(rewardsError || redemptionsError || balanceError) && (
+            <div className="space-y-2">
+              <p className="font-body text-body text-ink-secondary">
+                Your request is saved. Some details couldn't refresh. Refresh the details instead of requesting again.
+              </p>
+              <Button variant="secondary" size="sm" onClick={refresh}>Refresh reward details</Button>
+            </div>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => setShowRequestHistory(true)}>View request history</Button>
+        </ParchmentCard>
+      )}
 
       {loadingBalance ? <Loader /> : balanceError ? (
         <ErrorAlert
@@ -397,6 +454,26 @@ export default function Rewards() {
           onClose={() => setShowRewardForm(false)}
           onSaved={() => { setShowRewardForm(false); refresh(); }}
         />
+      )}
+
+      {showRequestHistory && (
+        <BottomSheet title="Reward request history" onClose={() => setShowRequestHistory(false)}>
+          <div className="space-y-3">
+            {loadingRedemptions && <Loader />}
+            {redemptionsError && (
+              <ErrorAlert
+                message={`Your latest saved request is shown below. Couldn't refresh the full history. ${redemptionsError}`}
+                onRetry={reloadRedemptions}
+              />
+            )}
+            <RedemptionHistory redemptions={receiptHistory} isParent={isParent} />
+            {redemptionsData?.count > receiptHistory.length && (
+              <p className="font-body text-caption text-ink-secondary">
+                Showing the {receiptHistory.length} most recent of {redemptionsData.count} reward requests.
+              </p>
+            )}
+          </div>
+        </BottomSheet>
       )}
 
       {showCoinAdjust && (

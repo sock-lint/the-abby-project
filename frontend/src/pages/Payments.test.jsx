@@ -71,6 +71,10 @@ describe('Payments', () => {
 
   it('renders balance and breakdown tiles', async () => {
     renderPage(buildUser(), [
+      http.get('*/api/payments/', () => HttpResponse.json([
+        { id: 1, entry_type: 'hourly', amount: '30.00', description: 'week 1' },
+        { id: 2, entry_type: 'payout', amount: '-5.00', description: 'paid out' },
+      ])),
       http.get('*/api/balance/', () =>
         HttpResponse.json({
           balance: 42.5,
@@ -240,6 +244,7 @@ describe('Payments', () => {
     it('shows the date and, family-wide, whose entry it is', async () => {
       renderPage(buildParent(), [
         http.get('*/api/balance/', () => HttpResponse.json(balanceWithEntries)),
+        http.get('*/api/payments/', () => HttpResponse.json(balanceWithEntries.recent_transactions)),
         http.get('*/api/children/', () =>
           HttpResponse.json([{ id: 9, username: 'abby', display_name: 'Abby' }]),
         ),
@@ -260,7 +265,7 @@ describe('Payments', () => {
       renderPage(buildParent(), [
         http.get('*/api/balance/', () => HttpResponse.json(balanceWithEntries)),
         http.get('*/api/children/', () => HttpResponse.json([])),
-        http.get('*/api/ledger/', () => HttpResponse.json([])),
+        http.get('*/api/payments/', () => HttpResponse.json([])),
       ]);
       await user.click(await screen.findByRole('button', { name: /this month/i }));
 

@@ -145,8 +145,7 @@ describe('ClockPage', () => {
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText('Time tracking')).toBeInTheDocument());
-    const btn = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
+    const btn = await screen.findByRole('button', { name: 'Clock in' });
     await user.click(btn);
     await waitFor(() =>
       expect(screen.getAllByText(/select a project/i).length).toBeGreaterThanOrEqual(2),
