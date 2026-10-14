@@ -44,7 +44,7 @@ for (const theme of ['hyrule', 'vigil']) {
     test(`collection navigation fits ${width}px on ${theme}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 740 });
       await page.goto(`${origin}/e2e/design-gallery-fixture.html?theme=${theme}`);
-      for (const name of ['Demo badge collections', 'Demo Lorebook topics', 'Demo Satchel filters']) {
+      for (const name of ['Demo badge collections', 'Demo Guide topics', 'Demo Inventory filters']) {
         const picker = page.getByRole('tablist', { name });
         await expect(picker).toBeVisible();
         await expect(picker.getByRole('tab', { selected: true })).toHaveCount(1);
@@ -57,7 +57,7 @@ for (const theme of ['hyrule', 'vigil']) {
           expect(await tab.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
         }
       }
-      const filters = page.getByRole('tablist', { name: 'Demo Satchel filters' });
+      const filters = page.getByRole('tablist', { name: 'Demo Inventory filters' });
       const tabs = filters.getByRole('tab');
       await tabs.first().focus();
       const initialScroll = await page.evaluate(() => window.scrollY);
@@ -132,4 +132,44 @@ test('keyboard reveal clears the sticky header and mobile navigation', async ({ 
   await expect(tabs.last()).toBeFocused();
   const bounds = await tabs.last().boundingBox();
   expect(bounds.y + bounds.height).toBeLessThanOrEqual((await navigation.boundingBox()).y);
+});
+
+test('design library previews covers and recovers a failed read without API requests', async ({ page }) => {
+  const apiRequests = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.setViewportSize({ width: 375, height: 740 });
+  await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
+  await page.getByRole('combobox', { name: 'Color theme', exact: true }).selectOption('vigil');
+  await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--color-ink-page'))).toBe('#292538');
+  const states = page.getByRole('region', { name: 'Data and feedback', exact: true });
+  await states.getByRole('combobox', { name: 'Data state', exact: true }).selectOption('error');
+  await expect(states.getByRole('alert')).toContainText('Could not load activities');
+  await expect(states.getByText('No activities yet', { exact: true })).toHaveCount(0);
+  await states.getByRole('button', { name: 'Try again', exact: true }).click();
+  await expect(states.getByText('Make a paper kite', { exact: true })).toBeVisible();
+  await states.getByRole('combobox', { name: 'Data state', exact: true }).selectOption('filtered');
+  await states.getByRole('button', { name: 'Clear filter', exact: true }).click();
+  await expect(states.getByText('Make a paper kite', { exact: true })).toBeVisible();
+  expect(apiRequests).toEqual([]);
+});
+
+test('design library preserves a dirty form and returns focus after saving', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 375, height: 740 });
+  await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
+  const opener = page.getByRole('button', { name: 'Open example form', exact: true });
+  await opener.click();
+  const dialog = page.getByRole('dialog', { name: 'Edit activity', exact: true });
+  await dialog.getByRole('textbox', { name: 'Activity name', exact: true }).fill('Build a kite');
+  await page.keyboard.press('Escape');
+  const confirmation = page.getByRole('alertdialog');
+  await expect(confirmation).toBeVisible();
+  await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Activity name', exact: true })).toHaveValue('Build a kite');
+  await dialog.getByRole('button', { name: 'Save example', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByText('Example saved: Build a kite', { exact: true })).toBeVisible();
+  await expect(opener).toBeFocused();
 });

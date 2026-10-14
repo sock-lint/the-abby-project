@@ -18,10 +18,12 @@ import SectionHeader from '../components/SectionHeader';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import SkillsShowcase from './design/SkillsShowcase';
 import CollectionsShowcase from './design/CollectionsShowcase';
+import DesignEnvironment from './design/DesignEnvironment';
+import PatternLibrary from './design/PatternLibrary';
 
 export default function DesignShowcase() {
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">
+    <DesignEnvironment><div id="design-foundations" className="max-w-5xl mx-auto py-8 space-y-10 min-w-0">
       {/* Header */}
       <header>
         <div className={headingScript + ' text-lg'}>
@@ -89,10 +91,10 @@ export default function DesignShowcase() {
       <DeckleDivider glyph="flourish-corner" label="Buttons" />
 
       <section className="flex flex-wrap gap-3">
-        <Button size="sm">Wax-seal primary</Button>
-        <Button variant="success" size="sm">Mossy success</Button>
-        <Button variant="secondary" size="sm">Parchment secondary</Button>
-        <Button variant="danger" size="sm">Ember danger</Button>
+        <Button size="sm">Primary action</Button>
+        <Button variant="success" size="sm">Confirm action</Button>
+        <Button variant="secondary" size="sm">Secondary action</Button>
+        <Button variant="danger" size="sm">Destructive action</Button>
         <Button variant="ghost" size="sm">Ghost action</Button>
       </section>
 
@@ -115,31 +117,31 @@ export default function DesignShowcase() {
       <section className="grid md:grid-cols-3 gap-4">
         <ParchmentCard variant="plain">
           <div className="font-script text-ink-whisper text-xs">variant: plain</div>
-          <h3 className="font-display text-lg mt-1">Plain parchment</h3>
+          <h3 className="font-display text-lg mt-1">Standard panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Standard aged-paper panel with a hairline border.
+            Rounded Meadow panel with a quiet border.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" flourish>
           <div className="font-script text-ink-whisper text-xs">flourish</div>
-          <h3 className="font-display text-lg mt-1">Flourished corners</h3>
+          <h3 className="font-display text-lg mt-1">Decorated panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Decorative rune-flourish in each corner.
+            Optional soft sparkles in the corners.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" seal>
           <div className="font-script text-ink-whisper text-xs">seal</div>
-          <h3 className="font-display text-lg mt-1">Wax-sealed</h3>
+          <h3 className="font-display text-lg mt-1">Flower accent</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            A wax seal stamped in the corner.
+            Optional decorative flower in the corner.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" tone="bright">
           <div className="font-script text-ink-whisper text-xs">tone: bright</div>
-          <h3 className="font-display text-lg mt-1">Bright parchment</h3>
+          <h3 className="font-display text-lg mt-1">Bright panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
             Lighter tone — use for hero/spotlight panels.
           </p>
@@ -147,7 +149,7 @@ export default function DesignShowcase() {
 
         <ParchmentCard variant="plain" tone="deep">
           <div className="font-script text-ink-whisper text-xs">tone: deep</div>
-          <h3 className="font-display text-lg mt-1">Deep parchment</h3>
+          <h3 className="font-display text-lg mt-1">Deep panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
             Deeper tone — for nested / quieter panels.
           </p>
@@ -155,9 +157,9 @@ export default function DesignShowcase() {
 
         <ParchmentCard variant="deckle">
           <div className="font-script text-ink-whisper text-xs">variant: deckle</div>
-          <h3 className="font-display text-lg mt-1">Deckle edge</h3>
+          <h3 className="font-display text-lg mt-1">Rounded compatibility variant</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Torn-paper edges via SVG mask. No border.
+            The retained deckle prop uses the current rounded panel treatment.
           </p>
         </ParchmentCard>
       </section>
@@ -252,11 +254,11 @@ export default function DesignShowcase() {
 
       <section className="flex flex-wrap gap-6 items-center text-ink-primary">
         <Labeled label="Today"><TodayIcon size={32} /></Labeled>
-        <Labeled label="Quests"><QuestsIcon size={32} /></Labeled>
-        <Labeled label="Bestiary"><BestiaryIcon size={32} /></Labeled>
-        <Labeled label="Treasury"><TreasuryIcon size={32} /></Labeled>
-        <Labeled label="Atlas"><AtlasIcon size={32} /></Labeled>
-        <Labeled label="Chronicle"><ChronicleIcon size={32} /></Labeled>
+        <Labeled label="Tasks"><QuestsIcon size={32} /></Labeled>
+        <Labeled label="Pets"><BestiaryIcon size={32} /></Labeled>
+        <Labeled label="Rewards"><TreasuryIcon size={32} /></Labeled>
+        <Labeled label="Progress"><AtlasIcon size={32} /></Labeled>
+        <Labeled label="Memories"><ChronicleIcon size={32} /></Labeled>
         <div className="w-px h-10 bg-ink-page-shadow" />
         <Labeled label="Clock">
           <span className="text-sheikah-teal-deep"><ClockFabIcon size={32} /></span>
@@ -271,7 +273,7 @@ export default function DesignShowcase() {
       <section className="space-y-4">
         <SectionHeader title="Meadow markers" index={1} kicker="rounded chapter waypoints" />
         <AccordionSection
-          title="Treasury"
+          title="Rewards"
           index={0}
           kicker="this week at a glance"
           icon={<TreasuryIcon size={18} />}
@@ -287,25 +289,25 @@ export default function DesignShowcase() {
       <ParchmentCard className="space-y-4">
         <TextField
           id="demo-text"
-          label="What ventures are stirring today?"
-          placeholder="Sketch a dragon, plan a campfire, ink a letter…"
+          label="Activity name"
+          placeholder="Sketch a picture, plan a project, write a letter…"
           helpText="TextField — labeled input with helpText slot."
         />
         <SelectField
           id="demo-select"
-          label="Pick a quest"
+          label="Choose an activity"
           helpText="SelectField — labeled select; pass <option> children directly."
         >
           <option value="">Choose…</option>
-          <option value="dragon">Slay a dragon</option>
-          <option value="forge">Forge a sword</option>
-          <option value="map">Chart a map</option>
+          <option value="dragon">Draw a dragon</option>
+          <option value="forge">Build a model</option>
+          <option value="map">Make a map</option>
         </SelectField>
         <TextAreaField
           id="demo-textarea"
-          label="Notes for the next traveller"
+          label="Activity notes"
           rows={3}
-          placeholder="Mind the embers near dusk…"
+          placeholder="What would help you get started?"
           helpText="TextAreaField — labeled textarea; rows defaults to 3."
         />
         <TextField
@@ -338,12 +340,14 @@ export default function DesignShowcase() {
         </div>
       </section>
 
+      <PatternLibrary />
+
       <DeckleDivider glyph="dragon-crest" />
 
       <footer className="text-center font-script text-ink-whisper text-sm pt-2 pb-8">
         End of entry · {new Date().toLocaleDateString()}
       </footer>
-    </div>
+    </div></DesignEnvironment>
   );
 }
 

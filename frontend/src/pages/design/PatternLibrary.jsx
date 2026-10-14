@@ -1,0 +1,141 @@
+import { useContext, useState } from 'react';
+import { Check, Plus, Trash2 } from 'lucide-react';
+import Button from '../../components/Button';
+import IconButton from '../../components/IconButton';
+import BottomSheet from '../../components/BottomSheet';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import ModalActions from '../../components/ModalActions';
+import ErrorAlert from '../../components/ErrorAlert';
+import EmptyState from '../../components/EmptyState';
+import FilteredEmptyState from '../../components/FilteredEmptyState';
+import ParchmentSkeleton from '../../components/ParchmentSkeleton';
+import ParchmentCard from '../../components/journal/ParchmentCard';
+import RuneBadge from '../../components/journal/RuneBadge';
+import StatusBadge from '../../components/StatusBadge';
+import SectionHeader from '../../components/SectionHeader';
+import PageShell from '../../components/layout/PageShell';
+import PageHeader from '../../components/layout/PageHeader';
+import TabList from '../../components/layout/TabList';
+import ProgressBar from '../../components/ProgressBar';
+import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField } from '../../components/form';
+import { DesignPreviewContext } from './preview.context';
+
+function Specimen({ id, title, children, imports, guidance, consumers, status = 'Established' }) {
+  return (
+    <section id={id} aria-label={title} className="space-y-3 scroll-mt-4">
+      <SectionHeader title={title} kicker={status} />
+      {children}
+      <details className="rounded-lg border border-ink-page-shadow px-3 text-body text-ink-secondary">
+        <summary className="min-h-11 flex items-center cursor-pointer">Usage and existing consumers</summary>
+        <p className="mb-2">{guidance}</p>
+        <pre className="whitespace-pre-wrap break-all text-caption text-ink-primary">{imports}</pre>
+        <ul className="space-y-1 py-3">
+          {consumers.map(path => <li key={path}><a className="underline break-all" href={`https://github.com/sock-lint/the-abby-project/blob/main/frontend/src/${path}`}>{path}</a></li>)}
+        </ul>
+      </details>
+    </section>
+  );
+}
+
+function DataStates() {
+  const [state, setState] = useState('ready');
+  const { longContent } = useContext(DesignPreviewContext);
+  const title = longContent ? 'Make a paper kite with a decorated tail and a sturdy frame for the whole family to try outdoors' : 'Make a paper kite';
+  const content = <ParchmentCard><h3 className="font-bold text-body break-words">{title}</h3><p className="text-caption text-ink-secondary mt-2">Due tomorrow · Waiting for a parent to review</p></ParchmentCard>;
+  return (
+    <Specimen id="design-data" title="Data and feedback" imports={'import ErrorAlert from "../components/ErrorAlert";\nimport EmptyState from "../components/EmptyState";\nimport FilteredEmptyState from "../components/FilteredEmptyState";'} guidance="Keep failed reads separate from true emptiness. Preserve available content during refresh and identify which source failed. Clear filters without erasing saved data." consumers={['pages/Projects.jsx', 'pages/Habits.jsx', 'pages/Chores.jsx', 'pages/Inventory.jsx']}>
+      <SelectField label="Data state" value={state} onChange={event => setState(event.target.value)}>
+        <option value="ready">Loaded</option><option value="loading">Initial loading</option>
+        <option value="refreshing">Refreshing existing content</option><option value="error">Failed read</option>
+        <option value="empty">No saved items</option><option value="filtered">No filter matches</option>
+        <option value="partial">Partially available</option>
+      </SelectField>
+      {state === 'loading' && <ParchmentSkeleton variant="list" count={2} />}
+      {state === 'error' && <ErrorAlert message="Could not load activities. Your saved activities have not been removed." onRetry={() => setState('ready')} />}
+      {state === 'empty' && <EmptyState action={<Button onClick={() => setState('ready')}>Create example activity</Button>}>No activities yet</EmptyState>}
+      {state === 'filtered' && <FilteredEmptyState query="robotics" onClear={() => setState('ready')} />}
+      {state === 'refreshing' && <p role="status" aria-live="polite" className="text-body text-ink-secondary">Refreshing activities. Showing the previous result.</p>}
+      {state === 'partial' && <ErrorAlert message="Activities are available, but approval history could not load." onRetry={() => setState('ready')} />}
+      {['ready', 'refreshing', 'partial'].includes(state) && content}
+    </Specimen>
+  );
+}
+
+function FormsAndDialogs() {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [name, setName] = useState('');
+  const [shared, setShared] = useState(false);
+  const [reminders, setReminders] = useState(true);
+  const [saved, setSaved] = useState('');
+  const [fieldError, setFieldError] = useState('');
+  const { longContent } = useContext(DesignPreviewContext);
+  const close = () => { setOpen(false); setName(''); setFieldError(''); };
+  const save = event => {
+    event.preventDefault();
+    if (!name.trim()) { setFieldError('Enter an activity name.'); return; }
+    setSaved(`Example saved: ${name.trim()}`); close();
+  };
+  return (
+    <Specimen id="design-forms" title="Forms and dialogs" imports={'import { TextField, DateField, CheckboxField, ToggleField } from "../components/form";\nimport BottomSheet from "../components/BottomSheet";\nimport ModalActions from "../components/ModalActions";'} guidance="Use shared labels, help and field errors. Route every dismiss affordance through the dirty/busy guard; restore focus to the opener. Disable repeated writes while submitting and keep failed input available." consumers={['pages/yearbook/JournalEntryFormModal.jsx', 'pages/grades/GradeEntryFormModal.jsx', 'pages/Homework/HomeworkFormModal.jsx']}>
+      <ParchmentCard className="space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <DateField label="Due date example" />
+          <DateField label="Filter date example" variant="filter" />
+        </div>
+        <CheckboxField label="Share with parents in my family" checked={shared} onChange={event => setShared(event.target.checked)} helpText={shared ? 'Parents in your family can read this entry; siblings cannot.' : 'Only you can read this entry in the app.'} />
+        <ToggleField label="Activity reminders" checked={reminders} onChange={setReminders} />
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={() => setOpen(true)}>Open example form</Button>
+          <Button loading>Saving example</Button>
+          <Button disabled variant="secondary">Unavailable action</Button>
+          <IconButton aria-label="Delete example activity" variant="danger" onClick={() => setConfirm(true)}><Trash2 size={18} /></IconButton>
+        </div>
+        {saved && <p role="status" aria-live="polite" className="text-body text-moss-deep break-words">{saved}</p>}
+      </ParchmentCard>
+      {open && <BottomSheet title="Edit activity" onClose={close} dirty={Boolean(name)} footer={<ModalActions onClose={close} cancelLabel="Discard example" submitLabel="Save example" formId="design-example-form" />}>
+        <form id="design-example-form" onSubmit={save} className="space-y-3">
+          <TextField label="Activity name" value={name} onChange={event => { setName(event.target.value); setFieldError(''); }} error={fieldError} autoFocus />
+          <TextAreaField label="Notes" rows={3} placeholder={longContent ? 'Long instructions and notes wrap beside the controls and remain readable on a short phone screen.' : 'What would help you get started?'} />
+          <p className="text-caption text-ink-secondary">This example saves only local preview state. Escape or the close button checks for unsaved changes.</p>
+        </form>
+      </BottomSheet>}
+      {confirm && <ConfirmDialog title={longContent ? 'Delete the activity with the unusually long title that needs to wrap on a small phone?' : 'Delete example activity?'} message="This local demonstration does not delete account data." onCancel={() => setConfirm(false)} onConfirm={() => { setSaved('Example deletion confirmed.'); setConfirm(false); }} />}
+    </Specimen>
+  );
+}
+
+function PageRecipes() {
+  const [recipe, setRecipe] = useState('utility');
+  const { role, longContent } = useContext(DesignPreviewContext);
+  const tabs = [{ id: 'utility', label: 'Utility page' }, { id: 'dashboard', label: 'Dashboard' }, { id: 'collection', label: 'Collection' }];
+  return (
+    <Specimen id="design-recipes" title="Page recipes" imports={'import PageShell from "../components/layout/PageShell";\nimport PageHeader from "../components/layout/PageHeader";\nimport SectionHeader from "../components/SectionHeader";\nimport TabList from "../components/layout/TabList";'} guidance="Keep utility pages clear and compact. Compose collections and progression with Meadow accents. Give each actual page one accessible title, and let header actions wrap on phones." consumers={['pages/SettingsPage.jsx', 'pages/Manage.jsx', 'pages/ParentDashboard.jsx', 'pages/ChildDashboard.jsx', 'pages/Badges.jsx']}>
+      <TabList tabs={tabs} activeId={recipe} onSelect={setRecipe} ariaLabel="Page recipe" />
+      <ParchmentCard><PageShell animate={false} rhythm="tight">
+        <PageHeader as="h3" title={recipe === 'utility' ? 'Settings' : recipe === 'dashboard' ? `${role === 'parent' ? 'Family' : 'Your'} today` : 'Badge collection'} kicker="Synthetic page example" actions={<Button variant="secondary"><Plus size={16} aria-hidden="true" /> {longContent ? 'Add an activity for the upcoming family weekend' : 'Add activity'}</Button>} />
+        {recipe === 'dashboard' && <p className="text-body text-ink-secondary">{role === 'parent' ? 'Two activities are waiting for your review. Each row names the child and the next action.' : 'Choose one activity for today. Optional ideas stay below the important tasks.'}</p>}
+        {recipe === 'collection' && <><ProgressBar value={3} max={8} aria-label="Example badge collection: 3 of 8 earned" /><p className="text-caption text-ink-secondary">3 of 8 earned · Counts come from the supported collection.</p></>}
+        <SectionHeader as="h4" title={recipe === 'utility' ? 'Preferences' : recipe === 'collection' ? 'Recently earned' : 'Next activity'} />
+        <p className="text-body text-ink-primary break-words">{longContent ? 'A long activity title remains readable without hiding the information needed to decide what to do next.' : 'Make a paper kite'}</p>
+      </PageShell></ParchmentCard>
+    </Specimen>
+  );
+}
+
+function OutcomeExamples() {
+  return (
+    <Specimen id="design-outcomes" title="Status and outcomes" imports={'import StatusBadge from "../components/StatusBadge";\nimport RuneBadge from "../components/journal/RuneBadge";'} guidance="Workflow labels describe saved server state; rarity describes catalog tiers. Ownership and availability remain separate. Confirm saved work before displaying rewards, and keep uncertain saves recoverable." consumers={['pages/Homework/AssignmentCard.jsx', 'pages/Timecards.jsx', 'pages/Inventory.jsx', 'pages/Movement.jsx']}>
+      <div className="grid sm:grid-cols-2 gap-3">
+        <ParchmentCard className="space-y-3"><h3 className="font-bold text-body">Workflow</h3><div className="flex flex-wrap gap-2"><StatusBadge status="pending" /><StatusBadge status="approved" /><StatusBadge status="rejected" /><StatusBadge status="paid" /></div><p className="text-caption text-ink-secondary">Submitted does not mean approved or paid.</p></ParchmentCard>
+        <ParchmentCard className="space-y-3"><h3 className="font-bold text-body">Rarity and availability</h3><RuneBadge tone="royal">Rare</RuneBadge><p className="text-body text-ink-primary">Saved collection · New acquisition unavailable</p><p className="text-caption text-ink-secondary">Retained ownership stays readable; artwork never grants eligibility.</p></ParchmentCard>
+        <ParchmentCard className="space-y-3"><h3 className="font-bold text-body flex items-center gap-2"><Check size={18} aria-hidden="true" />Confirmed outcome</h3><p className="text-body">Session recorded · 0 XP earned</p><p className="text-caption text-ink-secondary">Record the activity even when no reward is due. Show XP only from a confirmed receipt.</p></ParchmentCard>
+        <ParchmentCard className="space-y-3"><h3 className="font-bold text-body">Connectivity and saving</h3><p className="text-body">Draft on this device</p><p className="text-body">Save not confirmed · Check save</p><p className="text-caption text-ink-secondary">The app shell can open offline. Private data and server actions need a connection; a device draft is not a server receipt.</p></ParchmentCard>
+      </div>
+    </Specimen>
+  );
+}
+
+export default function PatternLibrary() {
+  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /></div>;
+}
