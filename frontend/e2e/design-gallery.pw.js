@@ -159,9 +159,11 @@ test('design library preserves a dirty form and returns focus after saving', asy
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.setViewportSize({ width: 375, height: 740 });
   await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
+  await page.getByRole('checkbox', { name: 'Larger text', exact: true }).check();
   const opener = page.getByRole('button', { name: 'Open example form', exact: true });
   await opener.click();
   const dialog = page.getByRole('dialog', { name: 'Edit activity', exact: true });
+  await expect(dialog.getByRole('textbox', { name: 'Activity name', exact: true })).toHaveCSS('font-size', '22px');
   await dialog.getByRole('textbox', { name: 'Activity name', exact: true }).fill('Build a kite');
   await page.keyboard.press('Escape');
   const confirmation = page.getByRole('alertdialog');
@@ -172,6 +174,8 @@ test('design library preserves a dirty form and returns focus after saving', asy
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Example saved: Build a kite', { exact: true })).toBeVisible();
   await expect(opener).toBeFocused();
+  await page.getByRole('checkbox', { name: 'Larger text', exact: true }).uncheck();
+  expect(await page.evaluate(() => document.body.style.getPropertyValue('--text-base'))).toBe('');
 });
 
 test('design library retains an attachment after failure and removes it locally', async ({ page }) => {

@@ -4,8 +4,8 @@ import { usePwaStatus } from './pwaStatus.context';
 /**
  * UpdateBanner — a thin top banner shown when a new service worker is
  * waiting. Mounted globally in App.jsx; sits at the top of the page
- * above the sticky header. Clicking Reload activates the waiting SW
- * (which auto-reloads the page).
+ * above the sticky header. Clicking Reload requests worker activation;
+ * PwaStatusProvider reloads only after its dirty/busy guards pass.
  */
 export default function UpdateBanner() {
   const { updateReady, updateBlocked, updateError, applyUpdate } = usePwaStatus();

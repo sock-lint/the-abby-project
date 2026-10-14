@@ -7,6 +7,12 @@ import { applyTheme, themes } from '../../themes';
 import { DesignPreviewContext } from './preview.context';
 
 const navigation = ['Today', 'Tasks', 'Pets', 'Rewards', 'Progress', 'Memories'].map(label => ({ id: label, label }));
+const enlargedType = {
+  '--text-body': '20px', '--text-caption': '17px', '--text-tiny': '16px',
+  '--text-micro': '15px', '--text-base': '22px', '--text-sm': '19px',
+  '--text-body--line-height': '1.5', '--text-caption--line-height': '1.5',
+  '--text-tiny--line-height': '1.5', '--text-micro--line-height': '1.5',
+};
 
 export default function DesignEnvironment({ children }) {
   const [theme, setTheme] = useState(() => {
@@ -23,6 +29,17 @@ export default function DesignEnvironment({ children }) {
   const deviceReducedMotion = useReducedMotion();
 
   useEffect(() => { applyTheme(theme); }, [theme]);
+  useEffect(() => {
+    if (!largeText) return undefined;
+    // Portaled dialogs inherit from body rather than the preview canvas.
+    const style = document.body.style;
+    const previous = Object.fromEntries(Object.keys(enlargedType).map(key => [key, style.getPropertyValue(key)]));
+    Object.entries(enlargedType).forEach(([key, value]) => style.setProperty(key, value));
+    return () => Object.entries(previous).forEach(([key, value]) => {
+      if (value) style.setProperty(key, value);
+      else style.removeProperty(key);
+    });
+  }, [largeText]);
   useEffect(() => {
     if (reducedMotion) document.body.dataset.designReducedMotion = 'true';
     else delete document.body.dataset.designReducedMotion;
@@ -76,7 +93,6 @@ export default function DesignEnvironment({ children }) {
           className="mx-auto min-w-0 w-full"
           style={{
             maxWidth: width === 'responsive' ? undefined : `${width}px`,
-            ...(largeText ? { '--text-body': '20px', '--text-caption': '17px', '--text-tiny': '16px', '--text-micro': '15px', '--text-base': '22px', '--text-sm': '19px', '--text-body--line-height': '1.5', '--text-caption--line-height': '1.5', '--text-tiny--line-height': '1.5', '--text-micro--line-height': '1.5' } : {}),
           }}
         >
           {chrome && <TabList tabs={navigation} activeId={activeChapter} onSelect={setActiveChapter} ariaLabel="Preview navigation" />}

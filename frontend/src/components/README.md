@@ -29,6 +29,8 @@ Use the library's page recipes and interactive states when composing a screen:
   `ModalActions`. Keep field errors and the user's input together. Passive
   dismissal checks dirty state; an explicitly named discard action may clear
   the local form. Busy writes prevent repeated submission.
+  `BottomSheet` and `useFormState` also guard app-update reloads; a manual form
+  calls `usePwaUpdateGuard(dirty || saving)` while it owns unsaved work.
 - `StatusBadge` describes workflow state, `RuneBadge` describes a tone or
   catalog tier, and progress bars describe measured progress. Availability
   and retained ownership remain separate, server-confirmed concepts.

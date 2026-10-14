@@ -1,4 +1,5 @@
 import RuneBadge from './RuneBadge';
+import Button from '../Button';
 
 /**
  * PartyCard — active pet (and optionally mount) display.
@@ -89,13 +90,14 @@ export default function PartyCard({
         </div>
 
         {!compact && onFeed ? (
-          <button
-            type="button"
+          <Button
+            variant="success"
+            size="sm"
             onClick={onFeed}
-            className="flex-shrink-0 px-3 py-2 rounded-lg bg-moss text-ink-page-rune-glow text-body font-medium hover:bg-moss/90 transition-colors"
+            className="shrink-0"
           >
             Feed
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

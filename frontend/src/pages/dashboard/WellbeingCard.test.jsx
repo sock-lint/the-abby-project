@@ -8,6 +8,7 @@ import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 import { buildUser } from '../../test/factories.js';
+import { PwaStatusContext } from '../../pwa/pwaStatus.context.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -32,7 +33,7 @@ const FRESH_TODAY = {
   coin_reward: 2,
 };
 
-function renderCard(handlers = []) {
+function renderCard(handlers = [], updateStatus) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
     ...handlers,
@@ -40,13 +41,38 @@ function renderCard(handlers = []) {
   return render(
     <MemoryRouter>
       <AuthProvider>
-        <WellbeingCard />
+        {updateStatus ? <PwaStatusContext.Provider value={updateStatus}><WellbeingCard /></PwaStatusContext.Provider> : <WellbeingCard />}
       </AuthProvider>
     </MemoryRouter>,
   );
 }
 
 describe('WellbeingCard', () => {
+  it('protects an unsaved daily note from app updates until the server confirms saving', async () => {
+    const user = userEvent.setup();
+    const guards = new Set();
+    const registerUpdateGuard = (id, active) => { if (active) guards.add(id); else guards.delete(id); };
+    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => ({
+      ...FRESH_TODAY, gratitude_lines: body.lines, gratitude_paid: true,
+      coin_awarded: 0, freshly_paid: false,
+    }));
+    const view = renderCard([
+      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)), submit.handler,
+    ], { registerUpdateGuard });
+    const note = await screen.findByRole('textbox', { name: "Today's note" });
+    expect(guards.size).toBe(0);
+    await user.type(note, 'I tried drawing a kite.');
+    await waitFor(() => expect(guards.size).toBe(1));
+    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
+    await waitFor(() => expect(submit.calls).toHaveLength(1));
+    expect(submit.calls[0].body).toEqual({ lines: ['I tried drawing a kite.'] });
+    await screen.findByText('Saved for today');
+    await waitFor(() => expect(guards.size).toBe(0));
+    await user.type(note, ' Another thought.');
+    await waitFor(() => expect(guards.size).toBe(1));
+    view.unmount();
+    expect(guards.size).toBe(0);
+  });
   it('invites one daily note and prevents empty saves without an error', async () => {
     const user = userEvent.setup();
     const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, {});

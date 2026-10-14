@@ -238,7 +238,7 @@ export default function DesignShowcase() {
         </ParchmentCard>
       </section>
 
-      <section className="grid md:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <PartyCard
           pet={{ species_name: 'Ember Drake', potion_variant: 'fire', growth_points: 62 }}
           variant="compact"

@@ -71,7 +71,7 @@ export default function QuestLogEntry({
         onClick={!locked && !processing ? handleAction : undefined}
         disabled={locked || processing}
         aria-label={done ? 'Completed' : processing ? `Processing ${title}` : actionLabel || `Complete ${title}`}
-        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left min-h-11 disabled:cursor-not-allowed"
+        className="flex flex-wrap w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left min-h-11 disabled:cursor-not-allowed"
       >
         {/* Leading check-glyph — decorative now that the row carries the label. */}
         <span
@@ -96,7 +96,7 @@ export default function QuestLogEntry({
           <span className="flex items-center gap-2 flex-wrap">
             {icon ? <span className="flex-shrink-0 text-ink-secondary">{icon}</span> : null}
             <span
-              className={`font-body font-semibold text-body truncate ${done ? 'line-through opacity-70' : ''}`}
+              className={`min-w-0 break-words font-body font-semibold text-body ${done ? 'line-through opacity-70' : ''}`}
             >
               {title}
             </span>
@@ -107,7 +107,7 @@ export default function QuestLogEntry({
             ) : null}
           </span>
           {meta ? (
-            <span className="text-caption font-script text-ink-whisper mt-0.5 truncate block">
+            <span className="text-caption font-script text-ink-whisper mt-0.5 break-words block">
               {meta}
             </span>
           ) : null}
@@ -115,7 +115,7 @@ export default function QuestLogEntry({
 
         {/* Reward tag */}
         {reward ? (
-          <span className="flex-shrink-0 font-rune text-caption text-ember-deep pl-2">
+          <span className="basis-full sm:basis-auto max-w-full break-words font-rune text-caption text-ember-deep pl-2">
             {reward}
           </span>
         ) : null}
