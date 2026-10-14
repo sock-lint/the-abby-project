@@ -70,8 +70,9 @@ test('visited actual Habits retain their DOM and data instead of fetching again 
   await search.fill('reading');
   const before = await search.elementHandle();
   await tabs.getByRole('tab', { name: 'Chores', exact: true }).click();
+  await expect(tabs.getByRole('tab', { name: 'Chores', exact: true })).toHaveAttribute('aria-selected', 'true');
   expect(await before.evaluate(input => input.isConnected)).toBe(true);
-  expect(await before.evaluate(input => input.closest('[hidden]') !== null)).toBe(true);
+  await expect.poll(() => before.evaluate(input => input.closest('[hidden]') !== null)).toBe(true);
   const reads = habitReads().length;
   try {
     await context.setOffline(true);
