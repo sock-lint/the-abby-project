@@ -16,6 +16,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `challenge-run-completed.json` | Second real run adds 1.25 miles and completes matching goals while no goal is pinned |
 | `challenges-completed.json` | Completed occurrences retain reward previews and actual paid receipts; reopening the list awards nothing |
 | `challenges-boosted.json` | Daily Lucky Coin payout is distinct from its base preview; parent goal Coins retain the existing unboosted policy |
+| `challenges-items-delivered.json` | Actual frame delivery is recorded in the awarded receipt and persists without duplicate grants |
+| `challenges-items-skipped.json` | An egg becomes unavailable after the preview; completion records no item delivery |
+| `challenges-items-converted.json` | An egg for an already-owned mount is converted to Coins; the receipt distinguishes conversion from delivery |
 | `challenge-goal-invalid.json` | Invalid nonpositive target rejected with HTTP 400; no goal or reward persists |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
@@ -398,7 +401,13 @@ API. The action may include a movement type ID.
 `rewards` is the frozen preview. `reward_receipt` identifies the occurrence and
 reports `pending`, `awarded` or `legacy`, actual `coins_awarded`/`xp_awarded`, and
 a nullable `awarded_at`. Clients must not add either the preview or a replayed
-receipt to a balance. `POST`/`DELETE /api/challenges/<id>/pin/` returns only the
+receipt to a balance. Awarded automatic receipts also expose persisted `items`
+outcomes as `{item_name, quantity}` rows. An egg converted to Coins additionally
+has `salvaged_to_coins`; that amount is already included in `coins_awarded`, and
+the row is not a delivered inventory item. Skipped unavailable items are absent
+from the outcome list. Pending and retained legacy receipts omit actual item
+outcomes. Clients show the frozen preview before award and recorded outcomes
+after award. `POST`/`DELETE /api/challenges/<id>/pin/` returns only the
 saved `{pin: <id|null>}` preference and cannot grant progress or rewards.
 
 Parent `POST /api/challenges/goals/` accepts the child, activity trigger, optional
@@ -421,7 +430,9 @@ distance and gain no invented mileage.
 
 The daily bonus payload exposes the server date/timezone, cumulative minutes,
 completion/award flags, base Coins/XP, actual awarded amounts, period end and a
-nullable receipt identity. Daily Coins keep Lucky Coin eligibility; goal Coins
+nullable receipt identity. Its day uses the family-local accepted/saved timestamp;
+weekly goal progress keeps the original work day. Completed legacy settlement
+retains its promised original date. Daily Coins keep Lucky Coin eligibility; goal Coins
 keep the legacy quest policy. XP receipts use the actual weighted skill credit,
 including existing rounding and boosts. A daily award requires qualifying saved
 work; opening Today is not a prerequisite or an award action.

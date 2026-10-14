@@ -5,6 +5,9 @@ import initialGoals from '../../../contracts/api/fixtures/challenges-initial.jso
 import partialGoals from '../../../contracts/api/fixtures/challenges-partial.json';
 import completedGoals from '../../../contracts/api/fixtures/challenges-completed.json';
 import boostedGoals from '../../../contracts/api/fixtures/challenges-boosted.json';
+import deliveredItems from '../../../contracts/api/fixtures/challenges-items-delivered.json';
+import skippedItems from '../../../contracts/api/fixtures/challenges-items-skipped.json';
+import convertedItems from '../../../contracts/api/fixtures/challenges-items-converted.json';
 import pinnedGoal from '../../../contracts/api/fixtures/challenge-pinned.json';
 import unpinnedGoal from '../../../contracts/api/fixtures/challenge-unpinned.json';
 import firstRun from '../../../contracts/api/fixtures/challenge-run-first.json';
@@ -37,6 +40,7 @@ describe('automatic challenge responses through the shared React API client', ()
       reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0, awarded_at: null },
     });
     expect(submitted).toEqual([{ body: payload, authorization: 'Token test-session' }]);
+    expect(goal.reward_receipt).not.toHaveProperty('items');
   });
 
   it.each([
@@ -64,6 +68,18 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(runningGoal.rewards.coins).toBe(7);
     expect(runningGoal.reward_receipt).toMatchObject({ status: 'awarded', coins_awarded: 7 });
     expect(goals.daily_bonus).toMatchObject({ coin_reward: 10, coins_awarded: 20, awarded: true });
+  });
+
+  it.each([
+    ['delivered', deliveredItems, [{ item_name: 'Fixture frame', quantity: 1 }], 5],
+    ['skipped', skippedItems, [], 5],
+    ['converted', convertedItems, [{ item_name: 'Fixture Wolf Egg', quantity: 1, salvaged_to_coins: 25 }], 30],
+  ])('preserves recorded %s item outcomes independently of reward previews', async (_label, body, items, coins) => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(body)));
+    const saved = await getChallenges();
+    expect(saved).toEqual(body);
+    expect(saved.results[0].reward_receipt).toMatchObject({ status: 'awarded', items, coins_awarded: coins });
+    expect(saved.recent_receipts[0].reward_receipt.items).toEqual(items);
   });
 
   it('pins and unpins presentation with one POST or DELETE and the server pin receipt', async () => {

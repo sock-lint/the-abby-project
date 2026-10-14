@@ -11,6 +11,9 @@ function GoalBody({ goal, timezone, showWhatCounts = true }) {
   const completed = goal.status === 'completed';
   const awarded = completed && goal.reward_receipt?.status === 'awarded';
   const rewards = awarded ? { coins: goal.reward_receipt.coins_awarded, xp: goal.reward_receipt.xp_awarded } : goal.rewards;
+  const rewardItems = awarded ? goal.reward_receipt.items || [] : completed && goal.legacy ? [] : goal.rewards?.items || [];
+  // Converted eggs are already included in the recorded Coin total.
+  const deliveredItems = rewardItems.filter((item) => item.salvaged_to_coins === undefined);
   const ended = !['active', 'completed', 'upcoming'].includes(goal.status);
   return (
     <div className="space-y-3">
@@ -25,7 +28,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true }) {
         {awarded ? 'Bonus earned automatically' : completed ? goal.legacy ? 'Original completion bonus' : 'Bonus pending' : 'Completion bonus'}
         {rewards?.coins > 0 && ` · ${rewards.coins} coins`}
         {rewards?.xp > 0 && ` · ${rewards.xp} XP`}
-        {goal.rewards?.items?.map((item) => ` · ${item.item_name || item.name} ×${item.quantity}`).join('')}
+        {deliveredItems.map((item) => ` · ${item.item_name || item.name} ×${item.quantity}`).join('')}
       </p>
     </div>
   );

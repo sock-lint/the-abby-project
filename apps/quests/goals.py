@@ -464,7 +464,8 @@ def occurrence_payload(occurrence, pin_id=None):
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),
-            "awarded_at": occurrence.awarded_at.isoformat() if occurrence.awarded_at else None},
+            "awarded_at": occurrence.awarded_at.isoformat() if occurrence.awarded_at else None,
+            **({"items": receipt.get("items", [])} if occurrence.awarded_at else {})},
     }
 
 

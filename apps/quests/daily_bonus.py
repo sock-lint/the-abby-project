@@ -27,8 +27,12 @@ def paid_legacy_bonus(user, day):
 
 
 def _minutes(user, day):
+    zone = household_timezone(user)
+    start = datetime.combine(day, time.min, tzinfo=zone)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
     return sum(int(row.context.get("duration_minutes", 0)) for row in ChallengeActivity.objects.filter(
-        user=user, occurred_on=day, voided=False, trigger_type__in=MINUTE_TRIGGERS,
+        user=user, occurred_at__gte=start, occurred_at__lt=end,
+        voided=False, trigger_type__in=MINUTE_TRIGGERS,
     ))
 
 
@@ -70,7 +74,11 @@ def process_daily_bonus(user, activity):
     from apps.rewards.models import CoinLedger
 
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
-    day = activity.occurred_on
+    # Daily credit follows the accepted/approval timestamp. The separate
+    # performed date (including a weekly chore's Monday bucket) stays intact
+    # for parent goal calendars. A retry keeps its original acceptance day.
+    day = (activity.occurred_on if activity.trigger_type == "legacy_daily"
+           else timezone.localdate(activity.occurred_at, timezone=household_timezone(user)))
     # A completed, unclaimed row is an explicit promise for its own date.
     # Preserve it even when another old row was paid on the same local day
     # (the old client could claim past work late).

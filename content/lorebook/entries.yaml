@@ -366,6 +366,7 @@ entries:
       - "Parent-created goals can measure activity counts, minutes, or distance, including running a chosen distance this week."
       - "Weekly goals use Monday through Sunday in the family timezone. Late-approved work counts in its original period."
       - "The daily bonus pays automatically once per family-local day for approved work, a completed project or milestone, or ten cumulative project/movement minutes."
+      - "Approved work earns its daily bonus on the day it is approved; its weekly goal progress still belongs to the original work period."
       - "Boss challenges use trigger damage; collection challenges count matching trigger events."
       - "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework."
       - "Existing boss challenges retain their rage shield: it grows on idle days and decays when the child returns."

@@ -11,7 +11,7 @@ unlock a catalog storyline.
 
 ## Activity, periods and rewards
 
-Use the original activity date to assign progress to a period. Parent approval
+Use the original activity date to assign challenge progress to a period. Parent approval
 confirms a submitted chore or homework contribution; approving last week's work
 does not move it into this week's goal. Late approval may finish its original
 period. Work outside the goal's window does not count.
@@ -64,7 +64,8 @@ even after the existing daily movement XP/drop limit has been reached.
 
 Saved source identities make contribution retries idempotent. Pinning, reading
 and reopening a page award nothing. Completion awards each
-occurrence once and returns a receipt containing the actual Coins and skill XP;
+occurrence once and returns a receipt containing the actual Coins, skill XP and
+recorded item outcomes;
 the configured reward preview is not proof of payment. Daily Coins remain
 Lucky Coin eligible; goal Coins retain the existing unboosted quest policy.
 Before completion, a correction removes or replaces the source contribution. A paid occurrence never
@@ -75,6 +76,10 @@ rearms because its source was changed or deleted.
 The daily bonus is one small automatic award per child per family-local day.
 It qualifies on approved work or a completed project/milestone, or ten cumulative
 minutes of logged project work or movement. Multiple short sessions accumulate.
+Approvals qualify on the family-local day they are accepted. The challenge's
+original work date still assigns its weekly goal progress; a weekly chore's
+Monday bucket cannot backdate Thursday's daily bonus. Logged minutes accumulate
+within the same family-local accepted/saved day.
 It is created and evaluated while activity is saved, so opening Today and the
 nightly task are not prerequisites.
 
@@ -117,6 +122,8 @@ fixed clock. Its shared JSON bodies are consumed through the React API client in
 `frontend/src/api/challengeContractFixtures.test.js`. They cover an unpinned goal
 completing alongside another goal, cumulative distance, a daily bonus, actual
 reward receipts, boost amounts and family-scoped rejections.
+Separate real endpoint examples cover delivered items, skipped unavailable
+items and an owned egg converted to Coins, without awarding again on replay.
 
 Reproduce against disposable test data:
 

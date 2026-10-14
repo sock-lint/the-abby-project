@@ -129,6 +129,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual((created["metric"], created["target"], created["unit"]), ("distance", "2", "mi"))
         self.assertTrue(created["repeat_weekly"])
         self.assertEqual(created["reward_receipt"]["status"], "pending")
+        self.assertNotIn("items", created["reward_receipt"])
         self.assertEqual(CoinLedger.objects.count(), 0)
         replay = self.create_goal().json()
         for key in ("starts_at", "ends_at"):
@@ -304,9 +305,73 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.log_run("1.25").status_code, 201)
         self.assertEqual(UserInventory.objects.get(user=self.child, item=frame).quantity, 1)
         self.assertFalse(UserInventory.objects.filter(user=self.child, item=accessory).exists())
-        completed = self.client.get("/api/challenges/").json()
+        response = self.client.get("/api/challenges/")
+        completed = response.json()
         goal = next(row for row in completed["results"] if row["id"] == preview["id"])
         self.assertEqual(goal["reward_receipt"]["coins_awarded"], 5)
+        self.assertEqual(goal["reward_receipt"]["items"], [{"item_name": frame.name, "quantity": 1}])
+        self.assert_response_fixture(response, "challenges-items-delivered.json")
+        paid = self.state()
+        self.assertEqual(self.log_run("1.25").status_code, 201)
+        self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+        self.assertEqual(self.state(), paid)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=frame).quantity, 1)
+
+    def add_synthetic_egg_reward(self):
+        from apps.pets.models import PetSpecies, PotionType
+        species = PetSpecies.objects.create(
+            id=81, name="Fixture Wolf", slug="fixture-wolf", sprite_key="fixture-wolf", icon="🐺",
+        )
+        potion = PotionType.objects.create(id=82, name="Fixture Base", slug="base", sprite_key="potion-base")
+        egg = ItemDefinition.objects.create(
+            id=63, name="Fixture Wolf Egg", slug="fixture-wolf-egg", item_type="egg",
+            pet_species=species, coin_value=25,
+        )
+        QuestRewardItem.objects.create(quest_definition=self.catalog, item=egg, quantity=1)
+        policy = {
+            "schema_version": 1, "potion_slugs": ["base"], "disabled_item_types": ["cosmetic_pet_accessory"],
+            "pets": [{"species_slug": species.slug, "sprite_key": species.sprite_key, "potion_slugs": ["base"]}],
+        }
+        return species, potion, egg, policy
+
+    def test_catalog_receipt_reports_skipped_item_after_support_retirement(self):
+        _, _, egg, policy = self.add_synthetic_egg_reward()
+        self.authenticate(self.child)
+        with self.settings(RPG_ASSET_SUPPORT_POLICY=policy):
+            preview = self.client.get("/api/challenges/").json()["results"][0]
+            self.assertEqual(preview["rewards"]["items"][0]["item_name"], egg.name)
+        self.assertEqual(self.log_run("0.75").status_code, 201)
+        self.assertEqual(self.log_run("1.25").status_code, 201)
+        response = self.client.get("/api/challenges/")
+        completed = response.json()
+        self.assertEqual(completed["results"][0]["reward_receipt"]["items"], [])
+        self.assert_response_fixture(response, "challenges-items-skipped.json")
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+        paid = self.state()
+        self.log_run("1.25")
+        self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+        self.assertEqual(self.state(), paid)
+
+    def test_catalog_receipt_reports_owned_egg_conversion_without_claiming_delivery(self):
+        from apps.pets.models import UserMount
+        species, potion, egg, policy = self.add_synthetic_egg_reward()
+        UserMount.objects.create(user=self.child, species=species, potion=potion)
+        self.authenticate(self.child)
+        with self.settings(RPG_ASSET_SUPPORT_POLICY=policy):
+            preview = self.client.get("/api/challenges/").json()["results"][0]
+            self.assertEqual(preview["rewards"]["items"][0]["item_name"], egg.name)
+            self.assertEqual(self.log_run("0.75").status_code, 201)
+            self.assertEqual(self.log_run("1.25").status_code, 201)
+            response = self.client.get("/api/challenges/")
+            receipt = response.json()["results"][0]["reward_receipt"]
+            self.assertEqual(receipt["coins_awarded"], 30)
+            self.assertEqual(receipt["items"], [{"item_name": egg.name, "quantity": 1, "salvaged_to_coins": 25}])
+            completed = self.assert_response_fixture(response, "challenges-items-converted.json")
+            self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+            paid = self.state()
+            self.log_run("1.25")
+            self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+            self.assertEqual(self.state(), paid)
 
 
 class RealChallengeMigrationTests(unittest.TestCase):

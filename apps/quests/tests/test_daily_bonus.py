@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
@@ -6,10 +6,11 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
-from apps.movement.models import MovementType, MovementTypeSkillTag
+from apps.movement.models import MovementSession, MovementType, MovementTypeSkillTag
 from apps.movement.services import MovementSessionService
-from apps.quests.activity import retry_pending_activity
+from apps.quests.activity import record_activity, retry_pending_activity
 from apps.quests.daily_bonus import get_daily_bonus_payload, settle_legacy_bonuses
+from apps.quests.goals import create_goal
 from apps.quests.models import ChallengeActivity, DailyBonus, DailyChallenge
 from apps.quests.tasks import rotate_daily_challenges_task
 from apps.rewards.models import CoinLedger
@@ -45,6 +46,119 @@ class AutomaticDailyBonusTests(TestCase):
         self.assertEqual(DailyBonus.objects.count(), 1)
         self.assertEqual(CoinLedger.objects.filter(user=self.child, reason="daily_challenge").count(), 1)
         self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 20)
+
+    def test_weekly_chore_approval_earns_thursday_bonus_without_moving_week_bucket(self):
+        from apps.chores.models import Chore
+        from apps.chores.services import ChoreService
+        thursday = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        day = timezone.localdate(thursday, timezone=ZoneInfo(self.child.family.timezone))
+        chore = Chore.objects.create(
+            title="Weekly room reset", family=self.child.family, created_by=self.child.family.primary_parent,
+            recurrence="weekly", reward_amount=0, coin_reward=0, xp_reward=0,
+        )
+        with patch("django.utils.timezone.now", return_value=thursday):
+            goal = create_goal(self.child.family.primary_parent, self.child, {
+                "name": "Weekly approved chores", "trigger_type": "chore_complete", "metric": "count",
+                "target": 2, "unit": "actions", "period": "this_week", "coin_reward": 0, "xp_reward": 0,
+            })
+            completion = ChoreService.submit_completion(self.child, chore)
+            self.assertEqual(completion.completed_date, day - timedelta(days=3))
+            ChoreService.approve_completion(completion, self.child.family.primary_parent)
+            fact = ChallengeActivity.objects.get(user=self.child, source_type="chore_complete")
+            self.assertEqual(fact.occurred_on, completion.completed_date)
+            self.assertEqual(fact.occurred_at, thursday)
+            goal.refresh_from_db()
+            self.assertEqual((goal.progress, goal.status), (1, "active"))
+            self.assertEqual(DailyBonus.objects.get(user=self.child).date, day)
+            self.assertTrue(get_daily_bonus_payload(self.child)["awarded"])
+
+    def test_multiple_past_dated_approvals_earn_only_one_bonus_on_approval_day(self):
+        from apps.chores.models import Chore, ChoreCompletion
+        from apps.chores.services import ChoreService
+        thursday = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        day = timezone.localdate(thursday, timezone=ZoneInfo(self.child.family.timezone))
+        chore = Chore.objects.create(
+            title="Earlier weekly chores", family=self.child.family, created_by=self.child.family.primary_parent,
+            recurrence="weekly", reward_amount=0, coin_reward=0, xp_reward=0,
+        )
+        with patch("django.utils.timezone.now", return_value=thursday):
+            goal = create_goal(self.child.family.primary_parent, self.child, {
+                "name": "This week's approved chores", "trigger_type": "chore_complete", "metric": "count",
+                "target": 3, "unit": "actions", "period": "this_week", "coin_reward": 0, "xp_reward": 0,
+            })
+            for days_ago in (3, 10, 17):
+                completion = ChoreCompletion.objects.create(
+                    chore=chore, user=self.child, completed_date=day - timedelta(days=days_ago),
+                    reward_amount_snapshot=0, coin_reward_snapshot=0,
+                )
+                ChoreService.approve_completion(completion, self.child.family.primary_parent)
+            goal.refresh_from_db()
+            self.assertEqual((goal.progress, goal.status), (1, "active"))
+            self.assertEqual(list(DailyBonus.objects.filter(user=self.child).values_list("date", flat=True)), [day])
+            self.assertEqual(CoinLedger.objects.filter(user=self.child, reason="daily_challenge").count(), 1)
+            self.assertTrue(get_daily_bonus_payload(self.child)["awarded"])
+
+    def test_project_and_movement_minutes_accumulate_on_accepted_day(self):
+        from apps.projects.models import Project
+        from apps.timecards.models import TimeEntry
+        accepted = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        day = timezone.localdate(accepted, timezone=ZoneInfo(self.child.family.timezone))
+        with patch("django.utils.timezone.now", return_value=accepted):
+            session = MovementSession.objects.create(
+                user=self.child, movement_type=self.running, duration_minutes=5,
+                occurred_on=day - timedelta(days=2), intensity="medium",
+            )
+            record_activity(self.child, "movement_session", {"session_id": session.pk})
+            self.assertFalse(DailyBonus.objects.exists())
+            self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 5)
+            project = Project.objects.create(title="Five project minutes", assigned_to=self.child,
+                                             created_by=self.child.family.primary_parent)
+            entry = TimeEntry.objects.create(
+                user=self.child, project=project, clock_in=accepted - timedelta(minutes=5),
+                clock_out=accepted, status="completed",
+            )
+            record_activity(self.child, "clock_out", {"time_entry_id": entry.pk})
+            self.assertEqual(DailyBonus.objects.get(user=self.child).date, day)
+            self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 10)
+            self.assertTrue(get_daily_bonus_payload(self.child)["awarded"])
+            fact = ChallengeActivity.objects.get(user=self.child, source_type="movement_session")
+            self.assertEqual(fact.occurred_on, day - timedelta(days=2))
+
+    def test_same_performed_date_cannot_combine_minutes_across_family_midnight(self):
+        self.child.family.timezone = "Pacific/Auckland"
+        self.child.family.save(update_fields=["timezone"])
+        zone = ZoneInfo("Pacific/Auckland")
+        midnight = datetime(2026, 10, 15, tzinfo=zone)
+        performed_day = midnight.date() - timedelta(days=1)
+        for accepted in (midnight - timedelta(minutes=5), midnight + timedelta(minutes=5)):
+            with patch("django.utils.timezone.now", return_value=accepted):
+                session = MovementSession.objects.create(
+                    user=self.child, movement_type=self.running, duration_minutes=5,
+                    occurred_on=performed_day, intensity="medium",
+                )
+                record_activity(self.child, "movement_session", {"session_id": session.pk})
+        with patch("django.utils.timezone.now", return_value=midnight + timedelta(minutes=10)):
+            self.assertFalse(DailyBonus.objects.exists())
+            self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 5)
+            self.run_for(5)
+            self.assertEqual(DailyBonus.objects.get(user=self.child).date, midnight.date())
+            self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 10)
+
+    def test_next_day_retry_preserves_original_accepted_bonus_date(self):
+        accepted = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        day = timezone.localdate(accepted, timezone=ZoneInfo(self.child.family.timezone))
+        with patch("django.utils.timezone.now", return_value=accepted):
+            with self.assertLogs("apps.quests.activity", level="ERROR"):
+                with patch("apps.quests.daily_bonus.process_daily_bonus", side_effect=RuntimeError("Retry tomorrow")):
+                    self.run_for(10)
+        with patch("django.utils.timezone.now", return_value=accepted + timedelta(days=1)):
+            self.assertEqual(retry_pending_activity(self.child), 1)
+            self.assertEqual(DailyBonus.objects.get(user=self.child).date, day)
+            self.assertFalse(get_daily_bonus_payload(self.child)["awarded"])
+            self.assertEqual(get_daily_bonus_payload(self.child)["progress_minutes"], 0)
+            self.run_for(10)
+        self.assertEqual(set(DailyBonus.objects.filter(user=self.child).values_list("date", flat=True)),
+                         {day, day + timedelta(days=1)})
 
     def test_reading_and_rotation_cannot_manufacture_a_bonus(self):
         get_daily_bonus_payload(self.child)

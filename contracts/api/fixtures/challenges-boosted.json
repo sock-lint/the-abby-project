@@ -64,7 +64,8 @@
         "status": "awarded",
         "coins_awarded": 7,
         "xp_awarded": 15,
-        "awarded_at": "2026-10-14T19:00:00+00:00"
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": []
       }
     }
   ],
@@ -101,7 +102,8 @@
         "status": "awarded",
         "coins_awarded": 7,
         "xp_awarded": 15,
-        "awarded_at": "2026-10-14T19:00:00+00:00"
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": []
       }
     }
   ],
