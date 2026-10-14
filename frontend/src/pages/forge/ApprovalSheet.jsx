@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
@@ -8,6 +8,7 @@ import { TextAreaField, TextField } from '../../components/form';
 import { approvePrintRequest, rejectPrintRequest } from '../../api';
 import PlateFilenameChip from './PlateFilenameChip';
 import { formatCap, formatGrams, formatMinutes } from './forge.constants';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 /**
  * ApprovalSheet — the parent's decide flow.
@@ -36,6 +37,9 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   const [error, setError] = useState('');
   const [conflict, setConflict] = useState(null); // { problems, budget }
   const [approved, setApproved] = useState(null); // the saved request
+  const initialEstimates = useRef({ grams, minutes });
+  const dirty = !approved && (Boolean(notes) || grams !== initialEstimates.current.grams || minutes !== initialEstimates.current.minutes);
+  usePwaUpdateGuard(dirty || busy);
   // Rejecting a print is final for that request, and the two buttons sit side
   // by side under a thumb. Every other reject in the app (dashboard approval
   // queue, chores) asks once more with a note field before it fires, so this
@@ -152,7 +156,7 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   }
 
   return (
-    <BottomSheet title="Decide on this print" onClose={onClose}>
+    <BottomSheet title="Decide on this print" onClose={onClose} dirty={dirty} disabled={busy}>
       <div className="space-y-3">
         <ParchmentCard tone="deep" className="!p-3 space-y-1">
           <div className="font-display text-body text-ink-primary">{request.title}</div>

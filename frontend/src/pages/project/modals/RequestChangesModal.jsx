@@ -2,10 +2,13 @@ import { useState } from 'react';
 import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
 import TextAreaField from '../../../components/form/TextAreaField';
+import { usePwaUpdateGuard } from '../../../pwa/usePwaUpdateGuard';
 
 export default function RequestChangesModal({ onClose, onSubmit }) {
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const dirty = Boolean(notes);
+  usePwaUpdateGuard(dirty || submitting);
 
   const handleSubmit = async () => {
     if (!notes.trim()) return;
@@ -18,7 +21,7 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
   };
 
   return (
-    <BottomSheet title="Request Changes" onClose={onClose} disabled={submitting}>
+    <BottomSheet title="Request Changes" onClose={onClose} disabled={submitting} dirty={dirty}>
       <p className="text-sm text-ink-whisper">
         Tell the maker what needs to change before you approve this project.
       </p>
@@ -32,7 +35,7 @@ export default function RequestChangesModal({ onClose, onSubmit }) {
       />
       <div className="flex gap-2">
         <Button variant="secondary" onClick={onClose} disabled={submitting} className="flex-1">
-          Cancel
+          {dirty ? 'Discard draft' : 'Cancel'}
         </Button>
         <Button onClick={handleSubmit} disabled={submitting || !notes.trim()} className="flex-1">
           {submitting ? 'Sending...' : 'Send'}

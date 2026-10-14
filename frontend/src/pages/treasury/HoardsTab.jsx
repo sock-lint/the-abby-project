@@ -15,6 +15,7 @@ import QuillProgress from '../../components/QuillProgress';
 import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
 import { TextField } from '../../components/form';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 import IncipitBand from '../../components/atlas/IncipitBand';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
@@ -145,6 +146,8 @@ function CreateGoalSheet({ onClose, onCreated }) {
   const [icon, setIcon] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const dirty = Boolean(title || target || icon);
+  usePwaUpdateGuard(dirty || busy);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -175,7 +178,7 @@ function CreateGoalSheet({ onClose, onCreated }) {
   };
 
   return (
-    <BottomSheet title="New savings goal" onClose={onClose} disabled={busy}>
+    <BottomSheet title="New savings goal" onClose={onClose} disabled={busy} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField
           label="What are you saving for?"
@@ -206,7 +209,7 @@ function CreateGoalSheet({ onClose, onCreated }) {
         <ErrorAlert message={error} />
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="ghost" type="button" onClick={onClose} disabled={busy}>
-            Cancel
+            {dirty ? 'Discard draft' : 'Cancel'}
           </Button>
           <Button variant="primary" type="submit" disabled={busy}>
             {busy ? 'Creating…' : 'Start saving'}
