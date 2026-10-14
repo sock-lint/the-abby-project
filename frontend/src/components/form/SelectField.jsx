@@ -15,7 +15,7 @@ import useFieldIds from './useFieldIds';
 const FILTER_VARIANT_CLASS =
   'rounded-md border border-control-border bg-ink-page-aged ' +
   'min-h-11 max-w-full px-2 py-1.5 text-base sm:text-caption text-ink-primary w-auto ' +
-  'focus:outline-none focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
+  'focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-sheikah-teal-deep focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
 
 /**
  * SelectField — labeled <select> with built-in error and helpText slots.

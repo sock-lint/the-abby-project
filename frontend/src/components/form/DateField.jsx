@@ -13,7 +13,7 @@ import useFieldIds from './useFieldIds';
 const FILTER_VARIANT_CLASS =
   'rounded-md border border-control-border bg-ink-page-aged ' +
   'min-h-11 px-2 py-1.5 text-caption text-ink-primary w-auto ' +
-  'focus:outline-none focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
+  'focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-sheikah-teal-deep focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
 
 /**
  * DateField — labeled <input type="date"> with the same useId / aria-invalid /

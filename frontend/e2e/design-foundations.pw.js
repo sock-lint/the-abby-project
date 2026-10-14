@@ -63,7 +63,8 @@ async function renderedContrasts(locator, options = {}) {
     }
     const style = getComputedStyle(element, options.pseudo || null);
     if (options.pseudo) surfaces = surfaces.map((surface) => blend(rgba(style.backgroundColor), surface));
-    const foreground = rgba(options.focus ? style.getPropertyValue('--tw-ring-color') : style[options.property || 'color']);
+    const focusColor = style.boxShadow === 'none' ? style.outlineColor : style.getPropertyValue('--tw-ring-color');
+    const foreground = rgba(options.focus ? focusColor : style[options.property || 'color']);
     if (options.adjacent) surfaces.push(...adjacent);
     return surfaces.map((surface) => ({ foreground: hex(blend(foreground, surface)), background: hex(surface) }));
   }, options);
@@ -79,7 +80,11 @@ for (const theme of ['hyrule', 'vigil', 'sunlit', 'snowquill', 'verdant', 'harve
         expect(contrastRatio(pair.foreground, pair.background), `${name} boundary on ${theme}`).toBeGreaterThanOrEqual(3);
       }
       await control.focus();
-      expect(await control.evaluate((node) => getComputedStyle(node).boxShadow)).not.toBe('none');
+      const visibleFocus = await control.evaluate((node) => {
+        const style = getComputedStyle(node);
+        return style.boxShadow !== 'none' || (style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) >= 2);
+      });
+      expect(visibleFocus, `${name} must show focus on ${theme}`).toBe(true);
       for (const pair of await renderedContrasts(control, { focus: true, adjacent: true })) {
         expect(contrastRatio(pair.foreground, pair.background), `${name} focus on ${theme}`).toBeGreaterThanOrEqual(3);
       }

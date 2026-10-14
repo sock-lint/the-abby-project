@@ -281,6 +281,13 @@ h1, h2, h3, h4 {
 .animate-cosmic-burst    { animation: cosmic-burst 0.55s ease-out both; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
+  /* A live preference change can leave an older WebKit animation effect
+     active over React's new target. Keep page content settled immediately. */
+  .page-shell {
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
   .animate-flame-flicker,
   .animate-rune-pulse,
   .animate-rune-band,

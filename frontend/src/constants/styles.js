@@ -4,7 +4,7 @@
 export const inputClass =
   'w-full min-h-11 bg-ink-page border border-control-border rounded-lg px-4 py-3 ' +
   'text-ink-primary text-base placeholder:text-ink-whisper ' +
-  'focus:outline-none focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep ' +
+  'focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-sheikah-teal-deep focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep ' +
   'transition-colors';
 
 // INTERNAL: these class strings are now consumed only by <Button> and
