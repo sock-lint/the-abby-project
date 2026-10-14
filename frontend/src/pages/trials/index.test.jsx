@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, within, waitFor } from '../../test/render';
+import { renderWithProviders, screen, within, waitFor, act } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import { buildParent, buildUser } from '../../test/factories';
@@ -20,9 +20,62 @@ function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child
 }
 
 describe('Automatic challenges', () => {
+  it('puts parent goals and the pin first while keeping a large bonus catalog collapsed', async () => {
+    const catalog = Array.from({ length: 43 }, (_, i) => buildChallengeGoal({
+      id: `goal:${100 + i}`, name: `Optional bonus ${i + 1}`, origin: 'catalog', progress: '0',
+    }));
+    const parent = buildChallengeGoal({ id: 'goal:parent', name: 'Family running goal', progress: '0' });
+    const pinned = catalog[0];
+    const { user, container } = renderGoals({ goals: [...catalog, parent], pin: pinned.id });
+    const focus = await screen.findByRole('region', { name: 'Pinned challenge' });
+    expect(within(focus).getByRole('article', { name: pinned.name })).toBeInTheDocument();
+    const parents = screen.getByRole('region', { name: 'Parent goals' });
+    expect(within(parents).getByRole('article', { name: parent.name })).toBeInTheDocument();
+    expect(within(parents).getByText('From your parent')).toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: catalog[1].name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'In progress' })).not.toBeInTheDocument();
+    expect(container.querySelector('[data-folio-verso="true"]')).not.toBeNull();
+    expect(container.querySelector('[data-folio-recto="true"]')).toContainElement(parents);
+    await user.click(screen.getByText('Browse bonus challenges'));
+    expect(await screen.findByRole('article', { name: catalog[1].name })).toBeInTheDocument();
+    expect(screen.getAllByRole('article', { name: pinned.name })).toHaveLength(1);
+    expect(screen.getAllByRole('article', { name: parent.name })).toHaveLength(1);
+  });
+
+  it('shows three progressing bonus goals nearest completion, without turning zero progress into a task', async () => {
+    const goals = [
+      buildChallengeGoal({ id: 'goal:21', name: 'Many points', origin: 'catalog', progress: '100', target: '1000' }),
+      buildChallengeGoal({ id: 'goal:22', name: 'Almost finished', origin: 'catalog', progress: '9', target: '10' }),
+      buildChallengeGoal({ id: 'goal:23', name: 'Small target', origin: 'catalog', progress: '2', target: '3' }),
+      buildChallengeGoal({ id: 'goal:24', name: 'Halfway there', origin: 'catalog', progress: '5', target: '10' }),
+      buildChallengeGoal({ id: 'goal:25', name: 'Untouched goal', origin: 'catalog', progress: '0' }),
+    ];
+    renderGoals({ goals });
+    const bonus = await screen.findByRole('region', { name: 'Bonus progress' });
+    expect(within(bonus).getAllByRole('article').map((row) => row.getAttribute('aria-label')))
+      .toEqual(['Almost finished', 'Small target', 'Halfway there']);
+    expect(screen.queryByRole('article', { name: 'Many points' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Untouched goal' })).not.toBeInTheDocument();
+    expect(within(bonus).queryByText(/^Ends /)).not.toBeInTheDocument();
+  });
+
+  it('refreshes a hidden bonus into the preview when saved activity makes progress, without opening its browser', async () => {
+    const goals = [buildChallengeGoal({ origin: 'catalog', progress: '0', name: 'Background goal' })];
+    renderGoals({ goals });
+    await screen.findByText('Browse bonus challenges');
+    expect(screen.queryByRole('article', { name: 'Background goal' })).not.toBeInTheDocument();
+    act(() => {
+      goals[0] = { ...goals[0], progress: '1' };
+      window.dispatchEvent(new Event('abby:challenges-changed'));
+    });
+    const preview = await screen.findByRole('region', { name: 'Bonus progress' });
+    expect(within(preview).getByRole('article', { name: 'Background goal' })).toBeInTheDocument();
+    expect(within(preview).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1');
+  });
+
   it('shows all matching goals without start gating and opens full details', async () => {
     const { user } = renderGoals({ goals: [buildChallengeGoal(), buildChallengeGoal({ id: 'goal:12', name: 'Help at home', unit: 'actions', metric: 'count' })] });
-    expect(await screen.findByRole('heading', { name: 'Challenges' })).toBeInTheDocument();
+    expect((await screen.findAllByRole('heading', { name: 'Challenges' })).length).toBeGreaterThan(0);
     expect(await screen.findByRole('article', { name: 'Help at home' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /start challenge/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'View Run 2 miles this week' }));
@@ -61,6 +114,37 @@ describe('Automatic challenges', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Run 2 miles this week' });
     await user.click(within(dialog).getByRole('button', { name: /close/i }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('opens a zero-progress bonus from a saved link and retains its full bonus period', async () => {
+    const { user } = renderGoals({
+      goals: [buildChallengeGoal({ origin: 'catalog', progress: '0', timezone: 'America/Phoenix' })],
+      route: '/quests?tab=trials&goal=goal%3A11',
+    });
+    const dialog = await screen.findByRole('dialog', { name: 'Run 2 miles this week' });
+    expect(within(dialog).getByText('Ends Oct 18')).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading', { name: 'What counts' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Browse bonus challenges')).toHaveFocus());
+  });
+
+  it('restores focus after unpinning moves a zero-progress bonus back into browsing', async () => {
+    const goal = buildChallengeGoal({ origin: 'catalog', progress: '0' });
+    const { user, setPin } = renderGoals({ goals: [goal], pin: goal.id });
+    const clear = spyHandler('delete', /\/api\/challenges\/goal:11\/pin\/$/, () => { setPin(null); return { pin: null }; });
+    server.use(clear.handler);
+    await user.click(await screen.findByRole('button', { name: `View ${goal.name}` }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Unpin' }));
+    await waitFor(() => expect(clear.calls).toHaveLength(1));
+    expect(clear.calls[0].url).toMatch(/\/api\/challenges\/goal:11\/pin\/$/);
+    expect(clear.calls[0].body).toBeNull();
+    await screen.findByRole('dialog', { name: goal.name });
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Browse bonus challenges')).toHaveFocus());
+    await user.click(screen.getByText('Browse bonus challenges'));
+    expect(await screen.findByRole('progressbar', { name: `${goal.name} progress` })).toHaveAttribute('aria-valuenow', '0');
   });
 
   it('preserves scroll deep links without starting or spending inventory', async () => {
@@ -150,7 +234,7 @@ describe('Automatic challenges', () => {
 
   it('keeps ended goals in history without pin actions', async () => {
     const { user } = renderGoals({ goals: [buildChallengeGoal({ status: 'completed', progress: '2.00' })] });
-    await screen.findByRole('heading', { name: 'Challenges' });
+    await screen.findAllByRole('heading', { name: 'Challenges' });
     await user.click(await screen.findByText('History · 1'));
     expect(await screen.findByText('Bonus earned automatically · 10 coins')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pin to today/i })).not.toBeInTheDocument();

@@ -1,3 +1,4 @@
+import { MemoryRouter, useInRouterContext } from 'react-router-dom';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import QuestLogEntry from '../components/journal/QuestLogEntry';
@@ -18,8 +19,14 @@ import SectionHeader from '../components/SectionHeader';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import SkillsShowcase from './design/SkillsShowcase';
 import CollectionsShowcase from './design/CollectionsShowcase';
+import TasksShowcase from './design/TasksShowcase';
 
 export default function DesignShowcase() {
+  const hasRouter = useInRouterContext();
+  return hasRouter ? <DesignShowcaseContent /> : <MemoryRouter><DesignShowcaseContent /></MemoryRouter>;
+}
+
+function DesignShowcaseContent() {
   return (
     <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">
       {/* Header */}
@@ -33,8 +40,11 @@ export default function DesignShowcase() {
         <p className="font-body text-ink-secondary mt-2 max-w-prose">
           A visual QA page for our Meadow components. Navigate to{' '}
           <code className="font-rune text-sm">/__design</code> in dev to inspect
-          typography, controls, collection navigation and progress states.
+          typography, controls, Task folios, collection navigation and progress states.
         </p>
+        <nav aria-label="Showcase sections" className="mt-3 font-body text-body">
+          <a href="#task-folio" className="inline-flex min-h-11 items-center text-sheikah-teal-deep underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sheikah-teal">Task folio</a>
+        </nav>
       </header>
 
       <DeckleDivider glyph="compass-rose" label="Typography" />
@@ -315,6 +325,10 @@ export default function DesignShowcase() {
           error="This field has an error message wired through aria-describedby."
         />
       </ParchmentCard>
+
+      <DeckleDivider glyph="compass-rose" label="Task folio" />
+
+      <TasksShowcase />
 
       <DeckleDivider glyph="dragon-crest" label="Skills · Wayfinder" />
 
