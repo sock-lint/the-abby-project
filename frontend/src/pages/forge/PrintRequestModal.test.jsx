@@ -160,3 +160,41 @@ describe('PrintRequestModal', () => {
     expect(screen.getByLabelText(/colour/i)).toHaveValue('glow in the dark green');
   });
 });
+
+it('shows the selected model filename and can remove it before sending', async () => {
+  const { user } = renderWithProviders(<PrintRequestModal onClose={() => {}} />);
+  await user.click(screen.getByRole('button', { name: 'Upload', exact: true }));
+  await user.upload(screen.getByLabelText('Model file'), new File(['solid'], 'dragon.stl', { type: 'model/stl' }));
+  expect(screen.getByText('dragon.stl')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Remove model file' }));
+  expect(screen.queryByText('dragon.stl')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Send request' })).toBeDisabled();
+});
+
+it('retains a rejected model file and its fields for an explicit multipart retry', async () => {
+  const bodies = [];
+  const requests = spyHandler('post', /\/api\/print-requests\/$/, ({ request }) => {
+    request.formData().then((form) => bodies.push({
+      keys: [...form.keys()].sort(), title: form.get('title'), color: form.get('color'), reason: form.get('reason'), hasFile: Boolean(form.get('model_file')),
+    }));
+    return requests.calls.length === 1
+      ? HttpResponse.json({ model_file: ['The submitted file could not be read.'] }, { status: 400 })
+      : HttpResponse.json({ id: 11 }, { status: 201 });
+  });
+  server.use(requests.handler);
+  const { user } = renderWithProviders(<PrintRequestModal onClose={() => {}} />);
+  await user.click(screen.getByRole('button', { name: 'Upload', exact: true }));
+  await user.upload(screen.getByLabelText('Model file'), new File(['solid'], 'dragon.stl', { type: 'model/stl' }));
+  await user.type(screen.getByLabelText('Colour'), 'green');
+  await user.type(screen.getByLabelText('Why do you want it?'), 'My model');
+  await user.click(screen.getByRole('button', { name: 'Send request' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('The submitted file could not be read.');
+  expect(screen.getByText('dragon.stl')).toBeInTheDocument();
+  expect(screen.getByLabelText('Colour')).toHaveValue('green');
+  expect(requests.calls).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'Send request' }));
+  await waitFor(() => expect(requests.calls).toHaveLength(2));
+  await waitFor(() => expect(bodies).toHaveLength(2));
+  expect(requests.calls[0].url).toMatch(/\/api\/print-requests\/$/);
+  expect(bodies).toEqual(Array(2).fill({ keys: ['color', 'model_file', 'reason', 'title'], title: 'dragon.stl', color: 'green', reason: 'My model', hasFile: true }));
+});

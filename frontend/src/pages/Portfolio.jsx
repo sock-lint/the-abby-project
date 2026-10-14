@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Image, Download, Plus, Camera, BookOpen,
+  Image, Download, Plus, BookOpen,
   X, ChevronLeft, ChevronRight, Trash2, Clapperboard,
   Palette, Music, Send, Undo2,
 } from 'lucide-react';
@@ -26,12 +26,13 @@ import ShareButton from '../components/ShareButton';
 import SaveAbbyFileToDrive from '../components/SaveAbbyFileToDrive';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { TextField, SelectField } from '../components/form';
-import { formLabelClass } from '../constants/styles';
+import AttachmentField from '../components/attachments/AttachmentField';
 import TomeShelf from '../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import { downscaleImage } from '../utils/image';
 import { formatMonth } from '../utils/format';
 import { normalizeList } from '../utils/api';
+import { attachmentErrorMessages } from '../components/attachments/attachmentHelpers';
 
 const FILTERS = [
   { key: 'all',        label: 'All',        icon: '📚' },
@@ -694,22 +695,19 @@ function Lightbox({ viewer, onClose, onPrev, onNext }) {
 function UploadSheet({ projects, onClose, onUploaded }) {
   const [projectId, setProjectId] = useState('');
   const [file, setFile] = useState(null);
-  const [preview, setPreview] = useState(null);
+  const [fileError, setFileError] = useState('');
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
-  const fileInputRef = useRef(null);
-
-  const handleFile = (e) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setFile(f);
-    setPreview(URL.createObjectURL(f));
+  const handleFile = (selected) => {
+    setFile(selected);
+    setFileError('');
     setError('');
   };
 
   const handleSubmit = async (e) => {
     e?.preventDefault?.();
+    if (uploading) return;
     if (!projectId) {
       setError('Pick a project first.');
       return;
@@ -725,7 +723,9 @@ function UploadSheet({ projects, onClose, onUploaded }) {
       await uploadPhoto(projectId, processed, caption);
       onUploaded();
     } catch (err) {
-      setError(err.message || 'Upload failed');
+      const feedback = attachmentErrorMessages(err, 'image', 'Upload failed');
+      setFileError(feedback.fileError);
+      setError(feedback.message);
       setUploading(false);
     }
   };
@@ -756,48 +756,10 @@ function UploadSheet({ projects, onClose, onUploaded }) {
           ))}
         </SelectField>
 
-        <div>
-          {/* formLabelClass, not a hand-rolled one: this label sits between two
-              form-primitive labels and used to render in a different typeface. */}
-          <label className={formLabelClass}>Photo</label>
-          {/* No `capture` attribute: it forces the live camera and hides the
-              photo library, so a kid could never attach a shot they took
-              earlier. Every other upload path in the app uses a plain
-              accept="image/*" and lets the OS picker offer both. */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFile}
-            className="hidden"
-            disabled={uploading}
-          />
-          {preview ? (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="relative w-full aspect-video rounded-lg overflow-hidden bg-ink-page border border-ink-page-shadow"
-            >
-              <img src={preview} alt="" className="w-full h-full object-cover" />
-              {/* Always-visible affordance — hover never fires on touch, so the
-                  preview used to read as a static image with no way back. */}
-              <div className="absolute inset-x-0 bottom-0 bg-black/55 py-2 text-center font-body text-body text-white">
-                Change photo
-              </div>
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              className="w-full aspect-video rounded-lg border-2 border-dashed border-ink-page-shadow hover:border-sheikah-teal/60 transition-colors flex flex-col items-center justify-center gap-2 text-ink-whisper"
-            >
-              <Camera size={28} />
-              <span className="text-body">Take photo or choose from library</span>
-            </button>
-          )}
-        </div>
+        <AttachmentField label="Photo" file={file} onChange={handleFile} accept="image/*"
+          previewImage disabled={uploading} error={fileError}
+          chooseLabel="Take photo or choose from library"
+          helpText="Image files. Large photos may be resized before upload." />
 
         <TextField
           label="Caption (optional)"
