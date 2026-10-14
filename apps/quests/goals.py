@@ -501,6 +501,7 @@ def occurrence_payload(occurrence, pin_id=None):
     receipt = occurrence.reward_receipt
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
+        "origin": "catalog" if occurrence.goal.is_catalog else "parent",
         "metric": snapshot["metric"], "target": number(snapshot["target"]), "progress": number(occurrence.progress),
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
@@ -530,6 +531,7 @@ def _legacy_payload(quest, pin_id):
     items = QuestRewardItemSerializer([row for row in definition.reward_items.select_related("item") if item_is_available(row.item)], many=True).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
+        "origin": "legacy",
         "metric": "damage" if definition.quest_type == "boss" else "count", "target": str(quest.effective_target),
         "progress": str(quest.current_progress), "unit": "damage" if definition.quest_type == "boss" else "actions",
         "status": "expired" if quest.is_expired else quest.status,

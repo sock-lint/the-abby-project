@@ -126,6 +126,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
 
     def test_parent_goal_pin_and_two_real_runs_preserve_automatic_rewards(self):
         created = self.assert_response_fixture(self.create_goal(), "challenge-goal-created.json", status=201)
+        self.assertEqual(created["origin"], "parent")
         self.assertEqual((created["metric"], created["target"], created["unit"]), ("distance", "2", "mi"))
         self.assertTrue(created["repeat_weekly"])
         self.assertEqual(created["reward_receipt"]["status"], "pending")
@@ -141,6 +142,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.authenticate(self.child)
         initial = self.assert_response_fixture(self.client.get("/api/challenges/"), "challenges-initial.json")
         self.assertEqual(len(initial["results"]), 2)
+        self.assertEqual({goal["origin"] for goal in initial["results"]}, {"parent", "catalog"})
         self.assertIsNone(initial["pin"])
         before = self.state()
         pinned = self.assert_response_fixture(
@@ -200,6 +202,74 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.create_goal().status_code, 403)
         self.client.credentials()
         self.assertEqual(self.client.get("/api/challenges/").status_code, 401)
+
+    def test_goal_origin_uses_saved_authorship_instead_of_matching_names(self):
+        spoofed = self.create_goal(name=self.catalog.name, origin="catalog")
+        self.assertEqual(spoofed.status_code, 400, spoofed.content)
+        self.assertIn("origin", spoofed.json())
+        created = self.create_goal(name=self.catalog.name)
+        self.assertEqual(created.status_code, 201, created.content)
+        self.assertEqual(created.json().get("origin"), "parent")
+        self.authenticate(self.child)
+        listed = self.client.get("/api/challenges/").json()
+        self.assertEqual({row["name"] for row in listed["results"]}, {self.catalog.name})
+        self.assertEqual({row["id"]: row.get("origin") for row in listed["results"]}, {
+            created.json()["id"]: "parent", "goal:2": "catalog",
+        })
+        self.assertEqual(self.state(), ([], []))
+
+    def test_retired_catalog_and_saved_legacy_origins_preserve_goal_promises(self):
+        from apps.quests.models import ChallengeGoal, Quest, QuestParticipant
+        created = self.create_goal(name=self.catalog.name)
+        self.assertEqual(created.status_code, 201, created.content)
+        self.authenticate(self.child)
+        initial = self.client.get("/api/challenges/").json()
+        saved = {row["id"]: row for row in initial["results"]}
+        catalog_goal = ChallengeGoal.objects.get(catalog_definition=self.catalog, user=self.child)
+        self.catalog.delete()
+        catalog_goal.refresh_from_db()
+        self.assertIsNone(catalog_goal.catalog_definition_id)
+        self.assertTrue(catalog_goal.is_catalog)
+        legacy_definition = QuestDefinition.objects.create(
+            id=52, name=catalog_goal.name, description="A saved family challenge.",
+            quest_type="collection", target_value=3, duration_days=7,
+            trigger_filter={"allowed_triggers": ["movement_session"]},
+            coin_reward=4, xp_reward=0, is_system=False, created_by=self.parent,
+        )
+        legacy = Quest.objects.create(
+            id=91, definition=legacy_definition, start_date=FIXED_NOW,
+            end_date=FIXED_NOW + timedelta(days=7), current_progress=1,
+        )
+        QuestParticipant.objects.create(quest=legacy, user=self.child, contribution=1)
+        response = self.client.get("/api/challenges/")
+        body = response.json()
+        self.assertEqual({row["name"] for row in body["results"]}, {catalog_goal.name})
+        self.assertEqual({row["id"]: row.get("origin") for row in body["results"]}, {
+            created.json()["id"]: "parent", "goal:2": "catalog", "legacy:91": "legacy",
+        })
+        for row in body["results"]:
+            if row["id"] in saved:
+                self.assertEqual(row, saved[row["id"]])
+        self.assertEqual(self.state(), ([], []))
+        self.assertEqual(self.client.get("/api/challenges/").json(), body)
+        self.assert_response_fixture(response, "challenges-origins.json")
+
+    def test_origin_metadata_preserves_child_and_family_scope(self):
+        created = self.create_goal(name="A private family goal")
+        self.assertEqual(created.status_code, 201, created.content)
+        own = self.client.get("/api/challenges/", {"user_id": self.child.pk}).json()
+        self.assertEqual(next(row for row in own["results"] if row["id"] == created.json()["id"]).get("origin"), "parent")
+        foreign = self.client.get("/api/challenges/", {"user_id": self.other_child.pk})
+        unknown = self.client.get("/api/challenges/", {"user_id": 99999})
+        self.assertEqual((foreign.status_code, unknown.status_code), (404, 404))
+        self.assertEqual(foreign.json(), unknown.json())
+        self.authenticate(self.child)
+        self.assertEqual(self.client.get("/api/challenges/", {"user_id": self.sibling.pk}).status_code, 404)
+        self.authenticate(self.sibling)
+        sibling = self.client.get("/api/challenges/").json()
+        self.assertNotIn(created.json()["id"], [row["id"] for row in sibling["results"]])
+        self.assertTrue(all(row.get("origin") == "catalog" for row in sibling["results"]))
+        self.assertEqual(self.state(), ([], []))
 
     def add_second_movement_catalog_goal(self):
         return QuestDefinition.objects.create(

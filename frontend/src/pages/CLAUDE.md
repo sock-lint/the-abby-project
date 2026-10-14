@@ -129,24 +129,36 @@ Ventures + Study render a `RarityStrand` on the verso. Duties, Rituals, Movement
 
 ### Challenges sub-architecture
 
-Tasks → Challenges (`/quests?tab=trials`) lists every automatically tracking
-personal goal. A pin only features one active goal on Today and in the header;
+Tasks → Challenges (`/quests?tab=trials`) uses the shared Task folio shell.
+The pinned challenge and parent-created goals lead the working list. Up to three
+bonus challenges with positive progress appear next, ranked by proportion toward
+completion. The remaining bonus goals and history stay in collapsed disclosures.
+Every matching goal continues tracking regardless of its placement or whether a
+disclosure is open. A pin only features one active goal on Today and in the header;
 children do not start or claim goals to make their work count.
 
-- `trials/index.jsx` owns the parent's child selector, goal details, pin actions,
-  and In progress/Upcoming/History sections. Parents use `CreateGoalForm.jsx`
+- `trials/index.jsx` owns the parent's child selector, goal details and pin actions.
+  `ChallengesFolio.jsx` presents the shared `QuestFolio` layout; `challengeFocus.js`
+  groups the full server response without changing saved state or eligibility.
+  Parents use `CreateGoalForm.jsx`
   to assign count, minute or distance goals, with a period and optional weekly
   repeat. The form previews the activity, date window and reward and retains a
   UUID for identical save retries.
-- `ChallengeGoalCard.jsx` presents the server's decimal progress, activity rule,
-  deadline, planned reward and actual completion receipt. Action links open the
-  relevant activity flow; running goals preselect the movement type.
+- `ChallengeGoalCard.jsx` presents the server's decimal progress, origin, activity
+  rule, planned reward and actual completion receipt. Parent and pinned deadlines
+  remain visible; background bonus dates stay in full details. Origin is the
+  server-owned `parent|catalog|legacy` field, never inferred from a title. Action
+  links open the relevant activity flow; running goals preselect the movement type.
+  Closing details restores focus to a live goal button or the disclosure when a
+  pin change moved its original opener.
 - `goalDisplay.js` formats progress and household-local deadlines. Do not derive
   eligibility, paid amounts or recurrence from the browser clock.
 - `hooks/useChallenges.js` shares scoped server data, refreshes after Pulse and
   pin changes, and fences responses by account/credential/selected-child identity.
 - Existing boss/collection components and routes remain reference and legacy
   compatibility surfaces; the new page does not spend saved quest scrolls.
+- `/__design#task-folio` demonstrates these same presentation components with
+  synthetic goals and local-only pin/detail and parent/child preview controls.
 
 ### Forge sub-architecture
 

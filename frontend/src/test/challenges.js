@@ -5,6 +5,7 @@ export function buildChallengeGoal(overrides = {}) {
     starts_at: '2026-10-12T07:00:00Z', ends_at: '2026-10-19T07:00:00Z',
     what_counts: 'Running sessions logged after this goal was created. Distances add together.',
     rewards: { coins: 10, xp: 0, items: [] }, pinned: false, repeat_weekly: false, legacy: false,
+    origin: overrides.legacy ? 'legacy' : 'parent',
     reward_receipt: { status: overrides.status === 'completed' ? 'awarded' : 'pending', coins_awarded: 10, xp_awarded: 0 },
     action: { label: 'Log a run', path: '/quests?tab=movement', movement_type_id: 3 },
     ...overrides,

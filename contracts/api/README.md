@@ -10,6 +10,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | --- | --- |
 | `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
 | `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
+| `challenges-origins.json` | Same list endpoint; parent, retired catalog and saved legacy goals retain distinct server-owned origins despite identical names |
 | `challenge-pinned.json`, `challenge-unpinned.json` | `POST`/`DELETE /api/challenges/goal:1/pin/`; self-scoped presentation preference, without progress or rewards |
 | `challenge-run-first.json` | `POST /api/movement-sessions/`; real 0.75-mile run advances multiple goals and qualifies the daily bonus |
 | `challenges-partial.json` | Goal list retains progress on both the pinned distance goal and unpinned count goal, with the automatic daily reward receipt |
@@ -392,8 +393,8 @@ participants, daily promises, paid/unpaid goal windows, contributions, receipts,
 inventory, Coins, skill XP and movement counters remain intact without payouts
 or invented distance. Retirement backfills private catalog origin and frozen
 name/type, leaves parent goals outside catalog history, and permits deletion of
-the original template while keeping saved goal promises. These private fields
-do not change the public response bodies.
+the original template while keeping saved goal promises. The public origin label
+uses that saved marker; the underlying catalog identity/history fields stay private.
 
 `GET /api/challenges/` returns `results`, the nullable `pin`, completed goal
 `recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`.
@@ -403,7 +404,10 @@ Activity goal deltas follow the underlying goal records in ascending saved
 identity order; their public IDs continue to identify occurrences.
 Parents may select a same-family child with `user_id`; children cannot use that query to
 read another account. Goal IDs identify occurrences (`goal:1`), not catalog
-definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
+definitions. Retained legacy rows use `legacy:91`. Each goal reports server-owned
+`origin: parent|catalog|legacy`; catalog origin survives template retirement and
+legacy rows retain `legacy` regardless of their original author. Clients can group
+these for presentation without inferring origin from a name or pin. `target` and `progress` are
 decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
 New catalog goals receive their full window on first automatic offer/evaluation,
 subject to cutover, template creation, badge and legacy cutoffs. Pending eligible

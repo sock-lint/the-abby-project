@@ -2,6 +2,7 @@
   "id": "goal:1",
   "name": "Run 2 miles this week",
   "description": "",
+  "origin": "parent",
   "metric": "distance",
   "target": "2",
   "progress": "0",

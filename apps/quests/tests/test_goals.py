@@ -274,12 +274,12 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         performed_at = boundary - timedelta(days=2)
         performed_day = performed_at.astimezone(ZoneInfo("America/Phoenix")).date()
         ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=boundary)
-        definition = QuestDefinition.objects.create(
-            name="Fresh approvals", description="An approved chore", is_system=True,
-            quest_type="collection", target_value=1, duration_days=7, coin_reward=5,
-            trigger_filter={"allowed_triggers": ["chore_complete"]},
-        )
         with patch("django.utils.timezone.now", return_value=boundary):
+            definition = QuestDefinition.objects.create(
+                name="Fresh approvals", description="An approved chore", is_system=True,
+                quest_type="collection", target_value=1, duration_days=7, coin_reward=5,
+                trigger_filter={"allowed_triggers": ["chore_complete"]},
+            )
             list_goals(self.child)
             parent_goal = self.goal(name="This week's chores", metric="count", target=Decimal(2), unit="actions",
                                     trigger_type="chore_complete", movement_type_id=None, repeat_weekly=False,
