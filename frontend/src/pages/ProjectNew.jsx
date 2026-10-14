@@ -11,6 +11,7 @@ import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField, DueDateChips } from '../components/form';
 import { normalizeList } from '../utils/api';
 import { toISODate } from '../utils/dates';
+import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 
 export default function ProjectNew() {
   const navigate = useNavigate();
@@ -29,6 +30,9 @@ export default function ProjectNew() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const initialForm = useRef(form);
+  const dirty = Object.keys(initialForm.current).some((key) => form[key] !== initialForm.current[key]);
+  usePwaUpdateGuard(dirty || saving || previewLoading);
   const previewRequest = useRef(0);
   const today = toISODate(new Date());
 

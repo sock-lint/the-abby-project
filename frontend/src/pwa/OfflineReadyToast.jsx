@@ -49,7 +49,7 @@ export default function OfflineReadyToast() {
             className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 text-caption text-white shadow-lg pointer-events-auto ${RARITY_SOLID_COLORS.common}`}
           >
             <CheckCircle2 size={18} aria-hidden="true" />
-            <span>Ready to work offline.</span>
+            <span>App saved on this device. Tasks and memories need a connection.</span>
           </motion.div>
         )}
       </AnimatePresence>

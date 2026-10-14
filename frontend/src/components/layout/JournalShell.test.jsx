@@ -37,7 +37,7 @@ describe('JournalShell', () => {
     // Chapter sidebar labels are rendered regardless of auth state.
     expect(screen.getAllByText('Today').length).toBeGreaterThan(0);
     // No offline banner on a live-auth boot.
-    expect(screen.queryByText(/offline — showing your last journal/i)).toBeNull();
+    expect(screen.queryByText(/connection unavailable/i)).toBeNull();
   });
 
   it('hydrates from the cached user and shows the offline banner when boot getMe network-errors', async () => {
@@ -52,7 +52,7 @@ describe('JournalShell', () => {
 
     renderShell({ element: <div>page-body</div> });
 
-    const banner = await screen.findByText('Offline — showing your last journal');
+    const banner = await screen.findByText('Connection unavailable — current tasks and memories need a connection.');
     expect(banner).toHaveAttribute('role', 'status');
     // The shell rendered the cached identity (AvatarMenu shows the cached
     // display name), proving the session hydrated instead of logging out.

@@ -112,7 +112,7 @@ export default function JournalShell() {
               role="status"
               className="bg-ink-page-aged/80 border-t border-ink-page-shadow/50 px-4 lg:px-6 py-2 text-center font-body text-caption text-ink-secondary"
             >
-              Offline — showing your last journal
+              Connection unavailable — current tasks and memories need a connection.
             </div>
           )}
         </div>
