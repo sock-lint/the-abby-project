@@ -15,6 +15,7 @@ import { ScrollIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
 import { normalizeList } from '../utils/api';
 
@@ -119,25 +120,15 @@ export default function Timecards() {
 
   return (
     <PageShell rhythm="loose">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            Weekly hours and earnings from your clocked time
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Timecards
-          </h1>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleExport}
-          className="flex items-center gap-1"
-          title="Export timecards to CSV"
+      <PageHeader
+        title="Timecards" kicker="Weekly hours and earnings from your clocked time"
+        actions={<Button
+          size="sm" variant="ghost" onClick={handleExport}
+          className="flex items-center gap-1" title="Export timecards to CSV"
         >
           <Download size={14} /> Export CSV
-        </Button>
-      </header>
+        </Button>}
+      />
 
       {exportError && <ErrorAlert message={exportError} />}
       <ErrorAlert message={error} />

@@ -10,6 +10,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
@@ -138,17 +139,12 @@ export default function ClockPage() {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <header className="text-center">
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Track your project work
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Time tracking
-        </h1>
-        <div className="font-script text-body text-ink-whisper mt-1">
+      <div>
+        <PageHeader title="Time tracking" kicker="Track your project work" />
+        <p className="font-body text-body text-ink-secondary mt-1">
           Log project time to earn coins, XP, and weekly pay.
-        </div>
-      </header>
+        </p>
+      </div>
 
       <ErrorAlert
         message={statusError ? `Couldn't check your clock. ${statusError}` : null}

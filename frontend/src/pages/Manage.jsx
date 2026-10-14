@@ -31,6 +31,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import IconButton from '../components/IconButton';
 import TabList from '../components/layout/TabList';
 import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
@@ -84,14 +85,7 @@ export default function Manage() {
 
   return (
     <PageShell rhythm="loose">
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Family, accounts, and project templates
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Manage
-        </h1>
-      </header>
+      <PageHeader title="Manage" kicker="Family, accounts, and project templates" />
 
       <TabList
         tabs={tabDescriptors}
