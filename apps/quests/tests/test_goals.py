@@ -59,6 +59,16 @@ class _GoalFixture:
         return create_goal(self.parent, self.child, data)
 
 class AutomaticGoalsTests(_GoalFixture, TestCase):
+    def test_boss_what_counts_omits_actions_that_deal_no_damage(self):
+        definition = self.definition(quest_type="boss")
+        definition.trigger_filter = {}
+        definition.save(update_fields=["trigger_filter"])
+        payload = list_goals(self.child)["results"][0]
+        self.assertEqual(payload["metric"], "damage")
+        self.assertNotIn("logged creations", payload["what_counts"])
+        self.assertIn("approved homework", payload["what_counts"])
+        self.assertIn("planned homework (first per day)", payload["what_counts"])
+
     def test_reward_preview_rechecks_support_without_changing_snapshot_or_payout(self):
         from apps.pets.models import PetSpecies
         from apps.quests.models import QuestRewardItem

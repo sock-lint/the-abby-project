@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -128,6 +129,8 @@ class CreationService:
         )
 
         day = timezone.localdate()
+        # Match award/fact locking before touching the persistent daily gate.
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
         prior_count = bump_daily_counter(CreationDailyCounter, user, day)
         is_xp_eligible = prior_count < cls.DAILY_XP_LIMIT
 
@@ -141,10 +144,13 @@ class CreationService:
             secondary_skill=secondary,
         )
 
+        from apps.rpg.services import GameLoopService
+        GameLoopService.freeze_catalog_eligibility(
+            user, "creation_logged", {"creation_id": creation.pk}, eligible=is_xp_eligible,
+        )
         if is_xp_eligible:
             cls._award_baseline(user, creation, primary, secondary)
 
-        from apps.rpg.services import GameLoopService
         GameLoopService.record_challenge_activity(user, "creation_logged", {"creation_id": creation.pk})
 
         # Emit Chronicle entry regardless of XP eligibility — the proud-display

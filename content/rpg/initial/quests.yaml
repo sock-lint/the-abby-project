@@ -24,6 +24,11 @@
 #                    (unique) or "Category::Skill Name" (disambiguated),
 #                    optionally wrapped in a {skill, weight} mapping.
 #
+# Automatic catalog progress preserves source daily eligibility: the first
+# homework_created and first two creation_logged records per local day count.
+# Explicit parent-created goals can count all valid matching saved records.
+# Movement goal credit remains independent of the three-session XP/drop cap.
+
 # ── Reward rubric (informal — not validated, just a guide) ──────────────
 # Boss quests cluster into three loose tiers based on damage × duration.
 # Use these as a starting point when authoring; tweak for theme/difficulty.
@@ -179,7 +184,7 @@ quests:
 
   # ── Scholar Track — homework-themed quests ─────────────────────────
   - name: Scholar's Week
-    description: Log 5 homework assignments this week — share what you're working on!
+    description: "Plan 5 homework assignments during this seven-day window. The first planned assignment each day counts; any homework subject qualifies."
     icon: "📓"
     sprite_key: quest-scholars-week
     quest_type: collection
@@ -384,7 +389,7 @@ quests:
       - {skill: "Outdoors::Gardening", weight: 1}
 
   - name: Cold Snap
-    description: "A winter-themed boss challenge: deal 400 damage through homework and positive habit taps during its window."
+    description: "A winter-themed boss challenge: deal 400 damage through approved homework, the first planned assignment each day, and positive habit taps."
     icon: "❄️"
     sprite_key: quest-cold-snap
     quest_type: boss
@@ -430,7 +435,7 @@ quests:
   # loader is upsert-by-name, so authoring them here backfills both fields.
 
   - name: Defeat the Doomscroll
-    description: "Weaken the imaginary Doomscroll beast through positive habit taps, newly logged homework, and approved homework. Clock-outs and chores do not count."
+    description: "Weaken the imaginary Doomscroll beast through positive habit taps, approved homework, and the first planned assignment each day. Clock-outs and chores do not count."
     icon: "⚔️"
     sprite_key: quest-defeat-doomscroll
     quest_type: boss
@@ -942,7 +947,7 @@ quests:
       - {skill: "Life Skills::Time Management", weight: 2}
 
   - name: Summer Reading List
-    description: "Log 5 homework assignments during this seven-day challenge window. Any homework subject counts."
+    description: "Plan 5 homework assignments during this seven-day challenge window. The first planned assignment each day counts; any homework subject qualifies."
     icon: "📚"
     sprite_key: quest-summer-reading
     quest_type: collection

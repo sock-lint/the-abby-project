@@ -89,9 +89,13 @@ class HomeworkAssignmentViewSet(
         serializer.validated_data.pop("skill_tags", None)
         serializer.save()
 
+    @transaction.atomic
     def perform_destroy(self, instance):
+        from apps.quests.goals import lock_user, void_activity
+        lock_user(instance.assigned_to)
         instance.is_active = False
         instance.save(update_fields=["is_active"])
+        void_activity(instance.assigned_to, "homework_created", instance.pk)
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):

@@ -254,6 +254,9 @@ def _process(activity):
     if activity.voided:
         return receipts
     for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type"):
+        if (goal.catalog_definition_id and activity.trigger_type in {"homework_created", "creation_logged"}
+                and activity.context.get("catalog_eligible") is not True):
+            continue
         at = activity.occurred_at
         if goal.repeat_weekly or (goal.catalog_definition_id is None and goal.starts_at.astimezone(ZoneInfo(goal.timezone_name)).time() == time.min):
             # A late approval belongs to the recorded work day, not today's week.
@@ -391,9 +394,16 @@ def create_goal(parent, child, data):
     return occurrence
 
 
-def _what_counts(snapshot):
+def _what_counts(snapshot, *, catalog=False):
     allowed = snapshot.get("filter", {}).get("allowed_triggers") or sorted(EFFORT_TRIGGERS)
-    text = ", ".join(TRIGGER_LABELS.get(trigger, trigger.replace("_", " ")) for trigger in allowed)
+    if snapshot.get("metric") == "damage":
+        from .services import TRIGGER_DAMAGE
+        allowed = [trigger for trigger in allowed if TRIGGER_DAMAGE.get(trigger, 0) > 0]
+    labels = {**TRIGGER_LABELS}
+    if catalog:
+        labels.update({"homework_created": "planned homework (first per day)",
+                       "creation_logged": "logged creations (first two per day)"})
+    text = ", ".join(labels.get(trigger, trigger.replace("_", " ")) for trigger in allowed)
     if snapshot.get("movement_type_name"):
         text = f"{snapshot['movement_type_name']} sessions"
     if snapshot.get("filter", {}).get("on_time"):
@@ -441,7 +451,7 @@ def occurrence_payload(occurrence, pin_id=None):
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
         "timezone": occurrence.goal.timezone_name,
-        "what_counts": _what_counts(snapshot), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot)},
+        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.catalog_definition_id is not None), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot)},
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),

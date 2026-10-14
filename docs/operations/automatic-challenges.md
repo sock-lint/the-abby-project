@@ -33,6 +33,18 @@ those saved legacy instances remain readable. Default goals count effort events,
 so bonus awards do not recursively complete more goals. Expedition returns count
 only when the goal explicitly includes that trigger.
 
+Built-in catalog challenges retain the existing source eligibility limits:
+only the first planned homework assignment and first two logged creations per
+local day count. The source service freezes that eligibility when it saves the
+record. Replaying a source, deleting an earlier record, or retrying progress does
+not turn an ineligible record into eligible catalog credit. Additional valid
+records remain saved and can count toward an explicit parent-created goal.
+
+These eligibility counters use the active Django timezone (default
+America/Phoenix), preserving their existing day boundary. Goal periods and the
+automatic daily bonus use the family's timezone. Movement goal progress continues
+for every valid session after its separate first-three-session XP/drop limit.
+
 Movement distance is a separate optional measurement from minutes. Store a
 decimal distance with `distance_unit: mi|km`, normalize it to metres, and sum
 actual distance for distance goals. An older session without distance does not

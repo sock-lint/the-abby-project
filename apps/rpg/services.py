@@ -500,6 +500,12 @@ class GameLoopService:
         return record_activity(user, trigger_type, context)
 
     @staticmethod
+    def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
+        """Persist a source-owned anti-farm decision before the game loop."""
+        from apps.quests.activity import freeze_catalog_eligibility
+        return freeze_catalog_eligibility(user, trigger_type, context, eligible=eligible)
+
+    @staticmethod
     def on_task_completed(user, trigger_type, context=None):
         if context is None:
             context = {}

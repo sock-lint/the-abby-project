@@ -93,6 +93,28 @@ def resolve_activity(user, trigger_type, context):
 
 
 @transaction.atomic
+def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
+    """Freeze the source service's daily-counter decision before any evaluator.
+
+    This attestation is internal: the normal source resolver discards incoming
+    eligibility flags. Facts without an attestation cannot earn capped catalog
+    credit, while parent-authored goals still count their saved work.
+    """
+    from .models import ChallengeActivity
+    if str(trigger_type) not in {"homework_created", "creation_logged"} or user.role != "child":
+        return
+    get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+    data = resolve_activity(user, trigger_type, context)
+    if data is None:
+        return
+    identity = {field: data[field] for field in ("source_type", "source_id", "trigger_type")}
+    ChallengeActivity.objects.get_or_create(user=user, **identity, defaults={
+        "occurred_at": data["occurred_at"], "occurred_on": data["occurred_on"],
+        "context": {**data["context"], "catalog_eligible": bool(eligible)},
+    })
+
+
+@transaction.atomic
 def record_activity(user, trigger_type, context=None):
     """Persist before evaluation so a failed downstream step stays retryable."""
     from .models import ChallengeActivity

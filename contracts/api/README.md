@@ -385,7 +385,11 @@ read another account. Goal IDs identify occurrences (`goal:1`), not catalog
 definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
 decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
 `starts_at` and `ends_at` define the server window; `what_counts`
-describes the activity filter. The action may include a movement type ID.
+describes the activity filter and catalog eligibility. Catalog planning says
+“planned homework (first per day)” and catalog creation says “logged creations
+(first two per day)”; parent-created goals count all valid matching records.
+The eligibility flag is private server state and is never authorable through the
+API. The action may include a movement type ID.
 
 `rewards` is the frozen preview. `reward_receipt` identifies the occurrence and
 reports `pending`, `awarded` or `legacy`, actual `coins_awarded`/`xp_awarded`, and

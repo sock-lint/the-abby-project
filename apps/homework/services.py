@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -95,9 +96,9 @@ class HomeworkService:
         because XP routing is a parent decision.
 
         On successful creation, fires the RPG ``homework_created`` game
-        loop for the assigned child — always records streak and quest
-        progress; caps drop rolls to the first creation per calendar day
-        so the loop can't be farmed.
+        loop for the assigned child only on the first creation per calendar
+        day. Automatic catalog goals retain that cap; explicit parent goals
+        may count every valid saved assignment.
         """
         if user.role == "child":
             data["assigned_to"] = user
@@ -175,10 +176,15 @@ class HomeworkService:
             #   • quest progress farming (Scholar's Week, Summer Reading List
             #     count homework_created — pre-2026-04-23 the Nth create per
             #     day still advanced these quests).
+            # Rewards and challenge facts share the same first user lock.
+            get_user_model().objects.select_for_update(no_key=True).get(pk=child.pk)
             prior_count = bump_daily_counter(
                 HomeworkDailyCounter, child, timezone.localdate(),
             )
             from apps.rpg.services import GameLoopService
+            GameLoopService.freeze_catalog_eligibility(
+                child, "homework_created", {"assignment_id": assignment.pk}, eligible=prior_count == 0,
+            )
             GameLoopService.record_challenge_activity(child, "homework_created", {"assignment_id": assignment.pk})
             if prior_count == 0:
                 from apps.rpg.constants import TriggerType
