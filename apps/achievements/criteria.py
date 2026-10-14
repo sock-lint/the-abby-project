@@ -364,11 +364,14 @@ def _quest_completed(user, c):
     # Parent-authored goals have their own promises and cannot impersonate a
     # catalog quest's named badge or contribute to the quest completion ladder.
     automatic = ChallengeOccurrence.objects.filter(
-        goal__user=user, status="completed", goal__catalog_definition__isnull=False,
+        goal__user=user, status="completed", goal__is_catalog=True,
     )
     if names:
         qs = qs.filter(definition__name__in=list(names))
-        automatic = automatic.filter(goal__catalog_definition__name__in=list(names))
+        automatic = automatic.filter(
+            models.Q(goal__catalog_definition__name__in=list(names))
+            | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_name__in=list(names))
+        )
     if count is not None:
         return qs.count() + automatic.count() >= int(count)
     return qs.exists() or automatic.exists()
@@ -762,7 +765,10 @@ def _boss_quests_completed(user, c):
         definition__quest_type=QuestDefinition.QuestType.BOSS,
     ).count()
     automatic_count = ChallengeOccurrence.objects.filter(
-        goal__user=user, status="completed", goal__catalog_definition__quest_type="boss",
+        goal__user=user, status="completed", goal__is_catalog=True,
+    ).filter(
+        models.Q(goal__catalog_definition__quest_type="boss")
+        | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_type="boss")
     ).count()
     return legacy_count + automatic_count >= int(c.get("count", 5))
 
@@ -782,7 +788,10 @@ def _collection_quests_completed(user, c):
         definition__quest_type=QuestDefinition.QuestType.COLLECTION,
     ).count()
     automatic_count = ChallengeOccurrence.objects.filter(
-        goal__user=user, status="completed", goal__catalog_definition__quest_type="collection",
+        goal__user=user, status="completed", goal__is_catalog=True,
+    ).filter(
+        models.Q(goal__catalog_definition__quest_type="collection")
+        | models.Q(goal__catalog_definition__isnull=True, snapshot__catalog_type="collection")
     ).count()
     return legacy_count + automatic_count >= int(c.get("count", 5))
 

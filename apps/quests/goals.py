@@ -96,6 +96,8 @@ def _snapshot(goal):
         "movement_type_name": goal.movement_type.name if goal.movement_type_id else None,
         "coins": goal.coin_reward, "xp": goal.xp_reward,
         "skill_tags": goal.skill_tags, "items": items,
+        "catalog_name": goal.catalog_definition.name if goal.catalog_definition_id else None,
+        "catalog_type": goal.catalog_definition.quest_type if goal.catalog_definition_id else None,
     }
 
 
@@ -133,7 +135,7 @@ def _catalog_goals(user):
             # Unlocking never retroactively counts facts from before the badge was earned.
             starts_at = max(starts_at, UserBadge.objects.get(user=user, badge_id=definition.required_badge_id).earned_at)
         ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
-            "family": user.family, "name": definition.name, "description": definition.description,
+            "is_catalog": True, "family": user.family, "name": definition.name, "description": definition.description,
             "metric": "damage" if definition.quest_type == "boss" else "count",
             "target": definition.target_value, "unit": "damage" if definition.quest_type == "boss" else "actions",
             "trigger_filter": definition.trigger_filter, "timezone_name": enrollment.timezone_name,
@@ -146,6 +148,13 @@ def _catalog_goals(user):
 
 
 def _occurrence(goal, at):
+    retired = goal.is_catalog and (
+        goal.catalog_definition_id is None
+        or not ChallengeGoal.objects.filter(pk=goal.pk, catalog_definition__isnull=False).exists()
+    )
+    if retired:
+        # Retirement retains saved promises and history, without new cycles.
+        return goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first()
     if at < goal.starts_at:
         return None
     start, end = goal.starts_at, goal.ends_at
@@ -253,12 +262,12 @@ def _process(activity):
     receipts = []
     if activity.voided:
         return receipts
-    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type"):
-        if (goal.catalog_definition_id and activity.trigger_type in {"homework_created", "creation_logged"}
+    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition"):
+        if (goal.is_catalog and activity.trigger_type in {"homework_created", "creation_logged"}
                 and activity.context.get("catalog_eligible") is not True):
             continue
         at = activity.occurred_at
-        if goal.repeat_weekly or (goal.catalog_definition_id is None and goal.starts_at.astimezone(ZoneInfo(goal.timezone_name)).time() == time.min):
+        if goal.repeat_weekly or (not goal.is_catalog and goal.starts_at.astimezone(ZoneInfo(goal.timezone_name)).time() == time.min):
             # A late approval belongs to the recorded work day, not today's week.
             at = datetime.combine(activity.occurred_on, time(12), tzinfo=ZoneInfo(goal.timezone_name))
         occurrence = _occurrence(goal, at)
@@ -451,7 +460,7 @@ def occurrence_payload(occurrence, pin_id=None):
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
         "timezone": occurrence.goal.timezone_name,
-        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.catalog_definition_id is not None), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot)},
+        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot)},
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),
@@ -496,7 +505,7 @@ def list_goals(user):
     _catalog_goals(user)
     now = timezone.now()
     current = {}
-    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type"):
+    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition"):
         occurrence = _occurrence(goal, now)
         if occurrence is not None:
             current[goal.pk] = occurrence
@@ -514,7 +523,7 @@ def list_goals(user):
     active = list(occurrences.filter(starts_at__lte=now, ends_at__gt=now))
     recent = list(occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at")[:20])
     terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at")[:20])
-    future = list(occurrences.filter(starts_at__gt=now, goal__catalog_definition__isnull=True))
+    future = list(occurrences.filter(starts_at__gt=now, goal__is_catalog=False))
     unique = {row.pk: row for row in active + recent + terminal + future}
     if pin.occurrence_id:
         pinned = occurrences.filter(pk=pin.occurrence_id).first()

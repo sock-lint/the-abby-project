@@ -21,7 +21,7 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 ## Automatic goal tracking
 
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
-- `ChallengeGoal` stores a personal catalog or parent-authored goal. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise.
+- `ChallengeGoal` stores a personal catalog or parent-authored goal. Its private `is_catalog` origin survives a deleted template; the optional `catalog_definition` uses `SET_NULL`. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise, including catalog name/type metadata for saved catalog history.
 - `ChallengeActivity` records a durable source identity and safe context; `ChallengeContribution` credits a source once per occurrence. Private journal prose never belongs in this context.
 - `ChallengePin` points to one new occurrence or an existing legacy quest for Today presentation.
 - `DailyBonus` records one automatically awarded receipt per child per family-local day. The old `DailyChallenge` rows and their claim state are preserved.
@@ -31,6 +31,7 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 - Planning/creation quota counters keep their existing active-Django-timezone day (default America/Phoenix). Parent goal windows and daily bonuses remain family-local; this fix does not move the source reward gates to a new clock.
 - New parent goals measure counts, minutes or decimal distance and can repeat weekly. Weekly boundaries are Monday through Sunday in the family timezone; late approval retains the activity's original period. Paid occurrences never rearm following a correction or deletion.
 - Catalog goals use their actual trigger filters; themes and XP reward tags do not restrict qualifying activities. Reward-only definitions (`badge_earned`/`perfect_day`) are omitted from new automatic enrollment, while saved legacy instances remain readable. Default unfiltered goals count effort events; expedition returns need an explicit trigger filter. Nonrepeatable definitions get one enrollment-anchored window. Repeatable definitions get successive frozen-duration windows rather than restarting on pin/completion.
+- Catalog retirement preserves saved paid/unpaid occurrences and contributions. A remaining saved window can finish with its frozen reward promise, but a detached catalog goal creates no future repeat windows. Eligibility and achievement queries use the durable catalog origin and frozen name/type after deletion, keeping parent-authored goals outside catalog badge history. Migration `0007` backfills this origin/metadata without changing progress, rewards or ledgers.
 - Completion responses distinguish reward previews from actual `reward_receipt` amounts. Source replay and reward retries must not rerun streaks, random drops or already-paid awards.
 
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.

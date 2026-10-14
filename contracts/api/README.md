@@ -373,10 +373,14 @@ separate eligible catalog goal advances without a pin. The second session
 completes both goals after the distance goal has been unpinned. Producer checks
 verify actual Coin ledger and skill progress, one automatic daily bonus, UUID
 retry safety, family isolation and unchanged rewards after reading the list.
-The same module runs actual pre-feature-to-current migrations in a disposable
-subprocess and verifies saved legacy quests, co-op participants, daily promises,
+The same module runs actual pre-feature-to-current and `quests.0006` to `0007`
+migrations in disposable subprocesses. It verifies saved legacy quests, co-op
+participants, daily promises, paid/unpaid goal windows, contributions, receipts,
 inventory, Coins, skill XP and movement counters remain intact without payouts
-or invented distance.
+or invented distance. Retirement backfills private catalog origin and frozen
+name/type, leaves parent goals outside catalog history, and permits deletion of
+the original template while keeping saved goal promises. These private fields
+do not change the public response bodies.
 
 `GET /api/challenges/` returns `results`, the nullable `pin`, completed goal
 `recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`. Parents

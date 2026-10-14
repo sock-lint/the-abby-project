@@ -247,8 +247,9 @@ class ChallengeGoal(TimestampedModel):
         related_name="authored_challenge_goals",
     )
     catalog_definition = models.ForeignKey(
-        QuestDefinition, on_delete=models.PROTECT, null=True, blank=True,
+        QuestDefinition, on_delete=models.SET_NULL, null=True, blank=True,
     )
+    is_catalog = models.BooleanField(default=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     metric = models.CharField(max_length=12, choices=[

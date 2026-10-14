@@ -36,6 +36,13 @@ those saved legacy instances remain readable. Default goals count effort events,
 so bonus awards do not recursively complete more goals. Expedition returns count
 only when the goal explicitly includes that trigger.
 
+Retiring a catalog definition detaches its personal goals without deleting saved
+occurrences, contributions or receipts. An unpaid saved window retains its
+original progress and reward promise and can still finish; paid history remains
+paid. Retirement prevents future repeat windows. The private catalog-origin flag
+and frozen catalog name/type retain catalog eligibility and badge history after
+the definition is removed; a parent-created goal does not become catalog history.
+
 Built-in catalog challenges retain the existing source eligibility limits:
 only the first planned homework assignment and first two logged creations per
 local day count. The source service freezes that eligibility when it saves the
@@ -88,6 +95,12 @@ award completed historical work or create retroactive bonus payouts. The
 scheduled bounded settlement may finish genuinely completed legacy bonuses with unpaid reward promises; it must
 not award unfinished legacy rows or historical days without earned work.
 
+`quests.0007_catalog_goal_retirement` backfills catalog origin from existing
+definition links and adds frozen name/type metadata to their saved snapshots.
+Parent goals retain their separate origin, and the catalog link becomes nullable
+on deletion. This migration does not change saved targets, periods, contribution
+amounts, payouts, inventory or account balances.
+
 Do not backfill all historical activities through the full RPG game loop: that
 would rerun streaks, drops and unrelated rewards. A progress repair uses durable
 source/contribution identities and touches only missing challenge state. Keep
@@ -121,7 +134,9 @@ variable absent. CI refuses fixture regeneration. Fixtures are raw server
 responses, not hand-authored examples or permission-test replacements.
 
 Run the affected goal/period/movement tests, migration-preservation check and
-lorebook parity checks locally. Required hosted PR checks remain `Frontend
+lorebook parity checks locally. The migration check covers both the pre-feature
+upgrade and `0006` to `0007` with saved paid/unpaid catalog and parent goals,
+including safe template deletion after the upgrade. Required hosted PR checks remain `Frontend
 validation`, `Backend validation` and `API fixtures` as described in
 [PR validation](pr-validation.md). PostgreSQL transaction tests are required for
 concurrent contributions, completion/payout locking and recurrence; SQLite

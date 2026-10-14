@@ -401,6 +401,128 @@ class RealChallengeMigrationTests(unittest.TestCase):
             assert Quest.objects.get(pk=93).participants.count() == 2
             assert ChallengePin.objects.get(user_id=7).legacy_quest_id in {91, 93}
         '''
+        self.assert_real_migration_process(code)
+
+    def test_catalog_retirement_upgrade_preserves_saved_windows_and_parent_origin(self):
+        code = r'''
+            from datetime import datetime, timedelta, timezone
+            import django
+            django.setup()
+            from django.conf import settings
+            from django.db import connection
+            from django.db.migrations.executor import MigrationExecutor
+            assert not getattr(settings, "MIGRATION_MODULES", {})
+            assert connection.vendor == "sqlite" and connection.settings_dict["NAME"] == ":memory:"
+            executor = MigrationExecutor(connection)
+            targets = [node for node in executor.loader.graph.leaf_nodes() if node[0] != "quests"]
+            targets += [("quests", "0006_parent_goal_request_identity")]
+            executor.migrate(targets)
+            old_apps = executor.loader.project_state(targets).apps
+            models = {name: old_apps.get_model(app, name) for app, name in [
+                ("families", "Family"), ("accounts", "User"), ("quests", "QuestDefinition"),
+                ("quests", "ChallengeGoal"), ("quests", "ChallengeOccurrence"),
+                ("quests", "ChallengeActivity"), ("quests", "ChallengeContribution"),
+                ("quests", "ChallengePin"), ("quests", "DailyBonus"),
+                ("rewards", "CoinLedger"), ("rpg", "ItemDefinition"), ("rpg", "UserInventory"),
+                ("achievements", "SkillCategory"), ("achievements", "Skill"), ("achievements", "SkillProgress"),
+            ]}
+            stamp = datetime(2026, 10, 14, 19, tzinfo=timezone.utc)
+            family = models["Family"].objects.create(id=41, name="Upgrade household", slug="upgrade-household")
+            parent = models["User"].objects.create(id=6, username="upgrade-parent", role="parent", family=family)
+            child = models["User"].objects.create(id=7, username="upgrade-child", role="child", family=family)
+            definition = models["QuestDefinition"].objects.create(
+                id=51, name="Original catalog identity", quest_type="collection", is_system=True,
+                target_value=2, duration_days=7, coin_reward=17, xp_reward=23, is_repeatable=True,
+            )
+            category = models["SkillCategory"].objects.create(id=21, name="Upgrade skills")
+            skill = models["Skill"].objects.create(id=22, name="Upgrade skill", category=category)
+            models["SkillProgress"].objects.create(user=child, skill=skill, xp_points=37)
+            item = models["ItemDefinition"].objects.create(id=61, name="Saved frame", slug="upgrade-frame", item_type="cosmetic_frame")
+            models["UserInventory"].objects.create(user=child, item=item, quantity=2)
+            models["CoinLedger"].objects.create(user=child, amount=42, reason="adjustment", description="Existing reward ledger")
+            fields = dict(
+                user=child, family=family, name="Frozen visible challenge", metric="count", target=2,
+                unit="actions", trigger_filter={"allowed_triggers": ["chore_complete"]},
+                timezone_name="America/Phoenix", starts_at=stamp-timedelta(days=2),
+                ends_at=stamp+timedelta(days=5), coin_reward=17, xp_reward=23,
+                skill_tags=[{"skill_id": skill.pk, "xp_weight": 1}],
+                reward_items=[{"item_id": item.pk, "quantity": 2}],
+            )
+            catalog_goal = models["ChallengeGoal"].objects.create(
+                id=31, catalog_definition=definition, repeat_days=7, **fields,
+            )
+            # An identical display name and spoofed snapshot metadata cannot
+            # turn a parent-authored goal into catalog history during upgrade.
+            parent_goal = models["ChallengeGoal"].objects.create(
+                id=32, created_by=parent, repeat_weekly=True,
+                request_id="33333333-3333-4333-8333-333333333333", request_fingerprint="frozen-parent-request", **fields,
+            )
+            snapshot = {
+                "name": fields["name"], "description": "Saved reward promise", "metric": "count",
+                "target": "2", "unit": "actions", "filter": fields["trigger_filter"],
+                "coins": 17, "xp": 23, "skill_tags": fields["skill_tags"], "items": fields["reward_items"],
+            }
+            paid = models["ChallengeOccurrence"].objects.create(
+                id=44, goal=catalog_goal, starts_at=stamp-timedelta(days=9), ends_at=stamp-timedelta(days=2),
+                snapshot=snapshot, progress=2, status="completed", completed_at=stamp-timedelta(days=3),
+                awarded_at=stamp-timedelta(days=3),
+                reward_receipt={"id": "goal:44", "status": "awarded", "coins_awarded": 17, "xp_awarded": 23},
+            )
+            active = models["ChallengeOccurrence"].objects.create(
+                id=45, goal=catalog_goal, starts_at=fields["starts_at"], ends_at=fields["ends_at"],
+                snapshot=snapshot, progress=1, status="active",
+            )
+            models["ChallengeOccurrence"].objects.create(
+                id=46, goal=parent_goal, starts_at=fields["starts_at"], ends_at=fields["ends_at"],
+                snapshot={**snapshot, "catalog_name": definition.name, "catalog_type": "boss"}, progress=1,
+            )
+            activity = models["ChallengeActivity"].objects.create(
+                user=child, source_type="homework_created", source_id="synthetic-source-9",
+                trigger_type="homework_created", occurred_at=stamp, occurred_on=stamp.date(),
+                context={"assignment_id": 9, "catalog_eligible": True}, processed_at=stamp,
+            )
+            models["ChallengeContribution"].objects.create(occurrence=active, activity=activity, amount=1)
+            models["ChallengeContribution"].objects.create(occurrence=paid, activity=activity, amount=2)
+            models["ChallengePin"].objects.create(user=child, occurrence=active)
+            models["DailyBonus"].objects.create(
+                user=child, date=stamp.date(), completed_at=stamp, awarded_at=stamp,
+                coins_awarded=10, xp_awarded=20,
+            )
+            before = {name: list(model.objects.order_by("pk").values()) for name, model in models.items()}
+            executor = MigrationExecutor(connection)
+            latest = executor.loader.graph.leaf_nodes()
+            executor.migrate(latest)
+            assert ("quests", "0007_catalog_goal_retirement") in MigrationExecutor(connection).loader.applied_migrations
+            new_apps = executor.loader.project_state(latest).apps
+            for name, rows in before.items():
+                upgraded = new_apps.get_model(models[name]._meta.app_label, name)
+                expected = rows
+                if name == "ChallengeOccurrence":
+                    expected = [
+                        {**row, "snapshot": {**row["snapshot"], "catalog_name": definition.name,
+                                              "catalog_type": definition.quest_type}}
+                        if row["goal_id"] == catalog_goal.pk else row
+                        for row in rows
+                    ]
+                assert list(upgraded.objects.order_by("pk").values(*rows[0].keys())) == expected, name
+            Goal = new_apps.get_model("quests", "ChallengeGoal")
+            assert Goal.objects.get(pk=31).is_catalog is True
+            assert Goal.objects.get(pk=32).is_catalog is False
+            new_apps.get_model("quests", "QuestDefinition").objects.get(pk=51).delete()
+            detached = Goal.objects.get(pk=31)
+            assert detached.catalog_definition_id is None and detached.is_catalog is True
+            assert Goal.objects.get(pk=32).is_catalog is False
+            Occurrence = new_apps.get_model("quests", "ChallengeOccurrence")
+            assert Occurrence.objects.count() == 3
+            assert Occurrence.objects.get(pk=44).reward_receipt == paid.reward_receipt
+            assert Occurrence.objects.get(pk=45).snapshot["coins"] == 17
+            assert Occurrence.objects.get(pk=45).progress == 1
+            assert new_apps.get_model("rewards", "CoinLedger").objects.count() == 1
+            assert new_apps.get_model("achievements", "SkillProgress").objects.get(user_id=7).xp_points == 37
+        '''
+        self.assert_real_migration_process(code)
+
+    def assert_real_migration_process(self, code):
         bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
         env = {key: os.environ[key] for key in bootstrap if key in os.environ}
         env.update({
