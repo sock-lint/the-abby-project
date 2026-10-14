@@ -15,7 +15,8 @@ function cover(overrides) {
     pageShadow: palette.lavender,
     pageGlow: palette.paper,
     ink: palette.ink,
-    inkSecondary: palette.muted_ink,
+    // Supporting copy also sits on the deeper, translucent nested-card tone.
+    inkSecondary: '#64596B',
     inkWhisper: '#685E70',
     accent: palette.primary,
     accentBright: '#685093',

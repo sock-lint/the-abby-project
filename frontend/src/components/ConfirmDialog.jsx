@@ -1,6 +1,6 @@
 import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealPulseRing from './modal/SealPulseRing';
 import Button from './Button';
@@ -20,6 +20,7 @@ export default function ConfirmDialog({
   onCancel,
   stacked = false,
 }) {
+  const reducedMotion = useReducedMotion();
   const titleId = useId();
   const messageId = useId();
   const dialogRef = useRef(null);
@@ -50,10 +51,10 @@ export default function ConfirmDialog({
           aria-labelledby={titleId}
           aria-describedby={messageId}
           className="pointer-events-auto relative max-w-sm w-full"
-          initial={{ scale: 0.82, opacity: 0, rotate: -3 }}
-          animate={{ scale: 1, opacity: 1, rotate: 0 }}
-          exit={{ scale: 0.9, opacity: 0 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 240 }}
+          initial={reducedMotion ? false : { scale: 0.82, opacity: 0, rotate: -3 }}
+          animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1, rotate: 0 }}
+          exit={reducedMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0 }}
+          transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 20, stiffness: 240 }}
         >
           <SealPulseRing rounded="rounded-[22px]" />
           <div className="relative parchment-bg-aged deckle-edge p-6 modal-seal-ring-strong max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain">

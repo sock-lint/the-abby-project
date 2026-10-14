@@ -4,6 +4,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
+import TabList from '../components/layout/TabList';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import { normalizeList } from '../utils/api';
@@ -56,18 +57,13 @@ export default function Achievements() {
           </div>
         </div>
         {isParent && (
-          <div
-            role="tablist"
-            aria-label="Skills mode"
-            className="flex gap-1 border border-ink-page-shadow rounded-lg p-1 bg-ink-page-aged"
-          >
-            <TopTabButton active={topTab === 'view'} onClick={() => setTopTab('view')}>
-              View
-            </TopTabButton>
-            <TopTabButton active={topTab === 'manage'} onClick={() => setTopTab('manage')}>
-              Manage
-            </TopTabButton>
-          </div>
+          <TabList
+            tabs={[{ id: 'view', label: 'View' }, { id: 'manage', label: 'Manage' }]}
+            activeId={topTab}
+            onSelect={setTopTab}
+            variant="pill"
+            ariaLabel="Skills mode"
+          />
         )}
       </header>
 
@@ -77,29 +73,5 @@ export default function Achievements() {
         <SkillTreeView categories={categories} />
       )}
     </div>
-  );
-}
-
-/**
- * Parent-only View | Manage pill. Speaks TabList's `pill` vocabulary
- * (aged-parchment tray, teal-filled active pill, font-display text-body) but
- * stays local so each pill can carry the app's 44px `min-h-11` touch floor —
- * TabList's shared pill tops out around 36px and lives outside this page.
- */
-function TopTabButton({ active, onClick, children }) {
-  return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active ? 'true' : 'false'}
-      onClick={onClick}
-      className={`min-h-11 px-3 py-2 rounded-md font-display text-body transition-colors ${
-        active
-          ? 'bg-sheikah-teal-deep text-ink-page-rune-glow'
-          : 'text-ink-secondary hover:text-ink-primary'
-      }`}
-    >
-      {children}
-    </button>
   );
 }

@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * PageShell — root wrapper for page bodies. Replaces the copy-pasted
@@ -40,14 +40,16 @@ export default function PageShell({
   className = '',
   ...rest
 }) {
+  const reducedMotion = useReducedMotion();
+  const { variants, initial, animate: animateProp, transition, ...other } = rest;
   const rhythmClass = RHYTHM_CLASSES[rhythm] || RHYTHM_CLASSES.default;
   const widthClass = WIDTH_CLASSES[width] || WIDTH_CLASSES.wide;
   const combined = `${widthClass} mx-auto font-body ${rhythmClass} ${className}`;
 
-  if (!animate) {
+  if (!animate || reducedMotion) {
     const Tag = as;
     return (
-      <Tag className={combined} {...rest}>
+      <Tag className={combined} {...other}>
         {children}
       </Tag>
     );
@@ -56,7 +58,6 @@ export default function PageShell({
   // Callers that supply their own variants / initial / animate take over
   // the motion config (e.g. dashboards using the ink-bleed variant). Otherwise
   // we apply the default page-reveal fade.
-  const { variants, initial, animate: animateProp, transition, ...other } = rest;
   const MotionTag = motion[as] || motion.div;
   const motionConfig = variants
     ? { variants, initial: initial ?? 'initial', animate: animateProp ?? 'animate' }

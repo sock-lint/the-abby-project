@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { CheckCircle2 } from 'lucide-react';
 import { usePwaStatus } from './pwaStatus.context';
-import { RARITY_SOLID_COLORS } from '../constants/colors';
+import NotificationToast from '../components/NotificationToast';
 
 const DISMISS_AFTER_MS = 4000;
 
@@ -35,22 +35,13 @@ export default function OfflineReadyToast() {
     >
       <AnimatePresence>
         {offlineReady && (
-          <motion.div
-            role="status"
-            aria-live="polite"
-            initial={{ x: 300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 300, opacity: 0 }}
-            // Same chip as the drop and savings toasts it shares a band with:
-            // white text on a solid tier surface with a white/25 hairline.
-            // The green here is the cover-invariant --color-rarity-common
-            // token rather than `bg-moss`, because the dark Vigil cover
-            // remaps moss to a pale #a8c48a that would strand the white text.
-            className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 text-caption text-white shadow-lg pointer-events-auto ${RARITY_SOLID_COLORS.common}`}
+          <NotificationToast
+            role="status" aria-live="polite" tone="success"
+            className="text-caption pointer-events-auto"
           >
             <CheckCircle2 size={18} aria-hidden="true" />
             <span>Ready to work offline.</span>
-          </motion.div>
+          </NotificationToast>
         )}
       </AnimatePresence>
     </div>

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/render';
 import { emptyPulse } from '../test/pulseFixtures.js';
 import ExpeditionToastStack from './ExpeditionToastStack';
@@ -18,6 +19,11 @@ const readyExpedition = {
   potion_slug: 'sky',
 };
 
+function RouteLocation() {
+  const location = useLocation();
+  return <output aria-label="Current route">{location.pathname}{location.search}</output>;
+}
+
 describe('ExpeditionToastStack', () => {
   beforeEach(() => {
     if (typeof window !== 'undefined') {
@@ -29,6 +35,18 @@ describe('ExpeditionToastStack', () => {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem('abby:expeditions:dismissed');
     }
+  });
+
+  it('dismisses with Enter without following the surrounding expedition link', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<><ExpeditionToastStack /><RouteLocation /></>, {
+      route: '/today', withAuth: false,
+      pulse: emptyPulse({ expeditions_ready: [readyExpedition] }),
+    });
+    (await screen.findByRole('button', { name: /dismiss notification/i })).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByLabelText('Current route')).toHaveTextContent('/today');
+    await waitFor(() => expect(screen.queryByText(/Griffon is back/i)).not.toBeInTheDocument());
   });
 
   it('renders a soft slide-in nudge for a ready-to-claim expedition', async () => {

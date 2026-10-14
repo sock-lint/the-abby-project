@@ -33,7 +33,7 @@ const CheckboxField = forwardRef(function CheckboxField(
     <div className={className}>
       <label
         htmlFor={id}
-        className="flex items-center gap-2 cursor-pointer select-none"
+        className="flex min-h-11 items-center gap-2 cursor-pointer select-none"
       >
         <input
           ref={ref}

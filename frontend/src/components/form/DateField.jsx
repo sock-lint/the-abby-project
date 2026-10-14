@@ -12,7 +12,7 @@ import useFieldIds from './useFieldIds';
 // one rhythm rather than two grafted-on visuals. See SelectField.jsx.
 const FILTER_VARIANT_CLASS =
   'rounded-md border border-ink-page-shadow bg-ink-page-aged ' +
-  'px-2 py-1.5 text-caption text-ink-primary w-auto ' +
+  'min-h-11 px-2 py-1.5 text-caption text-ink-primary w-auto ' +
   'focus:outline-none focus:ring-2 focus:ring-sheikah-teal/40';
 
 /**

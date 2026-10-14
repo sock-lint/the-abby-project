@@ -33,7 +33,7 @@ const SIZE_CLASSES = {
  * enforces an aria-label.
  */
 const Button = forwardRef(function Button(
-  { variant = 'primary', size = 'md', type = 'button', loading = false, className = '', children, ...rest },
+  { variant = 'primary', size = 'md', type = 'button', loading = false, disabled = false, className = '', children, ...rest },
   ref,
 ) {
   const variantClass = VARIANT_CLASSES[variant] || VARIANT_CLASSES.primary;
@@ -42,13 +42,14 @@ const Button = forwardRef(function Button(
     <button
       ref={ref}
       type={type}
-      disabled={loading || rest.disabled}
+      disabled={loading || disabled}
+      aria-busy={loading || undefined}
       className={`${variantClass} ${sizeClass} ${className}`}
       {...rest}
     >
       {loading ? (
         <span className="inline-flex items-center gap-1.5">
-          <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <svg className="motion-safe:animate-spin h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="2" opacity="0.3" />
             <path d="M14 8a6 6 0 0 0-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
