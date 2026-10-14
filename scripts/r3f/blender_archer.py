@@ -85,6 +85,13 @@ def setup_render():
     return scene
 
 
+def review_hair_hidden(name, headwear, hairstyle):
+    """Match runtime hair selection: only the hood substitutes hat hair."""
+    if name == 'Archer_Hair_For_Hat':
+        return headwear != 'hood-mystical'
+    return headwear == 'hood-mystical' or name != hairstyle
+
+
 def at_frame(frame):
     whole = math.floor(frame)
     bpy.context.scene.frame_set(whole, subframe=frame - whole)
@@ -545,10 +552,10 @@ def prepare_modular(config):
                     mesh.hide_render = False
                     if name in wardrobe_styles:
                         key = wardrobe_styles[name]
-                        mesh.hide_render = headwear == 'none' if key is None else key not in selected
+                        mesh.hide_render = review_hair_hidden(name, headwear, f'Archer_Hair_{index % 4 + 1:02}') if key is None else key not in selected
                         texture = textures['hair'][color] if key is None else textures['wardrobe'][f'{key}:{palette}']
                     elif name.startswith('Archer_Hair_'):
-                        mesh.hide_render = headwear != 'none' or name != f'Archer_Hair_{index % 4 + 1:02}'
+                        mesh.hide_render = review_hair_hidden(name, headwear, f'Archer_Hair_{index % 4 + 1:02}')
                         texture = textures['hair'][color]
                     elif name == 'Archer_Face':
                         texture = textures['face'][f'face-{index % 3 + 1:02}:{color}']

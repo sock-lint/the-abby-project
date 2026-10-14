@@ -31,6 +31,19 @@ class SuppliedRestBasisTests(unittest.TestCase):
     def setUp(self):
         worker.reset()
 
+    def test_review_crown_keeps_each_saved_hairstyle_and_only_hood_uses_hat_hair(self):
+        names = ['Archer_Hair_01', 'Archer_Hair_02', 'Archer_Hair_03', 'Archer_Hair_04', 'Archer_Hair_For_Hat']
+        data = bpy.data.meshes.new('Synthetic review hair')
+        meshes = {name: bpy.data.objects.new(name, data) for name in names}
+        for obj in meshes.values():
+            bpy.context.collection.objects.link(obj)
+        for hairstyle in names[:4]:
+            for headwear, expected in (('none', {hairstyle}), ('crown-eve', {hairstyle}), ('hood-mystical', {'Archer_Hair_For_Hat'})):
+                with self.subTest(headwear=headwear, hairstyle=hairstyle):
+                    for name, mesh in meshes.items():
+                        mesh.hide_render = worker.review_hair_hidden(name, headwear, hairstyle)
+                    self.assertEqual({name for name, mesh in meshes.items() if not mesh.hide_render}, expected)
+
     def rig(self, name, roll=0, child_name='Head'):
         data = bpy.data.armatures.new(name)
         obj = bpy.data.objects.new(name, data)
