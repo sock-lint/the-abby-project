@@ -1,6 +1,8 @@
 import csv
 import io
 
+from config.viewsets import filter_queryset_by_role
+
 from .models import Timecard, TimeEntry
 
 
@@ -13,7 +15,8 @@ def export_timecards_csv(user, is_parent=False):
         "Hourly Earnings", "Bonus Earnings", "Total Earnings", "Status",
     ])
 
-    qs = Timecard.objects.all() if is_parent else Timecard.objects.filter(user=user)
+    qs = Timecard.objects.all()
+    qs = filter_queryset_by_role(user, qs) if is_parent else qs.filter(user=user)
     for tc in qs.select_related("user"):
         writer.writerow([
             tc.week_start, tc.week_end,
@@ -35,7 +38,9 @@ def export_time_entries_csv(user, is_parent=False):
     ])
 
     qs = TimeEntry.objects.filter(status="completed")
-    if not is_parent:
+    if is_parent:
+        qs = filter_queryset_by_role(user, qs)
+    else:
         qs = qs.filter(user=user)
 
     for entry in qs.select_related("user", "project"):
