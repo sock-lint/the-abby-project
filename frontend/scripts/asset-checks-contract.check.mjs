@@ -1,0 +1,143 @@
+import { rejectExecutableStyles, rejectStyleQuery, assetPreviewGuard } from './asset-preview-guard.mjs';
+import { createServer } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+import { existsSync } from 'node:fs';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, writeFile, rm, symlink, readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { FILES, CHECKS, SCREENSHOTS, KIND, hash, recipe, workbench, bytes, outsideGit, sourceDigest, validateReceipt, contained, png, verifyAssetCopy, verifyInventory } from './asset-checks-contract.mjs';
+
+test('recipes allow only bounded declarative woodland operations', () => {
+  for (const maxDimension of [128, 256, 384, 512]) assert.equal(recipe({ schemaVersion:1,target:'woodland',operation:'woodland-texture-limit',maxDimension }).maxDimension,maxDimension);
+  for (const changed of [{maxDimension:4096},{maxDimension:'256'},{target:'chick'},{operation:'python'},{path:'/tmp/private'},{delivery_review:'public_runtime_accepted'}]) {
+    assert.throws(() => recipe({schemaVersion:1,target:'woodland',operation:'woodland-texture-limit',maxDimension:256,...changed}));
+  }
+});
+function receipt() {
+  const now = Date.now();
+  return {schemaVersion:1,kind:KIND,status:'passed',scope:'private_evaluation',headCommit:'a'.repeat(40),baseCommit:'b'.repeat(40),sourceCommit:'c'.repeat(40),
+    issue:1,checkedAt:new Date(now).toISOString(),expiresAt:new Date(now+3600000).toISOString(),catalogSha256:'d'.repeat(64),recipeSha256:'e'.repeat(64),
+    sourceManifestSha256:'f'.repeat(64),sourceInputsSha256:'1'.repeat(64),candidateManifestSha256:'2'.repeat(64),
+    toolVersions:{node:'22.23.3',blender:'4.1.1',chromium:'146.0.0'},checks:Object.fromEntries(CHECKS.map((key)=>[key,true])),
+    screenshots:SCREENSHOTS.map((name)=>({name,path:'/tmp/private/'+name+'.png',sha256:'3'.repeat(64),width:375,height:812})),failureCodes:[]};
+}
+test('receipts bind exact source/head/digests/checks/screenshot pairs and private scope', () => {
+  assert.equal(validateReceipt(receipt()).scope,'private_evaluation');
+  for (const mutate of [
+    (v)=>{v.scope='public_runtime_accepted';},(v)=>{v.headCommit='main';},(v)=>{v.extra=true;},
+    (v)=>{v.checks.animation=false;},(v)=>{delete v.checks.materials;},(v)=>{v.failureCodes.push('FAILED');},
+    (v)=>{v.screenshots.pop();},(v)=>{v.screenshots[0].sha256='invalid';},(v)=>{v.screenshots.reverse();},
+    (v)=>{v.toolVersions.blender='5.0.0';},
+  ]) {const v=receipt();mutate(v);assert.throws(()=>validateReceipt(v));}
+});
+test('expired, future-dated and overlong receipts are refused', () => {
+  for (const [checkedOffset,expireOffset] of [[-7200000,-3600000],[60000,3660000],[0,3600001],[0,-1]]) {
+    const now=Date.now(),v=receipt();v.checkedAt=new Date(now+checkedOffset).toISOString();v.expiresAt=new Date(now+expireOffset).toISOString();
+    assert.throws(()=>validateReceipt(v));
+  }
+});
+test('fake and oversized PNG evidence is refused', () => {
+  const data=Buffer.alloc(24);Buffer.from([137,80,78,71,13,10,26,10]).copy(data);data.write('IHDR',12);data.writeUInt32BE(375,16);data.writeUInt32BE(812,20);
+  assert.deepEqual(png(data),{width:375,height:812});data.writeUInt32BE(5000,16);assert.throws(()=>png(data));assert.throws(()=>png(Buffer.from('fake')));
+});
+test('private readers refuse file links, oversized input and Git output roots', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-contract-'));
+  try {
+    const file=join(root,'file');await writeFile(file,'safe');await symlink(file,join(root,'link'));
+    await assert.rejects(()=>bytes(join(root,'link')));assert.equal((await bytes(file)).toString(),'safe');await assert.rejects(()=>bytes(file,1));
+    await mkdir(join(root,'.git'));await assert.rejects(()=>outsideGit(join(root,'future')));
+    assert.equal(contained(root,join(root,'future')),true);assert.equal(contained(root,root),false);assert.equal(contained(root,join(root,'..','other')),false);
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+test('existing receipt verification handles files while refusing every Git-contained output', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-receipt-path-'));
+  try {
+    const receiptPath=join(root,'receipt.json');await writeFile(receiptPath,'{}');
+    await outsideGit(receiptPath);await outsideGit(root);await outsideGit(join(root,'future','receipt.json'));
+    const checkout=join(root,'checkout');await mkdir(checkout);await writeFile(join(checkout,'.git'),'gitdir: /synthetic/worktree');
+    const nested=join(checkout,'evidence');await mkdir(nested);
+    const inside=join(nested,'receipt.json');await writeFile(inside,'{}');
+    for (const path of [checkout,nested,inside,join(nested,'future.json')]) {
+      await assert.rejects(()=>outsideGit(path),{message:'OUTPUT_INSIDE_GIT'});
+    }
+    const linked=join(root,'receipt-link.json');await symlink(receiptPath,linked);
+    await assert.rejects(()=>outsideGit(linked),{message:'SYMLINK_REFUSED'});
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+test('workbench verifies every baseline byte and source manifest against its catalog', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-catalog-'));
+  try {
+    const directory=join(root,'baseline');await mkdir(directory);const files={};
+    for (const name of FILES.filter((v)=>v!=='manifest.json')) {const data=Buffer.from('synthetic-'+name);await writeFile(join(directory,name),data);files[name]={sha256:hash(data),bytes:data.length};}
+    const manifest={schema_version:1,delivery_review:'private_evaluation',models:Object.fromEntries(['chick','bird','woodland'].map((key)=>[key,{file:key+'.glb',sha256:files[key+'.glb'].sha256}]))};
+    const data=JSON.stringify(manifest);await writeFile(join(directory,'manifest.json'),data);files['manifest.json']={sha256:hash(data),bytes:Buffer.byteLength(data)};
+    const blenderPath=join(root,'blender');await writeFile(blenderPath,'synthetic binary');
+    const path=join(root,'workbench.json');await writeFile(path,JSON.stringify({schemaVersion:1,baselineDirectory:directory,files,blenderPath,blenderVersion:'4.1.1'}));
+    await verifyAssetCopy(directory, files);
+    const selected=await workbench(path);assert.equal(selected.sourceInputsSha256,sourceDigest(files));assert.equal(selected.catalogSha256,hash(await readFile(path)));
+    await writeFile(join(directory,'chick.glb'),'changed bytes');await assert.rejects(()=>workbench(path));await assert.rejects(()=>verifyAssetCopy(directory,files));
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('untracked files selected by source globs cannot enter a frozen snapshot', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-asset-inventory-'));
+  try {
+    await writeFile(join(root,'tracked.js'),'frozen blob');
+    await verifyInventory(root,['tracked.js']);
+    await writeFile(join(root,'unexpected.glb'),'untracked payload');
+    await assert.rejects(()=>verifyInventory(root,['tracked.js']));
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('executable Tailwind directives are refused without extension or query assumptions', () => {
+  for (const source of ['@plugin "./module.mjs";', '@config "./config.mjs";', '@pl/**/ugin "./module.mjs";', '@import "/tmp/untracked.css";', '@reference "/tmp/untracked.css";', '@source "/tmp/untracked";', '@\\70lugin "./module.mjs";']) {
+    assert.throws(()=>rejectExecutableStyles(source));
+  }
+  for (const path of ['/src/evil.js?probe=1&lang.css', '/src/evil.js?index=.css', '/src/evil.js?lang%2Ecss']) assert.throws(()=>rejectStyleQuery(path));
+  rejectExecutableStyles('@import "tailwindcss"; .safe { color:red; }');
+  rejectStyleQuery('/src/safe.css?direct');
+});
+test('non-CSS query coercion executes the old stack but cannot execute guarded host plugins', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-tailwind-guard-'));
+  try {
+    for (const guarded of [false,true]) {
+      const selected=join(root,guarded?'guarded':'unprotected');
+      await mkdir(join(selected,'src'),{recursive:true});
+      await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(selected,'node_modules'),'dir');
+      const marker=join(selected,'executed');
+      await writeFile(join(selected,'src/evil.js'),'@import "tailwindcss"; @plugin "./plugin.mjs";');
+      await writeFile(join(selected,'src/plugin.mjs'),'import fs from "node:fs"; fs.writeFileSync('+JSON.stringify(marker)+',"executed");export default function(){}');
+      const server=await createServer({configFile:false,envDir:false,root:selected,publicDir:false,logLevel:'silent',
+        plugins:[...(guarded?[assetPreviewGuard(selected)]:[]),react({babel:{babelrc:false,configFile:false}}),tailwindcss()],
+        optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+      try {
+        await assert.rejects(()=>server.transformRequest('/src/evil.js?probe=1&lang.css'));
+        assert.equal(existsSync(marker),!guarded);
+      } finally {await server.close();}
+    }
+  } finally {await rm(root,{recursive:true,force:true});}
+});
+
+test('an imported outside stylesheet cannot smuggle host plugin execution', async () => {
+  const root=await mkdtemp(join(tmpdir(),'abby-import-guard-'));
+  try {
+    await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(root,'node_modules'),'dir');
+    for (const guarded of [false,true]) {
+      const selected=join(root,guarded?'guarded':'unprotected');await mkdir(join(selected,'src'),{recursive:true});
+      await symlink(fileURLToPath(new URL('../node_modules',import.meta.url)),join(selected,'node_modules'),'dir');
+      const marker=join(selected,'executed'),outside=join(root,(guarded?'guarded':'unprotected')+'-outside.css');
+      await writeFile(outside,'@import "tailwindcss"; @plugin '+JSON.stringify(join(selected,'src/plugin.mjs'))+';');
+      await writeFile(join(selected,'src/entry.css'),'@import '+JSON.stringify(outside)+';');
+      await writeFile(join(selected,'src/plugin.mjs'),'import fs from "node:fs";fs.writeFileSync('+JSON.stringify(marker)+',"executed");export default function(){}');
+      const server=await createServer({configFile:false,envDir:false,root:selected,publicDir:false,logLevel:'silent',css:{postcss:{plugins:[]}},
+        plugins:[...(guarded?[assetPreviewGuard(selected)]:[]),react({babel:{babelrc:false,configFile:false}}),tailwindcss()],
+        optimizeDeps:{noDiscovery:true},server:{middlewareMode:true,hmr:false}});
+      try {try{await server.transformRequest('/src/entry.css');}catch{ /* Guarded transforms reject before import. */ }assert.equal(existsSync(marker),!guarded);}
+      finally{await server.close();}
+    }
+  } finally{await rm(root,{recursive:true,force:true});}
+});
