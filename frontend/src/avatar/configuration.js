@@ -5,6 +5,21 @@ const LEGACY_SLOTS = { headwear: 'headwear_style', face_accessory: 'mask_style',
 const SHARED_SLOTS = [...Object.keys(LEGACY_SLOTS), 'right_hand'];
 const record = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
+// Prepared renderer metadata keeps confirmed appearances visible when the
+// options catalog is loading or unavailable. It does not register new bases.
+export function preparedAvatarDefinition(avatarId) {
+  if (avatarId !== 'female-archer') return null;
+  return {
+    id: 'female-archer', label: 'Female Archer', renderer_adapter: 'female-archer',
+    accessory_bindings: {
+      ...Object.fromEntries(Object.entries(LEGACY_SLOTS).map(([slot, key]) => [slot, {
+        item_ids: AVATAR_OPTIONS[key].filter(({ value }) => value !== 'none').map(({ value }) => value),
+      }])),
+      right_hand: { item_ids: [] },
+    },
+  };
+}
+
 // This is the explicit renderer boundary for the prepared Archer release.
 // Catalog controls and saved shared equipment do not depend on this mapping.
 export function avatarPreviewPreferences(configuration, avatarDefinition) {

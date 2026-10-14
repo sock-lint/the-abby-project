@@ -26,6 +26,7 @@ import SigilFrontispiece from './character/SigilFrontispiece';
 import CosmeticChapter from './character/CosmeticChapter';
 import TrophyBadgePicker from './character/TrophyBadgePicker';
 import AvatarPreview from '../components/avatar/AvatarPreview';
+import { preparedAvatarDefinition } from '../avatar/configuration';
 import SavedCosmetics from './character/SavedCosmetics';
 import ProfilePictureEditor from './character/ProfilePictureEditor';
 import { isCatalogAvailable } from '../utils/catalogAvailability';
@@ -114,6 +115,13 @@ export default function Character() {
     }
     return out;
   }, [cosmetics, catalog, profile]);
+
+  const avatarId = profile?.avatar_configuration?.avatar_id || avatarCatalog?.default_avatar_id;
+  const avatarDefinition = useMemo(() => {
+    const definition = Array.isArray(avatarCatalog?.avatars)
+      ? avatarCatalog.avatars.find((avatar) => avatar?.id === avatarId) : undefined;
+    return definition || preparedAvatarDefinition(avatarId);
+  }, [avatarCatalog, avatarId]);
 
   const anyLoading =
     loadingProfile || loadingCosmetics || loadingCatalog || loadingBadges || loadingSummary;
@@ -210,10 +218,6 @@ export default function Character() {
 
   const currentThemeName = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
   const currentTheme = themes[currentThemeName] || themes.hyrule;
-  const avatarId = profile.avatar_configuration?.avatar_id || avatarCatalog?.default_avatar_id;
-  const avatarDefinition = Array.isArray(avatarCatalog?.avatars)
-    ? avatarCatalog.avatars.find((avatar) => avatar.id === avatarId) : undefined;
-
   const shelfItems = COSMETIC_CHAPTERS.map((chapter) => {
     const entries = chapterEntriesBySlot[chapter.slot] || [];
     const owned = entries.filter((e) => e.owned).length;
