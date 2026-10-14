@@ -259,7 +259,7 @@ function JournalEntryForm({
           </div>
           <p className="text-body text-ink-secondary">
             {savedEntry.is_private === false
-              ? 'Shared with your family. They can leave you a response.'
+              ? 'Shared with parents in your family. They can leave you a response.'
               : 'Only you can read this entry in the app.'}
           </p>
           <Button variant="primary" onClick={finish} className="w-full">Done</Button>
@@ -352,11 +352,11 @@ function JournalEntryForm({
             disabled={saving || Boolean(pending)}
             className="h-5 w-5 shrink-0 accent-sheikah-teal-deep"
           />
-          Share with my family
+          Share with parents in my family
         </label>
         <p className="flex items-start gap-2 text-caption text-ink-secondary">
           {isPrivate ? <Lock size={14} aria-hidden="true" /> : <Heart size={14} aria-hidden="true" />}
-          <span>{isPrivate ? 'Only you can read this entry in the app.' : 'Your parents can read this entry and leave a response.'}</span>
+          <span>{isPrivate ? 'Only you can read this entry in the app.' : 'Parents in your family can read this entry and leave a response.'}</span>
         </p>
         <p role="status" aria-live="polite" className="text-caption text-ink-whisper">
           {saving

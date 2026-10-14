@@ -23,14 +23,31 @@ import QuestFolio from './quests/QuestFolio';
 
 const INTENSITY_TONE = { low: 'moss', medium: 'teal', high: 'ember' };
 
-function SessionRow({ session, canDelete, onDelete }) {
+function familyDay(timezone) {
+  const now = new Date();
+  if (!timezone) return toISODate(now);
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(now);
+    const value = (name) => parts.find((part) => part.type === name).value;
+    return `${value('year')}-${value('month')}-${value('day')}`;
+  } catch {
+    // Older cached identities may omit the family zone. Keep the UI usable
+    // without changing the stored occurred_on date or granting eligibility.
+    return toISODate(now);
+  }
+}
+
+function SessionRow({ session, canDelete, onDelete, showOwner }) {
   return (
-    <ParchmentCard className="flex items-center gap-3">
+    <ParchmentCard className="flex items-start gap-3">
       <div className="text-2xl shrink-0" aria-hidden>
         {session.movement_type_icon || '🏃'}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="font-display text-base text-ink-primary leading-tight">
+        {showOwner && session.user_display && <div className="font-body font-semibold text-caption text-ink-secondary break-words">{session.user_display}</div>}
+        <div className="font-display text-base text-ink-primary leading-tight break-words">
           {session.movement_type_name}
         </div>
         <div className="font-script text-caption text-ink-whisper">
@@ -40,7 +57,7 @@ function SessionRow({ session, canDelete, onDelete }) {
           )}
         </div>
         {session.notes && (
-          <div className="font-body text-caption text-ink-secondary italic truncate mt-0.5">
+          <div className="font-body text-caption text-ink-secondary italic whitespace-pre-wrap break-words [overflow-wrap:anywhere] mt-0.5">
             {session.notes}
           </div>
         )}
@@ -64,7 +81,7 @@ function SessionRow({ session, canDelete, onDelete }) {
 export default function Movement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, isParent } = useRole();
-  const { data, loading, reload, error } = useApi(listMovementSessions);
+  const { data, loading, refreshing, reload, error } = useApi(listMovementSessions);
   const [logOpen, setLogOpen] = useState(() => searchParams.get('log') === '1');
   const [pendingDelete, setPendingDelete] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -81,7 +98,7 @@ export default function Movement() {
   };
 
   const sessions = normalizeList(data);
-  const today = toISODate(new Date());
+  const today = familyDay(user?.family?.timezone);
 
   const { todays, earlier } = useMemo(() => {
     const t = [];
@@ -112,13 +129,9 @@ export default function Movement() {
 
   if (loading) return <Loader />;
 
-  // Verso math — "first 3 a day fire bonus XP" is the natural progression
-  // target. Cap progressPct at 100% once the daily bonus slots are used.
-  const dailyTarget = 3;
-  const versoProgressPct = Math.min(100, (todays.length / dailyTarget) * 100);
-  const versoProgressLabel = todays.length === 0
-    ? 'Your first 3 sessions each day can earn XP'
-    : `${Math.min(todays.length, dailyTarget)} of ${dailyTarget} rewarded sessions logged`;
+  // Saved rows prove recording and their actual XP, not how many daily award
+  // slots remain: short sessions can earn zero and deletion retains the cap.
+  const todayXp = todays.reduce((total, session) => total + (Number(session.xp_awarded) > 0 ? Number(session.xp_awarded) : 0), 0);
 
   let rubricIndex = 0;
   const nextRubric = () => rubricIndex++;
@@ -131,16 +144,19 @@ export default function Movement() {
         kicker="Track your physical activity"
         meta="Session length and intensity determine your skill XP."
         stats={[
-          { value: todays.length, label: 'today' },
-          { value: sessions.length, label: 'all-time' },
+          { value: data === null ? '—' : todays.length, label: 'recorded today' },
+          { value: data === null ? '—' : todayXp, label: 'XP earned today' },
+          { value: data === null ? '—' : sessions.length, label: 'loaded sessions' },
         ]}
-        progressPct={versoProgressPct}
-        progressLabel={versoProgressLabel}
       >
         {/* useApi stores `error` as the message string, so `error?.message`
             was always undefined and a failed fetch rendered nothing — the page
             fell through to its empty verso as if there were no sessions. */}
-        <ErrorAlert message={error || actionError} />
+        <ErrorAlert message={error} onRetry={reload} />
+        <ErrorAlert message={actionError} />
+        {refreshing && <p role="status" className="text-caption text-ink-secondary">Updating activity…</p>}
+        {data !== null && <p className="font-body text-body text-ink-secondary">{todays.length} session{todays.length === 1 ? '' : 's'} recorded today · {todayXp} XP earned</p>}
+        {!isParent && <p className="font-body text-caption text-ink-secondary">Up to 3 sessions each day can earn movement XP. Additional sessions still count toward matching goals.</p>}
 
         {!isParent && (
           <div className="flex justify-end">
@@ -156,7 +172,7 @@ export default function Movement() {
 
         <section>
           <ChapterRubric index={nextRubric()} name="Today" />
-          {todays.length === 0 ? (
+          {data === null ? null : todays.length === 0 ? (
             <EmptyState icon={<Activity size={28} />}>
               No activity logged today. Add a session after a workout, practice, or run.
             </EmptyState>
@@ -166,6 +182,7 @@ export default function Movement() {
                 <SessionRow
                   key={s.id}
                   session={s}
+                  showOwner={isParent}
                   canDelete={canDelete(s)}
                   onDelete={setPendingDelete}
                 />
@@ -182,6 +199,7 @@ export default function Movement() {
                 <SessionRow
                   key={s.id}
                   session={s}
+                  showOwner={isParent}
                   canDelete={canDelete(s)}
                   onDelete={setPendingDelete}
                 />

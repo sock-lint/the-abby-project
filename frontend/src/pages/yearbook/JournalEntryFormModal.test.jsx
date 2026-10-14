@@ -48,7 +48,7 @@ describe('JournalEntryFormModal', () => {
     const onClose = vi.fn();
     const view = renderWithProviders(<JournalEntryFormModal onClose={onClose} />);
     await user.type(screen.getByLabelText(/mind/i), 'A memory worth keeping');
-    await user.click(screen.getByRole('checkbox', { name: /share with my family/i }));
+    await user.click(screen.getByRole('checkbox', { name: /share with parents in my family/i }));
     const first = JSON.parse(localStorage.getItem(journalDraftKey(role.user.id)));
     expect(screen.getByRole('status')).toHaveTextContent(/draft kept on this device/i);
     await user.click(screen.getByRole('button', { name: /keep draft & close/i }));
@@ -56,7 +56,7 @@ describe('JournalEntryFormModal', () => {
     view.unmount();
     renderWithProviders(<JournalEntryFormModal onClose={() => {}} />);
     expect(screen.getByLabelText(/mind/i)).toHaveValue('A memory worth keeping');
-    expect(screen.getByRole('checkbox', { name: /share with my family/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /share with parents in my family/i })).toBeChecked();
     await user.type(screen.getByLabelText(/title/i), 'My day');
     const restored = JSON.parse(localStorage.getItem(journalDraftKey(role.user.id)));
     expect(restored.client_entry_id).toBe(first.client_entry_id);
@@ -135,9 +135,9 @@ describe('JournalEntryFormModal', () => {
     const user = userEvent.setup();
     renderWithProviders(<JournalEntryFormModal onClose={() => {}} />);
     await user.type(screen.getByLabelText(/mind/i), 'I want to share this');
-    await user.click(screen.getByRole('checkbox', { name: /share with my family/i }));
+    await user.click(screen.getByRole('checkbox', { name: /share with parents in my family/i }));
     await user.click(screen.getByRole('button', { name: /save entry/i }));
-    await screen.findByText(/shared with your family/i);
+    await screen.findByText(/shared with parents in your family/i);
     expect(spy.calls[0].body.is_private).toBe(false);
   });
 
@@ -174,7 +174,7 @@ describe('JournalEntryFormModal', () => {
       onClose={() => {}}
     />);
     expect(screen.getByLabelText(/mind/i)).toBeDisabled();
-    await user.click(screen.getByRole('checkbox', { name: /share with my family/i }));
+    await user.click(screen.getByRole('checkbox', { name: /share with parents in my family/i }));
     await user.click(screen.getByRole('button', { name: /update sharing/i }));
     await screen.findByRole('dialog', { name: 'Entry updated' });
     expect(spy.calls[0].body).toEqual({ is_private: false });
@@ -322,7 +322,7 @@ describe('JournalEntryFormModal', () => {
     );
     const dialog = getDialog();
     expect(within(dialog).getByText(/only you can read/i)).toBeInTheDocument();
-    expect(within(dialog).getByRole('checkbox', { name: /share with my family/i })).not.toBeChecked();
+    expect(within(dialog).getByRole('checkbox', { name: /share with parents in my family/i })).not.toBeChecked();
   });
 
   it('locks a prior-day entry into read-only mode (no Save button, only Close)', async () => {
