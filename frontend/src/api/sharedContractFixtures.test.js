@@ -18,6 +18,8 @@ import greenlightPayout from '../../../contracts/api/fixtures/greenlight-payout.
 import greenlightPreview from '../../../contracts/api/fixtures/greenlight-preview.json';
 import greenlightReconciled from '../../../contracts/api/fixtures/greenlight-reconcile.json';
 import greenlightFinal from '../../../contracts/api/fixtures/greenlight-overview-reconciled.json';
+import closedTimecard from '../../../contracts/api/fixtures/timecard-closed.json';
+import closedTimecardDetail from '../../../contracts/api/fixtures/timecard-closed-detail.json';
 import stableResponse from '../../../contracts/api/fixtures/pets-stable.json';
 import emptyStable from '../../../contracts/api/fixtures/pets-stable-empty.json';
 import restrictedEmptyStable from '../../../contracts/api/fixtures/pets-stable-restricted-empty.json';
@@ -80,7 +82,7 @@ import { server } from '../test/server';
 import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
-  activateMount, activatePet, breedMounts, claimExpedition, feedPet, getGreenlightOverview, getHabits, getInventory,
+  activateMount, activatePet, breedMounts, claimExpedition, closeTimecard, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
   getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
@@ -88,6 +90,21 @@ import {
 // These are the raw response files checked against Django views and loaded
 // directly by Unity. Do not replace them with a second client-specific factory.
 describe('shared Django response fixtures through the React API client', () => {
+  it('preserves the confirmed zero-dollar timecard closure and later detail read', async () => {
+    const calls = [];
+    server.use(
+      http.post('*/api/timecards/13/close/', async ({ request }) => {
+        calls.push({ method: request.method, body: await request.json() });
+        return HttpResponse.json(closedTimecard);
+      }),
+      http.get('*/api/timecards/13/', () => HttpResponse.json(closedTimecardDetail)),
+    );
+    expect(await closeTimecard(13)).toEqual(closedTimecard);
+    expect(calls).toEqual([{ method: 'POST', body: {} }]);
+    const detail = await getTimecard(13);
+    expect(detail).toEqual(closedTimecardDetail);
+    expect(detail).toMatchObject({ status: 'closed', total_hours: '0.10', total_earnings: '0.00' });
+  });
   it('accepts the flat login response and uses its token to verify the same child', async () => {
     setToken(null);
     let submitted;

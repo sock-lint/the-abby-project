@@ -29,6 +29,83 @@ function renderPage(user = buildUser(), extra = []) {
 }
 
 describe('Timecards', () => {
+  it('closes an approved zero-dollar week and retains its hours without posting a payment', async () => {
+    const user = userEvent.setup();
+    let card = { id: 2, week_start: '2026-10-05', total_hours: '0.10', total_earnings: '0.00', status: 'approved' };
+    const close = spyHandler('post', /\/api\/timecards\/2\/close\/$/, () => {
+      card = { ...card, status: 'closed' };
+      return card;
+    });
+    const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
+    renderPage(buildParent(), [
+      http.get('*/api/timecards/', () => HttpResponse.json([card])),
+      http.get('*/api/timecards/2/', () => HttpResponse.json({
+        ...card, hourly_earnings: '0.00', bonus_earnings: '0.00', entries: [],
+      })), close.handler, paid.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /week of/i }));
+    await user.click(await screen.findByRole('button', { name: 'Close timecard' }));
+    await waitFor(() => expect(close.calls).toHaveLength(1));
+    expect(close.calls[0].body).toEqual({});
+    expect(close.calls[0].url).toMatch(/\/api\/timecards\/2\/close\/$/);
+    expect(await screen.findByText('Closed')).toBeInTheDocument();
+    expect(screen.getByText('0.10h')).toBeInTheDocument();
+    expect(screen.getByText('No payment due')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close timecard' })).not.toBeInTheDocument();
+    expect(paid.calls).toHaveLength(0);
+  });
+
+  it('prevents repeated close taps while saving and shows the confirmed closed state', async () => {
+    const user = userEvent.setup();
+    let card = { id: 2, week_start: '2026-10-05', total_hours: '0.10', total_earnings: '0.00', status: 'approved' };
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let listCalls = 0;
+    const close = spyHandler('post', /\/api\/timecards\/2\/close\/$/, () => {
+      card = { ...card, status: 'closed' };
+      return card;
+    });
+    renderPage(buildParent(), [
+      http.get('*/api/timecards/', async () => {
+        listCalls += 1;
+        if (listCalls > 1) await gate;
+        return HttpResponse.json([card]);
+      }),
+      http.get('*/api/timecards/2/', () => HttpResponse.json({ ...card, entries: [] })), close.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /week of/i }));
+    await user.click(await screen.findByRole('button', { name: 'Close timecard' }));
+    const pending = await screen.findByRole('button', { name: 'Closing…' });
+    expect(pending).toBeDisabled();
+    await user.click(pending);
+    release();
+    expect(await screen.findByText('Closed')).toBeInTheDocument();
+    expect(close.calls).toHaveLength(1);
+    expect(close.calls[0].body).toEqual({});
+  });
+
+  it('keeps an approved zero-dollar week open when closing fails and permits a retry', async () => {
+    const user = userEvent.setup();
+    const card = { id: 2, week_start: '2026-10-05', total_hours: '0.10', total_earnings: '0.00', status: 'approved' };
+    let attempts = 0;
+    renderPage(buildParent(), [
+      http.get('*/api/timecards/', () => HttpResponse.json([card])),
+      http.get('*/api/timecards/2/', () => HttpResponse.json({ ...card, entries: [] })),
+      http.post('*/api/timecards/2/close/', () => {
+        attempts += 1;
+        return HttpResponse.json({ error: 'Could not close this timecard.' }, { status: 503 });
+      }),
+    ]);
+    await user.click(await screen.findByRole('button', { name: /week of/i }));
+    await user.click(await screen.findByRole('button', { name: 'Close timecard' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not close this timecard.');
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    const retry = screen.getByRole('button', { name: 'Close timecard' });
+    expect(retry).toBeEnabled();
+    await user.click(retry);
+    await waitFor(() => expect(attempts).toBe(2));
+  });
+
   it('renders empty state when no timecards', async () => {
     renderPage(buildUser(), [http.get('*/api/timecards/', () => HttpResponse.json([]))]);
     await waitFor(() => expect(screen.getByText(/no timecards yet/i)).toBeInTheDocument());
@@ -74,20 +151,52 @@ describe('Timecards', () => {
 
   it('parent can mark approved timecard as paid', async () => {
     const user = userEvent.setup();
-    const paid = vi.fn();
+    const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
     renderPage(buildParent(), [
       http.get('*/api/timecards/', () =>
-        HttpResponse.json([{ id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: 20, status: 'approved' }]),
+        HttpResponse.json([{ id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: '20.00', status: 'approved' }]),
       ),
       http.get('*/api/timecards/2/', () =>
-        HttpResponse.json({ id: 2, hourly_earnings: 20, bonus_earnings: 0, total_earnings: 20, entries: [] }),
+        HttpResponse.json({ id: 2, hourly_earnings: '20.00', bonus_earnings: '0.00', total_earnings: '20.00', entries: [] }),
       ),
-      http.post('*/api/timecards/2/mark-paid/', () => { paid(); return HttpResponse.json({}); }),
+      paid.handler,
     ]);
     await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
-    await waitFor(() => expect(paid).toHaveBeenCalled());
+    await waitFor(() => expect(paid.calls).toHaveLength(1));
+    expect(paid.calls[0].body).toEqual({ amount: '20.00' });
+    expect(paid.calls[0].url).toMatch(/\/api\/timecards\/2\/mark-paid\/$/);
+  });
+
+  it.each([
+    { role: 'parent', account: buildParent(), total: '0.00' },
+    { role: 'parent', account: buildParent(), total: '-1.00' },
+    { role: 'child', account: buildUser(), total: '0.00' },
+    { role: 'child', account: buildUser(), total: '-1.00' },
+  ])('shows no payment due for an approved $total timecard to a $role', async ({ account, total }) => {
+    const user = userEvent.setup();
+    const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
+    renderPage(account, [
+      http.get('*/api/timecards/', () => HttpResponse.json([
+        { id: 2, week_start: '2026-10-05', total_hours: '0.10', total_earnings: total, status: 'approved' },
+      ])),
+      http.get('*/api/timecards/2/', () => HttpResponse.json({
+        id: 2, hourly_earnings: total, bonus_earnings: '0.00', total_earnings: total,
+        entries: [{ id: 9, project_title: 'Bookmark', clock_in: '2026-10-11T12:00:00Z', duration_minutes: 6 }],
+      })),
+      paid.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /week of/i }));
+    await screen.findByText('Bookmark');
+    expect(screen.getByText('No payment due')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mark as paid/i })).not.toBeInTheDocument();
+    expect(paid.calls).toHaveLength(0);
+    if (account.role === 'child' || Number(total) < 0) {
+      expect(screen.queryByRole('button', { name: 'Close timecard' })).not.toBeInTheDocument();
+    }
   });
 
   it('parent can dispute a pending timecard', async () => {

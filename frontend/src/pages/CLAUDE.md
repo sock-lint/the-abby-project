@@ -316,8 +316,8 @@ chore and habit rows use their existing endpoints and refresh the dashboard.
 
 ## Daily reflection and challenges
 
-Child Today owns `dashboard/WellbeingCard.jsx`: today's affirmation and saved
-gratitude lines appear after tasks, projects and the pinned goal, before progress
+Child Today owns `dashboard/WellbeingCard.jsx`: today's affirmation and a gentle
+one-line daily note, with optional prompts and extra thoughts, appear after tasks, projects and the pinned goal, before progress
 and Rewards & earnings.
 The same self-scoped wellbeing endpoints handle first saves and later edits;
 parents do not render this card. Profile owns identity, picture, character,
@@ -337,7 +337,7 @@ pages/
                                branches to ChildDashboard / ParentDashboard
   ChildDashboard.jsx           Child body (HeroPrimaryCard + VitalPipStrip
                                + quest log + WellbeingCard + AccordionSections)
-  dashboard/WellbeingCard.jsx   Child Today's affirmation + gratitude pad
+  dashboard/WellbeingCard.jsx   Child Today's affirmation + optional daily note
   ParentDashboard.jsx          Parent body (ApprovalQueueList + Week at a
                                glance + Quick adjusts)
   _dashboardShared.js          formatWeekdayDate, mapProjectTone,
