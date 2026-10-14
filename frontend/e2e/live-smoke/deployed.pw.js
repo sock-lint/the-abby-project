@@ -5,6 +5,9 @@ import {
   validateIdentity, writePrivateJson,
 } from '../../scripts/live-checks-contract.mjs';
 import { installRequestGate, RequestGate } from './request-gate';
+import { assertDesignUx } from './design-ux.js';
+import { checkParentUx, checkChildUx } from './family-task-ux.js';
+import { installWaitingWorkerProbe, assertPwaDraftProtection } from './pwa-ux.js';
 
 function isApiResponse(response, path, method = 'GET') {
   const url = new URL(response.url());
@@ -67,6 +70,7 @@ async function publicShell(browser, credentials, result) {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(/Keep your memories\.\s*Grow your story\./);
     await page.goto(`${LIVE_BASE_URL}/privacy/`, { waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: 'Privacy policy', exact: true })).toBeVisible();
+    await assertDesignUx(page, LIVE_BASE_URL);
     gate.assertSafe();
   } finally {
     gate.cancel();
@@ -113,6 +117,7 @@ async function parentFlow(browser, request, credentials, cleanup) {
   const context = await freshContext(browser);
   const gate = new RequestGate(credentials, 'parent');
   await installRequestGate(context, gate);
+  await context.addInitScript(installWaitingWorkerProbe);
   try {
     const page = await signin(context, gate, credentials, 'parent', cleanup);
     const childrenResponse = page.waitForResponse((response) => isApiResponse(response, '/api/children/'));
@@ -126,6 +131,8 @@ async function parentFlow(browser, request, credentials, cleanup) {
       headers: { Authorization: `Token ${gate.token}` }, maxRedirects: 0, timeout: 10_000,
     });
     requireCheck(staffDenied.status() === 403, 'ISOLATION');
+    await checkParentUx(page, credentials, gate);
+    await assertPwaDraftProtection(page, LIVE_BASE_URL);
     gate.assertSafe();
   } finally {
     gate.cancel();
@@ -156,6 +163,7 @@ async function childFlow(browser, request, credentials, cleanup) {
     await page.goto(`${LIVE_BASE_URL}/sigil`, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('main').getByText('Your profile', { exact: true })).toBeVisible();
     await expect(page.locator('main').getByRole('link', { name: 'Edit account & settings', exact: true })).toBeVisible();
+    await checkChildUx(page, credentials, gate);
     gate.assertSafe();
   } finally {
     gate.cancel();
