@@ -44,8 +44,8 @@ const ToggleField = forwardRef(function ToggleField(
   };
 
   const trackClass = checked
-    ? 'bg-sheikah-teal-deep border-sheikah-teal-deep'
-    : 'bg-ink-page-aged border-ink-page-shadow';
+    ? 'before:bg-sheikah-teal-deep before:border-sheikah-teal-deep'
+    : 'before:bg-ink-page-aged before:border-control-border';
   const knobOffset = checked ? 'translate-x-5' : 'translate-x-0';
 
   return (
@@ -64,9 +64,9 @@ const ToggleField = forwardRef(function ToggleField(
           onClick={handleToggle}
           disabled={disabled}
           className={
-            'relative inline-flex h-6 w-11 shrink-0 items-center rounded-full ' +
-            'border transition-colors focus:outline-none focus:ring-2 ' +
-            `focus:ring-sheikah-teal/40 ${trackClass} ` +
+            'relative inline-flex min-h-11 w-11 shrink-0 items-center rounded-full ' +
+            'before:absolute before:inset-y-2.5 before:inset-x-0 before:rounded-full before:border focus:outline-none focus:ring-2 ' +
+            `focus:ring-sheikah-teal-deep ${trackClass} ` +
             (disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer')
           }
           {...rest}
@@ -74,8 +74,8 @@ const ToggleField = forwardRef(function ToggleField(
           <span
             aria-hidden="true"
             className={
-              'inline-block h-5 w-5 rounded-full bg-ink-page-rune-glow ' +
-              `shadow-sm transition-transform ${knobOffset}`
+              'relative inline-block h-5 w-5 rounded-full bg-ink-page-rune-glow ' +
+              `shadow-sm transition-transform motion-reduce:transition-none ${knobOffset}`
             }
           />
         </button>

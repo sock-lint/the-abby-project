@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Play, Square, Flame, Sparkles, ClipboardCheck, BookOpen } from 'lucide-react';
@@ -57,6 +58,10 @@ function versalProps({ letter, progressPct }) {
  * icon, tone, action_url}.
  */
 export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const reveal = reducedMotion
+    ? { initial: false, animate: { opacity: 1, y: 0, filter: 'none' }, transition: { duration: 0 } }
+    : { variants: inkBleed, initial: 'initial', animate: 'animate' };
   const navigate = useNavigate();
   const { weekday, dateStr } = ctx;
 
@@ -67,7 +72,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
     // into a full queue is how a glancing parent misses approvals.
     const settling = Boolean(ctx.loading) && count === 0;
     return (
-      <motion.div variants={inkBleed} initial="initial" animate="animate">
+      <motion.div {...reveal}>
         <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
           {!ctx.hideDate && <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
             {weekday ? `${weekday} · ${dateStr}` : 'Today'}
@@ -139,7 +144,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
   else if (quest) variant = 'quest-progress';
 
   return (
-    <motion.div variants={inkBleed} initial="initial" animate="animate">
+    <motion.div {...reveal}>
       <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
         {!ctx.hideDate && <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
           {weekday ? `${weekday} · ${dateStr}` : 'Today'}

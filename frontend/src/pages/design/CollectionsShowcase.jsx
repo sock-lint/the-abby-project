@@ -38,7 +38,7 @@ export default function CollectionsShowcase() {
     <header className="space-y-2">
       <h2 id={titleId} className="font-display text-2xl font-bold text-ink-primary">Collection navigation</h2>
       <p className="font-body text-body text-ink-secondary max-w-prose">
-        Synthetic Badges, Lorebook, and Satchel examples. Readable collection cards
+        Synthetic Badges, Guide, and Inventory examples. Readable collection cards
         and compact filter pills wrap to fit the page. Choose a collection or filter
         to preview its contents below.
       </p>
@@ -64,10 +64,10 @@ export default function CollectionsShowcase() {
 
     <ParchmentCard tone="bright" className="space-y-4">
       <header className="space-y-1">
-        <h3 className="font-display font-semibold text-xl text-ink-primary">Lorebook topics</h3>
+        <h3 className="font-display font-semibold text-xl text-ink-primary">Guide topics</h3>
         <p className="text-caption text-ink-secondary">Entry counts describe available reading. Long names stay readable.</p>
       </header>
-      <TomeShelf items={loreItems} activeId={loreId} onSelect={setLoreId} ariaLabel="Demo Lorebook topics" />
+      <TomeShelf items={loreItems} activeId={loreId} onSelect={setLoreId} ariaLabel="Demo Guide topics" />
       <section aria-labelledby={lorePanelId} className="space-y-3">
         <h4 id={lorePanelId} className="font-display font-semibold text-lede text-ink-primary">{loreTopic.name}</h4>
         <ul className="space-y-2">
@@ -78,10 +78,10 @@ export default function CollectionsShowcase() {
 
     <ParchmentCard tone="bright" className="space-y-4">
       <header className="space-y-1">
-        <h3 className="font-display font-semibold text-xl text-ink-primary">Satchel filters</h3>
+        <h3 className="font-display font-semibold text-xl text-ink-primary">Inventory filters</h3>
         <p className="text-caption text-ink-secondary">Compact pills use the same selection controls at every width. Counts show sample quantities.</p>
       </header>
-      <TomeShelf items={filterItems} activeId={filterId} onSelect={setFilterId} ariaLabel="Demo Satchel filters" />
+      <TomeShelf items={filterItems} activeId={filterId} onSelect={setFilterId} ariaLabel="Demo Inventory filters" />
       <section aria-labelledby={filterPanelId} className="space-y-3">
         <h4 id={filterPanelId} className="font-display font-semibold text-lede text-ink-primary">{activeFilter.name}</h4>
         <ul className="space-y-2">

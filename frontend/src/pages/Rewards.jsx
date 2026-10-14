@@ -240,7 +240,7 @@ export default function Rewards() {
           </div>
           {/* Below md the Treasury hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones. */}
-          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          <h1 className="sr-only md:not-sr-only font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Rewards
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">

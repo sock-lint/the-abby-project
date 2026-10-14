@@ -68,7 +68,7 @@ describe('Memory Meadow', () => {
     const { user } = renderWithProviders(<Meadow />);
     await screen.findByText(/your first memory bloom/i);
     await openCapture(user);
-    expect(screen.getByLabelText(/share with my family/i)).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /share with parents in my family/i })).not.toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Save entry' }));
     await screen.findByRole('dialog', { name: 'Memory saved' });
     expect(screen.queryByText(/a memory bloom joined your collection/i)).not.toBeInTheDocument();

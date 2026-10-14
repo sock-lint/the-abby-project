@@ -517,3 +517,53 @@ describe('Portfolio', () => {
     expect(input).not.toHaveAttribute('capture');
   });
 });
+
+it('names the selected photo accessibly and can remove it without clearing the caption', async () => {
+  mockAuth(buildUser());
+  server.use(
+    http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
+    http.get('*/api/projects/', () => HttpResponse.json([buildProject({ id: 7, title: 'Target' })])),
+  );
+  window.URL.createObjectURL = vi.fn(() => 'blob:preview');
+  const { user } = renderWithProviders(<Portfolio />);
+  await user.click(await screen.findByRole('button', { name: 'Add photo' }));
+  await user.upload(screen.getByLabelText('Photo', { selector: 'input' }), new File(['pixels'], 'memory.png', { type: 'image/png' }));
+  await user.type(screen.getByLabelText('Caption (optional)'), 'My first attempt');
+  expect(screen.getByText('memory.png')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: 'Remove photo' }));
+  expect(screen.queryByText('memory.png')).toBeNull();
+  expect(screen.getByLabelText('Caption (optional)')).toHaveValue('My first attempt');
+  expect(screen.getByRole('button', { name: 'Upload Photo' })).toBeDisabled();
+});
+
+it('retains the photo and caption after server image validation and only retries on an explicit upload', async () => {
+  mockAuth(buildUser());
+  server.use(
+    http.get('*/api/portfolio/', () => HttpResponse.json({ projects: [], homework: [] })),
+    http.get('*/api/projects/', () => HttpResponse.json([buildProject({ id: 7, title: 'Target' })])),
+  );
+  window.URL.createObjectURL = vi.fn(() => 'blob:preview');
+  const bodies = [];
+  const uploads = spyHandler('post', /\/api\/photos\/$/, ({ request }) => {
+    request.formData().then((form) => bodies.push({ keys: [...form.keys()].sort(), project: form.get('project'), caption: form.get('caption'), hasImage: Boolean(form.get('image')) }));
+    return uploads.calls.length === 1
+      ? HttpResponse.json({ image: ['Upload a valid image.'] }, { status: 400 })
+      : HttpResponse.json({ id: 9 }, { status: 201 });
+  });
+  server.use(uploads.handler);
+  const { user } = renderWithProviders(<Portfolio />);
+  await user.click(await screen.findByRole('button', { name: 'Add photo' }));
+  await user.selectOptions(screen.getByLabelText('Project'), '7');
+  await user.upload(screen.getByLabelText('Photo', { selector: 'input' }), new File(['pixels'], 'memory.png', { type: 'image/png' }));
+  await user.type(screen.getByLabelText('Caption (optional)'), 'My first attempt');
+  await user.click(screen.getByRole('button', { name: 'Upload Photo' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('Upload a valid image.');
+  expect(screen.getByText('memory.png')).toBeInTheDocument();
+  expect(screen.getByLabelText('Caption (optional)')).toHaveValue('My first attempt');
+  expect(uploads.calls).toHaveLength(1);
+  await user.click(screen.getByRole('button', { name: 'Upload Photo' }));
+  await waitFor(() => expect(uploads.calls).toHaveLength(2));
+  await waitFor(() => expect(bodies).toHaveLength(2));
+  expect(uploads.calls[0].url).toMatch(/\/api\/photos\/$/);
+  expect(bodies).toEqual(Array(2).fill({ keys: ['caption', 'image', 'project'], project: '7', caption: 'My first attempt', hasImage: true }));
+});

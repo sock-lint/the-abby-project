@@ -27,7 +27,7 @@ function summaryPayload(entries) {
   // Wrap entries in a single-chapter summary (the shape Yearbook reads).
   return {
     chapters: [
-      { chapter_year: 2025, label: 'Chapter 2025–26', is_current: true, stats: {}, entries },
+      { chapter_year: 2025, label: 'Chapter 2025–26', is_current: true, stats: {}, entries: entries.map((entry) => ({ user: 1, ...entry })) },
     ],
     current_chapter_year: 2025,
   };
@@ -66,7 +66,7 @@ describe('JournalReader — child view', () => {
     expect(titles.indexOf('Today')).toBeLessThan(titles.indexOf('Earlier'));
   });
 
-  it('identifies a private journal as Only you', async () => {
+  it('identifies a private journal as Only me', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/chronicle/summary/', () =>
@@ -79,7 +79,7 @@ describe('JournalReader — child view', () => {
     renderReader();
 
     await waitFor(() => expect(screen.getByText('Mine')).toBeInTheDocument());
-    expect(screen.getByText('Only you')).toBeInTheDocument();
+    expect(screen.getByText('Only me')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /family responses/i })).toBeNull();
   });
 
@@ -119,7 +119,7 @@ describe('JournalReader — child view', () => {
               is_current: false,
               stats: {},
               entries: [
-                { id: 1, kind: 'journal', occurred_on: '2024-09-10', title: 'Year-before', summary: 'last-year body', is_private: true },
+                { id: 1, user: 1, kind: 'journal', occurred_on: '2024-09-10', title: 'Year-before', summary: 'last-year body', is_private: true },
               ],
             },
             {
@@ -128,7 +128,7 @@ describe('JournalReader — child view', () => {
               is_current: true,
               stats: {},
               entries: [
-                { id: 2, kind: 'journal', occurred_on: '2026-04-10', title: 'This-year', summary: 'current body', is_private: true },
+                { id: 2, user: 1, kind: 'journal', occurred_on: '2026-04-10', title: 'This-year', summary: 'current body', is_private: true },
               ],
             },
           ],
@@ -232,10 +232,10 @@ describe('JournalReader — parent view', () => {
     renderReader();
 
     await waitFor(() => expect(screen.getByText('Hers')).toBeInTheDocument());
-    expect(screen.getByLabelText(/reading/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/viewing/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /write today’s entry/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /edit today’s entry/i })).toBeNull();
-    expect(screen.getByText('Shared with family')).toBeInTheDocument();
+    expect(screen.getByText('Shared with parents')).toBeInTheDocument();
   });
 
   it('omits private journals even if an old summary includes one', async () => {
@@ -274,7 +274,7 @@ describe('JournalReader — parent view', () => {
     renderReader();
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await screen.findByRole('textbox', { name: 'Your family response' });
-    await user.selectOptions(screen.getByLabelText('Reading'), '8');
+    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
     expect(screen.queryByText('Abby shared')).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Your family response' })).toBeNull();
     finishSecond();
@@ -295,7 +295,7 @@ describe('JournalReader — parent view', () => {
     renderReader();
 
     await waitFor(() =>
-      expect(screen.getByText(/when they share a journal entry with the family/i)).toBeInTheDocument(),
+      expect(screen.getByText(/when they share a journal entry with parents in your family/i)).toBeInTheDocument(),
     );
     expect(screen.queryByText(/when she writes her first/i)).toBeNull();
   });

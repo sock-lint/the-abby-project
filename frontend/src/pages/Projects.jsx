@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import useSearchParamState from '../hooks/useSearchParamState';
 import { motion } from 'framer-motion';
 import { Plus, Sparkles } from 'lucide-react';
@@ -24,6 +24,7 @@ import { formatDate } from '../utils/format';
 import { staggerChildren, staggerItem } from '../motion/variants';
 import QuestFolio from './quests/QuestFolio';
 import { buildRarityCounts, difficultyToRarity } from './quests/quests.constants';
+import { captureProjectListReturn, projectListDestination } from './project/projectListReturn';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All statuses' },
@@ -49,17 +50,28 @@ const STATUS_RUBRICS = [
 ];
 
 export default function Projects() {
-  const { isParent } = useRole();
+  const { isParent, user } = useRole();
   const { data, loading, error, reload } = useApi(getProjects);
   const { data: suggestions } = useApi(getProjectSuggestions);
   const { data: childrenData } = useApi(getChildren);
   const navigate = useNavigate();
+  const location = useLocation();
+  const restoredScroll = useRef(false);
 
   const [, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useSearchParamState('status', '');
   const [typeFilter, setTypeFilter] = useSearchParamState('type', '');
   const [childFilter, setChildFilter] = useSearchParamState('child', '');
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useSearchParamState('q', '');
+
+  useEffect(() => {
+    const saved = location.state?.projectListScroll;
+    if (loading || restoredScroll.current || !saved || user?.id == null || saved.userId !== user.id) return;
+    restoredScroll.current = true;
+    if (Number.isFinite(saved.top) && saved.top >= 0 && saved.top <= 1_000_000) {
+      window.scrollTo({ top: saved.top, behavior: 'auto' });
+    }
+  }, [loading, location.state, user?.id]);
 
   const clearAllFilters = () => {
     setSearchParams((prev) => {
@@ -67,9 +79,9 @@ export default function Projects() {
       next.delete('status');
       next.delete('type');
       next.delete('child');
+      next.delete('q');
       return next;
     }, { replace: true });
-    setSearch('');
   };
 
   const allProjects = normalizeList(data);
@@ -156,7 +168,14 @@ export default function Projects() {
         <motion.button
           type="button"
           className="block w-full min-h-11 text-left cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sheikah-teal"
-          onClick={() => navigate(`/quests/ventures/${p.id}`)}
+          onClick={() => {
+            const saved = captureProjectListReturn(location.search, user?.id, window.scrollY);
+            const list = projectListDestination(saved, user?.id);
+            // Record the position on the history entry being left as well as
+            // the detail's explicit Back link, so browser Back restores it too.
+            navigate(list.to, { replace: true, state: list.state });
+            navigate(`/quests/ventures/${p.id}`, { state: { projectListReturn: saved } });
+          }}
           aria-label={`Open ${p.title}`}
         >
           {p.cover_photo && (

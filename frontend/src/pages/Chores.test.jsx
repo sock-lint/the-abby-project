@@ -506,6 +506,6 @@ describe('Chores', () => {
 
     await user.clear(search);
     await user.type(search, 'zzzz');
-    expect(screen.getByText(/no chores match/i)).toBeInTheDocument();
+    expect(screen.getByText(/no matches for/i)).toBeInTheDocument();
   });
 });

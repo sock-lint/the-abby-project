@@ -20,6 +20,7 @@ import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
 import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
 import CatalogSearch from '../components/CatalogSearch';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
@@ -213,19 +214,19 @@ export default function Chores() {
   const { isParent } = useRole();
 
   const {
-    data: choresData, loading: loadingChores, reload: reloadChores,
+    data: choresData, loading: loadingChores, refreshing: refreshingChores, error: choresError, reload: reloadChores,
     setData: setChoresData,
   } = useApi(getChores);
-  const { data: completionsData, loading: loadingCompletions, reload: reloadCompletions } = useApi(
+  const { data: completionsData, loading: loadingCompletions, refreshing: refreshingCompletions, error: completionsError, reload: reloadCompletions } = useApi(
     isParent ? () => getChoreCompletions('pending') : () => getChoreCompletions(),
     [isParent],
   );
-  const { data: proposalsData, reload: reloadProposals } = useApi(
+  const { data: proposalsData, error: proposalsError, reload: reloadProposals } = useApi(
     isParent ? listPendingChoreProposals : listMyChoreProposals,
     [isParent],
   );
-  const { data: childrenData } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
-  const { data: skillsData } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
+  const { data: childrenData, error: childrenError, reload: reloadChildren } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
+  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
 
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');
@@ -237,7 +238,7 @@ export default function Chores() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [search, setSearch] = useState('');
 
-  const loading = loadingChores || loadingCompletions;
+  const loading = loadingChores && loadingCompletions;
 
   const choresList = useMemo(() => normalizeList(choresData), [choresData]);
   const filteredChores = useMemo(() => {
@@ -359,14 +360,14 @@ export default function Chores() {
   const progressPct = chores.length > 0 ? Math.round((doneCount / chores.length) * 100) : 0;
   const versoStats = isParent
     ? [
-      { value: pendingCompletions.length, label: 'awaiting approval' },
-      { value: chores.length, label: 'chores' },
+      { value: completionsData === null ? '—' : pendingCompletions.length, label: 'awaiting approval' },
+      { value: choresData === null ? '—' : chores.length, label: 'chores' },
     ]
     : [
-      { value: doneCount, label: 'done today' },
-      { value: chores.length, label: 'chores' },
+      { value: choresData === null ? '—' : doneCount, label: 'done today' },
+      { value: choresData === null ? '—' : chores.length, label: 'chores' },
     ];
-  const versoProgressLabel = isParent
+  const versoProgressLabel = choresData === null ? 'Chores unavailable' : isParent
     ? `${chores.length} chores added`
     : (chores.length > 0
       ? `${doneCount} of ${chores.length} done today`
@@ -388,6 +389,13 @@ export default function Chores() {
         progressLabel={versoProgressLabel}
       >
         <ErrorAlert message={error} />
+        <ErrorAlert message={choresError && `${choresData === null ? "Couldn't load chores." : "Couldn't update chores. Showing the last loaded list."} ${choresError}`} onRetry={reloadChores} />
+        <ErrorAlert message={completionsError && `Couldn't load chore completions. ${completionsError}`} onRetry={reloadCompletions} />
+        <ErrorAlert message={proposalsError && `Couldn't load chore proposals. ${proposalsError}`} onRetry={reloadProposals} />
+        <ErrorAlert message={childrenError && `Couldn't load children for assignment. ${childrenError}`} onRetry={reloadChildren} />
+        <ErrorAlert message={skillsError && `Couldn't load skills for chores. ${skillsError}`} onRetry={reloadSkills} />
+        {(refreshingChores || refreshingCompletions) && <p role="status" className="text-caption text-ink-secondary">Updating chores and completions…</p>}
+        {loadingCompletions && <p role="status" className="text-caption text-ink-secondary">Loading chore completions…</p>}
 
         {/* New / Propose action lives at the top of the recto so it stays
             reachable when the folio body is empty. */}
@@ -503,16 +511,14 @@ export default function Chores() {
               />
             </div>
           )}
-          {chores.length === 0 ? (
+          {loadingChores ? <Loader /> : choresData === null ? null : chores.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
               {isParent
                 ? 'No chores yet. Add one to get started.'
                 : 'No chores available today.'}
             </EmptyState>
           ) : filteredChores.length === 0 ? (
-            <EmptyState icon={<ScrollIcon size={32} />}>
-              No chores match &ldquo;{search.trim()}&rdquo;.
-            </EmptyState>
+            <FilteredEmptyState query={search.trim()} onClear={() => setSearch('')} icon={<ScrollIcon size={32} />} />
           ) : (
             <div className="space-y-2">
               {filteredChores.map((chore) => {

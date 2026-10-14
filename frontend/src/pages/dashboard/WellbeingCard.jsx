@@ -7,6 +7,7 @@ import { TextAreaField, TextField } from '../../components/form';
 import ErrorAlert from '../../components/ErrorAlert';
 import { getWellbeingToday, submitGratitude } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 const IDEAS = [
   { label: 'Something I noticed', placeholder: 'Something I noticed today…' },
@@ -40,6 +41,10 @@ export default function WellbeingCard() {
   const flashTimeoutRef = useRef(null);
   const noteRef = useRef(null);
   const headingId = useId();
+  const cleaned = filledLines(lines);
+  const saved = Array.isArray(data?.gratitude_lines) ? data.gratitude_lines : [];
+  const changed = Boolean(data) && JSON.stringify(cleaned) !== JSON.stringify(saved);
+  usePwaUpdateGuard(working || changed);
 
   // Hydrate the inputs when today's row first loads or the user-saved
   // lines change underneath us.
@@ -70,10 +75,7 @@ export default function WellbeingCard() {
   const affirmation = data.affirmation || {};
   const alreadyPaid = !!data.gratitude_paid;
   const reward = data.coin_reward ?? 2;
-  const cleaned = filledLines(lines);
-  const saved = Array.isArray(data.gratitude_lines) ? data.gratitude_lines : [];
   const hasSavedNote = saved.length > 0;
-  const changed = JSON.stringify(cleaned) !== JSON.stringify(saved);
   const noteStatus = hasSavedNote
     ? changed ? 'Unsaved changes' : 'Saved for today'
     : cleaned.length > 0 ? 'Ready to save' : 'One short line is enough.';

@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
+import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 import { getToken } from '../api/client';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import PageShell from '../components/layout/PageShell';
@@ -59,6 +60,9 @@ function IngestForm({ userId }) {
   const inFlight = useRef(false);
   const savedDraft = useRef(null);
   const saveQueue = useRef(Promise.resolve());
+  usePwaUpdateGuard(starting || committing || discarding || syncState === 'saving'
+    || Boolean(file) || (phase === 'source' && Boolean(url))
+    || (Boolean(jobId) && storageState === 'unavailable'));
 
   const isCurrentSession = useCallback(
     () => mounted.current && getToken() === sessionToken,

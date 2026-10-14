@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
@@ -9,6 +10,7 @@ import useVisualViewportInset from './modal/useVisualViewportInset';
 import { registerSheetHistory } from './modal/sheetHistory';
 import useIsDesktop from '../hooks/useIsDesktop';
 import useModalFocus from './modal/useModalFocus';
+import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 
 // Shared modal shell for every form dialog in the app. Dual-mode under the
 // "Sheikah Stamp" DNA:
@@ -19,6 +21,8 @@ import useModalFocus from './modal/useModalFocus';
 // Optional surface presentation belongs on the portal itself; a caller's
 // wrapper cannot pass its CSS variables across the document.body boundary.
 export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle, focusSuspended = false }) {
+  const reducedMotion = usePrefersReducedMotion();
+  usePwaUpdateGuard(Boolean(dirty || disabled || focusSuspended));
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const sheetHistoryId = useId();
@@ -81,10 +85,10 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
             tabIndex={-1}
             aria-modal="true"
             aria-labelledby={titleId}
-            initial={{ scale: 0.88, opacity: 0, rotate: -1.5 }}
-            animate={{ scale: 1, opacity: 1, rotate: 0 }}
-            exit={{ scale: 0.94, opacity: 0 }}
-            transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+            initial={reducedMotion ? false : { scale: 0.88, opacity: 0, rotate: -1.5 }}
+            animate={reducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1, rotate: 0 }}
+            exit={reducedMotion ? { opacity: 0 } : { scale: 0.94, opacity: 0 }}
+            transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 22, stiffness: 260 }}
             className={`${confirmingClose ? 'pointer-events-none' : 'pointer-events-auto'} relative w-full max-w-lg parchment-bg-aged border border-ink-page-shadow rounded-2xl modal-seal-ring max-h-[85dvh] overflow-y-auto overflow-x-hidden scrollbar-hide ${surfaceClassName}`}
             style={surfaceStyle}
           >
@@ -111,10 +115,10 @@ export default function BottomSheet({ title, onClose, disabled, dirty, footer, c
           tabIndex={-1}
           aria-modal="true"
           aria-labelledby={titleId}
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+          initial={reducedMotion ? false : { y: '100%' }}
+          animate={reducedMotion ? { opacity: 1 } : { y: 0 }}
+          exit={reducedMotion ? { opacity: 0 } : { y: '100%' }}
+          transition={reducedMotion ? { duration: 0 } : { type: 'spring', damping: 30, stiffness: 300 }}
           drag="y"
           dragControls={dragControls}
           dragListener={false}

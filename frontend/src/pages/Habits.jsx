@@ -13,6 +13,7 @@ import { useRole } from '../hooks/useRole';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
+import FilteredEmptyState from '../components/FilteredEmptyState';
 import CatalogSearch from '../components/CatalogSearch';
 import ConfirmDialog from '../components/ConfirmDialog';
 import BottomSheet from '../components/BottomSheet';
@@ -197,20 +198,20 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
 
 export default function Habits() {
   const { isParent } = useRole();
-  const { data: rawHabits, loading, reload } = useApi(getHabits);
-  const { data: tapHistory, reload: reloadHistory } = useApi(getHabitHistory);
-  const { data: rawProposals, reload: reloadProposals } = useApi(
+  const { data: rawHabits, loading, refreshing, error: habitsError, reload } = useApi(getHabits);
+  const { data: tapHistory, error: historyError, reload: reloadHistory } = useApi(getHabitHistory);
+  const { data: rawProposals, error: proposalsError, reload: reloadProposals } = useApi(
     isParent ? listPendingHabitProposals : listMyHabitProposals,
     [isParent],
   );
   // Match the fallback pattern used in Chores.jsx — passing `null` to
   // useApi would crash when it tries to call apiFn(signal); a promise
   // that resolves to `[]` short-circuits cleanly for non-parents.
-  const { data: rawChildren } = useApi(
+  const { data: rawChildren, error: childrenError, reload: reloadChildren } = useApi(
     isParent ? getChildren : () => Promise.resolve([]),
     [isParent],
   );
-  const { data: rawSkills } = useApi(
+  const { data: rawSkills, error: skillsError, reload: reloadSkills } = useApi(
     isParent ? getSkills : () => Promise.resolve([]),
     [isParent],
   );
@@ -347,12 +348,12 @@ export default function Habits() {
   // never punished).
   const versoProgressPct = Math.max(0, Math.min(100, Math.round(avgStrength * 10)));
   const versoStats = [
-    { value: habits.length, label: 'habits' },
-    { value: avgStrength.toFixed(1), label: 'avg strength' },
+    { value: rawHabits === null ? '—' : habits.length, label: 'habits' },
+    { value: rawHabits === null ? '—' : avgStrength.toFixed(1), label: 'avg strength' },
   ];
   const versoProgressLabel = habits.length > 0
     ? `${habits.length} habit${habits.length === 1 ? '' : 's'} in practice`
-    : '0 habits added';
+    : rawHabits === null ? 'Habits unavailable' : '0 habits added';
 
   let rubricIndex = 0;
   const nextRubric = () => rubricIndex++;
@@ -369,6 +370,12 @@ export default function Habits() {
         progressLabel={versoProgressLabel}
       >
         <ErrorAlert message={error} />
+        <ErrorAlert message={habitsError && `${rawHabits === null ? "Couldn't load habits." : "Couldn't update habits. Showing the last loaded list."} ${habitsError}`} onRetry={reload} />
+        <ErrorAlert message={proposalsError && `Couldn't load habit proposals. ${proposalsError}`} onRetry={reloadProposals} />
+        <ErrorAlert message={historyError && `Couldn't load habit history. ${historyError}`} onRetry={reloadHistory} />
+        <ErrorAlert message={childrenError && `Couldn't load children for assignment. ${childrenError}`} onRetry={reloadChildren} />
+        <ErrorAlert message={skillsError && `Couldn't load skills for habits. ${skillsError}`} onRetry={reloadSkills} />
+        {refreshing && <p role="status" className="text-caption text-ink-secondary">Updating habits…</p>}
 
         <div className="flex justify-end">
           <Button
@@ -442,14 +449,12 @@ export default function Habits() {
               />
             </div>
           )}
-          {habits.length === 0 ? (
+          {rawHabits === null ? null : habits.length === 0 ? (
             <EmptyState icon={<ScrollIcon size={32} />}>
               No habits yet. Add or propose a habit to get started.
             </EmptyState>
           ) : filteredHabits.length === 0 ? (
-            <EmptyState icon={<ScrollIcon size={32} />}>
-              No habits match &ldquo;{search.trim()}&rdquo;.
-            </EmptyState>
+            <FilteredEmptyState query={search.trim()} onClear={() => setSearch('')} icon={<ScrollIcon size={32} />} />
           ) : (
             <motion.div layout className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
           <AnimatePresence>
@@ -471,7 +476,7 @@ export default function Habits() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         {habit.icon && <span className="text-lg">{habit.icon}</span>}
-                        <span className="font-display text-base text-ink-primary truncate">
+                        <span className="min-w-0 break-words [overflow-wrap:anywhere] font-display text-base text-ink-primary">
                           {habit.name}
                         </span>
                       </div>

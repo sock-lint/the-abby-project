@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useBodyScrollLock } from './bodyScrollLock';
@@ -19,6 +20,7 @@ import { useBodyScrollLock } from './bodyScrollLock';
 const FLASH_MS = 220;
 
 export default function ModalBackdrop({ onClick, disabled, zIndex = 'z-40' }) {
+  const reducedMotion = usePrefersReducedMotion();
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef(null);
 
@@ -41,10 +43,10 @@ export default function ModalBackdrop({ onClick, disabled, zIndex = 'z-40' }) {
       <motion.div
         key="modal-ink-wash"
         onClick={handleClick}
-        initial={{ opacity: 0 }}
+        initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: reducedMotion ? 0 : 0.25 }}
         className={`fixed inset-0 modal-ink-wash ${zIndex}`}
       />
       {/* Disabled-tap feedback. This used to animate the wash's own opacity
@@ -57,19 +59,19 @@ export default function ModalBackdrop({ onClick, disabled, zIndex = 'z-40' }) {
         key="modal-ink-wash-flash"
         aria-hidden="true"
         data-testid="modal-ink-wash-flash"
-        initial={{ opacity: 0 }}
+        initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: flash ? 1 : 0 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.12 }}
+        transition={{ duration: reducedMotion ? 0 : 0.12 }}
         className={`pointer-events-none fixed inset-0 modal-ink-wash ${zIndex}`}
       />
       <motion.div
         key="modal-vignette"
         aria-hidden="true"
-        initial={{ opacity: 0 }}
+        initial={reducedMotion ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
+        transition={{ duration: reducedMotion ? 0 : 0.3, delay: reducedMotion ? 0 : 0.05 }}
         className={`fixed inset-0 modal-vignette ${zIndex}`}
       />
     </>

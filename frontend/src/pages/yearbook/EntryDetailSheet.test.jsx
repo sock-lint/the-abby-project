@@ -144,12 +144,12 @@ describe('EntryDetailSheet', () => {
     expect(screen.queryByRole('textbox', { name: /family response/i })).toBeNull()
   })
 
-  it('shows the owner a clear Only you status', async () => {
+  it('shows the owner a clear Only me status', async () => {
     mountWithUser(
       { id: 12, kind: 'journal', is_private: true, user: 1, title: 'Mine', occurred_on: todayISO() },
       buildUser(),
     )
-    expect(await screen.findByText('Only you')).toBeInTheDocument()
+    expect(await screen.findByText('Only me')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /family responses/i })).toBeNull()
   })
 
@@ -167,7 +167,7 @@ describe('EntryDetailSheet', () => {
     )
     const user = userEvent.setup()
     const textbox = await screen.findByRole('textbox', { name: 'Your family response' })
-    expect(screen.getByText('Shared with family')).toBeInTheDocument()
+    expect(screen.getByText('Shared with parents')).toBeInTheDocument()
     await user.type(textbox, 'Tell me more at dinner!')
     await user.click(screen.getByRole('button', { name: 'Send response' }))
     expect(await screen.findByText('Tell me more at dinner!')).toBeInTheDocument()

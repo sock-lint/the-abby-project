@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +12,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
@@ -37,6 +39,7 @@ export default function ClockPage() {
 }
 
 function ClockPageBody({ requestedProjectId }) {
+  const reducedMotion = usePrefersReducedMotion();
   const { user, isParent } = useRole();
   const hasRequestedProject = requestedProjectId !== null;
   const validRequestedId = /^[1-9]\d*$/.test(requestedProjectId || '')
@@ -169,17 +172,12 @@ function ClockPageBody({ requestedProjectId }) {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <header className="text-center">
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Track your project work
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Time tracking
-        </h1>
-        <div className="font-script text-body text-ink-whisper mt-1">
+      <div>
+        <PageHeader title="Time tracking" kicker="Track your project work" />
+        <p className="font-body text-body text-ink-secondary mt-1">
           Log project time to earn coins, XP, and weekly pay.
-        </div>
-      </header>
+        </p>
+      </div>
 
       <ErrorAlert
         message={statusError ? `Couldn't check your clock. ${statusError}` : null}
@@ -239,7 +237,7 @@ function ClockPageBody({ requestedProjectId }) {
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockOut}
                     disabled={clockBusy || !statusReady}
                     aria-label="Clock out"
@@ -285,7 +283,7 @@ function ClockPageBody({ requestedProjectId }) {
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockIn}
                     disabled={clockBusy || !statusReady || !projectsReady}
                     aria-label="Clock in"

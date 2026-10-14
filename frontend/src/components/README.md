@@ -10,6 +10,61 @@ The licensed Meadow/welcome companion is a replaceable artwork preview. It does 
 
 ## Conventions
 
+### Design library and adoption
+
+`/__design` is the local, synthetic implementation library. It runs without a
+backend and never writes account data or grants rewards. Its preview controls
+cover all six color themes, narrow layouts, larger text, long content, parent
+and child examples, and reduced motion. Device settings and real browser zoom
+remain the acceptance checks for the complete accessibility behavior.
+
+Use the library's page recipes and interactive states when composing a screen:
+
+- Utility pages use `PageShell`, `PageHeader` and `SectionHeader`; collections
+  and progression compose the existing Meadow collection primitives.
+- A failed read is an `ErrorAlert` with recovery, not an empty result. Retain
+  available rows during refresh, identify unavailable sources, and use
+  `FilteredEmptyState` for a filter that hides saved content.
+- Forms reuse the field family, `Button`, `IconButton`, `BottomSheet` and
+  `ModalActions`. Keep field errors and the user's input together. Passive
+  dismissal checks dirty state; an explicitly named discard action may clear
+  the local form. Busy writes prevent repeated submission.
+  `BottomSheet` and `useFormState` also guard app-update reloads; a manual form
+  calls `usePwaUpdateGuard(dirty || saving)` while it owns unsaved work.
+- `StatusBadge` describes workflow state, `RuneBadge` describes a tone or
+  catalog tier, and progress bars describe measured progress. Availability
+  and retained ownership remain separate, server-confirmed concepts.
+- `NotificationToast` supplies paired surfaces and foregrounds for status
+  messages, plus a fixed earned-rarity palette. Its owning stack keeps the
+  receipt, navigation, expiration and dismissal behavior.
+- Parent child selectors use `ChildContext` with a roster verified by
+  `useChildContext`; a URL or remembered ID is never authorization. Audience
+  copy names the actual readers: “Only me” and “Shared with parents.”
+- `AttachmentField` gives selected files a readable name/size, linked help and
+  errors, replace/remove controls and optional image preview. Its owning form
+  retains processing, validation and the explicit upload/retry contract.
+
+Every specimen includes imports, usage guidance and real consumer links. Keep
+its visible language aligned with the current names in `frontend/CLAUDE.md`;
+retained route, prop and component names do not dictate product wording.
+Promote a domain component when a second real application surface needs it.
+The showcase itself is a verification consumer, not a reason to create a
+parallel implementation of an existing component.
+
+For a newly changed screen, check narrow and short phone layouts, readable
+foreground/background pairs across covers, 44px interactive targets, keyboard
+selection and focus restoration, enlarged text and reduced motion. Add
+meaningful request-spy tests for writes and source-specific error recovery.
+The gallery and shared-foundation browser fixtures exercise these contracts
+without production credentials:
+
+```bash
+npm run test:pwa -- e2e/design-gallery.pw.js e2e/design-foundations.pw.js
+```
+
+Use these focused checks during composition; the full frontend coverage,
+web/native builds and required hosted checks still validate the integrated PR.
+
 ### Token-first styling
 
 - Color, font, and font-size values come from CSS custom properties declared in [`../index.css`](../index.css)'s `@theme` block.

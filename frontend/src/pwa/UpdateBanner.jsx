@@ -4,11 +4,11 @@ import { usePwaStatus } from './pwaStatus.context';
 /**
  * UpdateBanner — a thin top banner shown when a new service worker is
  * waiting. Mounted globally in App.jsx; sits at the top of the page
- * above the sticky header. Clicking Reload activates the waiting SW
- * (which auto-reloads the page).
+ * above the sticky header. Clicking Reload requests worker activation;
+ * PwaStatusProvider reloads only after its dirty/busy guards pass.
  */
 export default function UpdateBanner() {
-  const { updateReady, applyUpdate } = usePwaStatus();
+  const { updateReady, updateBlocked, updateError, applyUpdate } = usePwaStatus();
   if (!updateReady) return null;
   return (
     // This is the first in-flow element on the page, and index.html ships
@@ -28,11 +28,12 @@ export default function UpdateBanner() {
                  pr-[max(1rem,env(safe-area-inset-right))] text-caption"
     >
       <RefreshCw size={14} aria-hidden="true" />
-      <span>New version available.</span>
+      <span>{updateBlocked ? 'Finish or close your open work before updating.' : updateError || 'New version available.'}</span>
       {/* intentional: raw <button> with inline link styling — the Button primitive's variants don't fit this "underlined text link inside a colored bar" treatment. The padding + negative margin keeps the 44px hit area without growing the band. */}
       <button
         type="button"
         onClick={applyUpdate}
+        disabled={updateBlocked}
         className="min-h-11 -my-2 px-2 flex items-center font-medium underline underline-offset-2 hover:opacity-80"
       >
         Reload

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
@@ -6,6 +6,7 @@ import Loader from '../../components/Loader';
 import RpgSprite from '../../components/rpg/RpgSprite';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { generateSprite } from '../../api';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 const MOTION_OPTIONS = [
   'idle', 'walk', 'bounce', 'bubble', 'flicker', 'glow', 'wobble', 'sway',
@@ -58,6 +59,9 @@ export default function SpriteGenerateModal({ sprite, mode = 'create', onClose, 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
+  const initialForm = useRef(form);
+  const dirty = !result && Object.keys(initialForm.current).some((key) => form[key] !== initialForm.current[key]);
+  usePwaUpdateGuard(dirty || submitting);
 
   const isReplace = mode === 'replace';
   const set = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -118,6 +122,7 @@ export default function SpriteGenerateModal({ sprite, mode = 'create', onClose, 
       title={isReplace ? `Replace ${sprite.slug}` : 'Create sprite'}
       onClose={submitting ? undefined : onClose}
       disabled={submitting}
+      dirty={dirty}
     >
       <form onSubmit={handleSubmit} className="space-y-3">
         {error && <ErrorAlert error={error} />}
@@ -240,7 +245,7 @@ export default function SpriteGenerateModal({ sprite, mode = 'create', onClose, 
 
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="ghost" onClick={onClose} disabled={submitting}>
-            Cancel
+            {dirty ? 'Discard draft' : 'Cancel'}
           </Button>
           <Button type="submit" variant="primary" disabled={submitting}>
             {isReplace ? 'Replace sprite' : 'Create sprite'}

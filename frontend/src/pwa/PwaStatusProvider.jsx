@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { registerSW } from 'virtual:pwa-register';
+import { registerPromptWorker } from './registerPromptWorker';
 
 import { STORAGE_KEYS } from '../constants/storage';
 import { PwaStatusContext } from './pwaStatus.context';
@@ -51,15 +51,35 @@ function markReloadAttempt() {
 export function PwaStatusProvider({ children }) {
   const [updateReady, setUpdateReady] = useState(false);
   const [offlineReady, setOfflineReady] = useState(false);
+  const [updateBlocked, setUpdateBlocked] = useState(false);
+  const [updateError, setUpdateError] = useState('');
   const updateSWRef = useRef(null);
+  const guards = useRef(new Set());
+  const updateRun = useRef(null);
+  const needsReload = useRef(false);
+
+  const registerUpdateGuard = useCallback((id, active) => {
+    if (active) guards.current.add(id);
+    else guards.current.delete(id);
+    setUpdateBlocked(guards.current.size > 0);
+  }, []);
+
+  const stopUpdateRun = useCallback(() => {
+    const run = updateRun.current;
+    if (!run) return;
+    clearTimeout(run.timer);
+    navigator.serviceWorker?.removeEventListener('controllerchange', run.onControllerChange);
+    updateRun.current = null;
+  }, []);
 
   useEffect(() => {
     // Skip registration only in the actual `vite` dev server. In tests,
     // MODE === 'test' (with import.meta.env.DEV also true) — but we DO want
-    // registerSW to be called so the test mock can capture the callbacks.
+    // registration to run so the test mock can capture the callbacks.
     // In production, MODE === 'production' and registration proceeds.
     if (isNativeRuntime() || import.meta.env.MODE === 'development') return undefined;
-    updateSWRef.current = registerSW({
+    const sessionGuards = guards.current;
+    const worker = registerPromptWorker({
       onNeedRefresh: () => {
         if (recentlyAttemptedReload()) {
           clearReloadAttempt();
@@ -68,39 +88,69 @@ export function PwaStatusProvider({ children }) {
         setUpdateReady(true);
       },
       onOfflineReady: () => setOfflineReady(true),
+      onRegisterError: () => setUpdateError('Could not prepare the app update. Try again later.'),
     });
-    return undefined;
-  }, []);
+    updateSWRef.current = worker.update;
+    return () => {
+      worker.dispose();
+      updateSWRef.current = null;
+      stopUpdateRun();
+      sessionGuards.clear();
+    };
+  }, [stopUpdateRun]);
 
   const applyUpdate = useCallback(() => {
-    if (isNativeRuntime()) return;
-    // Hide the banner instantly so the user sees a response to their click
-    // even if the SW handshake or page reload takes a beat. Also stamp a
-    // timestamp so the post-reload mount can swallow a re-firing
-    // onNeedRefresh from a still-drifting sw.js fetch.
-    setUpdateReady(false);
-    markReloadAttempt();
-    const fn = updateSWRef.current;
-    if (typeof fn === 'function') {
-      fn(true);
+    if (isNativeRuntime() || import.meta.env.MODE === 'development') return false;
+    if (guards.current.size > 0) {
+      return false;
     }
-    // Own the reload instead of trusting vite-plugin-pwa's internal
-    // controllerchange listener — that listener is unreliable on iOS Safari
-    // PWAs and silently no-ops when there's no real waiting SW, which is
-    // the failure mode behind "the banner is always there".
-    let reloaded = false;
+    if (updateRun.current) return false;
+    // Hide the banner while activation starts. The actual guarded reload
+    // stamps the recent-attempt marker used by the next app boot.
+    setUpdateReady(false);
+    setUpdateError('');
+    // Both worker control and the iOS timeout fallback use this one guarded
+    // path. Registration itself never reloads the page.
+    const run = { timer: null, onControllerChange: null };
+    updateRun.current = run;
     const reload = () => {
-      if (reloaded) return;
-      reloaded = true;
+      if (updateRun.current !== run) return;
+      // New work can open after activation was requested. Keep it intact;
+      // updating remains an explicit choice after its guard is released.
+      if (guards.current.size > 0) {
+        stopUpdateRun();
+        setUpdateReady(true);
+        return;
+      }
+      stopUpdateRun();
+      markReloadAttempt();
       window.location.reload();
     };
+    run.onControllerChange = () => {
+      needsReload.current = true;
+      reload();
+    };
     if (typeof navigator !== 'undefined' && navigator.serviceWorker) {
-      navigator.serviceWorker.addEventListener('controllerchange', reload, {
+      navigator.serviceWorker.addEventListener('controllerchange', run.onControllerChange, {
         once: true,
       });
     }
-    setTimeout(reload, RELOAD_FALLBACK_MS);
-  }, []);
+    run.timer = setTimeout(reload, RELOAD_FALLBACK_MS);
+    const fn = updateSWRef.current;
+    Promise.resolve(needsReload.current ? true : typeof fn === 'function' ? fn() : false).then((started) => {
+      if (started === true) needsReload.current = true;
+      if (started !== false || updateRun.current !== run) return;
+      stopUpdateRun();
+      setUpdateReady(true);
+      setUpdateError('Could not start the app update. Try again later.');
+    }).catch(() => {
+      if (updateRun.current !== run) return;
+      stopUpdateRun();
+      setUpdateReady(true);
+      setUpdateError('Could not start the app update. Try again later.');
+    });
+    return true;
+  }, [stopUpdateRun]);
 
   const dismissOfflineReady = useCallback(() => {
     setOfflineReady(false);
@@ -108,7 +158,7 @@ export function PwaStatusProvider({ children }) {
 
   return (
     <PwaStatusContext.Provider
-      value={{ updateReady, offlineReady, applyUpdate, dismissOfflineReady }}
+      value={{ updateReady, offlineReady, updateBlocked, updateError, registerUpdateGuard, applyUpdate, dismissOfflineReady }}
     >
       {children}
     </PwaStatusContext.Provider>

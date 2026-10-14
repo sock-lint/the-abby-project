@@ -38,6 +38,14 @@ function tintedSurface(tone, base, opacity) {
 describe('theme contrast (WCAG AA)', () => {
   for (const [themeKey, theme] of Object.entries(themes)) {
     describe(`${themeKey} (${theme.name})`, () => {
+      it('keeps nested-card supporting copy readable over every owning surface', () => {
+        for (const surface of SURFACES) {
+          const background = tintedSurface(theme.pageShadow, theme[surface], 0.8);
+          for (const inkKey of INK_KEYS) {
+            expect(contrastRatio(theme[inkKey], background), `${inkKey} on deep card over ${surface}`).toBeGreaterThanOrEqual(AA_NORMAL);
+          }
+        }
+      });
       it('keeps shared status, rarity and danger labels readable on their tinted surfaces', () => {
         const tokens = {
           'ink-primary': theme.ink, 'ink-secondary': theme.inkSecondary,

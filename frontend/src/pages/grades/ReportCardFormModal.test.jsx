@@ -58,7 +58,7 @@ describe('ReportCardFormModal', () => {
     expect(screen.getByRole('combobox', { name: 'Quarter' })).toHaveValue('1');
     expect(screen.getByLabelText('Date received')).toHaveValue(toISODate(new Date()));
     expect(row().getByRole('combobox', { name: 'Grade format' })).toHaveValue('percentage');
-    expect(screen.getByRole('checkbox', { name: 'Share with my family' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Share with parents in my family' })).not.toBeChecked();
     expect(screen.getByRole('button', { name: 'Remove subject 1' })).toBeDisabled();
   });
 
@@ -110,7 +110,7 @@ describe('ReportCardFormModal', () => {
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2026-01-02');
     await user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'A lot of practice this semester.');
-    await user.click(screen.getByRole('checkbox', { name: 'Share with my family' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await user.click(screen.getByRole('button', { name: 'Save report card' }));
     await screen.findByRole('dialog', { name: 'Report card saved' });
     expect(spy.calls[0].body).toMatchObject({
@@ -121,7 +121,7 @@ describe('ReportCardFormModal', () => {
       ] },
       reflection: 'A lot of practice this semester.', occurred_on: '2026-01-02', is_private: false,
     });
-    expect(screen.getByText(/Shared with your family/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shared with parents in your family/i)).toBeInTheDocument();
   });
 
   it('validates required fields and duplicate subjects without sending an invalid card', async () => {
@@ -245,7 +245,7 @@ describe('ReportCardFormModal', () => {
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2026-01-02');
     await user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'Correction confirmed.');
-    await user.click(screen.getByRole('checkbox', { name: 'Share with my family' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await user.click(screen.getByRole('button', { name: 'Save correction' }));
     await screen.findByRole('dialog', { name: 'Report card corrected' });
     expect(spy.calls).toHaveLength(1);
@@ -266,7 +266,7 @@ describe('ReportCardFormModal', () => {
     expect(screen.getByRole('textbox', { name: 'Reflection (optional)' })).toHaveValue('A kept thought.');
     expect(screen.getByRole('combobox', { name: 'Reporting period' })).toHaveValue('semester');
     expect(row().getByRole('combobox', { name: 'Letter grade' })).toHaveValue('B');
-    expect(screen.getByRole('checkbox', { name: 'Share with my family' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Share with parents in my family' })).toBeChecked();
   });
 
   it.each(['daily_limit', 'unavailable', 'not_eligible'])('saves a report card with a %s receipt without claiming XP', async (status) => {

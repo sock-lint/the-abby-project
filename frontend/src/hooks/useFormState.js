@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 
 /**
  * Bundles the form + saving + error state every CRUD modal needs.
@@ -30,6 +31,7 @@ export function useFormState(initial) {
     () => JSON.stringify(form) !== JSON.stringify(initial),
     [form, initial],
   );
+  usePwaUpdateGuard(dirty || saving);
 
   const [fieldErrors, setFieldErrors] = useState({});
 

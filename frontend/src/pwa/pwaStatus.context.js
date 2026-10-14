@@ -17,6 +17,9 @@ const noop = () => {};
 export const PwaStatusContext = createContext({
   updateReady: false,
   offlineReady: false,
+  updateBlocked: false,
+  updateError: '',
+  registerUpdateGuard: noop,
   applyUpdate: noop,
   dismissOfflineReady: noop,
 });

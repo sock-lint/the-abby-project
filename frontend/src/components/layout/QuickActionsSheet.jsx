@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Play, Square, BookOpen, Box, Target, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
 import { CoinIcon } from '../icons/JournalIcons';
 import BottomSheet from '../BottomSheet';
+import ConfirmDialog from '../ConfirmDialog';
 import {
   clockIn, clockOut, getProjects,
   getHomeworkDashboard,
@@ -28,6 +29,7 @@ import HomeworkFormModal from '../../pages/Homework/HomeworkFormModal';
 import HomeworkSubmitSheet from '../HomeworkSubmitSheet';
 import { SuccessToastContext } from '../../contexts/SuccessToastContext';
 import { formatDuration } from '../../utils/format';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 function formatClock(secs) {
   const h = Math.floor(secs / 3600);
@@ -65,12 +67,11 @@ function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false 
   );
 }
 
-function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockReload }) {
+function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockReload, notes, setNotes, busy, setBusy }) {
   // null = untouched — falls back to the remembered/default venture below.
   const [selectedProject, setSelectedProject] = useState(null);
-  const [notes, setNotes] = useState('');
   const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [confirmingBack, setConfirmingBack] = useState(false);
   // Optional: App mounts SuccessToastProvider around the whole authed tree,
   // but the sheet is also rendered on its own in tests.
   const showSuccess = useContext(SuccessToastContext);
@@ -106,7 +107,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
 
   return (
     <div className="space-y-3">
-      <button type="button" onClick={onBack} className="min-h-11 px-3 rounded-full font-body font-semibold text-body text-ink-primary hover:bg-sheikah-teal/10">
+      <button type="button" disabled={busy} onClick={() => notes ? setConfirmingBack(true) : onBack()} className="min-h-11 px-3 rounded-full font-body font-semibold text-body text-ink-primary hover:bg-sheikah-teal/10 disabled:opacity-50">
         ← Back
       </button>
       {isClocked ? (
@@ -117,6 +118,7 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
             {formatClock(elapsedSecs)}
           </div>
           <TextAreaField
+            label="Clock-out notes"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Scribble what you did…"
@@ -155,6 +157,14 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
           </Button>
         </>
       )}
+      {confirmingBack && <ConfirmDialog
+        stacked
+        title="Discard clock-out notes?"
+        message="Your notes have not been saved."
+        confirmLabel="Discard"
+        onCancel={() => setConfirmingBack(false)}
+        onConfirm={() => { setNotes(''); onBack(); }}
+      />}
     </div>
   );
 }
@@ -177,6 +187,8 @@ export default function QuickActionsSheet({
   const navigate = useNavigate();
   const { isParent } = useRole();
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
+  const [clockNotes, setClockNotes] = useState('');
+  const [clockBusy, setClockBusy] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [gradeOpen, setGradeOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
@@ -218,6 +230,9 @@ export default function QuickActionsSheet({
   const projects = normalizeList(projectsData);
   const quickClockProject = isClocked ? null : rememberedClockProject(activeProjectsOf(projects));
   const [quickClockBusy, setQuickClockBusy] = useState(false);
+  const dirty = Boolean(clockNotes);
+  const busy = clockBusy || quickClockBusy;
+  usePwaUpdateGuard(dirty || busy);
 
   const handleQuickClockIn = async () => {
     setQuickClockBusy(true);
@@ -306,7 +321,7 @@ export default function QuickActionsSheet({
       }}
     />
 
-    <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose}>
+    <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose} dirty={dirty} disabled={busy}>
       {pane === 'menu' && (
         <div className="space-y-2">
           {quickClockProject ? (
@@ -462,6 +477,10 @@ export default function QuickActionsSheet({
           projects={projects}
           onBack={() => setPane('menu')}
           onClockReload={onClockReload}
+          notes={clockNotes}
+          setNotes={setClockNotes}
+          busy={clockBusy}
+          setBusy={setClockBusy}
         />
       )}
     </BottomSheet>

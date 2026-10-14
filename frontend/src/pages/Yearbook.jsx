@@ -4,7 +4,9 @@ import Button from '../components/Button'
 import EmptyState from '../components/EmptyState'
 import ErrorAlert from '../components/ErrorAlert'
 import Loader from '../components/Loader'
-import { SelectField } from '../components/form'
+import ChildContext from '../components/family/ChildContext'
+import useChildContext from '../hooks/useChildContext'
+import { getToken } from '../api/client'
 import TomeShelf from '../components/atlas/TomeShelf'
 import {
   chapterMark,
@@ -12,8 +14,7 @@ import {
 } from '../components/atlas/mastery.constants'
 import { useRole } from '../hooks/useRole'
 import useChronicleRevision from '../hooks/useChronicleRevision'
-import { getChildren, getChronicleSummary } from '../api'
-import { normalizeList } from '../utils/api'
+import { getChronicleSummary } from '../api'
 import ChapterCard from './yearbook/ChapterCard'
 import ManualEntryFormModal from './yearbook/ManualEntryFormModal'
 
@@ -25,38 +26,18 @@ export default function Yearbook() {
 
   // Auth can change without this page unmounting. Keep the child list and
   // selection inside an account-scoped tree so neither survives that change.
-  return <AccountYearbook key={`${user.id}:${user.role}`} user={user} isParent={isParent} />
+  return <AccountYearbook key={`${user.id}:${user.role}:${user.family?.id ?? ''}:${getToken()}`} isParent={isParent} />
 }
 
-function AccountYearbook({ user, isParent }) {
-  const [childState, setChildState] = useState({ loading: true, children: [], error: null })
-  const [childrenRequest, setChildrenRequest] = useState(0)
-  const [selectedChildId, setSelectedChildId] = useState(null)
-  const targetUserId = isParent ? selectedChildId ?? childState.children[0]?.id : user.id
+function AccountYearbook({ isParent }) {
+  const { children, targetUserId, selectChild, loading, error, reload } = useChildContext()
   const revision = useChronicleRevision(targetUserId)
 
-  useEffect(() => {
-    if (!isParent) return undefined
-    let cancelled = false
-    getChildren()
-      .then((res) => {
-        if (!cancelled) {
-          setChildState({ loading: false, children: normalizeList(res), error: null })
-        }
-      })
-      .catch((err) => {
-        if (!cancelled) setChildState({ loading: false, children: [], error: err })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [isParent, childrenRequest])
-
-  if (isParent && childState.loading) return <Loader />
-  if (isParent && childState.error) {
-    return <YearbookLoadError error={childState.error} onRetry={() => setChildrenRequest((n) => n + 1)} />
+  if (isParent && loading) return <Loader />
+  if (isParent && error) {
+    return <YearbookLoadError error={error} onRetry={reload} />
   }
-  if (isParent && childState.children.length === 0) {
+  if (isParent && children.length === 0) {
     return (
       <EmptyState>
         <p className="font-semibold mb-1">No children yet</p>
@@ -71,8 +52,8 @@ function AccountYearbook({ user, isParent }) {
       key={`${targetUserId}:${revision}`}
       targetUserId={targetUserId}
       isParent={isParent}
-      childOptions={childState.children}
-      onSelectChild={setSelectedChildId}
+      childOptions={children}
+      onSelectChild={selectChild}
     />
   )
 }
@@ -80,7 +61,7 @@ function AccountYearbook({ user, isParent }) {
 function YearbookLoadError({ error, onRetry }) {
   return (
     <div className="space-y-3 max-w-xl mx-auto">
-      <ErrorAlert message={error?.message || 'Could not load the timeline.'} />
+      <ErrorAlert message={error?.message || (typeof error === 'string' ? error : 'Could not load the timeline.')} />
       <Button variant="secondary" size="sm" onClick={onRetry}>
         Try again
       </Button>
@@ -108,7 +89,11 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
     getChronicleSummary(isParent ? targetUserId : undefined)
       .then((res) => {
         if (cancelled) return
-        const chapters = res?.chapters ?? []
+        const chapters = (res?.chapters ?? []).map((chapter) => ({
+          ...chapter,
+          entries: (chapter.entries ?? []).filter((entry) =>
+            entry.user === targetUserId && (!isParent || !['journal', 'grade'].includes(entry.kind) || entry.is_private === false)),
+        }))
         setState({ loading: false, chapters, error: null })
       })
       .catch((err) => {
@@ -185,7 +170,7 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
       {/* Below md the Chronicle hub's tab strip already names this page —
           the stacked h1 + explainer ate ~100px above the fold on phones.
           Same treatment as the Skills tab (pages/Achievements.jsx). */}
-      <header className="hidden md:block text-center max-w-xl mx-auto">
+      <header className="sr-only md:not-sr-only text-center max-w-xl mx-auto">
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Timeline
         </h1>
@@ -194,28 +179,8 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
         </p>
       </header>
       {isParent && (
-        <div className="flex items-end justify-between gap-3">
-          <SelectField
-            id="yearbook-child-picker"
-            label="Viewing"
-            value={targetUserId}
-            onChange={(e) => onSelectChild(parseInt(e.target.value, 10))}
-            className="flex-1 max-w-xs"
-          >
-            {childOptions.map((child) => (
-              <option key={child.id} value={child.id}>
-                {child.first_name || child.username}
-              </option>
-            ))}
-          </SelectField>
-          <Button
-            variant="secondary"
-            onClick={() => setShowAdd(true)}
-            disabled={!targetUserId}
-          >
-            Add memory
-          </Button>
-        </div>
+        <ChildContext children={childOptions} selectedChildId={targetUserId} onSelect={onSelectChild}
+          actions={<Button variant="secondary" onClick={() => setShowAdd(true)} disabled={!targetUserId}>Add memory</Button>} />
       )}
       {view.loading ? <Loader /> : view.error ? (
         <YearbookLoadError error={view.error} onRetry={fetchSummary} />

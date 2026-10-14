@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { recordGreenlightPayout } from '../../api';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
@@ -8,6 +8,7 @@ import { fieldErrors } from '../../utils/api';
 import { toISODate } from '../../utils/dates';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { readPendingTransfer, savePendingTransfer } from './greenlightDraft';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 export default function GreenlightTransferForm({ userId, kidName, overview, ownerKey, onClose, onSaved }) {
   const [pending] = useState(() => readPendingTransfer(ownerKey, userId));
@@ -25,6 +26,9 @@ export default function GreenlightTransferForm({ userId, kidName, overview, owne
   const [retryPayload, setRetryPayload] = useState(pending?.payload || null);
   const [conflict, setConflict] = useState(pending?.conflict || false);
   const [reviewedConflict, setReviewedConflict] = useState(false);
+  const saved = useRef({ form, confirmed });
+  const dirty = JSON.stringify(form) !== JSON.stringify(saved.current.form) || confirmed !== saved.current.confirmed;
+  usePwaUpdateGuard(dirty || saving);
   const cards = overview.approved_timecards || [];
   const edit = (changes) => {
     if (retryPayload) return;
@@ -40,7 +44,9 @@ export default function GreenlightTransferForm({ userId, kidName, overview, owne
     setConflict(false);
     setReviewedConflict(false);
     setRequestKey(crypto.randomUUID());
-    setForm({ amount: '', transferred_on: toISODate(new Date()), reference: '', memo: '', timecard_id: '' });
+    const cleared = { amount: '', transferred_on: toISODate(new Date()), reference: '', memo: '', timecard_id: '' };
+    saved.current = { form: cleared, confirmed: false };
+    setForm(cleared);
     setConfirmed(false);
     setError('');
     setErrors({});
@@ -60,6 +66,7 @@ export default function GreenlightTransferForm({ userId, kidName, overview, owne
     try {
       await recordGreenlightPayout(payload);
       savePendingTransfer(ownerKey, null);
+      saved.current = { form, confirmed };
       onSaved();
     } catch (failure) {
       const fields = fieldErrors(failure);

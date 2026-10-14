@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Plus, Printer, Trash2 } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import ParchmentCard from '../../components/journal/ParchmentCard';
@@ -12,6 +12,7 @@ import ModalActions from '../../components/ModalActions';
 import { CheckboxField, SelectField, TextField } from '../../components/form';
 import { createPrinter, deletePrinter, updatePrinter } from '../../api';
 import { fieldErrors } from '../../utils/api';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 const BLANK = {
   name: '', serial: '', model_name: 'X1C', transport: 'local',
@@ -36,6 +37,9 @@ function PrinterForm({ printer, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [fieldError, setFieldError] = useState({});
+  const initialForm = useRef(form);
+  const dirty = FORM_FIELDS.some((key) => form[key] !== initialForm.current[key]);
+  usePwaUpdateGuard(dirty || saving);
 
   const set = (key) => (e) => {
     // Clear this field's server-side complaint as soon as it's being answered
@@ -95,7 +99,7 @@ function PrinterForm({ printer, onClose, onSaved }) {
   };
 
   return (
-    <BottomSheet title={printer ? 'Edit printer' : 'Add a printer'} onClose={onClose}>
+    <BottomSheet title={printer ? 'Edit printer' : 'Add a printer'} onClose={onClose} dirty={dirty} disabled={saving}>
       <form onSubmit={submit} className="space-y-3">
         <TextField id="forge-printer-name" label="Name" value={form.name} onChange={set('name')} placeholder="X1C in the garage" error={fieldError.name} />
         <TextField id="forge-printer-serial" label="Serial" value={form.serial} onChange={set('serial')} error={fieldError.serial} helpText="Forms the MQTT topic the listener subscribes to." />
@@ -145,6 +149,7 @@ function PrinterForm({ printer, onClose, onSaved }) {
         {error && <ErrorAlert message={error} />}
         <ModalActions
           onClose={onClose}
+          cancelLabel={dirty ? 'Discard changes' : 'Cancel'}
           saving={saving}
           submitLabel={printer ? 'Save printer' : 'Add printer'}
         />

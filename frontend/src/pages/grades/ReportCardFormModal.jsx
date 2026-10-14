@@ -202,7 +202,7 @@ function ReportCardForm({ mode = 'create', entry, userId, onSaved, onClose }) {
             {!isCreate && <p className="text-body text-ink-secondary">Corrections do not earn another reward.</p>}
           </div>
           <GradeRecordDetails entry={savedEntry} />
-          <p className="text-body text-ink-secondary">{savedEntry.is_private === false ? 'Shared with your family. They can leave a response.' : 'Only you can read this report card in the app.'}</p>
+          <p className="text-body text-ink-secondary">{savedEntry.is_private === false ? 'Shared with parents in your family. They can leave a response.' : 'Only you can read this report card in the app.'}</p>
           <Button variant="primary" className="w-full" onClick={finish}>Done</Button>
         </div>
       </BottomSheet>
@@ -217,7 +217,7 @@ function ReportCardForm({ mode = 'create', entry, userId, onSaved, onClose }) {
           <section aria-label="Latest saved report card" className="rounded-lg border border-ink-page-shadow p-3 space-y-3">
             <p className="text-body">An older correction draft was restored. Review it against the latest saved report card below before saving.</p>
             <GradeRecordDetails entry={entry} />
-            <p className="text-caption">{formatDate(entry.occurred_on)} · {entry.is_private === false ? 'Shared with family' : 'Only you'}</p>
+            <p className="text-caption">{formatDate(entry.occurred_on)} · {entry.is_private === false ? 'Shared with parents' : 'Only me'}</p>
             {entry.summary && <p className="text-body whitespace-pre-wrap break-words">{entry.summary}</p>}
           </section>
         )}
@@ -262,12 +262,12 @@ function ReportCardForm({ mode = 'create', entry, userId, onSaved, onClose }) {
             name and touch target outside the text/select primitives. */}
         <label className="flex items-center gap-3 min-h-11 text-body text-ink-primary">
           <input type="checkbox" checked={!form.is_private} disabled={blocked} className="h-5 w-5 shrink-0 accent-sheikah-teal-deep" onChange={(event) => changeForm({ is_private: !event.target.checked })} />
-          Share with my family
+          Share with parents in my family
         </label>
         {errors.is_private && <p role="alert" className="text-body text-ember-deep">{errors.is_private}</p>}
         <p className="flex items-start gap-2 text-caption text-ink-secondary">
           {form.is_private ? <Lock size={14} aria-hidden="true" /> : <Heart size={14} aria-hidden="true" />}
-          <span>{form.is_private ? 'Only you can read this report card in the app.' : 'Your parents can read this report card and leave a response.'}</span>
+          <span>{form.is_private ? 'Only you can read this report card in the app.' : 'Parents in your family can read this report card and leave a response.'}</span>
         </p>
         <ErrorAlert message={error} />
         <p role="status" aria-live="polite" className="text-caption text-ink-whisper">

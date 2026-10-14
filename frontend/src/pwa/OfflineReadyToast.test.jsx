@@ -45,7 +45,8 @@ describe('OfflineReadyToast', () => {
       dismissOfflineReady: vi.fn(),
     });
     expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(screen.getByText(/ready to work offline/i)).toBeInTheDocument();
+    expect(screen.getByText(/app saved on this device.*need a connection/i)).toBeInTheDocument();
+    expect(screen.queryByText(/ready to work offline/i)).not.toBeInTheDocument();
   });
 
   it('auto-dismisses after 4 seconds', () => {

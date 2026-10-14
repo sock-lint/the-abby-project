@@ -275,6 +275,8 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         performed_day = performed_at.astimezone(ZoneInfo("America/Phoenix")).date()
         ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=boundary)
         with patch("django.utils.timezone.now", return_value=boundary):
+            # Definition creation is an eligibility cutoff too. Keep it on
+            # the fixture clock so a later real test run cannot skip approval.
             definition = QuestDefinition.objects.create(
                 name="Fresh approvals", description="An approved chore", is_system=True,
                 quest_type="collection", target_value=1, duration_days=7, coin_reward=5,
