@@ -30,7 +30,7 @@ function promptsForToday() {
 /**
  * WellbeingCard — Finch-inspired daily affirmation + gratitude pad.
  *
- * Lives on child Today after the task list and recent items. Soft tone —
+ * Lives on child Today after tasks, projects and the pinned goal. Soft tone —
  * never punishes, never streaks, no
  * notifications. The first-of-day gratitude submit pays a small coin
  * trickle (see apps/wellbeing/services.py); subsequent edits same-day

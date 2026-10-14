@@ -260,10 +260,34 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 ## Dashboard (role-split)
 
-[`pages/Dashboard.jsx`](/frontend/src/pages/Dashboard.jsx) is a thin router — loads `/api/dashboard/` once and branches to `ChildDashboard` or `ParentDashboard` based on `user.role`. The shared loader + error-retry block lives at this layer so integration tests can exercise both roles from one entry point.
+`Dashboard.jsx` loads `/api/dashboard/` and routes by role. Loading and retry
+feedback remain at that shared entry point.
 
-- **Child** body: contextual `HeroPrimaryCard` (priority `clocked → next-action → quest-progress → idle`, where `next-action` consumes `next_actions[0]` from the backend's [`apps/projects/priority.py`](/apps/projects/priority.py) scorer), horizontal `VitalPipStrip` (coins/streak/level/pet), quest log (duties/homework/rituals entries with "to be inked before nightfall" kicker merged into the page header — no separate "Today's Log" section header), loot rail, and everything else wrapped in `AccordionSection` (collapsed by default, open state persisted per-title in `localStorage` keyed `dashboard-accordion-{slug}`). **Since-last-visit card** (2026-06): the dashboard payload's child-only `since_last_visit` block (`{last_seen_at, badges_earned, coins_earned, approvals}`, `null` on first visit — backed by `User.last_seen_at`, stamped on every dashboard fetch) renders as a dismissible [`SinceLastVisitCard`](/frontend/src/components/dashboard/SinceLastVisitCard.jsx) above the `VitalPipStrip`; it hides itself when every count is zero, so quick refreshes show nothing.
-- **Parent** body: `useParentDashboard` hook aggregates pending chores + pending homework submissions + pending redemptions + pending creations + pending **exchange requests** (added 2026-05 via `getExchangeList`) in parallel via `Promise.allSettled`, unifies to `{ id, kind, kidId, kidName, title, subtitle, reward, submittedAt }`, sorts newest-first; `ApprovalQueueList` groups by kid with inline Approve/Reject rows that call the existing `approveChoreCompletion` / `approveHomeworkSubmission` / `approveRedemption` / `approveCreation` / `approveExchange` endpoints and optimistically remove the row. **Approve all (N)** (2026-05): when a kid has 2+ approvable rows pending, a per-kid `Approve all (N)` button appears; the fanout uses `Promise.allSettled` so a single 4xx doesn't kill the batch (failures stay visible with an error chip). Bulk runs greater than 3 rows prompt a `ConfirmDialog` first. **Reject sheet** (2026-05): the inline Reject button now opens a `BottomSheet` with an optional note input — the note is woven into the rejection-notification body (visible per the chore/homework/creation/redemption/exchange notification types) so the kid sees why without having to ask. **Empty state** (2026-05): the dashboard payload's `_parent_extras` now includes `children_count`; `ParentDashboard` renders a `NoChildrenWelcome` card linking to `/manage` when `children_count === 0` instead of an empty queue. **Child picker on Payments adjust** (2026-05): the parent-only `Adjust Payment` form on `/payments` swapped its raw "Child User ID" number input for a `<SelectField>` populated by `getChildren()` — eliminates typo-driven 404s. **Partial-failure visibility** (2026-05-09): the hook also returns `failedSources` (string labels — `chore approvals`, `homework approvals`, `reward redemptions`, etc., one per `SOURCES` entry in [`useParentDashboard.js`](/frontend/src/hooks/useParentDashboard.js)). `ParentDashboard.jsx` renders an `<ErrorAlert>` + Retry button above the queue when any fetch errored, so a 500 on (say) `/api/homework/dashboard/` is no longer indistinguishable from "no pending homework approvals" — pinned by the "shows a retry-able banner when an approval queue fails to load" case in [`ParentDashboard.test.jsx`](/frontend/src/pages/ParentDashboard.test.jsx). Today's Log is retired for parents. Collapsed `Week at a glance` + `Quick adjusts` blocks round out the page. **Week at a glance is live** (2026-06): `_parent_extras` now returns `this_week_by_kid` (`[{kid_id, name, hours, earnings}]` — completed `TimeEntry` minutes × the child's `hourly_rate`, family-scoped via `children_in`), so `WeekGlanceBlock` and the Family Snapshot per-kid lines render real data instead of the perpetual empty state.
+Child Today leads with the running timer or backend's first `next_actions`
+recommendation. Your tasks preserves that feed's cross-kind urgency order before
+limiting the initial list to five; Show all reveals the rest. Active projects
+are always visible under Continue a project, followed by the exact pinned goal
+from `useChallenges`. Challenge errors retain their retry, and an unavailable
+response never becomes an empty-pin claim. Reflection follows work, then the
+since-last-visit recap, status shortcuts and collapsed Rewards & earnings.
+The automatic daily bonus uses the same challenge response inside that earnings
+disclosure; its closed summary acknowledges a confirmed award. Recent items,
+savings and badges follow. Saved accordion preferences remain honored.
+An empty priority feed says No urgent tasks right now: this filtered feed cannot
+prove that all work is complete or that a family has never assigned anything.
+
+Parent Today puts failed-source feedback before the summary and review queue.
+`useParentDashboard` unifies pending chores, homework, redemptions, creations,
+proposals and coin exchanges. `pending_timecards` adds a linked review row and
+counts toward the same attention summary. An incomplete read cannot produce an
+all-clear. `ApprovalQueueList` retains inline evidence, approve/reject, optional
+rejection notes and per-child bulk actions; the parent owns its scroll anchor.
+Family overview is visible without opening a disclosure, combines per-child
+clocked hours and clocked earnings, and has its own roster retry. These weekly
+figures are time-entry estimates, not total family earnings. Assign homework and
+New chore open the existing creation forms. Optional Getting started links
+follow that overview and make no unverified setup-completion claims;
+`children_count` is a flat dashboard field. Manual corrections remain collapsed.
 
 ## Global header + FAB
 
@@ -271,7 +295,11 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 
 **Gotcha:** the mobile `overflow-x: hidden` guard lives on `body` (not `main`) in `index.css` — putting it on `main` turns `<main>` into a scroll container which traps `position: sticky` inside the main's overflow instead of the window.
 
-**Quest log on the child dashboard** is now driven entirely by `next_actions` from the dashboard payload — `buildQuestLogFromActions()` in [`ChildDashboard.jsx`](/frontend/src/pages/ChildDashboard.jsx) buckets the scored, sorted feed into Study (homework) / Duty (chore) / Ritual (habit) sections. Backend ordering (overdue → due-today → due-tomorrow → daily chore → due-this-week → weekly chore — see scoring formula in [`apps/projects/priority.py`](/apps/projects/priority.py)) is preserved within each section. Submitted-pending homework is excluded server-side ("nothing left to *do*"); rejected submissions remain eligible. Clicking an open homework row opens [`HomeworkSubmitSheet`](/frontend/src/components/HomeworkSubmitSheet.jsx) inline (photo upload + notes + `submitHomework`) so the child can file proof without leaving the dashboard — the same component is reused on [`pages/Homework/index.jsx`](/frontend/src/pages/Homework/index.jsx).
+**Your tasks on child Today** uses the ranked `next_actions` feed without
+regrouping by kind. Backend urgency and tie-breaking stay intact across homework,
+chores and habits. Pending homework is excluded server-side; rejected submissions
+remain actionable. Homework rows still open `HomeworkSubmitSheet` inline, while
+chore and habit rows use their existing endpoints and refresh the dashboard.
 
 `QuickActionsFab` replaces the old `ClockFab` — single bottom-right button that opens `QuickActionsSheet` with role-aware contextual actions: child sees Clock in · Add homework · Submit due (only when a due assignment exists) · Ask for a print (deep-links to `/quests?tab=forge&new=1`, which opens the submit modal on mount) · View challenges (without spending a scroll) · Contribute to hoard (only when an active savings goal exists); parent sees Clock in · Create homework for a kid · Adjust coins · Adjust payment. Reward shop is deliberately **not** in quick actions — browsing rewards is a considered choice and belongs on the Treasury page. Clock-in is still the most common action and is the default focus when opened. The FAB continues to show a running-timer chip while clocked in so the at-a-glance signal is preserved.
 
@@ -288,7 +316,8 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 ## Daily reflection and challenges
 
 Child Today owns `dashboard/WellbeingCard.jsx`: today's affirmation and saved
-gratitude lines appear after tasks and recent items, before Rewards & earnings.
+gratitude lines appear after tasks, projects and the pinned goal, before progress
+and Rewards & earnings.
 The same self-scoped wellbeing endpoints handle first saves and later edits;
 parents do not render this card. Profile owns identity, picture, character,
 frames and titles. Its former daily-note card and Challenges shortcut are removed.

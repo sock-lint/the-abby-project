@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { delay, http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
@@ -155,6 +155,51 @@ describe('ParentDashboard', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/chore approvals/i),
     );
     expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument();
+    expect(screen.queryByText(/you're all caught up|no pending approvals/i)).toBeNull();
+    const summary = screen.getByRole('heading', { name: /some updates are unavailable/i });
+    expect(screen.getByRole('alert').compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('places decisions and the visible family overview before optional setup', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1 })),
+      http.get('*/api/children/', () => HttpResponse.json([{ id: 2, username: 'abby', display_name: 'Abby' }])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([
+        { id: 11, chore_title: 'Dishes', user: 2, user_name: 'Abby' },
+      ])),
+    ]);
+    const approval = await screen.findByRole('button', { name: /approve dishes/i });
+    const family = screen.getByRole('heading', { name: 'Family overview' });
+    const setup = screen.getByText('Getting started');
+    expect(approval.compareDocumentPosition(family) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(family.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('button', { name: /manage abby/i })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /add a child to your family/i })).toBeNull();
+  });
+
+  it('includes pending timecards in attention with a direct review link', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1, pending_timecards: 2 })),
+    ]);
+    const link = await screen.findByRole('link', { name: /review 2 timecards/i });
+    expect(link).toHaveAttribute('href', '/treasury?tab=wages');
+    expect(link.closest('#approval-queue')).not.toBeNull();
+    expect(screen.queryByText(/you're all caught up|no pending approvals/i)).toBeNull();
+    expect(screen.getByText(/2 (things|items) to review/i)).toBeInTheDocument();
+  });
+
+  it('shows a child-list failure without claiming the family has no children', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1 })),
+      http.get('*/api/children/', () => HttpResponse.json({ error: 'Family lookup failed' }, { status: 500 })),
+    ]);
+    const family = await screen.findByRole('region', { name: 'Family overview' });
+    expect(await within(family).findByRole('alert')).toHaveTextContent(/couldn't load your family/i);
+    expect(within(family).queryByText(/no children added yet/i)).toBeNull();
+    expect(within(family).getByRole('button', { name: /try again/i })).toBeInTheDocument();
   });
 
   it('shows the NoChildrenWelcome empty state when children_count is 0 and pending queue is empty', async () => {
@@ -200,8 +245,7 @@ describe('ParentDashboard', () => {
     expect(screen.queryByText(/welcome — let's add your first kid/i)).toBeNull();
   });
 
-  it('renders per-kid hours and earnings from this_week_by_kid in Week at a glance', async () => {
-    const user = userEvent.setup();
+  it('shows clocked hours and earnings once in the visible family overview', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/dashboard/', () =>
@@ -214,15 +258,14 @@ describe('ParentDashboard', () => {
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [] })),
       http.get('*/api/redemptions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([{ id: 2, username: 'abby', display_name: 'Abby' }])),
     ]);
-    // Collapsed peek reflects the active-kid count…
-    await waitFor(() => expect(screen.getByText(/1 kid active/i)).toBeInTheDocument());
-    // …and expanding reveals the per-kid hours + earnings rows.
-    await user.click(screen.getByRole('button', { name: /week at a glance/i }));
-    expect(await screen.findByText('Abby')).toBeInTheDocument();
-    expect(screen.getByText('1.5h')).toBeInTheDocument();
-    expect(screen.getByText('$15.00')).toBeInTheDocument();
+    const child = await screen.findByRole('button', { name: /manage abby/i });
+    expect(child).toHaveTextContent(/1.5h clocked/);
+    expect(child).toHaveTextContent(/\$15.00 clocked earnings/);
+    expect(screen.getAllByText(/\$15.00/)).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /week at a glance/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Assign homework' })).toBeVisible();
   });
 
   it('does not claim "all quiet" while the approval aggregate is still loading', async () => {
@@ -258,7 +301,6 @@ describe('ParentDashboard', () => {
   });
 
   it('makes the whole Family overview tile a single tap target', async () => {
-    const user = userEvent.setup();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/dashboard/', () =>
@@ -272,7 +314,6 @@ describe('ParentDashboard', () => {
       ),
     ]);
 
-    await user.click(await screen.findByRole('button', { name: /family overview/i }));
     const tile = await screen.findByRole('button', { name: /manage abby/i });
     // The card is INSIDE the button (the Next Up pattern) — previously the
     // button sat inside the card, leaving its 20px padded ring inert.

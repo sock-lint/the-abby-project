@@ -346,9 +346,13 @@ function RejectSheet({ item, onCancel, onConfirm }) {
  *   loading : true while the first aggregate is still in flight. Renders a
  *             skeleton instead of the "all quiet" empty state — an empty
  *             array means "nothing pending" ONLY once the fetches resolve.
+ *   incomplete : an approval source failed, so an empty result is unverified
+ *   showEmpty : false when the parent already shows other attention items
  *   onDone  : called after a successful approve/reject (used to reload counts)
  */
-export default function ApprovalQueueList({ items = [], loading = false, onDone }) {
+export default function ApprovalQueueList({
+  items = [], loading = false, incomplete = false, showEmpty = true, onDone,
+}) {
   const navigate = useNavigate();
   const [hiddenIds, setHiddenIds] = useState(() => new Set());
   const [bulkErrors, setBulkErrors] = useState({}); // kidId -> error message
@@ -477,13 +481,15 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
   };
 
   if (!items || items.length === 0) {
+    if (!loading && !showEmpty) return null;
     return (
-      <section id="approval-queue">
+      <section>
         {loading ? (
           <ParchmentSkeleton variant="list" count={3} />
         ) : (
           <EmptyState>
-            No pending approvals. All quiet on the journal.
+            {incomplete ? "Some approval queues couldn't be checked. Try again above."
+              : 'No pending approvals.'}
           </EmptyState>
         )}
       </section>
@@ -499,7 +505,7 @@ export default function ApprovalQueueList({ items = [], loading = false, onDone 
   const groupList = Object.entries(groups);
 
   return (
-    <section id="approval-queue" className="space-y-3">
+    <section className="space-y-3">
       {groupList.map(([kidId, group]) => {
         const visibleApprovable = group.items.filter(
           (it) => !PROPOSAL_KINDS.has(it.kind) && !hiddenIds.has(rowKey(it)),

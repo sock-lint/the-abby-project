@@ -212,3 +212,12 @@ describe('HeroPrimaryCard — next-action variant', () => {
     }
   });
 });
+
+
+describe('Parent Today incomplete reads', () => {
+  it('does not give an all-clear when part of the approval queue failed', () => {
+    renderWithProviders(<HeroPrimaryCard role="parent" ctx={{ pendingCount: 0, loading: false, incomplete: true }} />);
+    expect(screen.queryByText(/you.re all caught up/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Some updates are unavailable' })).toBeInTheDocument();
+  });
+});
