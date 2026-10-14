@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { saveGreenlightSnapshot } from '../../api';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
@@ -6,6 +6,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import { TextField, TextAreaField } from '../../components/form';
 import { fieldErrors } from '../../utils/api';
 import { toISODate } from '../../utils/dates';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 export default function GreenlightSnapshotForm({ userId, kidName, onClose, onSaved }) {
   const [amount, setAmount] = useState('');
@@ -17,6 +18,9 @@ export default function GreenlightSnapshotForm({ userId, kidName, onClose, onSav
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
+  const saved = useRef({ amount, observedAt, memo });
+  const dirty = amount !== saved.current.amount || observedAt !== saved.current.observedAt || memo !== saved.current.memo;
+  usePwaUpdateGuard(dirty || saving);
   const submit = async (event) => {
     event.preventDefault();
     if (saving) return;
@@ -27,6 +31,7 @@ export default function GreenlightSnapshotForm({ userId, kidName, onClose, onSav
       await saveGreenlightSnapshot({
         user_id: Number(userId), amount, as_of: new Date(observedAt).toISOString(), memo,
       });
+      saved.current = { amount, observedAt, memo };
       onSaved();
     } catch (failure) {
       const fields = fieldErrors(failure);
