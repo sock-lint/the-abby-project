@@ -9,6 +9,21 @@ stable routes and component identifiers, not the labels to show users.
 
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
+`/__design` documents reusable page recipes and interactive recovery states.
+Utility screens compose the shared page and section headers. Hub tabs keep
+their compact phone layout while retaining an accessible page heading. Return
+navigation from a project uses the canonical, account-bound list context in
+`project/projectListReturn.js`, preserving only supported filters/search and a
+bounded scroll position.
+
+Journal, Grades and Timeline share `useChildContext` and `ChildContext` for
+parent selection. A child ID from the URL or per-parent/family remembered
+choice is accepted only after a fresh current-account roster verifies it.
+Account/family/credential changes fence old responses; entry author and privacy
+checks remain intact. Parent Today links directly to the selected child's
+timeline. Child creation shows a confirmed username and optional next activity
+guidance, without persisting passwords or inventing setup completion.
+
 The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pattern:
 
 - **`<PageShell>`** ([`components/layout/PageShell.jsx`](/frontend/src/components/layout/PageShell.jsx)) — root wrapper replacing the copy-pasted `<motion.div className="max-w-6xl mx-auto space-y-5">`. Owns spine width (`max-w-6xl` wide / `max-w-3xl` narrow), vertical rhythm (3 tiers: `loose` = `space-y-6`, `default` = `space-y-5`, `tight` = `space-y-3`), and the fade-in animation. Does NOT add horizontal padding (that stays in `JournalShell`'s `px-4 md:px-6` to avoid double-padding). Set `animate={false}` for pages handling their own motion; pass `variants` to take over the motion config entirely. Set `as="main"` for `<main>` semantics. Used today across 17 surfaces — Achievements, ActivityPage, Badges, Character, ChildDashboard, ClockPage, CodexPage, DashboardSkeleton, Inventory, Manage, ParentDashboard, Payments, ProjectIngest, ProjectNew, Rewards, SettingsPage and Timecards. Quests-hub tab bodies (Chores, Habits, Projects, Homework, Movement, Forge, Trials) deliberately wear `QuestFolio` instead — they are tabs inside a hub, not page roots.

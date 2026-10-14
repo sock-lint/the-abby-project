@@ -138,6 +138,12 @@ frontend/src/
 
 ## Design system (`components/README.md` is the canonical doc)
 
+`/__design` is an interactive synthetic pattern library with six-theme and
+content/layout previews. It shows complete data, form, dialog, notification,
+family-context and page-composition patterns, plus imports and real consumers.
+Use its recipes and the adoption checklist in `components/README.md` when
+changing a screen; keep examples aligned with actual shared components.
+
 ### UI language (October 2026)
 
 Use warm, straightforward language that fits the Meadow presentation. Name the

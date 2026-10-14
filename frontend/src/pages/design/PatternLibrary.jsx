@@ -17,6 +17,8 @@ import PageShell from '../../components/layout/PageShell';
 import PageHeader from '../../components/layout/PageHeader';
 import TabList from '../../components/layout/TabList';
 import ProgressBar from '../../components/ProgressBar';
+import NotificationToast from '../../components/NotificationToast';
+import ChildContext from '../../components/family/ChildContext';
 import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField } from '../../components/form';
 import { DesignPreviewContext } from './preview.context';
 
@@ -65,12 +67,13 @@ function FormsAndDialogs() {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [name, setName] = useState('');
+  const [notes, setNotes] = useState('');
   const [shared, setShared] = useState(false);
   const [reminders, setReminders] = useState(true);
   const [saved, setSaved] = useState('');
   const [fieldError, setFieldError] = useState('');
   const { longContent } = useContext(DesignPreviewContext);
-  const close = () => { setOpen(false); setName(''); setFieldError(''); };
+  const close = () => { setOpen(false); setName(''); setNotes(''); setFieldError(''); };
   const save = event => {
     event.preventDefault();
     if (!name.trim()) { setFieldError('Enter an activity name.'); return; }
@@ -93,10 +96,10 @@ function FormsAndDialogs() {
         </div>
         {saved && <p role="status" aria-live="polite" className="text-body text-moss-deep break-words">{saved}</p>}
       </ParchmentCard>
-      {open && <BottomSheet title="Edit activity" onClose={close} dirty={Boolean(name)} footer={<ModalActions onClose={close} cancelLabel="Discard example" submitLabel="Save example" formId="design-example-form" />}>
+      {open && <BottomSheet title="Edit activity" onClose={close} dirty={Boolean(name || notes)} footer={<ModalActions onClose={close} cancelLabel="Discard example" submitLabel="Save example" formId="design-example-form" />}>
         <form id="design-example-form" onSubmit={save} className="space-y-3">
           <TextField label="Activity name" value={name} onChange={event => { setName(event.target.value); setFieldError(''); }} error={fieldError} autoFocus />
-          <TextAreaField label="Notes" rows={3} placeholder={longContent ? 'Long instructions and notes wrap beside the controls and remain readable on a short phone screen.' : 'What would help you get started?'} />
+          <TextAreaField label="Notes" rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder={longContent ? 'Long instructions and notes wrap beside the controls and remain readable on a short phone screen.' : 'What would help you get started?'} />
           <p className="text-caption text-ink-secondary">This example saves only local preview state. Escape or the close button checks for unsaved changes.</p>
         </form>
       </BottomSheet>}
@@ -136,6 +139,33 @@ function OutcomeExamples() {
   );
 }
 
+function FamilyExamples() {
+  const { role, longContent } = useContext(DesignPreviewContext);
+  const [child, setChild] = useState('9001');
+  const options = [{ id: 9001, display_name: longContent ? 'Alex with a long display name that remains readable' : 'Alex' }, { id: 9002, display_name: 'Sam' }];
+  return <Specimen id="design-family" title="Family context and setup" imports={'import ChildContext from "../components/family/ChildContext";\nimport useChildContext from "../hooks/useChildContext";'} guidance="Use a verified current-family roster before accepting a child ID from a URL or remembered choice. Parents see only shared journal and grade entries. Setup confirms a saved username and offers an optional next activity without storing or displaying passwords." consumers={['pages/chronicle/JournalReader.jsx', 'pages/grades/GradesPage.jsx', 'pages/Yearbook.jsx', 'pages/Manage.jsx']}>
+    <ParchmentCard className="space-y-3">
+      {role === 'parent' ? <ChildContext children={options} selectedChildId={child} onSelect={setChild} /> : <p className="text-body text-ink-primary">You are viewing your own memories.</p>}
+      <p className="text-body text-ink-secondary">Only me · Shared with parents</p>
+      <p className="text-caption text-ink-secondary">Sharing lets parents in the family read and respond. Siblings cannot read the entry.</p>
+    </ParchmentCard>
+    <ParchmentCard className="space-y-3"><h3 className="font-bold text-body">Child account created · synthetic example</h3><p className="text-body">Sign-in name: <strong>sam.example</strong></p><p className="text-caption text-ink-secondary">Open Abby on the child’s device and sign in with this username and the password you chose. On a shared device, use a separate browser profile to keep accounts separate.</p><p className="text-body text-ink-primary">Next optional step: assign one homework activity.</p></ParchmentCard>
+  </Specimen>;
+}
+
+function NotificationExamples() {
+  const { longContent } = useContext(DesignPreviewContext);
+  const [dismissed, setDismissed] = useState([]);
+  const tones = ['neutral', 'success', 'danger', 'info', 'growth', 'treasure'];
+  return <Specimen id="design-notifications" title="Notifications" imports={'import NotificationToast from "../components/NotificationToast";'} guidance="Pair notification foregrounds with their surfaces on every cover. Status tones and earned-item rarity are separate. Keep reward receipts, expiry and navigation in the owning domain; reduced motion must not prevent dismissal or expiration." consumers={['components/SuccessToast.jsx', 'components/ApprovalToastStack.jsx', 'components/DropToastStack.jsx', 'components/ExpeditionToastStack.jsx']}>
+    <div className="grid sm:grid-cols-2 gap-3">
+      {tones.filter(tone => !dismissed.includes(tone)).map(tone => <NotificationToast key={tone} tone={tone} title={`${tone[0].toUpperCase()}${tone.slice(1)} example`} message={longContent ? 'A longer notification summary wraps beside its dismissal control. The saved result remains available in its owning screen.' : 'Synthetic notification; no account data changed.'} onDismiss={() => setDismissed(items => [...items, tone])} swipe={false} role="group" aria-label={`${tone} notification example`} />)}
+      <NotificationToast rarity="rare" title="Rare item example" message="An earned-item presentation uses its fixed rarity palette." swipe={false} />
+    </div>
+    {dismissed.length > 0 && <Button variant="secondary" onClick={() => setDismissed([])}>Restore notification examples</Button>}
+  </Specimen>;
+}
+
 export default function PatternLibrary() {
-  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /></div>;
+  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /></div>;
 }

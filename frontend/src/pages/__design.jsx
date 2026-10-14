@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import QuestLogEntry from '../components/journal/QuestLogEntry';
@@ -22,6 +23,7 @@ import DesignEnvironment from './design/DesignEnvironment';
 import PatternLibrary from './design/PatternLibrary';
 
 export default function DesignShowcase() {
+  const [interaction, setInteraction] = useState('');
   return (
     <DesignEnvironment><div id="design-foundations" className="max-w-5xl mx-auto py-8 space-y-10 min-w-0">
       {/* Header */}
@@ -71,17 +73,18 @@ export default function DesignShowcase() {
           ['ink-page', 'ink-primary'],
           ['ink-page-aged', 'ink-primary'],
           ['ink-page-shadow', 'ink-primary'],
-          ['sheikah-teal', 'ink-primary'],
+          ['sheikah-teal', 'ink-page-rune-glow'],
           ['sheikah-teal-deep', 'ink-page-rune-glow'],
           ['moss', 'ink-page-rune-glow'],
           ['ember', 'ink-page-rune-glow'],
           ['ember-deep', 'ink-page-rune-glow'],
           ['royal', 'ink-page-rune-glow'],
-          ['gold-leaf', 'ink-primary'],
+          ['gold-leaf', 'ink-page-rune-glow'],
         ].map(([bg, fg]) => (
           <div
             key={bg}
-            className={`rounded-lg border border-ink-page-shadow bg-${bg} text-${fg} p-3 text-center`}
+            className="rounded-lg border border-ink-page-shadow p-3 text-center"
+            style={{ backgroundColor: `var(--color-${bg})`, color: `var(--color-${fg})` }}
           >
             <div className="font-rune text-xs">{bg}</div>
           </div>
@@ -170,7 +173,7 @@ export default function DesignShowcase() {
         <ul className="space-y-2">
           <QuestLogEntry
             title="Make bed"
-            meta="Daily duty · due today"
+            meta="Chore · due today"
             reward="$0.50 · 3🪙"
             kind="duty"
             tone="moss"
@@ -188,7 +191,7 @@ export default function DesignShowcase() {
           />
           <QuestLogEntry
             title="Mount Yamatori — 120 HP remaining"
-            meta="Trial · expires in 2 days"
+            meta="Challenge · ends in 2 days"
             reward="+25 XP · egg"
             kind="trial"
             tone="royal"
@@ -198,7 +201,7 @@ export default function DesignShowcase() {
           <QuestLogEntry
             title="Sketch a dragon in under 10 min"
             meta="Habit · strength 4"
-            reward="+1🪙"
+            reward="Progress from saved activity"
             kind="virtue"
             tone="gold"
             status="done"
@@ -243,10 +246,12 @@ export default function DesignShowcase() {
         <PartyCard
           pet={{ species_name: 'Tidebloom', potion_variant: 'water', growth_points: 18 }}
           variant="full"
-          onFeed={() => alert('fed!')}
+          onFeed={() => setInteraction('Example feed action selected. No pet or reward changed.')}
         />
         <PartyCard pet={null} />
       </section>
+
+      {interaction && <p role="status" className="font-body text-body text-ink-secondary">{interaction}</p>}
 
       <RuneBand projectTitle="Stained-glass dragon lantern" elapsedLabel="00:42:17" />
 
