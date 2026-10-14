@@ -1,11 +1,9 @@
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trophy } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Trophy } from 'lucide-react';
 import { useSavingsCompletionToasts } from '../hooks/useSavingsCompletionToasts';
-import IconButton from './IconButton';
+import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_LONG } from '../constants/timing';
-import { swipeToDismiss } from './toastSwipe';
-import { RARITY_SOLID_COLORS } from '../constants/colors';
 
 function Toast({ toast, onDismiss }) {
   useEffect(() => {
@@ -16,34 +14,21 @@ function Toast({ toast, onDismiss }) {
   // Gold-leaf tier surface — the journal's "treasure" hue, matching the drop
   // toasts this shares a band with rather than a raw Tailwind amber gradient.
   return (
-    <motion.div
-      layout
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      {...swipeToDismiss(() => onDismiss(toast.id))}
-      className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 shadow-lg ${RARITY_SOLID_COLORS.legendary}`}
+    <NotificationToast
+      rarity="legendary"
+      onDismiss={() => onDismiss(toast.id)}
     >
-      <Trophy size={18} className="text-white shrink-0" />
+      <Trophy size={18} className="text-current shrink-0" />
       <span className="text-xl shrink-0" aria-hidden="true">{toast.icon}</span>
       <div className="flex-1 min-w-0">
-        <div className="text-caption font-semibold text-white">
+        <div className="text-caption font-semibold text-current">
           Savings goal reached!
         </div>
-        <div className="text-micro text-white/90 truncate">
+        <div className="text-caption text-current truncate">
           {toast.title} · +{toast.coin_bonus} coins
         </div>
       </div>
-      <IconButton
-        onClick={() => onDismiss(toast.id)}
-        variant="ghost"
-        size="sm"
-        aria-label="Dismiss notification"
-        className="text-white/70 hover:text-white shrink-0"
-      >
-        <X size={14} />
-      </IconButton>
-    </motion.div>
+    </NotificationToast>
   );
 }
 

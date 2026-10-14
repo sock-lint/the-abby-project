@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sprout, X } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Sprout } from 'lucide-react';
 import { useCompanionGrowthToasts } from '../hooks/useCompanionGrowthToasts';
-import IconButton from './IconButton';
+import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
-import { swipeToDismiss } from './toastSwipe';
 
 /**
  * Surfaces silent companion auto-growth events as a slide-in toast strip
@@ -26,15 +25,11 @@ function GrowthToast({ event, onDismiss }) {
   }, [event._toastId, onDismiss]);
 
   return (
-    <motion.div
-      layout
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      {...swipeToDismiss(() => onDismiss(event._toastId))}
-      className="flex items-center gap-3 rounded-lg border border-moss/60 bg-moss/15 px-3 py-2 shadow-lg"
+    <NotificationToast
+      tone="growth"
+      onDismiss={() => onDismiss(event._toastId)}
     >
-      <Sprout size={18} className="text-moss shrink-0" aria-hidden="true" />
+      <Sprout size={18} className="text-current shrink-0" aria-hidden="true" />
       <RpgSprite
         spriteKey={event.species_sprite_key}
         icon={event.species_icon || '🐾'}
@@ -43,23 +38,14 @@ function GrowthToast({ event, onDismiss }) {
         potionSlug={event.potion_slug}
       />
       <div className="flex-1 min-w-0">
-        <div className="text-caption font-medium text-ink-primary">
+        <div className="text-caption font-medium text-current">
           {event.potion_name} {event.species_name} grew
         </div>
-        <div className="text-micro text-ink-whisper">
+        <div className="text-caption text-current">
           +{event.growth_added} · {event.new_growth}/100
         </div>
       </div>
-      <IconButton
-        onClick={() => onDismiss(event._toastId)}
-        variant="ghost"
-        size="sm"
-        aria-label="Dismiss notification"
-        className="text-ink-secondary shrink-0"
-      >
-        <X size={14} />
-      </IconButton>
-    </motion.div>
+    </NotificationToast>
   );
 }
 

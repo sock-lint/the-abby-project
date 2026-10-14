@@ -4,6 +4,18 @@ import userEvent from '@testing-library/user-event';
 import Button from './Button.jsx';
 
 describe('Button', () => {
+  it('blocks repeated clicks while loading even when the caller passes disabled=false', async () => {
+    const user = userEvent.setup();
+    const onClick = vi.fn();
+    const { rerender } = render(<Button loading disabled={false} onClick={onClick}>Save</Button>);
+    await user.click(screen.getByRole('button'));
+    expect(onClick).not.toHaveBeenCalled();
+    expect(screen.getByRole('button')).toBeDisabled();
+    rerender(<Button loading={false} disabled={false} onClick={onClick}>Save</Button>);
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
   it('renders children inside a <button>', () => {
     render(<Button>Click me</Button>);
     const btn = screen.getByRole('button', { name: 'Click me' });

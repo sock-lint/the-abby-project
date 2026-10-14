@@ -21,6 +21,22 @@ function renderPage({ user = buildUser(), handlers = [] } = {}) {
 }
 
 describe('Achievements (Skills page)', () => {
+  it('lets a parent switch modes with the shared arrow-key tab behavior', async () => {
+    const user = userEvent.setup();
+    renderPage({ user: buildParent(), handlers: [
+      http.get('*/api/categories/', () => HttpResponse.json([])),
+    ] });
+    const view = await screen.findByRole('tab', { name: 'View' });
+    view.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(screen.getByRole('tab', { name: 'Manage' })).toHaveFocus();
+    expect(screen.getByRole('tab', { name: 'Manage' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('button', { name: /Categories/ })).toBeInTheDocument();
+    await user.keyboard('{Home}');
+    expect(view).toHaveFocus();
+    expect(view).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('loads Wayfinder and skill details without requesting the achievements summary', async () => {
     const user = userEvent.setup();
     const summaryRequest = vi.fn(() => new HttpResponse('<!doctype html><title>Abby</title>', {

@@ -57,9 +57,7 @@ export default function ModalActions({
         variant={submitVariant}
         size={size}
         loading={saving}
-        // `saving` is folded in explicitly: Button spreads its rest props
-        // after computing `disabled`, so passing `disabled={false}` alongside
-        // `loading` would hand a saving form a live submit button.
+        // Keep externally-disabled forms and a pending save disabled together.
         disabled={submitDisabled || saving}
         className={buttonClass}
       >

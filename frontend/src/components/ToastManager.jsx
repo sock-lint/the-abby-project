@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
+import NotificationToast from './NotificationToast';
 import { ToastContext } from './toast.context';
 
 let nextId = 0;
@@ -10,24 +11,22 @@ const MAX_VISIBLE = 4;
 
 function ToastItem({ toast, onDismiss }) {
   return (
-    <motion.div
-      layout
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      className={`flex items-start gap-3 rounded-lg border px-3 py-2 shadow-lg ${toast.palette}`}
+    <NotificationToast
+      tone={toast.tone}
+      data-notification-custom={toast.palette ? 'true' : undefined}
+      className={toast.palette || ''}
     >
       {toast.icon && (
         <span className="shrink-0 mt-0.5 flex items-center">{toast.icon}</span>
       )}
       <div className="flex-1 min-w-0">
         {toast.title && (
-          <div className={`text-xs font-semibold ${toast.textColor || 'text-white'} truncate`}>
+          <div className={`text-caption font-semibold ${toast.textColor || (toast.palette ? 'text-white' : 'text-current')} truncate`}>
             {toast.title}
           </div>
         )}
         {toast.message && (
-          <div className={`text-micro ${toast.subtextColor || 'text-white/85'} line-clamp-2`}>
+          <div className={`text-caption ${toast.subtextColor || (toast.palette ? 'text-white/85' : 'text-current')} line-clamp-2`}>
             {toast.message}
           </div>
         )}
@@ -37,20 +36,20 @@ function ToastItem({ toast, onDismiss }) {
         variant="ghost"
         size="sm"
         aria-label="Dismiss notification"
-        className={`${toast.dismissColor || 'text-white/70 hover:text-white'} shrink-0`}
+        className={`${toast.dismissColor || (toast.palette ? 'text-white/70 hover:text-white' : 'text-ink-primary hover:text-ink-primary')} shrink-0`}
       >
         <X size={14} />
       </IconButton>
-    </motion.div>
+    </NotificationToast>
   );
 }
 
 export default function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
-  const push = useCallback(({ title, message, icon, palette, textColor, subtextColor, dismissColor, duration = 6000 }) => {
+  const push = useCallback(({ title, message, icon, palette, textColor, subtextColor, dismissColor, tone = 'neutral', duration = 6000 }) => {
     const id = `toast-${++nextId}`;
-    const toast = { id, title, message, icon, palette, textColor, subtextColor, dismissColor };
+    const toast = { id, title, message, icon, palette, textColor, subtextColor, dismissColor, tone };
     setToasts((prev) => [...prev, toast]);
     if (duration > 0) {
       setTimeout(() => {

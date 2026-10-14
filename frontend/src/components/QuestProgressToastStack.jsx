@@ -1,12 +1,11 @@
 import { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Sword, X } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Sword } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useQuestProgressToasts } from '../hooks/useQuestProgressToasts';
-import IconButton from './IconButton';
+import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
-import { swipeToDismiss } from './toastSwipe';
 import { goalProgress } from '../pages/trials/goalDisplay';
 
 const MAX_VISIBLE_GOALS = 3;
@@ -23,20 +22,16 @@ function Toast({ toast, onDismiss }) {
   const remaining = goals.length - visibleGoals.length;
 
   return (
-    <motion.div
-      layout
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      {...swipeToDismiss(() => onDismiss(toast.id))}
-      className="flex items-center gap-3 rounded-lg border border-royal/60 bg-gradient-to-r from-royal to-royal/80 px-3 py-2 shadow-lg"
+    <NotificationToast
+      tone="info"
+      onDismiss={() => onDismiss(toast.id)}
     >
-      <Sword size={18} className="text-white shrink-0" aria-hidden="true" />
+      <Sword size={18} className="text-current shrink-0" aria-hidden="true" />
       <div className="flex-1 min-w-0">
-        <div className="text-caption font-semibold text-white">
+        <div className="text-caption font-semibold text-current">
           Challenge progress
         </div>
-        {visibleGoals.length > 0 && <ul aria-label="Updated challenges" className="text-caption text-white/95 mt-1 space-y-1">
+        {visibleGoals.length > 0 && <ul aria-label="Updated challenges" className="text-caption text-current mt-1 space-y-1">
           {visibleGoals.map((goal) => <li key={goal.id}>
             <span className="block truncate" title={goal.name}>{goal.name}</span>
             <span>{goal.completed ? 'Completed' : goalProgress(goal)}
@@ -44,24 +39,15 @@ function Toast({ toast, onDismiss }) {
             </span>
           </li>)}
         </ul>}
-        {toast.daily_bonus?.awarded && <div className="text-caption text-white/95 mt-1">Today&apos;s bonus · +{toast.daily_bonus.coins_awarded} coins · +{toast.daily_bonus.xp_awarded} XP</div>}
-        {remaining > 0 && <div className="text-caption text-white mt-1">
+        {toast.daily_bonus?.awarded && <div className="text-caption text-current mt-1">Today&apos;s bonus · +{toast.daily_bonus.coins_awarded} coins · +{toast.daily_bonus.xp_awarded} XP</div>}
+        {remaining > 0 && <div className="text-caption text-current mt-1">
           <div>+{remaining} more {remaining === 1 ? 'challenge' : 'challenges'}</div>
           <Link to="/quests?tab=trials" onClick={() => onDismiss(toast.id)} className="inline-flex min-h-11 items-center font-semibold underline underline-offset-2">
             View challenges
           </Link>
         </div>}
       </div>
-      <IconButton
-        onClick={() => onDismiss(toast.id)}
-        variant="ghost"
-        size="sm"
-        aria-label="Dismiss notification"
-        className="text-white/70 hover:text-white shrink-0"
-      >
-        <X size={14} />
-      </IconButton>
-    </motion.div>
+    </NotificationToast>
   );
 }
 
