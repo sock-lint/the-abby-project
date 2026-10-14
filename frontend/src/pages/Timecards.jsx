@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 import {
-  getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid,
+  getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid, closeTimecard,
   downloadTimecardsCsv,
 } from '../api';
 import usePagedList from '../hooks/usePagedList';
@@ -33,7 +33,7 @@ function AccountTimecards() {
   const [detailError, setDetailError] = useState('');
   const [error, setError] = useState('');
   const [exportError, setExportError] = useState('');
-  // Serialize approval/dispute/payment requests while the visible weeks refresh.
+  // Keep all row actions disabled while a decision or refresh is in flight.
   const [pendingId, setPendingId] = useState(null);
   // Per-row refs keyed by timecard id so we can scroll the expanded card
   // back into view on mobile — without this, expanding a mid-list card
@@ -100,6 +100,7 @@ function AccountTimecards() {
     try {
       if (action === 'approve') await approveTimecard(id, '');
       else if (action === 'dispute') await disputeTimecard(id);
+      else if (action === 'close') await closeTimecard(id);
       else if (action === 'pay') {
         const tc = timecards.find((t) => t.id === id);
         await markTimecardPaid(id, tc?.total_earnings);
@@ -166,7 +167,7 @@ function AccountTimecards() {
                 else delete rowRefs.current[tc.id];
               }}
             >
-              <ParchmentCard className="overflow-hidden" seal={tc.status === 'paid'}>
+              <ParchmentCard className="overflow-hidden" seal={tc.status === 'paid' || tc.status === 'closed'}>
                 <button
                   type="button"
                   onClick={() => toggleExpand(tc.id)}
@@ -289,7 +290,22 @@ function AccountTimecards() {
                             </Button>
                           </div>
                         )}
-                        {isParent && tc.status === 'approved' && (
+                        {(tc.status === 'approved' || tc.status === 'closed') && Number(tc.total_earnings) <= 0 && (
+                          <p className="font-body text-caption text-ink-secondary text-center pt-2">
+                            No payment due
+                          </p>
+                        )}
+                        {isParent && tc.status === 'approved' && Number(tc.total_earnings) === 0 && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleAction(tc.id, 'close')}
+                            disabled={pendingId !== null}
+                            className="w-full"
+                          >
+                            {pendingId === tc.id ? 'Closing…' : 'Close timecard'}
+                          </Button>
+                        )}
+                        {isParent && tc.status === 'approved' && Number(tc.total_earnings) > 0 && (
                           <Button
                             size="sm"
                             onClick={() => handleAction(tc.id, 'pay')}

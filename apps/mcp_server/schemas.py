@@ -470,7 +470,7 @@ class AdjustPaymentIn(_Base):
 
 
 TimeEntryStatus = Literal["active", "completed", "voided"]
-TimecardStatus = Literal["pending", "approved", "paid", "disputed"]
+TimecardStatus = Literal["pending", "approved", "paid", "closed", "disputed"]
 
 
 class ListTimeEntriesIn(_Base):

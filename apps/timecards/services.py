@@ -242,7 +242,7 @@ class TimecardService:
             user=user, week_start=week_start,
         ).first()
         if timecard and (
-            timecard.status in (Timecard.Status.APPROVED, Timecard.Status.PAID)
+            timecard.status in (Timecard.Status.APPROVED, Timecard.Status.PAID, Timecard.Status.CLOSED)
             or PaymentLedger.objects.filter(
                 timecard=timecard, entry_type=PaymentLedger.EntryType.PAYOUT,
             ).exists()
@@ -348,7 +348,7 @@ class TimecardService:
 
         get_user_model().objects.select_for_update().get(pk=timecard.user_id)
         locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
-        if locked.status in (Timecard.Status.APPROVED, Timecard.Status.PAID) or (
+        if locked.status in (Timecard.Status.APPROVED, Timecard.Status.PAID, Timecard.Status.CLOSED) or (
             PaymentLedger.objects.filter(
                 timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
             ).exists()
@@ -384,16 +384,63 @@ class TimecardService:
 
     @staticmethod
     @transaction.atomic
+    def close_timecard(timecard, parent_user):
+        """Complete an approved zero-dollar week without recording a payout."""
+        from django.contrib.auth import get_user_model
+        from apps.activity.services import ActivityLogService
+        from apps.payments.models import PaymentLedger
+
+        if getattr(parent_user, "role", None) != "parent":
+            raise PermissionDenied("Only parents can close timecards.")
+        get_user_model().objects.select_for_update().get(pk=timecard.user_id)
+        locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
+        if not parent_user.family_id or parent_user.family_id != locked.user.family_id:
+            raise PermissionDenied("You can only close timecards in your family.")
+        if locked.total_earnings != Decimal("0.00"):
+            raise ValueError("Only timecards with a $0.00 total can be closed.")
+        if PaymentLedger.objects.filter(
+            timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
+        ).exists():
+            raise ValueError("Timecards with a payment cannot be closed.")
+        if locked.status == Timecard.Status.CLOSED:
+            timecard.refresh_from_db()
+            return timecard
+        if locked.status != Timecard.Status.APPROVED:
+            raise ValueError("Approve the timecard before closing it.")
+
+        # Closing is completion, not another approval. Keep its original
+        # decided_by, decided_at and notes, and award nothing again.
+        locked.status = Timecard.Status.CLOSED
+        locked.save(update_fields=["status", "updated_at"])
+        ActivityLogService.record(
+            category="timecard",
+            event_type="timecard.close",
+            summary=f"Timecard closed: week of {locked.week_start}",
+            actor=parent_user,
+            subject=locked.user,
+            target=locked,
+            extras={
+                "status": Timecard.Status.CLOSED,
+                "week_start": str(locked.week_start),
+                "total_hours": str(locked.total_hours),
+                "total_amount": str(locked.total_earnings),
+            },
+        )
+        timecard.refresh_from_db()
+        return timecard
+
+    @staticmethod
+    @transaction.atomic
     def dispute_timecard(timecard):
         from django.contrib.auth import get_user_model
         from apps.payments.models import PaymentLedger
 
         get_user_model().objects.select_for_update().get(pk=timecard.user_id)
         locked = Timecard.objects.select_for_update().get(pk=timecard.pk)
-        if locked.status == Timecard.Status.PAID or PaymentLedger.objects.filter(
+        if locked.status in (Timecard.Status.PAID, Timecard.Status.CLOSED) or PaymentLedger.objects.filter(
             timecard=locked, entry_type=PaymentLedger.EntryType.PAYOUT,
         ).exists():
-            raise ValueError("Paid timecards cannot be reopened.")
+            raise ValueError("Paid or closed timecards cannot be reopened.")
         locked.status = Timecard.Status.DISPUTED
         locked.save(update_fields=["status", "updated_at"])
         timecard.refresh_from_db()

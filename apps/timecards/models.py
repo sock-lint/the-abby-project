@@ -54,6 +54,7 @@ class Timecard(ApprovalWorkflowModel, TimestampedModel):
         PENDING = "pending", "Pending"
         APPROVED = "approved", "Approved"
         PAID = "paid", "Paid"
+        CLOSED = "closed", "Closed"
         DISPUTED = "disputed", "Disputed"
 
     user = models.ForeignKey(

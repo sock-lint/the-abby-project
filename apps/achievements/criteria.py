@@ -133,7 +133,7 @@ def _streak_days(user, c):
 
 @criterion(Badge.CriteriaType.PERFECT_TIMECARD, scopes={"time"})
 def _perfect_timecard(user, _c):
-    return user.timecards.filter(status="approved").exists()
+    return user.timecards.filter(status__in=["approved", "closed"]).exists()
 
 
 # ---------------------------------------------------------------------------

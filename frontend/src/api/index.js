@@ -140,6 +140,7 @@ export const getTimecard = (id) => api.get(`/timecards/${id}/`);
 export const approveTimecard = (id, notes) =>
   api.post(`/timecards/${id}/approve/`, { notes });
 export const disputeTimecard = (id) => api.post(`/timecards/${id}/dispute/`);
+export const closeTimecard = (id) => api.post(`/timecards/${id}/close/`, {});
 export const markTimecardPaid = (id, amount) =>
   api.post(`/timecards/${id}/mark-paid/`, { amount });
 export const downloadTimecardsCsv = () => getBlob('/export/timecards/');

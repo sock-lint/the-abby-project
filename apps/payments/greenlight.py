@@ -69,7 +69,7 @@ def balances(child):
     # Negative corrections cannot cancel a different card's withheld earnings.
     groups = PaymentLedger.objects.filter(
         user=child, entry_type=PaymentLedger.EntryType.HOURLY,
-    ).exclude(timecard__status__in=[Timecard.Status.APPROVED, Timecard.Status.PAID]).values(
+    ).exclude(timecard__status__in=[Timecard.Status.APPROVED, Timecard.Status.PAID, Timecard.Status.CLOSED]).values(
         "timecard_id",
     ).annotate(total=Sum("amount"))
     pending = sum((max(ZERO, group["total"]) for group in groups), ZERO)
@@ -107,7 +107,9 @@ def overview(child):
 
     owed, payable, pending = balances(child)
     snapshot = GreenlightBalanceSnapshot.objects.filter(user=child).first()
-    cards = Timecard.objects.filter(user=child, status=Timecard.Status.APPROVED).exclude(
+    cards = Timecard.objects.filter(
+        user=child, status=Timecard.Status.APPROVED, total_earnings__gt=ZERO,
+    ).exclude(
         payment_entries__entry_type=PaymentLedger.EntryType.PAYOUT,
     )
     payouts = PaymentLedger.objects.filter(
