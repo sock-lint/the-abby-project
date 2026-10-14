@@ -13,9 +13,9 @@ import useFieldIds from './useFieldIds';
 // down to raw ``<select className={inputClass} ...>`` markup with manual
 // dimensional overrides.
 const FILTER_VARIANT_CLASS =
-  'rounded-md border border-ink-page-shadow bg-ink-page-aged ' +
+  'rounded-md border border-control-border bg-ink-page-aged ' +
   'min-h-11 max-w-full px-2 py-1.5 text-base sm:text-caption text-ink-primary w-auto ' +
-  'focus:outline-none focus:ring-2 focus:ring-sheikah-teal/40';
+  'focus:outline-none focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
 
 /**
  * SelectField — labeled <select> with built-in error and helpText slots.

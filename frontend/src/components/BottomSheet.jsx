@@ -1,6 +1,7 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useDragControls, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import ConfirmDialog from './ConfirmDialog';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealCloseButton from './modal/SealCloseButton';
@@ -19,7 +20,7 @@ import useModalFocus from './modal/useModalFocus';
 // Optional surface presentation belongs on the portal itself; a caller's
 // wrapper cannot pass its CSS variables across the document.body boundary.
 export default function BottomSheet({ title, onClose, disabled, dirty, footer, children, surfaceClassName = '', surfaceStyle, focusSuspended = false }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const isDesktop = useIsDesktop();
   const titleId = useId();
   const sheetHistoryId = useId();

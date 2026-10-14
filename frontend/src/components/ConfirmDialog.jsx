@@ -1,6 +1,7 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import ModalBackdrop from './modal/ModalBackdrop';
 import SealPulseRing from './modal/SealPulseRing';
 import Button from './Button';
@@ -20,7 +21,7 @@ export default function ConfirmDialog({
   onCancel,
   stacked = false,
 }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const titleId = useId();
   const messageId = useId();
   const dialogRef = useRef(null);

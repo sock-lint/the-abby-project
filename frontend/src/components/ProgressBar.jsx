@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from 'framer-motion';
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
+import { motion } from 'framer-motion';
 
 /**
  * ProgressBar — parchment track with a sheikah-teal fill by default.
@@ -11,7 +12,7 @@ export default function ProgressBar({
   className = '',
   'aria-label': ariaLabel = 'Progress',
 }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const safeValue = max > 0 ? Math.min(max, Math.max(0, value)) : 0;
   const pct = max > 0 ? (safeValue / max) * 100 : 0;
   return (

@@ -44,6 +44,8 @@ test.beforeEach(async ({ page }) => {
     const payloads = {
       '/api/auth/me/': { id: 2, username: 'fixture', display_name: 'Fixture', role: parent ? 'parent' : 'child', theme: 'hyrule', family: { id: 1, name: 'Synthetic family' } },
       '/api/clock/': { active: null },
+      '/api/dashboard/': { next_actions: [{ kind: 'project', id: 3, title: 'Synthetic next task', subtitle: 'A local fixture', icon: 'Play', tone: 'moss', action_url: '/clock' }], active_projects: [], recent_badges: [], savings_goals: [], chores_today: [], this_week: { hours_worked: 0, earnings: 0 }, rpg: { login_streak: 0, longest_login_streak: 0 }, coin_balance: 0 },
+      '/api/pulse/': { notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [], header: { active_timer: null, coin_balance: 0, streak_days: 0 } },
       '/api/balance/': { balance: 0, breakdown: {}, recent_transactions: [] },
       '/api/coins/': { balance: 0, recent: [] },
       '/api/coins/exchange/rate/': { coins_per_dollar: 10 },
@@ -64,6 +66,24 @@ test.beforeEach(async ({ page }) => {
 });
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
+test('the real app suppresses clock transforms and Today hero blur under reduced motion', async ({ page }) => {
+  await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-clock`);
+  const clock = page.getByRole('button', { name: 'Clock in', exact: true });
+  await expect(clock).toBeEnabled();
+  await clock.hover();
+  await page.mouse.down();
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  await expect(clock).toHaveCSS('transform', 'none');
+  await page.mouse.move(0, 0); await page.mouse.up();
+  await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+  const hero = page.getByRole('heading', { name: 'Synthetic next task', exact: true }).first();
+  await expect(hero).toBeVisible();
+  expect(await hero.evaluate((node) => {
+    let surface = node;
+    while (surface && !surface.classList.contains('rounded-xl')) surface = surface.parentElement;
+    return getComputedStyle(surface.parentElement).filter;
+  })).toBe('none');
+});
 for (const [view, title] of Object.entries(hubPages)) {
   test(`${title} keeps an accessible heading without adding a large phone header`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
