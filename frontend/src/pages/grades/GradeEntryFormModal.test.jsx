@@ -47,7 +47,7 @@ describe('GradeEntryFormModal', () => {
     expect(screen.getByRole('combobox', { name: 'Grade format' })).toHaveValue('percentage');
     expect(screen.getByLabelText('Date received')).toHaveValue(toISODate(new Date()));
     expect(screen.getByRole('textbox', { name: 'Percentage' })).toHaveAttribute('inputmode', 'decimal');
-    expect(screen.getByRole('checkbox', { name: 'Share with my family' })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Share with parents in my family' })).not.toBeChecked();
     expect(screen.getByText(/Only you can read this grade/i)).toBeInTheDocument();
     expect(screen.queryByRole('textbox', { name: 'Points possible' })).toBeNull();
     expect(screen.queryByRole('combobox', { name: 'Letter grade' })).toBeNull();
@@ -86,7 +86,7 @@ describe('GradeEntryFormModal', () => {
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2026-01-02');
     await user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'I want to remember the effort.');
-    await user.click(screen.getByRole('checkbox', { name: 'Share with my family' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await user.click(screen.getByRole('button', { name: 'Save grade' }));
     await screen.findByRole('dialog', { name: 'Grade remembered' });
     expect(spy.calls[0].body).toMatchObject({
@@ -94,7 +94,7 @@ describe('GradeEntryFormModal', () => {
       reflection: 'I want to remember the effort.', is_private: false,
     });
     expect(spy.calls[0].body).not.toHaveProperty('letter');
-    expect(screen.getByText(/Shared with your family/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shared with parents in your family/i)).toBeInTheDocument();
   });
 
   it.each(['F', 'NP', 'A+'])('remembers the letter %s and omits numbers from an earlier format', async (letter) => {
@@ -147,7 +147,7 @@ describe('GradeEntryFormModal', () => {
     await completeBasics(first.user);
     await first.user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
     await first.user.selectOptions(screen.getByRole('combobox', { name: 'Letter grade' }), 'B-');
-    await first.user.click(screen.getByRole('checkbox', { name: 'Share with my family' }));
+    await first.user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await first.user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'Remember this.');
     const draft = JSON.parse(localStorage.getItem(gradeDraftKey(1)));
     await first.user.click(screen.getByRole('button', { name: 'Keep draft & close' }));
@@ -156,7 +156,7 @@ describe('GradeEntryFormModal', () => {
     const second = mount();
     expect(screen.getByRole('textbox', { name: 'Subject or class' })).toHaveValue('Math');
     expect(screen.getByRole('combobox', { name: 'Letter grade' })).toHaveValue('B-');
-    expect(screen.getByRole('checkbox', { name: 'Share with my family' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'Share with parents in my family' })).toBeChecked();
     expect(screen.getByLabelText('Date received')).toHaveValue(draft.occurred_on);
     await second.user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), ' Another thought.');
     expect(JSON.parse(localStorage.getItem(gradeDraftKey(1))).client_entry_id).toBe(draft.client_entry_id);
@@ -241,7 +241,7 @@ describe('GradeEntryFormModal', () => {
     expect(screen.getByRole('textbox', { name: 'Points earned' })).toBeEnabled();
     await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
     await user.selectOptions(screen.getByRole('combobox', { name: 'Letter grade' }), 'B');
-    await user.click(screen.getByRole('checkbox', { name: 'Share with my family' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await user.click(screen.getByRole('button', { name: 'Save correction' }));
     await screen.findByRole('dialog', { name: 'Grade corrected' });
     expect(spy.calls[0].body).toEqual({
@@ -279,12 +279,12 @@ describe('GradeEntryFormModal', () => {
     const first = mount({ mode: 'edit', entry: original });
     await first.user.clear(screen.getByLabelText('Points earned'));
     await first.user.type(screen.getByLabelText('Points earned'), '6');
-    await first.user.click(screen.getByLabelText('Share with my family'));
+    await first.user.click(screen.getByLabelText('Share with parents in my family'));
     first.unmount();
     const latest = { ...original, occurred_on: '2025-09-20', metadata: { grade: { ...original.metadata.grade, score: '9' } } };
     mount({ mode: 'edit', entry: latest });
     expect(screen.getByLabelText('Points earned')).toHaveValue('6');
-    expect(screen.getByLabelText('Share with my family')).not.toBeChecked();
+    expect(screen.getByLabelText('Share with parents in my family')).not.toBeChecked();
     expect(screen.getByLabelText('Date received')).toHaveValue('2025-09-20');
   });
 
@@ -311,10 +311,10 @@ describe('GradeEntryFormModal', () => {
     const { user } = mount({ mode: 'edit', entry: latest });
     expect(screen.getByLabelText('Points earned')).toHaveValue('6');
     expect(screen.getByLabelText('Reflection (optional)')).toHaveValue('An older reflection draft.');
-    expect(screen.getByLabelText('Share with my family')).not.toBeChecked();
+    expect(screen.getByLabelText('Share with parents in my family')).not.toBeChecked();
     const comparison = screen.getByRole('region', { name: 'Latest saved grade' });
     expect(within(comparison).getByText('9 / 10 points')).toBeInTheDocument();
-    expect(comparison).toHaveTextContent('Shared with family');
+    expect(comparison).toHaveTextContent('Shared with parents');
     expect(comparison).toHaveTextContent('Latest saved reflection.');
     await user.type(screen.getByLabelText('Reflection (optional)'), ' More to remember.');
     expect(JSON.parse(localStorage.getItem(gradeDraftKey(1, 'edit', 50)))).not.toHaveProperty('baseline');
