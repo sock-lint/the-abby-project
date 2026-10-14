@@ -1,0 +1,422 @@
+{
+  "schema_version": 1,
+  "default_avatar_id": "female-archer",
+  "accessory_slots": [
+    {
+      "id": "headwear",
+      "label": "Headwear"
+    },
+    {
+      "id": "face_accessory",
+      "label": "Face accessory"
+    },
+    {
+      "id": "left_hand",
+      "label": "Left hand"
+    },
+    {
+      "id": "right_hand",
+      "label": "Right hand"
+    },
+    {
+      "id": "back",
+      "label": "Back accessory"
+    }
+  ],
+  "accessories": {
+    "crown-eve": {
+      "label": "Eve crown",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "hood-mystical": {
+      "label": "Mystical hood",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "mask-undercover": {
+      "label": "Undercover mask",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "bow-greenhorn": {
+      "label": "Greenhorn bow",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "bow-vines": {
+      "label": "Vines bow",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "bow-myth": {
+      "label": "Myth bow",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "quiver-angel": {
+      "label": "Angel quiver",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "quiver-rook": {
+      "label": "Rook quiver",
+      "source_pack": "meshtint-female-archer-01"
+    },
+    "quiver-tale": {
+      "label": "Tale quiver",
+      "source_pack": "meshtint-female-archer-01"
+    }
+  },
+  "avatars": [
+    {
+      "id": "female-archer",
+      "label": "Female Archer",
+      "renderer_adapter": "female-archer",
+      "defaults": {
+        "appearance": {
+          "hair_style": "hair-01",
+          "hair_color": "dark",
+          "skin_tone": "fair",
+          "outfit": "nature",
+          "outfit_style": "archer-01",
+          "face_style": "face-01",
+          "head_style": "head-02"
+        },
+        "accessories": {
+          "headwear": "none",
+          "face_accessory": "none",
+          "left_hand": "none",
+          "right_hand": "none",
+          "back": "none"
+        }
+      },
+      "groups": [
+        {
+          "id": "identity",
+          "label": "Appearance",
+          "fields": [
+            {
+              "key": "outfit_style",
+              "label": "Outfit",
+              "choices": [
+                {
+                  "value": "archer-01",
+                  "label": "Outfit 1"
+                },
+                {
+                  "value": "archer-02",
+                  "label": "Outfit 2"
+                },
+                {
+                  "value": "archer-03",
+                  "label": "Outfit 3"
+                }
+              ]
+            },
+            {
+              "key": "hair_style",
+              "label": "Hairstyle",
+              "choices": [
+                {
+                  "value": "hair-01",
+                  "label": "Swept"
+                },
+                {
+                  "value": "hair-02",
+                  "label": "Bob"
+                },
+                {
+                  "value": "hair-03",
+                  "label": "Ponytail"
+                },
+                {
+                  "value": "hair-04",
+                  "label": "Side part"
+                }
+              ]
+            },
+            {
+              "key": "hair_color",
+              "label": "Hair color",
+              "choices": [
+                {
+                  "value": "light",
+                  "label": "Light"
+                },
+                {
+                  "value": "dark",
+                  "label": "Dark"
+                },
+                {
+                  "value": "brown",
+                  "label": "Brown"
+                },
+                {
+                  "value": "orange",
+                  "label": "Orange"
+                },
+                {
+                  "value": "grey",
+                  "label": "Grey"
+                }
+              ]
+            },
+            {
+              "key": "face_style",
+              "label": "Face",
+              "choices": [
+                {
+                  "value": "face-01",
+                  "label": "Face 1"
+                },
+                {
+                  "value": "face-02",
+                  "label": "Face 2"
+                },
+                {
+                  "value": "face-03",
+                  "label": "Face 3"
+                }
+              ]
+            },
+            {
+              "key": "head_style",
+              "label": "Ears",
+              "choices": [
+                {
+                  "value": "head-01",
+                  "label": "Rounded"
+                },
+                {
+                  "value": "head-02",
+                  "label": "Pointed"
+                }
+              ]
+            },
+            {
+              "key": "skin_tone",
+              "label": "Skin tone",
+              "choices": [
+                {
+                  "value": "fair",
+                  "label": "Fair"
+                },
+                {
+                  "value": "tan",
+                  "label": "Tan"
+                }
+              ]
+            },
+            {
+              "key": "outfit",
+              "label": "Palette",
+              "choices": [
+                {
+                  "value": "aqua",
+                  "label": "Aqua"
+                },
+                {
+                  "value": "nature",
+                  "label": "Nature"
+                },
+                {
+                  "value": "fire",
+                  "label": "Fire"
+                },
+                {
+                  "value": "dark",
+                  "label": "Dark"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "wardrobe",
+          "label": "Accessories",
+          "fields": [
+            {
+              "key": "headwear",
+              "label": "Headwear",
+              "accessory_slot": "headwear",
+              "choices": [
+                {
+                  "value": "none",
+                  "label": "None"
+                },
+                {
+                  "value": "crown-eve",
+                  "accessory_id": "crown-eve"
+                },
+                {
+                  "value": "hood-mystical",
+                  "accessory_id": "hood-mystical"
+                }
+              ]
+            },
+            {
+              "key": "face_accessory",
+              "label": "Face accessory",
+              "accessory_slot": "face_accessory",
+              "choices": [
+                {
+                  "value": "none",
+                  "label": "None"
+                },
+                {
+                  "value": "mask-undercover",
+                  "accessory_id": "mask-undercover"
+                }
+              ]
+            },
+            {
+              "key": "left_hand",
+              "label": "Left hand",
+              "accessory_slot": "left_hand",
+              "choices": [
+                {
+                  "value": "none",
+                  "label": "None"
+                },
+                {
+                  "value": "bow-greenhorn",
+                  "accessory_id": "bow-greenhorn"
+                },
+                {
+                  "value": "bow-vines",
+                  "accessory_id": "bow-vines"
+                },
+                {
+                  "value": "bow-myth",
+                  "accessory_id": "bow-myth"
+                }
+              ]
+            },
+            {
+              "key": "right_hand",
+              "label": "Right hand",
+              "accessory_slot": "right_hand",
+              "choices": [
+                {
+                  "value": "none",
+                  "label": "None"
+                }
+              ]
+            },
+            {
+              "key": "back",
+              "label": "Back accessory",
+              "accessory_slot": "back",
+              "choices": [
+                {
+                  "value": "none",
+                  "label": "None"
+                },
+                {
+                  "value": "quiver-angel",
+                  "accessory_id": "quiver-angel"
+                },
+                {
+                  "value": "quiver-rook",
+                  "accessory_id": "quiver-rook"
+                },
+                {
+                  "value": "quiver-tale",
+                  "accessory_id": "quiver-tale"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "accessory_bindings": {
+        "headwear": {
+          "item_ids": [
+            "crown-eve",
+            "hood-mystical"
+          ],
+          "attachment": "RigHead",
+          "legacy_preference_key": "headwear_style"
+        },
+        "face_accessory": {
+          "item_ids": [
+            "mask-undercover"
+          ],
+          "attachment": "RigHead",
+          "legacy_preference_key": "mask_style"
+        },
+        "left_hand": {
+          "item_ids": [
+            "bow-greenhorn",
+            "bow-vines",
+            "bow-myth"
+          ],
+          "attachment": "RigLPalm",
+          "legacy_preference_key": "bow_style"
+        },
+        "right_hand": {
+          "item_ids": [],
+          "attachment": null,
+          "legacy_preference_key": null
+        },
+        "back": {
+          "item_ids": [
+            "quiver-angel",
+            "quiver-rook",
+            "quiver-tale"
+          ],
+          "attachment": "RigRibcage",
+          "legacy_preference_key": "quiver_style"
+        }
+      },
+      "presets": [
+        {
+          "id": "aqua",
+          "label": "Aqua",
+          "appearance": {
+            "outfit": "aqua"
+          },
+          "accessories": {
+            "headwear": "hood-mystical",
+            "face_accessory": "none",
+            "left_hand": "bow-vines",
+            "back": "quiver-angel"
+          }
+        },
+        {
+          "id": "nature",
+          "label": "Nature",
+          "appearance": {
+            "outfit": "nature"
+          },
+          "accessories": {
+            "headwear": "none",
+            "face_accessory": "mask-undercover",
+            "left_hand": "bow-greenhorn",
+            "back": "quiver-rook"
+          }
+        },
+        {
+          "id": "fire",
+          "label": "Fire",
+          "appearance": {
+            "outfit": "fire"
+          },
+          "accessories": {
+            "headwear": "crown-eve",
+            "face_accessory": "none",
+            "left_hand": "bow-myth",
+            "back": "quiver-tale"
+          }
+        },
+        {
+          "id": "dark",
+          "label": "Dark",
+          "appearance": {
+            "outfit": "dark"
+          },
+          "accessories": {
+            "headwear": "hood-mystical",
+            "face_accessory": "mask-undercover",
+            "left_hand": "bow-myth",
+            "back": "quiver-tale"
+          }
+        }
+      ]
+    }
+  ]
+}

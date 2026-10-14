@@ -40,6 +40,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const QuestsHub = lazy(() => import('./pages/quests'));
 const BestiaryHub = lazy(() => import('./pages/bestiary'));
 const Character = lazy(() => import('./pages/Character'));
+const CustomizeAvatar = lazy(() => import('./pages/avatar-customize'));
 const TreasuryHub = lazy(() => import('./pages/treasury'));
 const AtlasHub = lazy(() => import('./pages/atlas'));
 const ChronicleHub = lazy(() => import('./pages/chronicle'));
@@ -237,6 +238,7 @@ function AppContent() {
 
               {/* Sigil — the user's character/identity page, surfaced via the avatar menu */}
               <Route path="/sigil" element={<Character />} />
+              <Route path="/profile/customize" element={<CustomizeAvatar />} />
 
               {/* Chapter IV — Treasury */}
               <Route path="/treasury" element={<TreasuryHub />} />

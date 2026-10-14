@@ -1,4 +1,5 @@
 import { http, HttpResponse } from 'msw';
+import avatarCatalog from '../../../contracts/api/fixtures/avatar-catalog.json';
 
 // Permissive defaults: every /api endpoint returns an empty-but-valid shape
 // so a test that mounts a page without caring about its network state still
@@ -259,6 +260,8 @@ export const handlers = [
 
   // RPG
   http.get('*/api/character/', () => HttpResponse.json({ login_streak: 0 })),
+  http.get('*/api/character/avatar/catalog/', () => HttpResponse.json(avatarCatalog)),
+  http.post('*/api/character/avatar/configuration/', async ({ request }) => HttpResponse.json(await request.json())),
   http.post('*/api/character/equip/', ok),
   http.post('*/api/character/unequip/', ok),
   http.get('*/api/streaks/', () => HttpResponse.json({ streak: 0 })),

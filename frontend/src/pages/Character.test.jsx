@@ -10,7 +10,7 @@ import { setToken } from '../api/client.js';
 import { spyHandler } from '../test/spy.js';
 import { AVATAR_DEFAULTS } from '../avatar/preferences';
 
-vi.mock('../components/avatar/AvatarPreview', () => ({ default: () => <div role="img" aria-label="Your Archer avatar" /> }));
+vi.mock('../components/avatar/AvatarPreview', () => ({ default: ({ configuration }) => <div role="img" aria-label="Your Archer avatar">{configuration?.accessories?.left_hand}</div> }));
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -55,33 +55,28 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
-  it.each(['child', 'parent'])('persists only the %s account’s wardrobe and restores it after reopening Profile', async (role) => {
-    const user = userEvent.setup();
+  it('shows the confirmed shared equipment rather than an older flat appearance projection', async () => {
+    stubRoutes({ profile: {
+      display_name: 'Abby', avatar_preferences: AVATAR_DEFAULTS,
+      avatar_configuration: { avatar_id: 'female-archer', appearance: {}, accessories: { left_hand: 'bow-vines' } },
+    } });
+    renderPage();
+    expect(await screen.findByRole('img', { name: 'Your Archer avatar' })).toHaveTextContent('bow-vines');
+    expect(screen.getByRole('link', { name: 'Customize avatar' })).toHaveAttribute('href', '/profile/customize');
+  });
+
+  it.each(['child', 'parent'])('opens the dedicated editor from the %s profile without changing saved wardrobe', async (role) => {
     const preferences = { ...AVATAR_DEFAULTS, headwear_style: 'crown-eve', mask_style: 'mask-undercover', bow_style: 'bow-myth', quiver_style: 'quiver-angel' };
-    const savedPreferences = { ...preferences, headwear_style: 'none', mask_style: 'none', bow_style: 'none', quiver_style: 'quiver-tale' };
     stubRoutes({ profile: { display_name: 'Wardrobe child', avatar_preferences: preferences }, user: buildUser({ role }) });
-    const save = spyHandler('post', /\/api\/character\/avatar\/$/, { avatar_preferences: savedPreferences });
+    const save = spyHandler('post', /\/api\/character\/avatar\/$/, {});
     const equip = spyHandler('post', /\/api\/character\/equip\/$/, {});
     server.use(save.handler, equip.handler);
-    const view = renderPage();
-    await user.click(await screen.findByRole('button', { name: 'Customize character' }));
-    for (const label of ['Headwear', 'Mask', 'Bow']) await user.selectOptions(screen.getByRole('combobox', { name: label }), 'none');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Quiver' }), 'quiver-tale');
-    expect(save.calls).toHaveLength(0);
-    await user.click(screen.getByRole('button', { name: 'Save character' }));
-    await waitFor(() => expect(save.calls).toHaveLength(1));
-    expect(save.calls[0].body).toEqual({ avatar_preferences: savedPreferences });
-    expect(new URL(save.calls[0].url).pathname).toBe('/api/character/avatar/');
-    expect(new URL(save.calls[0].url).searchParams.has('user_id')).toBe(false);
-    expect(equip.calls).toHaveLength(0);
-    expect(await screen.findByText('Character saved.')).toBeInTheDocument();
-    view.unmount();
-    server.use(http.get('*/api/character/', () => HttpResponse.json({ display_name: 'Wardrobe child', avatar_preferences: savedPreferences })));
     renderPage();
-    await user.click(await screen.findByRole('button', { name: 'Customize character' }));
-    for (const label of ['Headwear', 'Mask', 'Bow']) expect(screen.getByRole('combobox', { name: label })).toHaveValue('none');
-    expect(screen.getByRole('combobox', { name: 'Quiver' })).toHaveValue('quiver-tale');
-    expect(save.calls).toHaveLength(1);
+    expect(await screen.findByRole('link', { name: 'Customize avatar' })).toHaveAttribute('href', '/profile/customize');
+    expect(screen.getByRole('img', { name: 'Your Archer avatar' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(save.calls).toHaveLength(0);
+    expect(equip.calls).toHaveLength(0);
   });
 
   it.each(['child', 'parent'])('keeps daily notes and challenge shortcuts off the %s profile', async (role) => {
@@ -122,8 +117,8 @@ describe('Character (/sigil)', () => {
     expect(await screen.findByRole('heading', { name: 'Your look' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit account & settings' })).toHaveAttribute('href', '/settings');
     expect(screen.getByRole('link', { name: 'My pets' })).toHaveAttribute('href', '/bestiary');
-    expect(screen.getByRole('heading', { name: 'Your character' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Customize character' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your avatar' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Customize avatar' })).toHaveAttribute('href', '/profile/customize');
     expect(stableSpy).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Say hello' })).toBeNull();
@@ -240,7 +235,7 @@ describe('Character (/sigil)', () => {
     renderPage();
     expect(await screen.findByRole('img', { name: 'Your profile picture' })).toHaveAttribute('src', '/media/avatars/abby.png');
     expect(screen.getByRole('button', { name: 'Change picture' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Your character' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your avatar' })).toBeInTheDocument();
   });
 
   it('surfaces an error when equip fails', async () => {

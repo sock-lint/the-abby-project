@@ -6,6 +6,8 @@ import { AuthProvider } from './hooks/useApi.js';
 import { server } from './test/server.js';
 import { buildUser } from './test/factories.js';
 import * as pushSession from './pwa/pushSession.js';
+import avatarCatalog from '../../contracts/api/fixtures/avatar-catalog.json';
+import defaultCharacter from '../../contracts/api/fixtures/character-avatar-default.json';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -30,6 +32,25 @@ async function expectTodayReady() {
 }
 
 describe('App', () => {
+  it.each(['child', 'parent'])('opens the dedicated avatar editor directly for a signed-in %s', async (role) => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ role }))),
+      http.get('*/api/notifications/pending-celebration/', () => new HttpResponse(null, { status: 204 })),
+      http.get('*/api/character/', () => HttpResponse.json(defaultCharacter)),
+      http.get('*/api/character/avatar/catalog/', () => HttpResponse.json(avatarCatalog)),
+    );
+    window.history.replaceState({}, '', '/profile/customize');
+    try {
+      renderApp();
+      expect(await screen.findByRole('heading', { level: 1, name: 'Customize avatar' })).toBeInTheDocument();
+      expect(window.location.pathname).toBe('/profile/customize');
+      expect(document.title).toBe('Customize avatar — The Abby Project');
+      expect(screen.getByRole('combobox', { name: 'Headwear' })).toHaveValue('none');
+    } finally {
+      window.history.replaceState({}, '', '/');
+    }
+  });
+
   it.each([
     ['/play/old-scene?legacy=1', '/bestiary'],
     ['/pets', '/bestiary'],

@@ -4,10 +4,50 @@ import defaultCharacter from '../../../contracts/api/fixtures/character-avatar-d
 import savedCharacter from '../../../contracts/api/fixtures/character-avatar-saved.json';
 import legacyCharacter from '../../../contracts/api/fixtures/character-avatar-legacy.json';
 import invalidAppearance from '../../../contracts/api/fixtures/character-avatar-invalid.json';
+import avatarCatalog from '../../../contracts/api/fixtures/avatar-catalog.json';
+import configuredCharacter from '../../../contracts/api/fixtures/character-avatar-configuration-saved.json';
+import invalidConfiguration from '../../../contracts/api/fixtures/character-avatar-configuration-invalid.json';
 import { server } from '../test/server';
-import { getCharacterProfile, saveAvatarPreferences } from './index';
+import { getAvatarCatalog, getCharacterProfile, saveAvatarConfiguration, saveAvatarPreferences } from './index';
 
 describe('saved avatar responses through the shared React API client', () => {
+  it('reads the shared equipment catalog and persists a base avatar separately from its accessories', async () => {
+    const requests = [];
+    let saved = false;
+    server.use(
+      http.get('*/api/character/avatar/catalog/', ({ request }) => {
+        requests.push({ url: request.url, method: request.method });
+        return HttpResponse.json(avatarCatalog);
+      }),
+      http.get('*/api/character/', () => HttpResponse.json(saved ? configuredCharacter : defaultCharacter)),
+      http.post('*/api/character/avatar/configuration/', async ({ request }) => {
+        requests.push({ url: request.url, method: request.method, body: await request.json() });
+        saved = true;
+        return HttpResponse.json(configuredCharacter);
+      }),
+    );
+    expect(await getAvatarCatalog()).toEqual(avatarCatalog);
+    expect(new URL(requests[0].url).pathname).toBe('/api/character/avatar/catalog/');
+    expect(new URL(requests[0].url).searchParams.has('user_id')).toBe(false);
+    expect(await getCharacterProfile()).toEqual(defaultCharacter);
+    expect(await saveAvatarConfiguration(configuredCharacter.avatar_configuration)).toEqual(configuredCharacter);
+    expect(requests[1]).toMatchObject({ method: 'POST', body: { avatar_configuration: configuredCharacter.avatar_configuration } });
+    expect(new URL(requests[1].url).pathname).toBe('/api/character/avatar/configuration/');
+    expect(new URL(requests[1].url).searchParams.has('user_id')).toBe(false);
+    expect(await getCharacterProfile()).toEqual(configuredCharacter);
+  });
+
+  it('preserves generic equipment validation errors without retrying or falling back to a different avatar', async () => {
+    const requests = [];
+    const configuration = { avatar_id: 'unsupported', appearance: {}, accessories: {} };
+    server.use(http.post('*/api/character/avatar/configuration/', async ({ request }) => {
+      requests.push(await request.json());
+      return HttpResponse.json(invalidConfiguration, { status: 400 });
+    }));
+    await expect(saveAvatarConfiguration(configuration)).rejects.toMatchObject({ status: 400, response: invalidConfiguration });
+    expect(requests).toEqual([{ avatar_configuration: configuration }]);
+  });
+
   it('reads complete defaults, saves only the chosen appearance and preserves the confirmed character', async () => {
     const requests = [];
     let saved = false;
