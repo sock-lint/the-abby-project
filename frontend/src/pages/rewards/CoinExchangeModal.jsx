@@ -9,6 +9,7 @@ import { useApi } from '../../hooks/useApi';
 import Button from '../../components/Button';
 import { TextField } from '../../components/form';
 import { formatCurrency } from '../../utils/format';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 const MIN_DOLLARS = 1;
 
@@ -18,6 +19,8 @@ export default function CoinExchangeModal({
   const [dollarAmount, setDollarAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const dirty = Boolean(dollarAmount);
+  usePwaUpdateGuard(dirty || saving);
   const {
     data: balData, loading: loadingBalance, error: balanceError, reload: reloadBalance,
   } = useApi(getBalance);
@@ -67,7 +70,7 @@ export default function CoinExchangeModal({
   };
 
   return (
-    <BottomSheet title="Exchange money for coins" onClose={onClose}>
+    <BottomSheet title="Exchange money for coins" onClose={onClose} dirty={dirty} disabled={saving}>
       <ErrorAlert message={error} />
       {balanceError && (
         <ErrorAlert
@@ -127,8 +130,8 @@ export default function CoinExchangeModal({
           </motion.div>
         )}
         <div className="flex justify-end gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+            {dirty ? 'Discard draft' : 'Cancel'}
           </Button>
           <Button type="submit" size="sm" disabled={saving || !valid}>
             {saving ? 'Requesting…' : 'Request exchange'}
