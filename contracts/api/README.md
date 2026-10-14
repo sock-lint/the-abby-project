@@ -432,6 +432,9 @@ Movement saves accept optional decimal `distance`, `distance_unit: mi|km`, and
 `client_request_id`. The response preserves decimal-string `distance_meters`,
 display-unit `distance`, the UUID and saved activity receipts. A receipt wraps
 all matching goal deltas in `goals` and an optional newly paid `daily_bonus`.
+Display-unit distance rounds to the accepted three fractional digits and removes
+trailing zeros; goal contributions and totals use three-decimal `ROUND_HALF_UP`
+before persistence and completion checks.
 Repeating the same UUID and identical input returns the existing session and its
 original receipt; conflicting input is rejected. Old sessions return null
 distance and gain no invented mileage.

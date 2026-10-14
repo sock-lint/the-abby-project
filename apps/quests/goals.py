@@ -2,7 +2,7 @@
 import hashlib
 import json
 from datetime import datetime, time, timedelta
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -75,6 +75,16 @@ def decimal_value(value):
 
 def number(value):
     return format(Decimal(value).normalize(), "f")
+
+
+def _progress_value(value):
+    """Use the saved three-decimal precision before reward comparisons."""
+    return Decimal(value).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+
+
+def _contribution_total(occurrence):
+    total = occurrence.contributions.filter(activity__voided=False).aggregate(total=Sum("amount"))["total"] or 0
+    return _progress_value(total)
 
 
 def _midnight(day, zone):
@@ -230,16 +240,17 @@ def _amount(snapshot, activity):
         return Decimal(0)
     metric = snapshot["metric"]
     if metric == "count":
-        return Decimal(1)
-    if metric == "minutes":
-        return decimal_value(context.get("duration_minutes", 0))
-    if metric == "distance":
-        return decimal_value(context.get("distance_meters") or 0) / DISTANCE_FACTORS[snapshot["unit"]]
-    from .services import TRIGGER_DAMAGE
-    damage = Decimal(TRIGGER_DAMAGE.get(trigger, 0))
-    if trigger == "clock_out":
-        return (damage * decimal_value(context.get("duration_minutes", 0)) / 60).to_integral_value(rounding="ROUND_FLOOR")
-    return damage
+        amount = Decimal(1)
+    elif metric == "minutes":
+        amount = decimal_value(context.get("duration_minutes", 0))
+    elif metric == "distance":
+        amount = decimal_value(context.get("distance_meters") or 0) / DISTANCE_FACTORS[snapshot["unit"]]
+    else:
+        from .services import TRIGGER_DAMAGE
+        amount = Decimal(TRIGGER_DAMAGE.get(trigger, 0))
+        if trigger == "clock_out":
+            amount = (amount * decimal_value(context.get("duration_minutes", 0)) / 60).to_integral_value(rounding="ROUND_FLOOR")
+    return _progress_value(amount)
 
 
 def _award(occurrence, user):
@@ -315,7 +326,7 @@ def _process(activity):
         )
         if not created:
             continue
-        occurrence.progress = occurrence.contributions.filter(activity__voided=False).aggregate(total=Sum("amount"))["total"] or 0
+        occurrence.progress = _contribution_total(occurrence)
         rewards = None
         if occurrence.progress >= Decimal(occurrence.snapshot["target"]):
             rewards = _award(occurrence, user)
@@ -371,7 +382,7 @@ def void_activity(user, source_type, source_id):
     for occurrence in occurrences:
         if occurrence.awarded_at:
             continue
-        occurrence.progress = occurrence.contributions.filter(activity__voided=False).aggregate(total=Sum("amount"))["total"] or 0
+        occurrence.progress = _contribution_total(occurrence)
         occurrence.save(update_fields=["progress", "updated_at"])
 
 
@@ -430,7 +441,7 @@ def create_goal(parent, child, data):
         amount = _amount(occurrence.snapshot, activity)
         if amount > 0:
             ChallengeContribution.objects.get_or_create(occurrence=occurrence, activity=activity, defaults={"amount": amount})
-    occurrence.progress = occurrence.contributions.aggregate(total=Sum("amount"))["total"] or 0
+    occurrence.progress = _contribution_total(occurrence)
     if occurrence.progress >= goal.target:
         _award(occurrence, child)
     occurrence.save(update_fields=["progress", "updated_at"])

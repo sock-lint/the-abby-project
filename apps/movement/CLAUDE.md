@@ -18,7 +18,8 @@ Self-reported physical activity sessions. No approval flow — child logs a sess
 `POST /api/movement-sessions/` accepts optional decimal-string `distance` (up to
 three fractional digits) and `distance_unit`. One mile is exactly 1609.344 metres;
 distance never substitutes for duration or guesses the distance of an older
-session. The read response exposes normalized metres, display-unit distance,
+session. The read response exposes normalized metres, display-unit distance
+rounded to the accepted three fractional digits with trailing zeros removed,
 request UUID and `challenge_receipts` wrapping all matching goal deltas plus an
 optional automatic daily bonus. Deletion voids the source contribution for unpaid
 goals; it never resets the movement reward counter or rearms a paid occurrence.

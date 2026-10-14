@@ -66,6 +66,8 @@ actual distance for distance goals. An older session without distance does not
 gain invented mileage. Running-specific goals match the selected movement type;
 other movement does not count. Each valid session can advance measurable goals
 even after the existing daily movement XP/drop limit has been reached.
+Goal contributions and totals round to three fractional digits using
+`ROUND_HALF_UP` before saving and checking completion.
 
 Saved source identities make contribution retries idempotent. Pinning, reading
 and reopening a page award nothing. Completion awards each

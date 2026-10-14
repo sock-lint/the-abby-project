@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 from rest_framework import serializers
 
@@ -58,7 +58,10 @@ class MovementSessionSerializer(serializers.ModelSerializer):
         if obj.distance_meters is None:
             return None
         divisor = Decimal("1609.344") if obj.distance_unit == "mi" else Decimal("1000")
-        return format((obj.distance_meters / divisor).normalize(), "f")
+        # Metres are rounded to millimetres; restore the accepted display-unit
+        # precision rather than exposing conversion noise on later reads.
+        distance = (obj.distance_meters / divisor).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+        return format(distance.normalize(), "f")
 
     def get_challenge_receipts(self, obj):
         return getattr(obj, "_challenge_receipts", [])
