@@ -6,8 +6,9 @@ import { TOAST_DURATION_SHORT } from '../constants/timing';
 
 vi.mock('framer-motion', async () => {
   const actual = await vi.importActual('framer-motion');
-  return { ...actual, useReducedMotion: () => true, AnimatePresence: ({ children }) => children };
+  return { ...actual, AnimatePresence: ({ children }) => children };
 });
+vi.mock('../hooks/usePrefersReducedMotion', () => ({ default: () => true }));
 
 function Trigger() {
   const show = useSuccessToast();

@@ -1,5 +1,6 @@
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useBodyScrollLock } from './bodyScrollLock';
 
 // Shared backdrop for the "Sheikah Stamp" modal family.
@@ -19,7 +20,7 @@ import { useBodyScrollLock } from './bodyScrollLock';
 const FLASH_MS = 220;
 
 export default function ModalBackdrop({ onClick, disabled, zIndex = 'z-40' }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef(null);
 

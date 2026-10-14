@@ -37,8 +37,8 @@ test.afterAll(async () => {
 // Inspect the actual rendered foreground and composite every gradient stop
 // over its ancestor surface. White text on a translucent pale tint otherwise
 // passes an isolated token check while failing in the application.
-async function renderedContrasts(locator) {
-  return locator.evaluate((element) => {
+async function renderedContrasts(locator, options = {}) {
+  return locator.evaluate((element, options) => {
     const ctx = document.createElement('canvas').getContext('2d');
     const rgba = (value) => {
       ctx.clearRect(0, 0, 1, 1);
@@ -51,7 +51,9 @@ async function renderedContrasts(locator) {
     const ancestry = [];
     for (let node = element; node; node = node.parentElement) ancestry.unshift(node);
     let surfaces = [[255, 255, 255]];
+    let adjacent = surfaces;
     for (const node of ancestry) {
+      if (node === element) adjacent = [...surfaces];
       const style = getComputedStyle(node);
       const background = rgba(style.backgroundColor);
       surfaces = surfaces.map((surface) => blend(background, surface));
@@ -59,12 +61,30 @@ async function renderedContrasts(locator) {
       if (style.backgroundImage !== 'none' && !stops) throw new Error(`Uninspected surface: ${style.backgroundImage}`);
       if (stops) surfaces = surfaces.flatMap((surface) => stops.map((stop) => blend(rgba(stop), surface)));
     }
-    const foreground = rgba(getComputedStyle(element).color);
+    const style = getComputedStyle(element, options.pseudo || null);
+    if (options.pseudo) surfaces = surfaces.map((surface) => blend(rgba(style.backgroundColor), surface));
+    const foreground = rgba(options.focus ? style.getPropertyValue('--tw-ring-color') : style[options.property || 'color']);
+    if (options.adjacent) surfaces.push(...adjacent);
     return surfaces.map((surface) => ({ foreground: hex(blend(foreground, surface)), background: hex(surface) }));
-  });
+  }, options);
 }
 
 for (const theme of ['hyrule', 'vigil', 'sunlit', 'snowquill', 'verdant', 'harvest']) {
+  test(`control boundaries and focus contrast on ${theme}`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`${origin}/e2e/design-foundations-fixture.html?theme=${theme}`);
+    for (const name of ['Example text', 'Example choice', 'Choice filter', 'Example date', 'From', 'Calendar sync']) {
+      const control = page.getByLabel(name, { exact: true });
+      for (const pair of await renderedContrasts(control, { property: 'borderTopColor', pseudo: name === 'Calendar sync' ? '::before' : null, adjacent: true })) {
+        expect(contrastRatio(pair.foreground, pair.background), `${name} boundary on ${theme}`).toBeGreaterThanOrEqual(3);
+      }
+      await control.focus();
+      expect(await control.evaluate((node) => getComputedStyle(node).boxShadow)).not.toBe('none');
+      for (const pair of await renderedContrasts(control, { focus: true, adjacent: true })) {
+        expect(contrastRatio(pair.foreground, pair.background), `${name} focus on ${theme}`).toBeGreaterThanOrEqual(3);
+      }
+    }
+  });
   test(`readable feedback and deep-card text on ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 740 });
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -98,6 +118,16 @@ test('form controls retain 44px hit areas on a short phone', async ({ page }) =>
   await page.getByRole('switch').focus();
   await page.keyboard.press('Space');
   await expect(page.getByRole('switch')).not.toBeChecked();
+});
+
+test('changing motion preference preserves text being edited', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto(`${origin}/e2e/design-foundations-fixture.html`);
+  const input = page.getByLabel('Example text', { exact: true });
+  await input.fill('Keep this unfinished thought');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.getByTestId('page-reveal')).toHaveCSS('filter', 'none');
+  await expect(input).toHaveValue('Keep this unfinished thought');
 });
 
 test('reduced motion settles pages, progress, loaders and nested sheets immediately', async ({ page }) => {

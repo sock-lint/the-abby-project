@@ -45,7 +45,7 @@ const ToggleField = forwardRef(function ToggleField(
 
   const trackClass = checked
     ? 'before:bg-sheikah-teal-deep before:border-sheikah-teal-deep'
-    : 'before:bg-ink-page-aged before:border-ink-page-shadow';
+    : 'before:bg-ink-page-aged before:border-control-border';
   const knobOffset = checked ? 'translate-x-5' : 'translate-x-0';
 
   return (
@@ -66,7 +66,7 @@ const ToggleField = forwardRef(function ToggleField(
           className={
             'relative inline-flex min-h-11 w-11 shrink-0 items-center rounded-full ' +
             'before:absolute before:inset-y-2.5 before:inset-x-0 before:rounded-full before:border focus:outline-none focus:ring-2 ' +
-            `focus:ring-sheikah-teal/40 ${trackClass} ` +
+            `focus:ring-sheikah-teal-deep ${trackClass} ` +
             (disabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer')
           }
           {...rest}

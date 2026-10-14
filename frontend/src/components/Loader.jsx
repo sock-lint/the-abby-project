@@ -1,5 +1,5 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useEffect, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
 
 /**
  * Loader — inked compass rose spinner. Matches the Hyrule Field Notes
@@ -11,7 +11,7 @@ import { useReducedMotion } from 'framer-motion';
  * page transitions.
  */
 export default function Loader({ delayMs = 200 }) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const [visible, setVisible] = useState(delayMs <= 0);
 
   useEffect(() => {

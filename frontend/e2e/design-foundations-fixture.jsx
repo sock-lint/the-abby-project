@@ -9,7 +9,7 @@ import Loader from '../src/components/Loader';
 import BottomSheet from '../src/components/BottomSheet';
 import Button from '../src/components/Button';
 import ModalActions from '../src/components/ModalActions';
-import { CheckboxField, DateField, TextField, ToggleField } from '../src/components/form';
+import { CheckboxField, DateField, SelectField, TextField, ToggleField } from '../src/components/form';
 import SuccessToastProvider from '../src/components/SuccessToast';
 import { useSuccessToast } from '../src/contexts/SuccessToastContext';
 import ToastProvider from '../src/components/ToastManager';
@@ -34,9 +34,15 @@ export default function Fixture() {
         <p className="text-body text-ink-secondary">Secondary copy on a nested card</p>
         <p className="text-caption text-ink-whisper">Supporting caption on a nested card</p>
       </ParchmentCard>
-      <DateField variant="filter" label="From" />
-      <CheckboxField label="Share with my family" checked={checked} onChange={(event) => setChecked(event.target.checked)} />
-      <ToggleField label="Calendar sync" checked={checked} onChange={setChecked} />
+      <ParchmentCard tone="deep" className="space-y-3">
+        <TextField label="Example text" />
+        <SelectField label="Example choice"><option>Choose</option></SelectField>
+        <SelectField variant="filter" label="Choice filter"><option>All</option></SelectField>
+        <DateField label="Example date" />
+        <DateField variant="filter" label="From" />
+        <CheckboxField label="Share with my family" checked={checked} onChange={(event) => setChecked(event.target.checked)} />
+        <ToggleField label="Calendar sync" checked={checked} onChange={setChecked} />
+      </ParchmentCard>
       <ProgressBar value={75} aria-label="Saved progress" />
       <Loader delayMs={0} />
     </PageShell>

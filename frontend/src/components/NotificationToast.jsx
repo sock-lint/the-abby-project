@@ -1,5 +1,6 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { forwardRef } from 'react';
-import { motion, useReducedMotion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import IconButton from './IconButton';
 import { RARITY_SOLID_COLORS } from '../constants/colors';
@@ -15,7 +16,7 @@ const NotificationToast = forwardRef(function NotificationToast({
   tone = 'neutral', rarity, icon, title, message, onDismiss, children,
   className = '', swipe = true, ...rest
 }, ref) {
-  const reducedMotion = useReducedMotion();
+  const reducedMotion = usePrefersReducedMotion();
   const rarityClass = rarity && (RARITY_SOLID_COLORS[rarity] || RARITY_SOLID_COLORS.common);
   const toneClass = TONES.has(tone) ? tone : 'neutral';
   return <motion.div

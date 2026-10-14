@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Ban } from 'lucide-react';
@@ -27,6 +28,7 @@ import { activeProjectsOf, defaultClockProjectId, rememberClockProject } from '.
 const CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS = 60;
 
 export default function ClockPage() {
+  const reducedMotion = usePrefersReducedMotion();
   const { isParent } = useRole();
   const {
     data: status, loading: loadingStatus, refreshing: refreshingStatus,
@@ -191,7 +193,7 @@ export default function ClockPage() {
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockOut}
                     disabled={clockBusy || !statusReady}
                     aria-label="Clock out"
@@ -227,7 +229,7 @@ export default function ClockPage() {
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockIn}
                     disabled={clockBusy || !statusReady || !projectsReady}
                     aria-label="Clock in"

@@ -18,6 +18,7 @@ function cover(overrides) {
     // Supporting copy also sits on the deeper, translucent nested-card tone.
     inkSecondary: '#64596B',
     inkWhisper: '#685E70',
+    controlBorder: '#756B7D',
     accent: palette.primary,
     accentBright: '#685093',
     accentGlow: palette.lavender,
@@ -40,6 +41,7 @@ export const themes = {
     page: '#292538', pageAged: '#332C45', pageShadow: '#514560',
     pageGlow: '#3D3450', ink: palette.paper,
     inkSecondary: '#DDD1EB', inkWhisper: '#D3C5E1',
+    controlBorder: '#A99ABC',
     accent: '#D1BDF4', accentBright: '#E1D1FB', accentGlow: '#514560',
     ember: '#F4B6A0',
     tones: {
@@ -86,6 +88,7 @@ export function applyTheme(themeName) {
     'ink-page-shadow': theme.pageShadow, 'ink-page-rune-glow': theme.pageGlow,
     'ink-primary': theme.ink, 'ink-secondary': theme.inkSecondary,
     'ink-whisper': theme.inkWhisper, 'sheikah-teal': theme.accentBright,
+    'control-border': theme.controlBorder,
     'sheikah-teal-deep': theme.accent, ember: theme.ember,
     'gold-leaf': theme.tones.goldLeaf, moss: theme.tones.moss,
     'moss-deep': theme.tones.mossDeep, 'ember-deep': theme.tones.emberDeep,
