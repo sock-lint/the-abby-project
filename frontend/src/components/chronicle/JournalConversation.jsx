@@ -6,6 +6,7 @@ import { TextAreaField } from '../form';
 import { useRole } from '../../hooks/useRole';
 import { addChronicleComment, getChronicleComments } from '../../api';
 import { fieldErrors, normalizeList } from '../../utils/api';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 const DRAFT_PREFIX = 'abby:journal-response:';
 
@@ -111,6 +112,7 @@ function ConversationThread({ entryId, userId, defaultOpen }) {
   const inFlight = useRef(false);
   const alive = useRef(true);
   const panelId = useId();
+  usePwaUpdateGuard(saving || Boolean(draft.body || draft.pending));
 
   useEffect(() => {
     alive.current = true;

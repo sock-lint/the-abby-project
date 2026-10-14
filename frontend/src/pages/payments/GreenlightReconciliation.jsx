@@ -6,6 +6,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import { CheckboxField, SelectField, TextAreaField, TextField } from '../../components/form';
 import { formatCurrency, formatDate } from '../../utils/format';
 import { fieldErrors } from '../../utils/api';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
 export default function GreenlightReconciliation({ userId, kidName, payouts, timecards, onSaved }) {
   const [csv, setCsv] = useState('');
@@ -14,11 +15,15 @@ export default function GreenlightReconciliation({ userId, kidName, payouts, tim
   const [cardChoices, setCardChoices] = useState({});
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [readingFile, setReadingFile] = useState(false);
   const [error, setError] = useState('');
   const [csvError, setCsvError] = useState('');
   const [result, setResult] = useState(null);
   const active = useRef(true);
   const fileVersion = useRef(0);
+  const hasChoices = Object.values(choices).some((value) => value && value !== 'ignore')
+    || Object.values(cardChoices).some(Boolean);
+  usePwaUpdateGuard(busy || readingFile || Boolean(csv) || hasChoices || confirmed);
   useEffect(() => {
     active.current = true;
     return () => { active.current = false; };
@@ -26,6 +31,7 @@ export default function GreenlightReconciliation({ userId, kidName, payouts, tim
 
   const updateCsv = (value) => {
     fileVersion.current += 1;
+    setReadingFile(false);
     setCsv(value);
     setPreview(null);
     setChoices({});
@@ -44,11 +50,14 @@ export default function GreenlightReconciliation({ userId, kidName, payouts, tim
     }
     updateCsv('');
     const version = ++fileVersion.current;
+    setReadingFile(true);
     try {
       const value = await file.text();
       if (active.current && fileVersion.current === version) updateCsv(value);
     } catch {
       if (active.current && fileVersion.current === version) setCsvError('Could not read that file. Paste the CSV below instead.');
+    } finally {
+      if (active.current && fileVersion.current === version) setReadingFile(false);
     }
   };
   const loadPreview = async (event) => {
