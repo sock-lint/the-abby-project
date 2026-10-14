@@ -30,7 +30,7 @@ import ScrollRail from '../components/ScrollRail';
 import SectionHeader from '../components/SectionHeader';
 import Sparkline from '../components/Sparkline';
 import { CoinIcon, TreasuryIcon } from '../components/icons/JournalIcons';
-import { BookOpen, Sparkles, Flame, Target, X, Compass, Award } from 'lucide-react';
+import { BookOpen, Sparkles, Flame, Target, X, Award } from 'lucide-react';
 import { RARITY_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
@@ -47,23 +47,6 @@ const ICON_MAP = { BookOpen, Sparkles, Flame };
 
 // Map NextAction.kind to the kind-tag label shown in the QuestLogEntry.
 const KIND_LABEL = { homework: 'Homework', chore: 'Chore', habit: 'Habit' };
-
-/**
- * Group the next_actions feed into the three quest-log sections. The
- * backend already sorts by score DESC with deterministic tie-breaking, so
- * each section preserves the global ranking.
- */
-function buildQuestLogFromActions(next_actions = []) {
-  const study = [];
-  const duty = [];
-  const ritual = [];
-  for (const a of next_actions) {
-    if (a.kind === 'homework') study.push(a);
-    else if (a.kind === 'chore') duty.push(a);
-    else if (a.kind === 'habit') ritual.push(a);
-  }
-  return { study, duty, ritual };
-}
 
 export default function ChildDashboard({ data, reload }) {
   const { data: recentDrops, error: dropsError, reload: reloadDrops } = useApi(getRecentDrops);
@@ -142,26 +125,11 @@ export default function ChildDashboard({ data, reload }) {
     }
   };
 
-  const { study, duty, ritual } = buildQuestLogFromActions(next_actions);
-  const sections = [
-    { key: 'study', label: 'Homework', tone: 'royal', actions: study },
-    { key: 'duty', label: 'Chores', tone: 'moss', actions: duty },
-    { key: 'ritual', label: 'Habits', tone: 'gold', actions: ritual },
-  ].filter((s) => s.actions.length > 0);
-
-  const totalLogCount = study.length + duty.length + ritual.length;
-  const visibleSections = (() => {
-    if (logExpanded) return sections;
-    let remaining = VISIBLE_LOG_CAP;
-    const out = [];
-    for (const s of sections) {
-      if (remaining <= 0) break;
-      const slice = s.actions.slice(0, remaining);
-      remaining -= slice.length;
-      out.push({ ...s, actions: slice });
-    }
-    return out;
-  })();
+  // The server ranks work across all kinds. Apply the cap to that order so
+  // later homework cannot push today's chores or habits out of view.
+  const taskActions = next_actions.filter((action) => KIND_LABEL[action.kind]);
+  const totalLogCount = taskActions.length;
+  const visibleActions = logExpanded ? taskActions : taskActions.slice(0, VISIBLE_LOG_CAP);
 
   const onActionClick = (a) => {
     if (a.kind === 'homework') return handleOpenHomework(a);
@@ -197,17 +165,6 @@ export default function ChildDashboard({ data, reload }) {
         </div>
       )}
 
-      <SinceLastVisitCard summary={since_last_visit} />
-
-      <StreakAtRiskBanner rpg={rpg} />
-
-      <VitalPipStrip
-        coinBalance={coin_balance}
-        loginStreak={rpg?.login_streak}
-        level={rpg?.level}
-        activePet={activePet}
-      />
-
       <HeroPrimaryCard
         role="child"
         ctx={{
@@ -215,95 +172,42 @@ export default function ChildDashboard({ data, reload }) {
           rpg,
           nextAction: next_actions[0] || null,
           weekday, dateStr,
+          hideDate: true,
+          idleTitle: 'No urgent tasks right now',
+          idleDescription: 'View all tasks for upcoming work. Submitted work may still be waiting for review.',
           onCompleteChore: handleCompleteChore,
           onTapHabit: handleTapHabit,
           onOpenHomework: handleOpenHomework,
         }}
       />
 
-      <ErrorAlert message={challengesError} />
-      {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
-      {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
-      <DailyChallengeCard challenge={challenges?.daily_bonus ?? null} />
-
-      {totalLogCount === 0 && !active_projects?.length && !savings_goals?.length && !recent_badges?.length && (
-        <ParchmentCard tone="bright">
-          <div className="text-center py-6 px-4 space-y-4">
-            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-sheikah-teal/10 text-sheikah-teal-deep" aria-hidden="true">
-              <Compass size={28} />
-            </div>
-            <h2 className="font-body font-bold text-2xl text-ink-primary">
-              Welcome to your day
-            </h2>
-            <p className="font-script text-ink-secondary text-body max-w-md mx-auto">
-              Once your parent adds chores, homework, or projects, they&apos;ll
-              appear right here for you to tackle.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              <Button variant="secondary" size="sm" onClick={() => navigate('/quests')}>
-                View tasks
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/bestiary')}>
-                View pets
-              </Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/treasury?tab=bazaar')}>
-                Browse rewards
-              </Button>
-            </div>
-          </div>
-        </ParchmentCard>
-      )}
+      <StreakAtRiskBanner rpg={rpg} />
 
       {totalLogCount > 0 && (
-        <section>
-          <div className="mb-2 flex justify-end">
-            <RuneBadge tone="teal" size="sm">{totalLogCount}</RuneBadge>
-          </div>
+        <section aria-label="Your tasks">
+          <SectionHeader title="Your tasks" count={totalLogCount} kicker="Most urgent first" className="mb-3" />
           <ParchmentCard flourish>
-            <div className="space-y-3">
-              {visibleSections.map((section, idx) => (
-                <div key={section.key}>
-                  {idx > 0 && (
-                    <div className="border-t border-ink-page-shadow/40 pt-3 mt-1" aria-hidden="true" />
-                  )}
-                  <div className="flex items-center gap-2 font-script text-caption text-ink-whisper uppercase tracking-wider mb-1">
-                    <span
-                      className={`inline-block w-1.5 h-1.5 rounded-full ${
-                        { royal: 'bg-royal', moss: 'bg-moss', gold: 'bg-gold-leaf' }[section.tone] || 'bg-ink-whisper'
-                      }`}
-                      aria-hidden="true"
-                    />
-                    {section.label}
-                  </div>
-                  <ul className="space-y-2">
-                    {section.actions.map((a) => {
-                      const Icon = ICON_MAP[a.icon] || Sparkles;
-                      const meta = a.subtitle;
-                      let reward = null;
-                      if (a.reward) {
-                        const parts = [];
-                        if (a.reward.money && a.reward.money !== '0.00') parts.push(`$${a.reward.money}`);
-                        if (a.reward.coins) parts.push(`${a.reward.coins}🪙`);
-                        if (parts.length) reward = parts.join(' · ');
-                      }
-                      return (
-                        <QuestLogEntry
-                          key={`${a.kind}-${a.id}`}
-                          title={a.title}
-                          meta={meta}
-                          reward={reward}
-                          status={completedIds.has(`${a.kind}-${a.id}`) ? 'done' : 'pending'}
-                          kind={KIND_LABEL[a.kind] || section.label}
-                          tone={a.tone || section.tone}
-                          icon={<Icon size={16} />}
-                          onAction={() => onActionClick(a)}
-                        />
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            <ul className="space-y-2">
+              {visibleActions.map((action) => {
+                const Icon = ICON_MAP[action.icon] || Sparkles;
+                const parts = [];
+                if (action.reward?.money && action.reward.money !== '0.00') parts.push(`$${action.reward.money}`);
+                if (action.reward?.coins) parts.push(`${action.reward.coins}🪙`);
+                return (
+                  <QuestLogEntry
+                    key={`${action.kind}-${action.id}`}
+                    title={action.title}
+                    meta={action.subtitle}
+                    reward={parts.length ? parts.join(' · ') : null}
+                    status={completedIds.has(`${action.kind}-${action.id}`) ? 'done' : 'pending'}
+                    kind={KIND_LABEL[action.kind]}
+                    tone={action.tone}
+                    icon={<Icon size={16} />}
+                    onAction={() => onActionClick(action)}
+                  />
+                );
+              })}
+            </ul>
             {totalLogCount > VISIBLE_LOG_CAP && (
               <div className="mt-3">
                 <Button variant="ghost" size="sm" onClick={() => setLogExpanded((v) => !v)}>
@@ -315,53 +219,65 @@ export default function ChildDashboard({ data, reload }) {
         </section>
       )}
 
-      <DeckleDivider glyph="flourish-corner" />
-
-      {dropsError && !recentDrops && (
-        <ErrorAlert message="Couldn't load recent drops." onRetry={reloadDrops} />
-      )}
-
-      {recentDrops?.length > 0 && (
-        <section aria-label="Recent items">
-          <SectionHeader
-            title="Recent items"
-            kicker="Items earned through your activity"
-            className="mb-3"
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {recentDrops.map((d) => (
+      {active_projects?.length > 0 && (
+        <section aria-label="Continue a project">
+          <SectionHeader title="Continue a project" count={active_projects.length} className="mb-3" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {active_projects.map((p) => (
               <motion.button
-                key={d.id}
+                key={p.id}
                 type="button"
                 whileHover={{ y: -2 }}
-                onClick={() => navigate('/treasury?tab=satchel')}
-                aria-label={`${d.item_name}${d.quantity > 1 ? ` × ${d.quantity}` : ''}${d.was_salvaged ? ' (converted to coins)' : ''} — open inventory`}
-                className={`min-w-0 p-3 rounded-2xl border text-center hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-[filter] ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
+                onClick={() => navigate(`/quests/ventures/${p.id}`)}
+                className="text-left"
               >
-                <div className="flex h-10 items-center justify-center mb-2">
-                  <RpgSprite spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
-                </div>
-                <div className="font-body text-body font-semibold text-ink-primary break-words leading-snug">
-                  {d.item_name}{d.quantity > 1 && <span> × {d.quantity}</span>}
-                </div>
-                {d.was_salvaged && (
-                  <div className="font-body text-caption text-ink-secondary mt-1">Converted to coins</div>
-                )}
+                <ParchmentCard>
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <div className="min-w-0 font-body font-bold text-lg leading-tight break-words">{p.title}</div>
+                    <RuneBadge tone={mapProjectTone(p.status)} size="sm">
+                      {p.status.replace('_', ' ')}
+                    </RuneBadge>
+                  </div>
+                  <div className="font-script text-caption text-ink-whisper mb-3">
+                    difficulty: {'★'.repeat(p.difficulty || 1)}
+                  </div>
+                  {p.milestones_total > 0 && (
+                    <>
+                      <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
+                        <span>MILESTONES</span>
+                        <span>{p.milestones_completed}/{p.milestones_total}</span>
+                      </div>
+                      <ProgressBar
+                        value={p.milestones_completed}
+                        max={p.milestones_total}
+                        aria-label={`${p.title} milestones`}
+                        className="h-1.5"
+                      />
+                    </>
+                  )}
+                </ParchmentCard>
               </motion.button>
             ))}
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/treasury?tab=satchel')}
-            className="mt-2 -ml-3 text-sheikah-teal-deep!"
-          >
-            View inventory →
-          </Button>
         </section>
       )}
 
+      <ErrorAlert message={challengesError} />
+      {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
+      {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
+
+      <DeckleDivider glyph="flourish-corner" />
+
       <WellbeingCard />
+
+      <SinceLastVisitCard summary={since_last_visit} />
+
+      <VitalPipStrip
+        coinBalance={coin_balance}
+        loginStreak={rpg?.login_streak}
+        level={rpg?.level}
+        activePet={activePet}
+      />
 
       <AccordionSection
         index={0}
@@ -369,8 +285,7 @@ export default function ChildDashboard({ data, reload }) {
         kicker="this week at a glance"
         icon={<TreasuryIcon size={18} />}
         tone="gold"
-        defaultOpen
-        peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h`}
+        peek={`${formatCurrency(current_balance)} · ${coin_balance ?? 0} coins · ${this_week?.hours_worked ?? 0}h${challenges?.daily_bonus?.awarded ? " · Daily bonus earned" : ""}`}
       >
         <motion.div variants={staggerChildren} initial="initial" animate="animate" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <motion.button
@@ -416,6 +331,9 @@ export default function ChildDashboard({ data, reload }) {
             <div className="font-display text-xl font-semibold text-ink-primary">{formatCurrency(this_week?.earnings)}</div>
           </motion.button>
         </motion.div>
+        <div className="mt-3">
+          <DailyChallengeCard challenge={challenges?.daily_bonus ?? null} />
+        </div>
         {coinSummary?.series?.some((p) => p.earned > 0) && (
           <div className="mt-3">
             <div className="font-script text-caption uppercase tracking-wider text-gold-leaf mb-1">
@@ -433,54 +351,48 @@ export default function ChildDashboard({ data, reload }) {
         </div>
       </AccordionSection>
 
-      {active_projects?.length > 0 && (
-        <AccordionSection
-          index={1}
-          title="Next Up"
-          kicker="Projects in progress"
-          icon={<Compass size={18} />}
-          tone="teal"
-          count={active_projects.length}
-          peek={`${active_projects[0]?.title} · ${active_projects[0]?.milestones_completed ?? 0}/${active_projects[0]?.milestones_total ?? 0} milestones`}
-        >
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {active_projects.map((p) => (
+      {dropsError && !recentDrops && (
+        <ErrorAlert message="Couldn't load recent drops." onRetry={reloadDrops} />
+      )}
+
+      {recentDrops?.length > 0 && (
+        <section aria-label="Recent items">
+          <SectionHeader
+            title="Recent items"
+            kicker="Items earned through your activity"
+            className="mb-3"
+          />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            {recentDrops.map((d) => (
               <motion.button
-                key={p.id}
+                key={d.id}
                 type="button"
                 whileHover={{ y: -2 }}
-                onClick={() => navigate(`/quests/ventures/${p.id}`)}
-                className="text-left"
+                onClick={() => navigate('/treasury?tab=satchel')}
+                aria-label={`${d.item_name}${d.quantity > 1 ? ` × ${d.quantity}` : ''}${d.was_salvaged ? ' (converted to coins)' : ''} — open inventory`}
+                className={`min-w-0 p-3 rounded-2xl border text-center hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-[filter] ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
               >
-                <ParchmentCard>
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <div className="min-w-0 font-body font-bold text-lg leading-tight break-words">{p.title}</div>
-                    <RuneBadge tone={mapProjectTone(p.status)} size="sm">
-                      {p.status.replace('_', ' ')}
-                    </RuneBadge>
-                  </div>
-                  <div className="font-script text-caption text-ink-whisper mb-3">
-                    difficulty: {'★'.repeat(p.difficulty || 1)}
-                  </div>
-                  {p.milestones_total > 0 && (
-                    <>
-                      <div className="flex justify-between font-rune text-tiny text-ink-whisper mb-1">
-                        <span>MILESTONES</span>
-                        <span>{p.milestones_completed}/{p.milestones_total}</span>
-                      </div>
-                      <ProgressBar
-                        value={p.milestones_completed}
-                        max={p.milestones_total}
-                        aria-label={`${p.title} milestones`}
-                        className="h-1.5"
-                      />
-                    </>
-                  )}
-                </ParchmentCard>
+                <div className="flex h-10 items-center justify-center mb-2">
+                  <RpgSprite spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
+                </div>
+                <div className="font-body text-body font-semibold text-ink-primary break-words leading-snug">
+                  {d.item_name}{d.quantity > 1 && <span> × {d.quantity}</span>}
+                </div>
+                {d.was_salvaged && (
+                  <div className="font-body text-caption text-ink-secondary mt-1">Converted to coins</div>
+                )}
               </motion.button>
             ))}
           </div>
-        </AccordionSection>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/treasury?tab=satchel')}
+            className="mt-2 -ml-3 text-sheikah-teal-deep!"
+          >
+            View inventory →
+          </Button>
+        </section>
       )}
 
       {savings_goals?.length > 0 && (

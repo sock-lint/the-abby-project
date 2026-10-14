@@ -4,11 +4,11 @@ import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
 import AccordionSection from '../components/dashboard/AccordionSection';
-import WeekGlanceBlock from '../components/dashboard/WeekGlanceBlock';
 import QuickAdjustRow from '../components/dashboard/QuickAdjustRow';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
+import SectionHeader from '../components/SectionHeader';
 import { getChildren } from '../api';
 import { useApi } from '../hooks/useApi';
 import useParentDashboard from '../hooks/useParentDashboard';
@@ -16,6 +16,7 @@ import { inkBleed } from '../motion/variants';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
 import { formatCurrency } from '../utils/format';
+import { normalizeList } from '../utils/api';
 import { formatWeekdayDate } from './_dashboardShared';
 
 function NoChildrenWelcome() {
@@ -44,21 +45,26 @@ function NoChildrenWelcome() {
 
 export default function ParentDashboard() {
   const {
-    pending, weekByKid, dashboard, reload, loading, failedSources = [],
+    pending, weekByKid, dashboard, reload, loading, failedSources = [], error,
   } = useParentDashboard();
-  const { data: children, loading: childrenLoading } = useApi(getChildren);
+  const {
+    data: childrenData, loading: childrenLoading, error: childrenError, reload: reloadChildren,
+  } = useApi(getChildren);
+  const children = normalizeList(childrenData);
   const navigate = useNavigate();
   const { weekday, dateStr } = formatWeekdayDate();
   const failureMessage = failedSources.length > 0
     ? `Couldn't load ${failedSources.join(', ')} — pending items from those queues may be missing.`
-    : null;
+    : error;
+  const incomplete = Boolean(failureMessage);
+  const pendingTimecards = Number(dashboard?.pending_timecards) || 0;
+  const attentionCount = pending.length + pendingTimecards;
+  const weekUnavailable = failedSources.includes('week summary');
 
   // children_count is exposed by the parent dashboard payload. While the
-  // dashboard request is in flight, treat it as "we don't know yet" and
-  // fall back to whether any pending rows exist — that's enough to dodge
-  // a flash of the empty-state on parents who already have kids.
+  // dashboard request is in flight, treat the family size as unknown.
   const childrenCount = dashboard?.children_count;
-  const showWelcome = childrenCount === 0 && pending.length === 0;
+  const showWelcome = childrenCount === 0 && attentionCount === 0;
 
   return (
     <PageShell variants={inkBleed}>
@@ -66,6 +72,15 @@ export default function ParentDashboard() {
         title="Today"
         kicker={`${weekday} · ${dateStr} · your family's day at a glance`}
       />
+
+      {failureMessage && (
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+          <ErrorAlert message={failureMessage} className="flex-1" />
+          <Button variant="secondary" size="sm" onClick={reload} className="self-end sm:self-auto">
+            Retry
+          </Button>
+        </div>
+      )}
 
       {showWelcome ? (
         <NoChildrenWelcome />
@@ -75,36 +90,45 @@ export default function ParentDashboard() {
             role="parent"
             ctx={{
               weekday, dateStr,
-              pendingCount: pending.length,
+              pendingCount: attentionCount,
               loading,
+              incomplete,
+              hideDate: true,
             }}
           />
-
-          <OnboardingChecklist data={dashboard} />
-
-          {failureMessage && (
-            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-              <ErrorAlert message={failureMessage} className="flex-1" />
-              <Button variant="secondary" size="sm" onClick={reload} className="self-end sm:self-auto">
-                Retry
-              </Button>
-            </div>
-          )}
 
           {/* `loading` is load-bearing: the queue aggregates eight fetches, and
               without it the list renders "No pending approvals. All quiet" for
               the whole multi-second round trip — a glance-and-leave parent
               reads that as an all-clear and misses the queue entirely. */}
-          <ApprovalQueueList items={pending} loading={loading} onDone={reload} />
+          <section id="approval-queue" aria-label="Needs your attention" className="space-y-3 scroll-mt-28">
+            {pendingTimecards > 0 && (
+              <ParchmentCard>
+                <Link
+                  to="/treasury?tab=wages"
+                  className="flex min-h-11 items-center gap-3 text-sheikah-teal-deep font-body font-semibold text-body hover:underline"
+                >
+                  <CalendarDays size={20} className="shrink-0" aria-hidden="true" />
+                  Review {pendingTimecards} timecard{pendingTimecards !== 1 ? 's' : ''}
+                </Link>
+              </ParchmentCard>
+            )}
+            <ApprovalQueueList
+              items={pending}
+              loading={loading}
+              incomplete={incomplete}
+              showEmpty={pendingTimecards === 0}
+              onDone={reload}
+            />
+          </section>
 
-          <AccordionSection
-            index={0}
-            title="Family overview"
-            kicker="Your family at a glance"
-          >
+          <section aria-label="Family overview" className="space-y-3">
+            <SectionHeader title="Family overview" kicker="Clocked activity this week" />
             {childrenLoading ? (
               <p className="font-body text-caption text-ink-secondary">Loading...</p>
-            ) : children && children.length > 0 ? (
+            ) : childrenError ? (
+              <ErrorAlert message="Couldn't load your family. Please try again." onRetry={reloadChildren} />
+            ) : children.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {children.map((child) => {
                   const kidWeek = weekByKid.find((w) => w.kid_id === child.id);
@@ -124,47 +148,39 @@ export default function ParentDashboard() {
                         <span className="font-display text-body text-ink-primary block break-words [overflow-wrap:anywhere]">
                           {name}
                         </span>
-                        {kidWeek && (
-                          <span className="font-script text-caption text-ink-whisper block">
-                            {kidWeek.hours ?? 0}h · {formatCurrency(kidWeek.earnings)} this week
-                          </span>
-                        )}
+                        <span className="font-body text-caption text-ink-secondary block">
+                          {weekUnavailable ? 'Weekly activity unavailable.'
+                            : loading ? 'Updating weekly activity…'
+                            : kidWeek
+                              ? `${kidWeek.hours ?? 0}h clocked · ${formatCurrency(kidWeek.earnings)} clocked earnings`
+                              : 'No clocked time this week.'}
+                        </span>
                       </ParchmentCard>
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <p className="font-body text-caption text-ink-secondary">No children added yet.</p>
+              <p className="font-body text-caption text-ink-secondary">Open Manage family to see your children.</p>
             )}
 
             <div className="flex flex-wrap gap-2 mt-4">
               {/* Labels match the Homework and Chores tabs. */}
-              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=study')}>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=study&new=1')}>
                 Assign homework
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=duties')}>
+              <Button variant="secondary" size="sm" onClick={() => navigate('/quests?tab=duties&propose=1')}>
                 New chore
               </Button>
               <Button variant="secondary" size="sm" onClick={() => navigate('/manage')}>
                 Manage family
               </Button>
             </div>
-          </AccordionSection>
+          </section>
+
+          <OnboardingChecklist data={dashboard} />
 
           <AccordionSection
-            index={1}
-            title="Week at a glance"
-            kicker="per-kid hours and earnings"
-            icon={<CalendarDays size={18} />}
-            tone="teal"
-            peek={weekByKid.length > 0 ? `${weekByKid.length} kid${weekByKid.length !== 1 ? 's' : ''} active` : 'no week data yet'}
-          >
-            <WeekGlanceBlock weekByKid={weekByKid} />
-          </AccordionSection>
-
-          <AccordionSection
-            index={2}
             title="Quick adjusts"
             kicker="manual ledger corrections"
             icon={<Settings2 size={18} />}

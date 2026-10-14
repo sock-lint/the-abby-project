@@ -8,6 +8,7 @@ import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildUser } from '../test/factories.js';
+import { buildChallengeGoal, buildDailyBonus } from '../test/challenges';
 import { SpriteCatalogContext } from '../providers/spriteCatalog.context';
 
 function LocationProbe() {
@@ -107,6 +108,7 @@ describe('ChildDashboard', () => {
   });
 
   it('renders the coin sparkline in the Treasury section when coins were earned', async () => {
+    const user = userEvent.setup();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/dashboard/', () =>
@@ -129,6 +131,7 @@ describe('ChildDashboard', () => {
         }),
       ),
     ]);
+    await user.click(await screen.findByRole('button', { name: /rewards & earnings/i }));
     await waitFor(() =>
       expect(
         screen.getByRole('img', { name: /coins earned per day over the last 30 days/i }),
@@ -257,7 +260,7 @@ describe('ChildDashboard', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/atlas?tab=badges');
   });
 
-  it('renders hero using next_actions[0] and groups quest log by kind', async () => {
+  it('renders the top recommendation and preserves task kinds in the ranked list', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/dashboard/', () =>
@@ -288,10 +291,9 @@ describe('ChildDashboard', () => {
     expect(screen.getAllByText('Math workbook').length).toBeGreaterThanOrEqual(1);
     // Hero exposes a "Submit Math workbook" button (homework kind label).
     expect(screen.getByRole('button', { name: /submit math workbook/i })).toBeInTheDocument();
-    // Quest log shows both items grouped by section. Section labels and the
-    // per-row kind tags both render the same string, so use getAllByText.
-    expect(screen.getAllByText(/homework/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/chores/i).length).toBeGreaterThanOrEqual(1);
+    const tasks = screen.getByRole('region', { name: 'Your tasks' });
+    expect(within(tasks).getByText('Homework')).toBeInTheDocument();
+    expect(within(tasks).getByText('Chore')).toBeInTheDocument();
     expect(screen.getByText('Clean Room')).toBeInTheDocument();
   });
 
@@ -416,5 +418,104 @@ describe('Today challenge availability', () => {
     await user.click(screen.getByRole('button', { name: 'Retry challenges' }));
     expect(await screen.findByRole('button', { name: 'Choose a challenge to pin' })).toBeInTheDocument();
     expect(requests).toBe(2);
+  });
+});
+
+describe('Today action hierarchy', () => {
+  const action = (kind, id, title, score) => ({
+    kind, id, title, score, subtitle: kind === 'chore' ? 'Daily chore' : 'Due later this week',
+    due_at: null, reward: null, icon: kind === 'homework' ? 'BookOpen' : 'Sparkles',
+    tone: kind === 'homework' ? 'royal' : 'moss', action_url: '/quests',
+  });
+  const seed = (overrides = {}) => [
+    http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+    http.get('*/api/challenges/daily/', () => HttpResponse.json(null)),
+    http.get('*/api/dashboard/', () => HttpResponse.json({
+      active_timer: null, coin_balance: 125, current_balance: 0,
+      this_week: { hours_worked: 0, earnings: 0 },
+      active_projects: [], recent_badges: [], savings_goals: [],
+      next_actions: [], rpg: { login_streak: 0, level: 3 }, ...overrides,
+    })),
+  ];
+
+  it('keeps the urgent chore visible before later homework even with a running timer', async () => {
+    const user = userEvent.setup();
+    renderDashboard(seed({
+      active_timer: { project_title: 'Birdhouse', project_id: 5, elapsed_minutes: 12 },
+      next_actions: [action('chore', 7, 'Feed the animals', 70), ...Array.from({ length: 5 }, (_, i) => action('homework', i + 20, `Later homework ${i + 1}`, 30))],
+    }));
+    await screen.findByRole('heading', { name: 'Birdhouse' });
+    expect(screen.getByRole('button', { name: 'Complete Feed the animals' })).toBeInTheDocument();
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Feed the animals');
+    expect(screen.queryByRole('button', { name: 'Complete Later homework 5' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /show all 6 tasks/i }));
+    const rows = screen.getAllByRole('listitem');
+    expect(rows).toHaveLength(6);
+    expect(rows[0]).toHaveTextContent('Feed the animals');
+    expect(rows[5]).toHaveTextContent('Later homework 5');
+    await user.click(screen.getByRole('button', { name: 'Show fewer' }));
+    expect(screen.getAllByRole('listitem')).toHaveLength(5);
+    expect(screen.getAllByRole('listitem')[0]).toHaveTextContent('Feed the animals');
+  });
+
+  it('puts the next action before status and exposes project continuation before reflection and earnings', async () => {
+    const user = userEvent.setup();
+    renderDashboard(seed({
+      next_actions: [action('chore', 7, 'Feed the animals', 70)],
+      active_projects: [{ id: 42, title: 'Build a birdhouse', status: 'in_progress', milestones_completed: 1, milestones_total: 4 }],
+      since_last_visit: { badges_earned: 1, approvals: 2, coins_earned: 5 },
+    }));
+    const hero = await screen.findByRole('heading', { name: 'Feed the animals' });
+    const coins = screen.getByRole('button', { name: '125 coins' });
+    expect(hero.compareDocumentPosition(coins) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const project = screen.getByRole('button', { name: /Build a birdhouse/i });
+    const reflection = await screen.findByRole('heading', { name: 'For you, today' });
+    expect(project.compareDocumentPosition(reflection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const earnings = screen.getByRole('button', { name: /Rewards & earnings/i });
+    expect(earnings).toHaveAttribute('aria-expanded', 'false');
+    expect(project.compareDocumentPosition(earnings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(project);
+    expect(screen.getByTestId('location')).toHaveTextContent('/quests/ventures/42');
+  });
+
+  it('uses an honest no-work state without claiming a parent has never added work', async () => {
+    renderDashboard(seed({
+      chores_today: [{ id: 7, title: 'Submitted chore', status: 'pending' }],
+      rpg: { habits_today: [{ id: 9, name: 'Read a book' }] },
+    }));
+    await screen.findByRole('heading', { name: 'Today', level: 1 });
+    expect(screen.queryByText(/once your parent adds/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No urgent tasks right now' })).toBeInTheDocument();
+    expect(screen.getByText(/submitted work may still be waiting for review/i)).toBeInTheDocument();
+  });
+
+  it('keeps the exact pinned goal after work and shows automatic bonus receipts inside rewards', async () => {
+    const user = userEvent.setup();
+    const pinned = buildChallengeGoal({ pinned: true });
+    renderDashboard([
+      ...seed({
+        next_actions: [action('chore', 7, 'Feed the animals', 70)],
+        active_projects: [{ id: 42, title: 'Build a birdhouse', status: 'in_progress', milestones_completed: 1, milestones_total: 4 }],
+      }),
+      http.get('*/api/challenges/', () => HttpResponse.json({
+        results: [buildChallengeGoal({ id: 'goal:12', name: 'An unpinned goal' }), pinned],
+        pin: pinned.id,
+        daily_bonus: buildDailyBonus({ completed: true, awarded: true, coins_awarded: 7, xp_awarded: 9, receipt_id: 'daily:11' }),
+      })),
+    ]);
+    const goal = await screen.findByRole('heading', { name: pinned.name });
+    const project = screen.getByRole('region', { name: 'Continue a project' });
+    const tasks = screen.getByRole('region', { name: 'Your tasks' });
+    expect(tasks.compareDocumentPosition(project) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(project.compareDocumentPosition(goal) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText('An unpinned goal')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: "Today's bonus" })).not.toBeInTheDocument();
+    const earnings = screen.getByRole('button', { name: /Rewards & earnings/i });
+    expect(earnings).toHaveTextContent('Daily bonus earned');
+    await user.click(earnings);
+    expect(await screen.findByText('Bonus earned · +7 coins · +9 XP')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /claim/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'View challenge' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/quests?tab=trials&goal=goal%3A11');
   });
 });

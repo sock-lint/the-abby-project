@@ -69,9 +69,9 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
     return (
       <motion.div variants={inkBleed} initial="initial" animate="animate">
         <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
-          <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
+          {!ctx.hideDate && <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
             {weekday ? `${weekday} · ${dateStr}` : 'Today'}
-          </div>
+          </div>}
           {count > 0 ? (
             <>
               <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight break-words">
@@ -104,6 +104,15 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
                 Gathering completed work and reward requests.
               </div>
             </>
+          ) : ctx.incomplete ? (
+            <>
+              <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight">
+                Some updates are unavailable
+              </h2>
+              <p className="font-body text-body text-ink-secondary mt-1">
+                Retry to check the remaining approvals.
+              </p>
+            </>
           ) : (
             <>
               <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight">
@@ -132,9 +141,9 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
   return (
     <motion.div variants={inkBleed} initial="initial" animate="animate">
       <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
-        <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
+        {!ctx.hideDate && <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
           {weekday ? `${weekday} · ${dateStr}` : 'Today'}
-        </div>
+        </div>}
 
         {variant === 'clocked' && (
           <div className="flex items-start gap-3">
@@ -218,8 +227,9 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
               <Sparkles size={14} /> Room for something good
             </div>
             <h2 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight mt-0.5">
-              Choose what you want to work on next.
+              {ctx.idleTitle || 'Choose what you want to work on next.'}
             </h2>
+            {ctx.idleDescription && <p className="font-body text-body text-ink-secondary mt-2">{ctx.idleDescription}</p>}
             <Button
               variant="ghost"
               size="sm"

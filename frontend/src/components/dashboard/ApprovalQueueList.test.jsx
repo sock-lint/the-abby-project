@@ -40,6 +40,17 @@ describe('ApprovalQueueList', () => {
     expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument();
   });
 
+  it('does not claim an empty queue when an approval source is unavailable', () => {
+    renderList([], () => {}, { incomplete: true });
+    expect(screen.queryByText(/no pending approvals/i)).toBeNull();
+    expect(screen.getByText(/some approval queues couldn't be checked/i)).toBeInTheDocument();
+  });
+
+  it('omits its empty card when other attention items are shown by the parent', () => {
+    renderList([], () => {}, { showEmpty: false });
+    expect(screen.queryByText(/no pending approvals/i)).toBeNull();
+  });
+
   it('shows a skeleton instead of "all quiet" while the queue is still loading', () => {
     renderList([], () => {}, { loading: true });
     // An empty array mid-fetch means "we don't know yet" — claiming an
