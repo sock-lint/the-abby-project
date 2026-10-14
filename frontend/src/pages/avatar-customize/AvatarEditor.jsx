@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { saveAvatarConfiguration } from '../../api';
 import { getToken } from '../../api/client';
+import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -36,6 +37,7 @@ export default function AvatarEditor({ catalog, initialConfiguration, accountId,
   activeScope.current = scope;
   const definition = avatarDefinition(catalog, configuration?.avatar_id);
   const changed = !sameConfiguration(confirmed, configuration);
+  usePwaUpdateGuard(changed || working);
   const editable = editableConfiguration(catalog, configuration);
   const valid = validConfiguration(catalog, configuration);
   const current = () => mounted.current && activeScope.current.accountId === accountId
