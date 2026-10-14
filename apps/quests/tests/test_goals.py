@@ -48,7 +48,7 @@ class _GoalFixture:
         if distance is not None:
             context["distance_meters"] = distance
         return ingest_activity(self.child, "movement_session", source_id, trigger,
-                               occurred_at=at or self.now, context=context)
+                               occurred_at=at or timezone.now(), context=context)
 
     def goal(self, **overrides):
         data = {"name": "Run two miles", "metric": "distance", "target": Decimal(2), "unit": "mi",
@@ -59,6 +59,179 @@ class _GoalFixture:
         return create_goal(self.parent, self.child, data)
 
 class AutomaticGoalsTests(_GoalFixture, TestCase):
+    def test_idle_child_first_real_activity_gets_fresh_catalog_window(self):
+        from apps.movement.services import MovementSessionService
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=timezone.now() - timedelta(days=30))
+        definition = self.definition(target=1)
+        session = MovementSessionService.log_session(self.child, movement_type=self.running, duration_minutes=20)
+        occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+        self.assertEqual((occurrence.progress, occurrence.status), (1, "completed"))
+        self.assertEqual(occurrence.starts_at, session.created_at)
+        self.assertEqual(occurrence.ends_at, session.created_at + timedelta(days=7))
+
+    def test_idle_child_first_list_starts_fresh_once_and_never_restarts_expired_window(self):
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=timezone.now() - timedelta(days=30))
+        self.definition()
+        offered = timezone.now()
+        with patch("django.utils.timezone.now", return_value=offered):
+            payload = list_goals(self.child)
+        occurrence = ChallengeOccurrence.objects.get()
+        self.assertEqual((payload["results"][0]["status"], occurrence.starts_at), ("active", offered))
+        ends_at = occurrence.ends_at
+        set_pin(self.child, payload["results"][0]["id"])
+        with patch("django.utils.timezone.now", return_value=offered + timedelta(days=30)):
+            self.assertEqual(list_goals(self.child)["results"][0]["status"], "expired")
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.starts_at, occurrence.ends_at), (offered, ends_at))
+        self.assertEqual(ChallengeOccurrence.objects.count(), 1)
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_catalog_added_later_has_own_fresh_window_without_rewriting_paid_history(self):
+        first_day = datetime(2026, 10, 1, 18, tzinfo=ZoneInfo("UTC"))
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=first_day)
+        with patch("django.utils.timezone.now", return_value=first_day):
+            original_definition = self.definition("Original catalog", target=1)
+            self.fact("original", at=first_day)
+        original = ChallengeOccurrence.objects.get(goal__catalog_definition=original_definition)
+        saved = (original.starts_at, original.ends_at, original.reward_receipt, original.awarded_at)
+        later = first_day + timedelta(days=30)
+        with patch("django.utils.timezone.now", return_value=later):
+            added = self.definition("New catalog", target=1)
+            self.fact("new-content", at=later)
+        new_occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=added)
+        self.assertEqual((new_occurrence.progress, new_occurrence.status), (1, "completed"))
+        self.assertEqual((new_occurrence.starts_at, new_occurrence.ends_at), (later, later + timedelta(days=7)))
+        original.refresh_from_db()
+        self.assertEqual((original.starts_at, original.ends_at, original.reward_receipt, original.awarded_at), saved)
+
+    def test_new_child_first_real_saved_activity_counts_without_enrollment_or_get(self):
+        from apps.movement.services import MovementSessionService
+        ChallengeEnrollment.objects.filter(user=self.child).delete()
+        definition = self.definition(target=1)
+        source = MovementSessionService.log_session(self.child, movement_type=self.running, duration_minutes=20)
+        self.assertEqual(ChallengeEnrollment.objects.get(user=self.child).starts_at, source.created_at)
+        occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+        self.assertEqual((occurrence.starts_at, occurrence.progress, occurrence.status),
+                         (source.created_at, 1, "completed"))
+
+    def test_pending_source_survives_get_before_retry_with_original_window(self):
+        definition = self.definition(target=1)
+        accepted_at = timezone.now()
+        with patch("django.utils.timezone.now", return_value=accepted_at):
+            with patch("apps.achievements.services.AwardService.grant", side_effect=RuntimeError("pending")):
+                with self.assertRaises(RuntimeError):
+                    self.fact("pending", at=accepted_at)
+        self.assertFalse(ChallengeGoal.objects.exists())
+        with patch("django.utils.timezone.now", return_value=accepted_at + timedelta(days=1)):
+            list_goals(self.child)
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+            self.assertEqual(occurrence.starts_at, accepted_at)
+            self.fact("pending", at=accepted_at)
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.starts_at, occurrence.progress, occurrence.status),
+                         (accepted_at, 1, "completed"))
+        self.assertEqual(CoinLedger.objects.filter(user=self.child, reason="adjustment").count(), 1)
+
+    def test_new_child_failed_first_real_save_then_get_keeps_accepted_cutover(self):
+        from apps.movement.services import MovementSessionService
+        from apps.quests.activity import retry_pending_activity
+        ChallengeEnrollment.objects.filter(user=self.child).delete()
+        definition = self.definition(target=1)
+        accepted_at = timezone.now()
+        with patch("django.utils.timezone.now", return_value=accepted_at):
+            with self.assertLogs("apps.quests.activity", level="ERROR"):
+                with patch("apps.achievements.services.AwardService.grant", side_effect=RuntimeError("pending")):
+                    source = MovementSessionService.log_session(self.child, movement_type=self.running, duration_minutes=20)
+        self.assertFalse(ChallengeEnrollment.objects.filter(user=self.child).exists())
+        with patch("django.utils.timezone.now", return_value=accepted_at + timedelta(days=1)):
+            list_goals(self.child)
+            self.assertEqual(ChallengeEnrollment.objects.get(user=self.child).starts_at, source.created_at)
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+            self.assertEqual((occurrence.starts_at, occurrence.progress), (source.created_at, 0))
+            self.assertEqual(retry_pending_activity(self.child), 1)
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.starts_at, occurrence.progress, occurrence.status),
+                         (source.created_at, 1, "completed"))
+
+    def test_pending_sources_before_cutover_or_definition_cannot_anchor_or_credit_new_content(self):
+        offered = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        cutover = offered - timedelta(days=10)
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=cutover)
+        for name, at in (("pre-feature", cutover - timedelta(seconds=1)),
+                         ("pre-content", offered - timedelta(seconds=1))):
+            ChallengeActivity.objects.create(user=self.child, source_type="movement_session", source_id=name,
+                                             trigger_type="movement_session", occurred_at=at, occurred_on=at.date())
+        with patch("django.utils.timezone.now", return_value=offered):
+            definition = self.definition(target=1)
+            list_goals(self.child)
+            self.fact("pre-feature", at=cutover - timedelta(seconds=1))
+            self.fact("pre-content", at=offered - timedelta(seconds=1))
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+            self.assertEqual((occurrence.starts_at, occurrence.progress), (offered, 0))
+            self.fact("new-content", at=offered)
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.progress, occurrence.status), (1, "completed"))
+
+    def test_old_badge_unlock_gets_fresh_window_without_pre_unlock_or_processed_history(self):
+        offered = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=offered - timedelta(days=90))
+        with patch("django.utils.timezone.now", return_value=offered - timedelta(days=60)):
+            badge = Badge.objects.create(name="Old catalog unlock", criteria_type="chore_completions")
+            definition = self.definition(target=1, required_badge=badge)
+        with patch("django.utils.timezone.now", return_value=offered - timedelta(days=30)):
+            UserBadge.objects.create(user=self.child, badge=badge)
+        for name, days_ago, processed in (("before-unlock", 40, None), ("already-processed", 20, offered)):
+            at = offered - timedelta(days=days_ago)
+            ChallengeActivity.objects.create(user=self.child, source_type="movement_session", source_id=name,
+                                             trigger_type="movement_session", occurred_at=at, occurred_on=at.date(),
+                                             processed_at=processed)
+        with patch("django.utils.timezone.now", return_value=offered):
+            list_goals(self.child)
+            self.fact("before-unlock", at=offered - timedelta(days=40))
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+            self.assertEqual((occurrence.starts_at, occurrence.progress), (offered, 0))
+            self.fact("after-unlock", at=offered)
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.progress, occurrence.status), (1, "completed"))
+
+    def test_over_limit_pending_plan_cannot_anchor_or_progress_catalog_window(self):
+        offered = datetime(2026, 10, 15, 18, tzinfo=ZoneInfo("UTC"))
+        ChallengeEnrollment.objects.filter(user=self.child).update(starts_at=offered - timedelta(days=30))
+        with patch("django.utils.timezone.now", return_value=offered - timedelta(days=20)):
+            definition = QuestDefinition.objects.create(
+                name="Pending capped plans", quest_type="collection", target_value=1, duration_days=7,
+                is_system=True, trigger_filter={"allowed_triggers": ["homework_created"]},
+            )
+        old_at = offered - timedelta(days=15)
+        ChallengeActivity.objects.create(user=self.child, source_type="homework_created", source_id="over-limit",
+                                         trigger_type="homework_created", occurred_at=old_at, occurred_on=old_at.date(),
+                                         context={"catalog_eligible": False})
+        with patch("django.utils.timezone.now", return_value=offered):
+            list_goals(self.child)
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+            self.assertEqual((occurrence.starts_at, occurrence.progress), (offered, 0))
+            ingest_activity(self.child, "homework_created", "over-limit", "homework_created", occurred_at=old_at)
+        occurrence.refresh_from_db()
+        self.assertEqual((occurrence.starts_at, occurrence.progress, occurrence.status), (offered, 0, "active"))
+
+    def test_repeatable_legacy_handoff_respects_original_deadline(self):
+        offered = timezone.now()
+        definition = self.definition(is_repeatable=True)
+        deadline = offered + timedelta(days=3)
+        legacy = Quest.objects.create(definition=definition, end_date=deadline, current_progress=1, rage_shield=15)
+        QuestParticipant.objects.create(user=self.child, quest=legacy, contribution=1)
+        list_goals(self.child)
+        goal = ChallengeGoal.objects.get(catalog_definition=definition)
+        self.assertEqual((goal.starts_at, goal.ends_at), (deadline, deadline + timedelta(days=7)))
+        self.fact("too-early", at=offered)
+        self.assertFalse(ChallengeOccurrence.objects.exists())
+        with patch("django.utils.timezone.now", return_value=deadline):
+            self.fact("handoff", at=deadline)
+        occurrence = ChallengeOccurrence.objects.get(goal=goal)
+        self.assertEqual((occurrence.starts_at, occurrence.progress), (deadline, 1))
+        legacy.refresh_from_db()
+        self.assertEqual((legacy.current_progress, legacy.rage_shield, legacy.end_date), (1, 15, deadline))
+
     def test_boss_what_counts_omits_actions_that_deal_no_damage(self):
         definition = self.definition(quest_type="boss")
         definition.trigger_filter = {}
@@ -133,13 +306,13 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         from apps.chronicle.models import ChronicleEntry
         from apps.quests.activity import record_activity, resolve_activity
         private_title, private_body = "PRIVATE TITLE SENTINEL", "PRIVATE BODY SENTINEL"
+        QuestDefinition.objects.create(name="Journal progress", description="Two entries", is_system=True,
+                                       quest_type="collection", target_value=2, duration_days=7,
+                                       trigger_filter={"allowed_triggers": ["journal_entry"]})
         entry = ChronicleEntry.objects.create(
             user=self.child, kind="journal", occurred_on=timezone.localdate(), chapter_year=2026,
             title=private_title, summary=private_body, metadata={"body": private_body}, is_private=True,
         )
-        QuestDefinition.objects.create(name="Journal progress", description="Two entries", is_system=True,
-                                       quest_type="collection", target_value=2, duration_days=7,
-                                       trigger_filter={"allowed_triggers": ["journal_entry"]})
         self.assertIsNone(resolve_activity(self.parent, "journal_entry", {"entry_id": entry.pk}))
         self.assertIsNone(resolve_activity(self.family.children[1], "journal_entry", {"entry_id": entry.pk}))
         record_activity(self.child, "journal_entry", {"entry_id": entry.pk, "body": private_body})

@@ -27,9 +27,14 @@ complete immediately; the parent form explains this before saving.
 
 Catalog goals use the stored trigger filters, not their names, artwork or reward
 skill tags. A coding theme does not restrict contributions to coding unless the
-filter explicitly does so. Nonrepeatable catalog goals have one enrollment-based
-window. Repeatable catalog goals use successive windows of their stored duration;
-they do not restart each time the child completes or pins them. An already active
+filter explicitly does so. A new catalog goal receives its full window when it
+is first offered or evaluated automatically. Enrollment/cutover, template
+creation, the actual badge unlock and any active legacy deadline remain lower
+boundaries. An eligible pending saved action can anchor that first window so its
+initial save or retry still counts; already processed history does not start or
+replay a new catalog goal. Nonrepeatable goals keep that one window. Repeatable
+goals use successive windows from their saved anchor and stored duration.
+Existing windows never restart when the child returns, completes or pins them. An already active
 legacy challenge retains its original dates, target, progress and reward promise.
 New automatic enrollment omits reward-only badge-earned/Perfect-Day definitions;
 those saved legacy instances remain readable. Default goals count effort events,

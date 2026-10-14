@@ -32,6 +32,7 @@ class GoalConcurrencyTests(TransactionTestCase):
             trigger_filter={"allowed_triggers": ["chore_complete"]},
         )
         QuestSkillTag.objects.create(quest_definition=definition, skill=self.skill)
+        self.at = timezone.now()
         ingest_activity(self.user, "chore_complete", "first", "chore_complete", occurred_at=self.at)
 
     def _race(self, identities):

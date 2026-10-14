@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from .models import (
@@ -101,10 +101,40 @@ def _snapshot(goal):
     }
 
 
+def _first_pending_catalog_fact(user, definition, cutoff, offered_at):
+    """Keep a saved initial action eligible even if evaluation or a GET wins later."""
+    filters = definition.trigger_filter or {}
+    allowed = set(filters.get("allowed_triggers") or EFFORT_TRIGGERS) & FACT_TRIGGERS
+    query = ChallengeActivity.objects.filter(
+        user=user, processed_at__isnull=True, voided=False, trigger_type__in=allowed,
+        occurred_at__gte=cutoff, occurred_at__lte=offered_at,
+    ).filter(~Q(trigger_type__in=["homework_created", "creation_logged"]) | Q(context__catalog_eligible=True))
+    for key in ("project_id", "skill_category_id", "savings_goal_id"):
+        if filters.get(key):
+            query = query.filter(**{f"context__{key}": filters[key]})
+    if filters.get("chore_ids"):
+        query = query.filter(context__chore_id__in=filters["chore_ids"])
+    if filters.get("on_time"):
+        query = query.filter(context__on_time=True)
+    snapshot = {"metric": "damage" if definition.quest_type == "boss" else "count",
+                "filter": filters, "unit": "actions"}
+    for activity in query.order_by("occurred_at", "pk").iterator(chunk_size=100):
+        if _amount(snapshot, activity) > 0:
+            return activity.occurred_at
+    return None
+
+
 def _catalog_goals(user):
-    enrollment, _ = ChallengeEnrollment.objects.get_or_create(
-        user=user, defaults={"timezone_name": str(family_zone(user))},
-    )
+    offered_at = timezone.now()
+    enrollment = ChallengeEnrollment.objects.filter(user=user).first()
+    if enrollment is None:
+        first_pending = ChallengeActivity.objects.filter(
+            user=user, processed_at__isnull=True, voided=False, occurred_at__lte=offered_at,
+            trigger_type__in=FACT_TRIGGERS,
+        ).order_by("occurred_at", "pk").values_list("occurred_at", flat=True).first()
+        enrollment, _ = ChallengeEnrollment.objects.get_or_create(
+            user=user, defaults={"starts_at": first_pending or offered_at, "timezone_name": str(family_zone(user))},
+        )
     # A historical active quest remains the pinned legacy instance through its deadline.
     pin, new_pin = ChallengePin.objects.get_or_create(user=user)
     if new_pin:
@@ -130,10 +160,14 @@ def _catalog_goals(user):
         if not definition.is_repeatable and legacy.filter(status__in=["active", "completed"]).exists():
             continue
         active = legacy.filter(status="active").first()
-        starts_at = max(enrollment.starts_at, active.end_date) if active else enrollment.starts_at
+        cutoff = max(enrollment.starts_at, definition.created_at)
+        if active:
+            cutoff = max(cutoff, active.end_date)
         if definition.required_badge_id:
             # Unlocking never retroactively counts facts from before the badge was earned.
-            starts_at = max(starts_at, UserBadge.objects.get(user=user, badge_id=definition.required_badge_id).earned_at)
+            cutoff = max(cutoff, UserBadge.objects.get(user=user, badge_id=definition.required_badge_id).earned_at)
+        first_fact = _first_pending_catalog_fact(user, definition, cutoff, offered_at)
+        starts_at = max(cutoff, first_fact or offered_at)
         ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
             "is_catalog": True, "family": user.family, "name": definition.name, "description": definition.description,
             "metric": "damage" if definition.quest_type == "boss" else "count",

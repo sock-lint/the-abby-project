@@ -395,6 +395,10 @@ Parents may select a same-family child with `user_id`; children cannot use that 
 read another account. Goal IDs identify occurrences (`goal:1`), not catalog
 definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
 decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
+New catalog goals receive their full window on first automatic offer/evaluation,
+subject to cutover, template creation, badge and legacy cutoffs. Pending eligible
+saved work can anchor the first window; processed history does not replay, and
+later reads/pins never reset an existing window or paid receipt.
 `starts_at` and `ends_at` define the server window; `what_counts`
 describes the activity filter and catalog eligibility. Catalog planning says
 “planned homework (first per day)” and catalog creation says “logged creations
