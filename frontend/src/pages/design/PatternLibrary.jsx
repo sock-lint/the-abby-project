@@ -20,6 +20,11 @@ import ProgressBar from '../../components/ProgressBar';
 import NotificationToast from '../../components/NotificationToast';
 import ChildContext from '../../components/family/ChildContext';
 import AttachmentField from '../../components/attachments/AttachmentField';
+import BadgeSigil from '../../components/atlas/BadgeSigil';
+import IncipitBand from '../../components/atlas/IncipitBand';
+import ChapterRubric from '../../components/atlas/ChapterRubric';
+import RarityStrand from '../../components/atlas/RarityStrand';
+import { RARITY_KEYS } from '../../components/atlas/mastery.constants';
 import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField } from '../../components/form';
 import { DesignPreviewContext } from './preview.context';
 
@@ -178,6 +183,54 @@ function AttachmentExample() {
   </Specimen>;
 }
 
+function AtlasExamples() {
+  const { longContent } = useContext(DesignPreviewContext);
+  const [hints, setHints] = useState(true);
+  const [selection, setSelection] = useState(null);
+  const counts = Object.fromEntries(RARITY_KEYS.map((rarity, index) => [rarity, { earned: index % 3, total: 3 }]));
+  const suffix = longContent ? ' for taking time to learn, practice and share a creative family activity' : '';
+  const badgeName = rarity => `${rarity[0].toUpperCase()}${rarity.slice(1)} example badge${suffix}`;
+  return <Specimen id="design-atlas" title="Atlas primitives" imports={'import BadgeSigil from "../components/atlas/BadgeSigil";\nimport IncipitBand from "../components/atlas/IncipitBand";\nimport ChapterRubric from "../components/atlas/ChapterRubric";\nimport RarityStrand from "../components/atlas/RarityStrand";\n\n<BadgeSigil badge={badge} earned={earned} hint={unlockHint} onSelect={setPreview} />\n<IncipitBand as="h4" letter="B" title="Badge collection" progressPct={27} rarityCounts={counts} />\n<ChapterRubric index={0} name="Activities" icon="✦" summary={{ level: 2, total_xp: 1200 }} />\n<ChapterRubric index={1} subject={subject} />\n<RarityStrand counts={counts} compact />'} guidance="Reuse these collection and progress primitives with domain-supplied names, hints and server-confirmed counts. Selecting a synthetic badge here only updates the local preview; it cannot earn a badge or grant XP. Earned badges suppress unlock hints. IncipitBand defaults to h1; set as to the heading level required by the surrounding page. ChapterRubric accepts direct name/icon/summary props or a legacy subject; direct props take precedence. RarityStrand accepts earned/total counts by rarity, with an accessible summary even when empty." consumers={['pages/achievements/CollectionFolio.jsx', 'pages/achievements/SigilCodex.jsx', 'pages/yearbook/ChapterCard.jsx', 'pages/Projects.jsx', 'pages/achievements/FolioSpread.jsx', 'pages/character/CosmeticChapter.jsx']}>
+    <div className="space-y-3">
+      <h3 className="font-display text-lede font-bold text-ink-primary">Badge tiles</h3>
+      <p className="text-body text-ink-secondary">All five rarities, earned and locked. Toggle hints to compare caller-supplied guidance.</p>
+      <CheckboxField label="Show badge unlock hints" checked={hints} onChange={event => setHints(event.target.checked)} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {RARITY_KEYS.map(rarity => {
+          const badge = { id: `design-${rarity}`, name: badgeName(rarity), rarity, icon: '✦', xp_bonus: 25 };
+          return <div key={rarity} className="min-w-0 space-y-3">
+            <BadgeSigil badge={badge} earned earnedAt="2020-01-01T12:00:00Z" hint={hints ? 'Example unlock guidance' : ''} onSelect={setSelection} />
+            <BadgeSigil badge={badge} earned={false} hint={hints ? `Practice an example activity${suffix}.` : ''} onSelect={setSelection} />
+          </div>;
+        })}
+      </div>
+      <p role="status" aria-label="Badge selection" aria-live="polite" className="text-body text-ink-secondary break-words">{selection ? `Selected preview: ${selection.badge.name} · ${selection.badge.rarity} · ${selection.earned ? 'earned' : 'not yet earned'}.` : 'Choose an example badge to preview its selection.'}</p>
+    </div>
+    <div className="space-y-3">
+      <h3 className="font-display text-lede font-bold text-ink-primary">Chapter openers</h3>
+      <IncipitBand as="h4" letter="B" title={`Bare chapter example${suffix}`} />
+      <IncipitBand as="h4" letter="K" title={`Kicker chapter example${suffix}`} kicker="Current chapter" meta="Synthetic dates · 2025–2026" progressPct={45} />
+      <IncipitBand as="h4" letter="R" title={`Rarity chapter example${suffix}`} kicker="Example collection" meta="4 of 15 collected" progressPct={27} rarityCounts={counts} />
+    </div>
+    <ParchmentCard className="space-y-3">
+      <p className="text-body text-ink-secondary">Chapter headings: direct props and the legacy subject shape, with and without summaries.</p>
+      <ChapterRubric index={0} name={`Direct chapter heading${suffix}`} icon="✦" />
+      <ChapterRubric index={1} name={`Direct heading with summary${suffix}`} icon="✦" summary={{ level: 2, total_xp: 1200 }} />
+      <ChapterRubric index={2} subject={{ name: `Legacy subject heading${suffix}`, icon: '✦' }} />
+      <ChapterRubric index={3} subject={{ name: `Legacy subject with summary${suffix}`, icon: '✦', summary: { level: 3, total_xp: 2400 } }} />
+    </ParchmentCard>
+    <ParchmentCard className="space-y-4">
+      <h3 className="font-display text-lede font-bold text-ink-primary">Rarity summaries</h3>
+      {[false, true].map(compact => <div key={String(compact)} className="space-y-2">
+        <p className="text-body text-ink-secondary">{compact ? 'Compact height' : 'Default height'} · full counts</p>
+        <RarityStrand counts={counts} compact={compact} />
+        <p className="text-body text-ink-secondary">{compact ? 'Compact height' : 'Default height'} · empty counts</p>
+        <RarityStrand counts={{}} compact={compact} />
+      </div>)}
+    </ParchmentCard>
+  </Specimen>;
+}
+
 export default function PatternLibrary() {
-  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /><AttachmentExample /></div>;
+  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /><AttachmentExample /><AtlasExamples /></div>;
 }

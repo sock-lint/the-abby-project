@@ -13,6 +13,15 @@ function zeros() {
 }
 
 describe('IncipitBand', () => {
+  it('allows a nested chapter heading while preserving the default page heading', () => {
+    renderWithProviders(<>
+      <IncipitBand letter="P" title="Page title" />
+      <IncipitBand as="h4" letter="N" title="Nested chapter title" />
+    </>);
+    expect(screen.getByRole('heading', { name: 'Page title', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Nested chapter title', level: 4 })).toBeInTheDocument();
+  });
+
   it('renders the supplied title, kicker, and meta line', () => {
     renderWithProviders(
       <IncipitBand
