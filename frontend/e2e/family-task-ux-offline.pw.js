@@ -13,9 +13,13 @@ function fixtureApp(options) {
   let version = 0;
   let projectSearch = '';
   let projectTop = 0;
+  // Successful task data survives a tab flip, matching ChapterHub's retained
+  // panels. Returning to visited Habits must not manufacture another GET.
+  const taskData = new Map();
+  const memoryData = new Set();
   const navigate = (path) => { history.pushState({}, '', path); render(); };
   window.addEventListener('popstate', render);
-  const tasks = ['Projects', 'Chores', 'Habits', 'Movement', 'Forge'];
+  const tasks = ['Projects', 'Chores', 'Habits', 'Movement', '3D Printing'];
   const ids = ['ventures', 'duties', 'rituals', 'movement', 'forge'];
   function taskTabs() {
     return '<div role="tablist" aria-label="Tasks sections">' + tasks.map((name, index) => `<button role="tab" data-task="${ids[index]}">${name}</button>`).join('') + '</div>';
@@ -71,7 +75,14 @@ function fixtureApp(options) {
       }
       if (options.role === 'parent') main.insertAdjacentHTML('beforeend', '<label for="viewing">Viewing</label><select id="viewing"><option value="7">Fixture child</option></select>');
       else main.insertAdjacentHTML('beforeend', '<button>Write today’s entry</button>');
-      await fetch('/api/chronicle/summary/' + (options.role === 'parent' ? '?user_id=7' : ''));
+      const panel = url.searchParams.get('tab');
+      if (!memoryData.has(panel)) {
+        const endpoint = panel === 'grades' ? 'grades' : 'summary';
+        const response = await fetch('/api/chronicle/' + endpoint + '/' + (options.role === 'parent' ? '?user_id=7' : ''));
+        await response.json();
+        if (response.ok) memoryData.add(panel);
+        else if (current === version) main.insertAdjacentHTML('beforeend', '<div role="alert">Could not load memories.</div>');
+      }
       return;
     }
     if (/^\/quests\/ventures\/\d+$/.test(url.pathname)) {
@@ -84,7 +95,7 @@ function fixtureApp(options) {
     main.innerHTML = taskTabs();
     hookTabs();
     if (tab === 'forge') {
-      main.insertAdjacentHTML('beforeend', '<h1>Forge</h1><button id="ask-print">Ask for a print</button>');
+      main.insertAdjacentHTML('beforeend', '<h1>3D Printing</h1><button id="ask-print">Ask for a print</button>');
       document.getElementById('ask-print').onclick = () => attachment('Ask for a print', 'Model file', false);
       return;
     }
@@ -95,10 +106,11 @@ function fixtureApp(options) {
     main.insertAdjacentHTML('beforeend', `<h1>${kind[0].toUpperCase() + kind.slice(1)}</h1><div id="content"></div>`);
     let rows;
     try {
-      rows = await (await fetch('/api/' + kind + '/')).json();
+      rows = taskData.has(kind) ? taskData.get(kind) : await (await fetch('/api/' + kind + '/')).json();
+      if (kind === 'chores' || kind === 'habits') taskData.set(kind, rows);
     } catch {
       if (current !== version) return;
-      document.getElementById('content').innerHTML = `<div role="alert">Couldn't load ${kind}.<button id="retry">Retry</button></div>`;
+      document.getElementById('content').innerHTML = `<div role="alert">Couldn't load ${kind}.<button id="retry">Try again</button></div>`;
       document.getElementById('retry').onclick = render;
       return;
     }
@@ -129,7 +141,8 @@ function fixtureApp(options) {
         history.replaceState({}, '', '/quests?' + params);
       }
       if (!matches.length) {
-        results.innerHTML = `<p>No matches for “${search.value}”</p><button id="clear">Clear filter</button>`;
+        // Shared EmptyState puts its text and action inside the same status.
+        results.innerHTML = `<div role="status">No matches for “${search.value}”<div><button id="clear">Clear filter</button></div></div>`;
         document.getElementById('clear').onclick = () => { search.value = ''; update(); };
       } else if (kind === 'projects') {
         results.innerHTML = '<button aria-label="Open Fixture project" style="display:block;margin-top:1000px">Fixture project</button>';
@@ -149,6 +162,14 @@ async function localCheck(browser, options, run) {
     requests.push({ method: request.method, path: request.url });
     if (request.url.startsWith('/api/')) {
       response.setHeader('content-type', 'application/json; charset=utf-8');
+      if (options.delayedGradesFailure && request.url.startsWith('/api/chronicle/grades/')) {
+        // There is no error at the instant the tab mounts; it fails later.
+        setTimeout(() => {
+          response.statusCode = 503;
+          response.end(JSON.stringify({ detail: 'Synthetic delayed read failure' }));
+        }, 300);
+        return;
+      }
       response.end(JSON.stringify(options.rows || options.falseProjectEmpty ? [{ id: 3, title: 'Fixture project', status: 'in_progress', payment_kind: 'bounty', assigned_to: null }] : []));
     } else {
       response.setHeader('content-type', 'text/html; charset=utf-8');
@@ -213,12 +234,39 @@ test('a false empty project view cannot count as verified empty coverage', async
   });
 });
 
+test('a delayed failed Memory read cannot pass while its alert is still absent', async ({ browser }) => {
+  await localCheck(browser, { role: 'parent', delayedGradesFailure: true }, async (page, credentials, gate, requests) => {
+    await assert.rejects(() => checkParentUx(page, credentials, gate), { code: 'BROWSER' });
+    assert.equal(requests.filter((request) => request.path === '/api/chronicle/grades/?user_id=7').length, 1);
+    assert.equal(requests.filter((request) => request.path === '/api/projects/').length, 0);
+  });
+});
+
 test('an unverified session fails before any helper navigation', async ({ browser }) => {
   await localCheck(browser, { role: 'parent' }, async (page, credentials, gate, requests) => {
     gate.verified = false;
     const before = requests.length;
     await assert.rejects(() => checkParentUx(page, credentials, gate), { code: 'ISOLATION' });
     assert.equal(requests.length, before);
+  });
+});
+
+test('the contract fixture retains successful Habits reads across offline tab switches', async ({ browser }) => {
+  await localCheck(browser, { role: 'child' }, async (page, credentials, gate, requests) => {
+    await page.goto(credentials.baseUrl + '/quests?tab=rituals');
+    await page.getByText('No habits yet. Add or propose a habit to get started.', { exact: true }).waitFor();
+    const reads = () => requests.filter((request) => request.path === '/api/habits/').length;
+    assert.equal(reads(), 1);
+    await page.getByRole('tab', { name: 'Chores', exact: true }).click();
+    await page.getByText('No chores available today.', { exact: true }).waitFor();
+    try {
+      await page.context().setOffline(true);
+      await page.getByRole('tab', { name: 'Habits', exact: true }).click();
+      await page.getByText('No habits yet. Add or propose a habit to get started.', { exact: true }).waitFor();
+      assert.equal(await page.getByRole('alert').count(), 0);
+      assert.equal(reads(), 1);
+    } finally { await page.context().setOffline(false); }
+    gate.assertSafe();
   });
 });
 

@@ -17,6 +17,8 @@ async function visit(page, base, path) {
 
 function memoryRequests(page, childId) {
   let invalid = false;
+  const origin = new URL(page.url()).origin;
+  const completed = new Set();
   const inspect = (request) => {
     const url = new URL(request.url());
     if (!url.pathname.startsWith('/api/chronicle/')) return;
@@ -25,14 +27,36 @@ function memoryRequests(page, childId) {
   };
   page.on('request', inspect);
   return {
+    async read(panel, activate, fresh = false) {
+      // ChapterHub retains visited panels. Confirm each initial read rather
+      // than treating an absent (delayed) loader/alert as successful content.
+      if (completed.has(panel) && !fresh) {
+        await activate();
+        return;
+      }
+      const endpoint = panel === 'Grades' ? 'grades' : 'summary';
+      const response = page.waitForResponse(async (reply) => {
+        const url = new URL(reply.url());
+        if (url.origin !== origin || url.pathname !== `/api/chronicle/${endpoint}/`
+          || reply.request().method() !== 'GET') return false;
+        requireCheck(reply.status() === 200, 'BROWSER');
+        requireCheck(await reply.finished() === null, 'BROWSER');
+        await reply.json();
+        return true;
+      }, { timeout: WAIT });
+      void response.catch(() => {});
+      await activate();
+      await response;
+      completed.add(panel);
+    },
     check: () => requireCheck(!invalid, 'ISOLATION'),
     close: () => page.off('request', inspect),
   };
 }
 
-async function memoryTab(page, name, childId, parent) {
-  await page.getByRole('tablist', { name: 'Memories sections', exact: true })
-    .getByRole('tab', { name, exact: true }).click();
+async function memoryTab(page, name, childId, parent, requests) {
+  await requests.read(name, () => page.getByRole('tablist', { name: 'Memories sections', exact: true })
+    .getByRole('tab', { name, exact: true }).click());
   if (parent) {
     await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toHaveValue(String(childId), { timeout: WAIT });
     await expect(page).toHaveURL((url) => url.searchParams.get('child') === String(childId));
@@ -53,10 +77,11 @@ async function taskSearch(page, name, emptyText) {
     return 'verified_true_empty';
   }
   await search.fill(NO_MATCH);
-  await expect(main.getByText(`No matches for “${NO_MATCH}”`, { exact: true })).toBeVisible({ timeout: WAIT });
-  await main.getByRole('button', { name: 'Clear filter', exact: true }).last().click();
+  const filtered = main.getByRole('status').filter({ hasText: `No matches for “${NO_MATCH}”` });
+  await expect(filtered).toBeVisible({ timeout: WAIT });
+  await filtered.getByRole('button', { name: 'Clear filter', exact: true }).click();
   await expect(search).toHaveValue('');
-  await expect(main.getByText(/No matches for/)).toHaveCount(0);
+  await expect(main.getByRole('status').filter({ hasText: 'No matches for' })).toHaveCount(0);
   return 'filtered_and_cleared';
 }
 
@@ -135,8 +160,9 @@ async function projectReturn(page, base, gate) {
 
 async function offlineHabitRead(page, gate) {
   const tabs = page.getByRole('tablist', { name: 'Tasks sections', exact: true });
-  // Preload both route chunks while connected. The offline step only switches
-  // the SPA tab; it never performs an offline document navigation or sign-in.
+  // QuestsHub statically imports the task modules. Enter Habits here before
+  // its first mount: ChapterHub retains visited panels without another GET.
+  // Offline mode never covers document navigation or sign-in.
   await tabs.getByRole('tab', { name: 'Chores', exact: true }).click();
   await expect(page.locator('main').getByRole('heading', { name: 'Chores', exact: true })).toBeVisible();
   await expect(page.locator('main').getByRole('searchbox', { name: 'Filter chores', exact: true })
@@ -149,14 +175,14 @@ async function offlineHabitRead(page, gate) {
     await context.setOffline(true);
     await tabs.getByRole('tab', { name: 'Habits', exact: true }).click();
     await expect(error).toBeVisible({ timeout: WAIT });
-    await expect(error.getByRole('button', { name: 'Retry', exact: true })).toBeVisible();
+    await expect(error.getByRole('button', { name: 'Try again', exact: true })).toBeVisible();
     await expect(page.locator('main').getByText('No habits yet. Add or propose a habit to get started.', { exact: true })).toHaveCount(0);
   } finally {
     await context.setOffline(false);
   }
   // Other parallel read sources can fail in the same offline interval too.
-  // Restore them through their actual Retry actions, bounded to this page.
-  const retries = page.locator('main').getByRole('alert').getByRole('button', { name: 'Retry', exact: true });
+  // Restore them through their actual Try again actions, bounded to this page.
+  const retries = page.locator('main').getByRole('alert').getByRole('button', { name: 'Try again', exact: true });
   const count = await retries.count();
   requireCheck(count >= 1 && count <= 5, 'BROWSER');
   const recovered = page.waitForResponse((reply) => {
@@ -217,13 +243,13 @@ export async function checkParentUx(page, credentials, gate) {
     await visit(page, base, '/');
     const timeline = page.locator('main').getByRole('button', { name: /^View .+'s timeline$/ });
     await expect(timeline).toHaveCount(1, { timeout: WAIT });
-    await timeline.click();
+    await requests.read('Timeline', () => timeline.click());
     await expect(page).toHaveURL((url) => url.pathname === '/chronicle' && url.searchParams.get('child') === String(credentials.child.id));
     const viewing = page.getByRole('combobox', { name: 'Viewing', exact: true });
     await expect(viewing).toHaveValue(String(credentials.child.id));
     await expect(viewing.getByRole('option')).toHaveCount(1);
-    for (const name of ['Journal', 'Grades', 'Timeline']) await memoryTab(page, name, credentials.child.id, true);
-    await visit(page, base, '/chronicle?tab=journal&child=0');
+    for (const name of ['Journal', 'Grades', 'Timeline']) await memoryTab(page, name, credentials.child.id, true, requests);
+    await requests.read('Journal', () => visit(page, base, '/chronicle?tab=journal&child=0'), true);
     await expect(viewing).toHaveValue(String(credentials.child.id));
     await expect(viewing.getByRole('option')).toHaveCount(1);
     requests.check();
@@ -232,25 +258,32 @@ export async function checkParentUx(page, credentials, gate) {
   } finally { requests.close(); }
 }
 
+export async function checkChildTasks(page, credentials, gate) {
+  const base = scope(page, credentials, gate, 'child');
+  await visit(page, base, '/quests?tab=duties');
+  const choresSearch = await taskSearch(page, 'chores', 'No chores available today.');
+  // Recover the first Habits read before testing its successful content.
+  const readRecovery = await offlineHabitRead(page, gate);
+  const habitsSearch = await taskSearch(page, 'habits', 'No habits yet. Add or propose a habit to get started.');
+  gate.assertSafe();
+  return { choresSearch, habitsSearch, readRecovery };
+}
+
 export async function checkChildUx(page, credentials, gate) {
   const base = scope(page, credentials, gate, 'child');
   const requests = memoryRequests(page, credentials.child.id);
   try {
-    await visit(page, base, '/chronicle?tab=journal&child=0');
+    await requests.read('Journal', () => visit(page, base, '/chronicle?tab=journal&child=0'));
     await expect(page.getByRole('button', { name: /^(Write|Edit) today’s entry$/ })).toBeVisible({ timeout: WAIT });
-    for (const name of ['Grades', 'Timeline', 'Journal']) await memoryTab(page, name, credentials.child.id, false);
+    for (const name of ['Grades', 'Timeline', 'Journal']) await memoryTab(page, name, credentials.child.id, false, requests);
     requests.check();
-    await visit(page, base, '/quests?tab=duties');
-    const choresSearch = await taskSearch(page, 'chores', 'No chores available today.');
-    await page.getByRole('tablist', { name: 'Tasks sections', exact: true }).getByRole('tab', { name: 'Habits', exact: true }).click();
-    const habitsSearch = await taskSearch(page, 'habits', 'No habits yet. Add or propose a habit to get started.');
-    const readRecovery = await offlineHabitRead(page, gate);
+    const tasks = await checkChildTasks(page, credentials, gate);
     const projects = await projectReturn(page, base, gate);
     await visit(page, base, '/quests?tab=movement');
     await expect(page.locator('main').getByText(/^\d+ sessions? recorded today · \d+ XP earned$/, { exact: true })).toBeVisible({ timeout: WAIT });
     await expect(page.locator('main').getByRole('alert')).toHaveCount(0);
     const attachments = await localAttachments(page, base, gate);
     gate.assertSafe();
-    return { memoryContext: 'self_scoped', choresSearch, habitsSearch, readRecovery, projectReturn: projects, movementOutcome: 'recorded_and_xp_summary', attachments };
+    return { memoryContext: 'self_scoped', ...tasks, projectReturn: projects, movementOutcome: 'recorded_and_xp_summary', attachments };
   } finally { requests.close(); }
 }
