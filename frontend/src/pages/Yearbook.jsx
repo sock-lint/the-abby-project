@@ -170,7 +170,7 @@ function YearbookHistory({ targetUserId, isParent, childOptions, onSelectChild }
       {/* Below md the Chronicle hub's tab strip already names this page —
           the stacked h1 + explainer ate ~100px above the fold on phones.
           Same treatment as the Skills tab (pages/Achievements.jsx). */}
-      <header className="hidden md:block text-center max-w-xl mx-auto">
+      <header className="sr-only md:not-sr-only text-center max-w-xl mx-auto">
         <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
           Timeline
         </h1>

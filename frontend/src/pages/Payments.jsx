@@ -21,6 +21,7 @@ import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import Sparkline from '../components/Sparkline';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { TextField, SelectField, DateField } from '../components/form';
 import GreenlightWorkflow from './payments/GreenlightWorkflow';
 
@@ -345,36 +346,20 @@ function PaymentsView() {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            Track earnings and payouts
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Payments
-          </h1>
-        </div>
-        {isParent && (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleExport}
-              className="flex items-center gap-1"
-              title="Export current view to CSV"
-            >
-              <Download size={14} /> Export CSV
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowAdjust(true)}
-              className="flex items-center gap-1"
-            >
-              <Plus size={14} /> Adjust money owed
-            </Button>
-          </div>
-        )}
-      </header>
+      <PageHeader
+        title="Payments" kicker="Track earnings and payouts"
+        actions={isParent && <>
+          <Button
+            size="sm" variant="ghost" onClick={handleExport}
+            className="flex items-center gap-1" title="Export current view to CSV"
+          >
+            <Download size={14} /> Export CSV
+          </Button>
+          <Button size="sm" onClick={() => setShowAdjust(true)} className="flex items-center gap-1">
+            <Plus size={14} /> Adjust money owed
+          </Button>
+        </>}
+      />
 
       {exportError && <ErrorAlert message={exportError} />}
 
@@ -452,7 +437,7 @@ function PaymentsView() {
       {/* Filter strip — entry-type pills, optional date range + child select */}
       <section aria-labelledby="ledger-filters-heading">
         <DeckleDivider glyph="flourish-corner" label="recent entries" />
-        {/* Entry-type pills carry the same min-h-9 / px-3 sizing as the
+        {/* Entry-type pills carry the same min-h-11 / px-3 sizing as the
             date-range chips below them — one toolbar shouldn't hold two
             different tap standards. */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2" id="ledger-filters-heading">
@@ -465,7 +450,7 @@ function PaymentsView() {
                 type="button"
                 onClick={() => toggleEntryType(type)}
                 aria-pressed={active}
-                className={`min-h-9 px-3 text-caption font-script rounded-full border transition-colors ${
+                className={`min-h-11 px-3 text-caption font-script rounded-full border transition-colors ${
                   active
                     ? 'bg-sheikah-teal-deep/15 text-sheikah-teal-deep border-sheikah-teal-deep/40'
                     : 'bg-ink-page-aged hover:bg-ink-page-shadow/40 text-ink-whisper border-ink-page-shadow/30'
@@ -480,14 +465,12 @@ function PaymentsView() {
               <span className="font-script text-caption text-sheikah-teal-deep tabular-nums">
                 ({entriesToRender.length})
               </span>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="min-h-9 px-3 text-caption font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
-                aria-label="Clear all filters"
+              <Button
+                size="sm" variant="ghost" onClick={clearFilters}
+                className="flex items-center gap-1" aria-label="Clear all filters"
               >
-                <X size={12} aria-hidden="true" /> clear
-              </button>
+                <X size={12} aria-hidden="true" /> Clear filters
+              </Button>
             </>
           )}
         </div>
@@ -496,19 +479,13 @@ function PaymentsView() {
             {Object.entries(quickRanges()).map(([key, range]) => {
               const active = startDate === range.start && endDate === range.end;
               return (
-                <button
-                  key={key}
-                  type="button"
+                <Button
+                  key={key} size="sm" variant={active ? 'primary' : 'secondary'}
                   aria-pressed={active}
                   onClick={() => { setStartDate(range.start); setEndDate(range.end); }}
-                  className={`min-h-9 px-3 rounded-full border font-body text-caption transition-colors ${
-                    active
-                      ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
-                      : 'border-ink-page-shadow text-ink-secondary hover:text-ink-primary'
-                  }`}
                 >
                   {range.label}
-                </button>
+                </Button>
               );
             })}
           </div>

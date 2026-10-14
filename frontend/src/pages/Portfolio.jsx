@@ -289,7 +289,7 @@ export default function Portfolio() {
           {/* Below md the Chronicle hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones.
               Same treatment as the Skills tab (pages/Achievements.jsx). */}
-          <h1 className="hidden md:block font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
+          <h1 className="sr-only md:not-sr-only font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
             Gallery
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
