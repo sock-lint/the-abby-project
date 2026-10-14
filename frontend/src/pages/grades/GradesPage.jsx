@@ -8,10 +8,12 @@ import Loader from '../../components/Loader';
 import RuneBadge from '../../components/journal/RuneBadge';
 import GradeRecordDetails from '../../components/chronicle/GradeRecordDetails';
 import JournalConversation from '../../components/chronicle/JournalConversation';
-import { SelectField } from '../../components/form';
+import ChildContext from '../../components/family/ChildContext';
+import useChildContext from '../../hooks/useChildContext';
+import { getToken } from '../../api/client';
 import { useRole } from '../../hooks/useRole';
 import useChronicleRevision from '../../hooks/useChronicleRevision';
-import { getChildren, getGrades } from '../../api';
+import { getGrades } from '../../api';
 import { formatDate } from '../../utils/format';
 import { normalizeList } from '../../utils/api';
 import GradeEntryFormModal from './GradeEntryFormModal';
@@ -20,32 +22,12 @@ import ReportCardFormModal from './ReportCardFormModal';
 export default function GradesPage() {
   const { user, isParent } = useRole();
   if (!user?.id) return <Loader />;
-  return <AccountGradesPage key={`${user.id}:${user.role}`} user={user} isParent={isParent} />;
+  return <AccountGradesPage key={`${user.id}:${user.role}:${user.family?.id ?? ''}:${getToken()}`} user={user} isParent={isParent} />;
 }
 
 function AccountGradesPage({ user, isParent }) {
   const location = useLocation();
-  const [children, setChildren] = useState(null);
-  const [selectedChildId, setSelectedChildId] = useState(null);
-  const [childError, setChildError] = useState(null);
-  const [retryChildren, setRetryChildren] = useState(0);
-
-  useEffect(() => {
-    if (!isParent) return undefined;
-    let cancelled = false;
-    getChildren()
-      .then((response) => {
-        if (cancelled) return;
-        const list = normalizeList(response);
-        setChildren(list);
-        setSelectedChildId((selected) => list.some((child) => child.id === selected) ? selected : list[0]?.id ?? null);
-        setChildError(null);
-      })
-      .catch((err) => { if (!cancelled) setChildError(err.message); });
-    return () => { cancelled = true; };
-  }, [isParent, user?.id, retryChildren]);
-
-  const targetUserId = isParent ? selectedChildId : user?.id;
+  const { children, selectedChild, selectChild, targetUserId, error: childError, reload: reloadChildren } = useChildContext();
   const revision = useChronicleRevision(targetUserId);
   const savedGradeMarker = isParent ? '' : location.state?.gradeSavedId ?? '';
   return (
@@ -56,18 +38,9 @@ function AccountGradesPage({ user, isParent }) {
           ? 'Shared school results, report cards and reflections, saved over time.'
           : 'Record a school result or a quarter or semester report card. Recording it counts; the reward does not depend on the grade.'}</p>
       </div>
-      {isParent && children?.length > 0 && (
-        <SelectField
-          label="Grades for"
-          value={selectedChildId ?? ''}
-          onChange={(event) => setSelectedChildId(Number(event.target.value))}
-          className="max-w-xs"
-        >
-          {children.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.first_name || child.username}</option>)}
-        </SelectField>
-      )}
+      {isParent && <ChildContext children={children} selectedChildId={selectedChild?.id} onSelect={selectChild} />}
       {childError ? (
-        <ErrorAlert message={childError} onRetry={() => setRetryChildren((value) => value + 1)} />
+        <ErrorAlert message={childError} onRetry={reloadChildren} />
       ) : isParent && children?.length === 0 ? (
         <EmptyState><p>No children yet. Add a child account to see shared grades here.</p></EmptyState>
       ) : targetUserId ? (
@@ -194,7 +167,7 @@ function GradeRecordCard({ entry, canEdit, onUpdated }) {
             <p className="text-caption text-ink-whisper">{formatDate(entry.occurred_on)}</p>
           </div>
           <RuneBadge tone="ink" size="sm" icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}>
-            {isPrivate ? 'Only you' : 'Shared with family'}
+            {isPrivate ? 'Only me' : 'Shared with parents'}
           </RuneBadge>
         </header>
         <GradeRecordDetails entry={entry} showSubject={false} />

@@ -37,3 +37,14 @@ describe('OnboardingChecklist', () => {
     expect(screen.queryByText('Getting started')).toBeNull();
   });
 });
+
+it('keeps optional guidance dismissal scoped to the parent and family', async () => {
+  const user = userEvent.setup();
+  const first = { id: 99, family: { id: 1 } };
+  const view = render(<MemoryRouter><OnboardingChecklist data={{ children_count: 1 }} user={first} /></MemoryRouter>);
+  await user.click(screen.getByRole('button', { name: /dismiss checklist/i }));
+  view.rerender(<MemoryRouter><OnboardingChecklist data={{ children_count: 1 }} user={{ id: 100, family: { id: 2 } }} /></MemoryRouter>);
+  expect(screen.getByRole('heading', { name: 'Getting started' })).toBeInTheDocument();
+  view.rerender(<MemoryRouter><OnboardingChecklist data={{ children_count: 1 }} user={first} /></MemoryRouter>);
+  expect(screen.queryByText('Getting started')).toBeNull();
+});

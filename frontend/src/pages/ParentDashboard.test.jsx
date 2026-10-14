@@ -2,19 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { delay, http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildParent } from '../test/factories.js';
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current location">{location.pathname + location.search}</output>;
+}
 function renderDashboard(extraHandlers = []) {
   server.use(...extraHandlers);
   return render(
     <MemoryRouter>
       <AuthProvider>
         <Dashboard />
+        <LocationProbe />
       </AuthProvider>
     </MemoryRouter>,
   );
@@ -174,7 +179,7 @@ describe('ParentDashboard', () => {
     const setup = screen.getByText('Getting started');
     expect(approval.compareDocumentPosition(family) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(family.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole('button', { name: /manage abby/i })).toBeVisible();
+    expect(screen.getByRole('button', { name: /view abby's timeline/i })).toBeVisible();
     expect(screen.queryByRole('button', { name: /add a child to your family/i })).toBeNull();
   });
 
@@ -260,7 +265,7 @@ describe('ParentDashboard', () => {
       http.get('*/api/redemptions/', () => HttpResponse.json([])),
       http.get('*/api/children/', () => HttpResponse.json([{ id: 2, username: 'abby', display_name: 'Abby' }])),
     ]);
-    const child = await screen.findByRole('button', { name: /manage abby/i });
+    const child = await screen.findByRole('button', { name: /view abby's timeline/i });
     expect(child).toHaveTextContent(/1.5h clocked/);
     expect(child).toHaveTextContent(/\$15.00 clocked earnings/);
     expect(screen.getAllByText(/\$15.00/)).toHaveLength(1);
@@ -314,11 +319,13 @@ describe('ParentDashboard', () => {
       ),
     ]);
 
-    const tile = await screen.findByRole('button', { name: /manage abby/i });
+    const tile = await screen.findByRole('button', { name: /view abby's timeline/i });
     // The card is INSIDE the button (the Next Up pattern) — previously the
     // button sat inside the card, leaving its 20px padded ring inert.
     expect(tile.querySelector('.rounded-xl')).not.toBeNull();
     expect(tile).toHaveTextContent('Abby');
+    await userEvent.setup().click(tile);
+    expect(screen.getByLabelText('Current location')).toHaveTextContent('/chronicle?tab=yearbook&child=2');
   });
 
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {
