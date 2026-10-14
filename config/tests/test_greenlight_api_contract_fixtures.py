@@ -78,6 +78,16 @@ class GreenlightApiResponseFixtureTests(APITestCase):
             total_hours=Decimal("1.00"), hourly_earnings=Decimal("5.00"),
             total_earnings=Decimal("5.00"),
         )
+        # These approved weeks remain history, without becoming payment choices
+        # or changing the existing positive-card overview fixtures.
+        for card_id, day, amount in ((13, 7, "0.00"), (14, 14, "-1.00")):
+            Timecard.objects.create(
+                id=card_id, user=self.child, week_start=date(2026, 9, day),
+                week_end=date(2026, 9, day + 6), status=Timecard.Status.APPROVED,
+                total_hours=Decimal("0.10"), hourly_earnings=Decimal(amount),
+                total_earnings=Decimal(amount), decided_by=self.parent,
+                decided_at=FIXED_NOW,
+            )
         for ledger_id, amount, entry_type, card in (
             (21, "12.50", PaymentLedger.EntryType.HOURLY, self.approved),
             (22, "5.00", PaymentLedger.EntryType.HOURLY, pending),

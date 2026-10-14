@@ -50,7 +50,7 @@ describe('ChildDashboard', () => {
       submit.handler,
     ]);
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
-    const firstLine = await screen.findByRole('textbox', { name: 'Gratitude line 1' });
+    const firstLine = await screen.findByRole('textbox', { name: "Today's note" });
     await waitFor(() => expect(firstLine).toHaveValue('Warm bread'));
     expect(screen.getByText("today's note")).toBeInTheDocument();
     expect(screen.getByText('A quiet moment for today.')).toBeInTheDocument();

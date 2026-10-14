@@ -68,6 +68,48 @@ class GreenlightTests(TestCase):
         self.assertIsNone(data["balance_snapshot"])
         self.assertEqual(data["payouts"], [])
 
+    def test_overview_offers_only_positive_approved_timecards_for_payment(self):
+        payable_card = self.card()
+        nonpayable_cards = [
+            Timecard.objects.create(
+                user=self.child, week_start=date(2026, 9, day), week_end=date(2026, 9, day + 6),
+                total_hours=Decimal("0.10"), hourly_earnings=amount,
+                total_earnings=amount, status=Timecard.Status.APPROVED,
+            )
+            for day, amount in ((7, Decimal("0.00")), (14, Decimal("-1.00")))
+        ]
+        ledger_count = PaymentLedger.objects.count()
+
+        response = self.client.get(self.base + f"overview/?user_id={self.child.pk}")
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["approved_timecards"], [{
+            "id": payable_card.pk, "week_start": "2026-10-05", "total_earnings": "5.00",
+        }])
+        for card in nonpayable_cards:
+            card.refresh_from_db()
+            self.assertEqual(card.status, Timecard.Status.APPROVED)
+        self.assertEqual(PaymentLedger.objects.count(), ledger_count)
+        self.assertFalse(self.payouts().exists())
+
+    def test_zero_timecard_cannot_create_a_payment_or_change_approval(self):
+        card = Timecard.objects.create(
+            user=self.child, week_start=date(2026, 10, 5), week_end=date(2026, 10, 11),
+            total_earnings=Decimal("0.00"), status=Timecard.Status.APPROVED,
+        )
+        ledger_count = PaymentLedger.objects.count()
+        responses = [
+            self.payout(amount="0.00", timecard_id=card.pk),
+            self.client.post(f"/api/timecards/{card.pk}/mark-paid/", {}, format="json"),
+        ]
+        for response in responses:
+            self.assertEqual(response.status_code, 400, response.content)
+        card.refresh_from_db()
+        self.assertEqual(card.status, Timecard.Status.APPROVED)
+        self.assertEqual(PaymentLedger.objects.count(), ledger_count)
+        self.assertFalse(self.payouts().exists())
+        self.assertFalse(GreenlightTransfer.objects.exists())
+
     def test_parent_default_balance_aggregates_only_own_family_children(self):
         PaymentService.record_entry(self.sibling, Decimal("7.00"), PaymentLedger.EntryType.CHORE_REWARD)
         PaymentService.record_entry(self.parent, Decimal("60.00"), PaymentLedger.EntryType.ADJUSTMENT)

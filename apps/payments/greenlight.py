@@ -107,7 +107,9 @@ def overview(child):
 
     owed, payable, pending = balances(child)
     snapshot = GreenlightBalanceSnapshot.objects.filter(user=child).first()
-    cards = Timecard.objects.filter(user=child, status=Timecard.Status.APPROVED).exclude(
+    cards = Timecard.objects.filter(
+        user=child, status=Timecard.Status.APPROVED, total_earnings__gt=ZERO,
+    ).exclude(
         payment_entries__entry_type=PaymentLedger.EntryType.PAYOUT,
     )
     payouts = PaymentLedger.objects.filter(

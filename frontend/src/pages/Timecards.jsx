@@ -285,7 +285,12 @@ export default function Timecards() {
                             </Button>
                           </div>
                         )}
-                        {isParent && tc.status === 'approved' && (
+                        {tc.status === 'approved' && Number(tc.total_earnings) <= 0 && (
+                          <p className="font-body text-caption text-ink-secondary text-center pt-2">
+                            No payment due
+                          </p>
+                        )}
+                        {isParent && tc.status === 'approved' && Number(tc.total_earnings) > 0 && (
                           <Button
                             size="sm"
                             onClick={() => handleAction(tc.id, 'pay')}

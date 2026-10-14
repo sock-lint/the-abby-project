@@ -42,6 +42,8 @@ Children can read only their own overview. No mutation is available to children.
 
 - `GET overview/?user_id=ID`: `user_id`, `owed_balance`, `approved_payable`,
   `pending_hourly`, nullable `balance_snapshot`, `approved_timecards`, `payouts`.
+  `approved_timecards` includes only approved, unpaid cards with positive totals;
+  nonpositive cards retain their approval without a payment or payout ledger row.
   Child requests may omit `user_id`. Payout amounts are positive display values;
   `id` is the linked ledger ID, and `transferred_on` is null for legacy entries
   without recorded external metadata. Legacy dates are unknown, so matching

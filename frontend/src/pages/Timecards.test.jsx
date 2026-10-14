@@ -74,20 +74,49 @@ describe('Timecards', () => {
 
   it('parent can mark approved timecard as paid', async () => {
     const user = userEvent.setup();
-    const paid = vi.fn();
+    const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
     renderPage(buildParent(), [
       http.get('*/api/timecards/', () =>
-        HttpResponse.json([{ id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: 20, status: 'approved' }]),
+        HttpResponse.json([{ id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: '20.00', status: 'approved' }]),
       ),
       http.get('*/api/timecards/2/', () =>
-        HttpResponse.json({ id: 2, hourly_earnings: 20, bonus_earnings: 0, total_earnings: 20, entries: [] }),
+        HttpResponse.json({ id: 2, hourly_earnings: '20.00', bonus_earnings: '0.00', total_earnings: '20.00', entries: [] }),
       ),
-      http.post('*/api/timecards/2/mark-paid/', () => { paid(); return HttpResponse.json({}); }),
+      paid.handler,
     ]);
     await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /week of/i }));
     await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
-    await waitFor(() => expect(paid).toHaveBeenCalled());
+    await waitFor(() => expect(paid.calls).toHaveLength(1));
+    expect(paid.calls[0].body).toEqual({ amount: '20.00' });
+    expect(paid.calls[0].url).toMatch(/\/api\/timecards\/2\/mark-paid\/$/);
+  });
+
+  it.each([
+    { role: 'parent', account: buildParent(), total: '0.00' },
+    { role: 'parent', account: buildParent(), total: '-1.00' },
+    { role: 'child', account: buildUser(), total: '0.00' },
+    { role: 'child', account: buildUser(), total: '-1.00' },
+  ])('shows no payment due for an approved $total timecard to a $role', async ({ account, total }) => {
+    const user = userEvent.setup();
+    const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
+    renderPage(account, [
+      http.get('*/api/timecards/', () => HttpResponse.json([
+        { id: 2, week_start: '2026-10-05', total_hours: '0.10', total_earnings: total, status: 'approved' },
+      ])),
+      http.get('*/api/timecards/2/', () => HttpResponse.json({
+        id: 2, hourly_earnings: total, bonus_earnings: '0.00', total_earnings: total,
+        entries: [{ id: 9, project_title: 'Bookmark', clock_in: '2026-10-11T12:00:00Z', duration_minutes: 6 }],
+      })),
+      paid.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: /week of/i }));
+    await screen.findByText('Bookmark');
+    expect(screen.getByText('No payment due')).toBeInTheDocument();
+    expect(screen.getByText('Approved')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /mark as paid/i })).not.toBeInTheDocument();
+    expect(paid.calls).toHaveLength(0);
   });
 
   it('parent can dispute a pending timecard', async () => {

@@ -6,6 +6,10 @@ Time tracking (clock-in/out) and weekly timecard generation with parent approval
 - `TimeEntry` — statuses: `active`, `completed`, `voided`. Partial unique constraint: one active entry per user. Auto-computes `duration_minutes` on save when `clock_out` is set. `auto_clocked_out` flag for stale-entry cleanup. The API keeps the project fixed after clock-in; note edits cannot reassign an entry.
 - `Timecard` — inherits `ApprovalWorkflowModel`. Statuses: `pending`, `approved`, `paid`, `disputed`. Unique on `(user, week_start)`. Aggregates `total_hours`, `hourly_earnings`, `bonus_earnings`, `total_earnings`.
 
+Approved timecards with nonpositive total earnings remain approved. React shows
+“No payment due” instead of a payment action; no payout is recorded. Only
+positive approved totals are offered in Greenlight's payment selection.
+
 ## Services
 - `TimeEntryService` — read helpers: `completed_entries`, `daily_minute_totals`, `distinct_days`, `current_streak`, `longest_streak_at_least`.
 - `ClockService`:
