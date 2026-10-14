@@ -59,6 +59,9 @@ for (const theme of ['hyrule', 'vigil']) {
       }
       const filters = page.getByRole('tablist', { name: 'Demo Inventory filters' });
       const tabs = filters.getByRole('tab');
+      // Test selection without scrolling after the complete row is visible.
+      // WebKit can focus an offscreen control without revealing it immediately.
+      await filters.scrollIntoViewIfNeeded();
       await tabs.first().focus();
       const initialScroll = await page.evaluate(() => window.scrollY);
       await page.keyboard.press('End');
