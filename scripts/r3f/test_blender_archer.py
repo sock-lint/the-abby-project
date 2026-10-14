@@ -31,7 +31,20 @@ class SuppliedRestBasisTests(unittest.TestCase):
     def setUp(self):
         worker.reset()
 
-    def rig(self, name, roll=0):
+    def test_review_crown_keeps_each_saved_hairstyle_and_only_hood_uses_hat_hair(self):
+        names = ['Archer_Hair_01', 'Archer_Hair_02', 'Archer_Hair_03', 'Archer_Hair_04', 'Archer_Hair_For_Hat']
+        data = bpy.data.meshes.new('Synthetic review hair')
+        meshes = {name: bpy.data.objects.new(name, data) for name in names}
+        for obj in meshes.values():
+            bpy.context.collection.objects.link(obj)
+        for hairstyle in names[:4]:
+            for headwear, expected in (('none', {hairstyle}), ('crown-eve', {hairstyle}), ('hood-mystical', {'Archer_Hair_For_Hat'})):
+                with self.subTest(headwear=headwear, hairstyle=hairstyle):
+                    for name, mesh in meshes.items():
+                        mesh.hide_render = worker.review_hair_hidden(name, headwear, hairstyle)
+                    self.assertEqual({name for name, mesh in meshes.items() if not mesh.hide_render}, expected)
+
+    def rig(self, name, roll=0, child_name='Head'):
         data = bpy.data.armatures.new(name)
         obj = bpy.data.objects.new(name, data)
         bpy.context.collection.objects.link(obj)
@@ -40,16 +53,16 @@ class SuppliedRestBasisTests(unittest.TestCase):
         bpy.ops.object.mode_set(mode='EDIT')
         root = data.edit_bones.new('Root')
         root.head, root.tail, root.roll = (0, 0, 0), (0, 0, 1), roll
-        head = data.edit_bones.new('Head')
+        head = data.edit_bones.new(child_name)
         head.head, head.tail, head.roll = (0, 0, 1), (0, 0, 1.5), roll
         head.parent = root
         bpy.ops.object.mode_set(mode='OBJECT')
         obj.select_set(False)
         return obj
 
-    def moving_source(self):
-        source = self.rig('Synthetic supplied rig')
-        head = source.pose.bones['Head']
+    def moving_source(self, child_name='Head'):
+        source = self.rig('Synthetic supplied rig', child_name=child_name)
+        head = source.pose.bones[child_name]
         head.rotation_mode = 'QUATERNION'
         for frame, angle in ((1, 0), (2, 0.2), (3, 0.4)):
             head.rotation_quaternion = Quaternion((1, 0, 0), angle)
@@ -209,6 +222,79 @@ class SuppliedRestBasisTests(unittest.TestCase):
         self.assertEqual(worker.surface_error(original, split), 0)
         split[0] = Vector((0, 1.1, 0))
         self.assertGreater(worker.surface_error(original, split), 0.09)
+
+    def test_prefab_attachment_keeps_geometry_uvs_and_follows_its_selected_joint(self):
+        source = self.moving_source(child_name='RigLPalm')
+        target = self.rig('Synthetic wardrobe costume', roll=math.pi / 2, child_name='RigLPalm')
+        data = bpy.data.meshes.new('Synthetic accessory geometry')
+        data.from_pydata([(0.2, 1.3, 0.1), (0.3, 1.3, 0.1), (0.2, 1.3, 0.2)], [], [(0, 1, 2)])
+        data.uv_layers.new()
+        mesh = bpy.data.objects.new('Synthetic accessory', data)
+        bpy.context.collection.objects.link(mesh)
+        geometry = [vertex.co.copy() for vertex in data.vertices]
+        uvs = worker.uv_values(mesh)
+        socket = Matrix.Translation((0.2, -0.1, 0)) @ Matrix.Rotation(0.3, 4, 'Z')
+        attachment = {'bone': 'RigLPalm', 'bone_position': [0, 0, 1], 'world_matrix': [list(row) for row in socket]}
+        palm = target.pose.bones['RigLPalm']
+        palm.rotation_mode = 'QUATERNION'
+        palm.rotation_quaternion = Quaternion((1, 0, 0), 0.1)
+        palm.location = (0.0000037, -0.0000086, -0.00000075)
+        bpy.context.view_layer.update()
+        original_pose = palm.matrix_basis.copy()
+        original_mode = target.data.pose_position
+        expected_rest = [socket @ Matrix.Rotation(math.pi / 2, 4, 'X') @ mesh.matrix_world @ point for point in geometry]
+        rest = worker.attach_wardrobe_module(mesh, target, attachment)
+        self.assertEqual(palm.matrix_basis, original_pose)
+        self.assertEqual(target.data.pose_position, original_mode)
+        self.assertLess(worker.vertex_error(expected_rest, rest), 0.000001)
+        target.data.pose_position = 'REST'
+        bpy.context.view_layer.update()
+        self.assertLess(worker.vertex_error(expected_rest, worker.vertices(mesh)), 0.000001)
+        target.data.pose_position = original_mode
+        bpy.context.view_layer.update()
+        self.assertGreater(worker.vertex_error(rest, worker.vertices(mesh)), 0.01)
+        for point, actual in zip(geometry, data.vertices):
+            self.assertEqual(point, actual.co)
+        self.assertEqual(uvs, worker.uv_values(mesh))
+        self.assertTrue(all(vertex.groups[0].weight == 1 for vertex in data.vertices))
+        _, deltas = worker.convert_supplied_motion(source, target, [1, 2, 3])
+        worker.at_frame(3)
+        self.assertLess(worker.vertex_error([deltas[3]['RigLPalm'] @ point for point in rest], worker.vertices(mesh)), 0.00001)
+        self.assertGreater(worker.vertex_error(rest, worker.vertices(mesh)), 0.05)
+
+    def test_wrong_prefab_joint_and_nonrigid_socket_are_rejected_before_attachment(self):
+        rig = self.rig('Synthetic wardrobe rig')
+        data = bpy.data.meshes.new('Synthetic accessory geometry')
+        data.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0)], [], [(0, 1, 2)])
+        mesh = bpy.data.objects.new('Synthetic accessory', data)
+        bpy.context.collection.objects.link(mesh)
+        attachment = {'bone': 'Head', 'bone_position': [0.2, 0, 1], 'world_matrix': [list(row) for row in Matrix.Identity(4)]}
+        with self.assertRaisesRegex(ValueError, 'prefab joint'):
+            worker.attach_wardrobe_module(mesh, rig, attachment)
+        attachment['bone_position'] = [0, 0, 1]
+        attachment['world_matrix'][0][1] = 0.2
+        with self.assertRaises(ValueError):
+            worker.attach_wardrobe_module(mesh, rig, attachment)
+        self.assertEqual(len(mesh.vertex_groups), 0)
+        self.assertEqual(len(mesh.modifiers), 0)
+
+    def test_surface_check_excludes_only_unused_points_and_still_rejects_visible_distortion(self):
+        data = bpy.data.meshes.new('Synthetic triangle with unused position')
+        data.from_pydata([(0, 0, 0), (1, 0, 0), (0, 1, 0), (10, 10, 10)], [], [(0, 1, 2)])
+        mesh = bpy.data.objects.new('Synthetic triangle with unused position', data)
+        bpy.context.collection.objects.link(mesh)
+        source = worker.vertices(mesh, surface_only=True)
+        self.assertEqual(len(source), 3)
+        self.assertEqual(len(mesh.data.vertices), 4)
+        data.vertices[3].co = (20, 20, 20)
+        data.update()
+        bpy.context.view_layer.update()
+        # A non-face point changes no rendered surface and stays in source data.
+        self.assertEqual(worker.surface_error(source, worker.vertices(mesh, surface_only=True)), 0)
+        data.vertices[1].co.x += 0.05
+        data.update()
+        bpy.context.view_layer.update()
+        self.assertGreater(worker.surface_error(source, worker.vertices(mesh, surface_only=True)), 0.001)
 
     def test_hidden_importer_bone_shape_is_removed_before_next_export(self):
         data = bpy.data.meshes.new('Synthetic hidden bone shape')

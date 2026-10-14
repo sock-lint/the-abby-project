@@ -14,11 +14,19 @@ from apps.rpg.models import CharacterProfile, DropLog, ItemDefinition, UserInven
 from config.tests.factories import make_family
 
 
-CHOICES = {
+IDENTITY_CHOICES = {
     "hair_style": "hair-04", "hair_color": "brown",
     "skin_tone": "tan", "outfit": "fire", "outfit_style": "archer-03", "face_style": "face-03",
     "head_style": "head-01",
 }
+WARDROBE_DEFAULTS = {
+    "headwear_style": "none", "mask_style": "none", "bow_style": "none", "quiver_style": "none",
+}
+WARDROBE_CHOICES = {
+    "headwear_style": "hood-mystical", "mask_style": "mask-undercover",
+    "bow_style": "bow-myth", "quiver_style": "quiver-tale",
+}
+CHOICES = {**IDENTITY_CHOICES, **WARDROBE_CHOICES}
 FIXED_NOW = datetime(2026, 10, 12, 18, 0, tzinfo=datetime_timezone.utc)
 
 
@@ -129,6 +137,76 @@ class AvatarPreferencesTests(APITestCase):
                     self.assertEqual(response.status_code, 200)
                     self.assertEqual(response.data["avatar_preferences"], {**AVATAR_DEFAULTS, key: value})
 
+    def test_wardrobe_choices_save_and_retry_without_changing_earned_state(self):
+        preferences = {**CHOICES, **WARDROBE_CHOICES}
+        before = self.snapshot()
+        response = self.post(preferences)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["avatar_preferences"], preferences)
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.avatar_preferences, preferences)
+        self.assertEqual(self.client.get("/api/character/").data, response.data)
+        after = self.snapshot()
+        comparable = self.snapshot()
+        for profile in comparable["profiles"]:
+            if profile["user_id"] == self.child.pk:
+                prior = next(row for row in before["profiles"] if row["user_id"] == self.child.pk)
+                profile["avatar_preferences"] = prior["avatar_preferences"]
+                profile["updated_at"] = prior["updated_at"]
+        self.assertEqual(comparable, before)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=2)):
+            repeated = self.post(preferences)
+        self.assertEqual(repeated.data, response.data)
+        self.assertEqual(self.snapshot(), after)
+
+    def test_each_named_wardrobe_option_is_accepted(self):
+        # Literal pack identities make this fail on the original seven-field
+        # table instead of deriving acceptance from the implementation itself.
+        choices = {
+            "headwear_style": ("none", "crown-eve", "hood-mystical"),
+            "mask_style": ("none", "mask-undercover"),
+            "bow_style": ("none", "bow-greenhorn", "bow-vines", "bow-myth"),
+            "quiver_style": ("none", "quiver-angel", "quiver-rook", "quiver-tale"),
+        }
+        for key, values in choices.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    expected = {**CHOICES, **WARDROBE_DEFAULTS, key: value}
+                    response = self.post(expected)
+                    self.assertEqual(response.status_code, 200)
+                    self.assertEqual(response.data["avatar_preferences"], expected)
+
+    def test_legacy_seven_option_appearance_projects_no_wardrobe_without_writes(self):
+        self.profile.avatar_preferences = IDENTITY_CHOICES
+        self.profile.save(update_fields=["avatar_preferences"])
+        before = self.snapshot()
+        response = self.client.get("/api/character/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["avatar_preferences"], {**IDENTITY_CHOICES, **WARDROBE_DEFAULTS})
+        self.assertEqual(self.snapshot(), before)
+
+    def test_omitted_wardrobe_options_reset_to_none_independently(self):
+        preferences = {**CHOICES, **WARDROBE_CHOICES}
+        for key in WARDROBE_DEFAULTS:
+            with self.subTest(key=key):
+                self.assertEqual(self.post(preferences).status_code, 200)
+                response = self.post({field: value for field, value in preferences.items() if field != key})
+                expected = {**preferences, key: "none"}
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["avatar_preferences"], expected)
+                self.profile.refresh_from_db()
+                self.assertEqual(self.profile.avatar_preferences, expected)
+
+    def test_wardrobe_fields_in_query_parameters_are_rejected_without_writes(self):
+        before = self.snapshot()
+        for key, value in WARDROBE_CHOICES.items():
+            with self.subTest(key=key):
+                response = self.client.post(
+                    f"/api/character/avatar/?{key}={value}", {"avatar_preferences": {}}, format="json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(self.snapshot(), before)
+
     def test_expanded_hair_colors_and_costumes_are_accepted_independently(self):
         # Keep these literal choices independent of the server option table so
         # this acceptance test fails before the expanded identity is supported.
@@ -176,6 +254,7 @@ class AvatarPreferencesTests(APITestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertEqual(response.data["avatar_preferences"], {
                     **legacy, "outfit_style": "archer-01", "face_style": "face-01", "head_style": "head-02",
+                    **WARDROBE_DEFAULTS,
                 })
                 self.assertEqual(self.snapshot(), before)
 

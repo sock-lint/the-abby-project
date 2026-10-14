@@ -9,7 +9,8 @@ const fixture = vi.hoisted(() => ({ props: null, error: null, missing: false, mo
 vi.mock('../../companion/useSceneMotionAllowed', () => ({ default: () => fixture.motionAllowed }));
 vi.mock('../../avatar/appearance', () => ({ resolveAvatarAppearance: (preferences) => fixture.missing ? null : ({
   url: preferences.outfit_style === 'archer-02' ? '/synthetic-archer-02.glb' : '/synthetic-archer.glb',
-  hairStyle: 'hair-01', textures: { body: '/synthetic-body.png', hair: '/synthetic-hair.png', face: '/synthetic-face.png' },
+  hairStyle: 'hair-01', wardrobe: { headwear: preferences.headwear_style, mask: preferences.mask_style, bow: preferences.bow_style, quiver: preferences.quiver_style },
+  textures: { body: '/synthetic-body.png', hair: '/synthetic-hair.png', face: '/synthetic-face.png' },
 }) }));
 vi.mock('../../avatar/modelLoader', () => ({ resetAvatarAssets: vi.fn() }));
 vi.mock('../../avatar/AvatarScene', () => ({ default: (props) => {
@@ -35,6 +36,22 @@ async function readyPreview() {
 }
 
 describe('AvatarPreview', () => {
+  it('resets loading and local playback when wardrobe choices share the same texture atlas', async () => {
+    const { rerender } = render(<AvatarPreview preferences={{ ...AVATAR_DEFAULTS, bow_style: 'bow-myth' }} />);
+    const canvas = await screen.findByTestId('avatar-scene');
+    act(() => fixture.props.onReady());
+    pointer('pointerdown', canvas);
+    pointer('pointerup', canvas);
+    expect(fixture.props.interaction.id).toBe(1);
+    rerender(<AvatarPreview preferences={{ ...AVATAR_DEFAULTS, bow_style: 'bow-vines' }} />);
+    await waitFor(() => expect(fixture.props.appearance.wardrobe.bow).toBe('bow-vines'));
+    expect(screen.getByRole('group', { name: 'Character view' })).toHaveAttribute('aria-busy', 'true');
+    expect(screen.getByRole('button', { name: 'Play animation' })).toBeDisabled();
+    expect(fixture.props.interaction).toEqual({ id: 0, action: null });
+    act(() => fixture.props.onReady());
+    expect(screen.getByRole('group', { name: 'Character view' })).toHaveAttribute('aria-busy', 'false');
+  });
+
   it('starts a new outfit rig with a fresh loading state and cleared local interaction', async () => {
     const { rerender } = render(<AvatarPreview preferences={AVATAR_DEFAULTS} />);
     const canvas = await screen.findByTestId('avatar-scene');

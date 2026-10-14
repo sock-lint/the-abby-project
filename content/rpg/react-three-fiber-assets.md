@@ -1,6 +1,6 @@
 # React Three Fiber owned-asset boundary
 
-Updated October 12, 2026. React owns the complete product UI; R3F presents
+Updated October 14, 2026. React owns the complete product UI; R3F presents
 server-confirmed companions using the recorded owned art. Django remains the
 authority for accounts, permissions, contributions, rewards and progression.
 This document defines the baseline art scope and its acceptance gates.
@@ -18,7 +18,7 @@ dependency of the new companion renderer.
 | Chick / Fledgling / Bird Evolution | Rigged bird family, supplied diffuse textures and animation takes | Chick and confirmed Bird are the account bindings; Fledgling remains an explicitly labeled asset preview |
 | Forest Ruins 1.2 | Ground, woodland plants, rocks, mushrooms, steps and ruins | A small fixed setting; props do not imply furnishing ownership or new unlocks |
 | Icons for Monsters Ultimate Pack 01 v2 | Matching Chick/Fledgling/Bird portraits | Portraits remain the existing private build overlay; an icon is not proof of an owned 3D model |
-| Female Archer Pack 01 | Profile avatar with four supplied hairstyles, hair colors and outfit/skin palettes | Owner accepted basic saved avatar customization on October 12; static pose only, no fitted creature clothing or unverified clips |
+| Female Archer Pack 01 | Profile avatar with three costumes, both heads, three faces, four hairstyles, five hair colors and supplied Idle | Owner accepted the exact expanded Profile release on October 13; wardrobe requires its own converted-art review, with no creature fittings |
 
 The [publisher's bird-family listing](https://www.meshtint.com/products/chick-fledgling-bird-evolution-pack-cute-series)
 describes rigged models with FBX sources and supplied takes. Conversion of the
@@ -85,7 +85,8 @@ The October 12 source inventory distinguishes missing art from unprepared art:
 | Bat, Bee, Flower, Ghost, Mushroom, Spider | Owned icon pack 01 contains forms 01–03 for each | Unprepared 2D portraits; no matching owned 3D models or current species bindings |
 | Egg00–Egg03 | Four owned generic egg portraits | Unprepared inventory presentation, not distinct creature ownership |
 | Archer bodies, both heads and three faces | Owned FBX modules/face palettes in Female Archer Pack 01 | Prepared private three-costume Profile release; 2,880 saved identity choices with supplied Idle |
-| Archer hat hair, crown, hood, mask, bows, quivers and arrow | Owned FBX modules in Female Archer Pack 01 | Unprepared equipment; no weapon behavior or creature fittings |
+| Archer hat hair, crown, hood, mask, bows and quivers | Owned FBX modules and authored prefab sockets in Female Archer Pack 01 | Schema-v3 Profile wardrobe support; new converted artwork remains private pending exact owner acceptance |
+| Archer arrow | Owned FBX module in Female Archer Pack 01 | Unprepared; no shooting or weapon behavior |
 | Archer Brown/Orange/Grey hair materials | Owned source material choices | Prepared private palettes with matching eyebrows; five saved hair colors |
 | Kenney Fox/Dog | Retained CC0 models with original licenses | Available reference sources, not accepted R3F catalog or evolution bindings |
 | Other seeded species and potion variants | Legacy catalog/sprites are not matching Meshtint model ownership | Outside new acquisition offers; never inherit the ordinary Chick/Bird model |
@@ -251,10 +252,10 @@ with Pets remaining the place for pet interaction. `prepare_archer.py` exports
 the supplied body, head, face and four hair modules to private
 `frontend/src/avatar/licensed/`; runtime choices use the supplied Fair/Tan skin,
 Aqua/Nature/Fire/Dark outfit, Light/Dark hair and matching eyebrow textures.
-The static GLB retains supplied UVs and the 40-bone body rig. All four hairstyles
+The original static GLB retains supplied UVs and the 40-bone body rig. All four hairstyles
 and eight outfit/skin combinations passed GLB reimport/render checks. Original
 source hashes remained unchanged. The supplied Idle bind matrices differ from
-this body rig and remain unaccepted; no retargeting or new animation was added.
+this body rig and were unaccepted in that initial static release.
 Saved appearance is separate from inventory, rewards, pet ownership and earned
 cosmetics. The same private-license/public-delivery and real-phone gates apply.
 
@@ -275,9 +276,19 @@ rendered through the bounded extra-weight helper rather than truncated.
 Detailed evidence and recovery are in
 [the implementation record](../../docs/operations/r3f-profile-pets.md).
 
-The registry describes prepared private capabilities; its public-delivery
-state remains `private_evaluation`. New runtime art needs the separately
-recorded owner review and public-delivery acceptance in
+The owner accepted the exact expanded schema-v2 visuals, supplied Idle and
+public browser delivery for PR #210 on October 13. That release was published
+through the existing private avatar build settings. This acceptance is specific
+to its recorded artifact; it does not accept newly converted wardrobe artwork
+or establish physical-phone graphics readiness.
+
+Schema-v3 adds independent headwear, mask, bow and quiver preferences with
+`None` choices and coordinated Aqua/Nature/Fire/Dark presets. The source-map
+converter uses the publisher's actual head, left-palm and back socket transforms,
+preserving supplied geometry, materials and complete costume rigs. Hood choices
+use the supplied hat hair, while the selected ordinary hairstyle remains saved.
+The new wardrobe outputs retain `private_evaluation` until exact visual and
+delivery acceptance. New runtime art needs the separately recorded owner review in
 [private avatar builds](../../docs/operations/licensed-avatar-art.md).
 Source archives, conversion evidence and review records remain outside public
 Git. Physical-phone graphics acceptance is still separate.

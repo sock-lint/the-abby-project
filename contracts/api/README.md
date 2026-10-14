@@ -22,7 +22,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `challenge-goal-invalid.json` | Invalid nonpositive target rejected with HTTP 400; no goal or reward persists |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
-| `character-avatar-legacy.json` | `GET /api/character/`; a legacy four-option saved look retains its choices and projects the default costume, face and ears without writing |
+| `character-avatar-legacy.json` | `GET /api/character/`; a legacy four-option saved look retains its choices and projects the default costume, face, ears and empty wardrobe without writing |
 | `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
 | `report-card-created.json` | `POST /api/chronicle/grades/`; private quarterly report card with percentage, points and letter subjects and a verified recognition receipt |
 | `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
@@ -344,14 +344,23 @@ through the real authenticated character endpoints. `avatar_preferences` contain
 `face_style` (`face-01` through `face-03`), and `head_style` (`head-01` or
 `head-02`, rounded/pointed ears). Default options are `hair-01`, `dark`, `fair`,
 `nature`, `archer-01`, `face-01`, and `head-02`.
+Four optional wardrobe fields are also saved: `headwear_style` (`none`,
+`crown-eve`, or `hood-mystical`), `mask_style` (`none` or `mask-undercover`),
+`bow_style` (`none`, `bow-greenhorn`, `bow-vines`, or `bow-myth`), and
+`quiver_style` (`none`, `quiver-angel`, `quiver-rook`, or `quiver-tale`).
+Each wardrobe field defaults to `none`. These are presentation selections;
+saving them does not acquire, equip or unlock gameplay inventory.
 Reads normalize older empty or malformed stored options without writing to the
 profile. Legacy four-option looks retain their selected hair, skin and palette
 and project `outfit_style: archer-01`, `face_style: face-01` and
-`head_style: head-02` without changing stored preferences.
+`head_style: head-02` without changing stored preferences. Older seven-option
+looks retain their entire identity and receive all four wardrobe defaults
+without a persisted read. Existing `outfit` palettes coordinate wardrobe art;
+there is no separate wardrobe palette in the API.
 
 `POST /api/character/avatar/` accepts exactly `{avatar_preferences: {...}}`.
 Each save replaces the full appearance: omitted options reset to defaults, and
-an empty preference object resets all seven options. Unknown body/option fields,
+an empty preference object resets all eleven options. Unknown body/option fields,
 invalid types/values, and query parameters are rejected. The endpoint only changes
 the authenticated account's preferences and timestamp; it cannot target another
 account, equip or grant inventory, change a trophy, or award XP/Coins. Repeating

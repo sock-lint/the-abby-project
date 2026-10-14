@@ -13,7 +13,9 @@ const config = {
 };
 
 function makeGlb(parts, modify = () => {}) {
-  const names = [parts.body, ...(typeof parts.head === 'string' ? [parts.head] : Object.values(parts.head)), parts.face, ...Object.values(parts.hair)];
+  const wardrobeNames = parts.wardrobe ? [parts.wardrobe.hair_for_hat,
+    ...['headwear', 'mask', 'bow', 'quiver'].flatMap((slot) => Object.values(parts.wardrobe[slot]))] : [];
+  const names = [parts.body, ...(typeof parts.head === 'string' ? [parts.head] : Object.values(parts.head)), parts.face, ...Object.values(parts.hair), ...wardrobeNames];
   const document = {
     asset: { version: '2.0' }, scene: 0,
     scenes: [{ nodes: names.map((_name, index) => index) }],
@@ -169,6 +171,245 @@ function makeExpandedBundle() {
     manifest: { ...legacy.manifest, schema_version: 2, models, parts, textures }, files,
   };
 }
+
+function makeWardrobeGlb(parts, change = () => {}) {
+  return makeIdleGlb(parts, (document, binary) => {
+    const headIndex = document.nodes.findIndex((node) => node.name === 'Head');
+    const head = document.nodes[headIndex];
+    head.name = 'RigHead';
+    const bowNodes = Object.values(parts.wardrobe.bow).map((name) => document.nodes.findIndex((node) => node.name === name));
+    const quiverNodes = Object.values(parts.wardrobe.quiver).map((name) => document.nodes.findIndex((node) => node.name === name));
+    head.children = head.children.filter((index) => !bowNodes.includes(index) && !quiverNodes.includes(index));
+    const palmIndex = document.nodes.length;
+    const ribcageIndex = palmIndex + 1;
+    document.nodes.push({ name: 'RigLPalm', children: bowNodes }, { name: 'RigRibcage', children: quiverNodes });
+    document.scenes[0].nodes.push(palmIndex, ribcageIndex);
+    document.skins[0].joints = [headIndex, palmIndex, ribcageIndex];
+    delete document.skins[0].inverseBindMatrices;
+    return change(document, binary) || binary;
+  });
+}
+
+function makeWardrobeBundle() {
+  const bundle = makeExpandedBundle();
+  bundle.manifest.schema_version = 3;
+  const wardrobe = {
+    hair_for_hat: 'Archer_Hair_For_Hat',
+    headwear: { 'crown-eve': 'Archer_Crown_Eve', 'hood-mystical': 'Archer_Hood_Mystical' },
+    mask: { 'mask-undercover': 'Archer_Mask_Undercover' },
+    bow: { 'bow-greenhorn': 'Archer_Bow_Greenhorn', 'bow-vines': 'Archer_Bow_Vines', 'bow-myth': 'Archer_Bow_Myth' },
+    quiver: { 'quiver-angel': 'Archer_Quiver_Angel', 'quiver-rook': 'Archer_Quiver_Rook', 'quiver-tale': 'Archer_Quiver_Tale' },
+  };
+  bundle.manifest.parts.wardrobe = wardrobe;
+  bundle.manifest.textures.wardrobe = {};
+  for (const slot of ['headwear', 'mask', 'bow', 'quiver']) for (const style of Object.keys(wardrobe[slot])) {
+    for (const palette of ['aqua', 'nature', 'fire', 'dark']) {
+      const neutral = ['bow-greenhorn', 'quiver-rook'].includes(style);
+      const file = `${style}-${neutral ? 'neutral' : palette}.png`;
+      bundle.manifest.textures.wardrobe[`${style}:${palette}`] = file;
+      bundle.files[file] = { sha256: digest(png), base64: png.toString('base64') };
+    }
+  }
+  for (const model of Object.values(bundle.manifest.models)) {
+    const glb = makeWardrobeGlb(bundle.manifest.parts, (document) => { document.asset.generator = `synthetic-${model.file}`; });
+    bundle.files[model.file] = { sha256: digest(glb), base64: glb.toString('base64') };
+  }
+  return bundle;
+}
+
+test('wardrobe stages complete modules and supplied palette aliases without private metadata', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  const bundle = makeWardrobeBundle();
+  bundle.manifest.wardrobe_source_report = { private_path: '/private/synthetic-source', source_sha256: 'b'.repeat(64) };
+  const bytes = Buffer.from(JSON.stringify(bundle));
+  const { manifest, files } = validateAvatarBundle(bytes, digest(bytes));
+  assert.equal(manifest.schema_version, 3);
+  assert.equal(files.size, 61);
+  assert.deepEqual(manifest.parts, bundle.manifest.parts);
+  assert.deepEqual(manifest.textures, bundle.manifest.textures);
+  assert.deepEqual(Object.keys(manifest).sort(), ['models', 'parts', 'schema_version', 'textures']);
+  assert.ok(!JSON.stringify(manifest).includes('synthetic-source'));
+  assert.equal(manifest.textures.wardrobe['bow-greenhorn:aqua'], manifest.textures.wardrobe['bow-greenhorn:fire']);
+  assert.equal(manifest.textures.wardrobe['quiver-rook:nature'], manifest.textures.wardrobe['quiver-rook:dark']);
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  for (const model of Object.values(manifest.models)) {
+    assert.deepEqual(Object.keys(model).sort(), ['file', 'idle_clip', 'rotation_y']);
+    const glb = files.get(model.file);
+    const loaded = await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '');
+    for (const name of [manifest.parts.wardrobe.hair_for_hat,
+      ...['headwear', 'mask', 'bow', 'quiver'].flatMap((slot) => Object.values(manifest.parts.wardrobe[slot]))]) {
+      const module = loaded.scene.getObjectByName(name);
+      assert.ok(module?.isMesh, `${model.file} contains ${name}`);
+      assert.ok(module.parent.isBone, `${name} follows the synthetic supplied skeleton`);
+    }
+  }
+});
+
+test('wardrobe rejects missing modules, palette mappings, duplicate names and unknown slots', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  for (const change of [
+    (bundle) => { delete bundle.manifest.parts.wardrobe; },
+    (bundle) => { delete bundle.manifest.parts.wardrobe.hair_for_hat; },
+    (bundle) => { delete bundle.manifest.parts.wardrobe.headwear['hood-mystical']; },
+    (bundle) => { bundle.manifest.parts.wardrobe.bow.none = 'Archer_No_Bow'; },
+    (bundle) => { bundle.manifest.parts.wardrobe.quiver['quiver-unowned'] = 'Archer_Unowned_Quiver'; },
+    (bundle) => { bundle.manifest.parts.wardrobe.hair_for_hat = bundle.manifest.parts.hair['hair-01']; },
+    (bundle) => { bundle.manifest.parts.wardrobe.mask['mask-undercover'] = bundle.manifest.parts.body; },
+    (bundle) => { delete bundle.manifest.textures.wardrobe['crown-eve:dark']; },
+    (bundle) => { delete bundle.manifest.textures.wardrobe['bow-greenhorn:fire']; },
+    (bundle) => { bundle.manifest.textures.wardrobe['bow-myth:unreviewed'] = 'extra.png'; },
+    (bundle) => { bundle.manifest.textures.wardrobe['hood-mystical:fire'] = '../source.psd'; },
+  ]) {
+    const bundle = makeWardrobeBundle(); change(bundle);
+    const bytes = Buffer.from(JSON.stringify(bundle));
+    assert.throws(() => validateAvatarBundle(bytes, digest(bytes)));
+  }
+  for (const name of ['Archer_Hair_For_Hat', 'Archer_Bow_Myth', 'Archer_Hood_Mystical', 'Archer_Quiver_Tale']) {
+    const bundle = makeWardrobeBundle();
+    const glb = makeWardrobeGlb(bundle.manifest.parts, (document) => {
+      delete document.nodes.find((node) => node.name === name).mesh;
+    });
+    bundle.files['archer-02.glb'] = { sha256: digest(glb), base64: glb.toString('base64') };
+    const bytes = Buffer.from(JSON.stringify(bundle));
+    assert.throws(() => validateAvatarBundle(bytes, digest(bytes)), /selected mesh part/);
+  }
+});
+
+test('wardrobe cannot stage extra visible geometry or detach modules from their supplied bone', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  for (const change of [
+    (document) => {
+      document.scenes[0].nodes.push(document.nodes.length);
+      document.nodes.push({ name: 'UnlistedExtraModule', mesh: 1 });
+    },
+    (document) => {
+      const module = document.nodes.findIndex((node) => node.name === 'Archer_Hood_Mystical');
+      document.nodes.find((node) => node.name === 'RigHead').children = document.nodes.find((node) => node.name === 'RigHead').children.filter((index) => index !== module);
+      document.scenes[0].nodes.push(module);
+    },
+    (document) => {
+      const module = document.nodes.findIndex((node) => node.name === 'Archer_Bow_Myth');
+      document.nodes.find((node) => node.name === 'RigLPalm').children = document.nodes.find((node) => node.name === 'RigLPalm').children.filter((index) => index !== module);
+      document.nodes.find((node) => node.name === 'RigHead').children.push(module);
+    },
+    (document) => {
+      const module = document.nodes.findIndex((node) => node.name === 'Archer_Quiver_Tale');
+      document.nodes.find((node) => node.name === 'RigRibcage').children = document.nodes.find((node) => node.name === 'RigRibcage').children.filter((index) => index !== module);
+      document.nodes.find((node) => node.name === 'RigHead').children.push(module);
+    },
+    (document) => {
+      // The body skin weights target RigHead; assigning them to a bow must
+      // not pass merely because its skin references the right whole rig.
+      document.nodes.find((node) => node.name === 'Archer_Bow_Vines').mesh = 0;
+      document.nodes.find((node) => node.name === 'Archer_Bow_Vines').skin = 0;
+    },
+  ]) {
+    const bundle = makeWardrobeBundle();
+    const glb = makeWardrobeGlb(bundle.manifest.parts, change);
+    bundle.files['archer-01.glb'] = { sha256: digest(glb), base64: glb.toString('base64') };
+    const bytes = Buffer.from(JSON.stringify(bundle));
+    assert.throws(() => validateAvatarBundle(bytes, digest(bytes)), /wardrobe|undeclared/);
+  }
+});
+
+test('wardrobe mesh aliases cannot collide with loader dictionaries or change during name sanitization', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  for (const name of ['__proto__', 'constructor', 'toString', 'Crown.Eve', 'Crown/Eve', 'Crown:Eve', 'Crown[Eve]']) {
+    const bundle = makeWardrobeBundle();
+    bundle.manifest.parts.wardrobe.headwear['crown-eve'] = name;
+    const glb = makeWardrobeGlb(bundle.manifest.parts, (document) => {
+      const crown = document.nodes.findIndex((node) => node.name === name);
+      document.nodes.find((node) => node.name === 'RigHead').children = document.nodes.find((node) => node.name === 'RigHead').children.filter((index) => index !== crown);
+      document.scenes[0].nodes.push(crown);
+    });
+    for (const model of Object.values(bundle.manifest.models)) bundle.files[model.file] = { sha256: digest(glb), base64: glb.toString('base64') };
+    const bytes = Buffer.from(JSON.stringify(bundle));
+    assert.throws(() => validateAvatarBundle(bytes, digest(bytes)), /mesh parts|wardrobe/);
+  }
+});
+
+test('wardrobe preserves rigid skinned modules bound to the matching body bone', async () => {
+  const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');
+  const bundle = makeWardrobeBundle();
+  const glb = makeWardrobeGlb(bundle.manifest.parts, (document, binary) => {
+    const jointAccessor = document.accessors.length;
+    const jointView = document.bufferViews.length;
+    document.bufferViews.push({ buffer: 0, byteOffset: binary.length, byteLength: 12 });
+    document.accessors.push({ bufferView: jointView, componentType: 5121, count: 3, type: 'VEC4' });
+    const geometry = structuredClone(document.meshes[0]);
+    geometry.primitives[0].attributes.JOINTS_0 = jointAccessor;
+    const bow = document.nodes.find((node) => node.name === 'Archer_Bow_Myth');
+    bow.mesh = document.meshes.length;
+    bow.skin = 0;
+    document.meshes.push(geometry);
+    // Skin joint index1 is RigLPalm, with the original normalized [1,0,0,0]
+    // weights. The body retains its separate RigHead joint attributes.
+    const result = Buffer.concat([binary, Buffer.alloc(12, 1)]);
+    document.buffers[0].byteLength = result.length;
+    return result;
+  });
+  bundle.files['archer-01.glb'] = { sha256: digest(glb), base64: glb.toString('base64') };
+  const bytes = Buffer.from(JSON.stringify(bundle));
+  const validated = validateAvatarBundle(bytes, digest(bytes));
+  const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
+  const loaded = await new GLTFLoader().parseAsync(glb.buffer.slice(glb.byteOffset, glb.byteOffset + glb.byteLength), '');
+  const bow = loaded.scene.getObjectByName(validated.manifest.parts.wardrobe.bow['bow-myth']);
+  assert.ok(bow.isSkinnedMesh);
+  assert.equal(bow.skeleton.bones[bow.geometry.attributes.skinIndex.getX(0)].name, 'RigLPalm');
+});
+
+test('wardrobe runtime resolves all 276480 choices through a Vite build', async (t) => {
+  const { stageAvatarArt } = await import('./stage-avatar-art.mjs');
+  const { root, options } = await fixture(t);
+  const bundle = makeWardrobeBundle();
+  const bytes = Buffer.from(JSON.stringify(bundle));
+  await writeFile(options.secretPath, JSON.stringify(config));
+  assert.deepEqual(await stageAvatarArt({ ...options, expectedHash: digest(bytes), download: async () => bytes }), { staged: true, fileCount: 61 });
+  const source = join(root, 'src');
+  await mkdir(source);
+  for (const name of ['appearance.js', 'preferences.js']) await writeFile(join(source, name), await readFile(new URL(`../src/avatar/${name}`, import.meta.url)));
+  await rename(options.destination, join(source, 'licensed'));
+  const { build } = await import('vite');
+  const output = await build({ configFile: false, logLevel: 'silent', root, base: '/static/',
+    build: { write: false, assetsInlineLimit: 0, lib: { entry: join(source, 'appearance.js'), formats: ['es'] } } });
+  const entries = (Array.isArray(output) ? output : [output]).flatMap((result) => result.output);
+  const code = entries.find((entry) => entry.type === 'chunk' && entry.isEntry).code;
+  const { resolveAvatarAppearance } = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
+  const expectedModels = Object.fromEntries(Object.entries(bundle.manifest.models).map(([style, model]) =>
+    [style, `data:model/gltf-binary;base64,${bundle.files[model.file].base64}`]));
+  const expectedImage = `data:image/png;base64,${png.toString('base64')}`;
+  let count = 0;
+  for (const outfit_style of ['archer-01', 'archer-02', 'archer-03']) for (const hair_style of ['hair-01', 'hair-02', 'hair-03', 'hair-04'])
+    for (const hair_color of ['dark', 'light', 'brown', 'orange', 'grey']) for (const face_style of ['face-01', 'face-02', 'face-03'])
+      for (const head_style of ['head-01', 'head-02']) for (const skin_tone of ['fair', 'tan']) for (const outfit of ['aqua', 'nature', 'fire', 'dark']) {
+      for (const headwear_style of ['none', 'crown-eve', 'hood-mystical']) for (const mask_style of ['none', 'mask-undercover'])
+        for (const bow_style of ['none', 'bow-greenhorn', 'bow-vines', 'bow-myth']) for (const quiver_style of ['none', 'quiver-angel', 'quiver-rook', 'quiver-tale']) {
+          const preferences = { outfit_style, hair_style, hair_color, face_style, head_style, skin_tone, outfit, headwear_style, mask_style, bow_style, quiver_style };
+          const appearance = resolveAvatarAppearance(preferences);
+          assert.ok(appearance, JSON.stringify(preferences));
+          assert.equal(appearance.url, expectedModels[outfit_style]);
+          assert.equal(appearance.idleClip, 'Idle');
+          assert.equal(appearance.hairStyle, hair_style);
+          assert.equal(appearance.headStyle, head_style);
+          let selectedSlots = 0;
+          for (const slot of ['headwear', 'mask', 'bow', 'quiver']) {
+            const style = preferences[`${slot}_style`];
+            assert.equal(appearance.wardrobe[slot], style);
+            assert.equal(Object.hasOwn(appearance.textures, slot), style !== 'none');
+            if (style !== 'none') {
+              selectedSlots++;
+              assert.equal(appearance.textures[slot], expectedImage);
+              assert.equal(appearance.parts.wardrobe[slot][style], bundle.manifest.parts.wardrobe[slot][style]);
+            }
+          }
+          assert.equal(Object.keys(appearance.textures).length, 3 + selectedSlots);
+          count++;
+        }
+    }
+  assert.equal(count, 276480);
+  assert.ok(!code.includes('synthetic-owner-acceptance'));
+  assert.ok(!code.includes('synthetic-idle-review'));
+});
 
 test('expanded costumes stage only reviewed supplied idle and matching palettes', async () => {
   const { validateAvatarBundle } = await import('./stage-avatar-art.mjs');

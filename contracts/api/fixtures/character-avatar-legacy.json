@@ -27,7 +27,11 @@
     "outfit": "aqua",
     "outfit_style": "archer-01",
     "face_style": "face-01",
-    "head_style": "head-02"
+    "head_style": "head-02",
+    "headwear_style": "none",
+    "mask_style": "none",
+    "bow_style": "none",
+    "quiver_style": "none"
   },
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00"

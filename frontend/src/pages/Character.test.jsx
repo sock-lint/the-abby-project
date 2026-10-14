@@ -8,6 +8,7 @@ import { renderWithProviders } from '../test/render.jsx';
 import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
 import { spyHandler } from '../test/spy.js';
+import { AVATAR_DEFAULTS } from '../avatar/preferences';
 
 vi.mock('../components/avatar/AvatarPreview', () => ({ default: () => <div role="img" aria-label="Your Archer avatar" /> }));
 
@@ -54,6 +55,35 @@ function renderPage() {
 }
 
 describe('Character (/sigil)', () => {
+  it.each(['child', 'parent'])('persists only the %s account’s wardrobe and restores it after reopening Profile', async (role) => {
+    const user = userEvent.setup();
+    const preferences = { ...AVATAR_DEFAULTS, headwear_style: 'crown-eve', mask_style: 'mask-undercover', bow_style: 'bow-myth', quiver_style: 'quiver-angel' };
+    const savedPreferences = { ...preferences, headwear_style: 'none', mask_style: 'none', bow_style: 'none', quiver_style: 'quiver-tale' };
+    stubRoutes({ profile: { display_name: 'Wardrobe child', avatar_preferences: preferences }, user: buildUser({ role }) });
+    const save = spyHandler('post', /\/api\/character\/avatar\/$/, { avatar_preferences: savedPreferences });
+    const equip = spyHandler('post', /\/api\/character\/equip\/$/, {});
+    server.use(save.handler, equip.handler);
+    const view = renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Customize character' }));
+    for (const label of ['Headwear', 'Mask', 'Bow']) await user.selectOptions(screen.getByRole('combobox', { name: label }), 'none');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Quiver' }), 'quiver-tale');
+    expect(save.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Save character' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ avatar_preferences: savedPreferences });
+    expect(new URL(save.calls[0].url).pathname).toBe('/api/character/avatar/');
+    expect(new URL(save.calls[0].url).searchParams.has('user_id')).toBe(false);
+    expect(equip.calls).toHaveLength(0);
+    expect(await screen.findByText('Character saved.')).toBeInTheDocument();
+    view.unmount();
+    server.use(http.get('*/api/character/', () => HttpResponse.json({ display_name: 'Wardrobe child', avatar_preferences: savedPreferences })));
+    renderPage();
+    await user.click(await screen.findByRole('button', { name: 'Customize character' }));
+    for (const label of ['Headwear', 'Mask', 'Bow']) expect(screen.getByRole('combobox', { name: label })).toHaveValue('none');
+    expect(screen.getByRole('combobox', { name: 'Quiver' })).toHaveValue('quiver-tale');
+    expect(save.calls).toHaveLength(1);
+  });
+
   it.each(['child', 'parent'])('keeps daily notes and challenge shortcuts off the %s profile', async (role) => {
     stubRoutes({ profile: { display_name: 'Abby', level: 2 }, user: buildUser({ role }) });
     const wellbeing = spyHandler('get', /\/api\/wellbeing\/today\/$/, {

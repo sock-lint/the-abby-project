@@ -36,7 +36,7 @@ beforeEach(() => {
   harness.invalidate = vi.fn();
   const scene = new Group();
   for (const name of ['Body', 'Head', 'Face', 'Hair 01', 'Hair 02']) {
-    const part = new Mesh(undefined, new MeshStandardMaterial());
+    const part = new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial());
     part.name = name;
     scene.add(part);
   }
@@ -69,7 +69,103 @@ function MotionScene(props) {
   return <div ref={ref} data-testid="motion-stage"><AvatarScene {...props} motionAllowed={motionAllowed} /></div>;
 }
 
+const wardrobeParts = {
+  hair_for_hat: 'Hat hair',
+  headwear: { 'crown-eve': 'Crown', 'hood-mystical': 'Hood' },
+  mask: { 'mask-undercover': 'Mask' },
+  bow: { 'bow-greenhorn': 'Greenhorn', 'bow-vines': 'Vines', 'bow-myth': 'Myth' },
+  quiver: { 'quiver-angel': 'Angel', 'quiver-rook': 'Rook', 'quiver-tale': 'Tale' },
+};
+function addWardrobe() {
+  for (const name of [wardrobeParts.hair_for_hat, ...['headwear', 'mask', 'bow', 'quiver'].flatMap((slot) => Object.values(wardrobeParts[slot]))]) {
+    const module = new Mesh(new BoxGeometry(0.2, 0.2, 0.2), new MeshStandardMaterial());
+    module.name = name;
+    harness.gltf.scene.add(module);
+  }
+}
+function withWardrobe(selected = {}) {
+  const wardrobe = { headwear: 'none', mask: 'none', bow: 'none', quiver: 'none', ...selected };
+  const textures = { ...appearance.textures, ...Object.fromEntries(Object.entries(wardrobe).filter(([, style]) => style !== 'none').map(([slot]) => [slot, `/${slot}.png`])) };
+  harness.textures = Object.keys(textures).map(() => new Texture());
+  return { ...appearance, parts: { ...appearance.parts, wardrobe: wardrobeParts }, wardrobe, textures };
+}
+
 describe('AvatarScene lifecycle', () => {
+  it.each(['none', 'crown-eve', 'hood-mystical'])('selects %s independently and uses hat hair only under a hood', (headwear) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    addWardrobe();
+    const selected = withWardrobe({ headwear, mask: 'mask-undercover', bow: 'bow-vines', quiver: 'quiver-angel' });
+    render(<AvatarScene appearance={selected} onReady={() => {}} onUnavailable={() => {}} />);
+    const root = harness.reactionRoot;
+    for (const [slot, options] of Object.entries(wardrobeParts).filter(([slot]) => slot !== 'hair_for_hat')) {
+      for (const [style, name] of Object.entries(options)) {
+        expect(root.getObjectByName(name).visible).toBe(selected.wardrobe[slot] === style);
+        expect(harness.gltf.scene.getObjectByName(name).visible).toBe(true);
+      }
+    }
+    expect(root.getObjectByName('Hat hair').visible).toBe(headwear === 'hood-mystical');
+    expect(root.getObjectByName('Hair 01').visible).toBe(headwear !== 'hood-mystical');
+    expect(root.getObjectByName('Hair 02').visible).toBe(false);
+    if (headwear === 'hood-mystical') expect(root.getObjectByName('Hat hair').material.map).toBe(root.getObjectByName('Hair 01').material.map);
+    expect(root.getObjectByName('Vines').material.map).not.toBe(root.getObjectByName('Body').material.map);
+  });
+
+  it('frames the original identity independently of hidden oversized wardrobe meshes', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    render(<AvatarScene appearance={appearance} onReady={() => {}} onUnavailable={() => {}} />);
+    const originalScene = harness.reactionRoot.children[0];
+    const originalScale = originalScene.scale.x;
+    const originalPosition = originalScene.position.toArray();
+    addWardrobe();
+    harness.gltf.scene.getObjectByName('Tale').position.y = 50;
+    render(<AvatarScene appearance={withWardrobe()} onReady={() => {}} onUnavailable={() => {}} />);
+    const scene = harness.reactionRoot.children[0];
+    expect(scene.scale.x).toBeCloseTo(originalScale);
+    expect(scene.position.toArray()).toEqual(originalPosition);
+    expect(scene.getObjectByName('Tale').visible).toBe(false);
+  });
+
+  it('keeps a supplied rigid bow parented to its moving source bone and disposes only private wardrobe textures and materials', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const sourceBody = animatedArcher();
+    addWardrobe();
+    const sourceBow = harness.gltf.scene.getObjectByName('Vines');
+    sourceBow.position.set(0.75, 0, 0);
+    sourceBody.skeleton.bones[0].add(sourceBow);
+    const sourceMaterialDisposed = vi.spyOn(sourceBow.material, 'dispose');
+    const sourceGeometryDisposed = vi.spyOn(sourceBow.geometry, 'dispose');
+    const selected = withWardrobe({ bow: 'bow-vines' });
+    const sourceTextureDisposed = harness.textures.map((map) => vi.spyOn(map, 'dispose'));
+    const { unmount } = render(<AvatarScene appearance={{ ...selected, idleClip: 'Idle' }} onReady={() => {}} onUnavailable={() => {}} />);
+    const bow = harness.reactionRoot.getObjectByName('Vines');
+    const before = bow.getWorldPosition(new Vector3()).clone();
+    act(() => harness.frame({}, 0.05));
+    expect(bow.parent.name).toBe('Archer_Root');
+    expect(bow.getWorldPosition(new Vector3()).distanceTo(before)).toBeGreaterThan(0.001);
+    expect(sourceBow.parent.rotation.z).toBe(0);
+    expect(bow.position.toArray()).toEqual(sourceBow.position.toArray());
+    const materialDisposed = vi.spyOn(bow.material, 'dispose');
+    const textureDisposed = vi.spyOn(bow.material.map, 'dispose');
+    unmount();
+    expect(materialDisposed).toHaveBeenCalledOnce();
+    expect(textureDisposed).toHaveBeenCalledOnce();
+    expect(sourceMaterialDisposed).not.toHaveBeenCalled();
+    expect(sourceGeometryDisposed).not.toHaveBeenCalled();
+    sourceTextureDisposed.forEach((dispose) => expect(dispose).not.toHaveBeenCalled());
+  });
+
+  it('rejects incomplete wardrobe geometry before cloning cached textures or signaling readiness', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    addWardrobe();
+    harness.gltf.scene.remove(harness.gltf.scene.getObjectByName('Crown'));
+    const selected = withWardrobe();
+    const clone = vi.spyOn(harness.textures[0], 'clone');
+    const onReady = vi.fn();
+    expect(() => render(<AvatarScene appearance={selected} onReady={onReady} onUnavailable={() => {}} />)).toThrow('missing Crown');
+    expect(clone).not.toHaveBeenCalled();
+    expect(onReady).not.toHaveBeenCalled();
+  });
+
   it('attaches the animated model to the committed root under StrictMode double memo invocation', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     animatedArcher();

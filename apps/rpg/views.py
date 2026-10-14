@@ -30,7 +30,7 @@ class CharacterView(APIView):
 class AvatarPreferencesView(APIView):
     """Save the authenticated account's Archer appearance, without rewards.
 
-    POST ``{avatar_preferences: {...}}`` replaces all four saved choices.
+    POST ``{avatar_preferences: {...}}`` replaces all saved appearance choices.
     Omitted options reset to their defaults; an empty object resets all options.
     Account targeting and additional fields are deliberately unsupported.
     """

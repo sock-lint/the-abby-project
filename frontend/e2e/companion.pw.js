@@ -11,7 +11,9 @@ let devServer;
 let origin;
 const privateArt = existsSync(fileURLToPath(new URL('../src/companion/licensed/manifest.json', import.meta.url)));
 const avatarManifestPath = fileURLToPath(new URL('../src/avatar/licensed/manifest.json', import.meta.url));
-const privateAvatarArt = existsSync(avatarManifestPath) && JSON.parse(readFileSync(avatarManifestPath, 'utf8')).schema_version === 2;
+const avatarSchema = existsSync(avatarManifestPath) ? JSON.parse(readFileSync(avatarManifestPath, 'utf8')).schema_version : null;
+const privateAvatarArt = [2, 3].includes(avatarSchema);
+const privateWardrobeArt = avatarSchema === 3;
 const { PNG } = playwrightUtils;
 const sky = JSON.parse(readFileSync(fileURLToPath(new URL('../src/storybook/presentation.json', import.meta.url)), 'utf8')).palette.sky;
 const skyRgb = [1, 3, 5].map((index) => Number.parseInt(sky.slice(index, index + 2), 16));
@@ -43,11 +45,14 @@ const chick = {
 const avatarDefaults = {
   hair_style: 'hair-01', hair_color: 'dark', skin_tone: 'fair', outfit: 'nature',
   outfit_style: 'archer-01', face_style: 'face-01', head_style: 'head-02',
+  headwear_style: 'none', mask_style: 'none', bow_style: 'none', quiver_style: 'none',
 };
 const avatarOptions = {
   hair_style: ['hair-01', 'hair-02', 'hair-03', 'hair-04'],
   hair_color: ['light', 'dark', 'brown', 'orange', 'grey'], skin_tone: ['fair', 'tan'], outfit: ['aqua', 'nature', 'fire', 'dark'],
   outfit_style: ['archer-01', 'archer-02', 'archer-03'], face_style: ['face-01', 'face-02', 'face-03'], head_style: ['head-01', 'head-02'],
+  headwear_style: ['none', 'crown-eve', 'hood-mystical'], mask_style: ['none', 'mask-undercover'],
+  bow_style: ['none', 'bow-greenhorn', 'bow-vines', 'bow-myth'], quiver_style: ['none', 'quiver-angel', 'quiver-rook', 'quiver-tale'],
 };
 const food = { id: 903, item: { id: 904, name: 'Birdseed', icon: '🌾', sprite_key: 'food-birdseed', item_type: 'food' }, quantity: 3 };
 test.use({ launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } });
@@ -192,13 +197,105 @@ test('expanded character identity saves and reloads every supplied choice withou
   expect(mutations).toEqual([]);
   await page.getByRole('button', { name: 'Save character' }).click();
   await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
-  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: preferences } }]);
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: { ...avatarDefaults, ...preferences } } }]);
   await page.reload();
   await page.getByRole('button', { name: 'Customize character' }).click();
   for (const [key, value] of Object.entries(preferences)) {
     await expect(page.getByRole('combobox', { name: labels[key], exact: true })).toHaveValue(value);
   }
   expect(mutations).toHaveLength(1);
+});
+
+test('wardrobe presets and individual None choices save at phone width without reward mutations', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const identity = { ...avatarDefaults, hair_style: 'hair-04', hair_color: 'grey', outfit_style: 'archer-03', face_style: 'face-03', head_style: 'head-01', skin_tone: 'tan' };
+  const mutations = await fixture(page, chick, { avatarPreferences: identity });
+  await page.goto(`${origin}/profile`);
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  const wardrobe = page.getByRole('group', { name: 'Wardrobe', exact: true });
+  await expect(wardrobe).toBeVisible();
+  for (const label of ['Headwear', 'Mask', 'Bow', 'Quiver']) await expect(wardrobe.getByRole('combobox', { name: label, exact: true })).toHaveValue('none');
+  await wardrobe.getByRole('button', { name: 'Dark', exact: true }).click();
+  await expect(wardrobe.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('combobox', { name: 'Hair style' })).toHaveValue('hair-04');
+  await expect(page.getByRole('combobox', { name: 'Outfit style' })).toHaveValue('archer-03');
+  await wardrobe.getByRole('combobox', { name: 'Bow', exact: true }).selectOption('none');
+  await expect(wardrobe.getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'false');
+  expect(mutations).toEqual([]);
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: {
+    ...identity, outfit: 'dark', headwear_style: 'hood-mystical', mask_style: 'mask-undercover', quiver_style: 'quiver-tale',
+  } } }]);
+  await page.reload();
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  await expect(wardrobe.getByRole('combobox', { name: 'Headwear', exact: true })).toHaveValue('hood-mystical');
+  await expect(wardrobe.getByRole('combobox', { name: 'Mask', exact: true })).toHaveValue('mask-undercover');
+  await expect(wardrobe.getByRole('combobox', { name: 'Bow', exact: true })).toHaveValue('none');
+  await expect(wardrobe.getByRole('combobox', { name: 'Quiver', exact: true })).toHaveValue('quiver-tale');
+  for (const label of ['Headwear', 'Mask', 'Quiver']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  expect(mutations).toHaveLength(2);
+  expect(mutations[1].body.avatar_preferences).toEqual({ ...identity, outfit: 'dark' });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: test.info().outputPath('wardrobe-phone-controls.png'), fullPage: true });
+});
+
+test('private Archer wardrobe renders supplied gear, retains Idle and restores saved selections', async ({ page }) => {
+  test.skip(!privateWardrobeArt, 'Owned wardrobe exports are intentionally absent from public CI.');
+  await page.setViewportSize({ width: 375, height: 812 });
+  const failures = [];
+  page.on('pageerror', (error) => failures.push(error.message));
+  page.on('console', (message) => { if (message.type() === 'error' && /THREE\.WebGLProgram|VALIDATE_STATUS|ERROR:\s*\d/.test(message.text())) failures.push(message.text()); });
+  const mutations = await fixture(page);
+  await page.goto(`${origin}/profile`);
+  const view = page.getByRole('group', { name: 'Character view' });
+  const canvas = view.locator('canvas');
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Customize character' }).click();
+  const wardrobe = page.getByRole('group', { name: 'Wardrobe', exact: true });
+  for (const costume of ['archer-01', 'archer-02', 'archer-03']) {
+    await page.getByRole('combobox', { name: 'Outfit style' }).selectOption(costume);
+    for (const preset of ['Aqua', 'Nature', 'Fire', 'Dark']) {
+      await wardrobe.getByRole('button', { name: preset, exact: true }).click();
+      await view.scrollIntoViewIfNeeded();
+      await expect(view).toHaveAttribute('aria-busy', 'false');
+      await expect(canvas).toBeVisible();
+      await archerCapture(canvas, test.info().outputPath(`${costume}-wardrobe-${preset.toLowerCase()}.png`));
+    }
+  }
+  // Compare deterministic reduced-motion captures within one palette. Adding
+  // a real crown must change actual rendered pixels, not only the controls.
+  for (const label of ['Headwear', 'Mask', 'Bow', 'Quiver']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  const bare = await archerCapture(canvas, test.info().outputPath('wardrobe-none.png'));
+  await wardrobe.getByRole('combobox', { name: 'Headwear', exact: true }).selectOption('crown-eve');
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  expect(await archerCapture(canvas, test.info().outputPath('wardrobe-crown.png'))).not.toBe(bare);
+  await wardrobe.getByRole('combobox', { name: 'Bow', exact: true }).selectOption('bow-myth');
+  await wardrobe.getByRole('combobox', { name: 'Quiver', exact: true }).selectOption('quiver-tale');
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  const first = await archerCapture(canvas);
+  await expect.poll(() => archerCapture(canvas), { message: 'The fully equipped Archer must retain the supplied Idle.' }).not.toBe(first);
+  expect(mutations).toEqual([]);
+  await page.getByRole('button', { name: 'Save character' }).click();
+  await expect(page.getByText('Character saved.', { exact: true })).toBeVisible();
+  expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/`, method: 'POST', body: { avatar_preferences: {
+    ...avatarDefaults, outfit_style: 'archer-03', outfit: 'dark', headwear_style: 'crown-eve', bow_style: 'bow-myth', quiver_style: 'quiver-tale',
+  } } }]);
+  await page.reload();
+  await view.scrollIntoViewIfNeeded();
+  await expect(view).toHaveAttribute('aria-busy', 'false');
+  await expect(canvas).toBeVisible();
+  expect(mutations).toHaveLength(1);
+  expect(failures).toEqual([]);
 });
 
 test('private Archer Idle renders moving skin, pauses for reduced motion and changes complete rigs locally', async ({ page }) => {
