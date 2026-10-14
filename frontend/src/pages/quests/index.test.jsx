@@ -25,9 +25,11 @@ describe('QuestsHub', () => {
       </MemoryRouter>,
     );
     await user.click(await screen.findByRole('tab', { name: 'Challenges' }));
-    expect(await screen.findByRole('heading', { level: 1, name: 'Challenges' })).toBeInTheDocument();
+    const overview = await screen.findByRole('region', { name: 'Challenges overview' });
+    expect(overview.querySelector('[data-folio-verso="true"]')).not.toBeNull();
+    expect(overview.querySelector('[data-folio-recto="true"]')).not.toBeNull();
     expect(screen.getByRole('tab', { name: 'Challenges' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByText(/Challenges are optional goals that add bonus rewards to the tasks you already do/)).toBeInTheDocument();
+    expect(screen.getByText('All matching challenges keep progressing in the background. Pinning simply keeps one on Today.')).toBeInTheDocument();
   });
 
   it('renders the Tasks hub with Homework selected by default', async () => {

@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
 import createdGoal from '../../../contracts/api/fixtures/challenge-goal-created.json';
 import initialGoals from '../../../contracts/api/fixtures/challenges-initial.json';
+import goalOrigins from '../../../contracts/api/fixtures/challenges-origins.json';
 import partialGoals from '../../../contracts/api/fixtures/challenges-partial.json';
 import completedGoals from '../../../contracts/api/fixtures/challenges-completed.json';
 import boostedGoals from '../../../contracts/api/fixtures/challenges-boosted.json';
@@ -35,6 +36,7 @@ describe('automatic challenge responses through the shared React API client', ()
     const goal = await createChallengeGoal(payload);
     expect(goal).toEqual(createdGoal);
     expect(goal).toMatchObject({
+      origin: 'parent',
       metric: 'distance', target: '2', progress: '0', unit: 'mi', repeat_weekly: true,
       action: { label: 'Log movement', movement_type_id: 31 },
       reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0, awarded_at: null },
@@ -54,11 +56,24 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(await getChallenges()).toEqual(body);
     expect(await getChallenges(7)).toEqual(body);
     expect(calls).toEqual([{ method: 'GET', userId: null }, { method: 'GET', userId: '7' }]);
-    for (const goal of body.results) {
+    for (const goal of [...body.results, ...body.recent_receipts]) {
+      expect(['parent', 'catalog', 'legacy']).toContain(goal.origin);
       expect(typeof goal.target).toBe('string');
       expect(typeof goal.progress).toBe('string');
       expect(goal.reward_receipt.id).toBe(goal.id);
     }
+  });
+
+  it('preserves distinct server origins for equally named parent, retired catalog and legacy goals', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(goalOrigins)));
+    const saved = await getChallenges();
+    expect(saved).toEqual(goalOrigins);
+    expect(new Set(saved.results.map((goal) => goal.name)).size).toBe(1);
+    expect(Object.fromEntries(saved.results.map((goal) => [goal.id, goal.origin]))).toEqual({
+      'goal:1': 'parent', 'goal:2': 'catalog', 'legacy:91': 'legacy',
+    });
+    expect(saved.results.find((goal) => goal.origin === 'legacy')).toMatchObject({ legacy: true });
+    expect(saved.results.filter((goal) => goal.origin !== 'legacy').every((goal) => !goal.legacy)).toBe(true);
   });
 
   it('keeps a boosted daily paid amount separate from the unchanged goal reward', async () => {

@@ -219,9 +219,11 @@ CSS contract (declared once in [`../index.css`](../index.css), reused by every c
 
 When applying atlas vocabulary to a new page, prefer composition over invention — wrap an existing card in a sigil, lead a section with a rubric, replace a plain title with a versal. Don't introduce a new rarity tier, halo color, or keyframe inside an apply phase; the cohort's value is its consistency.
 
-### Quest folios
+### Task folio
 
-The five tabs under `<ChapterHub>` at `/quests` (Ventures · Duties · Study · Rituals · Movement) share one folio shell at [`pages/quests/QuestFolio.jsx`](../pages/quests/QuestFolio.jsx). It's modelled on the former Skills tome's `FolioSpread` — two-page parchment spread with a gutter shadow on desktop, single column on mobile — but parameterised so each tab fills in its own `letter` / `title` / `kicker` / `stats[]` / `progressPct` / `rarityCounts` without dragging the skill-tree XP math along.
+The Tasks tabs share the folio shell at [`pages/quests/QuestFolio.jsx`](../pages/quests/QuestFolio.jsx): a summary beside the working list on desktop, with the summary above the list on mobile. Each tab supplies its own `letter` / `title` / `kicker` / `stats[]` / `progressPct` / `rarityCounts`. Keep the existing component name for compatibility; the design pattern is **Task folio**.
+
+Challenges composes this shell through [`pages/trials/ChallengesFolio.jsx`](../pages/trials/ChallengesFolio.jsx). Its working list keeps pinned focus and open parent goals visible, shows up to three progressing bonus challenges, and places remaining bonus goals and history in collapsed sections. `/__design#task-folio` renders that same presentation with synthetic data and local pin/detail controls; it does not load or mutate account data.
 
 Per-page tier concepts map onto the Atlas rarity vocabulary via [`pages/quests/quests.constants.js`](../pages/quests/quests.constants.js): `difficultyToRarity(1-5)` + `effortToRarity(1-5)` both fan 1→common…5→legendary, and `buildRarityCounts(items, mapper, isEarned)` reduces a list into the `{common: {earned, total}, …}` shape `RarityStrand` consumes. Project `payment_kind` (required / bounty) and Habit `strength` buckets stay as their own existing chip palettes — they're not forced into the rarity ladder. Ventures + Study render a strand on the verso; Duties + Rituals + Movement omit it because their domain doesn't have a rarity distribution.
 
