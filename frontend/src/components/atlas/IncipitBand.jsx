@@ -13,6 +13,8 @@ import { tierForProgress } from './mastery.constants';
  * total" copy, the Yearbook can pass a chapter year + a year-progress
  * percent, etc. Pass `rarityCounts` only when a rarity-tier breakdown
  * applies — omit to suppress the strand.
+ * `as` defaults to h1 for existing page openers; use a lower heading level
+ * when the band is nested beneath an existing page title.
  *
  * Phone-aware by default: with no explicit `versalSize`, the versal renders
  * as a single responsive glyph — md-sized below the sm breakpoint, xl at sm+ —
@@ -21,6 +23,7 @@ import { tierForProgress } from './mastery.constants';
  * versal at every width (the glyph stays aria-hidden via the primitive).
  */
 export default function IncipitBand({
+  as: Heading = 'h1',
   letter,
   title,
   kicker,
@@ -52,9 +55,9 @@ export default function IncipitBand({
               {kicker}
             </div>
           )}
-          <h1 className="font-display font-bold text-2xl sm:text-3xl md:text-4xl text-ink-primary leading-tight break-words">
+          <Heading className="font-display font-bold text-2xl sm:text-3xl md:text-4xl text-ink-primary leading-tight break-words">
             {title}
-          </h1>
+          </Heading>
           {meta && (
             <div className="mt-1 flex flex-wrap items-center gap-2 text-caption font-script text-ink-whisper">
               {meta}
