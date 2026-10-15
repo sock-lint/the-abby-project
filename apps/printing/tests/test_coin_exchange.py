@@ -144,13 +144,38 @@ class PrintCoinQuoteTests(_Fixture):
     def test_cancel_after_stopped_print_cannot_refund_consumed_attempt(self):
         self.fund()
         request = PrintRequestService.exchange(self.quote(), self.child)
-        self.open_job(request=request)
-        # A stopped print returns to approved and may have been unlinked.
+        job = self.open_job(request=request)
         request.started_at = self.printer.created_at
         request.save(update_fields=["started_at"])
-        with self.assertRaises(PrintRequestError):
-            PrintRequestService.cancel(request, self.parent)
+        job.state = PrintJob.State.CANCELLED
+        job.finished_at = self.printer.created_at
+        job.duration_minutes = 1
+        job.save(update_fields=["state", "finished_at", "duration_minutes"])
+        PrintRequestService.close_out(job)
+        request.refresh_from_db()
+        self.assertEqual(request.status, PrintRequest.Status.APPROVED)
+        cancelled = PrintRequestService.cancel(request, self.parent)
+        self.assertEqual(cancelled.status, PrintRequest.Status.CANCELLED)
+        self.assertEqual(cancelled.coins_refunded, 0)
+        self.assertIsNone(cancelled.refund_entry_id)
         self.assertEqual(CoinService.get_balance(self.child), 17)
+        with self.assertRaises(PrintRequestError):
+            PrintRequestService.exchange(request, self.child)
+
+    def test_free_request_can_be_cancelled_after_a_stopped_print(self):
+        request = PrintRequestService.approve(self.submit(), self.parent)
+        job = self.open_job(request=request)
+        job.state = PrintJob.State.CANCELLED
+        job.finished_at = self.printer.created_at
+        job.duration_minutes = 1
+        job.save(update_fields=["state", "finished_at", "duration_minutes"])
+        PrintRequestService.close_out(job)
+        request.refresh_from_db()
+        self.assertEqual(request.status, PrintRequest.Status.APPROVED)
+        cancelled = PrintRequestService.cancel(request, self.child)
+        self.assertEqual(cancelled.status, PrintRequest.Status.CANCELLED)
+        self.assertEqual(cancelled.coins_refunded, 0)
+        self.assertFalse(CoinLedger.objects.exists())
 
     def test_manual_link_cannot_bypass_unpaid_quote(self):
         request = self.quote()
@@ -171,8 +196,10 @@ class PrintCoinQuoteTests(_Fixture):
         PrintRequestService.unlink_job(job, self.parent)
         request.refresh_from_db()
         self.assertIsNotNone(request.started_at)
-        with self.assertRaises(PrintRequestError):
-            PrintRequestService.cancel(request, self.child)
+        cancelled = PrintRequestService.cancel(request, self.child)
+        self.assertEqual(cancelled.status, PrintRequest.Status.CANCELLED)
+        self.assertEqual(cancelled.coins_refunded, 0)
+        self.assertIsNone(cancelled.refund_entry_id)
         self.assertEqual(CoinService.get_balance(self.child), 17)
 
     def test_failure_and_retry_keep_fixed_price_without_more_spending(self):

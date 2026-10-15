@@ -252,11 +252,11 @@ class PrintRequestService:
     @staticmethod
     @transaction.atomic
     def cancel(request, actor):
-        """Withdraw a request. Owner or parent, pending or approved only.
+        """Withdraw a pending, quoted or approved request.
 
-        Approved-and-cancelled is allowed on purpose: plans change between
-        approval and slicing. Once a print has actually started the request
-        is a record of something that happened, so it can't be cancelled.
+        A stopped print returns to approved and can be abandoned rather than
+        retried. Keep its consumed Coin price; only cancellation before the
+        first attempt refunds the purchase. Running prints remain ineligible.
         """
         request = PrintRequest.objects.select_for_update().get(pk=request.pk)
         if request.status not in (PrintRequest.Status.PENDING,
@@ -265,9 +265,8 @@ class PrintRequestService:
             raise PrintRequestError(
                 "Only pending, quoted or approved requests can be cancelled.",
             )
-        if request.started_at or request.jobs.exists():
-            raise PrintRequestError("This print has already started and cannot be cancelled here.")
-        if request.coins_paid and not request.coins_refunded:
+        started = request.started_at is not None or request.jobs.exists()
+        if request.coins_paid and not request.coins_refunded and not started:
             request.refund_entry = CoinService.award_coins(
                 request.user, request.coins_paid, CoinLedger.Reason.REFUND,
                 description=f"Cancelled print #{request.pk}: {request.title}"[:200],

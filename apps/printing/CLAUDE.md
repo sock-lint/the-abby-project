@@ -71,7 +71,7 @@ fallback for a plate someone started from Handy without renaming it.
 
 ## Status machines
 `PrintRequest`: `pending` → `approved` | `rejected`; `approved` → `printing` →
-`completed` | `failed`; `pending`/`approved` → `cancelled`. A **cancelled print**
+`completed` | `failed`; `pending`/`quoted`/`approved` → `cancelled`. A **cancelled print**
 (stopped on the printer) sends the request back to `approved`, not `failed` — the
 plate is still named, so a re-slice re-binds to the same slug.
 `BINDABLE_STATUSES` (what a job may attach to) is approved / printing / failed /
@@ -95,7 +95,9 @@ do not change an existing quote, and repeated acceptance cannot charge twice.
 Cancellation before the first job refunds a paid request once. Cancellation
 and automatic/manual job binding lock and recheck the request so a refunded
 request cannot start concurrently. Printer failures, pauses, and retries of
-the same request do not change its fixed price. Monthly resource budgets
+the same request do not change its fixed price. A stopped print's approved
+request can be cancelled to abandon it, keeping its consumed coin charge.
+Free requests retain that same cancellation flow. Monthly resource budgets
 remain separate. MakerWorld metadata does not import profile time or grams;
 parents enter the selected profile's slicer estimate.
 
