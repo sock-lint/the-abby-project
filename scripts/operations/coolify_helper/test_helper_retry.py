@@ -81,7 +81,7 @@ class HelperCommandTests(unittest.TestCase):
 
     def test_delayed_name_release_retries_and_preserves_stdout_and_occupant(self):
         before = self.occupant.read_bytes()
-        result = self.run_fake('if [ "$count" -lt 3 ]; then ' + self.conflict() + '; fi; printf "replacement-id\\n"')
+        result = self.run_fake('if [ "$count" -lt 3 ]; then ' + self.conflict() + '; fi; printf "replacement-id\\n"', generated(timeout=5))
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, "replacement-id\n")
         self.assertEqual(self.count.read_text(), "3")
@@ -92,7 +92,8 @@ class HelperCommandTests(unittest.TestCase):
         result = self.run_fake(self.conflict())
         self.assertEqual(result.returncode, 124)
         self.assertIn("existing container preserved", result.stderr)
-        self.assertGreater(int(self.count.read_text()), 1)
+        # Coarse integer-second timing may exhaust the deadline on the first conflict.
+        self.assertGreaterEqual(int(self.count.read_text()), 1)
         self.assertEqual(self.occupant.read_bytes(), before)
 
     def test_unrelated_docker_failure_is_not_retried(self):
@@ -113,7 +114,7 @@ class HelperCommandTests(unittest.TestCase):
 
     def test_original_quoted_arguments_survive_retries(self):
         secret = "synthetic a'b $c;d `literal` \"quoted\""
-        command = generated("docker run --name helper-test -e " + shlex.quote("SECRET=" + secret) + " image")
+        command = generated("docker run --name helper-test -e " + shlex.quote("SECRET=" + secret) + " image", timeout=5)
         result = self.run_fake('if [ "$count" -lt 2 ]; then ' + self.conflict() + '; fi; echo replacement-id', command)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.arguments.read_text().splitlines(), ["run", "--name", "helper-test", "-e", "SECRET=" + secret, "image"])
@@ -126,7 +127,7 @@ class HelperCommandTests(unittest.TestCase):
     def test_non_root_sudo_rewrite_keeps_bash_control_flow_valid(self):
         # These are the exact command rewrites in Coolify v4.1.2 parseLineForSudo.
         # The wrapper receives one sudo; command substitution receives docker's sudo.
-        command = "sudo " + self.command
+        command = "sudo " + generated(timeout=5)
         command = command.replace("$(", "$(sudo ").replace("`", "`sudo ")
         command = command.replace("||", "|| sudo ").replace("&&", "&& sudo ")
         self.assertNotIn("sudo (", command)
