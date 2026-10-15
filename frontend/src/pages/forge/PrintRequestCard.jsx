@@ -122,7 +122,7 @@ export default function PrintRequestCard({
           </p>
           {request.minutes_per_coin_snapshot != null && (
             <p className="font-body text-caption text-ink-secondary">
-              Estimated print time: {formatMinutes(request.estimated_minutes)} · {request.minutes_per_coin_snapshot} minutes per coin
+              Estimated print time: {formatMinutes(request.estimated_minutes)} · {request.minutes_per_coin_snapshot} {Number(request.minutes_per_coin_snapshot) === 1 ? 'minute' : 'minutes'} per coin
             </p>
           )}
           {!refunded && (

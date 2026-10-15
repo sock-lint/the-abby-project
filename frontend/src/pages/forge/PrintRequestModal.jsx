@@ -133,7 +133,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [], bud
       <form onSubmit={submit} className="space-y-3">
         {budget?.minutes_per_coin != null && (
           <p className="font-body text-caption text-ink-secondary">
-            Prints cost 1 coin per {budget.minutes_per_coin} estimated print minutes, rounded up.
+            Prints cost 1 coin per {budget.minutes_per_coin} estimated print {Number(budget.minutes_per_coin) === 1 ? 'minute' : 'minutes'}, rounded up.
             Your parent checks the time and sends a fixed quote for you to accept before printing.
             Retries do not cost extra coins.
           </p>

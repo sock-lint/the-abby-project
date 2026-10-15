@@ -196,7 +196,7 @@ function BudgetRow({ budget, onChanged }) {
 
       <p className="font-body text-caption text-ink-secondary">
         {budget.minutes_per_coin != null
-          ? `Coin exchange: 1 coin per ${budget.minutes_per_coin} print minutes.`
+          ? `Coin exchange: 1 coin per ${budget.minutes_per_coin} print ${Number(budget.minutes_per_coin) === 1 ? 'minute' : 'minutes'}.`
           : 'Coin exchange is off. New approvals are free.'}
       </p>
 

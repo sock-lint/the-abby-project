@@ -218,7 +218,7 @@ export default function ApprovalSheet({ request, budget, pricingLoading = false,
               {coinCost !== null ? `Coin quote: ${coinCost} ${coinCost === 1 ? 'coin' : 'coins'}` : 'Enter a print time to calculate the coin quote.'}
             </p>
             <p className="font-body text-caption text-ink-secondary">
-              1 coin per {rate} print minutes, rounded up. Your child chooses whether to exchange
+              1 coin per {rate} print {rate === 1 ? 'minute' : 'minutes'}, rounded up. Your child chooses whether to exchange
               coins before printing. This fixes the price; retries do not cost extra coins.
             </p>
           </ParchmentCard>
