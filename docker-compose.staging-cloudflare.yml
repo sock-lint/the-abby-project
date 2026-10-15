@@ -28,9 +28,10 @@ services:
         - ABBY_SHARED_ASSETS_REQUIRED
         - VITE_ALLOW_SIGNUP
     environment:
-      # Build interpolation can omit this runtime-only Coolify value. Deployment
-      # acceptance must confirm /health reports the exact reviewed commit.
-      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+      # Inherit Coolify's generated runtime value without an interpolation
+      # default: its pre-build parser would register that default as a user
+      # setting, suppressing generated provenance. Build config may omit it.
+      SOURCE_COMMIT:
     networks:
       - default
       - coolify

@@ -50,6 +50,11 @@ credentials scoped to the explicit service environments. The opt-in recipe
 declares only the eight build secrets needed for the shared reader and disabled
 signup. It supplies no runtime secrets mounts. Preserve Coolify's generated
 `SOURCE_COMMIT`; do not replace it with an operator-maintained commit setting.
+The environment map intentionally inherits this value through a null entry.
+A `${SOURCE_COMMIT:-unknown}` default makes Coolify's pre-build parser register
+an `unknown` user setting, which suppresses the generated runtime commit. When
+migrating that earlier recipe, verify and remove only that automatically created
+`unknown` row; do not replace it with a manually maintained SHA.
 
 For the approved `abby-staging.bos.lol` hostname, remove the old LAN hostname
 from the staging application's domain metadata rather than retaining an alias.
@@ -100,7 +105,9 @@ Before accepting the new route, check the whole boundary:
 - Direct LAN IPv4 and reachable IPv6 requests with the canonical Host must
   return 403, including attempts with forged forwarded IP, Cloudflare IP
   and Access assertion headers. No published container port may bypass Traefik.
-- The former LAN hostname must no longer route to this application.
+- The former LAN hostname must not return Abby health JSON or the actual pinned
+  asset bytes. The shared proxy's unrelated error-page fallback can return 200;
+  check content type, GLB magic and the expected hash rather than status alone.
 - Record the deployment commit, generated router and middleware definitions,
   the distinct staging application identity and the preserved database state.
   PostgreSQL must receive only its own database credentials, Redis no app

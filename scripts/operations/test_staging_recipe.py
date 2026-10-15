@@ -122,7 +122,7 @@ class StagingRecipeTests(unittest.TestCase):
         self.assertTrue(all(not service.get("labels") for service in self.config["services"].values()))
 
     def test_raw_build_interpolation_can_omit_the_runtime_commit(self):
-        self.assertEqual(self.build_config["services"]["django"]["environment"]["SOURCE_COMMIT"], "unknown")
+        self.assertIsNone(self.build_config["services"]["django"]["environment"].get("SOURCE_COMMIT"))
 
 
 if __name__ == "__main__":
