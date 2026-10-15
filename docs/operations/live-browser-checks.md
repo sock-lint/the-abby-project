@@ -164,6 +164,9 @@ After verifying the dedicated identities, the parent journey follows the child's
 Today card into Timeline, retains the verified child across Journal, Grades and
 Timeline, and rejects an invalid local selection. Chronicle requests with an
 explicit `user_id` are fenced to the designated accounts before forwarding.
+Each initial Journal, Grades and Timeline read must finish successfully before
+the journey continues; returning to a retained panel reuses that confirmed read.
+An absent alert while a request is still loading does not establish success.
 The child journey verifies self-scoped Memories, task filtered/true-empty states,
 Movement's recorded-session/actual-XP summary and local image/model chooser
 controls in the real forms. Project detail/back restoration is exercised when
@@ -171,11 +174,15 @@ the dedicated account already has a visible project; otherwise the journey
 requires a successful empty response and the true-empty UI. It never creates a
 project to manufacture coverage.
 
-Task recovery is a bounded browser connectivity fault: both task chunks are
-loaded online, the already-authenticated browser briefly goes offline while
-switching a SPA tab, and the actual error/Retry flow must recover after restoring
-connectivity. No API response is replaced, and connectivity is restored in a
-`finally` block before cleanup.
+Task recovery is a bounded browser connectivity fault. The Tasks hub statically
+loads its tab components online, then the already-authenticated browser briefly
+goes offline for the first Habits mount. Visited panels remain mounted, so
+reopening an already loaded Habits tab would not exercise a failed read. The
+actual error and “Try again” flow must recover after restoring connectivity;
+habit filtering runs afterwards. No API response is replaced, and connectivity
+is restored in a `finally` block before cleanup. Loopback checks render the real
+task hub and error controls so their retained-panel behavior and accessible names
+are part of the harness regression tests.
 
 PWA update protection uses an in-memory registration/event probe while native
 service workers remain blocked. The real deployed `PwaStatusProvider`, new
