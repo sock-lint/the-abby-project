@@ -163,6 +163,8 @@ export default defineConfig(({ command, mode }) => {
       ],
     },
     build: {
+      // Shared runtime loads and verifies these exact bytes with fetch().
+      assetsInlineLimit: (filePath) => /[\\/]avatar[\\/]shared[\\/]/.test(filePath) ? false : undefined,
       outDir: native?.outDir ?? 'dist',
       sourcemap: 'hidden',
       rollupOptions: {
@@ -197,6 +199,7 @@ export default defineConfig(({ command, mode }) => {
           '**/android/**', '**/ios/**', '**/dist-native/**',
           '**/test-results/**', '**/playwright-report/**',
           '**/test-results-*/**',
+          '**/avatar/.shared.stage-*/**', '**/avatar/.shared.previous-*/**',
         ],
       },
       proxy: {

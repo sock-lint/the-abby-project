@@ -5,6 +5,7 @@ FROM node:22-alpine AS frontend-build
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
+COPY frontend/vendor/ ./vendor/
 RUN npm ci
 
 COPY frontend/ ./
@@ -50,6 +51,19 @@ RUN --mount=type=secret,id=ABBY_AVATAR_ASSETS \
     --mount=type=secret,id=ABBY_AVATAR_ASSETS_SHA256 \
     --mount=type=secret,id=ABBY_AVATAR_ASSETS_REQUIRED \
     node scripts/stage-avatar-art.mjs
+
+# Shared releases are pinned in assets.lock.json. Credentials exist only in this
+# build step; the shipped bundle contains runtime objects and no source masters.
+ARG ABBY_SHARED_ASSETS_REQUIRED="false"
+RUN --mount=type=secret,id=ABBY_ASSETS_S3_ENDPOINT \
+    --mount=type=secret,id=ABBY_ASSETS_S3_REGION \
+    --mount=type=secret,id=ABBY_ASSETS_S3_BUCKET \
+    --mount=type=secret,id=ABBY_ASSETS_S3_PREFIX \
+    --mount=type=secret,id=ABBY_SHARED_ASSETS_REQUIRED \
+    --mount=type=secret,id=ABBY_ASSETS_ACCESS_KEY_ID \
+    --mount=type=secret,id=ABBY_ASSETS_SECRET_ACCESS_KEY \
+    --mount=type=secret,id=ABBY_ASSETS_SESSION_TOKEN \
+    node scripts/shared-assets.mjs stage
 
 # Keep this RUN separate so Coolify can inject existing VITE/Sentry build
 # secrets when use_build_secrets is enabled for this application.
