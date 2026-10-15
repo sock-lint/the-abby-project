@@ -800,7 +800,8 @@ async function fixture(t) {
 test('production build stages the avatar before Vite and excludes local paid art', async () => {
   const dockerfile = await readFile(new URL('../../Dockerfile', import.meta.url), 'utf8');
   assert.ok(dockerfile.includes('node scripts/stage-avatar-art.mjs'), 'Production must stage the Archer assets before Vite resolves its globs');
-  assert.ok(dockerfile.indexOf('node scripts/stage-avatar-art.mjs') < dockerfile.indexOf('RUN npm run build'));
+  const webBuild = dockerfile.indexOf('node scripts/build-hosted-web.mjs');
+  assert.ok(webBuild > 0 && dockerfile.indexOf('node scripts/stage-avatar-art.mjs') < webBuild);
   for (const name of ['ABBY_AVATAR_ASSETS', 'ABBY_AVATAR_ASSETS_SHA256', 'ABBY_AVATAR_ASSETS_REQUIRED']) assert.match(dockerfile, new RegExp(`id=${name}(?:\\s|\\\\)`));
   assert.match(await readFile(new URL('../../.dockerignore', import.meta.url), 'utf8'), /^frontend\/src\/avatar\/licensed\/$/m);
   const workflow = await readFile(new URL('../../.github/workflows/pr-validation.yml', import.meta.url), 'utf8');

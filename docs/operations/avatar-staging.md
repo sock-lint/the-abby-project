@@ -13,7 +13,11 @@ This reduced stack supports avatar/API acceptance; it does not establish
 background-job or whole-application parity.
 
 Configure `STAGING_DATABASE_PASSWORD`, `STAGING_SECRET_KEY`, `STAGING_HOSTNAME`
-and `STAGING_ORIGIN` on that application. Generate fresh random secret values;
+and `STAGING_ORIGIN` on that application, with both build-time and runtime flags
+enabled. Coolify evaluates the entire Compose file even for its build command,
+so those interpolation values must exist at both stages. Each Docker `RUN`
+explicitly scopes its secret mounts; the staging signing/database keys never
+enter dependency installation or Vite. Generate fresh random secret values;
 use a password containing only URL-safe characters for the database URL.
 `STAGING_HOSTNAME` is a hostname without a scheme and `STAGING_ORIGIN` includes
 the scheme. Use HTTPS for native device testing. The same seven dedicated

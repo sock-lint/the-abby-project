@@ -150,7 +150,7 @@ jobs:
             --build-arg VITE_SENTRY_DSN \
             --build-arg VITE_SENTRY_ENVIRONMENT \
             --build-arg VITE_SENTRY_RELEASE \
-            --build-arg SENTRY_AUTH_TOKEN \
+            --secret id=SENTRY_AUTH_TOKEN,env=SENTRY_AUTH_TOKEN \
             --build-arg SENTRY_ORG \
             --build-arg SENTRY_PROJECT \
             --label "org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}" \
