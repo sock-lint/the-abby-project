@@ -6,11 +6,19 @@ services:
     extends:
       file: docker-compose.staging.yml
       service: db
+    networks:
+      default:
+        aliases:
+          - abby-staging-db
 
   redis:
     extends:
       file: docker-compose.staging.yml
       service: redis
+    networks:
+      default:
+        aliases:
+          - abby-staging-redis
 
   django:
     extends:
@@ -28,6 +36,11 @@ services:
         - ABBY_SHARED_ASSETS_REQUIRED
         - VITE_ALLOW_SIGNUP
     environment:
+      # Generic db/redis names can resolve on either joined network. Only these
+      # private-network aliases may receive staging database/cache traffic.
+      DATABASE_URL: postgresql://abby_staging:${STAGING_DATABASE_PASSWORD:?Set a unique staging database password}@abby-staging-db:5432/abby_staging
+      REDIS_URL: redis://abby-staging-redis:6379/0
+      CELERY_BROKER_URL: redis://abby-staging-redis:6379/1
       # Inherit Coolify's generated runtime value without an interpolation
       # default: its pre-build parser would register that default as a user
       # setting, suppressing generated provenance. Build config may omit it.

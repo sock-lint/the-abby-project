@@ -102,6 +102,9 @@ class StagingRecipeTests(unittest.TestCase):
                 expected = dict(self.config["services"][name].get("environment", {}))
                 if name == "django":
                     expected["SOURCE_COMMIT"] = "0123456789abcdef0123456789abcdef01234567"
+                    expected["DATABASE_URL"] = "postgresql://abby_staging:synthetic-database-password@abby-staging-db:5432/abby_staging"
+                    expected["REDIS_URL"] = "redis://abby-staging-redis:6379/0"
+                    expected["CELERY_BROKER_URL"] = "redis://abby-staging-redis:6379/1"
                 self.assertEqual(service.get("environment", {}), expected)
                 self.assertEqual(set(service["networks"]), {"default", "coolify"} if name == "django" else {"default"})
                 self.assertFalse(service.get("secrets"))
@@ -120,6 +123,13 @@ class StagingRecipeTests(unittest.TestCase):
         self.assertEqual(set(config["secrets"]), expected_secrets)
         self.assertTrue(all(secret.get("environment") == name and not secret.get("file") for name, secret in config["secrets"].items()))
         self.assertTrue(all(not service.get("labels") for service in self.config["services"].values()))
+
+    def test_private_service_aliases_are_not_shared_with_the_proxy_network(self):
+        services = self.recipes["docker-compose.staging-cloudflare.yml"]["services"]
+        self.assertEqual(services["db"]["networks"]["default"]["aliases"], ["abby-staging-db"])
+        self.assertEqual(services["redis"]["networks"]["default"]["aliases"], ["abby-staging-redis"])
+        self.assertEqual(set(services["db"]["networks"]), {"default"})
+        self.assertEqual(set(services["redis"]["networks"]), {"default"})
 
     def test_raw_build_interpolation_can_omit_the_runtime_commit(self):
         self.assertIsNone(self.build_config["services"]["django"]["environment"].get("SOURCE_COMMIT"))

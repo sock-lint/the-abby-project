@@ -19,7 +19,7 @@ def provision():
         os.environ.get("ABBY_STAGING") != "true"
         or database.get("NAME") != "abby_staging"
         or database.get("USER") != "abby_staging"
-        or database.get("HOST") != "db"
+        or database.get("HOST") not in {"db", "abby-staging-db"}
         or settings.DEBUG
         or settings.ALLOW_PARENT_SIGNUP
         or settings.EMAIL_BACKEND != "django.core.mail.backends.dummy.EmailBackend"

@@ -67,6 +67,12 @@ defines one HTTP router for that exact Host and all paths, forwarding to Django
 port 8000. Only Django joins the external `coolify` proxy network; PostgreSQL
 and Redis remain on the private application network. No host port is published.
 Do not add another HTTP, HTTPS or LAN alias.
+The protected recipe uses the private-only `abby-staging-db` and
+`abby-staging-redis` network aliases in its database, cache and broker URLs.
+Generic `db` or `redis` names can resolve to another service on Django's joined
+proxy network. After deployment, resolve the configured aliases from inside
+Django and compare them with the exact staging PostgreSQL/Redis private IPs.
+Never supply another project's credentials to work around an alias collision.
 
 Before migrating the existing application to raw mode, record its exact Compose
 project and PostgreSQL volume, and save a private `pg_dump --format=custom`
