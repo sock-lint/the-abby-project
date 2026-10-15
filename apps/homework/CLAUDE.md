@@ -42,9 +42,11 @@ only from the authenticated parent and returns `{provider, model, has_api_key}`;
 it never returns a saved key or ciphertext. `PUT` accepts `provider`, `model`
 and an optional write-only `api_key`. An omitted/empty key preserves a key only
 for the same provider; selecting another provider requires a replacement key.
-`DELETE` or `provider="default"` removes the override and restores the existing
-deployment-wide planner configuration (`provider="default"`, empty model,
-`has_api_key=false`). Updates lock the family row to serialize co-parent saves.
+`DELETE` or `provider="default"` removes the connection and disables new AI
+homework plans. The existing wire sentinel (`provider="default"`, empty model,
+`has_api_key=false`) means disconnected; there is no deployment fallback.
+Existing linked projects remain available. Updates lock the family row to
+serialize co-parent saves.
 
 `ai_settings.py` encrypts credentials with Fernet using a distinct HKDF domain
 derived from Django `SECRET_KEY`. Rotating that secret requires entering saved
@@ -53,10 +55,13 @@ fixtures and API read responses. Decryption/provider failures return a safe
 message and never silently switch to another provider. Planning looks up the
 assignment child's family at call time, preserving existing assignment and
 lead-time permission gates. Children can use the configured planner when those
-gates allow it but cannot inspect or edit its credentials. Explicit family
-overrides use an 8192-token output budget through `config.llm.complete_json`;
-the default path retains its existing 2048-token budget. Family keys apply only
-to homework planning, never project suggestions or ingestion enrichment.
+gates allow it but cannot inspect or edit its credentials. A missing family
+connection stops before any provider request and asks a parent to connect OpenAI
+or Claude in Settings → Homework AI. A connected planner always uses an
+8192-token output budget through `config.llm.complete_json`. Homework never uses
+the deployment-wide Anthropic/Ollama configuration. Those deployment settings
+continue to serve project suggestions and ingestion enrichment; family keys
+apply only to homework planning.
 
 `tests/test_ai_settings.py` covers credential storage, validation, family/role
 boundaries, settings removal and provider/model selection in the real planning

@@ -626,7 +626,7 @@ class HomeworkService:
 
         Raises HomeworkError if:
         - the assignment already has a linked project,
-        - no LLM backend is configured (see :mod:`config.llm`), or
+        - the child's family has no saved OpenAI or Claude connection, or
         - the LLM call / JSON parse fails.
         """
         from apps.projects.models import (
@@ -651,9 +651,11 @@ class HomeworkService:
 
         try:
             options = planner_options(assignment.assigned_to.family)
-            spec = complete_json(prompt=prompt, max_tokens=8192 if options else 2048, **options)
-        except LLMUnavailable as exc:
-            raise HomeworkError("AI planning is not configured.") from exc
+            spec = complete_json(prompt=prompt, max_tokens=8192, **options)
+        except LLMUnavailable:
+            raise HomeworkError(
+                "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Homework AI."
+            ) from None
         except (AISettingsError, LLMError):
             logger.warning("Homework AI planning failed for assignment %s", assignment.pk)
             raise HomeworkError("AI planning failed. Check your homework AI settings and try again.") from None

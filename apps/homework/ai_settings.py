@@ -9,6 +9,7 @@ from django.db import transaction
 from django.views.decorators.debug import sensitive_variables
 
 from apps.families.models import Family
+from config.llm import LLMUnavailable
 
 from .models import HomeworkAISettings
 
@@ -60,7 +61,7 @@ def update_settings(family, *, provider, model, api_key=""):
 def planner_options(family):
     config = HomeworkAISettings.objects.filter(family=family).first()
     if not config:
-        return {}
+        raise LLMUnavailable("No family homework AI connection configured.")
     try:
         plaintext = _fernet().decrypt(bytes(config.encrypted_api_key)).decode("utf-8")
     except (InvalidToken, ValueError, UnicodeDecodeError, TypeError):

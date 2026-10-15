@@ -13,13 +13,16 @@ from rest_framework.test import APIClient
 
 from apps.homework.models import HomeworkAssignment
 from apps.homework.services import HomeworkError, HomeworkService
-from config.llm import LLMError
+from config.llm import LLMError, LLMUnavailable
 from config.tests.factories import make_family
 
 
 URL = "/api/homework/ai-settings/"
 DEFAULT = {"provider": "default", "model": "", "has_api_key": False}
 KEY = "synthetic-provider-secret"
+NOT_CONFIGURED = (
+    "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Homework AI."
+)
 
 
 class HomeworkAISettingsTests(TestCase):
@@ -116,12 +119,24 @@ class HomeworkAISettingsTests(TestCase):
         self.assertEqual(self.save_settings("anthropic", "claude-test", "replacement-key").status_code, 200)
         self.assertEqual(self.saved().provider, "anthropic")
 
-    def test_delete_or_selecting_default_restores_deployment_settings(self):
+    @patch("config.llm.complete_json", return_value={"title": "Science steps"})
+    def test_removal_disables_new_plans_and_preserves_linked_projects(self, complete):
         for remove in (lambda: self.client.delete(URL), lambda: self.save_settings("default", "", "")):
             self.assertEqual(self.save_settings().status_code, 200)
+            linked = HomeworkService.plan_assignment(self.assignment(), parent=self.parent)
+            project_id = linked.project_id
+            complete.reset_mock()
             self.assertEqual(remove().data, DEFAULT)
             self.assertEqual(self.client.get(URL).data, DEFAULT)
             self.assertFalse(apps.get_model("homework", "HomeworkAISettings").objects.exists())
+            linked.refresh_from_db()
+            self.assertEqual(linked.project_id, project_id)
+            self.assertEqual(linked.project.title, "Science steps")
+            response = self.client.post(f"/api/homework/{self.assignment().pk}/plan/")
+            self.assertEqual(response.status_code, 501)
+            self.assertEqual(response.data, {"error": NOT_CONFIGURED})
+            self.assertEqual(self.client.post(f"/api/homework/{linked.pk}/plan/").status_code, 400)
+            complete.assert_not_called()
 
     def test_invalid_inputs_return_safe_errors_without_writes(self):
         for fields in (
@@ -158,14 +173,31 @@ class HomeworkAISettingsTests(TestCase):
     def test_assignment_family_controls_key_instead_of_creator_or_requester(self, complete):
         self.assertEqual(self.save_settings().status_code, 200)
         assignment = self.assignment(child=self.other.children[0])
-        HomeworkService.plan_assignment(assignment, parent=self.parent)
-        self.assertNotIn("api_key", complete.call_args.kwargs)
-        self.assertNotIn("backend", complete.call_args.kwargs)
+        with self.assertRaisesMessage(HomeworkError, NOT_CONFIGURED):
+            HomeworkService.plan_assignment(assignment, parent=self.parent)
+        complete.assert_not_called()
+        assignment.refresh_from_db()
+        self.assertIsNone(assignment.project_id)
 
     @patch("config.llm.complete_json", return_value={"title": "Science steps"})
-    def test_no_override_keeps_existing_planner_call(self, complete):
-        HomeworkService.plan_assignment(self.assignment(), parent=self.parent)
-        self.assertEqual(set(complete.call_args.kwargs), {"prompt", "max_tokens"})
+    def test_missing_family_connection_never_uses_deployment_provider(self, complete):
+        for backend in ("anthropic", "ollama", "auto"):
+            with self.subTest(backend=backend), override_settings(
+                LLM_BACKEND=backend, ANTHROPIC_API_KEY="synthetic-deployment-key",
+                OLLAMA_BASE_URL="http://synthetic-ollama.invalid:11434",
+            ):
+                for user in (self.parent, self.child):
+                    self.client.force_authenticate(user)
+                    response = self.client.post(f"/api/homework/{self.assignment().pk}/plan/")
+                    self.assertEqual(response.status_code, 501)
+                    self.assertEqual(response.data, {"error": NOT_CONFIGURED})
+                complete.assert_not_called()
+
+    def test_planner_options_requires_a_family_connection(self):
+        from apps.homework.ai_settings import planner_options
+
+        with self.assertRaises(LLMUnavailable):
+            planner_options(self.house.family)
 
     @patch("config.llm.complete_json")
     def test_corrupt_or_wrong_secret_key_fails_closed_without_provider_request(self, complete):
@@ -180,6 +212,7 @@ class HomeworkAISettingsTests(TestCase):
 
     @patch("config.llm.complete_json")
     def test_provider_error_does_not_escape_to_response_or_logs(self, complete):
+        self.assertEqual(self.save_settings().status_code, 200)
         for error in (LLMError(KEY), RuntimeError(KEY)):
             with self.subTest(error=type(error)):
                 complete.side_effect = error

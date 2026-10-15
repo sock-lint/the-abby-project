@@ -1,13 +1,13 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
-import defaultSettings from '../../../contracts/api/fixtures/homework-ai-default.json';
+import disconnectedSettings from '../../../contracts/api/fixtures/homework-ai-default.json';
 import openaiSettings from '../../../contracts/api/fixtures/homework-ai-openai.json';
 import anthropicSettings from '../../../contracts/api/fixtures/homework-ai-anthropic.json';
 import { server } from '../test/server';
 import { deleteHomeworkAISettings, getHomeworkAISettings, updateHomeworkAISettings } from './index';
 
 describe('homework AI settings through the shared React API client', () => {
-  it.each([defaultSettings, openaiSettings, anthropicSettings])('reads $provider settings without a saved credential', async (settings) => {
+  it.each([disconnectedSettings, openaiSettings, anthropicSettings])('reads $provider settings without exposing a saved credential', async (settings) => {
     const requests = [];
     server.use(http.get('*/api/homework/ai-settings/', ({ request }) => {
       requests.push({ path: new URL(request.url).pathname, token: request.headers.get('Authorization') });
@@ -37,13 +37,13 @@ describe('homework AI settings through the shared React API client', () => {
     })));
   });
 
-  it('removes the override with an empty DELETE and returns the default settings', async () => {
+  it('removes the connection with an empty DELETE and returns the disconnected sentinel', async () => {
     const requests = [];
     server.use(http.delete('*/api/homework/ai-settings/', async ({ request }) => {
       requests.push({ path: new URL(request.url).pathname, body: await request.text() });
-      return HttpResponse.json(defaultSettings);
+      return HttpResponse.json(disconnectedSettings);
     }));
-    expect(await deleteHomeworkAISettings()).toEqual(defaultSettings);
+    expect(await deleteHomeworkAISettings()).toEqual(disconnectedSettings);
     expect(requests).toEqual([{ path: '/api/homework/ai-settings/', body: '' }]);
   });
 });

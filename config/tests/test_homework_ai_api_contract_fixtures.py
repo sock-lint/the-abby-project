@@ -39,7 +39,7 @@ class HomeworkAISettingsApiResponseFixtureTests(APITestCase):
         self.assertNotIn("synthetic-provider-key", response.content.decode())
         return body
 
-    def test_save_read_retain_key_and_reset_match_the_shared_bodies(self):
+    def test_save_read_retain_key_and_disconnect_match_the_shared_bodies(self):
         self.assert_settings_fixture(self.client.get(self.url), "homework-ai-default.json")
         for provider, model in (("openai", "gpt-5.4-mini"), ("anthropic", "claude-haiku-5-5")):
             with self.subTest(provider=provider):

@@ -44,7 +44,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
-| `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; no family override, so homework planning uses deployment defaults |
+| `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; disconnected family connection, so AI homework planning is unavailable |
 | `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
@@ -295,14 +295,18 @@ copy of `unity/AbbyCamp`.
 `config.tests.test_homework_ai_api_contract_fixtures` produces homework AI
 settings through real parent-only reads, saves and resets. The exact response
 contains only `provider`, `model` and `has_api_key`; API keys are write-only and
-the synthetic key never appears in fixtures. Coparents share a family override,
+the synthetic key never appears in fixtures. Coparents share a family connection,
 other families remain independent, and children cannot read or change it.
 `frontend/src/api/homeworkAIContractFixtures.test.js` consumes the same bodies,
 checking authenticated GET/PUT calls, optional key omission and an empty DELETE.
 PUT accepts `provider`, `model` and optional `api_key`. An omitted or blank key
 retains the saved key only for the same provider; a provider change requires a
-new key. `provider: "default"` or DELETE removes the override. Saving settings
-does not contact a provider or validate its key/model access.
+new key. `provider: "default"` or DELETE removes the family connection and
+returns the disconnected sentinel `{provider: "default", model: "",
+has_api_key: false}`. AI homework planning remains unavailable until the family
+configures OpenAI or Claude; deployment credentials and Ollama are not a homework
+fallback. Saving settings does not contact a provider or validate its key/model
+access.
 
 `config.tests.test_drive_export_api_contract_fixtures` exercises the real source
 list and stored-file upload endpoints with synthetic files and only Google's

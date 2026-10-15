@@ -15,10 +15,10 @@ vi.mock('framer-motion', async () => {
   return { ...actual, AnimatePresence: ({ children }) => children };
 });
 
-const DEFAULT = { provider: 'default', model: '', has_api_key: false };
+const DISCONNECTED = { provider: 'default', model: '', has_api_key: false };
 const OPENAI = { provider: 'openai', model: 'gpt-5.4-mini', has_api_key: true };
 
-function renderSettings(settings = DEFAULT, role = 'parent', handlers = [], ui = <SettingsPage />) {
+function renderSettings(settings = DISCONNECTED, role = 'parent', handlers = [], ui = <SettingsPage />) {
   server.use(
     ...handlers,
     http.get('*/api/auth/me/', () => HttpResponse.json(
@@ -38,7 +38,7 @@ async function chooseOpenAI(user) {
 describe('Homework AI settings', () => {
   it('lets a family parent save an OpenAI model and keeps the key out of the confirmed form', async () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, OPENAI);
-    const { user } = renderSettings(DEFAULT, 'parent', [spy.handler]);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     expect(screen.getByLabelText('API key')).toHaveAttribute('type', 'password');
     await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
@@ -57,7 +57,7 @@ describe('Homework AI settings', () => {
 
   it('does not display or request parent AI settings for children', async () => {
     const spy = spyHandler('get', /\/api\/homework\/ai-settings\/$/, OPENAI);
-    renderSettings(DEFAULT, 'child', [spy.handler]);
+    renderSettings(DISCONNECTED, 'child', [spy.handler]);
     await screen.findByText('Username');
     expect(screen.queryByRole('heading', { name: 'Homework AI' })).not.toBeInTheDocument();
     expect(spy.calls).toHaveLength(0);
@@ -75,18 +75,24 @@ describe('Homework AI settings', () => {
     expect(screen.getByLabelText('Custom model ID')).toHaveValue('custom-model-v1');
   });
 
-  it('can save the default planner without sending a model or key from the previous provider', async () => {
-    const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, DEFAULT);
-    const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
-    await user.type(await screen.findByLabelText('API key'), 'discard-this-key');
-    await user.selectOptions(screen.getByLabelText('AI provider'), 'default');
-    expect(screen.getByText(/Saving the default planner removes/)).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
-    expect(await screen.findByText('Homework AI settings saved.')).toBeInTheDocument();
-    expect(spy.calls).toHaveLength(1);
-    expect(spy.calls[0].body).toEqual({ provider: 'default', model: '' });
+  it('starts disconnected with only OpenAI and Claude choices and requires a new provider key', async () => {
+    const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, OPENAI);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
+    const provider = await screen.findByLabelText('AI provider');
+    expect(provider).toHaveValue('');
+    expect(within(provider).getByRole('option', { name: 'Choose a provider' })).toBeDisabled();
+    expect(within(provider).getAllByRole('option').filter((option) => !option.disabled)
+      .map((option) => option.value)).toEqual(['openai', 'anthropic']);
+    expect(screen.getByText('AI planning is off until a parent connects OpenAI or Claude.')).toBeInTheDocument();
+    expect(screen.queryByText(/default planner/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Remove connection' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Model')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save homework AI' })).toBeDisabled();
+    await user.selectOptions(provider, 'openai');
+    expect(screen.getByLabelText('API key')).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    expect(await screen.findByText('Enter an API key for the selected provider.')).toBeInTheDocument();
+    expect(spy.calls).toHaveLength(0);
   });
 
   it('clears a draft key when the provider changes and requires a new key for Claude', async () => {
@@ -112,7 +118,7 @@ describe('Homework AI settings', () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, () => fail
       ? HttpResponse.json({ api_key: ['The API key could not be saved.'] }, { status: 400 })
       : OPENAI);
-    const { user } = renderSettings(DEFAULT, 'parent', [spy.handler]);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The API key could not be saved.');
@@ -125,8 +131,8 @@ describe('Homework AI settings', () => {
   });
 
   it('requires a confirmed settings response before showing success', async () => {
-    const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, DEFAULT);
-    const { user } = renderSettings(DEFAULT, 'parent', [spy.handler]);
+    const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, DISCONNECTED);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not save homework AI settings. Try again.');
@@ -134,9 +140,9 @@ describe('Homework AI settings', () => {
     expect(screen.getByLabelText('API key')).toHaveValue('synthetic-openai-key');
   });
 
-  it('recovers a failed load without presenting default settings as saved', async () => {
+  it('recovers a failed load without presenting disconnected settings as saved', async () => {
     let fail = true;
-    const { user } = renderSettings(DEFAULT, 'parent', [http.get('*/api/homework/ai-settings/', () => fail
+    const { user } = renderSettings(DISCONNECTED, 'parent', [http.get('*/api/homework/ai-settings/', () => fail
       ? HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }) : HttpResponse.json(OPENAI))]);
     const retry = await screen.findByRole('button', { name: 'Retry homework AI settings' });
     expect(screen.queryByLabelText('AI provider')).not.toBeInTheDocument();
@@ -148,7 +154,7 @@ describe('Homework AI settings', () => {
   it('removes the family connection only after confirmation, and can retry a failed removal', async () => {
     let fail = true;
     const spy = spyHandler('delete', /\/api\/homework\/ai-settings\/$/, () => fail
-      ? HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }) : DEFAULT);
+      ? HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }) : DISCONNECTED);
     const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
     await user.click(await screen.findByRole('button', { name: 'Remove connection' }));
     let confirmation = await screen.findByRole('alertdialog', { name: 'Remove homework AI connection?' });
@@ -160,8 +166,11 @@ describe('Homework AI settings', () => {
     await user.click(screen.getByRole('button', { name: 'Remove connection' }));
     confirmation = await screen.findByRole('alertdialog');
     await user.click(within(confirmation).getByRole('button', { name: 'Remove connection' }));
-    expect(await screen.findByText('Homework AI connection removed. Abby’s default planner will be used.')).toBeInTheDocument();
-    expect(screen.getByLabelText('AI provider')).toHaveValue('default');
+    expect(await screen.findByText('Homework AI connection removed.')).toBeInTheDocument();
+    expect(screen.getByText('AI planning is off until a parent connects OpenAI or Claude.')).toBeInTheDocument();
+    expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
+    expect(screen.queryByText(/default planner/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('AI provider')).toHaveValue('');
     expect(spy.calls).toHaveLength(2);
     expect(spy.calls[1]).toEqual({ url: expect.stringMatching(/\/api\/homework\/ai-settings\/$/), method: 'DELETE', body: null });
   });
@@ -171,7 +180,7 @@ describe('Homework AI settings', () => {
     const pending = new Promise((resolve) => { finish = resolve; });
     const mutation = vi.spyOn(api, 'updateHomeworkAISettings');
     const requests = [];
-    const { user } = renderSettings(DEFAULT, 'parent', [http.put('*/api/homework/ai-settings/', async ({ request }) => {
+    const { user } = renderSettings(DISCONNECTED, 'parent', [http.put('*/api/homework/ai-settings/', async ({ request }) => {
       requests.push(await request.json());
       await pending;
       return HttpResponse.json(OPENAI);
@@ -196,10 +205,10 @@ describe('Homework AI settings', () => {
       const { setUser } = useAuth();
       return <><button onClick={() => setUser(buildParent({ id: 100, family: { id: 2 } }))}>Switch account</button><SettingsPage /></>;
     }
-    const { user } = renderSettings(DEFAULT, 'parent', [], <SwitchAccount />);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [], <SwitchAccount />);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Switch account' }));
-    expect(await screen.findByLabelText('AI provider')).toHaveValue('default');
+    expect(await screen.findByLabelText('AI provider')).toHaveValue('');
     await user.selectOptions(screen.getByLabelText('AI provider'), 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
   });
@@ -212,10 +221,10 @@ describe('Homework AI settings', () => {
         setUser(buildParent({ family: { id: 1, name: 'Test family' } }));
       }}>Replace credential</button><SettingsPage /></>;
     }
-    const { user } = renderSettings(DEFAULT, 'parent', [], <ReplaceCredential />);
+    const { user } = renderSettings(DISCONNECTED, 'parent', [], <ReplaceCredential />);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Replace credential' }));
-    expect(await screen.findByLabelText('AI provider')).toHaveValue('default');
+    expect(await screen.findByLabelText('AI provider')).toHaveValue('');
     await user.selectOptions(screen.getByLabelText('AI provider'), 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
   });

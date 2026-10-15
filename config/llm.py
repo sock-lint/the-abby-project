@@ -3,8 +3,8 @@
 All call sites that ask a language model for a JSON response (ingestion
 enrichment, project suggestions, homework planning) route through
 ``complete_json`` here instead of importing the Anthropic SDK directly.
-Deployment defaults live in settings. Homework may supply an explicit
-family-owned OpenAI or Anthropic connection for that request only.
+Deployment defaults for ingestion and project suggestions live in settings.
+Homework requires an explicit family-owned OpenAI or Anthropic connection.
 
 Settings (read via ``django.conf.settings``):
 

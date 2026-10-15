@@ -270,8 +270,9 @@ HOMEWORK_LATE_CUTOFF_DAYS = 3
 HOMEWORK_SELF_PLAN_LEAD_DAYS = 3
 
 # --- Text LLM (ingestion enrich, project suggestions, homework planning) --
-# All three call sites route through ``config.llm.complete_json``. The
-# active backend is picked by ``LLM_BACKEND`` (auto|anthropic|ollama|none).
+# All three call sites route through ``config.llm.complete_json``. Homework
+# requires a saved family connection. Ingestion and project suggestions use
+# the backend picked by ``LLM_BACKEND`` (auto|anthropic|ollama|none).
 # ``auto`` (default) prefers Anthropic when a key is set, then Ollama when a
 # base URL is set, then falls back to the non-AI path each call site already
 # ships. Settings should always be read via ``django.conf.settings`` — never

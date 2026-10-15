@@ -1,7 +1,6 @@
 // Suggested API model IDs verified against provider documentation. Availability
 // depends on the family's provider account; custom IDs remain supported.
 export const HOMEWORK_AI_PROVIDERS = [
-  { id: 'default', name: 'Abby default planner' },
   { id: 'openai', name: 'OpenAI (ChatGPT)' },
   { id: 'anthropic', name: 'Anthropic (Claude)' },
 ];

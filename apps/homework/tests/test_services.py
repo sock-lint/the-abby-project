@@ -490,12 +490,11 @@ class PlanAssignmentPromptFormatTests(TestCase):
         self.assertNotIn("{{", rendered)
         self.assertNotIn("}}", rendered)
 
-    def test_plan_assignment_reaches_llm_layer_when_unconfigured(self):
-        # End-to-end: with no LLM backend configured, ``plan_assignment`` must
-        # raise HomeworkError("AI planning is not configured.") — meaning the
-        # prompt formatted successfully and ``complete_json`` raised
-        # ``LLMUnavailable``. Pre-fix this crashed earlier with KeyError
-        # before reaching the LLM seam.
+    def test_plan_assignment_formats_prompt_before_rejecting_missing_family_connection(self):
+        # End-to-end: without a saved family AI connection, planning raises
+        # an actionable "not configured" error after formatting the prompt
+        # and before any provider request. The original formatting regression
+        # instead raised KeyError on the prompt's literal JSON braces.
         parent = User.objects.create_user(
             username="parent2", password="pw", role="parent",
         )
