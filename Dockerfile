@@ -5,7 +5,10 @@ FROM node:22-alpine AS frontend-build
 WORKDIR /app/frontend
 
 COPY frontend/package.json frontend/package-lock.json frontend/.npmrc ./
-RUN npm ci
+COPY frontend/vendor/ ./vendor/
+# An explicit mount prevents Coolify 4.1.2 from injecting every application
+# build secret into an otherwise unrelated RUN. The optional hash is not used.
+RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH npm ci
 
 COPY frontend/ ./
 
@@ -19,12 +22,9 @@ ENV VITE_SENTRY_ENVIRONMENT=${VITE_SENTRY_ENVIRONMENT}
 ENV VITE_SENTRY_TRACES_SAMPLE_RATE=${VITE_SENTRY_TRACES_SAMPLE_RATE}
 ENV VITE_SENTRY_RELEASE=${VITE_SENTRY_RELEASE}
 
-# Sentry Vite Plugin needs these at build time to upload source maps.
-# They exist only in this stage — never baked into the final image.
-ARG SENTRY_AUTH_TOKEN=""
+# Source-map upload tokens are BuildKit secrets, never build arguments or ENV.
 ARG SENTRY_ORG=""
 ARG SENTRY_PROJECT=""
-ENV SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN}
 ENV SENTRY_ORG=${SENTRY_ORG}
 ENV SENTRY_PROJECT=${SENTRY_PROJECT}
 
@@ -51,9 +51,31 @@ RUN --mount=type=secret,id=ABBY_AVATAR_ASSETS \
     --mount=type=secret,id=ABBY_AVATAR_ASSETS_REQUIRED \
     node scripts/stage-avatar-art.mjs
 
-# Keep this RUN separate so Coolify can inject existing VITE/Sentry build
-# secrets when use_build_secrets is enabled for this application.
-RUN npm run build
+# Shared releases are pinned in assets.lock.json. Credentials exist only in this
+# build step; the shipped bundle contains runtime objects and no source masters.
+ARG ABBY_SHARED_ASSETS_REQUIRED="false"
+RUN --mount=type=secret,id=ABBY_ASSETS_S3_ENDPOINT \
+    --mount=type=secret,id=ABBY_ASSETS_S3_REGION \
+    --mount=type=secret,id=ABBY_ASSETS_S3_BUCKET \
+    --mount=type=secret,id=ABBY_ASSETS_S3_PREFIX \
+    --mount=type=secret,id=ABBY_SHARED_ASSETS_REQUIRED \
+    --mount=type=secret,id=ABBY_ASSETS_ACCESS_KEY_ID \
+    --mount=type=secret,id=ABBY_ASSETS_SECRET_ACCESS_KEY \
+    --mount=type=secret,id=ABBY_ASSETS_SESSION_TOKEN \
+    node scripts/shared-assets.mjs stage
+
+# Only browser configuration and the optional source-map upload credential
+# belong in Vite. Storage, database and application signing keys stay outside.
+RUN --mount=type=secret,id=VITE_API_URL \
+    --mount=type=secret,id=VITE_ALLOW_SIGNUP \
+    --mount=type=secret,id=VITE_SENTRY_DSN \
+    --mount=type=secret,id=VITE_SENTRY_ENVIRONMENT \
+    --mount=type=secret,id=VITE_SENTRY_TRACES_SAMPLE_RATE \
+    --mount=type=secret,id=VITE_SENTRY_RELEASE \
+    --mount=type=secret,id=SENTRY_AUTH_TOKEN \
+    --mount=type=secret,id=SENTRY_ORG \
+    --mount=type=secret,id=SENTRY_PROJECT \
+    node scripts/build-hosted-web.mjs
 
 # ─── Stage 2: Django + gunicorn, with the built bundle baked in ─────────────
 FROM python:3.12-slim
@@ -61,7 +83,6 @@ FROM python:3.12-slim
 # Coolify injects these build-args automatically; declare so BuildKit doesn't error
 ARG COOLIFY_FQDN
 ARG POSTGRES_USER
-ARG POSTGRES_PASSWORD
 ARG POSTGRES_DB
 ARG SERVICE_URL_DJANGO
 ARG SERVICE_FQDN_DJANGO
@@ -72,12 +93,12 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev gcc libjpeg-dev zlib1g-dev curl && \
     rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
@@ -85,7 +106,7 @@ COPY . .
 # collectstatic (below) then copies it into STATIC_ROOT for WhiteNoise.
 COPY --from=frontend-build /app/frontend/dist /app/frontend_dist
 
-RUN python manage.py collectstatic --noinput
+RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH python manage.py collectstatic --noinput
 
 # Run the container as a non-root user for defense-in-depth. /app is
 # chowned so migrations + loadrpgcontent + Django logs are writable.
@@ -97,7 +118,7 @@ RUN python manage.py collectstatic --noinput
 #   sudo chown -R 1000:1000 /opt/the-abby-project/content/rpg/packs
 # --system is intentionally omitted: on Debian it caps IDs at
 # SYS_UID_MAX=999 and rejects an explicit --uid 1000.
-RUN groupadd --gid 1000 app \
+RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH groupadd --gid 1000 app \
     && useradd --uid 1000 --gid 1000 --create-home --shell /sbin/nologin app \
     && chown -R app:app /app
 USER app

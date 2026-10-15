@@ -4,6 +4,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export function resetAvatarAssets(appearance, failedUrls) {
   if (!appearance) return;
+  // Shared release loads own their resources and retry with a fresh request.
+  if (appearance.pipeline === 'abby-assets') return;
   if (failedUrls.includes(appearance.url)) useLoader.clear(GLTFLoader, appearance.url);
   const textures = Object.values(appearance.textures);
   // useLoader caches an array load under the full array, not each URL.
