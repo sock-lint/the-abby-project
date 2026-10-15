@@ -12,6 +12,8 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import { SelectField, TextField } from '../../components/form';
 import { HOMEWORK_AI_PROVIDERS, HOMEWORK_AI_MODELS } from './homeworkAI.constants';
 
+let nextCredentialVersion = 0;
+
 function readSettings(data) {
   if (!(data?.provider === 'default' || HOMEWORK_AI_PROVIDERS.some(({ id }) => id === data?.provider))
     || typeof data.model !== 'string' || typeof data.has_api_key !== 'boolean'
@@ -35,7 +37,7 @@ export default function HomeworkAISettings({ sectionRef }) {
   const credential = useSyncExternalStore(subscribeToCredential, getToken, getToken);
   // Keep credentials out of React keys while still resetting the form if a
   // same-account token replacement is batched with auth hydration.
-  const credentialVersion = useMemo(() => credential ? crypto.randomUUID() : 'anonymous', [credential]);
+  const credentialVersion = useMemo(() => credential ? ++nextCredentialVersion : 'anonymous', [credential]);
   if (user?.role !== 'parent') return null;
   // Remount when the account or family changes, so a new family never inherits
   // the previous form's saved settings or in-memory API key.
