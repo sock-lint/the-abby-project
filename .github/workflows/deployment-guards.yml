@@ -1,0 +1,51 @@
+name: Deployment guard regression checks
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/deployment-guards.yml'
+      - 'scripts/operations/deploy_coolify.py'
+      - 'scripts/operations/test_deploy_coolify.py'
+      - 'scripts/operations/coolify_helper/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deployment-guards.yml'
+      - 'scripts/operations/deploy_coolify.py'
+      - 'scripts/operations/test_deploy_coolify.py'
+      - 'scripts/operations/coolify_helper/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-guards-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deployment-guards:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require PHP and Bash for executable helper tests
+        run: |
+          command -v php
+          command -v bash
+          php --version
+      - name: Check CI deployment safety
+        run: python -m unittest discover -s scripts/operations -p test_deploy_coolify.py -v
+      - name: Check generated helper commands and patch guards
+        run: python -m unittest discover -s scripts/operations/coolify_helper -p 'test_*.py' -v
+      - name: Build the exact guarded Coolify derivative
+        run: >-
+          docker build --network=none --pull=false
+          -t local/coolify-helper-guard:${{ github.sha }}
+          scripts/operations/coolify_helper
+      - name: Compile and verify the isolated startup graph
+        run: |
+          candidate_image=$(docker image inspect --format '{{.Id}}' local/coolify-helper-guard:${{ github.sha }})
+          python scripts/operations/coolify_helper/verify_startup_graph.py "$candidate_image"
