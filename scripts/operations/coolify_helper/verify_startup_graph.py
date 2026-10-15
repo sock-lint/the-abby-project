@@ -67,7 +67,7 @@ def verify(image: str) -> dict[str, object]:
     command = [
         "docker", "run", "--rm", "--pull=never", "--network=none",
         "--read-only", "--cap-drop=ALL", "--security-opt=no-new-privileges",
-        "--pids-limit=64", "--memory=128m", "--cpus=1", "--user=0:0",
+        "--pids-limit=64", "--memory=128m", "--cpus=1", "--user=www-data",
         "--tmpfs=/tmp:rw,nosuid,nodev,size=32m", "--entrypoint=/bin/sh",
         "-i", image, "-s",
     ]
@@ -85,6 +85,7 @@ def verify(image: str) -> dict[str, object]:
         "image_id": image,
         "network": "none",
         "root_filesystem": "read-only",
+        "runtime_user": "www-data",
         "host_mounts": [],
         "service_entrypoint_executed": False,
         "graph_compiled_and_checked": True,
