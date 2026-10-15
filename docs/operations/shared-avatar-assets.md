@@ -65,6 +65,12 @@ The Docker build stages the shared release through secret mounts before Vite.
 It also copies the portable vendor packages before `npm ci`. Existing licensed
 art staging remains available for older deployments.
 
+For these URL-safe settings, leave Coolify's literal-value option disabled.
+Coolify 4.1.2 otherwise preserves enclosing quotes in BuildKit secret values;
+the importer deliberately rejects a quoted `true` rather than changing secret
+bytes. Keep the seven settings build-time only, with runtime and preview access
+disabled.
+
 For local named profiles, leave all `ABBY_ASSETS_*KEY*` / `ABBY_ASSETS_SESSION_TOKEN`
 variables unset and select `AWS_PROFILE=abby-assets-abby-reader`. Use either a
 profile or exported AWS credentials, avoiding mixed credential sources.
