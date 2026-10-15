@@ -1,0 +1,82 @@
+# Opt-in protected route for the existing isolated staging application only.
+# Coolify: raw Compose + preserve repository; never its automatic env_file mode.
+# Cloudflare Access and tunnel Access JWT enforcement must be ready first.
+services:
+  db:
+    extends:
+      file: docker-compose.staging.yml
+      service: db
+
+  redis:
+    extends:
+      file: docker-compose.staging.yml
+      service: redis
+
+  django:
+    extends:
+      file: docker-compose.staging.yml
+      service: django
+    build:
+      # Raw Compose needs explicit mounts; these are build-only reader settings.
+      secrets:
+        - ABBY_ASSETS_S3_ENDPOINT
+        - ABBY_ASSETS_S3_REGION
+        - ABBY_ASSETS_S3_BUCKET
+        - ABBY_ASSETS_S3_PREFIX
+        - ABBY_ASSETS_ACCESS_KEY_ID
+        - ABBY_ASSETS_SECRET_ACCESS_KEY
+        - ABBY_SHARED_ASSETS_REQUIRED
+        - VITE_ALLOW_SIGNUP
+    environment:
+      # Build interpolation can omit this runtime-only Coolify value. Deployment
+      # acceptance must confirm /health reports the exact reviewed commit.
+      SOURCE_COMMIT: ${SOURCE_COMMIT:-unknown}
+    networks:
+      - default
+      - coolify
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=coolify
+      - traefik.http.routers.abby-staging.entrypoints=http
+      - traefik.http.routers.abby-staging.rule=Host(`${STAGING_HOSTNAME:?Set the staging hostname}`)
+      - traefik.http.routers.abby-staging.service=abby-staging
+      - traefik.http.routers.abby-staging.middlewares=abby-staging-origin,abby-staging-https,abby-staging-gzip
+      - traefik.http.services.abby-staging.loadbalancer.server.port=8000
+      # Default IP strategy checks the socket peer, not a forwarded IP header.
+      - traefik.http.middlewares.abby-staging-origin.ipallowlist.sourcerange=10.0.1.1/32
+      - traefik.http.middlewares.abby-staging-https.headers.customrequestheaders.X-Forwarded-Proto=https
+      - traefik.http.middlewares.abby-staging-https.headers.customrequestheaders.X-Forwarded-Host=${STAGING_HOSTNAME:?Set the staging hostname}
+      - traefik.http.middlewares.abby-staging-https.headers.customrequestheaders.X-Forwarded-Port=443
+      - traefik.http.middlewares.abby-staging-https.headers.customrequestheaders.Forwarded=
+      - traefik.http.middlewares.abby-staging-gzip.compress=true
+
+networks:
+  default: {}
+  coolify:
+    external: true
+    name: coolify
+
+volumes:
+  staging_postgres:
+    # Native Coolify renamed this volume with a hyphen. Never guess a new name
+    # during raw-mode migration or run two PostgreSQL processes on one volume.
+    external: true
+    name: ${STAGING_POSTGRES_VOLUME:?Set the verified existing staging database volume}
+
+secrets:
+  ABBY_ASSETS_S3_ENDPOINT:
+    environment: ABBY_ASSETS_S3_ENDPOINT
+  ABBY_ASSETS_S3_REGION:
+    environment: ABBY_ASSETS_S3_REGION
+  ABBY_ASSETS_S3_BUCKET:
+    environment: ABBY_ASSETS_S3_BUCKET
+  ABBY_ASSETS_S3_PREFIX:
+    environment: ABBY_ASSETS_S3_PREFIX
+  ABBY_ASSETS_ACCESS_KEY_ID:
+    environment: ABBY_ASSETS_ACCESS_KEY_ID
+  ABBY_ASSETS_SECRET_ACCESS_KEY:
+    environment: ABBY_ASSETS_SECRET_ACCESS_KEY
+  ABBY_SHARED_ASSETS_REQUIRED:
+    environment: ABBY_SHARED_ASSETS_REQUIRED
+  VITE_ALLOW_SIGNUP:
+    environment: VITE_ALLOW_SIGNUP
