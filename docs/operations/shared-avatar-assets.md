@@ -1,7 +1,7 @@
 # Shared avatar assets
 
 AbbyAssets is the authoring and release workshop shared with workQuest. This
-client pins Archer **1.0.1** in `frontend/assets.lock.json`, including the exact
+client pins Archer **1.0.2** in `frontend/assets.lock.json`, including the exact
 manifest SHA-256. Appearance assembly, fitted equipment, resource ownership and
 animation playback come from `@abby-assets/avatar-runtime`. React, Three.js and
 React Three Fiber remain this application's dependencies.
@@ -117,7 +117,7 @@ checkouts without the shared release.
 Web/native postbuild checks hash every pinned GLB/PNG in the finished output.
 The runtime checks each fetched model/texture's size and SHA-256 before assembly.
 Vite retains shared media as files so verification does not depend on inlined
-data URLs. This release stages the full 105-file family, **93,074,219 bytes**;
+data URLs. This release stages the full 105-file family, **93,088,255 bytes**;
 the browser loads the selected model/modules/equipment on demand.
 
 ## Verification and limits
@@ -134,3 +134,7 @@ and 132 warnings (PNG features and skinned mesh parents); those warnings remain
 recorded in the private workshop evidence. Live private Spaces transport and a
 complete source-backup restoration/rebuild drill passed. Real phones and signed
 native releases remain pending.
+
+Production promotion and rollback use the separate
+[shared avatar production handoff](shared-avatar-production.md). That runbook
+does not authorize a merge, public delivery or deployment.
