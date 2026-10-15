@@ -14,6 +14,7 @@ targets a child by id.
 """
 from __future__ import annotations
 
+from django.db import transaction
 from django.db.models import Prefetch
 from django.utils import timezone
 from rest_framework import mixins, permissions, status, viewsets
@@ -23,6 +24,7 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from apps.rewards.services import InsufficientCoinsError
 from config.viewsets import (
     ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin,
@@ -145,9 +147,14 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
+    @transaction.atomic
     def partial_update(self, request, *args, **kwargs):
         """Narrow edits only, and only while the decision is still open."""
         instance = self.get_object()
+        # Recheck the current lifecycle under the same lock used by exchange,
+        # cancellation and printer binding. An older edit must not resurrect
+        # a refunded request or overwrite a concurrently accepted quote.
+        instance = PrintRequest.objects.select_for_update().get(pk=instance.pk)
         if request.user.role != "parent" and instance.user_id != request.user.id:
             raise PermissionDenied("You can only edit your own print requests.")
         if instance.status not in (PrintRequest.Status.PENDING,
@@ -160,6 +167,20 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         edit.is_valid(raise_exception=True)
         edit.save()
         return Response(PrintRequestSerializer(instance).data)
+
+    def destroy(self, request, *args, **kwargs):
+        # Preserve the frozen quote/payment receipt, including after refund.
+        # Quoted rows cannot disappear while the child accepts the exchange.
+        with transaction.atomic():
+            instance = self.get_object()
+            instance = PrintRequest.objects.select_for_update().get(pk=instance.pk)
+            if instance.coin_cost:
+                return Response(
+                    {"error": "Coin-priced print records are kept for your history. Cancel an unstarted request instead."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            instance.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     # ------------------------------------------------------------------ #
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
@@ -208,6 +229,25 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             print_request = PrintRequestService.reject(
                 print_request, request.user, payload.validated_data.get("notes", ""),
             )
+        except PrintRequestError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(PrintRequestSerializer(print_request).data)
+
+    @action(detail=True, methods=["post"],
+            permission_classes=[permissions.IsAuthenticated])
+    def exchange(self, request, pk=None):
+        print_request = self.get_object()
+        if request.user.role != "child" or print_request.user_id != request.user.pk:
+            raise PermissionDenied("Only this child can exchange their Coins for this print.")
+        if not isinstance(request.data, dict) or request.data:
+            return Response(
+                {"error": "Exchange does not accept a price or account; use the saved quote."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            print_request = PrintRequestService.exchange(print_request, request.user)
+        except InsufficientCoinsError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_409_CONFLICT)
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(PrintRequestSerializer(print_request).data)

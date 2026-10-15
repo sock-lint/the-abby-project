@@ -30,6 +30,10 @@ changed. `tests/test_digital_fulfillment.py` and
 
 ## Services
 - `CoinService` (extends `BaseLedgerService`) — `award_coins`, `spend_coins`, `get_balance`, `get_breakdown`. Awards apply **Lucky Coin boost** via `coin_boost_multiplier(user)` from `apps/rpg/services` when the reason is on the `_BOOSTABLE_COIN_REASONS` whitelist (excludes `adjustment`, `refund`, `redemption`, `exchange`).
+  Spending locks the user's wallet row inside a transaction before checking
+  the balance. Optional 3D print exchanges use the same spending path with a
+  `redemption` debit and a `refund` credit for cancellation before any print.
+  The print request holds its fixed quote and ledger links; no real money moves.
 - `RewardService` — `request_redemption` (hold coins + decrement stock + low-stock notification at 0/1), `approve` (stamp + digital-item credit), `reject` (refund coins + restore stock). Out-of-stock returns **409 Conflict** with `{detail, similar: [...]}`.
 - `ExchangeService` — `request_exchange` (validate balance, snapshot rate, notify parents), `approve` (atomic debit `PaymentLedger` + credit `CoinLedger` + chronicle first-ever hook), `reject` (no ledger side-effects — money was never held).
 

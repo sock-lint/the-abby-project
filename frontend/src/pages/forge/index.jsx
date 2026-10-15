@@ -5,6 +5,7 @@ import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
 import {
   cancelPrintRequest,
+  exchangePrintRequest,
   listPrintBudgets,
   listPrintJobs,
   listPrintRequests,
@@ -56,6 +57,7 @@ export default function Forge() {
   const [pendingCancel, setPendingCancel] = useState(null);
   const [actionError, setActionError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [exchanging, setExchanging] = useState(null);
 
   // Two fetches, not one, and the reason matters: the list endpoint is
   // paginated at PAGE_SIZE 20 and ordered newest-first. Deriving the approval
@@ -67,12 +69,12 @@ export default function Forge() {
   const fetchOpen = useCallback(
     () => listPrintRequests({ status: OPEN_REQUEST_STATUSES.join(',') }), [],
   );
-  const { data: openData, loading, error, reload: reloadOpen } = useApi(fetchOpen);
+  const { data: openData, loading, error, reload: reloadOpen, setData: setOpenData } = useApi(fetchOpen);
 
   const fetchClosed = useCallback(
     () => listPrintRequests({ status: CLOSED_REQUEST_STATUSES.join(',') }), [],
   );
-  const { data: closedData, reload: reloadClosed } = useApi(fetchClosed);
+  const { data: closedData, reload: reloadClosed, setData: setClosedData } = useApi(fetchClosed);
 
   const reload = useCallback(() => {
     reloadOpen();
@@ -80,7 +82,9 @@ export default function Forge() {
   }, [reloadOpen, reloadClosed]);
 
   const fetchBudgets = useCallback(() => listPrintBudgets(), []);
-  const { data: budgetsData, reload: reloadBudgets } = useApi(fetchBudgets);
+  const {
+    data: budgetsData, loading: budgetsLoading, error: budgetsError, reload: reloadBudgets,
+  } = useApi(fetchBudgets);
 
   const fetchPrinters = useCallback(() => listPrinters(), []);
   const { data: printersData, reload: reloadPrinters } = useApi(fetchPrinters);
@@ -119,6 +123,7 @@ export default function Forge() {
   const dismissedJobs = useMemo(() => normalizeList(dismissedData), [dismissedData]);
 
   const pending = open.filter((r) => r.status === 'pending');
+  const quotedCount = open.filter((r) => r.status === 'quoted').length;
   const printingCount = open.filter((r) => r.status === 'printing').length;
 
   const gramsUsed = budgets.reduce((sum, b) => sum + (Number(b.grams_used) || 0), 0);
@@ -131,15 +136,50 @@ export default function Forge() {
 
   const canCancel = (request) => (
     (isParent || request.user === user?.id)
-    && (request.status === 'pending' || request.status === 'approved')
+    && ['pending', 'quoted', 'approved'].includes(request.status)
   );
+
+  // Apply only the server's mutation receipt. Keeping it in the loaded lists
+  // means a failed follow-up read cannot turn a paid print back into a quote.
+  const applyReceipt = (saved) => {
+    const confirmed = { ...requests.find((row) => row.id === saved.id), ...saved };
+    const update = (data, statuses) => {
+      const rows = normalizeList(data);
+      const hadRow = rows.some((row) => row.id === confirmed.id);
+      const include = statuses.includes(confirmed.status);
+      const results = rows.filter((row) => row.id !== confirmed.id);
+      if (include) results.unshift(confirmed);
+      return Array.isArray(data) || !data ? results : {
+        ...data, results, count: (data.count ?? rows.length) + Number(include) - Number(hadRow),
+      };
+    };
+    setOpenData((data) => update(data, OPEN_REQUEST_STATUSES));
+    setClosedData((data) => update(data, CLOSED_REQUEST_STATUSES));
+  };
+
+  const doExchange = async (request) => {
+    if (exchanging !== null) return;
+    setExchanging(request.id);
+    setActionError('');
+    try {
+      const saved = await exchangePrintRequest(request.id);
+      applyReceipt(saved);
+      reload();
+      reloadBudgets();
+    } catch (err) {
+      setActionError(err?.message || 'Could not exchange coins. Please try again.');
+    } finally {
+      setExchanging(null);
+    }
+  };
 
   const doCancel = async () => {
     if (!pendingCancel) return;
     setBusy(true);
     setActionError('');
     try {
-      await cancelPrintRequest(pendingCancel.id);
+      const saved = await cancelPrintRequest(pendingCancel.id);
+      applyReceipt(saved);
       setPendingCancel(null);
       reload();
     } catch (err) {
@@ -149,7 +189,8 @@ export default function Forge() {
     }
   };
 
-  const afterDecision = () => {
+  const afterDecision = (saved) => {
+    applyReceipt(saved);
     reload();
     reloadBudgets();
   };
@@ -167,14 +208,15 @@ export default function Forge() {
         kicker="Request and track your prints"
         meta="Choose a model and submit it for parent review before printing."
         stats={[
-          { value: pending.length, label: 'pending' },
+          { value: pending.length + quotedCount, label: 'awaiting action' },
           { value: printingCount, label: 'printing' },
           { value: Math.round(gramsUsed), label: 'grams' },
         ]}
         progressPct={budgetPct}
         progressLabel={budgetLabel}
       >
-        <ErrorAlert message={error || actionError} />
+        <ErrorAlert message={error || actionError} onRetry={error ? reload : undefined} />
+        {isParent && budgetsError && <ErrorAlert message={`Could not load print budgets. ${budgetsError}`} onRetry={reloadBudgets} />}
 
         {!isParent && (
           <div className="flex justify-end">
@@ -209,6 +251,11 @@ export default function Forge() {
 
         <section>
           <ChapterRubric index={nextRubric()} name="Print requests" />
+          {quotedCount > 0 && (
+            <p className="font-body text-caption text-ink-secondary">
+              {quotedCount} {quotedCount === 1 ? 'request awaits' : 'requests await'} coin exchange.
+            </p>
+          )}
           {open.length === 0 ? (
             <EmptyState icon={<Box size={28} />}>
               {isParent
@@ -226,8 +273,12 @@ export default function Forge() {
                     showOwner={isParent}
                     canDecide={isParent && request.status === 'pending'}
                     canCancel={canCancel(request)}
+                    canExchange={!isParent && request.user === user?.id && request.status === 'quoted'}
+                    exchanging={exchanging === request.id}
+                    exchangeDisabled={exchanging !== null}
                     onDecide={setDeciding}
                     onCancel={setPendingCancel}
+                    onExchange={doExchange}
                   />
                 ))}
             </div>
@@ -298,12 +349,16 @@ export default function Forge() {
           onClose={() => setSubmitOpen(false)}
           onSaved={() => { setSubmitOpen(false); reload(); }}
           printers={printers}
+          budget={budgets.find((budget) => budget.user === user?.id)}
         />
       )}
 
       {deciding && (
         <ApprovalSheet
           request={deciding}
+          budget={budgets.find((budget) => budget.user === deciding.user)}
+          pricingLoading={budgetsLoading}
+          pricingError={budgetsError}
           onClose={() => setDeciding(null)}
           onDecided={afterDecision}
         />
@@ -312,7 +367,9 @@ export default function Forge() {
       {pendingCancel && (
         <ConfirmDialog
           title="Cancel this print request?"
-          message={`“${pendingCancel.title}” goes away. They can always ask again.`}
+          message={`“${pendingCancel.title}” will be cancelled. ${Number(pendingCancel.coins_paid) > 0
+            ? 'Exchanged coins are refunded only if no print job has started.'
+            : 'They can always ask again.'}`}
           confirmLabel={busy ? 'Cancelling…' : 'Cancel it'}
           onConfirm={doCancel}
           onCancel={() => setPendingCancel(null)}

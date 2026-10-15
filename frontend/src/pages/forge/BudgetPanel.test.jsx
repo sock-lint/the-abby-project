@@ -108,8 +108,46 @@ describe('BudgetPanel', () => {
     expect(spy.calls[0].body).toEqual({
       grams_per_month: 800,
       minutes_per_month: null,
+      minutes_per_coin: null,
       is_active: true,
     });
+  });
+
+  it('opts into coin exchange with a positive minutes-per-coin rate and can disable it', async () => {
+    const spy = spyHandler('patch', /\/api\/print-budgets\/3\/$/, { id: 3 });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<BudgetPanel budgets={[buildBudget()]} />);
+    await user.click(screen.getByRole('button', { name: 'Caps' }));
+    await user.click(screen.getByLabelText('Require coins for new prints'));
+    const rate = screen.getByLabelText('Print minutes per coin');
+    expect(rate).toHaveValue(1);
+    await user.clear(rate);
+    await user.type(rate, '15');
+    await user.click(screen.getByRole('button', { name: 'Save caps' }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].body).toEqual({
+      grams_per_month: 500, minutes_per_month: null, minutes_per_coin: 15, is_active: true,
+    });
+    await user.click(screen.getByRole('button', { name: 'Caps' }));
+    await user.click(screen.getByLabelText('Require coins for new prints'));
+    await user.click(screen.getByRole('button', { name: 'Save caps' }));
+    await waitFor(() => expect(spy.calls).toHaveLength(2));
+    expect(spy.calls[1].body.minutes_per_coin).toBeNull();
+  });
+
+  it('refuses a zero or fractional exchange rate before saving', async () => {
+    const spy = spyHandler('patch', /\/api\/print-budgets\/3\/$/, { id: 3 });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<BudgetPanel budgets={[buildBudget({ minutes_per_coin: 10 })]} />);
+    await user.click(screen.getByRole('button', { name: 'Caps' }));
+    const rate = screen.getByLabelText('Print minutes per coin');
+    for (const invalid of ['0', '1.5']) {
+      await user.clear(rate);
+      await user.type(rate, invalid);
+      await user.click(screen.getByRole('button', { name: 'Save caps' }));
+      expect(await screen.findByText('Enter a whole number of minutes greater than zero.')).toBeInTheDocument();
+      expect(spy.calls).toHaveLength(0);
+    }
   });
 
   it('POSTs a manual adjustment to the ledger', async () => {

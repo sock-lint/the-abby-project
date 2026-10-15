@@ -9,10 +9,13 @@ import logging
 
 from django.db import transaction
 from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
 
 from apps.activity.services import ActivityLogService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
+from apps.rewards.models import CoinLedger
+from apps.rewards.services import CoinService
 from config.services import finalize_decision
 
 from .budget import PrintBudgetService, quantize_grams
@@ -123,6 +126,15 @@ class PrintRequestService:
         if estimated_minutes is not None:
             request.estimated_minutes = estimated_minutes
 
+        rate = PrintBudgetService.get_budget(request.user).minutes_per_coin
+        if rate is not None:
+            if rate < 1 or not request.estimated_minutes or request.estimated_minutes < 1:
+                raise PrintRequestError(
+                    "Enter a positive print-time estimate to quote a Coin price.",
+                )
+            request.minutes_per_coin_snapshot = rate
+            request.coin_cost = (request.estimated_minutes + rate - 1) // rate
+
         if not force:
             problems = PrintBudgetService.check_affordable(
                 request.user,
@@ -138,12 +150,13 @@ class PrintRequestService:
 
         request.save(update_fields=[
             "slug", "plate_filename", "estimated_grams", "estimated_minutes",
+            "minutes_per_coin_snapshot", "coin_cost",
             "updated_at",
         ])
 
         finalize_decision(
             request,
-            PrintRequest.Status.APPROVED,
+            PrintRequest.Status.QUOTED if rate is not None else PrintRequest.Status.APPROVED,
             parent,
             notes,
             activity_category="approval",
@@ -153,15 +166,59 @@ class PrintRequestService:
                 "plate_filename": request.plate_filename,
                 "estimated_grams": str(request.estimated_grams or ""),
                 "forced_over_budget": bool(force),
+                "coin_cost": request.coin_cost,
+                "minutes_per_coin_snapshot": request.minutes_per_coin_snapshot,
             },
         )
 
         notify(
             request.user,
             "Print request approved",
-            f"{request.title} is approved. It'll start when the printer picks it up.",
+            (
+                f"{request.title} is approved for {request.coin_cost} Coins. "
+                "Exchange your Coins in the Forge before it can be printed."
+                if rate is not None else
+                f"{request.title} is approved. It'll start when the printer picks it up."
+            ),
             NotificationType.PRINT_REQUEST_APPROVED,
             link=FORGE_LINK,
+        )
+        return request
+
+    @staticmethod
+    @transaction.atomic
+    def exchange(request, actor):
+        """The owning child accepts a frozen quote, once, before printing."""
+        request = PrintRequest.objects.select_for_update().get(pk=request.pk)
+        if actor.role != "child" or actor.pk != request.user_id:
+            raise PermissionDenied("Only this child can exchange their Coins for this print.")
+        if request.coins_refunded or request.status == PrintRequest.Status.CANCELLED:
+            raise PrintRequestError("This print request has been cancelled.")
+        if request.coins_paid:
+            # A network retry may arrive after the printer has already begun.
+            return request
+        if request.status != PrintRequest.Status.QUOTED or request.coin_cost < 1:
+            raise PrintRequestError("Only a quoted print can be exchanged for Coins.")
+        request.debit_entry = CoinService.spend_coins(
+            request.user, request.coin_cost, CoinLedger.Reason.REDEMPTION,
+            description=f"Print exchange #{request.pk}: {request.title}"[:200],
+        )
+        request.coins_paid = request.coin_cost
+        request.status = PrintRequest.Status.APPROVED
+        request.save(update_fields=["debit_entry", "coins_paid", "status", "updated_at"])
+        ActivityLogService.record(
+            category="ledger", event_type="print.request.exchanged",
+            summary=f"Exchanged {request.coin_cost} Coins for print: {request.title}",
+            actor=actor, subject=request.user, target=request,
+            extras={"coin_cost": request.coin_cost,
+                    "minutes_per_coin_snapshot": request.minutes_per_coin_snapshot},
+        )
+        notify_parents(
+            "Print ready to make",
+            f"{get_display_name(request.user)} exchanged {request.coin_cost} Coins "
+            f"for {request.title}. It's ready to print.",
+            NotificationType.PRINT_REQUEST_APPROVED,
+            link=FORGE_LINK, about_user=request.user,
         )
         return request
 
@@ -201,13 +258,24 @@ class PrintRequestService:
         approval and slicing. Once a print has actually started the request
         is a record of something that happened, so it can't be cancelled.
         """
+        request = PrintRequest.objects.select_for_update().get(pk=request.pk)
         if request.status not in (PrintRequest.Status.PENDING,
+                                  PrintRequest.Status.QUOTED,
                                   PrintRequest.Status.APPROVED):
             raise PrintRequestError(
-                "Only pending or approved requests can be cancelled.",
+                "Only pending, quoted or approved requests can be cancelled.",
             )
+        if request.started_at or request.jobs.exists():
+            raise PrintRequestError("This print has already started and cannot be cancelled here.")
+        if request.coins_paid and not request.coins_refunded:
+            request.refund_entry = CoinService.award_coins(
+                request.user, request.coins_paid, CoinLedger.Reason.REFUND,
+                description=f"Cancelled print #{request.pk}: {request.title}"[:200],
+                created_by=actor,
+            )
+            request.coins_refunded = request.coins_paid
         request.status = PrintRequest.Status.CANCELLED
-        request.save(update_fields=["status", "updated_at"])
+        request.save(update_fields=["status", "coins_refunded", "refund_entry", "updated_at"])
         ActivityLogService.record(
             category="approval",
             event_type="print.request.cancelled",
@@ -236,15 +304,15 @@ class PrintRequestService:
         it would need a compensating pair of entries. Unlink-then-relink
         before close-out, or make an adjustment after.
         """
+        request = PrintRequest.objects.select_for_update().get(pk=request.pk)
         if job.grams_debited is not None or job.minutes_debited is not None:
             raise PrintRequestError(
                 "This print has already been closed out and its budget "
                 "debited. Record a budget adjustment instead of re-linking.",
             )
-        if request.status in (PrintRequest.Status.REJECTED,
-                              PrintRequest.Status.CANCELLED):
+        if request.status not in PrintRequest.BINDABLE_STATUSES:
             raise PrintRequestError(
-                "Can't link a print to a rejected or cancelled request.",
+                "Only an approved and, when priced, paid request can link to a print.",
             )
 
         previous = job.request
@@ -266,10 +334,14 @@ class PrintRequestService:
 
         # A job linked after it already started should still move the
         # request into `printing` so the child's card reflects reality.
+        if request.started_at is None:
+            # A historical job proves printing already happened too. Keep
+            # this fact even if a parent later unlinks a mistaken match.
+            request.started_at = job.started_at or timezone.now()
+            request.save(update_fields=["started_at", "updated_at"])
         if job.is_open and request.status == PrintRequest.Status.APPROVED:
             request.status = PrintRequest.Status.PRINTING
-            request.started_at = request.started_at or job.started_at
-            request.save(update_fields=["status", "started_at", "updated_at"])
+            request.save(update_fields=["status", "updated_at"])
 
         ActivityLogService.record(
             category="system",

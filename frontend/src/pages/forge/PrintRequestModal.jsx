@@ -38,7 +38,7 @@ const DUE_CHIPS = [
  * when the printer is off. It fills the field in and disappears when it has
  * nothing to say. `color` stays free text end to end.
  */
-export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
+export default function PrintRequestModal({ onClose, onSaved, printers = [], budget }) {
   const [mode, setMode] = useState('link'); // 'link' | 'upload'
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
@@ -131,6 +131,13 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
       dirty={Boolean(url || file || title || color || reason || neededBy)}
     >
       <form onSubmit={submit} className="space-y-3">
+        {budget?.minutes_per_coin != null && (
+          <p className="font-body text-caption text-ink-secondary">
+            Prints cost 1 coin per {budget.minutes_per_coin} estimated print minutes, rounded up.
+            Your parent checks the time and sends a fixed quote for you to accept before printing.
+            Retries do not cost extra coins.
+          </p>
+        )}
         <div className="flex gap-2" role="group" aria-label="Where the model comes from">
           <Button
             variant={mode === 'link' ? 'primary' : 'secondary'}

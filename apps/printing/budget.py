@@ -110,6 +110,7 @@ class PrintBudgetService:
                 None if budget.grams_per_month is None else _q(budget.grams_per_month)
             ),
             "minutes_per_month": budget.minutes_per_month,
+            "minutes_per_coin": budget.minutes_per_coin,
             "grams_used": usage["grams"],
             "minutes_used": usage["minutes"],
             "grams_remaining": remaining["grams"],

@@ -77,6 +77,28 @@ plate is still named, so a re-slice re-binds to the same slug.
 `BINDABLE_STATUSES` (what a job may attach to) is approved / printing / failed /
 completed; rejected and cancelled requests can never absorb a print.
 
+### Optional coin exchange
+
+`PrintBudget.minutes_per_coin` is a parent-managed, per-child rate. Null
+disables pricing and preserves the existing free approval flow. When enabled,
+approval requires a positive slicer time estimate, freezes
+`minutes_per_coin_snapshot` and `coin_cost = ceil(estimated_minutes / rate)`,
+and moves the request to `quoted`. A quote cannot bind a printer job.
+
+The owning child explicitly accepts with
+`POST /api/print-requests/<id>/exchange/`. This spends the fixed cost through
+`CoinService` and moves the request to `approved` atomically. Parents cannot
+accept a quote using a child's coins. `coins_paid` and `coins_refunded` expose
+the saved receipts; internal ledger links retain the audit trail. Rate edits
+do not change an existing quote, and repeated acceptance cannot charge twice.
+
+Cancellation before the first job refunds a paid request once. Cancellation
+and automatic/manual job binding lock and recheck the request so a refunded
+request cannot start concurrently. Printer failures, pauses, and retries of
+the same request do not change its fixed price. Monthly resource budgets
+remain separate. MakerWorld metadata does not import profile time or grams;
+parents enter the selected profile's slicer estimate.
+
 `PrintJob`: `running` ⇄ `paused` → `finished` | `failed` | `cancelled` | `unknown`.
 `unknown` means the printer stopped reporting — we don't claim it succeeded.
 

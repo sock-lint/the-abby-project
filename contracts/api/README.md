@@ -8,6 +8,11 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
+| `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |
+| `printing-exchange-paid.json` | Child accepts the saved quote once; request becomes approved with 61 coins paid |
+| `printing-cancel-refunded.json` | Cancellation before the first job returns the exact charge once |
+| `printing-exchange-invalid.json`, `printing-request-not-owned.json` | Caller-supplied prices/accounts and another family's request are rejected without spending |
 | `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
 | `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
 | `challenges-origins.json` | Same list endpoint; parent, retired catalog and saved legacy goals retain distinct server-owned origins despite identical names |
