@@ -183,13 +183,83 @@ this management-service correction.
 ## Rollback and later platform updates
 
 Keep the exact original image locally and the private configuration/control-DB
-backup. Roll back by restoring the **owned** previous custom override state and
-recreating only `coolify` with an explicit final image override containing that
-original image ID and `pull_policy: never`. Include that final override in the
-same command above. Never rely on the original Compose `${LATEST_IMAGE:-latest}`
-fallback: it may select another platform version. Verify management/app health
-and preserved workload identities. This correction has no database migration
-and requires no application rollback or restoration of production data.
+backup. Before rollback, repeat the guarded freeze against the **currently
+running** instance: enter maintenance mode, stop the scheduler, gracefully drain
+nginx and PHP-FPM, and prove no admitted request or CLI producer remains. Pause
+Horizon only after other work drains; check all queues and deployment/task/backup
+executions twice. Then stop Horizon gracefully with the verified
+`/command/s6-svc -wD -T 30000 -O -t /run/service/horizon` and prove its master,
+supervisors and workers have exited twice before recreation. A timeout or active
+work blocks rollback; never kill jobs or clear queues to force a pass. If
+aborting, resume the current instance and verify its health and workers.
+
+A reservation is not completed merely because it is old. Any exceptional
+unowned reservation needs a separate private review recording its exact UUID,
+raw payload hash and retry score, plus a root-only copy of the raw member.
+Only that unchanged member may be excepted; all other work must drain. Prove
+all executors exited, preserve its bytes and score through recreation, and
+compare them again before accepting rollback. Do not acknowledge, delete,
+requeue or reset its attempts as part of rollback.
+
+The original image does **not** contain the new ingress dependencies. Before
+using it, prepare two files in the private recovery directory:
+
+- `rollback-nginx-dependencies`: `php-fpm` followed by `init-script`, one per line.
+- `rollback-php-fpm-dependencies`: `init-script` followed by a newline.
+
+Keep the parent directory mode `0700`, but make these two nonsecret files
+readable by the image's `www-data` user (`0644` was validated). Root-owned `0600`
+bind files prevent its unprivileged s6 compiler from starting. Bind them
+read-only to `/etc/s6-overlay/s6-rc.d/nginx/dependencies` and
+`/etc/s6-overlay/s6-rc.d/php-fpm/dependencies`, respectively, in the final rollback
+override. Use long Compose bind syntax with `bind.create_host_path: false`;
+a missing source must fail rather than create a directory. Keep the original
+flat dependency definitions; adding `dependencies.d` can hide them.
+
+Validate the original image with those exact files **before freezing**. Set
+`helper_original_image` to its verified immutable image ID and
+`helper_recovery_dir` to the existing absolute recovery path from the private
+installation receipt. This offline check runs no initialization or services:
+
+```bash
+docker run --rm --pull=never --network=none --read-only --user=www-data \
+  --cap-drop=ALL --security-opt=no-new-privileges \
+  --pids-limit=64 --memory=128m --cpus=1 \
+  --tmpfs=/tmp:rw,nosuid,nodev,size=32m \
+  --mount "type=bind,source=${helper_recovery_dir:?}/rollback-nginx-dependencies,target=/etc/s6-overlay/s6-rc.d/nginx/dependencies,readonly" \
+  --mount "type=bind,source=${helper_recovery_dir:?}/rollback-php-fpm-dependencies,target=/etc/s6-overlay/s6-rc.d/php-fpm/dependencies,readonly" \
+  --entrypoint=/bin/sh "${helper_original_image:?}" -ec '
+    export PATH=/command:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    s6-rc-compile -v0 /tmp/rollback-graph /etc/s6-overlay/s6-rc.d /package/admin/s6-overlay/etc/s6-rc/sources
+    s6-rc-db -c /tmp/rollback-graph check
+    for pair in "nginx php-fpm" "nginx init-script" "php-fpm init-script" \
+      "horizon init-script" "scheduler-worker init-script" \
+      "init-script init-seeder" "init-seeder db-migration"; do
+      set -- $pair
+      s6-rc-db -c /tmp/rollback-graph dependencies "$1" | grep -Fxq "$2"
+    done'
+```
+
+The final rollback override must contain the original image ID, `pull_policy:
+never`, and only those two additional startup-gate binds. Preserve the prior
+**owned** override privately, then atomically install the reviewed rollback
+configuration as `/data/coolify/source/docker-compose.custom.yml`; refuse to
+overwrite an unknown or concurrently changed override. Compare the effective
+configuration in memory; all other settings must match. Include this override
+**last** in the same project/files command above and recreate only `coolify`
+with `--no-deps --no-build --pull never --force-recreate --wait --wait-timeout
+120`. Never rely on the original Compose `${LATEST_IMAGE:-latest}` fallback:
+it may select another platform version.
+
+Verify the original image identity, management/app health and preserved workload
+identities, environment, mounts, ports and networks. Resume and verify Horizon
+and the scheduler, and confirm any preserved reservation is unchanged. Keep the
+verified original-image override and both gate binds effective for subsequent
+recreations; do not restore the candidate override or a mutable image fallback
+after rollback. Retain the dependency files while mounted and record the final
+override chain. Rolling forward or upgrading is a separate reviewed operation.
+This correction has no database migration and requires no application rollback
+or restoration of production data.
 
 The custom image override is an explicit **platform upgrade hold**, not an
 automatic patching system. Coolify's official updater preserves custom overrides
