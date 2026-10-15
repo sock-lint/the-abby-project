@@ -310,7 +310,7 @@ describe('non-JSON 200 guard', () => {
   });
 });
 
-describe('api.post / patch / delete', () => {
+describe('api.post / put / patch / delete', () => {
   it('stringifies a plain object body and sets JSON Content-Type', async () => {
     let seen;
     server.use(
@@ -353,6 +353,25 @@ describe('api.post / patch / delete', () => {
     );
     await api.patch('/things/1/', { name: 'x' });
     expect(method).toBe('PATCH');
+  });
+
+  it('PUTs JSON with the current credential and preserves field validation errors', async () => {
+    let seen;
+    server.use(http.put('*/api/homework/ai-settings/', async ({ request }) => {
+      seen = {
+        method: request.method,
+        contentType: request.headers.get('content-type'),
+        authorization: request.headers.get('authorization'),
+        body: await request.json(),
+      };
+      return HttpResponse.json({ model: ['Choose an available model.'] }, { status: 400 });
+    }));
+    await expect(api.put('/homework/ai-settings/', { provider: 'openai', model: 'example-model' }))
+      .rejects.toMatchObject({ status: 400, response: { model: ['Choose an available model.'] } });
+    expect(seen).toEqual({
+      method: 'PUT', contentType: 'application/json', authorization: 'Token test-session',
+      body: { provider: 'openai', model: 'example-model' },
+    });
   });
 
   it('DELETEs via api.delete', async () => {

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import traceback
 from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase, override_settings
@@ -140,9 +141,11 @@ class AnthropicBackendTests(SimpleTestCase):
     def _stub_anthropic_module(self, text):
         """Build a fake `anthropic` module whose client returns ``text``."""
         message = MagicMock()
-        message.content = [MagicMock(text=text)]
+        message.content = [MagicMock(type="text", text=text)]
+        message.stop_reason = "end_turn"
         client = MagicMock()
         client.messages.create.return_value = message
+        client.__enter__.return_value = client
         module = MagicMock()
         module.Anthropic.return_value = client
         return module, client
@@ -168,3 +171,105 @@ class AnthropicBackendTests(SimpleTestCase):
         with patch.dict("sys.modules", {"anthropic": module}):
             with self.assertRaises(llm.LLMError):
                 llm.complete_json(prompt="hi")
+
+
+@override_settings(LLM_BACKEND="none", ANTHROPIC_API_KEY="deployment-key")
+class FamilyProviderOverrideTests(SimpleTestCase):
+    def test_openai_uses_explicit_key_model_and_stateless_responses(self):
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "status": "completed",
+            "output": [
+                {"type": "reasoning", "summary": []},
+                {"type": "message", "content": [
+                    {"type": "output_text", "text": '{"steps": []}'},
+                ]},
+            ],
+        }
+        with patch("requests.post", return_value=response) as post:
+            result = llm.complete_json(prompt="Return JSON", max_tokens=8192,
+                system="Be kind", backend="openai", api_key="family-key", model="gpt-example")
+        self.assertEqual(result, {"steps": []})
+        post.assert_called_once_with(
+            "https://api.openai.com/v1/responses",
+            headers={"Authorization": "Bearer family-key", "Content-Type": "application/json"},
+            json={"model": "gpt-example", "input": "Return JSON", "max_output_tokens": 8192,
+                  "store": False, "instructions": "Be kind"},
+            timeout=120, allow_redirects=False,
+        )
+        self.assertEqual(llm.active_backend(), "none")
+
+    def test_anthropic_override_collects_text_after_thinking(self):
+        module = MagicMock()
+        client = module.Anthropic.return_value
+        client.__enter__.return_value = client
+        client.messages.create.return_value.content = [
+            MagicMock(type="thinking", thinking="private reasoning"),
+            MagicMock(type="text", text='{"steps": []}'),
+        ]
+        client.messages.create.return_value.stop_reason = "end_turn"
+        with patch.dict("sys.modules", {"anthropic": module}):
+            result = llm.complete_json(prompt="Return JSON", backend="anthropic",
+                api_key="family-key", model="claude-example")
+        self.assertEqual(result, {"steps": []})
+        self.assertEqual(module.Anthropic.call_args.kwargs["api_key"], "family-key")
+        self.assertEqual(module.Anthropic.call_args.kwargs["max_retries"], 0)
+        self.assertEqual(client.messages.create.call_args.kwargs["model"], "claude-example")
+
+    def test_incomplete_override_never_falls_back_to_deployment_credentials(self):
+        for kwargs in ({"backend": "anthropic", "model": "claude-example"},
+                       {"api_key": "key", "model": "example"},
+                       {"backend": "ollama", "api_key": "key", "model": "example"},
+                       {"backend": "openai", "api_key": "key"}):
+            with self.subTest(kwargs=kwargs), patch("requests.post") as post:
+                with self.assertRaises(llm.LLMError):
+                    llm.complete_json(prompt="Return JSON", **kwargs)
+                post.assert_not_called()
+
+    def test_openai_failures_and_redirects_are_sanitized(self):
+        response = MagicMock(status_code=302)
+        with patch("requests.post", return_value=response):
+            with self.assertRaises(llm.LLMError):
+                llm.complete_json(prompt="Return JSON", backend="openai", api_key="key", model="x")
+        for backend in ("openai", "anthropic"):
+            with self.subTest(backend=backend):
+                module = MagicMock()
+                module.Anthropic.side_effect = RuntimeError("private-key-and-homework")
+                with patch.dict("sys.modules", {"anthropic": module}), patch(
+                    "requests.post", side_effect=RuntimeError("private-key-and-homework")
+                ):
+                    try:
+                        llm.complete_json(prompt="Return JSON", backend=backend, api_key="key", model="x")
+                    except llm.LLMError:
+                        self.assertNotIn("private-key-and-homework", traceback.format_exc())
+                    else:
+                        self.fail("Provider error must fail safely")
+
+    def test_openai_rejects_truncated_empty_refused_or_malformed_content(self):
+        for payload in (
+            {"status": "incomplete", "output": [{"type": "message", "content": [
+                {"type": "output_text", "text": '{"valid_but_incomplete": true}'},
+            ]}]},
+            {"status": "completed", "output": []},
+            {"status": "completed", "output": [{"type": "message", "content": [
+                {"type": "refusal", "refusal": "no"},
+            ]}]},
+            {"status": "completed", "output": "invalid"},
+        ):
+            response = MagicMock()
+            response.status_code = 200
+            response.json.return_value = payload
+            with self.subTest(payload=payload), patch("requests.post", return_value=response):
+                with self.assertRaises(llm.LLMError):
+                    llm.complete_json(prompt="Return JSON", backend="openai", api_key="key", model="x")
+
+    def test_anthropic_rejects_truncation_even_if_json_is_valid(self):
+        module = MagicMock()
+        client = module.Anthropic.return_value
+        client.__enter__.return_value = client
+        client.messages.create.return_value.content = [MagicMock(type="text", text='{"partial": true}')]
+        client.messages.create.return_value.stop_reason = "max_tokens"
+        with patch.dict("sys.modules", {"anthropic": module}):
+            with self.assertRaises(llm.LLMError):
+                llm.complete_json(prompt="Return JSON", backend="anthropic", api_key="key", model="x")

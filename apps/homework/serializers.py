@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 
 from .models import (
@@ -7,6 +9,35 @@ from .models import (
     HomeworkSubmission,
     HomeworkTemplate,
 )
+
+
+class HomeworkAISettingsWriteSerializer(serializers.Serializer):
+    provider = serializers.ChoiceField(
+        choices=["default", "openai", "anthropic"],
+        error_messages={"invalid_choice": "Select a supported AI provider."},
+    )
+    model = serializers.CharField(max_length=128, allow_blank=True, trim_whitespace=False)
+    api_key = serializers.CharField(
+        required=False, allow_blank=True, max_length=4096, trim_whitespace=False,
+        write_only=True,
+    )
+
+    def to_internal_value(self, data):
+        if isinstance(data, dict) and set(data) - set(self.fields):
+            raise serializers.ValidationError({
+                "non_field_errors": ["Only provider, model and API key may be supplied."],
+            })
+        return super().to_internal_value(data)
+
+    def validate_api_key(self, value):
+        if any(not 33 <= ord(char) <= 126 for char in value):
+            raise serializers.ValidationError("Enter an API key using printable characters without spaces.")
+        return value
+
+    def validate(self, attrs):
+        if attrs["provider"] != "default" and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{0,127}", attrs["model"]):
+            raise serializers.ValidationError({"model": "Enter a valid model ID."})
+        return attrs
 
 
 class HomeworkSkillTagSerializer(serializers.ModelSerializer):

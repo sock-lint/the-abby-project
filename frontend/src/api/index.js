@@ -489,6 +489,9 @@ export const updateCalendarSettings = (data) => api.patch('/auth/google/calendar
 export const triggerCalendarSync = () => api.post('/auth/google/calendar/sync/');
 
 // Homework
+export const getHomeworkAISettings = () => api.get('/homework/ai-settings/');
+export const updateHomeworkAISettings = (data) => api.put('/homework/ai-settings/', data);
+export const deleteHomeworkAISettings = () => api.delete('/homework/ai-settings/');
 export const getHomeworkDashboard = () => api.get('/homework/dashboard/');
 export const getHomework = () => api.get('/homework/');
 export const getHomeworkDetail = (id) => api.get(`/homework/${id}/`);

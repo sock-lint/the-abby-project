@@ -44,6 +44,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
+| `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; no family override, so homework planning uses deployment defaults |
+| `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -290,6 +292,18 @@ copy of `unity/AbbyCamp`.
 
 ## Check for drift
 
+`config.tests.test_homework_ai_api_contract_fixtures` produces homework AI
+settings through real parent-only reads, saves and resets. The exact response
+contains only `provider`, `model` and `has_api_key`; API keys are write-only and
+the synthetic key never appears in fixtures. Coparents share a family override,
+other families remain independent, and children cannot read or change it.
+`frontend/src/api/homeworkAIContractFixtures.test.js` consumes the same bodies,
+checking authenticated GET/PUT calls, optional key omission and an empty DELETE.
+PUT accepts `provider`, `model` and optional `api_key`. An omitted or blank key
+retains the saved key only for the same provider; a provider change requires a
+new key. `provider: "default"` or DELETE removes the override. Saving settings
+does not contact a provider or validate its key/model access.
+
 `config.tests.test_drive_export_api_contract_fixtures` exercises the real source
 list and stored-file upload endpoints with synthetic files and only Google's
 network mocked. `frontend/src/api/googleDriveContracts.test.js` consumes the
@@ -299,7 +313,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -307,7 +321,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -323,7 +337,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
