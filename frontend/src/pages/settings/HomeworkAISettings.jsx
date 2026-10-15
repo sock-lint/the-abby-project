@@ -18,7 +18,7 @@ function readSettings(data) {
   if (!(data?.provider === 'default' || HOMEWORK_AI_PROVIDERS.some(({ id }) => id === data?.provider))
     || typeof data.model !== 'string' || typeof data.has_api_key !== 'boolean'
     || (data.provider === 'default' && (data.model !== '' || data.has_api_key))) {
-    throw new Error('Invalid homework AI settings response');
+    throw new Error('Invalid planning AI settings response');
   }
   return { provider: data.provider, model: data.model, has_api_key: data.has_api_key };
 }
@@ -85,7 +85,7 @@ function HomeworkAIForm({ sectionRef }) {
       const settings = readSettings(await getHomeworkAISettings());
       if (isCurrent()) applySettings(settings);
     } catch {
-      if (isCurrent()) setLoadError('Could not load homework AI settings. Try again.');
+      if (isCurrent()) setLoadError('Could not load planning AI settings. Try again.');
     } finally {
       if (isCurrent()) setStatus('ready');
     }
@@ -120,7 +120,7 @@ function HomeworkAIForm({ sectionRef }) {
     clearMessages();
     const validation = {};
     if (!HOMEWORK_AI_PROVIDERS.some(({ id }) => id === provider)) {
-      validation.provider = 'Choose OpenAI or Claude to connect homework AI.';
+      validation.provider = 'Choose OpenAI or Claude to connect planning AI.';
     }
     if (provider && !model) validation.model = 'Enter a model ID.';
     const key = apiKey.trim();
@@ -146,13 +146,13 @@ function HomeworkAIForm({ sectionRef }) {
         throw new Error('Settings were not confirmed');
       }
       applySettings(settings);
-      setMessage('Homework AI settings saved.');
+      setMessage('Planning AI settings saved.');
     } catch (err) {
       if (!isCurrent()) return;
       const fields = Object.fromEntries(Object.entries(fieldErrors(err))
         .filter(([name]) => ['provider', 'model', 'api_key'].includes(name)));
       setErrors(fields);
-      if (!Object.keys(fields).length) setError('Could not save homework AI settings. Try again.');
+      if (!Object.keys(fields).length) setError('Could not save planning AI settings. Try again.');
     } finally {
       writing.current = false;
       if (isCurrent()) setStatus('ready');
@@ -172,9 +172,9 @@ function HomeworkAIForm({ sectionRef }) {
       if (!isCurrent()) return;
       if (settings.provider !== 'default') throw new Error('Removal was not confirmed');
       applySettings(settings);
-      setMessage('Homework AI connection removed.');
+      setMessage('Planning AI connection removed.');
     } catch {
-      if (isCurrent()) setError('Could not remove the homework AI connection. Try again.');
+      if (isCurrent()) setError('Could not remove the planning AI connection. Try again.');
     } finally {
       writing.current = false;
       if (isCurrent()) setStatus('ready');
@@ -183,19 +183,19 @@ function HomeworkAIForm({ sectionRef }) {
 
   return (
     <ParchmentCard id="homework-ai" ref={sectionRef} className="scroll-mt-24">
-      <SectionHeader index={3} title="Homework AI" kicker="your family’s planning provider" className="mb-3" />
+      <SectionHeader index={3} title="Planning AI" kicker="your family’s planning provider" className="mb-3" />
       <p className="font-body text-body text-ink-secondary">
-        Choose the AI provider and model used when your family plans homework.
-        A connected provider receives the homework title and description
-        to create a plan.
+        Choose the AI provider and model used when your family plans homework and projects.
+        The provider receives the homework title and description, or the project idea,
+        planning guidance and existing plan items. Parent notes and payment settings stay private.
       </p>
       <p className="font-body text-caption text-ink-secondary mt-2">
         Provider API billing is separate from a ChatGPT or Claude subscription. Your key is saved
         encrypted on the server and is never returned to the browser. Only parents can manage this
         family connection.
       </p>
-      {status === 'loading' && <p role="status" aria-busy="true" className="font-body text-body text-ink-whisper mt-3">Loading homework AI settings…</p>}
-      {loadError && <div className="mt-3 space-y-3"><ErrorAlert message={loadError} /><Button variant="secondary" onClick={load}>Retry homework AI settings</Button></div>}
+      {status === 'loading' && <p role="status" aria-busy="true" className="font-body text-body text-ink-whisper mt-3">Loading planning AI settings…</p>}
+      {loadError && <div className="mt-3 space-y-3"><ErrorAlert message={loadError} /><Button variant="secondary" onClick={load}>Retry planning AI settings</Button></div>}
       {saved && !loadError && status !== 'loading' && (
         <form noValidate onSubmit={save} className="mt-4 space-y-3" aria-busy={busy}>
           {error && <ErrorAlert message={error} />}
@@ -226,15 +226,15 @@ function HomeworkAIForm({ sectionRef }) {
               onChange={(event) => { setApiKey(event.target.value); clearMessages(); }} />
           </>}
           <div className="flex flex-wrap gap-3">
-            <Button type="submit" disabled={busy || !dirty}>{status === 'saving' ? 'Saving…' : 'Save homework AI'}</Button>
+            <Button type="submit" disabled={busy || !dirty}>{status === 'saving' ? 'Saving…' : 'Save planning AI'}</Button>
             {saved.provider !== 'default' && <Button variant="danger" disabled={busy} onClick={() => setConfirmRemove(true)}>
               {status === 'removing' ? 'Removing…' : 'Remove connection'}
             </Button>}
           </div>
         </form>
       )}
-      {confirmRemove && <ConfirmDialog title="Remove homework AI connection?"
-        message="This deletes your family’s saved API key and turns off AI planning until a parent connects OpenAI or Claude. Existing plans stay available."
+      {confirmRemove && <ConfirmDialog title="Remove planning AI connection?"
+        message="This deletes your family’s saved API key and turns off AI homework and project planning until a parent connects OpenAI or Claude. Existing plans stay available."
         confirmLabel="Remove connection" onConfirm={remove} onCancel={() => setConfirmRemove(false)} />}
     </ParchmentCard>
   );

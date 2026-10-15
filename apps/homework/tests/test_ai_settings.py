@@ -21,7 +21,7 @@ URL = "/api/homework/ai-settings/"
 DEFAULT = {"provider": "default", "model": "", "has_api_key": False}
 KEY = "synthetic-provider-secret"
 NOT_CONFIGURED = (
-    "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Homework AI."
+    "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Planning AI."
 )
 
 

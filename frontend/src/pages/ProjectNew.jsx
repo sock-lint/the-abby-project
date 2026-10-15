@@ -1,19 +1,31 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Sparkles } from 'lucide-react';
 import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
 import { useApi } from '../hooks/useApi';
+import { getToken } from '../api/client';
+import { usePlanningAccount } from '../components/project-plan/usePlanningAccount';
+import { cleanProjectPlan } from '../components/project-plan/projectPlan';
+import ProjectAIAssist from './project/ProjectAIAssist';
+import Loader from '../components/Loader';
 import BackLink from '../components/BackLink';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import PageShell from '../components/layout/PageShell';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
 import { TextField, SelectField, TextAreaField, DueDateChips } from '../components/form';
-import { normalizeList } from '../utils/api';
+import { fieldErrors, normalizeList } from '../utils/api';
 import { toISODate } from '../utils/dates';
 import { usePwaUpdateGuard } from '../pwa/usePwaUpdateGuard';
 
 export default function ProjectNew() {
+  const { user, accountKey } = usePlanningAccount();
+  if (!user) return <Loader />;
+  if (user.role !== 'parent') return <ErrorAlert message="Only parents can create projects." />;
+  return <ProjectNewForm key={accountKey} />;
+}
+
+function ProjectNewForm() {
   const navigate = useNavigate();
   const { data: categoriesData } = useApi(getCategories);
   const { data: childrenData } = useApi(getChildren);
@@ -30,25 +42,38 @@ export default function ProjectNew() {
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [plan, setPlan] = useState(null);
+  const [drafting, setDrafting] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [token] = useState(getToken);
+  const mounted = useRef(false);
+  const savingRef = useRef(false);
+  const draftingRef = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; previewRequest.current += 1; };
+  }, []);
+  const isCurrent = () => mounted.current && getToken() === token;
   const initialForm = useRef(form);
-  const dirty = Object.keys(initialForm.current).some((key) => form[key] !== initialForm.current[key]);
-  usePwaUpdateGuard(dirty || saving || previewLoading);
+  const dirty = Boolean(plan) || Object.keys(initialForm.current).some((key) => form[key] !== initialForm.current[key]);
+  usePwaUpdateGuard(dirty || saving || drafting || previewLoading);
   const previewRequest = useRef(0);
   const today = toISODate(new Date());
 
   const fetchPreview = async (url) => {
+    if (!isCurrent()) return;
     const requestId = ++previewRequest.current;
     if (!url || !url.includes('instructables.com')) { setPreview(null); return; }
     setPreviewLoading(true);
     try {
       const data = await getInstructablesPreview(url);
-      if (requestId !== previewRequest.current) return;
+      if (!isCurrent() || requestId !== previewRequest.current) return;
       setPreview(data);
       if (data.title) setForm(prev => prev.title ? prev : { ...prev, title: data.title });
     } catch {
-      if (requestId === previewRequest.current) setPreview(null);
+      if (isCurrent() && requestId === previewRequest.current) setPreview(null);
     } finally {
-      if (requestId === previewRequest.current) setPreviewLoading(false);
+      if (isCurrent() && requestId === previewRequest.current) setPreviewLoading(false);
     }
   };
 
@@ -59,11 +84,15 @@ export default function ProjectNew() {
       setPreviewLoading(false);
     }
     setForm(prev => ({ ...prev, [k]: e.target.value }));
+    setErrors(previous => ({ ...previous, [k]: undefined }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (savingRef.current || draftingRef.current || !isCurrent()) return;
     setError('');
+    setErrors({});
+    savingRef.current = true;
     setSaving(true);
     try {
       const data = {
@@ -75,11 +104,18 @@ export default function ProjectNew() {
         assigned_to_id: form.assigned_to_id || null,
         hourly_rate_override: form.hourly_rate_override || null,
       };
+      if (plan) data.plan_create = cleanProjectPlan(plan);
       const project = await createProject(data);
+      if (!isCurrent()) return;
       navigate(`/projects/${project.id}`);
     } catch (err) {
-      setError(err.message);
-      setSaving(false);
+      if (!isCurrent()) return;
+      const fields = fieldErrors(err);
+      setErrors(fields);
+      setError(Object.keys(fields).length ? Object.values(fields).join(' ') : err.message);
+    } finally {
+      savingRef.current = false;
+      if (isCurrent()) setSaving(false);
     }
   };
 
@@ -105,8 +141,11 @@ export default function ProjectNew() {
         <ParchmentCard className="space-y-4">
           <ErrorAlert message={error} />
 
-          <TextField label="Title" value={form.title} onChange={set('title')} required />
-          <TextAreaField label="Description" value={form.description} onChange={set('description')} rows={3} />
+          <TextField label="Title" value={form.title} onChange={set('title')} required maxLength={200} error={errors.title} disabled={saving} />
+          <TextAreaField label="Description" value={form.description} onChange={set('description')} rows={3} maxLength={10000} error={errors.description} disabled={saving} />
+          <ProjectAIAssist source={{ title: form.title, description: form.description, difficulty: Number(form.difficulty) }}
+            plan={plan} onChange={setPlan} disabled={saving} onSourceErrors={setErrors}
+            onBusyChange={(value) => { draftingRef.current = value; setDrafting(value); }} />
           <div>
             <TextField
               label="Instructables URL"
@@ -135,7 +174,7 @@ export default function ProjectNew() {
               <option value="">None</option>
               {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
             </SelectField>
-            <SelectField label="Difficulty" value={form.difficulty} onChange={set('difficulty')}>
+            <SelectField label="Difficulty" value={form.difficulty} onChange={set('difficulty')} error={errors.difficulty} disabled={saving}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}
             </SelectField>
           </div>
@@ -203,7 +242,7 @@ export default function ProjectNew() {
             placeholder="Private notes (only visible to parents)"
           />
 
-          <Button type="submit" className="w-full" loading={saving}>
+          <Button type="submit" className="w-full" loading={saving} disabled={drafting}>
             {saving ? <span>Creating…</span> : 'Create project'}
           </Button>
         </ParchmentCard>

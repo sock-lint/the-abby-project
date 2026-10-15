@@ -1,10 +1,10 @@
 import Button from '../../components/Button';
 import AISuggestions from './AISuggestions';
 import ProjectOverridesCard from './ProjectOverridesCard';
-import MilestonesEditor from './MilestonesEditor';
-import StepsEditor from './StepsEditor';
+import MilestonesEditor from '../../components/project-plan/MilestonesEditor';
+import StepsEditor from '../../components/project-plan/StepsEditor';
 import ResourcesEditor from './ResourcesEditor';
-import MaterialsEditor from './MaterialsEditor';
+import MaterialsEditor from '../../components/project-plan/MaterialsEditor';
 
 /**
  * The "preview" phase: AI chips + project overrides + 4 editors + commit row.

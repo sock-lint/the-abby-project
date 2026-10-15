@@ -35,19 +35,19 @@ async function chooseOpenAI(user) {
   await user.type(screen.getByLabelText('API key'), 'synthetic-openai-key');
 }
 
-describe('Homework AI settings', () => {
+describe('Planning AI settings', () => {
   it('lets a family parent save an OpenAI model and keeps the key out of the confirmed form', async () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, OPENAI);
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     expect(screen.getByLabelText('API key')).toHaveAttribute('type', 'password');
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0]).toEqual({
       url: expect.stringMatching(/\/api\/homework\/ai-settings\/$/), method: 'PUT',
       body: { provider: 'openai', model: 'gpt-5.4-mini', api_key: 'synthetic-openai-key' },
     });
-    expect(await screen.findByText('Homework AI settings saved.')).toHaveAttribute('role', 'status');
+    expect(await screen.findByText('Planning AI settings saved.')).toHaveAttribute('role', 'status');
     expect(screen.getByLabelText('API key')).toHaveValue('');
     expect(screen.getByText(/homework title and description/i)).toBeInTheDocument();
     expect(screen.getByText(/API billing is separate/i)).toBeInTheDocument();
@@ -59,7 +59,7 @@ describe('Homework AI settings', () => {
     const spy = spyHandler('get', /\/api\/homework\/ai-settings\/$/, OPENAI);
     renderSettings(DISCONNECTED, 'child', [spy.handler]);
     await screen.findByText('Username');
-    expect(screen.queryByRole('heading', { name: 'Homework AI' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Planning AI' })).not.toBeInTheDocument();
     expect(spy.calls).toHaveLength(0);
   });
 
@@ -68,10 +68,10 @@ describe('Homework AI settings', () => {
     const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
     await user.selectOptions(await screen.findByLabelText('Model'), 'custom');
     await user.type(screen.getByLabelText('Custom model ID'), 'custom-model-v1');
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].body).toEqual({ provider: 'openai', model: 'custom-model-v1' });
-    expect(await screen.findByText('Homework AI settings saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Planning AI settings saved.')).toBeInTheDocument();
     expect(screen.getByLabelText('Custom model ID')).toHaveValue('custom-model-v1');
   });
 
@@ -87,10 +87,10 @@ describe('Homework AI settings', () => {
     expect(screen.queryByText(/default planner/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Model')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save homework AI' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save planning AI' })).toBeDisabled();
     await user.selectOptions(provider, 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     expect(await screen.findByText('Enter an API key for the selected provider.')).toBeInTheDocument();
     expect(spy.calls).toHaveLength(0);
   });
@@ -102,11 +102,11 @@ describe('Homework AI settings', () => {
     await user.type(await screen.findByLabelText('API key'), 'discard-this-key');
     await user.selectOptions(screen.getByLabelText('AI provider'), 'anthropic');
     expect(screen.getByLabelText('API key')).toHaveValue('');
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     expect(await screen.findByText('Enter an API key for the selected provider.')).toBeInTheDocument();
     expect(spy.calls).toHaveLength(0);
     await user.type(screen.getByLabelText('API key'), 'synthetic-anthropic-key');
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].body).toEqual({
       provider: 'anthropic', model: 'claude-haiku-5-5', api_key: 'synthetic-anthropic-key',
@@ -120,13 +120,13 @@ describe('Homework AI settings', () => {
       : OPENAI);
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The API key could not be saved.');
-    expect(screen.queryByText('Homework AI settings saved.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Planning AI settings saved.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('API key')).toHaveValue('synthetic-openai-key');
     fail = false;
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
-    expect(await screen.findByText('Homework AI settings saved.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
+    expect(await screen.findByText('Planning AI settings saved.')).toBeInTheDocument();
     expect(spy.calls).toHaveLength(2);
   });
 
@@ -134,9 +134,9 @@ describe('Homework AI settings', () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, DISCONNECTED);
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
-    await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save homework AI settings. Try again.');
-    expect(screen.queryByText('Homework AI settings saved.')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save planning AI settings. Try again.');
+    expect(screen.queryByText('Planning AI settings saved.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('API key')).toHaveValue('synthetic-openai-key');
   });
 
@@ -144,7 +144,7 @@ describe('Homework AI settings', () => {
     let fail = true;
     const { user } = renderSettings(DISCONNECTED, 'parent', [http.get('*/api/homework/ai-settings/', () => fail
       ? HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }) : HttpResponse.json(OPENAI))]);
-    const retry = await screen.findByRole('button', { name: 'Retry homework AI settings' });
+    const retry = await screen.findByRole('button', { name: 'Retry planning AI settings' });
     expect(screen.queryByLabelText('AI provider')).not.toBeInTheDocument();
     fail = false;
     await user.click(retry);
@@ -157,7 +157,7 @@ describe('Homework AI settings', () => {
       ? HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }) : DISCONNECTED);
     const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
     await user.click(await screen.findByRole('button', { name: 'Remove connection' }));
-    let confirmation = await screen.findByRole('alertdialog', { name: 'Remove homework AI connection?' });
+    let confirmation = await screen.findByRole('alertdialog', { name: 'Remove planning AI connection?' });
     expect(spy.calls).toHaveLength(0);
     await user.click(within(confirmation).getByRole('button', { name: 'Remove connection' }));
     expect(await screen.findByRole('alert')).toHaveTextContent(/could not remove/i);
@@ -166,7 +166,7 @@ describe('Homework AI settings', () => {
     await user.click(screen.getByRole('button', { name: 'Remove connection' }));
     confirmation = await screen.findByRole('alertdialog');
     await user.click(within(confirmation).getByRole('button', { name: 'Remove connection' }));
-    expect(await screen.findByText('Homework AI connection removed.')).toBeInTheDocument();
+    expect(await screen.findByText('Planning AI connection removed.')).toBeInTheDocument();
     expect(screen.getByText('AI planning is off until a parent connects OpenAI or Claude.')).toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
     expect(screen.queryByText(/default planner/i)).not.toBeInTheDocument();
@@ -187,13 +187,13 @@ describe('Homework AI settings', () => {
     })]);
     try {
       await chooseOpenAI(user);
-      await user.click(screen.getByRole('button', { name: 'Save homework AI' }));
+      await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
       expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled();
       await user.click(screen.getByRole('button', { name: 'Saving…' }));
       await waitFor(() => expect(requests).toHaveLength(1));
       act(() => setToken('synthetic-replacement-credential'));
       await act(async () => { finish(); await mutation.mock.results[0].value; });
-      expect(screen.queryByText('Homework AI settings saved.')).not.toBeInTheDocument();
+      expect(screen.queryByText('Planning AI settings saved.')).not.toBeInTheDocument();
       expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
     } finally {
       finish();

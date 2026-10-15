@@ -898,10 +898,17 @@ docker compose down -v
 | `SPRITE_S3_ENDPOINT` | (= `AWS_S3_ENDPOINT_URL`) | Ceph RGW endpoint for the sprite bucket |
 | `SPRITE_S3_CUSTOM_DOMAIN` | (empty) | Optional CDN hostname for sprites; empty → raw Ceph URL |
 
-Homework planning requires a parent to save an OpenAI or Claude API key and
-model in **Settings → Homework AI**. It never uses deployment credentials.
+Homework and project planning require a parent to save an OpenAI or Claude API key and
+model in **Settings → Planning AI**. They never use deployment credentials.
 Removing that family connection disables new AI plans and preserves existing
 plans.
+
+On **New project**, use **Draft plan with AI** to suggest milestones, steps,
+and materials, then review and edit them before choosing **Create project**.
+For a saved project, open **Plan → AI assist** and describe the additions you
+want. **Add to project** saves the reviewed additions without replacing existing
+items, completed work, or payment settings. A changed plan requires a fresh
+draft before those additions can be saved.
 
 ### MCP Server
 

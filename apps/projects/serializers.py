@@ -1,6 +1,7 @@
 import logging
 from decimal import Decimal
 
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.achievements.models import SkillCategory
@@ -12,6 +13,7 @@ from .models import (
     TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
     User,
 )
+from .planning_serializers import ProjectPlanSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -297,6 +299,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
     resources_create = serializers.ListField(
         child=serializers.DictField(), write_only=True, required=False,
     )
+    plan_create = ProjectPlanSerializer(write_only=True, required=False)
 
     class Meta:
         model = Project
@@ -308,7 +311,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "due_date", "started_at", "completed_at", "xp_reward",
             "parent_notes", "created_at", "updated_at",
             "milestones", "materials", "steps", "resources",
-            "steps_create", "resources_create",
+            "steps_create", "resources_create", "plan_create",
         ]
         read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward"]
 
@@ -322,10 +325,25 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         qs = obj.resources.filter(step__isnull=True)
         return ProjectResourceSerializer(qs, many=True).data
 
+    def validate(self, attrs):
+        if "plan_create" in attrs:
+            if self.instance is not None:
+                raise serializers.ValidationError({"plan_create": "Use the reviewed append action for an existing project."})
+            if "steps_create" in attrs or "resources_create" in attrs:
+                raise serializers.ValidationError({"plan_create": "Supply either a reviewed plan or legacy nested items."})
+        return attrs
+
+    @transaction.atomic
     def create(self, validated_data):
+        plan = validated_data.pop("plan_create", None)
         steps_data = validated_data.pop("steps_create", None) or []
         resources_data = validated_data.pop("resources_create", None) or []
         project = super().create(validated_data)
+        if plan is not None:
+            from .planning import append_project_plan
+
+            append_project_plan(project, plan)
+            return project
 
         created_steps = []
         for idx, step in enumerate(steps_data):

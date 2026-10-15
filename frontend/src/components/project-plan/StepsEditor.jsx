@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
-import ParchmentCard from '../../components/journal/ParchmentCard';
-import Button from '../../components/Button';
-import IconButton from '../../components/IconButton';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
+import ParchmentCard from '../journal/ParchmentCard';
+import Button from '../Button';
+import IconButton from '../IconButton';
+import { TextField, SelectField, TextAreaField } from '../form';
 
-export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemove }) {
+export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemove, maxItems = Infinity, titleLimit, descriptionLimit }) {
   return (
     <ParchmentCard className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -13,6 +13,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
           variant="ghost"
           size="sm"
           onClick={onAdd}
+          disabled={steps.length >= maxItems}
           className="flex items-center gap-1 !text-sheikah-teal-deep hover:!text-sheikah-teal"
         >
           <Plus size={14} /> Add
@@ -33,6 +34,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
               className="flex-1 min-w-0"
               aria-label={`Step ${i + 1} title`}
               value={s.title}
+              maxLength={titleLimit}
               onChange={(e) => onUpdate(i, { title: e.target.value })}
               placeholder={`Step ${i + 1}`}
             />
@@ -47,6 +49,7 @@ export default function StepsEditor({ steps, milestones, onAdd, onUpdate, onRemo
           <TextAreaField
             aria-label={`Step ${i + 1} description`}
             value={s.description || ''}
+            maxLength={descriptionLimit}
             onChange={(e) => onUpdate(i, { description: e.target.value })}
             rows={3}
             placeholder="What does the maker do in this step?"

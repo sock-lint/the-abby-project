@@ -654,7 +654,7 @@ class HomeworkService:
             spec = complete_json(prompt=prompt, max_tokens=8192, **options)
         except LLMUnavailable:
             raise HomeworkError(
-                "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Homework AI."
+                "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Planning AI."
             ) from None
         except (AISettingsError, LLMError):
             logger.warning("Homework AI planning failed for assignment %s", assignment.pk)

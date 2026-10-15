@@ -32,10 +32,19 @@ import AddResourceModal from './project/modals/AddResourceModal';
 import RequestChangesModal from './project/modals/RequestChangesModal';
 import ProjectQRSheet from './project/modals/ProjectQRSheet';
 import { projectListDestination } from './project/projectListReturn';
+import ProjectAIAssist from './project/ProjectAIAssist';
+import { usePlanningAccount } from '../components/project-plan/usePlanningAccount';
 
 const tabs = ['Overview', 'Plan', 'Materials'];
 
 export default function ProjectDetail() {
+  const { user, accountKey } = usePlanningAccount();
+  const { id } = useParams();
+  if (!user) return <ParchmentSkeleton variant="hero" />;
+  return <ProjectDetailPage key={`${accountKey}:${id}`} />;
+}
+
+function ProjectDetailPage() {
   const { user, isParent } = useRole();
   const location = useLocation();
   const returnList = projectListDestination(location.state?.projectListReturn, user?.id);
@@ -234,7 +243,8 @@ export default function ProjectDetail() {
           {activeTab === 'Overview' && (
             <OverviewTab project={project} isParent={isParent} />
           )}
-          {activeTab === 'Plan' && (
+          {activeTab === 'Plan' && (<div className="space-y-3">
+            {isParent && <ProjectAIAssist project={project} onApplied={reload} onRefresh={reload} />}
             <PlanTab
               project={project}
               isParent={isParent}
@@ -249,7 +259,7 @@ export default function ProjectDetail() {
               onOpenAddStep={openAddStep}
               onOpenAddResource={() => setAddResourceOpen(true)}
             />
-          )}
+          </div>)}
           {activeTab === 'Materials' && (
             <MaterialsTab
               project={project}

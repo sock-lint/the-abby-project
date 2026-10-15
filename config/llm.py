@@ -1,10 +1,10 @@
 """Single text-LLM seam for the project.
 
 All call sites that ask a language model for a JSON response (ingestion
-enrichment, project suggestions, homework planning) route through
+enrichment, project suggestions, homework and project planning) route through
 ``complete_json`` here instead of importing the Anthropic SDK directly.
 Deployment defaults for ingestion and project suggestions live in settings.
-Homework requires an explicit family-owned OpenAI or Anthropic connection.
+Homework and project planning require a family-owned OpenAI or Anthropic connection.
 
 Settings (read via ``django.conf.settings``):
 

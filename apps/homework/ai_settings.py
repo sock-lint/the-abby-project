@@ -1,4 +1,8 @@
-"""Family-scoped homework configuration and domain-separated key encryption."""
+"""Family planning configuration and domain-separated key encryption.
+
+The homework settings endpoint and storage also serve project AI planning.
+Their names and encryption domain stay stable for existing connections.
+"""
 import base64
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -61,7 +65,7 @@ def update_settings(family, *, provider, model, api_key=""):
 def planner_options(family):
     config = HomeworkAISettings.objects.filter(family=family).first()
     if not config:
-        raise LLMUnavailable("No family homework AI connection configured.")
+        raise LLMUnavailable("No family planning AI connection configured.")
     try:
         plaintext = _fernet().decrypt(bytes(config.encrypted_api_key)).decode("utf-8")
     except (InvalidToken, ValueError, UnicodeDecodeError, TypeError):

@@ -1,0 +1,30 @@
+{
+  "plan": {
+    "milestones": [
+      {
+        "title": "Prepare the feeder",
+        "description": "Gather supplies before building."
+      }
+    ],
+    "steps": [
+      {
+        "title": "Measure the pieces",
+        "description": "Mark equal lengths with a ruler.",
+        "milestone_index": 0
+      },
+      {
+        "title": "Share what worked",
+        "description": "Describe one thing you learned.",
+        "milestone_index": null
+      }
+    ],
+    "materials": [
+      {
+        "name": "Untreated wood",
+        "description": "Use a clean offcut.",
+        "estimated_cost": "0.00"
+      }
+    ]
+  },
+  "plan_version": null
+}
