@@ -166,6 +166,18 @@ class AnthropicBackendTests(SimpleTestCase):
             llm.complete_json(prompt="hi", system="be terse")
         self.assertEqual(client.messages.create.call_args.kwargs["system"], "be terse")
 
+    def test_deployment_defaults_keep_sdk_transport_options(self):
+        module, _ = self._stub_anthropic_module('{"a": 1}')
+        with patch.dict("sys.modules", {"anthropic": module}):
+            self.assertEqual(llm.complete_json(prompt="hi"), {"a": 1})
+        module.Anthropic.assert_called_once_with(api_key="sk-test")
+
+    def test_default_response_handling_still_parses_complete_json_at_token_limit(self):
+        module, client = self._stub_anthropic_module('{"a": 1}')
+        client.messages.create.return_value.stop_reason = "max_tokens"
+        with patch.dict("sys.modules", {"anthropic": module}):
+            self.assertEqual(llm.complete_json(prompt="hi"), {"a": 1})
+
     def test_empty_content_raises_llm_error(self):
         module, _ = self._stub_anthropic_module("")
         with patch.dict("sys.modules", {"anthropic": module}):

@@ -116,12 +116,16 @@ def _anthropic_complete(
     except ImportError as exc:
         raise LLMError("anthropic package not installed") from exc
 
+    family_override = api_key is not None
     api_key = api_key if api_key is not None else getattr(settings, "ANTHROPIC_API_KEY", "")
     model = model if model is not None else getattr(settings, "CLAUDE_MODEL", "claude-haiku-4-5-20251001")
     try:
-        with anthropic.Anthropic(
-            api_key=api_key, base_url="https://api.anthropic.com", timeout=120, max_retries=0,
-        ) as client:
+        client_options: dict[str, Any] = {"api_key": api_key}
+        if family_override:
+            # Bound family-key calls without changing the deployment's retry
+            # policy or its existing Anthropic proxy configuration.
+            client_options.update(base_url="https://api.anthropic.com", timeout=120, max_retries=0)
+        with anthropic.Anthropic(**client_options) as client:
             kwargs: dict[str, Any] = {
                 "model": model,
                 "max_tokens": max_tokens,
@@ -130,7 +134,7 @@ def _anthropic_complete(
             if system:
                 kwargs["system"] = system
             message = client.messages.create(**kwargs)
-            if message.stop_reason not in {"end_turn", "stop_sequence"}:
+            if family_override and message.stop_reason not in {"end_turn", "stop_sequence"}:
                 raise ValueError("Incomplete response")
             text = "".join(block.text for block in message.content if block.type == "text").strip()
     except Exception:  # noqa: BLE001
