@@ -8,16 +8,12 @@ Homework requires an explicit family-owned OpenAI or Anthropic connection.
 
 Settings (read via ``django.conf.settings``):
 
-- ``LLM_BACKEND``         "auto" (default) | "anthropic" | "ollama" | "none"
+- ``LLM_BACKEND``         "auto" (default) | "anthropic" | "none"
 - ``ANTHROPIC_API_KEY``   secret; when set + backend allows, Anthropic wins
 - ``CLAUDE_MODEL``        Anthropic model id (default haiku)
-- ``OLLAMA_BASE_URL``     e.g. "http://ollama.lan:11434" (no trailing /api)
-- ``OLLAMA_MODEL``        e.g. "gemma4:latest" (default)
-- ``OLLAMA_TIMEOUT``      seconds for a single request (default 120)
 
-"auto" picks Anthropic when a key is set, then Ollama when a base URL is
-set, then falls back to "none" — same opt-in shape as today's call sites
-which all treat the LLM as optional.
+"auto" picks Anthropic when a key is set, otherwise "none". Unsupported
+deployment backend values disable AI rather than select a different provider.
 """
 from __future__ import annotations
 
@@ -40,24 +36,15 @@ class LLMError(RuntimeError):
 
 
 def active_backend() -> str:
-    """Return the resolved backend slug: ``anthropic``, ``ollama``, or ``none``.
+    """Return the deployment backend: ``anthropic`` or ``none``.
 
-    ``LLM_BACKEND="auto"`` (the default) prefers Anthropic when a key is
-    configured, then Ollama when a base URL is configured.
+    Only ``auto`` and ``anthropic`` permit a deployment key. ``none`` and
+    unsupported settings stay disabled, including obsolete backend values.
     """
-    requested = (getattr(settings, "LLM_BACKEND", "auto") or "auto").lower()
-    if requested == "anthropic":
-        return "anthropic" if getattr(settings, "ANTHROPIC_API_KEY", "") else "none"
-    if requested == "ollama":
-        return "ollama" if getattr(settings, "OLLAMA_BASE_URL", "") else "none"
-    if requested == "none":
+    requested = getattr(settings, "LLM_BACKEND", "auto")
+    if not isinstance(requested, str) or requested.lower() not in {"auto", "anthropic"}:
         return "none"
-    # auto
-    if getattr(settings, "ANTHROPIC_API_KEY", ""):
-        return "anthropic"
-    if getattr(settings, "OLLAMA_BASE_URL", ""):
-        return "ollama"
-    return "none"
+    return "anthropic" if getattr(settings, "ANTHROPIC_API_KEY", "") else "none"
 
 
 def is_available() -> bool:
@@ -95,8 +82,6 @@ def complete_json(
         text = _openai_complete(
             prompt=prompt, max_tokens=max_tokens, system=system, api_key=api_key, model=model,
         )
-    elif backend == "ollama":
-        text = _ollama_complete(prompt=prompt, max_tokens=max_tokens, system=system)
     else:
         raise LLMUnavailable("No LLM backend configured.")
 
@@ -175,49 +160,6 @@ def _openai_complete(*, prompt: str, max_tokens: int, system: str | None, api_ke
             raise ValueError("Empty response")
     except Exception:  # noqa: BLE001
         raise LLMError("OpenAI could not complete the request. Check the API key and model, then try again.") from None
-    return text
-
-
-# ---------------------------------------------------------------------------
-# Ollama
-# ---------------------------------------------------------------------------
-def _ollama_complete(*, prompt: str, max_tokens: int, system: str | None) -> str:
-    """Call Ollama's /api/generate with ``format: "json"`` for strict JSON.
-
-    Ollama's JSON mode constrains the sampler to emit a syntactically valid
-    JSON object — schema-less, but better than free-form text + regex
-    cleanup. We still parse defensively because models can over-truncate.
-    """
-    import requests  # locally available via requirements.txt
-
-    base_url = (getattr(settings, "OLLAMA_BASE_URL", "") or "").rstrip("/")
-    model = getattr(settings, "OLLAMA_MODEL", "gemma4:latest")
-    timeout = float(getattr(settings, "OLLAMA_TIMEOUT", 120))
-    if not base_url:
-        raise LLMError("OLLAMA_BASE_URL is not set")
-
-    payload: dict[str, Any] = {
-        "model": model,
-        "prompt": prompt,
-        "stream": False,
-        "format": "json",
-        "options": {"num_predict": max_tokens},
-    }
-    if system:
-        payload["system"] = system
-
-    try:
-        resp = requests.post(
-            f"{base_url}/api/generate", json=payload, timeout=timeout,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        raise LLMError(f"ollama request failed: {exc}") from exc
-
-    text = (data.get("response") or "").strip()
-    if not text:
-        raise LLMError("ollama returned empty response")
     return text
 
 

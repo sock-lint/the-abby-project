@@ -885,8 +885,9 @@ docker compose down -v
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | (empty) | Enables AI project suggestions + ingestion enrichment + AI-planned long-form homework |
-| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Claude model for AI features |
+| `LLM_BACKEND` | `auto` | Deployment AI for project suggestions and ingestion: `auto`, `anthropic`, or `none`; unsupported values disable it |
+| `ANTHROPIC_API_KEY` | (empty) | Enables deployment Claude for project suggestions and ingestion enrichment |
+| `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Deployment Claude model for project suggestions and ingestion |
 | `GEMINI_API_KEY` | (empty) | Enables the `generate_sprite_sheet` MCP tool / `/api/sprites/admin/generate/` endpoint |
 | `GEMINI_IMAGE_MODEL` | `gemini-3-pro-image-preview` | Gemini image model for sprite generation ("Nano Banana Pro") |
 | `GOOGLE_CLIENT_ID` | (empty) | Google OAuth2 client ID |
@@ -896,6 +897,11 @@ docker compose down -v
 | `SPRITE_S3_BUCKET` | `abby-sprites` | Public-read Ceph bucket for runtime-authored sprite PNGs |
 | `SPRITE_S3_ENDPOINT` | (= `AWS_S3_ENDPOINT_URL`) | Ceph RGW endpoint for the sprite bucket |
 | `SPRITE_S3_CUSTOM_DOMAIN` | (empty) | Optional CDN hostname for sprites; empty → raw Ceph URL |
+
+Homework planning requires a parent to save an OpenAI or Claude API key and
+model in **Settings → Homework AI**. It never uses deployment credentials.
+Removing that family connection disables new AI plans and preserves existing
+plans.
 
 ### MCP Server
 

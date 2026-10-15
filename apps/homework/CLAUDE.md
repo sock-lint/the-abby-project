@@ -59,7 +59,7 @@ gates allow it but cannot inspect or edit its credentials. A missing family
 connection stops before any provider request and asks a parent to connect OpenAI
 or Claude in Settings → Homework AI. A connected planner always uses an
 8192-token output budget through `config.llm.complete_json`. Homework never uses
-the deployment-wide Anthropic/Ollama configuration. Those deployment settings
+the deployment-wide AI configuration. Those deployment settings
 continue to serve project suggestions and ingestion enrichment; family keys
 apply only to homework planning.
 

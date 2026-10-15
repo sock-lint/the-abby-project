@@ -181,10 +181,9 @@ class HomeworkAISettingsTests(TestCase):
 
     @patch("config.llm.complete_json", return_value={"title": "Science steps"})
     def test_missing_family_connection_never_uses_deployment_provider(self, complete):
-        for backend in ("anthropic", "ollama", "auto"):
+        for backend in ("anthropic", "auto", "none"):
             with self.subTest(backend=backend), override_settings(
                 LLM_BACKEND=backend, ANTHROPIC_API_KEY="synthetic-deployment-key",
-                OLLAMA_BASE_URL="http://synthetic-ollama.invalid:11434",
             ):
                 for user in (self.parent, self.child):
                     self.client.force_authenticate(user)

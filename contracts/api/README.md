@@ -304,7 +304,7 @@ retains the saved key only for the same provider; a provider change requires a
 new key. `provider: "default"` or DELETE removes the family connection and
 returns the disconnected sentinel `{provider: "default", model: "",
 has_api_key: false}`. AI homework planning remains unavailable until the family
-configures OpenAI or Claude; deployment credentials and Ollama are not a homework
+configures OpenAI or Claude; deployment credentials do not supply a homework
 fallback. Saving settings does not contact a provider or validate its key/model
 access.
 
