@@ -214,7 +214,21 @@ class ProjectStepSerializer(NestedProjectResourceSerializer):
         read_only_fields = ["completed_at"]
 
 
-class ProjectListSerializer(serializers.ModelSerializer):
+class HomeworkPlanFieldsMixin:
+    def get_is_homework_plan(self, obj):
+        if getattr(obj, "_is_work_project", False):
+            return False
+        return obj.is_homework
+
+    def get_homework_assignment_id(self, obj):
+        if getattr(obj, "_is_work_project", False):
+            return None
+        return obj.homework_assignment_id
+
+
+class ProjectListSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializer):
+    is_homework_plan = serializers.SerializerMethodField()
+    homework_assignment_id = serializers.SerializerMethodField()
     assigned_to = UserSerializer(read_only=True)
     category = SkillCategorySerializer(read_only=True)
     milestones_total = serializers.SerializerMethodField()
@@ -230,6 +244,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
             "materials_budget", "due_date", "created_at",
             "milestones_total", "milestones_completed",
             "steps_total", "steps_completed",
+            "is_homework_plan", "homework_assignment_id",
         ]
 
     # The four count fields below prefer annotated attrs (set by
@@ -257,7 +272,9 @@ class ProjectListSerializer(serializers.ModelSerializer):
         return obj.steps.filter(is_completed=True).count()
 
 
-class ProjectDetailSerializer(serializers.ModelSerializer):
+class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializer):
+    is_homework_plan = serializers.SerializerMethodField()
+    homework_assignment_id = serializers.SerializerMethodField()
     assigned_to = UserSerializer(read_only=True)
     created_by = UserSerializer(read_only=True)
     category = SkillCategorySerializer(read_only=True)
@@ -314,6 +331,7 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
             "parent_notes", "created_at", "updated_at",
             "milestones", "materials", "steps", "resources",
             "steps_create", "resources_create", "plan_create",
+            "is_homework_plan", "homework_assignment_id",
         ]
         read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward"]
 
@@ -328,6 +346,12 @@ class ProjectDetailSerializer(serializers.ModelSerializer):
         return ProjectResourceSerializer(qs, many=True).data
 
     def validate(self, attrs):
+        if self.instance is not None and self.instance.is_homework:
+            protected = {"assigned_to", "bonus_amount", "payment_kind", "hourly_rate_override", "status"}
+            if protected.intersection(attrs):
+                raise serializers.ValidationError(
+                    "Homework plans use their homework assignment for ownership and completion; they cannot earn project pay."
+                )
         if "plan_create" in attrs:
             if self.instance is not None:
                 raise serializers.ValidationError({"plan_create": "Use the reviewed append action for an existing project."})

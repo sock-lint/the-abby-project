@@ -58,6 +58,10 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
 | `project-ai-plan-existing.json` | Parent `POST /api/projects/401/plan/`; reviewable additions with the existing project's opaque plan version |
 | `project-ai-plan-applied.json` | Parent `POST /api/projects/401/apply-plan/`; confirmed atomic append of the reviewed plan |
+| `project-work-detail.json` | Child `GET /api/projects/401/`; ordinary project explicitly reports `is_homework_plan: false` and a null homework assignment link |
+| `homework-plan-detail.json`, `homework-with-plan.json` | Parent and child read a legacy linked homework plan and its original assignment; planning steps remain available through the assignment |
+| `projects-with-homework-plan.json` | Parent and child `GET /api/projects/`; linked homework planning rows are excluded from the project list |
+| `homework-plan-clock-denied.json` | Child `POST /api/clock/` for a homework plan returns HTTP 400 without creating time or changing the plan status |
 | `material-unready.json`, `material-list.json` | Material detail and paginated list retain an estimate without claiming readiness, a purchase or actual spending; clearing an on-hand mark returns the same unready detail |
 | `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
 | `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
@@ -346,6 +350,24 @@ The producer verifies nonmutating drafts, reviewed creation, append/retry
 behavior and scope. `frontend/src/api/projectAIContractFixtures.test.js` consumes
 the same bodies and checks exact request routes, reviewed payloads, version
 retention and conflict propagation through the API wrappers.
+
+The same producer covers the boundary between homework planning and projects.
+Project details include the read-only boolean `is_homework_plan` and nullable
+integer `homework_assignment_id`. The boolean covers both the durable homework
+marker and legacy assignment links; the assignment ID is returned only for a
+link matching the project's assigned child and family. Ordinary projects return
+`false` and `null`. These fields describe server-owned identity and cannot turn
+a project into or out of homework through client writes.
+
+Homework planning rows remain readable by their existing detail URL so the
+assignment's `project` link still opens its steps. The ordinary project list
+excludes them for both parents and children. Homework submission, proof and
+approval stay on the original assignment; its plan supplies structure rather
+than a second paid task. Clock-in rejects a homework plan with HTTP 400 and
+creates no time entry. Shared fixtures exercise an existing link whose durable
+marker has not been set, preserving this boundary for older homework too. React
+consumes those same list, detail, assignment and rejection bodies through the
+normal API wrappers.
 
 `config.tests.test_drive_export_api_contract_fixtures` exercises the real source
 list and stored-file upload endpoints with synthetic files and only Google's
