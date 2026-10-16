@@ -1,0 +1,214 @@
+# BOOTSTRAP ONLY: a separately approved App Platform staging experiment.
+# Synthetic data only. This is not functional staging or production readiness.
+# Beat and the printer listener are deliberately absent: periodic game/account
+# maintenance and printer tracking will not run. Authoring durability and
+# deployment overlap/singleton coordination are unresolved. No persistent mount.
+# Read docs/operations/app-platform-migration.md before preparing a private copy.
+# Replace every REPLACE_ value, the zero image digest and the zero source commit.
+# Never commit the populated copy, registry credentials, or staging secrets.
+# Provisioning resources and deploying this template require owner approval.
+name: abby-app-platform-staging
+# Choose a region supported by the isolated managed PostgreSQL/Valkey pair.
+region: REPLACE_APP_PLATFORM_REGION
+# Protect authenticated responses while validating the same-origin app.
+disable_edge_cache: true
+
+# These settings are shared by the web service, worker and release job.
+# All secrets are runtime-only; no source build or automatic deployment exists.
+envs:
+  - key: DEBUG
+    scope: RUN_TIME
+    value: "False"
+  - key: DEV_TOOLS_ENABLED
+    scope: RUN_TIME
+    value: "False"
+  - key: SECRET_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: REPLACE_UNIQUE_STAGING_SECRET_KEY
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    type: SECRET
+    # Fresh isolated staging PostgreSQL only; never restore production data.
+    # Install the provider's CA at a read-only path in the private staging image
+    # for all three components; replace its path below and verify host identity.
+    value: "postgresql://REPLACE_STAGING_DB_USER:REPLACE_URLENCODED_STAGING_DB_PASSWORD@REPLACE_STAGING_DB_HOST:25060/REPLACE_STAGING_DB_NAME?sslmode=verify-full&sslrootcert=REPLACE_PROVIDER_CA_CERT_PATH"
+  - key: REDIS_URL
+    scope: RUN_TIME
+    type: SECRET
+    # DigitalOcean Valkey requires TLS; do not disable certificate verification.
+    value: "rediss://default:REPLACE_URLENCODED_STAGING_VALKEY_PASSWORD@REPLACE_STAGING_VALKEY_HOST:25061/0?ssl_cert_reqs=required"
+  - key: CELERY_BROKER_URL
+    scope: RUN_TIME
+    type: SECRET
+    # Existing settings also use this URL for the Celery result backend.
+    # Keep task/results DB 1 separate from the cache/session DB 0 above.
+    value: "rediss://default:REPLACE_URLENCODED_STAGING_VALKEY_PASSWORD@REPLACE_STAGING_VALKEY_HOST:25061/1?ssl_cert_reqs=required"
+  - key: ALLOWED_HOSTS
+    scope: RUN_TIME
+    value: "${APP_DOMAIN}"
+  - key: CSRF_TRUSTED_ORIGINS
+    scope: RUN_TIME
+    value: "${APP_URL}"
+  - key: CORS_ALLOWED_ORIGINS
+    scope: RUN_TIME
+    value: "${APP_URL}"
+  - key: MCP_PUBLIC_BASE_URL
+    scope: RUN_TIME
+    value: "${APP_URL}/mcp"
+  - key: SOURCE_COMMIT
+    scope: RUN_TIME
+    # PLACEHOLDER: replace with the verified full source SHA of the exact image.
+    # This declaration is not independent evidence of what the image contains.
+    value: "0000000000000000000000000000000000000000"
+  - key: LOG_JSON
+    scope: RUN_TIME
+    value: "1"
+  - key: ALLOW_PARENT_SIGNUP
+    scope: RUN_TIME
+    value: "False"
+  - key: USE_S3_STORAGE
+    scope: RUN_TIME
+    value: "true"
+  - key: AWS_S3_ENDPOINT_URL
+    scope: RUN_TIME
+    value: "https://REPLACE_STAGING_SPACES_REGION.digitaloceanspaces.com"
+  - key: AWS_STORAGE_BUCKET_NAME
+    scope: RUN_TIME
+    # This bucket must be private. User uploads use presigned URLs.
+    value: REPLACE_PRIVATE_STAGING_UPLOAD_BUCKET
+  - key: AWS_ACCESS_KEY_ID
+    scope: RUN_TIME
+    type: SECRET
+    # Existing storage code shares these credentials across the two buckets.
+    # Limit their access to these staging buckets, never production buckets.
+    value: REPLACE_STAGING_ONLY_SPACES_ACCESS_KEY_ID
+  - key: AWS_SECRET_ACCESS_KEY
+    scope: RUN_TIME
+    type: SECRET
+    value: REPLACE_STAGING_ONLY_SPACES_SECRET_ACCESS_KEY
+  - key: AWS_S3_REGION_NAME
+    scope: RUN_TIME
+    value: REPLACE_STAGING_SPACES_REGION
+  - key: AWS_S3_CUSTOM_DOMAIN
+    scope: RUN_TIME
+    value: ""
+  - key: AWS_QUERYSTRING_EXPIRE
+    scope: RUN_TIME
+    value: "3600"
+  - key: SPRITE_S3_BUCKET
+    scope: RUN_TIME
+    # Separate public sprite bucket, populated only with synthetic test artwork.
+    value: REPLACE_PUBLIC_STAGING_SPRITE_BUCKET
+  - key: SPRITE_S3_ENDPOINT
+    scope: RUN_TIME
+    value: "https://REPLACE_STAGING_SPACES_REGION.digitaloceanspaces.com"
+  - key: SPRITE_S3_CUSTOM_DOMAIN
+    scope: RUN_TIME
+    value: ""
+  - key: EMAIL_BACKEND
+    scope: RUN_TIME
+    value: django.core.mail.backends.dummy.EmailBackend
+  - key: DEFAULT_FROM_EMAIL
+    scope: RUN_TIME
+    value: nobody@example.invalid
+  - key: LLM_BACKEND
+    scope: RUN_TIME
+    value: none
+  - key: ANTHROPIC_API_KEY
+    scope: RUN_TIME
+    value: ""
+  - key: GEMINI_API_KEY
+    scope: RUN_TIME
+    value: ""
+  - key: GOOGLE_CLIENT_ID
+    scope: RUN_TIME
+    value: ""
+  - key: GOOGLE_CLIENT_SECRET
+    scope: RUN_TIME
+    value: ""
+  - key: GOOGLE_REDIRECT_URI
+    scope: RUN_TIME
+    value: ""
+  - key: GOOGLE_PICKER_API_KEY
+    scope: RUN_TIME
+    value: ""
+  - key: GOOGLE_PICKER_APP_ID
+    scope: RUN_TIME
+    value: ""
+  - key: VAPID_PUBLIC_KEY
+    scope: RUN_TIME
+    value: ""
+  - key: VAPID_PRIVATE_KEY
+    scope: RUN_TIME
+    value: ""
+  - key: PRINT_FANOUT_MQTT_URL
+    scope: RUN_TIME
+    value: ""
+  - key: SENTRY_DSN
+    scope: RUN_TIME
+    value: ""
+  - key: SENTRY_ENVIRONMENT
+    scope: RUN_TIME
+    value: staging
+
+services:
+  - name: web
+    image: &staging-image
+      registry_type: DOCR
+      # Use the selected team's default private registry. For multiple DOCR
+      # registries, select and verify the registry explicitly in the private copy.
+      repository: REPLACE_PRIVATE_STAGING_IMAGE_REPOSITORY
+      # PLACEHOLDER: one reviewed linux/amd64 image, never a mutable tag.
+      digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-2gb
+    http_port: 8000
+    # The image already contains the React bundle and collected static files.
+    # Build it with VITE_ALLOW_SIGNUP=false and blank Vite Sentry/production URLs.
+    run_command: >-
+      gunicorn config.asgi:application --bind 0.0.0.0:8000
+      --workers 3 --worker-class uvicorn.workers.UvicornWorker
+      --timeout 120 --worker-tmp-dir /dev/shm --access-logfile - --error-logfile -
+    health_check:
+      http_path: /health
+      port: 8000
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 6
+    termination:
+      drain_seconds: 15
+      grace_period_seconds: 120
+
+workers:
+  - name: celery-worker
+    image: *staging-image
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-2gb
+    # No -B: a worker must not implicitly start Beat.
+    run_command: celery -A config worker --loglevel=info --concurrency=2
+    termination:
+      grace_period_seconds: 120
+
+jobs:
+  - name: release
+    image: *staging-image
+    kind: PRE_DEPLOY
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb-fixed
+    # Bootstrap an empty staging DB. Do not run backfill_accounts_history here:
+    # that existing-production repair expects django_migrations to exist.
+    run_command: >-
+      sh -ec 'python manage.py migrate --noinput && python manage.py loadrpgcontent'
+
+# One public origin: preserve /api, /oauth, /mcp, /static and SPA paths.
+ingress:
+  rules:
+    - match:
+        path:
+          prefix: /
+      component:
+        name: web
+        preserve_path_prefix: true

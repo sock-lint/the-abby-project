@@ -1,5 +1,9 @@
 # Platform deployment
 
+The owner-selected [DigitalOcean App Platform migration](app-platform-migration.md)
+has a separate staging bootstrap and readiness criteria. This document continues
+to describe the current production deployment until that cutover is verified.
+
 Production is the native Coolify Docker Compose application
 `lr5dn6lhga31vyk6u5qvhm4c` on the Coolify LXC (119). It builds
 `sock-lint/the-abby-project`, branch `main`, with its existing application
