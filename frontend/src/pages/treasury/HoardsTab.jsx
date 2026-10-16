@@ -14,7 +14,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import QuillProgress from '../../components/QuillProgress';
 import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
-import { TextField } from '../../components/form';
+import { TextField, IconPicker } from '../../components/form';
 import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 import IncipitBand from '../../components/atlas/IncipitBand';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
@@ -196,12 +196,13 @@ function CreateGoalSheet({ onClose, onCreated }) {
           onChange={(e) => setTarget(e.target.value)}
           placeholder="25.00"
         />
-        <TextField
+        <IconPicker
           label="Icon (optional emoji)"
           value={icon}
-          onChange={(e) => setIcon(e.target.value)}
+          onChange={setIcon}
           placeholder="🧱"
           maxLength={4}
+          disabled={busy}
         />
         {/* ErrorAlert renders its `message` prop and nothing else — passing
             the text as children made submit failures render as literally

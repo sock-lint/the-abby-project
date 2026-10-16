@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import BottomSheet from './BottomSheet';
 import ErrorAlert from './ErrorAlert';
 import ModalActions from './ModalActions';
-import { TextField, SelectField, TextAreaField } from './form';
+import { TextField, SelectField, TextAreaField, IconPicker } from './form';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
 import { createRequestId } from '../utils/requestId';
@@ -91,12 +91,13 @@ function NewTypeSubForm({ onCancel, onCreated }) {
         placeholder="Parkour"
         autoFocus
       />
-      <TextField
+      <IconPicker
         id="new-type-icon"
         label="Emoji (optional)"
         value={icon}
-        onChange={(e) => setIcon(e.target.value.slice(0, 4))}
+        onChange={(nextIcon) => setIcon(nextIcon.slice(0, 4))}
         placeholder="🧗"
+        disabled={saving}
       />
       <SelectField
         id="new-type-intensity"

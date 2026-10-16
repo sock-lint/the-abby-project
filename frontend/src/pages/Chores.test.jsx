@@ -35,6 +35,83 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
+  it.each([
+    ['child proposal', buildUser(), /propose a chore/i, /send to parent/i],
+    ['parent creation', buildParent(), /new chore/i, /^create$/i],
+  ])('saves a selected icon for %s only after explicit submit', async (_mode, account, openLabel, submitLabel) => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/chores\/$/, { id: 7, title: 'Tidy room' });
+    renderPage(account, [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: openLabel }));
+    await user.type(screen.getByLabelText('Title'), 'Tidy room');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Broom' }));
+    expect(screen.getByLabelText('Icon')).toHaveValue('🧹');
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: submitLabel }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({ title: 'Tidy room', icon: '🧹' });
+    if (account.role === 'child') {
+      expect(create.calls[0].body).not.toHaveProperty('reward_amount');
+      expect(create.calls[0].body).not.toHaveProperty('coin_reward');
+      expect(create.calls[0].body).not.toHaveProperty('xp_reward');
+    }
+  });
+
+  it.each([false, true])('parent editing a chore preserves custom icon or saves selected icon (choose: %s)', async (choose) => {
+    const user = userEvent.setup();
+    const chore = buildChore({ id: 7, title: 'Tidy room', icon: 'family mark' });
+    const update = spyHandler('patch', /\/api\/chores\/7\/$/, chore);
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : [chore],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      update.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: 'Edit chore' }));
+    expect(screen.getByLabelText('Icon')).toHaveValue('family mark');
+    if (choose) {
+      await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+      await user.click(screen.getByRole('button', { name: 'Broom' }));
+    }
+    expect(update.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body.icon).toBe(choose ? '🧹' : 'family mark');
+  });
+
+  it('saves a selected icon when approving a chore proposal', async () => {
+    const user = userEvent.setup();
+    const proposal = buildChore({ id: 7, title: 'Tidy room', icon: 'custom', pending_parent_review: true, created_by_name: 'Abby' });
+    const approve = spyHandler('post', /\/api\/chores\/7\/approve\/$/, proposal);
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [proposal] : [],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      approve.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /review & publish/i }));
+    expect(screen.getByLabelText('Icon')).toHaveValue('custom');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Broom' }));
+    expect(approve.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Approve & publish' }));
+    await waitFor(() => expect(approve.calls).toHaveLength(1));
+    expect(approve.calls[0].body).toMatchObject({ icon: '🧹', title: 'Tidy room', coin_reward: expect.any(Number), xp_reward: expect.any(Number) });
+  });
+
   it('creates Google and Apple reminders on the selected active chore date', async () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2020-12-29T16:00:00Z'));
