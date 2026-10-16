@@ -15,6 +15,8 @@ import ChapterRubric from '../../../components/atlas/ChapterRubric';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
+import PedestalPreview from '../../../pedestal/PedestalPreview';
+import PedestalImage from '../../../pedestal/PedestalImage';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -172,8 +174,16 @@ export default function Hatchery() {
                 : 'No potions for new hatching yet. You can earn them from item drops.'}
           </EmptyState>
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+            <figure className="min-w-0">
+              <PedestalPreview />
+              <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
+                <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
+                Egg artwork preview
+              </figcaption>
+            </figure>
+            <div className="min-w-0">
+            <div className="grid grid-cols-1 gap-3">
               <SelectField
                 id="hatch-egg"
                 label="Egg"
@@ -208,7 +218,8 @@ export default function Hatchery() {
             >
               {working ? 'Hatching…' : 'Hatch pet'}
             </Button>
-          </>
+            </div>
+          </div>
         )}
 
         {hatchSuccess && (

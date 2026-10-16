@@ -11,6 +11,12 @@
       "family_id": "meshtint-bird-evolution",
       "manifest_sha256": "1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "meshtint-pedestal-card-ui/1.0.1/abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
+      "family_id": "meshtint-pedestal-card-ui",
+      "manifest_sha256": "abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
+      "release_version": "1.0.1"
     }
   ],
   "schema_version": 1
