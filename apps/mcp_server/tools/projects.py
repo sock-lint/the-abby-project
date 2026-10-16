@@ -339,26 +339,8 @@ def update_project_status(params: UpdateProjectStatusIn) -> dict[str, Any]:
         if params.status == "completed" and project.completed_at is None:
             project.completed_at = timezone.now()
         project.save()
-
-        if params.status == "completed" and project.assigned_to_id:
-            coin_reason = (
-                CoinLedger.Reason.BOUNTY_BONUS
-                if project.payment_kind == "bounty"
-                else CoinLedger.Reason.PROJECT_BONUS
-            )
-            base_coins = 10 * project.difficulty
-            coins = int(round(
-                base_coins * (2.5 if project.payment_kind == "bounty" else 1),
-            ))
-            AwardService.grant(
-                project.assigned_to,
-                project=project,
-                xp=project.xp_reward,
-                coins=coins,
-                coin_reason=coin_reason,
-                coin_description=f"Project completed: {project.title}",
-                created_by=user,
-            )
+        # The completion signal owns the shared once-only reward receipt and
+        # payouts for both REST and MCP; no second client-specific award.
 
     project.refresh_from_db()
     return project_detail_to_dict(project)
