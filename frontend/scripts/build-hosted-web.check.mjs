@@ -57,19 +57,21 @@ test('Compose forwards public browser Sentry settings to the build without the u
   const directory = await mkdtemp(join(tmpdir(), 'abby-sentry-build-'))
   try {
     for (const settings of [configured, {}]) {
-      const envFile = join(directory, 'synthetic.env')
+      const envFile = join(directory, '.env')
       await writeFile(envFile, Object.entries({
         SECRET_KEY: 'synthetic-signing-key',
         SENTRY_AUTH_TOKEN: 'synthetic-upload-token',
         ...settings,
       }).map(([key, value]) => `${key}=${value}`).join('\n'))
-      // Render only: ignore the checkout's runtime .env and isolate Docker's
-      // configuration from the station account. No daemon or network is used.
+      // Render only: both interpolation and runtime env_file paths use the
+      // disposable project's synthetic .env. Docker configuration and the
+      // working directory are isolated too; no daemon or network is used.
       const env = Object.fromEntries(['PATH', 'Path', 'SystemRoot', 'ComSpec', 'PATHEXT']
         .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]))
-      const output = execFileSync('docker', ['compose', '--env-file', envFile,
-        '-f', 'docker-compose.yml', 'config', '--format', 'json', '--no-env-resolution'], {
-        cwd: fileURLToPath(new URL('../..', import.meta.url)),
+      const output = execFileSync('docker', ['compose', '--project-directory', directory,
+        '--env-file', envFile, '-f', fileURLToPath(new URL('../../docker-compose.yml', import.meta.url)),
+        'config', '--format', 'json'], {
+        cwd: directory,
         env: { ...env, HOME: directory, USERPROFILE: directory, DOCKER_CONFIG: directory },
         encoding: 'utf8',
       })
