@@ -3,6 +3,15 @@ import { renderWithProviders, screen, userEvent } from '../../test/render';
 import SigilFrontispiece from './SigilFrontispiece';
 
 describe('SigilFrontispiece', () => {
+  it('recognizes a server-confirmed terminal level without an empty next-level promise', () => {
+    renderWithProviders(<SigilFrontispiece
+      profile={{ display_name: 'Abby', level: 6, total_xp: 2500, xp_in_level: 0, xp_needed_for_level: 0 }}
+      onOpenTrophyPicker={() => {}}
+    />);
+    expect(screen.getByText('Highest level')).toBeInTheDocument();
+    expect(screen.queryByText(/toward the next level/)).toBeNull();
+  });
+
   it('shows the profile picture inside the equipped frame', () => {
     renderWithProviders(<SigilFrontispiece
       profile={{ display_name: 'Abby', active_frame: { metadata: { border_color: '#866329' } } }}

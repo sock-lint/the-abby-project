@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import SkillFormModal from './SkillFormModal.jsx';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
+import { selectDropdown } from '../../test/selectDropdown';
 
 describe('SkillFormModal', () => {
   it.each(['create', 'edit'])('saves a selected icon when users %s a skill', async (mode) => {
@@ -15,8 +16,8 @@ describe('SkillFormModal', () => {
     render(<SkillFormModal item={mode === 'edit' ? item : undefined} categories={[{ id: 2, name: 'Art' }]} subjects={[{ id: 3, name: 'Music', category: 2 }]} onClose={vi.fn()} onSaved={vi.fn()} />);
     if (mode === 'create') {
       await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Piano');
-      await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), '2');
-      await user.selectOptions(screen.getByRole('combobox', { name: 'Subject', exact: true }), '3');
+      await selectDropdown(user, screen.getByRole('combobox', { name: 'Category' }), '2');
+      await selectDropdown(user, screen.getByRole('combobox', { name: 'Subject', exact: true }), '3');
     }
     await user.click(screen.getByRole('button', { name: 'Choose icon' }));
     await user.click(screen.getByRole('button', { name: 'Music', exact: true }));

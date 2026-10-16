@@ -1,0 +1,60 @@
+{
+  "id": 301,
+  "username": "fixture-avatar-child",
+  "display_name": "Fixture Avatar Child",
+  "level": 2,
+  "total_xp": 375,
+  "xp_in_level": 75,
+  "xp_needed_for_level": 300,
+  "login_streak": 0,
+  "longest_login_streak": 0,
+  "last_active_date": null,
+  "perfect_days_count": 0,
+  "streak_freeze_expires_at": null,
+  "xp_boost_expires_at": null,
+  "coin_boost_expires_at": null,
+  "drop_boost_expires_at": null,
+  "xp_boost_seconds_remaining": null,
+  "coin_boost_seconds_remaining": null,
+  "drop_boost_seconds_remaining": null,
+  "pet_growth_boost_remaining": 0,
+  "active_frame": null,
+  "active_title": null,
+  "active_theme": null,
+  "active_pet_accessory": null,
+  "active_trophy_badge": null,
+  "avatar_preferences": {
+    "outfit_style": "archer-01",
+    "hair_style": "hair-01",
+    "hair_color": "dark",
+    "face_style": "face-01",
+    "head_style": "head-02",
+    "skin_tone": "fair",
+    "outfit": "nature",
+    "headwear_style": "none",
+    "mask_style": "none",
+    "bow_style": "none",
+    "quiver_style": "none"
+  },
+  "avatar_configuration": {
+    "avatar_id": "female-archer",
+    "appearance": {
+      "hair_style": "hair-01",
+      "hair_color": "dark",
+      "skin_tone": "fair",
+      "outfit": "nature",
+      "outfit_style": "archer-01",
+      "face_style": "face-01",
+      "head_style": "head-02"
+    },
+    "accessories": {
+      "headwear": "none",
+      "face_accessory": "none",
+      "left_hand": "none",
+      "right_hand": "none",
+      "back": "none"
+    }
+  },
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00"
+}

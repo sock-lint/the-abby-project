@@ -34,7 +34,7 @@ import { BookOpen, Sparkles, Flame, Target, X, Award } from 'lucide-react';
 import { RARITY_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
-import RpgSprite from '../components/rpg/RpgSprite';
+import CatalogIcon from '../components/rpg/CatalogIcon';
 import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
@@ -373,7 +373,7 @@ export default function ChildDashboard({ data, reload }) {
                 className={`min-w-0 p-3 rounded-2xl border text-center hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-[filter] ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
               >
                 <div className="flex h-10 items-center justify-center mb-2">
-                  <RpgSprite spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
+                  <CatalogIcon assetId={d.item_catalog_icon} spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
                 </div>
                 <div className="font-body text-body font-semibold text-ink-primary break-words leading-snug">
                   {d.item_name}{d.quantity > 1 && <span> × {d.quantity}</span>}

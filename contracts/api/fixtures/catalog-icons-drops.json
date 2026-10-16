@@ -1,0 +1,15 @@
+[
+  {
+    "id": 94,
+    "item": 82,
+    "item_name": "Cooked Fish",
+    "item_icon": "C",
+    "item_sprite_key": "fish",
+    "item_catalog_icon": "item-fish-cooked",
+    "item_rarity": "common",
+    "trigger_type": "clock_out",
+    "quantity": 1,
+    "was_salvaged": false,
+    "created_at": "2026-10-10T12:00:00-07:00"
+  }
+]

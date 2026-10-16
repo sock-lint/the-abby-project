@@ -13,6 +13,12 @@
       "release_version": "1.0.0"
     },
     {
+      "directory": "abby-catalog-icons/1.0.0/0201085bd500af510bbdbcb16ac3fa68d0588b3cc321a4943d57e64c3cbd4ad2",
+      "family_id": "abby-catalog-icons",
+      "manifest_sha256": "0201085bd500af510bbdbcb16ac3fa68d0588b3cc321a4943d57e64c3cbd4ad2",
+      "release_version": "1.0.0"
+    },
+    {
       "directory": "meshtint-pedestal-card-ui/1.0.1/abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
       "family_id": "meshtint-pedestal-card-ui",
       "manifest_sha256": "abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",

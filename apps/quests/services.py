@@ -375,6 +375,7 @@ class QuestService:
         from apps.pets.models import UserMount
         from apps.rpg.models import ItemDefinition
         from apps.rpg.catalog_support import item_is_available
+        from apps.rpg.catalog_icons import item_catalog_icon
         for reward_item in definition.reward_items.select_related(
             "item", "item__pet_species",
         ).all():
@@ -400,6 +401,7 @@ class QuestService:
                 rewards["coins"] += salvage
                 rewards["items"].append({
                     "item_name": item.name,
+                    "item_catalog_icon": item_catalog_icon(item),
                     "item_icon": item.icon,
                     "quantity": reward_item.quantity,
                     "salvaged_to_coins": salvage,
@@ -414,6 +416,7 @@ class QuestService:
                 inv.save(update_fields=["quantity", "updated_at"])
             rewards["items"].append({
                 "item_name": item.name,
+                "item_catalog_icon": item_catalog_icon(item),
                 "item_icon": item.icon,
                 "quantity": reward_item.quantity,
             })

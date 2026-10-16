@@ -10,7 +10,7 @@ import BottomSheet from '../../../components/BottomSheet';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
 import { EggIcon } from '../../../components/icons/JournalIcons';
-import RpgSprite from '../../../components/rpg/RpgSprite';
+import CatalogIcon from '../../../components/rpg/CatalogIcon';
 import { normalizeList } from '../../../utils/api';
 import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
@@ -277,7 +277,8 @@ export default function Companions() {
                     title={f.item.name}
                     className="w-full min-h-11 px-2 py-1 rounded bg-ink-page border border-ink-page-shadow hover:border-sheikah-teal/50 transition-colors flex items-center gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <RpgSprite
+                    <CatalogIcon
+                      assetId={f.item.catalog_icon}
                       spriteKey={f.item.sprite_key}
                       icon={f.item.icon}
                       size={24}

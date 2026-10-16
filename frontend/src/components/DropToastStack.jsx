@@ -4,7 +4,7 @@ import { AnimatePresence } from 'framer-motion';
 import { Package } from 'lucide-react';
 import { useDropToasts } from '../hooks/useDropToasts';
 import NotificationToast from './NotificationToast';
-import RpgSprite from './rpg/RpgSprite';
+import CatalogIcon from './rpg/CatalogIcon';
 import RareDropReveal from './RareDropReveal';
 import { RARE_TIERS } from './rareDropTiers';
 // Shared with the Lorebook first-encounter sheet — both are pulse-driven
@@ -23,7 +23,8 @@ function ToastItem({ toast, onDismiss }) {
       onDismiss={() => onDismiss(toast.id)}
     >
       <Package size={18} className="text-current shrink-0" />
-      <RpgSprite
+      <CatalogIcon
+        assetId={toast.item_catalog_icon}
         spriteKey={toast.item_sprite_key}
         icon={toast.item_icon}
         size={32}

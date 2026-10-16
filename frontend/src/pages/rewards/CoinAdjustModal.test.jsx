@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -22,13 +23,14 @@ function useKidsHandler() {
 
 describe('CoinAdjustModal', () => {
   it('renders a kid picker populated from /api/children/', async () => {
+    const user = userEvent.setup();
     server.use(useKidsHandler());
     render(<CoinAdjustModal onClose={vi.fn()} onSaved={vi.fn()} />);
 
     const select = await screen.findByRole('combobox', { name: /kid/i });
     await waitFor(() => expect(select).not.toBeDisabled());
-    expect(screen.getByRole('option', { name: 'Abby' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Sam' })).toBeInTheDocument();
+    expect((await openDropdown(user, select)).getByRole('option', { name: 'Abby' })).toBeInTheDocument();
+    expect((await openDropdown(user, select)).getByRole('option', { name: 'Sam' })).toBeInTheDocument();
   });
 
   it('posts the chosen numeric user_id to /api/coins/adjust/', async () => {
@@ -40,7 +42,7 @@ describe('CoinAdjustModal', () => {
 
     const select = await screen.findByRole('combobox', { name: /kid/i });
     await waitFor(() => expect(select).not.toBeDisabled());
-    await user.selectOptions(select, '12');
+    await selectDropdown(user, select, '12');
 
     const amount = screen.getByRole('spinbutton');
     await user.type(amount, '25');
@@ -68,7 +70,7 @@ describe('CoinAdjustModal', () => {
 
     const select = await screen.findByRole('combobox', { name: /kid/i });
     await waitFor(() => expect(select).not.toBeDisabled());
-    await user.selectOptions(select, '11');
+    await selectDropdown(user, select, '11');
 
     const amount = screen.getByRole('spinbutton');
     await user.type(amount, '10');

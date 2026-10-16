@@ -86,12 +86,26 @@ class RewardWriteSerializer(serializers.ModelSerializer):
 
 
 class RewardRedemptionSerializer(serializers.ModelSerializer):
-    reward = RewardSerializer(read_only=True)
+    reward = serializers.SerializerMethodField()
     user_name = serializers.CharField(source="user.username", read_only=True)
     # Alias: column was renamed to ``created_at`` (PR: adopt CreatedAtModel)
     # but the frontend still reads ``requested_at`` — keep exposing the old
     # key to avoid a coordinated release.
     requested_at = serializers.DateTimeField(source="created_at", read_only=True)
+
+    def get_reward(self, obj):
+        # Keep the established response shape while showing the saved promise
+        # in request history. The shop's RewardSerializer still shows today's
+        # editable offer for new purchases.
+        data = dict(RewardSerializer(obj.reward, context=self.context).data)
+        data["cost_coins"] = obj.coin_cost_snapshot
+        data["fulfillment_kind"] = obj.fulfillment_kind_snapshot
+        data["item_definition"] = obj.item_definition_snapshot_id
+        data["item_definition_detail"] = (
+            ItemDefinitionSerializer(obj.item_definition_snapshot, context=self.context).data
+            if obj.item_definition_snapshot_id is not None else None
+        )
+        return data
 
     class Meta:
         model = RewardRedemption

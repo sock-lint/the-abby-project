@@ -1,5 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
+from apps.rpg.catalog_icons import item_catalog_icon
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .avatar import (
@@ -63,6 +64,9 @@ class AvatarConfigurationUpdateSerializer(serializers.Serializer):
 class CharacterProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     display_name = serializers.CharField(source="user.display_label", read_only=True)
+    total_xp = serializers.SerializerMethodField()
+    xp_in_level = serializers.SerializerMethodField()
+    xp_needed_for_level = serializers.SerializerMethodField()
     active_frame = serializers.SerializerMethodField()
     active_title = serializers.SerializerMethodField()
     active_theme = serializers.SerializerMethodField()
@@ -88,6 +92,9 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "username",
             "display_name",
             "level",
+            "total_xp",
+            "xp_in_level",
+            "xp_needed_for_level",
             "login_streak",
             "longest_login_streak",
             "last_active_date",
@@ -111,6 +118,22 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def _xp_progress(self, obj):
+        if not hasattr(self, "_xp_by_profile"):
+            self._xp_by_profile = {}
+        if obj.pk not in self._xp_by_profile:
+            self._xp_by_profile[obj.pk] = obj.xp_progress
+        return self._xp_by_profile[obj.pk]
+
+    def get_total_xp(self, obj):
+        return self._xp_progress(obj)["total_xp"]
+
+    def get_xp_in_level(self, obj):
+        return self._xp_progress(obj)["xp_in_level"]
+
+    def get_xp_needed_for_level(self, obj):
+        return self._xp_progress(obj)["xp_needed_for_level"]
 
     def get_avatar_preferences(self, obj):
         return avatar_appearance(obj.avatar_preferences)
@@ -141,6 +164,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             return None
         return {
             "id": item.pk,
+            "catalog_icon": item_catalog_icon(item),
             "name": item.name,
             "icon": item.icon,
             "sprite_key": item.sprite_key,
@@ -174,6 +198,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):
+    catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     rarity_display = serializers.CharField(source="get_rarity_display", read_only=True)
     type_display = serializers.CharField(source="get_item_type_display", read_only=True)
@@ -184,7 +209,7 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemDefinition
         fields = [
-            "id", "name", "description", "icon", "sprite_key", "item_type", "type_display",
+            "id", "name", "description", "icon", "sprite_key", "catalog_icon", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
             "pet_species_name", "potion_type_name", "food_species_name", "catalog_available",
         ]
@@ -192,6 +217,9 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_available(self, obj):
         return item_is_available(obj)
+
+    def get_catalog_icon(self, obj):
+        return item_catalog_icon(obj)
 
 
 class UserInventorySerializer(serializers.ModelSerializer):
@@ -262,6 +290,7 @@ class UserInventorySerializer(serializers.ModelSerializer):
 
 
 class DropLogSerializer(serializers.ModelSerializer):
+    item_catalog_icon = serializers.SerializerMethodField()
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
     item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
@@ -270,7 +299,10 @@ class DropLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = DropLog
         fields = [
-            "id", "item", "item_name", "item_icon", "item_sprite_key", "item_rarity",
+            "id", "item", "item_name", "item_icon", "item_sprite_key", "item_catalog_icon", "item_rarity",
             "trigger_type", "quantity", "was_salvaged", "created_at",
         ]
         read_only_fields = fields
+
+    def get_item_catalog_icon(self, obj):
+        return item_catalog_icon(obj.item)

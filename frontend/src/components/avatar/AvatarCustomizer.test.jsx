@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, screen, userEvent, within } from '../../test/render';
 import AvatarCustomizer from './AvatarCustomizer';
@@ -12,11 +13,13 @@ describe('catalog-driven shared AvatarCustomizer controls', () => {
     renderWithProviders(<AvatarCustomizer avatarDefinition={knight} configuration={defaultConfiguration(knight)} onChange={onChange} />, { withAuth: false });
     expect(screen.getByRole('group', { name: 'Wardrobe' })).toBeInTheDocument();
     const weapon = screen.getByRole('combobox', { name: 'Weapon' });
-    expect(within(weapon).getByRole('option', { name: 'Greenhorn bow' })).toHaveValue('bow-greenhorn');
-    expect(within(weapon).getByRole('option', { name: 'Round shield' })).toHaveValue('shield-round');
-    await user.selectOptions(weapon, 'bow-greenhorn');
+    const weapons = await openDropdown(user, weapon);
+    expect(weapons.getByRole('option', { name: 'Greenhorn bow' })).toHaveAttribute('data-value', 'bow-greenhorn');
+    expect(weapons.getByRole('option', { name: 'Round shield' })).toHaveAttribute('data-value', 'shield-round');
+    await selectDropdown(user, weapon, 'bow-greenhorn');
     expect(onChange).toHaveBeenCalledExactlyOnceWith({ accessories: { left_hand: 'bow-greenhorn' } });
-    expect(within(screen.getByRole('combobox', { name: 'Back accessory' })).getByRole('option', { name: 'Rook quiver' })).toHaveValue('quiver-rook');
+    const backAccessories = await openDropdown(user, screen.getByRole('combobox', { name: 'Back accessory' }));
+    expect(backAccessories.getByRole('option', { name: 'Rook quiver' })).toHaveAttribute('data-value', 'quiver-rook');
     expect(screen.queryByRole('combobox', { name: 'Bow' })).toBeNull();
   });
   it('uses structured preset patches, preserves unavailable saved values and disables controls while saving', async () => {
@@ -25,9 +28,13 @@ describe('catalog-driven shared AvatarCustomizer controls', () => {
     const view = renderWithProviders(<AvatarCustomizer avatarDefinition={archer} configuration={configuration} onChange={onChange} />, { withAuth: false });
     await user.click(screen.getByRole('button', { name: 'Fire' }));
     expect(onChange).toHaveBeenCalledExactlyOnceWith({ appearance: archer.presets[0].appearance, accessories: archer.presets[0].accessories });
-    view.rerender(<AvatarCustomizer avatarDefinition={archer} configuration={{ ...configuration, accessories: { ...configuration.accessories, back: 'retired-item' } }} onChange={onChange} disabled />);
-    expect(screen.getByRole('combobox', { name: 'Back accessory' })).toHaveValue('retired-item');
-    expect(screen.getByRole('option', { name: 'Unavailable saved choice' })).toBeDisabled();
+    const saved = { ...configuration, accessories: { ...configuration.accessories, back: 'retired-item' } };
+    view.rerender(<AvatarCustomizer avatarDefinition={archer} configuration={saved} onChange={onChange} />);
+    const back = screen.getByRole('combobox', { name: 'Back accessory' });
+    expect(back).toHaveValue('retired-item');
+    const savedChoices = await openDropdown(user, back);
+    expect(savedChoices.getByRole('option', { name: 'Unavailable saved choice' })).toHaveAttribute('aria-disabled', 'true');
+    view.rerender(<AvatarCustomizer avatarDefinition={archer} configuration={saved} onChange={onChange} disabled />);
     expect(screen.getByRole('button', { name: 'Fire' })).toBeDisabled();
     within(screen.getByRole('group', { name: 'Wardrobe' })).getAllByRole('combobox').forEach((select) => expect(select).toBeDisabled());
   });

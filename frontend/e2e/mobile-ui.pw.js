@@ -1,3 +1,4 @@
+import { chooseDropdown } from './dropdown-helpers.js';
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -75,8 +76,8 @@ for (const width of [320, 375, 768, 1280]) {
     expect(calendarBounds.x + calendarBounds.width).toBeLessThanOrEqual(width);
     expect(await calendar.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
     const select = page.getByRole('combobox', { name: 'Family member' });
-    await select.selectOption({ label: 'Everyone' });
-    await expect(select).toHaveValue('Everyone');
+    await chooseDropdown(select, { label: 'Everyone' });
+    await expect(select).toHaveJSProperty('value', 'Everyone');
     await page.getByRole('button', { name: 'Open sheet' }).click();
     const sheet = page.getByRole('dialog');
     await expect(sheet).toBeVisible();

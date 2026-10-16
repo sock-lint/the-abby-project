@@ -11,7 +11,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
-import RpgSprite from '../../components/rpg/RpgSprite';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import TomeShelf from '../../components/atlas/TomeShelf';
 import { PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import {
@@ -106,6 +106,7 @@ function ItemsBlock({ items, onSelect }) {
                   key={item.id}
                   rarity={item.rarity}
                   icon={item.icon}
+                  assetId={item.catalog_icon}
                   spriteKey={item.sprite_key}
                   name={item.name}
                   subtitle={item.rarity_display}
@@ -124,7 +125,7 @@ function ItemDetail({ item }) {
   return (
     <div className="text-center">
       <div className="flex items-center justify-center h-16 mb-3">
-        <RpgSprite spriteKey={item.sprite_key} icon={item.icon} size={64} alt={item.name} />
+        <CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={64} alt={item.name} />
       </div>
       <div className={`text-sm capitalize font-medium mb-1 ${RARITY_TEXT_COLORS[item.rarity]}`}>
         {item.rarity_display} · {item.type_display}
@@ -172,6 +173,7 @@ function CreaturesBlock({ species, onSelect }) {
           key={s.id}
           rarity="common" // species don't have rarity — neutral framing
           icon={s.icon}
+          assetId={s.catalog_icon}
           spriteKey={s.sprite_key}
           name={s.name}
           onClick={() => onSelect(s)}
@@ -186,7 +188,7 @@ function CreatureDetail({ species }) {
   return (
     <div className="text-center">
       <div className="flex items-center justify-center h-16 mb-3">
-        <RpgSprite spriteKey={species.sprite_key} icon={species.icon || '🐾'} size={64} alt={species.name} />
+        <CatalogIcon assetId={species.catalog_icon} spriteKey={species.sprite_key} icon={species.icon || '🐾'} size={64} alt={species.name} />
       </div>
       {species.description && (
         <p className="text-sm text-ink-whisper mb-3">{species.description}</p>
@@ -239,6 +241,7 @@ function AdventuresBlock({ quests, onSelect }) {
           key={q.id}
           rarity="rare" // neutral shared accent; quests don't carry a rarity field
           icon={q.icon}
+          assetId={q.catalog_icon}
           spriteKey={q.sprite_key}
           name={q.name}
           subtitle={q.quest_type_display}
@@ -254,7 +257,7 @@ function AdventureDetail({ quest }) {
   return (
     <div className="text-center">
       <div className="flex items-center justify-center h-16 mb-3">
-        <RpgSprite spriteKey={quest.sprite_key} icon={quest.icon || '⚔️'} size={64} alt={quest.name} />
+        <CatalogIcon assetId={quest.catalog_icon} spriteKey={quest.sprite_key} icon={quest.icon || '⚔️'} size={64} alt={quest.name} />
       </div>
       <div className="text-sm capitalize font-medium mb-2 text-royal">
         {quest.quest_type_display} · Target {quest.target_value}
@@ -279,7 +282,8 @@ function AdventureDetail({ quest }) {
                   key={r.id}
                   className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-tiny bg-ink-page-aged/60 text-ink-primary"
                 >
-                  <RpgSprite
+                  <CatalogIcon
+                    assetId={r.item_catalog_icon}
                     spriteKey={r.item_sprite_key}
                     icon={r.item_icon}
                     size={24}
@@ -317,14 +321,15 @@ function MountDetail({ species, onRegenerate }) {
       <div className="flex items-center justify-center gap-6">
         <div>
           <div className="flex items-center justify-center h-16">
-            <RpgSprite spriteKey={species.sprite_key} icon={species.icon} size={64} alt={species.name} />
+            <CatalogIcon assetId={species.catalog_icon} spriteKey={species.sprite_key} icon={species.icon} size={64} alt={species.name} />
           </div>
           <div className="text-tiny text-ink-whisper mt-1">pet</div>
         </div>
         <div className="text-xl text-ink-whisper">→</div>
         <div>
           <div className="flex items-center justify-center h-16">
-            <RpgSprite
+            <CatalogIcon
+              assetId={species.grown_catalog_icon}
               spriteKey={mountSlug}
               fallbackSpriteKey={species.sprite_key}
               icon={species.icon}

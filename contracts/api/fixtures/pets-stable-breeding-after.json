@@ -10,7 +10,9 @@
         "sprite_key": "fox",
         "description": "A synthetic woodland friend.",
         "food_preference": "berries",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 43,
@@ -44,7 +46,9 @@
         "sprite_key": "fox",
         "description": "A synthetic woodland friend.",
         "food_preference": "berries",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 44,
@@ -78,7 +82,9 @@
         "sprite_key": "wolf",
         "description": "A synthetic trail companion.",
         "food_preference": "meat",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 43,
@@ -114,7 +120,9 @@
         "sprite_key": "fox",
         "description": "A synthetic woodland friend.",
         "food_preference": "berries",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 44,
@@ -169,7 +177,9 @@
         "sprite_key": "fox",
         "description": "A synthetic woodland friend.",
         "food_preference": "berries",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 43,
@@ -204,7 +214,9 @@
         "sprite_key": "wolf",
         "description": "A synthetic trail companion.",
         "food_preference": "meat",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 43,

@@ -5,70 +5,43 @@ import { useState } from 'react';
 import SelectField from './SelectField.jsx';
 
 describe('SelectField', () => {
-  it('associates the label with the select via htmlFor/id', () => {
-    render(
-      <SelectField label="Type">
-        <option value="a">A</option>
-        <option value="b">B</option>
-      </SelectField>,
-    );
-    const select = screen.getByLabelText('Type');
-    expect(select.tagName).toBe('SELECT');
-    expect(select.querySelectorAll('option')).toHaveLength(2);
+  it('associates the label with its custom combobox and opened options', async () => {
+    const user = userEvent.setup();
+    render(<SelectField label="Type"><option value="a">A</option><option value="b">B</option></SelectField>);
+    const control = screen.getByRole('combobox', { name: 'Type' });
+    expect(screen.getByLabelText('Type')).toBe(control);
+    expect(control.tagName).toBe('BUTTON');
+    await user.click(control);
+    expect(screen.getByRole('listbox')).toHaveAttribute('id', control.getAttribute('aria-controls'));
+    expect(screen.getAllByRole('option')).toHaveLength(2);
   });
 
-  it('renders helpText when provided', () => {
-    render(
-      <SelectField label="Type" helpText="Pick one">
-        <option value="a">A</option>
-      </SelectField>,
-    );
-    expect(screen.getByText('Pick one')).toBeInTheDocument();
+  it('links help and errors without referencing hidden help', () => {
+    const { rerender } = render(<SelectField label="Type" helpText="Pick one"><option>A</option></SelectField>);
+    expect(screen.getByRole('combobox')).toHaveAccessibleDescription('Pick one');
+    rerender(<SelectField label="Type" helpText="Pick one" error="Required"><option>A</option></SelectField>);
+    expect(screen.getByRole('combobox')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('combobox')).toHaveAccessibleDescription('Required');
+    expect(screen.getByRole('alert')).toHaveTextContent('Required');
+    expect(screen.queryByText('Pick one')).not.toBeInTheDocument();
   });
 
-  it('renders error and sets aria-invalid when error is provided', () => {
-    render(
-      <SelectField label="Type" error="Required">
-        <option value="">--</option>
-      </SelectField>,
-    );
-    expect(screen.getByLabelText('Type')).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText('Required')).toBeInTheDocument();
-  });
-
-  it('hides helpText when error is also provided', () => {
-    render(
-      <SelectField label="Type" helpText="hint" error="bad">
-        <option value="">--</option>
-      </SelectField>,
-    );
-    expect(screen.queryByText('hint')).not.toBeInTheDocument();
-    expect(screen.getByText('bad')).toBeInTheDocument();
-  });
-
-  it('forwards value/onChange (controlled)', async () => {
+  it('forwards controlled changes and displays the confirmed selected label', async () => {
     const user = userEvent.setup();
     function Harness() {
-      const [v, setV] = useState('a');
-      return (
-        <SelectField label="Type" value={v} onChange={(e) => setV(e.target.value)}>
-          <option value="a">A</option>
-          <option value="b">B</option>
-        </SelectField>
-      );
+      const [value, setValue] = useState('a');
+      return <SelectField label="Type" value={value} onChange={(event) => setValue(event.target.value)}><option value="a">A</option><option value="b">B</option></SelectField>;
     }
     render(<Harness />);
-    await user.selectOptions(screen.getByLabelText('Type'), 'b');
+    await user.click(screen.getByLabelText('Type'));
+    await user.click(screen.getByRole('option', { name: 'B' }));
     expect(screen.getByLabelText('Type')).toHaveValue('b');
+    expect(screen.getByLabelText('Type')).toHaveTextContent('B');
   });
 
-  it('omits the label element when label prop is missing', () => {
-    const { container } = render(
-      <SelectField>
-        <option value="a">A</option>
-      </SelectField>,
-    );
-    expect(container.querySelector('label')).toBeNull();
-    expect(container.querySelector('select')).toBeTruthy();
+  it('supports an external label and compact filter variant', () => {
+    render(<><label htmlFor="filter">Child</label><SelectField id="filter" variant="filter"><option>Everyone</option></SelectField></>);
+    expect(screen.getByLabelText('Child')).toHaveValue('Everyone');
+    expect(screen.getByRole('combobox')).toHaveClass('min-h-11', 'w-auto');
   });
 });

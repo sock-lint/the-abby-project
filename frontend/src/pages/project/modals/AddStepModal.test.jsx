@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import AddStepModal from './AddStepModal.jsx';
 import { server } from '../../../test/server.js';
+import { openDropdown } from '../../../test/selectDropdown';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -31,7 +32,8 @@ describe('AddStepModal', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 
-  it('renders the "loose step" option when no milestone selected', () => {
+  it('renders the "loose step" option when no milestone selected', async () => {
+    const user = userEvent.setup();
     render(
       <AddStepModal
         projectId={5}
@@ -40,6 +42,7 @@ describe('AddStepModal', () => {
         onSaved={vi.fn()}
       />,
     );
-    expect(screen.getByText(/no milestone/i)).toBeInTheDocument();
+    const options = await openDropdown(user, screen.getByRole('combobox', { name: 'Milestone' }));
+    expect(options.getByRole('option', { name: /no milestone/i })).toHaveAttribute('aria-selected', 'true');
   });
 });

@@ -10,7 +10,9 @@
         "sprite_key": "cute-chick",
         "description": "",
         "food_preference": "",
-        "catalog_available": true
+        "catalog_available": true,
+        "catalog_icon": "portrait-chick",
+        "grown_catalog_icon": "portrait-chick-grown"
       },
       "potion": {
         "id": 41,
@@ -44,7 +46,9 @@
         "sprite_key": "cat",
         "description": "",
         "food_preference": "",
-        "catalog_available": false
+        "catalog_available": false,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 41,
@@ -80,7 +84,9 @@
         "sprite_key": "cat",
         "description": "",
         "food_preference": "",
-        "catalog_available": false
+        "catalog_available": false,
+        "catalog_icon": null,
+        "grown_catalog_icon": null
       },
       "potion": {
         "id": 41,

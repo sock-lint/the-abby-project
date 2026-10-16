@@ -14,9 +14,21 @@ digital offer is rejected; deactivating an earlier offer is allowed.
 
 `request_redemption` checks eligibility before holding Coins or decrementing
 stock. A direct request cannot bypass an omitted offer. Pending redemptions
-created earlier still fulfill their promised item exactly once through the
-existing approval path, even if new acquisition is now unavailable. Denial
-still refunds the frozen cost and restores stock. Do not rewrite old promises,
+created earlier still fulfill their saved item exactly once through the
+existing approval path, even if new acquisition is now unavailable. Each new
+redemption freezes `fulfillment_kind_snapshot` and the exact protected
+`item_definition_snapshot` alongside its price. Changing or retiring an offer
+cannot replace, remove or add digital delivery to that saved promise. The
+protected item cannot be deleted while a redemption references it. An older
+digital promise whose item was already missing remains pending on approval
+(409), allowing a parent to deny it and refund the held Coins.
+
+Migration `0012` freezes each historical row's last recoverable offer fields,
+including fulfilled and denied history, without awarding inventory or changing
+ledgers, status, price or decision notes. Original fulfillment edits and finite
+stock mode were not historically recorded, so the migration cannot reconstruct
+earlier values; it preserves the offer the old decision code would have used.
+Denial still refunds the frozen cost and restores reserved stock. Do not rewrite old promises,
 delete saved inventory or substitute compensating Coins because art support
 changed. `tests/test_digital_fulfillment.py` and
 `apps/rpg/tests/test_catalog_consumers.py` cover these boundaries.
@@ -24,7 +36,7 @@ changed. `tests/test_digital_fulfillment.py` and
 ## Models
 - `CoinLedger` — append-only ledger of Coin transactions. 12 reasons: `hourly`, `project_bonus`, `bounty_bonus`, `milestone_bonus`, `badge_bonus`, `redemption`, `refund`, `adjustment`, `chore_reward`, `exchange`, `daily_challenge`, `expedition`. Positive = earned, negative = spent/refunded.
 - `Reward` — family-scoped shop items. Rarity tiers (common→legendary), optional stock, `requires_parent_approval`, `order`. **Digital fulfillment**: `fulfillment_kind` (`real_world` / `digital_item` / `both`) + `item_definition` FK to `rpg.ItemDefinition` — approval auto-credits the item to `UserInventory` via `_maybe_credit_digital_item`. Per-family unique constraint on `(family, name)`.
-- `RewardRedemption` — submit-then-approve workflow. Statuses: `pending → fulfilled` (approved) or `pending → denied`. Inherits `ApprovalWorkflowModel`. `coin_cost_snapshot` freezes cost at request time for refund accuracy.
+- `RewardRedemption` — submit-then-approve workflow. Statuses: `pending → fulfilled` (approved) or `pending → denied`. Inherits `ApprovalWorkflowModel`. Price, fulfillment kind, exact digital item and whether finite stock was reserved are frozen at request time. Nested `reward` fields in redemption responses project the saved price/kind/item; shop offer responses retain today's editable values. Other offer metadata remains current.
 - `RewardWishlist` — `(user, reward)` bookmark. Cleared on restock notification or redemption. Unique constraint per user+reward.
 - `ExchangeRequest` — money→coins exchange pending parent approval. Statuses: `pending → approved` or `pending → denied`. Snapshots `exchange_rate` at request time. Money is NOT held at request time — balance re-verified at approval.
 
@@ -34,7 +46,7 @@ changed. `tests/test_digital_fulfillment.py` and
   the balance. Optional 3D print exchanges use the same spending path with a
   `redemption` debit and a `refund` credit for cancellation before any print.
   The print request holds its fixed quote and ledger links; no real money moves.
-- `RewardService` — `request_redemption` (hold coins + decrement stock + low-stock notification at 0/1), `approve` (stamp + digital-item credit), `reject` (refund coins + restore stock). Out-of-stock returns **409 Conflict** with `{detail, similar: [...]}`.
+- `RewardService` — `request_redemption` locks/re-reads the authoritative offer before eligibility, price and stock checks, then holds coins and reserves one stock atomically. Stale instances and concurrent buyers cannot sell the final item twice; the loser receives the existing **409 Conflict** with `{error, code: "out_of_stock", similar: [...]}`. `approve` stamps and credits the saved item. `reject` refunds the saved price and restores stock only when the request reserved a finite unit and the current offer still uses finite stock. An unlimited request cannot invent a unit after a later stock limit; returning a finite offer to unlimited retains unlimited stock.
 - `ExchangeService` — `request_exchange` (validate balance, snapshot rate, notify parents), `approve` (atomic debit `PaymentLedger` + credit `CoinLedger` + chronicle first-ever hook), `reject` (no ledger side-effects — money was never held).
 
 ## Exceptions
@@ -43,6 +55,7 @@ changed. `tests/test_digital_fulfillment.py` and
 ## Gotchas
 - **Wishlist restock fan-out**: when a parent edits a reward and stock crosses `0 → ≥1`, `RewardService` fans out `REWARD_RESTOCKED` notifications to every wishlist user and clears their wishlist rows in the same transaction. Each notification also sends an email (2026-06) when the user has an address — restocks are time-sensitive and the cleared wishlist row means there's no second chance to reach an out-of-app kid. Email failures log via `logger.exception` without breaking the in-app fanout (same posture as the weekly-summary emails in `apps/timecards/tasks.py`); pinned by `RestockEmailTests` in [`tests/test_views.py`](tests/test_views.py).
 - **Low-stock signal**: `request_redemption` fires `LOW_REWARD_STOCK` notification to parents the first time stock enters 0 or 1.
+- **Offer writes**: REST and MCP updates re-read under the same offer lock as reservations. Metadata-only edits retain the current stock; an explicit stock value remains an intentional restock. Wallet/decision services lock the child before the offer (or child, redemption, offer); metadata edits take only the offer lock, and notification FKs remain compatible with the child's `NO KEY UPDATE` lock.
 - **Coin boost whitelist**: when adding a new earn-kind `CoinLedger.Reason`, decide whether it belongs in `_BOOSTABLE_COIN_REASONS` (`apps/rpg/services.py`) and add a regression test in `apps/rpg/tests/test_boost_multipliers.py`.
 - **`Reward.save()` defense-in-depth**: auto-attaches to default family when `family_id` is None (same pattern as `User`, `ProjectTemplate`, `Chore`).
 

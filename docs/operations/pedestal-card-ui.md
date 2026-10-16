@@ -1,10 +1,13 @@
 # Pedestal and card UI adoption
 
 This adds private family `meshtint-pedestal-card-ui` **1.0.1** alongside the
-unchanged Archer 1.0.2 and Bird Evolution 1.0.0 pins. The runtime manifest is
+unchanged Archer 1.0.2, Bird Evolution 1.0.0 and catalog icons 1.0.0 pins.
+The runtime manifest is
 `abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d`.
-The integration PR is for review and protected staging. It does not authorize
-merging to the production branch, public delivery or production deployment.
+The integration was prepared for review and protected staging. The owner later
+waived staging and separately requested merging PR #244. Follow the normal hosted
+CI, independent review, merge-owner and exact-deployment/live gates; no release
+configuration or credential change is part of this integration.
 
 ## Verified private delivery
 
@@ -39,7 +42,7 @@ ABBY_ASSETS_S3_PREFIX=releases npm --prefix frontend run assets:import
 npm --prefix frontend run assets:verify
 ```
 
-The transactional importer verifies three releases and 179 runtime files. This
+The transactional importer verifies four releases and 339 runtime files. This
 family adds six GLBs and 35 PNGs, **35,246,574 bytes**. All runtime payloads,
 handoffs, original packs, derivatives, screenshots and verification receipts
 stay outside Git. Source backup for this workshop work remains **pending**;
@@ -111,18 +114,21 @@ this adaptation. No Unity parity is claimed.
 ## Actual rollback baseline
 
 The pre-integration application baseline is
-`f93bf97b069c45797e22a6356e8da05de8461449`.
+`46831052ecb3966ee7178b52090898dcd88b7c84` (the current main integration baseline).
 It pins Archer 1.0.2 at
-`4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3`
-and Bird Evolution 1.0.0 at
-`1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a`,
-with contracts 1.3.0, release-tools 1.5.0 and avatar-runtime 1.2.0. A private
-baseline record retains the original asset and package locks. A null previous
-workshop pin is not the app's rollback baseline.
+`4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3`,
+Bird Evolution 1.0.0 at
+`1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a`
+and catalog icons 1.0.0 at
+`0201085bd500af510bbdbcb16ac3fa68d0588b3cc321a4943d57e64c3cbd4ad2`,
+with contracts 1.3.0, release-tools 1.5.0 and avatar-runtime 1.2.0. Private
+baseline records retain this integration baseline and the original implementation
+baseline `f93bf97b069c45797e22a6356e8da05de8461449`, including their asset and
+package locks. A null previous workshop pin is not the app's rollback baseline.
 
 To roll back after a separately authorized rollout, prepare a new reviewed PR
-reverting this integration together with its third family pin, preserving later
-unrelated work. Reimport and verify the retained two releases and rerun the
+reverting this integration together with its pedestal/card family pin, preserving
+later unrelated work. Reimport and verify the retained three releases and rerun the
 applicable checks and protected staging acceptance before any deployment. No
 database migration, inventory/reward reversal or saved-avatar reset is needed.
 Never rewrite an immutable workshop release to perform a rollback.

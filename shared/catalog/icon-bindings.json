@@ -1,0 +1,868 @@
+{
+  "schema_version": 1,
+  "family_id": "abby-catalog-icons",
+  "release_version": "1.0.0",
+  "manifest_sha256": "0201085bd500af510bbdbcb16ac3fa68d0588b3cc321a4943d57e64c3cbd4ad2",
+  "items": {
+    "base-potion": {
+      "asset_id": "item-base-potion",
+      "name": "Base Potion",
+      "item_type": "potion",
+      "requires_confirmation": false
+    },
+    "chick-egg": {
+      "asset_id": "item-chick-egg",
+      "name": "Chick Egg",
+      "item_type": "egg",
+      "requires_confirmation": false
+    },
+    "food-meat": {
+      "asset_id": "item-meat",
+      "name": "Meat",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-fish": {
+      "asset_id": "item-fish",
+      "name": "Fish",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-berries": {
+      "asset_id": "item-berries",
+      "name": "Berries",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-seeds": {
+      "asset_id": "item-seeds",
+      "name": "Seeds",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-birdseed": {
+      "asset_id": "item-birdseed",
+      "name": "Birdseed",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-honey": {
+      "asset_id": "item-honey",
+      "name": "Honey",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-cake": {
+      "asset_id": "item-cake",
+      "name": "Cake",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-apple": {
+      "asset_id": "item-apple",
+      "name": "Apple",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-strawberry": {
+      "asset_id": "item-strawberry",
+      "name": "Strawberry",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-grapes": {
+      "asset_id": "item-grapes",
+      "name": "Grape Cluster",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-banana": {
+      "asset_id": "item-banana",
+      "name": "Banana",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-pear": {
+      "asset_id": "item-pear",
+      "name": "Pear",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-lemon": {
+      "asset_id": "item-lemon",
+      "name": "Lemon",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-carrot": {
+      "asset_id": "item-carrot",
+      "name": "Carrot",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-sweetcorn": {
+      "asset_id": "item-sweetcorn",
+      "name": "Sweetcorn",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-tomato": {
+      "asset_id": "item-tomato",
+      "name": "Tomato",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-chili": {
+      "asset_id": "item-chili",
+      "name": "Red Chili",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-mushroom": {
+      "asset_id": "item-mushroom",
+      "name": "Wild Mushroom",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-bread": {
+      "asset_id": "item-bread",
+      "name": "Loaf of Bread",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-chicken-leg": {
+      "asset_id": "item-chicken-leg",
+      "name": "Chicken Leg",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-steak": {
+      "asset_id": "item-steak",
+      "name": "Sirloin Steak",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-fish-cooked": {
+      "asset_id": "item-fish-cooked",
+      "name": "Cooked Fish",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-ham": {
+      "asset_id": "item-ham",
+      "name": "Honey-Glazed Ham",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-eggs": {
+      "asset_id": "item-eggs",
+      "name": "Eggs",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-cheese": {
+      "asset_id": "item-cheese",
+      "name": "Cheese Wedge",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-milk": {
+      "asset_id": "item-milk",
+      "name": "Milk",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-candy": {
+      "asset_id": "item-candy",
+      "name": "Candy",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-plankton": {
+      "asset_id": "item-plankton",
+      "name": "Plankton Bloom",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-tuna": {
+      "asset_id": "item-tuna",
+      "name": "Tuna Fillet",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-kelp": {
+      "asset_id": "item-kelp",
+      "name": "Kraken Kelp",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-crab": {
+      "asset_id": "item-crab",
+      "name": "Tide Crab",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-oats": {
+      "asset_id": "item-oats",
+      "name": "Oats",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-sugar-cube": {
+      "asset_id": "item-sugar-cube",
+      "name": "Sugar Cube",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-kitten-treat": {
+      "asset_id": "item-kitten-treat",
+      "name": "Kitten Treat",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-stardust": {
+      "asset_id": "item-stardust",
+      "name": "Stardust Essence",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "food-cuddle-cookie": {
+      "asset_id": "item-cuddle-cookie",
+      "name": "Cuddle Cookie",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "pouch-small": {
+      "asset_id": "item-pouch-small",
+      "name": "Small Coin Pouch",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "pouch-medium": {
+      "asset_id": "item-pouch-medium",
+      "name": "Medium Coin Pouch",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "pouch-large": {
+      "asset_id": "item-pouch-large",
+      "name": "Large Coin Pouch",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "pouch-rupee": {
+      "asset_id": "item-pouch-rupee",
+      "name": "Loose Rupee",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "pouch-gold": {
+      "asset_id": "item-pouch-gold",
+      "name": "Gold Stack",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "pouch-treasure": {
+      "asset_id": "item-pouch-treasure",
+      "name": "Treasure Hoard",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "frame-bronze": {
+      "asset_id": "item-frame-bronze",
+      "name": "Bronze Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-silver": {
+      "asset_id": "item-frame-silver",
+      "name": "Silver Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-gold": {
+      "asset_id": "item-frame-gold",
+      "name": "Gold Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-cosmic": {
+      "asset_id": "item-frame-cosmic",
+      "name": "Cosmic Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-barbute": {
+      "asset_id": "item-frame-barbute",
+      "name": "Barbute Helm Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-robin-hood": {
+      "asset_id": "item-frame-robin-hood",
+      "name": "Ranger's Cap Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-cross-helm": {
+      "asset_id": "item-frame-cross-helm",
+      "name": "Paladin Helm Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "title-apprentice": {
+      "asset_id": "item-title-apprentice",
+      "name": "Apprentice",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-artisan": {
+      "asset_id": "item-title-artisan",
+      "name": "Artisan",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-master-crafter": {
+      "asset_id": "item-title-master-crafter",
+      "name": "Master Crafter",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-legendary-forgemaster": {
+      "asset_id": "item-title-legendary-forgemaster",
+      "name": "Legendary Forgemaster",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "cover-hyrule": {
+      "asset_id": "item-cover-hyrule",
+      "name": "Hyrule Day",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "cover-sunlit": {
+      "asset_id": "item-cover-sunlit",
+      "name": "Sunlit Field",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "cover-verdant": {
+      "asset_id": "item-cover-verdant",
+      "name": "Verdant Pages",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "cover-harvest": {
+      "asset_id": "item-cover-harvest",
+      "name": "Harvest Folio",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "cover-snowquill": {
+      "asset_id": "item-cover-snowquill",
+      "name": "Snowquill Tome",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "cover-vigil": {
+      "asset_id": "item-cover-vigil",
+      "name": "Night Vigil",
+      "item_type": "cosmetic_theme",
+      "requires_confirmation": false
+    },
+    "scroll-crimson": {
+      "asset_id": "item-scroll-crimson",
+      "name": "Crimson Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "scroll-azure": {
+      "asset_id": "item-scroll-azure",
+      "name": "Azure Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "scroll-emerald": {
+      "asset_id": "item-scroll-emerald",
+      "name": "Emerald Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "scroll-amber": {
+      "asset_id": "item-scroll-amber",
+      "name": "Amber Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "scroll-sealed": {
+      "asset_id": "item-scroll-sealed",
+      "name": "Sealed Mission Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "scroll-ancient": {
+      "asset_id": "item-scroll-ancient",
+      "name": "Ancient Scroll",
+      "item_type": "quest_scroll",
+      "requires_confirmation": false
+    },
+    "title-bookworm": {
+      "asset_id": "item-title-bookworm",
+      "name": "Bookworm",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-scholar": {
+      "asset_id": "item-title-scholar",
+      "name": "Scholar",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "frame-scholar": {
+      "asset_id": "item-frame-scholar",
+      "name": "Scholar Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-laurel": {
+      "asset_id": "item-frame-laurel",
+      "name": "Laurel Wreath Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-rune-circle": {
+      "asset_id": "item-frame-rune-circle",
+      "name": "Rune Circle Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-steampunk": {
+      "asset_id": "item-frame-steampunk",
+      "name": "Steampunk Gear Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "frame-pixel": {
+      "asset_id": "item-frame-pixel",
+      "name": "Pixel Pixel Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "title-hoarder": {
+      "asset_id": "item-title-hoarder",
+      "name": "Hoarder",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-trailblazer": {
+      "asset_id": "item-title-trailblazer",
+      "name": "Trailblazer",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-perfectionist": {
+      "asset_id": "item-title-perfectionist",
+      "name": "Perfectionist",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-chore-hero": {
+      "asset_id": "item-title-chore-hero",
+      "name": "Chore Hero",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-green-thumb": {
+      "asset_id": "item-title-green-thumb",
+      "name": "Green Thumb",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-earlybird": {
+      "asset_id": "item-title-earlybird",
+      "name": "Early Bird",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "title-birthday-celebrant": {
+      "asset_id": "item-title-birthday-celebrant",
+      "name": "Birthday Celebrant",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "pouch-mega": {
+      "asset_id": "item-pouch-mega",
+      "name": "Mega Hoard",
+      "item_type": "coin_pouch",
+      "requires_confirmation": false
+    },
+    "hs-prep-2026-title-freshman-warrior": {
+      "asset_id": "item-hs-prep-2026-title-freshman-warrior",
+      "name": "Freshman Warrior",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "hs-prep-2026-frame-high-school-trophy": {
+      "asset_id": "item-hs-prep-2026-frame-high-school-trophy",
+      "name": "High School Trophy Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "hs-prep-2026-title-summer-scholar": {
+      "asset_id": "item-hs-prep-2026-title-summer-scholar",
+      "name": "Summer Scholar",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "sleep-prep-2026-frame-moonlit": {
+      "asset_id": "item-sleep-prep-2026-frame-moonlit",
+      "name": "Moonlit Frame",
+      "item_type": "cosmetic_frame",
+      "requires_confirmation": false
+    },
+    "sleep-prep-2026-title-well-rested": {
+      "asset_id": "item-sleep-prep-2026-title-well-rested",
+      "name": "Well-Rested",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "sleep-prep-2026-food-chamomile-tea": {
+      "asset_id": "item-sleep-prep-2026-food-chamomile-tea",
+      "name": "Chamomile Tea",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "spring-2026-food-dandelion": {
+      "asset_id": "item-spring-2026-food-dandelion",
+      "name": "Dandelion Greens",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "spring-2026-food-honeysuckle": {
+      "asset_id": "item-spring-2026-food-honeysuckle",
+      "name": "Honeysuckle Nectar",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "spring-2026-food-rhubarb": {
+      "asset_id": "item-spring-2026-food-rhubarb",
+      "name": "Rhubarb Stalk",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "spring-2026-food-spring-peas": {
+      "asset_id": "item-spring-2026-food-spring-peas",
+      "name": "Spring Peas",
+      "item_type": "food",
+      "requires_confirmation": false
+    },
+    "spring-2026-title-garden-hero": {
+      "asset_id": "item-spring-2026-title-garden-hero",
+      "name": "Garden Hero",
+      "item_type": "cosmetic_title",
+      "requires_confirmation": false
+    },
+    "streak-freeze": {
+      "asset_id": "item-streak-freeze",
+      "name": "Streak Freeze",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "scholar-draught": {
+      "asset_id": "item-scholar-draught",
+      "name": "Scholar's Draught",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "lucky-coin": {
+      "asset_id": "item-lucky-coin",
+      "name": "Lucky Coin",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "drop-charm": {
+      "asset_id": "item-drop-charm",
+      "name": "Drop Charm",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "growth-tonic": {
+      "asset_id": "item-growth-tonic",
+      "name": "Growth Tonic",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "rage-breaker": {
+      "asset_id": "item-rage-breaker",
+      "name": "Rage Breaker",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "scholar-draught-ii": {
+      "asset_id": "item-scholar-draught-ii",
+      "name": "Scholar's Draught II",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "lucky-coin-ii": {
+      "asset_id": "item-lucky-coin-ii",
+      "name": "Lucky Coin II",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "pet-evolution-accelerator": {
+      "asset_id": "item-pet-evolution-accelerator",
+      "name": "Pet Evolution Accelerator",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "feast-platter": {
+      "asset_id": "item-feast-platter",
+      "name": "Feast Platter",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "mystery-box": {
+      "asset_id": "item-mystery-box",
+      "name": "Mystery Box",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "lucky-dip": {
+      "asset_id": "item-lucky-dip",
+      "name": "Lucky Dip",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "quest-reroll": {
+      "asset_id": "item-quest-reroll",
+      "name": "Quest Reroll",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "pet-morale-tonic": {
+      "asset_id": "item-pet-morale-tonic",
+      "name": "Pet Morale Tonic",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "skill-tonic": {
+      "asset_id": "item-skill-tonic",
+      "name": "Skill Tonic",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    },
+    "autumns-gift": {
+      "asset_id": "item-autumns-gift",
+      "name": "Autumn's Gift",
+      "item_type": "consumable",
+      "requires_confirmation": true
+    }
+  },
+  "challenges": {
+    "Dragon Slayer": {
+      "asset_id": "challenge-dragon-slayer",
+      "quest_type": "boss"
+    },
+    "Feather Collector": {
+      "asset_id": "challenge-feather-collector",
+      "quest_type": "collection"
+    },
+    "Focus Master": {
+      "asset_id": "challenge-focus-master",
+      "quest_type": "boss"
+    },
+    "Angler's Bounty": {
+      "asset_id": "challenge-angler-s-bounty",
+      "quest_type": "collection"
+    },
+    "Backyard Botanist": {
+      "asset_id": "challenge-backyard-botanist",
+      "quest_type": "collection"
+    },
+    "Iron Chef": {
+      "asset_id": "challenge-iron-chef",
+      "quest_type": "collection"
+    },
+    "Treasure Hunter": {
+      "asset_id": "challenge-treasure-hunter",
+      "quest_type": "boss"
+    },
+    "Scholar's Week": {
+      "asset_id": "challenge-scholar-s-week",
+      "quest_type": "collection"
+    },
+    "On-Time Streak": {
+      "asset_id": "challenge-on-time-streak",
+      "quest_type": "collection"
+    },
+    "Midnight Oil": {
+      "asset_id": "challenge-midnight-oil",
+      "quest_type": "boss"
+    },
+    "Weekly Reset": {
+      "asset_id": "challenge-weekly-reset",
+      "quest_type": "collection"
+    },
+    "Bounty Hunter": {
+      "asset_id": "challenge-bounty-hunter",
+      "quest_type": "collection"
+    },
+    "Perfect Seven": {
+      "asset_id": "challenge-perfect-seven",
+      "quest_type": "collection"
+    },
+    "Builder's Pride": {
+      "asset_id": "challenge-builder-s-pride",
+      "quest_type": "boss"
+    },
+    "Pantry Patroller": {
+      "asset_id": "challenge-pantry-patroller",
+      "quest_type": "collection"
+    },
+    "Summer Solstice": {
+      "asset_id": "challenge-summer-solstice",
+      "quest_type": "collection"
+    },
+    "Harvest Feast": {
+      "asset_id": "challenge-harvest-feast",
+      "quest_type": "collection"
+    },
+    "Cold Snap": {
+      "asset_id": "challenge-cold-snap",
+      "quest_type": "boss"
+    },
+    "Night Owl's Path": {
+      "asset_id": "challenge-night-owl-s-path",
+      "quest_type": "collection"
+    },
+    "Defeat the Doomscroll": {
+      "asset_id": "challenge-defeat-the-doomscroll",
+      "quest_type": "boss"
+    },
+    "Garden Pest Hunter": {
+      "asset_id": "challenge-garden-pest-hunter",
+      "quest_type": "boss"
+    },
+    "Seven Nights of Stories": {
+      "asset_id": "challenge-seven-nights-of-stories",
+      "quest_type": "collection"
+    },
+    "First Week of Freshman Year": {
+      "asset_id": "challenge-first-week-of-freshman-year",
+      "quest_type": "collection"
+    },
+    "The Summer Before High School": {
+      "asset_id": "challenge-the-summer-before-high-school",
+      "quest_type": "boss"
+    },
+    "Daily Rituals": {
+      "asset_id": "challenge-daily-rituals",
+      "quest_type": "collection"
+    },
+    "Spring Planting": {
+      "asset_id": "challenge-spring-planting",
+      "quest_type": "collection"
+    },
+    "Autumn Leaves": {
+      "asset_id": "challenge-autumn-leaves",
+      "quest_type": "collection"
+    },
+    "Winter Solstice": {
+      "asset_id": "challenge-winter-solstice",
+      "quest_type": "collection"
+    },
+    "May Day": {
+      "asset_id": "challenge-may-day",
+      "quest_type": "collection"
+    },
+    "Birthday Builder": {
+      "asset_id": "challenge-birthday-builder",
+      "quest_type": "collection"
+    },
+    "Apprentice Path": {
+      "asset_id": "challenge-apprentice-path",
+      "quest_type": "boss"
+    },
+    "Comeback Kid": {
+      "asset_id": "challenge-comeback-kid",
+      "quest_type": "collection"
+    },
+    "Phoenix Rising": {
+      "asset_id": "challenge-phoenix-rising",
+      "quest_type": "boss"
+    },
+    "Family Co-op — Spring Cleaning": {
+      "asset_id": "challenge-family-co-op-spring-cleaning",
+      "quest_type": "collection"
+    },
+    "Coder's Crucible": {
+      "asset_id": "challenge-coder-s-crucible",
+      "quest_type": "boss"
+    },
+    "Solder & Spark": {
+      "asset_id": "challenge-solder-spark",
+      "quest_type": "boss"
+    },
+    "Shop Class": {
+      "asset_id": "challenge-shop-class",
+      "quest_type": "boss"
+    },
+    "The Maestro's Month": {
+      "asset_id": "challenge-the-maestro-s-month",
+      "quest_type": "boss"
+    },
+    "Sketchbook Sprint": {
+      "asset_id": "challenge-sketchbook-sprint",
+      "quest_type": "collection"
+    },
+    "Lab Notebook": {
+      "asset_id": "challenge-lab-notebook",
+      "quest_type": "boss"
+    },
+    "Open Road": {
+      "asset_id": "challenge-open-road",
+      "quest_type": "boss"
+    },
+    "Wordsmith's Week": {
+      "asset_id": "challenge-wordsmith-s-week",
+      "quest_type": "collection"
+    },
+    "Collector's Badge": {
+      "asset_id": "challenge-collector-s-badge",
+      "quest_type": "collection"
+    },
+    "Perfect Arc": {
+      "asset_id": "challenge-perfect-arc",
+      "quest_type": "collection"
+    },
+    "Summer Reading List": {
+      "asset_id": "challenge-summer-reading-list",
+      "quest_type": "collection"
+    },
+    "Comeback Kid II": {
+      "asset_id": "challenge-comeback-kid-ii",
+      "quest_type": "collection"
+    },
+    "Journeyman Trial": {
+      "asset_id": "challenge-journeyman-trial",
+      "quest_type": "boss"
+    },
+    "Master's Path": {
+      "asset_id": "challenge-master-s-path",
+      "quest_type": "boss"
+    },
+    "Hoard Builder": {
+      "asset_id": "challenge-hoard-builder",
+      "quest_type": "collection"
+    }
+  },
+  "pets": {
+    "chick": {
+      "name": "Chick",
+      "sprite_key": "cute-chick",
+      "catalog_icon": "portrait-chick",
+      "grown_catalog_icon": "portrait-chick-grown"
+    }
+  }
+}

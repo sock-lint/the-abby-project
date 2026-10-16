@@ -33,6 +33,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+from apps.rpg.catalog_icons import item_catalog_icon
 
 from .catalog_support import available_items, item_is_available
 
@@ -177,6 +178,8 @@ class StreakService:
         if activity_date is None:
             activity_date = timezone.localdate()
 
+        from apps.accounts.models import User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
         profile, _created = CharacterProfile.objects.select_for_update().get_or_create(
             user=user
         )
@@ -432,6 +435,7 @@ class DropService:
         return [{
             "item_id": item.pk,
             "item_name": item.name,
+            "item_catalog_icon": item_catalog_icon(item),
             "item_icon": item.icon,
             "item_type": item.item_type,
             "item_rarity": item.rarity,
@@ -629,7 +633,7 @@ def _step_check_in_bonus(user, trigger_type, context, result):
 def _step_streak_milestone(user, trigger_type, context, result):
     """Step 3: notify on milestone streak day (3, 7, 14, …)."""
     streak_result = result.get("streak")
-    if not streak_result:
+    if not streak_result or not streak_result["is_first_today"]:
         return
     streak = streak_result["streak"]
     if streak not in STREAK_MILESTONES:
@@ -659,6 +663,15 @@ def _step_drops(user, trigger_type, context, result):
     if not context.get("drops_allowed", True):
         result["drops"] = []
         return
+    if trigger_type == TriggerType.CLOCK_OUT and context.get("time_entry_id"):
+        from apps.timecards.services import ClockService
+        # Claim and roll share this step's savepoint. A storage/notification
+        # failure leaves the saved work eligible on a later positive close;
+        # an ordinary random miss commits the day's single opportunity.
+        context["drops_allowed"] = ClockService.claim_drop_for_entry(user, context["time_entry_id"])
+        if not context["drops_allowed"]:
+            result["drops"] = []
+            return
     drops = DropService.process_drops(user, trigger_type, streak_bonus)
     result["drops"] = drops
     if drops:
@@ -806,6 +819,7 @@ class ConsumableService:
         whole batch so a kid never loses items without the corresponding
         effect.
         """
+        from apps.achievements.services import _lock_award_user
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
         try:
@@ -815,6 +829,10 @@ class ConsumableService:
         if quantity < 1:
             raise ValueError("quantity must be at least 1")
 
+        # Skill tonics use the shared XP/badge pipeline, which takes this
+        # gate before progress/profile locks. Other consumables and feeding
+        # use the same gate so item and companion writes cannot invert it.
+        _lock_award_user(user)
         try:
             inv = UserInventory.objects.select_for_update().get(
                 user=user, item_id=item_id, quantity__gte=quantity,
@@ -928,39 +946,25 @@ class ConsumableService:
             # Applies directly to UserPet.growth_points, bypassing the food
             # mechanic (so it stacks with a feed on the same day). Honors
             # the per-pet daily cap — see CONSUMABLE_GROWTH_DAILY_CAP.
-            from apps.pets.models import UserMount, UserPet
+            from apps.pets.models import UserPet
+            from apps.pets.services import PetService
             amount = int(meta.get("growth", 30))
-            pet = UserPet.objects.filter(
+            pet = UserPet.objects.select_for_update().filter(
                 user=profile.user, is_active=True, evolved_to_mount=False,
-            ).first()
+            ).order_by("pk").first()
             if not pet:
                 raise ValueError("No active unevolved pet to accelerate")
             applied = pet.apply_consumable_growth(amount)
-            evolved_mount = None
-            if pet.growth_points >= 100:
-                pet.evolved_to_mount = True
-                pet.save(update_fields=[
-                    "growth_points", "evolved_to_mount",
-                    "consumable_growth_today", "consumable_growth_date",
-                    "updated_at",
-                ])
-                mount, _ = UserMount.objects.get_or_create(
-                    user=profile.user, species=pet.species, potion=pet.potion,
-                )
-                evolved_mount = mount.pk
-            else:
-                pet.save(update_fields=[
-                    "growth_points",
-                    "consumable_growth_today", "consumable_growth_date",
-                    "updated_at",
-                ])
+            mount = PetService._save_growth(pet, update_fields=[
+                "growth_points", "consumable_growth_today", "consumable_growth_date",
+            ])
             return {
                 "pet_id": pet.pk,
                 "growth_requested": amount,
                 "growth_added": applied,
                 "growth_capped": applied < amount,
                 "new_growth": pet.growth_points,
-                "evolved_to_mount": bool(evolved_mount),
+                "evolved_to_mount": mount is not None,
             }
         if effect == "feast_platter":
             # Sweeping small growth boost to every unevolved pet in the user's
@@ -968,11 +972,12 @@ class ConsumableService:
             # is a party treat — intentionally affects all. Each pet's share
             # is independently subject to the per-pet daily cap.
             from apps.pets.models import UserPet
+            from apps.pets.services import PetService
             per_pet = int(meta.get("growth", 10))
             pets = list(
                 UserPet.objects.select_for_update().filter(
                     user=profile.user, evolved_to_mount=False,
-                )
+                ).order_by("pk")
             )
             if not pets:
                 raise ValueError("No pets to feed")
@@ -980,10 +985,8 @@ class ConsumableService:
             for pet in pets:
                 applied = pet.apply_consumable_growth(per_pet)
                 applied_per_pet.append(applied)
-                pet.save(update_fields=[
-                    "growth_points",
-                    "consumable_growth_today", "consumable_growth_date",
-                    "updated_at",
+                PetService._save_growth(pet, update_fields=[
+                    "growth_points", "consumable_growth_today", "consumable_growth_date",
                 ])
             return {
                 "pets_fed": len(pets),
@@ -1097,25 +1100,29 @@ class ConsumableService:
         if effect == "skill_tonic":
             # Grants a fixed XP bolt to the user's highest-level SkillProgress
             # row. No "pick a skill" UI needed — the tonic finds the leader
-            # and tops it up. Tiebreak: most recently updated.
-            from apps.achievements.models import SkillProgress, XP_THRESHOLDS
+            # and tops it up. Tiebreak: XP total, then newest row.
+            from types import SimpleNamespace
+            from apps.achievements.models import SkillProgress
+            from apps.achievements.services import AwardService
             amount = int(meta.get("xp", 50))
             progress = SkillProgress.objects.filter(
                 user=profile.user, unlocked=True,
             ).order_by("-level", "-xp_points", "-id").first()
             if progress is None:
                 raise ValueError("You need to unlock a skill first")
-            progress.xp_points += amount
-            # Promote levels while we can — mirrors SkillService's level math.
-            while progress.level + 1 in XP_THRESHOLDS and (
-                progress.xp_points >= XP_THRESHOLDS[progress.level + 1]
-            ):
-                progress.level += 1
-            progress.save(update_fields=["xp_points", "level"])
+            award = AwardService.grant(
+                profile.user, xp=amount,
+                xp_tags=[SimpleNamespace(skill=progress.skill, xp_weight=1)],
+                xp_source_label=f"Consumable: {item.name}",
+                badge_scopes={"skill_xp", "badges"},
+            )
+            # Badge bonuses may have added more XP after the direct tonic
+            # grant. Report saved totals while keeping xp_awarded direct.
+            progress.refresh_from_db(fields=["xp_points", "level"])
             return {
                 "skill_id": progress.skill_id,
                 "skill_name": progress.skill.name,
-                "xp_awarded": amount,
+                "xp_awarded": award["xp_awarded"],
                 "new_level": progress.level,
                 "new_xp": progress.xp_points,
             }
@@ -1266,6 +1273,8 @@ class CosmeticService:
         path. Returns dict with slot and equipped item, or raises ValueError.
         """
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+        from apps.accounts.models import User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
 
         try:
             item = ItemDefinition.objects.get(pk=item_id)
@@ -1296,7 +1305,7 @@ class CosmeticService:
                     "its metadata.theme is missing or unknown."
                 )
 
-        profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
         setattr(profile, slot, item)
         profile.save(update_fields=[slot, "updated_at"])
 
@@ -1335,6 +1344,8 @@ class CosmeticService:
         from apps.rpg.models import (
             CharacterProfile, ItemDefinition, UserInventory,
         )
+        from apps.accounts.models import User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
 
         try:
             cover = ItemDefinition.objects.get(slug=slug)
@@ -1354,7 +1365,7 @@ class CosmeticService:
             user=user, item=cover,
             defaults={"quantity": 1},
         )
-        profile, _ = CharacterProfile.objects.get_or_create(user=user)
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
         if profile.active_theme_id is None:
             profile.active_theme = cover
             profile.save(update_fields=["active_theme", "updated_at"])
@@ -1375,6 +1386,8 @@ class CosmeticService:
         operation never grants inventory or evaluates reward eligibility.
         """
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+        from apps.accounts.models import User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
 
         if slot not in CosmeticService.COSMETIC_SLOT_MAP.values():
             raise ValueError(f"Invalid slot: {slot}")

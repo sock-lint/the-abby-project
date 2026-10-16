@@ -161,6 +161,16 @@ class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):
     coin_cost_snapshot = models.PositiveIntegerField(
         help_text="Cost at time of request — authoritative for refunds.",
     )
+    fulfillment_kind_snapshot = models.CharField(
+        max_length=16, choices=Reward.FulfillmentKind.choices,
+        default="", editable=False,
+    )
+    item_definition_snapshot = models.ForeignKey(
+        "rpg.ItemDefinition", on_delete=models.PROTECT,
+        null=True, blank=True, editable=False,
+        related_name="promised_redemptions",
+    )
+    stock_reserved = models.BooleanField(default=False, editable=False)
     parent_notes = models.TextField(blank=True)
 
     class Meta:
@@ -168,6 +178,18 @@ class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):
 
     def __str__(self):
         return f"{self.user} → {self.reward.name} ({self.status})"
+
+    def save(self, *args, **kwargs):
+        # Non-service callers (fixtures/admin) also freeze a promise once.
+        # The request service supplies these from its locked authoritative
+        # offer; later decisions never re-read the offer to replace them.
+        if self._state.adding and not self.fulfillment_kind_snapshot:
+            reward = self.reward
+            self.fulfillment_kind_snapshot = reward.fulfillment_kind
+            if reward.fulfillment_kind != Reward.FulfillmentKind.REAL_WORLD:
+                self.item_definition_snapshot_id = reward.item_definition_id
+            self.stock_reserved = reward.stock is not None
+        super().save(*args, **kwargs)
 
 
 class RewardWishlist(CreatedAtModel):

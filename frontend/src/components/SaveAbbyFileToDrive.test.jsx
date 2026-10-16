@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -79,7 +80,7 @@ describe('SaveAbbyFileToDrive', () => {
     expect(screen.getByText('Page 2 · 21 files')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Previous files' }));
     await user.click(await screen.findByRole('radio', { name: 'Science.pdf Science project' }));
-    await user.selectOptions(screen.getByLabelText('File category'), 'project_photo');
+    await selectDropdown(user, screen.getByLabelText('File category'), 'project_photo');
     expect(await screen.findByRole('radio', { name: 'Robot.jpg Robot' })).not.toBeChecked();
     expect(screen.getByRole('button', { name: 'Save to Google Drive' })).toBeDisabled();
     expect(requests.calls.map(({ url }) => [new URL(url).searchParams.get('source_type'), new URL(url).searchParams.get('page')])).toEqual([
@@ -93,7 +94,7 @@ describe('SaveAbbyFileToDrive', () => {
     server.use(requests.handler);
     render(<SaveAbbyFileToDrive />);
     await screen.findByText('No files in this category yet.');
-    await user.selectOptions(screen.getByLabelText('File category'), sourceType);
+    await selectDropdown(user, screen.getByLabelText('File category'), sourceType);
     await waitFor(() => expect(requests.calls).toHaveLength(2));
     expect(new URL(requests.calls[1].url).searchParams.get('source_type')).toBe(sourceType);
     expect(authorizeGoogleDrive).not.toHaveBeenCalled();

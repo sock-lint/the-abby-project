@@ -3,6 +3,7 @@ import { renderWithProviders, screen, within } from '../../test/render';
 import PedestalShowcase from './PedestalShowcase';
 import { DesignPreviewContext } from './preview.context';
 import { PEDESTAL_IMAGE_IDS, PEDESTAL_EGG_IDS } from '../../pedestal/pedestalRelease';
+import { selectDropdown } from '../../test/selectDropdown';
 
 vi.mock('../../pedestal/PedestalPreview', () => ({ default: ({ eggAssetId, animate }) => <div role="img" aria-label="Decorative model preview" data-egg={eggAssetId || 'pedestal-only'} data-animate={String(animate)} /> }));
 vi.mock('../../pedestal/pedestalRelease', async () => {
@@ -16,7 +17,7 @@ describe('Pedestal and card design preview', () => {
     const { user } = renderWithProviders(<PedestalShowcase />, { withAuth: false });
     const picker = screen.getByRole('combobox', { name: 'Egg artwork' });
     for (const assetId of [...PEDESTAL_EGG_IDS, '']) {
-      await user.selectOptions(picker, assetId);
+      await selectDropdown(user, picker, assetId);
       expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', assetId || 'pedestal-only');
     }
     await user.click(screen.getByRole('checkbox', { name: 'Play native loops' }));
@@ -37,8 +38,8 @@ describe('Pedestal and card design preview', () => {
       expect(img).toHaveAttribute('width', '512');
       expect(img).toHaveAttribute('loading', 'lazy');
     }
-    await user.selectOptions(screen.getByRole('combobox', { name: 'UI artwork' }), 'card-front-nature');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Selected image resolution' }), 'native');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'UI artwork' }), 'card-front-nature');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Selected image resolution' }), 'native');
     expect(container.querySelector('[data-pedestal-image="card-front-nature"][data-image-variant="native"] img')).toHaveAttribute('width', '1024');
     expect(gallery.querySelectorAll('[data-image-variant="native"]')).toHaveLength(0);
     await user.click(screen.getByRole('checkbox', { name: 'Show all 19 web images' }));

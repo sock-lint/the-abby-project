@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chooseDropdown, dropdownListbox } from './dropdown-helpers.js';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -93,7 +94,7 @@ test('current showcase controls and measured frame content reflow at phone and d
   const errors = await open(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const theme of ['hyrule', 'vigil']) {
-    await page.getByRole('combobox', { name: 'Color theme', exact: true }).selectOption(theme);
+    await chooseDropdown(page.getByRole('combobox', { name: 'Color theme', exact: true }), theme);
     for (const width of [320, 375, 1280]) {
       await page.setViewportSize({ width, height: 740 });
       await expect(page.getByRole('combobox', { name: 'Egg artwork', exact: true })).toBeVisible();
@@ -132,7 +133,7 @@ test('all six GLBs render on their native rigs and all four loops move the actua
     if (url.pathname.endsWith('.glb') && !url.searchParams.has('import')) loaded.add(url.pathname.split('/').at(-1));
   });
   for (const assetId of ['', 'normal-egg', 'legendary-egg', 'legendary-egg-idle-breath', 'legendary-egg-idle-wobble', 'legendary-egg-hatching-soon']) {
-    await page.getByRole('combobox', { name: 'Egg artwork', exact: true }).selectOption(assetId);
+    await chooseDropdown(page.getByRole('combobox', { name: 'Egg artwork', exact: true }), assetId);
     await preview.scrollIntoViewIfNeeded();
     await expect(preview).toHaveAttribute('data-display-state', 'ready');
     await expect(canvas).toBeVisible();
@@ -221,7 +222,7 @@ test('corrupt native bytes and image failures retain fallbacks; retry and reduce
   await expect(preview).toHaveAttribute('data-display-state', 'ready');
   const selected = manifest.assets.find(asset => asset.id === 'legendary-egg-idle-wobble').variants[0].file.split('/').at(-1);
   await page.route(`**/${selected}*`, route => route.fulfill({ contentType: 'model/gltf-binary', body: 'corrupt-private-model' }));
-  await page.getByRole('combobox', { name: 'Egg artwork', exact: true }).selectOption('legendary-egg-idle-wobble');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Egg artwork', exact: true }), 'legendary-egg-idle-wobble');
   await expect(preview).toHaveAttribute('data-display-state', 'unavailable');
   await expect(page.getByRole('combobox', { name: 'Egg artwork', exact: true })).toBeEnabled();
   await page.unroute(`**/${selected}*`);
@@ -243,14 +244,14 @@ test('corrupt native bytes and image failures retain fallbacks; retry and reduce
   await expect(preview).toHaveAttribute('data-display-state', 'ready');
   const png = manifest.assets.find(asset => asset.id === 'card-front-fire').variants.find(variant => variant.id === 'web').file.split('/').at(-1);
   await page.route(`**/${png}*`, route => route.abort());
-  await page.getByRole('combobox', { name: 'UI artwork', exact: true }).selectOption('card-front-fire');
+  await chooseDropdown(page.getByRole('combobox', { name: 'UI artwork', exact: true }), 'card-front-fire');
   const image = page.locator('[data-pedestal-image="card-front-fire"]');
   await image.scrollIntoViewIfNeeded();
   await expect(image).toHaveAttribute('data-image-state', 'error');
   await expect(image.getByRole('img', { name: 'Card Front Fire' })).toBeVisible();
   await page.unroute(`**/${png}*`);
-  await page.getByRole('combobox', { name: 'UI artwork', exact: true }).selectOption('card-front-ice');
-  await page.getByRole('combobox', { name: 'UI artwork', exact: true }).selectOption('card-front-fire');
+  await chooseDropdown(page.getByRole('combobox', { name: 'UI artwork', exact: true }), 'card-front-ice');
+  await chooseDropdown(page.getByRole('combobox', { name: 'UI artwork', exact: true }), 'card-front-fire');
   await expect(image).toHaveAttribute('data-image-state', 'ready');
   expect(errors).toEqual([]);
 });
@@ -279,9 +280,13 @@ test('the current Hatching page keeps approved inventory, explicit actions and s
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto(`${origin}/e2e/pedestal-card-ui-fixture.html?mode=hatchery`);
   await expect(page.getByRole('combobox', { name: 'Egg', exact: true })).toBeVisible();
-  await expect(page.getByRole('option', { name: /Earlier Egg/ })).toHaveCount(0);
-  await page.getByRole('combobox', { name: 'Egg', exact: true }).selectOption('11');
-  await page.getByRole('combobox', { name: 'Potion', exact: true }).selectOption('22');
+  const eggPicker = page.getByRole('combobox', { name: 'Egg', exact: true });
+  await eggPicker.click();
+  await expect(dropdownListbox(eggPicker).getByRole('option', { name: /Earlier Egg/ })).toHaveCount(0);
+  await expect(dropdownListbox(eggPicker).getByRole('option', { name: /Chick Egg/ })).toBeVisible();
+  await eggPicker.press('Escape');
+  await chooseDropdown(eggPicker, '11');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Potion', exact: true }), '22');
   expect(writes).toEqual([]);
   if (manifest) {
     await page.locator('canvas').scrollIntoViewIfNeeded();

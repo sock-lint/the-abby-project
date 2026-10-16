@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Lock, Play } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
-import RpgSprite from '../../components/rpg/RpgSprite';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import RuneBadge from '../../components/journal/RuneBadge';
 import Button from '../../components/Button';
 import { QUEST_KIND_LABEL, STATUS_TONE } from './trials.constants';
@@ -77,7 +77,8 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
           className="absolute inset-0 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
         />
         <div className="flex items-center justify-center h-16 mb-2">
-          <RpgSprite
+          <CatalogIcon
+            assetId={def.catalog_icon}
             spriteKey={def.sprite_key}
             icon={def.icon}
             size={56}
@@ -127,7 +128,8 @@ function ProgressTile({ quest, onSelect }) {
     >
       <ParchmentCard className="text-center cursor-pointer transition-all">
         <div className="flex items-center justify-center h-14 mb-1">
-          <RpgSprite
+          <CatalogIcon
+            assetId={def.catalog_icon}
             spriteKey={def.sprite_key}
             icon={def.icon}
             size={48}

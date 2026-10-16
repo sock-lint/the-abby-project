@@ -14,9 +14,10 @@ export default function SigilFrontispiece({ profile, profilePicture, onOpenTroph
   const displayName = profile.display_name || profile.username || '\u2014';
   const initial = (displayName[0] || '?').toUpperCase();
   const level = profile.level ?? 1;
+  const atHighestLevel = profile.xp_needed_for_level === 0 && level > 0;
   const levelProgress = profile.xp_needed_for_level > 0
     ? Math.max(0, Math.min(100, ((profile.xp_in_level ?? 0) / profile.xp_needed_for_level) * 100))
-    : 0;
+    : atHighestLevel ? 100 : 0;
   const tier = tierForProgress({
     unlocked: true,
     progressPct: levelProgress,
@@ -73,6 +74,9 @@ export default function SigilFrontispiece({ profile, profilePicture, onOpenTroph
               <span className="font-body text-caption text-ink-secondary tabular-nums">
                 {Math.round(levelProgress)}% toward the next level
               </span>
+            )}
+            {atHighestLevel && (
+              <span className="font-body text-caption text-ink-secondary">Highest level</span>
             )}
           </div>
         </div>

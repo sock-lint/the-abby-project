@@ -8,7 +8,9 @@
     "sprite_key": "fox",
     "description": "A synthetic fox for hatching checks.",
     "food_preference": "berries",
-    "catalog_available": true
+    "catalog_available": true,
+    "catalog_icon": null,
+    "grown_catalog_icon": null
   },
   "potion": {
     "id": 44,
