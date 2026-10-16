@@ -19,7 +19,10 @@ const pages = { skills: Achievements, inventory: Inventory, rewards: Rewards, po
   yearbook: Yearbook, settings: SettingsPage, manage: Manage, clock: ClockPage, payments: Payments, timecards: Timecards };
 const Page = pages[params.get('page')] || Achievements;
 const appPage = params.get('page')?.startsWith('app-');
-if (appPage) window.history.replaceState({}, '', params.get('page') === 'app-clock' ? '/clock' : '/');
+if (appPage) {
+  const routes = { 'app-clock': '/clock', 'app-materials': '/quests/ventures/42' };
+  window.history.replaceState({}, '', routes[params.get('page')] || '/');
+}
 // The local Playwright runner intercepts every API call with synthetic data.
 localStorage.setItem('abby_auth_token', 'synthetic-page-composition-token');
 

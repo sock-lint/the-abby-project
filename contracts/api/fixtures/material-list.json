@@ -1,0 +1,20 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 701,
+      "project": 401,
+      "name": "Notebook or scratch paper",
+      "description": "Use paper you already have or buy a notebook.",
+      "estimated_cost": "3.00",
+      "actual_cost": null,
+      "is_purchased": false,
+      "purchased_at": null,
+      "receipt_photo": null,
+      "reimbursed": false,
+      "is_ready": false
+    }
+  ]
+}
