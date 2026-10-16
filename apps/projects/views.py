@@ -369,7 +369,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         # which fires the project_bonus write in signals.py.
         if action_declares_permissions(self):
             return super().get_permissions()
-        if self.action in ("create", "destroy"):
+        if self.action in ("create", "update", "partial_update", "destroy"):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
 
