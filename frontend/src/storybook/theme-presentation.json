@@ -1,0 +1,16 @@
+{
+  "names": {
+    "hyrule": "Memory Meadow",
+    "vigil": "Twilight Meadow",
+    "sunlit": "Honey Meadow",
+    "snowquill": "Cloud Meadow",
+    "verdant": "Clover Meadow",
+    "harvest": "Peach Meadow"
+  },
+  "aliases": {
+    "summer": "sunlit",
+    "winter": "snowquill",
+    "spring": "verdant",
+    "autumn": "harvest"
+  }
+}

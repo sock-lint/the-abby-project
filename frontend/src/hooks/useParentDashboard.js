@@ -26,7 +26,7 @@ function unifyHomework(h) {
     kind: 'homework',
     kidId: h.user_id ?? h.user ?? null,
     kidName: h.user_name || 'Unassigned',
-    title: h.assignment_title || h.title || 'Study',
+    title: h.assignment_title || h.title || 'Homework',
     subtitle: h.timeliness ? `submitted ${h.timeliness}` : null,
     reward: h.reward_amount_snapshot ?? null,
     submittedAt: h.submitted_at || h.created_at || null,

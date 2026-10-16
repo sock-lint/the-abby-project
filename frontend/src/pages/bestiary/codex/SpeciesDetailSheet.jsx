@@ -5,8 +5,10 @@ import RuneBadge from '../../../components/journal/RuneBadge';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
-import { mountLabel, mountSpriteKey } from './bestiary.constants';
+import { mountSpriteKey } from './bestiary.constants';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
+import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
+import { birdFormName } from '../../../companion/birdEvolution';
 
 /**
  * BottomSheet detail view for a single species. Shows lore, food
@@ -59,6 +61,8 @@ export default function SpeciesDetailSheet({ species, onClose }) {
           </ParchmentCard>
         )}
 
+        <PetEvolutionGuide species={species} potion={eligible.find((potion) => potion.slug === 'base')} />
+
         <section aria-labelledby="evolution-heading">
           <h3 id="evolution-heading" className="font-display text-base text-ink-primary mb-2">
             Grown forms
@@ -82,7 +86,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
                         : 'bg-ink-page-shadow/30 border-ink-page-shadow opacity-70'
                     }`}
                     role="img"
-                    aria-label={`${mountLabel(species.name, potion.name)} — ${
+                    aria-label={`${potion.name} ${birdFormName(species, potion, 'bird')} — ${
                       owned ? 'owned' : 'not yet evolved'
                     }`}
                   >

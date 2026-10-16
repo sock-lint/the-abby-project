@@ -241,6 +241,7 @@ describe('SettingsPage', () => {
       expect(screen.getByRole('button', { name: /connect google/i })).toBeInTheDocument(),
     );
     expect(screen.getByText(/Apple Calendar \(\.ics\)/)).toHaveTextContent('one-time copies');
+    expect(screen.getByText(/Apple Calendar \(\.ics\)/)).toHaveTextContent('Chores let you choose a reminder date.');
     expect(screen.getByText(/On a Mac/)).toHaveTextContent('File → Import');
   });
 

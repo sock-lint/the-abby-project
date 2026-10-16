@@ -27,7 +27,7 @@ class HabitService:
 
         if habit.pending_parent_review:
             raise ValueError(
-                "This ritual is waiting for parent approval before it can be tapped.",
+                "This habit is waiting for parent approval before it can be tapped.",
             )
 
         # Type compatibility checks

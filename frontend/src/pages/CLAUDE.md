@@ -47,8 +47,7 @@ centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
-The Collection and Hatching tabs advertise only Base Chick; its grown form is
-Bird after server-confirmed evolution. `OwnedPetGrid` and `OwnedMountGrid`
+The Collection and Hatching tabs advertise only Base Chick. Its three presentation stages are Chick, Fledgling from 50 server-confirmed growth, and Bird after server-confirmed evolution at 100. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
 also render earlier unsupported rows under Saved collection in their respective
 tabs, retaining feeding/evolution, activation, expedition launch/history/claim
 and recovery controls. `catalog_available: false` describes new catalog

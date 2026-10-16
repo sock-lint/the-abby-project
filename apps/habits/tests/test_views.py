@@ -240,7 +240,9 @@ class HabitProposalTests(_Fixture):
             user=self.child, created_by=self.child,
             pending_parent_review=True,
         )
-        with self.assertRaises(ValueError):
+        with self.assertRaisesRegex(
+            ValueError, "This habit is waiting for parent approval",
+        ):
             HabitService.log_tap(self.child, habit, 1)
 
     def test_parent_approves_habit_proposal(self):
@@ -264,6 +266,13 @@ class HabitProposalTests(_Fixture):
         self.assertFalse(habit.pending_parent_review)
         self.assertEqual(habit.xp_reward, 12)
         self.assertEqual(HabitSkillTag.objects.filter(habit=habit).count(), 1)
+        from apps.notifications.models import Notification, NotificationType
+        note = Notification.objects.get(
+            user=self.child, notification_type=NotificationType.HABIT_PROPOSAL_APPROVED,
+        )
+        self.assertEqual(note.title, "Habit published: Tidy room")
+        self.assertIn('Your proposed habit "Tidy room"', note.message)
+        self.assertIn("your habit list", note.message)
 
     def test_child_cannot_approve_habit(self):
         from apps.habits.models import Habit
@@ -291,12 +300,11 @@ class HabitProposalTests(_Fixture):
         self.client.force_authenticate(self.parent)
         resp = self.client.delete(f"/api/habits/{habit.pk}/")
         self.assertIn(resp.status_code, (200, 204))
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.child,
-                notification_type=NotificationType.HABIT_PROPOSAL_REJECTED,
-            ).exists(),
+        note = Notification.objects.get(
+            user=self.child, notification_type=NotificationType.HABIT_PROPOSAL_REJECTED,
         )
+        self.assertEqual(note.title, "Habit proposal declined: Silly")
+        self.assertIn('Your proposed habit "Silly"', note.message)
 
     def test_propose_emits_parent_notification(self):
         from apps.notifications.models import Notification, NotificationType
@@ -307,12 +315,11 @@ class HabitProposalTests(_Fixture):
             "user": self.child.id,
         }, format="json")
         self.assertEqual(resp.status_code, 201, msg=resp.content)
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.parent,
-                notification_type=NotificationType.HABIT_PROPOSED,
-            ).exists(),
+        note = Notification.objects.get(
+            user=self.parent, notification_type=NotificationType.HABIT_PROPOSED,
         )
+        self.assertEqual(note.title, "New habit proposed: Stretch")
+        self.assertIn('proposed a new habit "Stretch"', note.message)
 
 
 class HabitLogTests(_Fixture):

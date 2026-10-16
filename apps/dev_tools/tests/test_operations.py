@@ -42,6 +42,19 @@ class ForceApprovalNotificationTests(TestCase):
         self.assertEqual(n.notification_type, "chore_approved")
         self.assertIn("simulated approval", n.message)
 
+    def test_proposal_previews_use_current_feature_names(self):
+        from apps.dev_tools.operations import force_approval_notification
+        from apps.notifications.models import Notification
+
+        for flow, title in (("chore_proposal", "Chore"), ("habit_proposal", "Habit")):
+            for outcome, label in (("approved", "approved"), ("rejected", "returned")):
+                with self.subTest(flow=flow, outcome=outcome):
+                    result = force_approval_notification(
+                        self.child, flow=flow, outcome=outcome,
+                    )
+                    note = Notification.objects.get(pk=result["notification_id"])
+                    self.assertEqual(note.title, f"{title} proposal {label}")
+
     def test_exchange_rejected_maps_to_exchange_denied(self):
         from apps.dev_tools.operations import force_approval_notification
 

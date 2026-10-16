@@ -6,6 +6,8 @@ import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
+import { creatureLabel } from '../../../companion/appearance';
+import { birdFormName } from '../../../companion/birdEvolution';
 import { daysUntilReady, formatExpeditionRemaining } from './party.constants';
 
 export default function OwnedMountGrid({ mounts, working, onActivate, onPreview, onClaim, onLaunch, label = 'Your grown pets' }) {
@@ -40,14 +42,14 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                         icon={mount.species.icon}
                         size={64}
                         className="rounded-full"
-                        alt={`${mount.potion.name} ${mount.species.name}`}
+                        alt={creatureLabel(mount, 'mount')}
                         potionSlug={mount.potion.slug}
                         dim={isOut && !isReady ? 'stale' : null}
                       />
                     </div>
                   </div>
                   <div className="font-body text-body font-medium leading-tight break-words">
-                    {mount.potion.name} {mount.species.name}
+                    {creatureLabel(mount, 'mount')}
                   </div>
                   <div
                     className={`font-script text-tiny uppercase tracking-wider ${
@@ -57,7 +59,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                     {mount.potion.rarity}
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">grown pet</div>
-                  {onPreview && <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => onPreview(mount.id)} aria-label={`Visit ${mount.potion.name} ${mount.species.name}`}>Spend time together</Button>}
+                  {onPreview && <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => onPreview(mount.id)} aria-label={`Visit ${creatureLabel(mount, 'mount')}`}>Spend time together</Button>}
                   {isOut && !isReady && (
                     <div className="mt-1 space-y-1">
                       <div className="font-script text-tiny text-sheikah-teal-deep flex items-center justify-center gap-1">
@@ -66,7 +68,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       <AddToCalendar
                         event={{
                           id: `expedition:${expedition.id}`,
-                          title: `Expedition return: ${mount.potion.name} ${mount.species.name}`,
+                          title: `Expedition return: ${creatureLabel(mount, 'mount')}`,
                           start: expedition.returns_at,
                           description: 'Check on your returning pet in The Abby Project.',
                           path: '/bestiary?tab=mounts',
@@ -110,7 +112,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       onClick={() => onClaim(expedition.id)}
                       disabled={working}
                       className="mt-1 w-full !bg-gold-leaf/30 !text-ember-deep !border-gold-leaf/80 hover:!bg-gold-leaf/40 disabled:cursor-not-allowed animate-gilded-glint"
-                      aria-label={`Claim expedition rewards for ${mount.species.name}`}
+                      aria-label={`Claim expedition rewards for ${birdFormName(mount.species, mount.potion, 'bird')}`}
                     >
                       {working ? 'Claiming…' : 'Claim rewards'}
                     </Button>
@@ -123,7 +125,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       onClick={() => onLaunch(mount)}
                       disabled={working}
                       className="mt-1 w-full inline-flex items-center justify-center gap-1 !bg-sheikah-teal-deep/15 !text-sheikah-teal-deep !border-sheikah-teal-deep/50 hover:!bg-sheikah-teal-deep/25 disabled:cursor-not-allowed"
-                      aria-label={`Send ${mount.species.name} on an expedition`}
+                      aria-label={`Send ${birdFormName(mount.species, mount.potion, 'bird')} on an expedition`}
                     >
                       <MapIcon size={11} aria-hidden="true" /> Expedition
                     </Button>

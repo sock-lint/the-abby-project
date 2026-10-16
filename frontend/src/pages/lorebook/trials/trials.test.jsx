@@ -68,8 +68,8 @@ describe('ScribeTrial', () => {
     const user = userEvent.setup();
     render(<ScribeTrial entry={entry} onReady={onReady} />);
 
-    const textarea = screen.getByPlaceholderText(/today i/i);
-    const commit = screen.getByRole('button', { name: /commit to the page/i });
+    const textarea = screen.getByRole('textbox', { name: 'Write a few words' });
+    const commit = screen.getByRole('button', { name: 'Done writing' });
     expect(commit).toBeDisabled();
 
     await user.type(textarea, 'wow');
@@ -80,6 +80,8 @@ describe('ScribeTrial', () => {
     await user.click(commit);
     expect(onReady).toHaveBeenCalledTimes(1);
     expect(screen.getByText('+15 XP')).toBeInTheDocument();
+    expect(screen.getByText('Writing complete.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Done' })).toBeDisabled();
   });
 });
 

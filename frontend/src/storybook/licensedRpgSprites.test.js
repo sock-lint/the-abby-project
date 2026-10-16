@@ -17,6 +17,7 @@ const art = (name) => ({
 describe('licensed RPG portraits', () => {
   it.each([
     ['cute-chick', '/assets/synthetic-chick.png'],
+    ['cute-chick-fledgling', '/assets/synthetic-fledgling.png'],
     ['cute-chick-mount', '/assets/synthetic-bird.png'],
   ])('maps %s to its matching portrait', (spriteKey, url) => {
     expect(resolveLicensedRpgSprite(spriteKey, manifest, art)).toEqual({ url, frames: 1 });

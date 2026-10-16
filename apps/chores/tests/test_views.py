@@ -144,7 +144,9 @@ class ChoreViewSetTests(_Fixture):
         )
         from apps.chores.services import ChoreNotAvailableError, ChoreService
 
-        with self.assertRaises(ChoreNotAvailableError):
+        with self.assertRaisesRegex(
+            ChoreNotAvailableError, "This chore is waiting for parent approval",
+        ):
             ChoreService.submit_completion(self.child, chore)
 
     def test_parent_approves_proposal_with_rewards(self):
@@ -169,6 +171,13 @@ class ChoreViewSetTests(_Fixture):
         self.assertEqual(chore.coin_reward, 3)
         self.assertEqual(chore.xp_reward, 20)
         self.assertEqual(ChoreSkillTag.objects.filter(chore=chore).count(), 1)
+        from apps.notifications.models import Notification, NotificationType
+        note = Notification.objects.get(
+            user=self.child, notification_type=NotificationType.CHORE_PROPOSAL_APPROVED,
+        )
+        self.assertEqual(note.title, "Chore published: Water plants")
+        self.assertIn('Your proposed chore "Water plants"', note.message)
+        self.assertIn("your chore list", note.message)
 
     def test_child_cannot_approve_proposal(self):
         chore = Chore.objects.create(
@@ -190,6 +199,7 @@ class ChoreViewSetTests(_Fixture):
             "reward_amount": "2.00",
         }, format="json")
         self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["error"], "This chore is already published.")
 
     def test_parent_destroy_pending_notifies_proposer(self):
         from apps.notifications.models import Notification, NotificationType
@@ -201,12 +211,11 @@ class ChoreViewSetTests(_Fixture):
         self.client.force_authenticate(self.parent)
         resp = self.client.delete(f"/api/chores/{chore.id}/")
         self.assertIn(resp.status_code, (200, 204))
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.child,
-                notification_type=NotificationType.CHORE_PROPOSAL_REJECTED,
-            ).exists(),
+        note = Notification.objects.get(
+            user=self.child, notification_type=NotificationType.CHORE_PROPOSAL_REJECTED,
         )
+        self.assertEqual(note.title, "Chore proposal declined: Feed fish")
+        self.assertIn('Your proposed chore "Feed fish"', note.message)
 
     def test_child_cannot_destroy_chore(self):
         chore = Chore.objects.create(
@@ -225,12 +234,11 @@ class ChoreViewSetTests(_Fixture):
             "title": "Feed cat", "recurrence": "daily",
         }, format="json")
         self.assertEqual(resp.status_code, 201, msg=resp.content)
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.parent,
-                notification_type=NotificationType.CHORE_PROPOSED,
-            ).exists(),
+        note = Notification.objects.get(
+            user=self.parent, notification_type=NotificationType.CHORE_PROPOSED,
         )
+        self.assertEqual(note.title, "New chore proposed: Feed cat")
+        self.assertIn('proposed a new chore "Feed cat"', note.message)
 
     def test_complete_action_child_submits(self):
         chore = Chore.objects.create(title="Trash", reward_amount=Decimal("1"), created_by=self.parent)

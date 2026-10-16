@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CodexSection from './CodexSection.jsx';
 import { server } from '../../test/server.js';
@@ -45,6 +45,24 @@ describe('CodexSection', () => {
     );
     render(<CodexSection />);
     await waitFor(() => expect(screen.getByText(/gold coin/i)).toBeInTheDocument());
+  });
+
+  it('uses the current color-theme name in catalog cards and their details', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([
+        { id: 12, name: 'Night Vigil', item_type: 'cosmetic_theme', rarity: 'rare', icon: 'T', metadata: { theme: 'vigil' }, type_display: 'Dashboard Theme' },
+      ])),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
+    );
+    const user = userEvent.setup();
+    render(<CodexSection />);
+    expect(await screen.findByRole('heading', { name: 'Color themes' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Twilight Meadow/ }));
+    const detail = screen.getByRole('dialog', { name: 'Twilight Meadow' });
+    expect(within(detail).getByText(/Color theme/)).toBeInTheDocument();
+    expect(screen.queryByText('Night Vigil')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Dashboard Theme/)).not.toBeInTheDocument();
   });
 
   it('renders all five codex-book spines on the shelf', async () => {

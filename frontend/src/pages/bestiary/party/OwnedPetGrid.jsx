@@ -6,6 +6,7 @@ import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { HAPPINESS_WHISPER } from './party.constants';
+import { creatureLabel } from '../../../companion/appearance';
 
 export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Your companions' }) {
   return (
@@ -22,7 +23,7 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                 <button
                   type="button"
                   className="w-full rounded-lg text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
-                  aria-label={`Care for ${pet.potion.name} ${pet.species.name}`}
+                  aria-label={`Care for ${creatureLabel(pet)}`}
                   aria-expanded={selectedPetId === pet.id}
                   onClick={() => onSelect(pet)}
                 >
@@ -37,7 +38,7 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                         icon={pet.species.icon}
                         size={56}
                         className="rounded-full"
-                        alt={`${pet.potion.name} ${pet.species.name}`}
+                        alt={creatureLabel(pet)}
                         potionSlug={pet.potion.slug}
                         dim={
                           pet.evolved_to_mount
@@ -50,7 +51,7 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                     </div>
                   </div>
                   <div className="font-body text-body font-medium leading-tight break-words">
-                    {pet.potion.name} {pet.species.name}
+                    {creatureLabel(pet)}
                   </div>
                   <div
                     className={`font-script text-tiny uppercase tracking-wider ${

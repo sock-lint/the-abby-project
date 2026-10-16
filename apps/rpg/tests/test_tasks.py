@@ -203,6 +203,7 @@ class StreakAtRiskWarningTaskTests(TestCase):
         self.assertEqual(self._warnings().count(), 1)
         note = self._warnings().get()
         self.assertIn("5-day streak", note.message)
+        self.assertIn("a chore, a habit tap, or homework", note.message)
         self.assertEqual(note.link, "/quests")
 
     def test_skips_streak_below_minimum(self):

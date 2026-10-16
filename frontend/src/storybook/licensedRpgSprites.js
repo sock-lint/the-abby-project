@@ -7,6 +7,7 @@ const assets = import.meta.glob('./licensed/*.png', { eager: true, query: '?url'
 const art = (name) => assets[`./licensed/${name}`];
 const PORTRAITS = new Map([
   ['cute-chick', 'chick.png'],
+  ['cute-chick-fledgling', 'fledgling.png'],
   ['cute-chick-mount', 'bird.png'],
 ]);
 

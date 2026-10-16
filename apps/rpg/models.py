@@ -214,6 +214,11 @@ class ItemDefinition(TimestampedModel):
     class Meta:
         ordering = ["item_type", "rarity", "name"]
 
+    @property
+    def display_name(self):
+        from .presentation import item_display_name
+        return item_display_name(self)
+
     def __str__(self):
         return f"{self.icon} {self.name} ({self.get_rarity_display()})"
 

@@ -6,6 +6,15 @@ import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 
 describe('useParentDashboard', () => {
+  it('labels homework without a supplied title with the current feature name', async () => {
+    server.use(http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+      pending_submissions: [{ id: 91, user_id: 2 }],
+    })));
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.pending.find((row) => row.id === 91)?.title).toBe('Homework');
+  });
+
   it('merges chores + homework + redemptions into a single pending list sorted newest-first', async () => {
     server.use(
       http.get('*/api/chore-completions/', () =>

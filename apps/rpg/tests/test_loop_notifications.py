@@ -109,10 +109,17 @@ class QuestCompletedNotificationTests(TestCase):
 
         self.quest.refresh_from_db()
         self.assertEqual(self.quest.status, Quest.Status.COMPLETED)
-        self.assertTrue(
-            Notification.objects.filter(
-                user=self.user,
-                notification_type=NotificationType.QUEST_COMPLETED,
-            ).exists(),
-            "Expected a QUEST_COMPLETED notification once the quest finishes.",
+        note = Notification.objects.get(
+            user=self.user, notification_type=NotificationType.QUEST_COMPLETED,
+        )
+        self.assertEqual(note.title, f"Challenge complete: {self.definition.name}")
+        self.assertEqual(note.message, "Your challenge is complete.")
+        completion = Notification.objects.get(
+            user=self.user, notification_type=NotificationType.BADGE_EARNED,
+        )
+        self.assertEqual(completion.title, f"Challenge complete: {self.definition.name}!")
+        from apps.activity.models import ActivityEvent
+        self.assertEqual(
+            ActivityEvent.objects.get(event_type="quest.complete", subject=self.user).summary,
+            f"Challenge complete: {self.definition.name}",
         )

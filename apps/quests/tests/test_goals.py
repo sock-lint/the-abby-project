@@ -241,6 +241,7 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         self.assertNotIn("logged creations", payload["what_counts"])
         self.assertIn("approved homework", payload["what_counts"])
         self.assertIn("planned homework (first per day)", payload["what_counts"])
+        self.assertIn("positive habit taps", payload["what_counts"])
 
     def test_reward_preview_rechecks_support_without_changing_snapshot_or_payout(self):
         from apps.pets.models import PetSpecies
