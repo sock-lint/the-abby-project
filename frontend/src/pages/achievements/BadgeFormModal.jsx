@@ -3,7 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import ModalActions from '../../components/ModalActions';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
+import { TextField, SelectField, TextAreaField, IconPicker } from '../../components/form';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
@@ -63,8 +63,8 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} required />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
+        <IconPicker value={form.icon} placeholder="" onChange={(icon) => set({ icon })} disabled={saving} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (
               <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>

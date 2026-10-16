@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import HabitIconPicker from './HabitIconPicker';
+import IconPicker from './IconPicker';
 
 function Picker({ initialValue = '' }) {
   const [value, setValue] = useState(initialValue);
-  return <HabitIconPicker value={value} onChange={setValue} />;
+  return <IconPicker value={value} onChange={setValue} />;
 }
 
-describe('HabitIconPicker', () => {
+describe('IconPicker', () => {
   it('shows choices on demand and updates one selected icon without submitting', async () => {
     const user = userEvent.setup();
     const submit = vi.fn((event) => event.preventDefault());
@@ -70,10 +70,46 @@ describe('HabitIconPicker', () => {
   });
 
   it('disables icon edits and choices while saving', () => {
-    render(<HabitIconPicker value="📖" onChange={vi.fn()} disabled />);
+    render(<IconPicker value="📖" onChange={vi.fn()} disabled />);
     expect(screen.getByRole('textbox', { name: 'Icon' })).toBeDisabled();
     for (const button of screen.getAllByRole('button', { hidden: true })) {
       expect(button).toBeDisabled();
     }
+  });
+
+  it('keeps the owning field label, help, input limit and custom options', async () => {
+    const user = userEvent.setup();
+    const change = vi.fn();
+    render(<IconPicker
+      label="Icon (optional emoji)" id="savings-icon" placeholder="🎯" maxLength={50}
+      helpText="Optional savings goal icon" value="🦄" onChange={change}
+      options={[[ '🎯', 'Target' ]]}
+    />);
+    const input = screen.getByLabelText('Icon (optional emoji)');
+    expect(input).toHaveAttribute('id', 'savings-icon');
+    expect(input).toHaveAttribute('placeholder', '🎯');
+    expect(input).toHaveAttribute('maxlength', '50');
+    expect(input).toHaveAccessibleDescription('Optional savings goal icon');
+    expect(input).toHaveValue('🦄');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    const choices = screen.getByRole('group', { name: 'Suggested icons' });
+    expect(within(choices).getAllByRole('button')).toHaveLength(1);
+    await user.click(within(choices).getByRole('button', { name: 'Target' }));
+    expect(change).toHaveBeenCalledWith('🎯');
+  });
+
+  it('keeps multiple pickers independently labeled and expanded', async () => {
+    const user = userEvent.setup();
+    render(<>
+      <IconPicker label="Reward icon" value="🎁" onChange={vi.fn()} />
+      <IconPicker label="Chore icon" value="🧹" onChange={vi.fn()} />
+    </>);
+    const [reward, chore] = screen.getAllByRole('button', { name: 'Choose icon' });
+    expect(reward.getAttribute('aria-controls')).not.toBe(chore.getAttribute('aria-controls'));
+    await user.click(reward);
+    expect(reward).toHaveAttribute('aria-expanded', 'true');
+    expect(chore).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getAllByRole('group', { name: 'Suggested icons' })).toHaveLength(1);
+    expect(screen.getByLabelText('Reward icon').id).not.toBe(screen.getByLabelText('Chore icon').id);
   });
 });

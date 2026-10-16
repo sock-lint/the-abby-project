@@ -22,6 +22,23 @@ function makeGoal(over = {}) {
 }
 
 describe('HoardsTab', () => {
+  it('saves a selected icon for a savings goal only after explicit submit', async () => {
+    const create = spyHandler('post', /\/api\/savings-goals\/$/, { id: 1 });
+    server.use(http.get('*/api/savings-goals/', () => HttpResponse.json([])), create.handler);
+    const { user } = renderWithProviders(<HoardsTab />);
+    await user.click(await screen.findByRole('button', { name: /new savings goal/i }));
+    await user.type(screen.getByLabelText('What are you saving for?'), 'Books');
+    await user.type(screen.getByLabelText('Target amount'), '25');
+    expect(screen.getByLabelText('Icon (optional emoji)')).toHaveAttribute('maxlength', '4');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Book' }));
+    expect(screen.getByLabelText('Icon (optional emoji)')).toHaveValue('📖');
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Start saving' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toEqual({ title: 'Books', target_amount: 25, icon: '📖' });
+  });
+
   it('renders the incipit hero with aggregate progress and stanza cards', async () => {
     server.use(
       http.get('*/api/savings-goals/', () =>
@@ -115,7 +132,7 @@ describe('HoardsTab', () => {
     const titleField = await screen.findByLabelText(/What are you saving for/i);
     await user.type(titleField, 'Bike');
     await user.type(screen.getByLabelText(/Target amount/i), '75');
-    await user.type(screen.getByLabelText(/Icon/i), '🚲');
+    await user.type(screen.getByRole('textbox', { name: 'Icon (optional emoji)' }), '🚲');
 
     await user.click(screen.getByRole('button', { name: /Start saving/i }));
 

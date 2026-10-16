@@ -35,7 +35,7 @@ import Button from '../components/Button';
 import IconButton from '../components/IconButton';
 import ModalActions from '../components/ModalActions';
 import AddToCalendar from '../components/AddToCalendar';
-import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
 import { choreReminderEvent, validateChoreReminderDate } from './choresCalendar';
 
@@ -152,14 +152,12 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
         )}
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="🧹" />
-          <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
-            {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>{l}</option>
-            ))}
-          </SelectField>
-        </div>
+        <IconPicker value={form.icon} onChange={(icon) => set({ icon })} placeholder="🧹" disabled={saving} />
+        <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
+          {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </SelectField>
         {canSetRewards && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

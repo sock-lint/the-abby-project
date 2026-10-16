@@ -3,7 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField } from '../../components/form';
+import { TextField, SelectField, TextAreaField, IconPicker } from '../../components/form';
 
 export default function SubjectFormModal({ item, categories, onClose, onSaved }) {
   const isEdit = !!item;
@@ -42,15 +42,13 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <SelectField label="Category" value={form.category} onChange={onField('category')} required>
-            <option value="">Select...</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-            ))}
-          </SelectField>
-          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
-        </div>
+        <SelectField label="Category" value={form.category} onChange={onField('category')} required>
+          <option value="">Select...</option>
+          {categories.map((c) => (
+            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+          ))}
+        </SelectField>
+        <IconPicker value={form.icon} placeholder="" onChange={(icon) => set({ icon })} disabled={saving} />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <TextField className="w-1/2" label="Order" type="number" value={form.order} onChange={onField('order')} />
         <div className="flex justify-end gap-2 pt-2">

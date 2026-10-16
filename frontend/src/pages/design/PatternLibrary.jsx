@@ -25,7 +25,7 @@ import IncipitBand from '../../components/atlas/IncipitBand';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
 import RarityStrand from '../../components/atlas/RarityStrand';
 import { RARITY_KEYS } from '../../components/atlas/mastery.constants';
-import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField } from '../../components/form';
+import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField, IconPicker } from '../../components/form';
 import { DesignPreviewContext } from './preview.context';
 
 function Specimen({ id, title, children, imports, guidance, consumers, status = 'Established' }) {
@@ -78,6 +78,7 @@ function FormsAndDialogs() {
   const [reminders, setReminders] = useState(true);
   const [saved, setSaved] = useState('');
   const [fieldError, setFieldError] = useState('');
+  const [icon, setIcon] = useState('🎁');
   const { longContent } = useContext(DesignPreviewContext);
   const close = () => { setOpen(false); setName(''); setNotes(''); setFieldError(''); };
   const save = event => {
@@ -86,8 +87,9 @@ function FormsAndDialogs() {
     setSaved(`Example saved: ${name.trim()}`); close();
   };
   return (
-    <Specimen id="design-forms" title="Forms and dialogs" imports={'import { TextField, DateField, CheckboxField, ToggleField } from "../components/form";\nimport BottomSheet from "../components/BottomSheet";\nimport ModalActions from "../components/ModalActions";'} guidance="Use shared labels, help and field errors. Route every dismiss affordance through the dirty/busy guard; restore focus to the opener. Disable repeated writes while submitting and keep failed input available." consumers={['pages/yearbook/JournalEntryFormModal.jsx', 'pages/grades/GradeEntryFormModal.jsx', 'pages/Homework/HomeworkFormModal.jsx']}>
+    <Specimen id="design-forms" title="Forms and dialogs" imports={'import { TextField, DateField, CheckboxField, ToggleField, IconPicker } from "../components/form";\nimport BottomSheet from "../components/BottomSheet";\nimport ModalActions from "../components/ModalActions";'} guidance="Use shared labels, help and field errors. Route every dismiss affordance through the dirty/busy guard; restore focus to the opener. Disable repeated writes while submitting and keep failed input available. Editable emoji fields share IconPicker; choosing a preset updates local form state until Save." consumers={['pages/yearbook/JournalEntryFormModal.jsx', 'pages/grades/GradeEntryFormModal.jsx', 'pages/Homework/HomeworkFormModal.jsx', 'pages/Habits.jsx', 'pages/Chores.jsx', 'components/MovementSessionLogModal.jsx', 'pages/achievements/SkillFormModal.jsx']}>
       <ParchmentCard className="space-y-3">
+        <IconPicker label="Example icon" value={icon} onChange={setIcon} placeholder="🎁" />
         <div className="grid sm:grid-cols-2 gap-3">
           <DateField label="Due date example" />
           <DateField label="Filter date example" variant="filter" />

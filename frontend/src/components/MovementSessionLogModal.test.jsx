@@ -65,6 +65,42 @@ function stubSkills(skills) {
 }
 
 describe('MovementSessionLogModal', () => {
+  it('saves a selected icon when adding an activity only after explicit submit', async () => {
+    stubTypes();
+    stubSkills();
+    const create = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Jogging', icon: '🏃', default_intensity: 'medium' });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await openNewActivity(user);
+    await user.type(screen.getByLabelText('Activity name'), 'Jogging');
+    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Running' }));
+    expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('🏃');
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Add activity' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toEqual({ name: 'Jogging', icon: '🏃', default_intensity: 'medium', primary_skill_id: 10, secondary_skill_id: null });
+  });
+
+  it('allows a custom activity icon with the existing four-character limit', async () => {
+    stubTypes();
+    stubSkills();
+    const create = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Jogging', icon: 'abcd', default_intensity: 'medium' });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await openNewActivity(user);
+    await user.type(screen.getByLabelText('Activity name'), 'Jogging');
+    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await user.type(screen.getByLabelText('Emoji (optional)'), 'abcde');
+    expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('abcd');
+    await user.click(screen.getByRole('button', { name: 'Add activity' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body.icon).toBe('abcd');
+  });
+
   async function openNewActivity(user) {
     const picker = screen.getByRole('combobox', { name: /what did you do/i });
     await waitFor(() => expect(picker).toBeEnabled());
