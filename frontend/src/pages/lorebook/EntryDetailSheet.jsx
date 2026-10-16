@@ -58,8 +58,11 @@ function ParentKnobs({ entry }) {
       {settings.length > 0 && (
         <div>
           <h4 className="font-display text-body font-semibold text-ink-primary mb-2">
-            Configurable settings
+            Reference defaults
           </h4>
+          <p className="mb-2 text-body text-ink-secondary">
+            These values are documentation, not your family's current settings. Deployment settings are managed by the app operator.
+          </p>
           <ul className="space-y-2">
             {settings.map((setting) => (
               <li
@@ -73,7 +76,7 @@ function ParentKnobs({ entry }) {
                   <span className="text-caption text-ink-primary">{setting.label}</span>
                 </div>
                 <div className="mt-1 text-caption text-ink-whisper">
-                  Current default: <span className="text-ink-secondary">{String(setting.value)}</span>
+                  Documented default: <span className="text-ink-secondary">{String(setting.value)}</span>
                 </div>
               </li>
             ))}
@@ -164,7 +167,7 @@ export default function EntryDetailSheet({
           className="rounded-xl border border-ink-page-shadow bg-ink-page/45 p-3"
         >
           <summary className="cursor-pointer font-display text-base font-semibold text-ink-primary">
-            For parents: settings and requirements
+            For parents: reference and requirements
           </summary>
           <div className="mt-3">
             <ParentKnobs entry={entry} />

@@ -116,8 +116,11 @@ describe('Manage', () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole('tab', { name: /guide/i }));
-    expect(await screen.findByRole('heading', { name: /how rewards work/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /study/i })).toBeInTheDocument();
+    const comparison = await screen.findByText('Compare rewards by activity');
+    expect(comparison).toBeVisible();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Study · read guide' })).toBeVisible());
+    await user.click(comparison);
+    expect(await screen.findByRole('heading', { name: /how rewards work/i })).toBeVisible();
   });
 
   it('shows a retry-able error instead of "No children yet" when the fetch fails', async () => {
