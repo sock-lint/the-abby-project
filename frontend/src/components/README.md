@@ -236,6 +236,63 @@ Per-page tier concepts map onto the Atlas rarity vocabulary via [`pages/quests/q
 
 Test attributes mirror the rest of the cohort: `data-folio-verso="true"`, `data-tier={locked|nascent|rising|cresting|gilded}`, `data-progress={pct}` on the verso aside; `data-folio-recto="true"` on the recto. Within the recto, working-list sections lead with `<ChapterRubric index name>` so the §I/§II/§III numeral progression reads as the chapter's table of contents.
 
+### Pedestal and card artwork
+
+The private Meshtint pedestal/card family lives in [`../pedestal/`](../pedestal/).
+`/__design#design-pedestal` includes all 19 UI assets, a 512px/1024px selector
+covering all 35 PNG variants, a measured frame example, and the six native GLBs
+with their four supplied loops. The [showcase](../pages/design/PedestalShowcase.jsx)
+includes imports and consumer links; the [adoption guide](../../../docs/operations/pedestal-card-ui.md)
+documents release pins, private import/build verification, scene placement and
+device acceptance.
+
+| Component | Props and use |
+| --- | --- |
+| [`PedestalImage`](../pedestal/PedestalImage.jsx) | `assetId`, `variantId="web"`, `alt=""`, `className`. Renders one complete PNG canvas with lazy loading and loading/error fallbacks. Use a nonempty `alt` for meaningful artwork; the default is decorative. |
+| [`PedestalFrame`](../pedestal/PedestalFrame.jsx) | `children`, `label="Framed content"`, `className`. Places independent app content inside the gold frame's measured opening, with padding and keyboard-accessible scrolling. Content remains readable when frame artwork is unavailable. |
+| [`PedestalPreview`](../pedestal/PedestalPreview.jsx) | `eggAssetId="normal-egg"`, `animate={true}`, `className`, `stageClassName="h-80"`. Shows a decorative native pedestal/egg scene; `eggAssetId={null}` selects the pedestal alone. Includes local off/retry controls and DOM fallbacks. |
+
+Choose asset IDs from [`PEDESTAL_IMAGE_IDS` and `PEDESTAL_EGG_IDS`](../pedestal/pedestalRelease.js).
+Normal callers use the pinned private release automatically; the optional
+`staged` prop supplies a release fixture for isolated previews/tests.
+
+```jsx
+// Imports from a module directly under src/pages/.
+import PedestalImage from '../pedestal/PedestalImage';
+import PedestalFrame from '../pedestal/PedestalFrame';
+import PedestalPreview from '../pedestal/PedestalPreview';
+
+function ArtworkExample() {
+  return <>
+    <div className="max-w-xs">
+      <PedestalImage assetId="card-front-egg-star" alt="Egg artwork" />
+    </div>
+    <PedestalFrame label="Artwork example" className="max-w-sm">
+      <p>Independent application content.</p>
+    </PedestalFrame>
+    <PedestalPreview animate={false} />
+  </>;
+}
+```
+
+Images default to the 512px web variant. Request `variantId="native"`
+explicitly for the 16 available 1024px variants; the three web-only originals
+retain their 512px image. Preserve full proportions, transparent margins and
+alpha. Card faces already contain their emblems; keep live content beside
+them. There are no supplied blank card slots or authored nine-slice borders.
+
+Each native animation take keeps its own complete mesh, rig and common root.
+Playback respects reduced motion, visibility and background state.
+`HatchingSoon` is repeating anticipation, not a completed hatch. Keep application
+controls in accessible DOM and derive game state and outcomes from server-confirmed
+responses.
+
+[Hatching](../pages/bestiary/hatchery/Hatchery.jsx) currently uses the neutral
+Normal Egg/pedestal and `card-front-egg-star`. The other artwork is available
+for design review without catalog, ownership, rarity or progression bindings.
+Keep paid PNGs, GLBs and derived previews in the private asset workflow outside
+Git and public preview hosting.
+
 ### RpgSprite
 
 `<RpgSprite spriteKey="slug" icon="🐉" size={32} alt="..." className="..." />`
