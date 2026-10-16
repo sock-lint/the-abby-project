@@ -74,8 +74,8 @@ describe('MovementSessionLogModal', () => {
     const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
     await openNewActivity(user);
     await user.type(screen.getByLabelText('Activity name'), 'Jogging');
-    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await (await openDropdown(user, screen.getByRole('combobox', { name: 'Primary skill' }))).findByRole('option', { name: /Endurance/ });
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Primary skill' }), '10');
     await user.click(screen.getByRole('button', { name: 'Choose icon' }));
     await user.click(screen.getByRole('button', { name: 'Running' }));
     expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('🏃');
@@ -93,8 +93,8 @@ describe('MovementSessionLogModal', () => {
     const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
     await openNewActivity(user);
     await user.type(screen.getByLabelText('Activity name'), 'Jogging');
-    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await (await openDropdown(user, screen.getByRole('combobox', { name: 'Primary skill' }))).findByRole('option', { name: /Endurance/ });
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Primary skill' }), '10');
     await user.type(screen.getByLabelText('Emoji (optional)'), 'abcde');
     expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('abcd');
     await user.click(screen.getByRole('button', { name: 'Add activity' }));
