@@ -99,6 +99,60 @@ class PetService:
     """Manages pet lifecycle: hatching, feeding, evolution, activation."""
 
     @staticmethod
+    def _save_growth(pet, *, update_fields):
+        """Persist growth and its evolution together for an already locked pet.
+
+        Growth callers hold the user gate before profile, pet and inventory
+        locks. Keeping this transition shared means food, direct consumables
+        and passive growth create the same mount and first-evolution effects.
+        """
+        from apps.pets.models import UserMount
+
+        evolving = pet.growth_points >= EVOLUTION_THRESHOLD and not pet.evolved_to_mount
+        if evolving:
+            pet.evolved_to_mount = True
+        pet.save(update_fields=[*update_fields, "evolved_to_mount", "updated_at"])
+        if not evolving:
+            return None
+
+        mount, created = UserMount.objects.get_or_create(
+            user=pet.user, species=pet.species, potion=pet.potion,
+        )
+        if not created:
+            return mount
+        user = pet.user
+        logger.info("User %s evolved %s %s to mount", user.username, pet.potion.name, pet.species.name)
+        try:
+            from apps.chronicle.services import ChronicleService
+            with transaction.atomic():
+                ChronicleService.record_first(
+                    user,
+                    event_slug="first_mount_evolved",
+                    title=f"First mount \u2014 {pet.species.name}",
+                    icon_slug="mount-sigil",
+                    related=("usermount", mount.pk),
+                )
+        except Exception:
+            logger.exception("Chronicle hook failed in pet evolution")
+
+        try:
+            from apps.notifications.services import notify, notify_parents
+            with transaction.atomic():
+                msg = f"{pet.potion.name} {pet.species.name} is ready to ride."
+                notify(
+                    user, title=f"{pet.species.name} evolved into a mount!", message=msg,
+                    notification_type="pet_evolved", link="/bestiary?tab=mounts",
+                )
+                notify_parents(
+                    title=f"{user.display_name or user.username}'s pet evolved",
+                    message=msg, notification_type="pet_evolved", about_user=user,
+                    link="/bestiary?tab=mounts",
+                )
+        except Exception:
+            logger.exception("Notification hook failed in pet evolution")
+        return mount
+
+    @staticmethod
     @transaction.atomic
     def hatch_pet(user, egg_item_id, potion_item_id):
         """Consume an egg + potion from inventory to create a new pet.
@@ -217,9 +271,11 @@ class PetService:
         Never raises — missing species, no pets, etc. all return cleanly
         so the streak flow stays robust.
         """
-        from apps.pets.models import UserPet, UserMount, PetSpecies
+        from apps.achievements.services import _lock_award_user
+        from apps.pets.models import UserPet, PetSpecies
         from apps.rpg.models import CharacterProfile
 
+        _lock_award_user(user)
         try:
             species = PetSpecies.objects.get(slug=COMPANION_SPECIES_SLUG)
         except PetSpecies.DoesNotExist:
@@ -230,10 +286,11 @@ class PetService:
                 "reason": "no_companion_species",
             }
 
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
         pets = list(
             UserPet.objects.select_for_update().filter(
                 user=user, species=species, evolved_to_mount=False,
-            )
+            ).order_by("pk")
         )
         events = []
         evolved = 0
@@ -256,19 +313,11 @@ class PetService:
                 "evolved": False,
                 "mount_id": None,
             }
-            if pet.growth_points >= EVOLUTION_THRESHOLD:
-                pet.evolved_to_mount = True
-                pet.save(update_fields=[
-                    "growth_points", "evolved_to_mount", "updated_at",
-                ])
-                mount, _ = UserMount.objects.get_or_create(
-                    user=user, species=pet.species, potion=pet.potion,
-                )
+            mount = PetService._save_growth(pet, update_fields=["growth_points"])
+            if mount:
                 evolved += 1
                 event["evolved"] = True
                 event["mount_id"] = mount.pk
-            else:
-                pet.save(update_fields=["growth_points", "updated_at"])
             events.append(event)
 
         if events:
@@ -276,7 +325,6 @@ class PetService:
             # surface a toast on next page load. Use update_fields to avoid
             # racing with other CharacterProfile writers in the same flow.
             try:
-                profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
                 pending = list(profile.pending_companion_growth or [])
                 pending.extend(events)
                 profile.pending_companion_growth = pending
@@ -298,8 +346,12 @@ class PetService:
 
         Returns dict with: growth_added, new_growth, evolved (bool), mount (if evolved).
         """
-        from apps.rpg.models import ItemDefinition, UserInventory
-        from apps.pets.models import UserPet, UserMount
+        from apps.achievements.services import _lock_award_user
+        from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+        from apps.pets.models import UserPet
+
+        _lock_award_user(user)
+        profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
 
         try:
             pet = UserPet.objects.select_for_update().get(pk=pet_id, user=user)
@@ -331,6 +383,10 @@ class PetService:
             if food_type and food_type == pet.species.food_preference:
                 is_preferred = True
         growth = GROWTH_PREFERRED_FOOD if is_preferred else GROWTH_NEUTRAL_FOOD
+        if profile.pet_growth_boost_remaining > 0:
+            growth *= 2
+            profile.pet_growth_boost_remaining -= 1
+            profile.save(update_fields=["pet_growth_boost_remaining", "updated_at"])
 
         # Consume food
         food_inv.quantity -= 1
@@ -342,56 +398,12 @@ class PetService:
         # Apply growth and stamp last-fed for the happiness computation.
         pet.growth_points = min(pet.growth_points + growth, EVOLUTION_THRESHOLD)
         pet.last_fed_at = timezone.now()
-        pet.save(update_fields=["growth_points", "last_fed_at", "updated_at"])
-
-        # Check evolution
-        evolved = False
-        mount = None
-        if pet.growth_points >= EVOLUTION_THRESHOLD and not pet.evolved_to_mount:
-            pet.evolved_to_mount = True
-            pet.save(update_fields=["evolved_to_mount", "updated_at"])
-            mount = UserMount.objects.create(
-                user=user, species=pet.species, potion=pet.potion,
-            )
-            evolved = True
-            logger.info("User %s evolved %s %s to mount", user.username, pet.potion.name, pet.species.name)
-
-            # Chronicle hook — wrapped so a chronicle failure never breaks evolution.
-            try:
-                from apps.chronicle.services import ChronicleService
-                ChronicleService.record_first(
-                    user,
-                    event_slug="first_mount_evolved",
-                    title=f"First mount \u2014 {pet.species.name}",
-                    icon_slug="mount-sigil",
-                    related=("usermount", mount.pk),
-                )
-            except Exception:
-                logger.exception("Chronicle hook failed in feed_pet evolve-to-mount")
-
-            try:
-                from apps.notifications.services import notify, notify_parents
-                title = f"{pet.species.name} evolved into a mount!"
-                msg = f"{pet.potion.name} {pet.species.name} is ready to ride."
-                notify(
-                    user, title=title, message=msg,
-                    notification_type="pet_evolved",
-                    link="/bestiary?tab=mounts",
-                )
-                notify_parents(
-                    title=f"{user.display_name or user.username}'s pet evolved",
-                    message=msg,
-                    notification_type="pet_evolved",
-                    about_user=user,
-                    link="/bestiary?tab=mounts",
-                )
-            except Exception:
-                logger.exception("Notification hook failed in feed_pet evolve-to-mount")
+        mount = PetService._save_growth(pet, update_fields=["growth_points", "last_fed_at"])
 
         return {
             "growth_added": growth,
             "new_growth": pet.growth_points,
-            "evolved": evolved,
+            "evolved": mount is not None,
             "mount_id": mount.pk if mount else None,
             "evolution_stage": bird_evolution_stage(pet),
         }

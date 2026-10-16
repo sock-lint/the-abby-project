@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.db import models
 
-from config.base_models import ApprovalWorkflowModel, TimestampedModel
+from config.base_models import ApprovalWorkflowModel, CreatedAtModel, TimestampedModel
 
 
 class TimeEntry(models.Model):
@@ -47,6 +47,28 @@ class TimeEntry(models.Model):
             delta = self.clock_out - self.clock_in
             self.duration_minutes = int(delta.total_seconds() / 60)
         super().save(*args, **kwargs)
+
+
+class ClockOutDropReceipt(CreatedAtModel):
+    """One random drop opportunity after ten completed work minutes per day.
+
+    The family-local close date owns the opportunity. Keeping it independent
+    of TimeEntry and Project makes their deletion unable to re-arm a roll.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="clock_out_drop_receipts",
+    )
+    occurred_on = models.DateField()
+    historical = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "occurred_on"], name="clock_out_drop_unique_user_day",
+            ),
+        ]
 
 
 class Timecard(ApprovalWorkflowModel, TimestampedModel):
