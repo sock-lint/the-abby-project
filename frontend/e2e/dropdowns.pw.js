@@ -215,7 +215,11 @@ for (const browserName of ['chromium', 'webkit']) {
       await opener.click();
       const dialog = page.getByRole('dialog', { name: 'New assignment', exact: true });
       const child = dialog.getByRole('combobox', { name: 'Assign to', exact: true });
+      // Model platforms that do not focus a button when it is clicked. The
+      // combobox must own focus before arrow keys or Escape are pressed.
+      await child.evaluate(element => element.addEventListener('mousedown', event => event.preventDefault(), { once: true }));
       await child.click();
+      await expect(child).toBeFocused();
       const popup = dropdownListbox(child);
       await expectPopupFits(page, popup, 320, 320);
       await page.keyboard.press('End');

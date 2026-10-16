@@ -207,6 +207,21 @@ describe('Dropdown', () => {
     expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus();
   });
 
+  it('focuses its trigger on a pointer click before Escape can reach the modal', async () => {
+    const user = userEvent.setup();
+    const onEscape = vi.fn();
+    render(<Modal onEscape={onEscape} />);
+    const trigger = screen.getByRole('combobox');
+    // Safari does not focus a button on a pointer click. fireEvent.click
+    // reproduces that behavior, keeping focus on the modal's initial button.
+    fireEvent.click(trigger);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(onEscape).not.toHaveBeenCalled();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+  });
+
   it('keeps virtual focus inside its modal when portaled options are clicked', async () => {
     const user = userEvent.setup();
     render(<Modal onEscape={vi.fn()} />);

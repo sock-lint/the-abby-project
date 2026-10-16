@@ -332,7 +332,14 @@ const Dropdown = forwardRef(function Dropdown({
         aria-controls={listboxId}
         aria-activedescendant={isOpen && currentActiveIndex >= 0 ? `${listboxId}-option-${currentActiveIndex}` : undefined}
         className={`${className} flex items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50`}
-        onClick={() => { searchRef.current = { text: '', time: 0 }; if (isOpen) setOpen(false); else show(); }}
+        onClick={() => {
+          // Safari does not focus buttons on pointer clicks. Virtual option
+          // focus and modal Escape handling both belong to this trigger.
+          triggerRef.current?.focus({ preventScroll: true });
+          searchRef.current = { text: '', time: 0 };
+          if (isOpen) setOpen(false);
+          else show();
+        }}
         onKeyDown={handleKeyDown}
         onFocus={onFocus}
         onBlur={onBlur}
