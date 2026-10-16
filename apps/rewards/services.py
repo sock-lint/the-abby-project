@@ -71,9 +71,15 @@ class CoinService(BaseLedgerService):
         return entry
 
     @staticmethod
+    @transaction.atomic
     def spend_coins(user, amount, reason, *, description="", redemption=None):
         if amount <= 0:
             return None
+        # Every purchase shares this wallet lock, including print exchanges
+        # and shop redemptions. Atomic alone cannot serialize a SUM + INSERT
+        # on different purchases. NO KEY UPDATE allows concurrent earn-side
+        # ledger inserts while serializing all spends for this user.
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
         balance = CoinService.get_balance(user)
         if balance < amount:
             raise InsufficientCoinsError(

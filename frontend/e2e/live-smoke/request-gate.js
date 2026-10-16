@@ -43,10 +43,11 @@ export class RequestGate {
       return 'allow';
     }
     // Cloudflare injects this optional background JavaScript detection POST
-    // into otherwise read-only pages. Discard it without forwarding the body;
+    // into otherwise read-only pages, under a rotating one-letter route
+    // variant (h/g, h/b). Discard it without forwarding the body;
     // credentialed, navigational and other mutation requests still fail closed.
     if (method === 'POST' && !authorization && !navigation
-      && /^\/cdn-cgi\/challenge-platform\/h\/g\/jsd\/oneshot(?:\/|$)/.test(target.pathname)) {
+      && /^\/cdn-cgi\/challenge-platform\/h\/[a-z]\/jsd\/oneshot(?:\/|$)/.test(target.pathname)) {
       return 'abort';
     }
     const actor = this.credentials[this.role];

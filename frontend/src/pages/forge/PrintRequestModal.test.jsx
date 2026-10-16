@@ -8,6 +8,12 @@ import PrintRequestModal from './PrintRequestModal';
 const URL_UNDER_TEST = 'https://makerworld.com/en/models/1';
 
 describe('PrintRequestModal', () => {
+  it('explains the configured time price before requesting a print', () => {
+    renderWithProviders(<PrintRequestModal budget={{ minutes_per_coin: 15 }} />);
+    expect(screen.getByText(/Prints cost 1 coin per 15 estimated print minutes, rounded up/)).toBeInTheDocument();
+    expect(screen.getByText(/parent checks the time and sends a fixed quote/)).toBeInTheDocument();
+  });
+
   it('previews the link on blur and fills the title from the scrape', async () => {
     server.use(
       http.post('*/api/print-requests/preview/', () =>

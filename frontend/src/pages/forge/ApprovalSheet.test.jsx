@@ -29,6 +29,66 @@ const OVER_BUDGET = HttpResponse.json({
 }, { status: 409 });
 
 describe('ApprovalSheet', () => {
+  it('requires a positive whole-minute estimate and sends a rounded-up coin quote', async () => {
+    const spy = spyHandler('post', /\/api\/print-requests\/7\/approve\/$/, {
+      id: 7, title: REQUEST.title, status: 'quoted', coin_cost: 5,
+      estimated_minutes: 61, minutes_per_coin_snapshot: 15,
+      plate_filename: 'req-0007-articulated-dragon.3mf',
+    });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(
+      <ApprovalSheet request={REQUEST} budget={{ minutes_per_coin: 15 }} onClose={() => {}} />,
+    );
+    const send = screen.getByRole('button', { name: 'Send coin quote' });
+    expect(send).toBeDisabled();
+    const estimate = screen.getByLabelText(/print time estimate/i);
+    await user.type(estimate, '0');
+    expect(send).toBeDisabled();
+    await user.clear(estimate);
+    await user.type(estimate, '1.5');
+    expect(send).toBeDisabled();
+    await user.clear(estimate);
+    await user.type(estimate, '60');
+    expect(screen.getByText('Coin quote: 4 coins')).toBeInTheDocument();
+    await user.clear(estimate);
+    await user.type(estimate, '61');
+    expect(screen.getByText('Coin quote: 5 coins')).toBeInTheDocument();
+    await user.click(send);
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].body).toEqual({
+      estimated_grams: null, estimated_minutes: 61, notes: '', force: false,
+    });
+    expect(await screen.findByRole('dialog', { name: 'Coin quote sent' })).toBeInTheDocument();
+    expect(screen.getByText(/must exchange 5 coins before this print can start/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy plate filename/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps sending a priced quote behind an explicit monthly-cap override', async () => {
+    const spy = spyHandler('post', /\/api\/print-requests\/7\/approve\/$/, ({ body }) => body.force
+      ? { id: 7, title: REQUEST.title, status: 'quoted', coin_cost: 4 }
+      : OVER_BUDGET);
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<ApprovalSheet request={REQUEST} budget={{ minutes_per_coin: 15 }} />);
+    await user.type(screen.getByLabelText(/print time estimate/i), '60');
+    await user.click(screen.getByRole('button', { name: 'Send coin quote' }));
+    await user.click(await screen.findByRole('button', { name: 'Send quote anyway' }));
+    await waitFor(() => expect(spy.calls).toHaveLength(2));
+    expect(spy.calls[1].body).toEqual({
+      estimated_grams: null, estimated_minutes: 60, notes: '', force: true,
+    });
+    expect(await screen.findByRole('dialog', { name: 'Coin quote sent' })).toBeInTheDocument();
+  });
+
+  it('waits for pricing settings and blocks approval when they cannot be read', () => {
+    const { unmount } = renderWithProviders(<ApprovalSheet request={REQUEST} pricingLoading />);
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByText('Loading coin exchange settings…')).toBeInTheDocument();
+    unmount();
+    renderWithProviders(<ApprovalSheet request={REQUEST} pricingError="Service unavailable" />);
+    expect(screen.getByRole('button', { name: 'Approve' })).toBeDisabled();
+    expect(screen.getByRole('alert')).toHaveTextContent('Could not load coin exchange settings. Service unavailable');
+  });
+
   it('POSTs the slicer estimates on approve', async () => {
     const spy = spyHandler('post', /\/api\/print-requests\/7\/approve\/$/, {
       id: 7, status: 'approved', title: 'Articulated Dragon',

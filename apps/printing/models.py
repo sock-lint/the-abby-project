@@ -14,6 +14,7 @@ closes out and a **PrintBudgetLedger** row debits the child's monthly
 **PrintBudget**.
 """
 from django.conf import settings
+from django.core.validators import MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -234,6 +235,7 @@ class PrintRequest(ApprovalWorkflowModel, TimestampedModel):
 
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
+        QUOTED = "quoted", "Awaiting Coin exchange"
         APPROVED = "approved", "Approved"
         REJECTED = "rejected", "Rejected"
         PRINTING = "printing", "Printing"
@@ -338,6 +340,22 @@ class PrintRequest(ApprovalWorkflowModel, TimestampedModel):
         help_text="Print-time estimate from the slicer, in minutes. Informational at approval.",
     )
 
+    minutes_per_coin_snapshot = models.PositiveIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)],
+        help_text="Frozen price at approval. Null means this request is free.",
+    )
+    coin_cost = models.PositiveIntegerField(default=0)
+    coins_paid = models.PositiveIntegerField(default=0)
+    coins_refunded = models.PositiveIntegerField(default=0)
+    debit_entry = models.OneToOneField(
+        "rewards.CoinLedger", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="print_purchase",
+    )
+    refund_entry = models.OneToOneField(
+        "rewards.CoinLedger", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="print_refund",
+    )
+
     # --- Lifecycle timestamps --------------------------------------------
     started_at = models.DateTimeField(null=True, blank=True)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -369,6 +387,7 @@ class PrintRequest(ApprovalWorkflowModel, TimestampedModel):
     def is_open(self) -> bool:
         """True while the request is still expected to produce a print."""
         return self.status in (
+            self.Status.QUOTED,
             self.Status.APPROVED,
             self.Status.PRINTING,
             self.Status.FAILED,
@@ -400,6 +419,10 @@ class PrintBudget(TimestampedModel):
         null=True,
         blank=True,
         help_text="Print-time allowance per calendar month, in minutes. Null = unlimited.",
+    )
+    minutes_per_coin = models.PositiveIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1)],
+        help_text="Print minutes per Coin. Null disables Coin pricing for new approvals.",
     )
     is_active = models.BooleanField(
         default=True,

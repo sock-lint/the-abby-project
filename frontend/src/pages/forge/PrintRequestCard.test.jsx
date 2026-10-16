@@ -150,4 +150,30 @@ describe('PrintRequestCard', () => {
     expect(screen.getByRole('button', { name: 'Decide' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument();
   });
+
+  it('shows the frozen quote and explicit exchange action without printing instructions', () => {
+    renderWithProviders(<PrintRequestCard request={buildRequest({
+      status: 'quoted', coin_cost: 3, estimated_minutes: 21,
+      minutes_per_coin_snapshot: 10, coins_paid: 0, coins_refunded: 0,
+      plate_filename: 'req-0042-dragon.3mf',
+    })} canExchange />);
+    expect(screen.getByText('Awaiting coin exchange')).toBeInTheDocument();
+    expect(screen.getByText('Fixed quote: 3 coins')).toBeInTheDocument();
+    expect(screen.getByText('Estimated print time: 21m · 10 minutes per coin')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Exchange 3 coins' })).toBeInTheDocument();
+    expect(screen.queryByText(/Save the sliced plate as/)).not.toBeInTheDocument();
+  });
+
+  it('shows paid and refunded coins from the server receipt', () => {
+    const { unmount } = renderWithProviders(<PrintRequestCard request={buildRequest({
+      status: 'approved', coin_cost: 3, coins_paid: 3, coins_refunded: 0,
+    })} />);
+    expect(screen.getByText('Exchanged 3 coins')).toBeInTheDocument();
+    expect(screen.getByText(/Retries do not cost extra coins/)).toBeInTheDocument();
+    unmount();
+    renderWithProviders(<PrintRequestCard request={buildRequest({
+      status: 'cancelled', coin_cost: 3, coins_paid: 3, coins_refunded: 3,
+    })} />);
+    expect(screen.getByText('Refunded 3 coins')).toBeInTheDocument();
+  });
 });

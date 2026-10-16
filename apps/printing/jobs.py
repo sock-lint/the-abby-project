@@ -240,13 +240,16 @@ class PrinterJobTracker:
 
         normalized = normalize_subtask_name(state.subtask_name)
         # find_request("") returns None, so a nameless job can never bind.
-        request = find_request(normalized, family=self.printer.family)
-
         with transaction.atomic():
             # Defensive: close anything stale so the one-open-job-per-printer
             # constraint can't reject this insert (power cut mid-print leaves
             # a row open until the reconcile task or the next print).
             self._force_close_stale()
+
+            # Share the cancellation lock, and recheck bindable status while
+            # holding it. A cancellation that refunded Coins must win before
+            # a later job can attach; an attached job makes refund impossible.
+            request = find_request(normalized, family=self.printer.family, for_update=True)
 
             job = PrintJob.objects.create(
                 printer=self.printer,

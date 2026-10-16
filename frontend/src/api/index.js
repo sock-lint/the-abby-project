@@ -738,6 +738,7 @@ export const approvePrintRequest = (id, data) =>
 export const rejectPrintRequest = (id, notes = '') =>
   api.post(`/print-requests/${id}/reject/`, { notes });
 export const cancelPrintRequest = (id) => api.post(`/print-requests/${id}/cancel/`);
+export const exchangePrintRequest = (id) => api.post(`/print-requests/${id}/exchange/`, {});
 export const previewPrintLink = (url) => api.post('/print-requests/preview/', { url });
 
 export const listPrintJobs = (params = {}) => api.get(`/print-jobs/${forgeQuery(params)}`);

@@ -4,7 +4,7 @@
 // constants").
 
 /** Request statuses that still expect a print to happen. */
-export const OPEN_REQUEST_STATUSES = ['pending', 'approved', 'printing', 'failed'];
+export const OPEN_REQUEST_STATUSES = ['pending', 'quoted', 'approved', 'printing', 'failed'];
 
 /** The complement of OPEN_REQUEST_STATUSES. The Forge fetches the two sets
  *  separately so a long history can never push a pending request off the
@@ -17,6 +17,7 @@ export const LINKABLE_REQUEST_STATUSES = ['approved', 'printing', 'failed', 'com
 /** RuneBadge tone per request status. */
 export const REQUEST_TONE = {
   pending: 'gold',
+  quoted: 'gold',
   approved: 'moss',
   printing: 'teal',
   completed: 'moss',

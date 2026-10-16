@@ -1,0 +1,17 @@
+{
+  "id": 21,
+  "user": 7,
+  "user_name": "Fixture Child",
+  "username": "printing-fixture-child",
+  "grams_per_month": "500.00",
+  "minutes_per_month": 600,
+  "is_active": true,
+  "notes": "",
+  "period_month": "2026-10-01",
+  "minutes_per_coin": 1,
+  "grams_used": 0.0,
+  "minutes_used": 0,
+  "grams_remaining": 500.0,
+  "minutes_remaining": 600,
+  "updated_at": "2026-10-15T12:00:00-07:00"
+}

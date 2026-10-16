@@ -43,7 +43,11 @@ class PrintRequestAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug", "user__username", "source_url")
     autocomplete_fields = ("user", "decided_by")
     date_hierarchy = "created_at"
-    readonly_fields = ("slug", "plate_filename", "print_count")
+    readonly_fields = (
+        "slug", "plate_filename", "print_count",
+        "minutes_per_coin_snapshot", "coin_cost", "coins_paid", "coins_refunded",
+        "debit_entry", "refund_entry",
+    )
 
 
 @admin.register(PrintJob)
