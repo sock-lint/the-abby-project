@@ -12,6 +12,10 @@ server stages and rollback are documented in [bird-evolution.md](bird-evolution.
 Catalog icons 1.0.0 is a third private family; exact identity bindings, acceptance
 and rollback are documented in [catalog-icons.md](catalog-icons.md).
 
+Pedestal and card UI 1.0.1 adds private presentation assets alongside those pins;
+see [pedestal-card-ui.md](pedestal-card-ui.md) for its verification, scene choices,
+protected staging and rollback. It adds no catalog or progression entitlement.
+
 ## Install and update
 
 From `frontend/`, install the checked-in, code-only package tarballs with `npm ci`.

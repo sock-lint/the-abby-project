@@ -13,6 +13,10 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
+vi.mock('../../../pedestal/PedestalPreview', () => ({
+  default: ({ eggAssetId = 'normal-egg' }) => <div role="img" aria-label="Decorative model preview" data-egg={eggAssetId} />,
+}));
+
 function renderHatchery() {
   return render(
     <MemoryRouter>
@@ -43,6 +47,7 @@ describe('Hatchery', () => {
     expect(screen.getByText(/Breeding is not available with the current pet collection/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /grown pet/ })).toBeNull();
     expect(screen.queryByText(/hybrid/i)).toBeNull();
+    expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
   });
   it('renders an empty state when there are no eggs or potions', async () => {
     server.use(
@@ -55,6 +60,7 @@ describe('Hatchery', () => {
     await waitFor(() =>
       expect(screen.getByText(/no eggs or potions/i)).toBeInTheDocument(),
     );
+    expect(screen.queryByRole('img', { name: 'Decorative model preview' })).toBeNull();
   });
 
   // "No eggs or potions in your Satchel yet…" used to render on a failed
@@ -117,6 +123,36 @@ describe('Hatchery', () => {
     await waitFor(() => expect(hatch.calls).toHaveLength(1));
     expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
     expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
+  });
+
+  it('keeps artwork neutral and preserves the hatch form without a ceremony after a rejected hatch', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { id: 1, quantity: 1, item: { id: 11, name: 'A very long saved egg name including Legendary artwork words', item_type: 'egg', catalog_available: true } },
+        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', item_type: 'potion', catalog_available: true } },
+      ])),
+    );
+    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, HttpResponse.json({ detail: 'This pair cannot be hatched.' }, { status: 400 }));
+    server.use(hatch.handler);
+    renderHatchery();
+    const user = userEvent.setup();
+    const egg = await screen.findByRole('combobox', { name: /^egg$/i });
+    const potion = screen.getByRole('combobox', { name: /^potion$/i });
+    await selectDropdown(user, egg, '11');
+    await selectDropdown(user, potion, '22');
+    expect(hatch.calls).toHaveLength(0);
+    expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /hatch pet/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This pair cannot be hatched.');
+    expect(hatch.calls).toHaveLength(1);
+    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
+    expect(egg).toHaveTextContent('A very long saved egg name including Legendary artwork words');
+    expect(potion).toHaveTextContent('Base Potion');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByText(/You hatched a/)).toBeNull();
   });
 
   it('disables resting mounts in the breed picker and breeds two ready mounts', async () => {
