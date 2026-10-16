@@ -2,6 +2,7 @@ import { Pencil, Trash2, Bell, BellRing } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import IconButton from '../../components/IconButton';
 import { CoinIcon } from '../../components/icons/JournalIcons';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { RARITY_COLORS } from '../../constants/colors';
 
 export default function RewardCard({
@@ -14,6 +15,8 @@ export default function RewardCard({
   const affordable = balanceUnknown || coinBalance >= reward.cost_coins;
   const outOfStock = reward.stock != null && reward.stock <= 0;
   const wishlisted = !!reward.on_my_wishlist;
+  const digitalItem = ['digital_item', 'both'].includes(reward.fulfillment_kind)
+    ? reward.item_definition_detail : null;
 
   return (
     <ParchmentCard
@@ -49,7 +52,15 @@ export default function RewardCard({
           inactive
         </div>
       )}
-      <div className="text-4xl mb-1 text-center">{reward.icon || '🎁'}</div>
+      <div className="text-4xl mb-1 flex justify-center">
+        {digitalItem ? <CatalogIcon
+          assetId={digitalItem.catalog_icon}
+          spriteKey={digitalItem.sprite_key}
+          icon={digitalItem.icon || reward.icon || '🎁'}
+          size={40}
+          alt={digitalItem.name || reward.name}
+        /> : reward.icon || '🎁'}
+      </div>
       <div className="font-body text-body font-semibold text-center text-ink-primary break-words">
         {reward.name}
       </div>

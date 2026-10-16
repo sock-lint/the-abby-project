@@ -1,7 +1,7 @@
 import { Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
 import QuestFolio from '../quests/QuestFolio';
-import RpgSprite from '../../components/rpg/RpgSprite';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import RuneBadge from '../../components/journal/RuneBadge';
 import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
@@ -68,7 +68,8 @@ function RectoBody({ quest }) {
     <div className="space-y-4">
       <div className="flex items-start gap-3">
         <div className="shrink-0">
-          <RpgSprite
+          <CatalogIcon
+            assetId={def.catalog_icon}
             spriteKey={def.sprite_key}
             icon={def.icon}
             size={56}
@@ -118,7 +119,8 @@ function RectoBody({ quest }) {
           )}
           {def.reward_items?.map((r) => (
             <span key={r.id} className="mr-2 inline-flex items-center gap-1 align-middle">
-              <RpgSprite
+              <CatalogIcon
+                assetId={r.item_catalog_icon}
                 spriteKey={r.item_sprite_key}
                 icon={r.item_icon}
                 size={24}

@@ -5,6 +5,7 @@ import ProgressBar from '../../components/ProgressBar';
 import Button from '../../components/Button';
 import BottomSheet from '../../components/BottomSheet';
 import AddToCalendar from '../../components/AddToCalendar';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { goalActionPath, goalDate, goalDeadline, goalNumber, goalProgress, goalUnit } from './goalDisplay';
 
 function GoalBody({ goal, timezone, showWhatCounts = true, showDeadline = true }) {
@@ -38,9 +39,12 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, bus
   return (
     <ParchmentCard as="article" aria-label={goal.name} className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
-          <h4 className="font-body font-bold text-lede text-ink-primary break-words">{goal.name}</h4>
+        <div className="min-w-0 flex items-start gap-3">
+          {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
+          <div className="min-w-0 space-y-1">
+            <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
+            <h4 className="font-body font-bold text-lede text-ink-primary break-words">{goal.name}</h4>
+          </div>
         </div>
         {goal.pinned && <span className="inline-flex shrink-0 items-center gap-1 text-caption text-sheikah-teal-deep"><Pin size={14} aria-hidden="true" /> Pinned</span>}
       </div>
@@ -73,6 +77,7 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, busy, canA
   return (
     <BottomSheet title={goal.name} onClose={close}>
       <div className="space-y-4">
+        {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={64} alt={goal.name} />}
         {goal.description && <p className="font-body text-body text-ink-secondary">{goal.description}</p>}
         <GoalBody goal={goal} timezone={timezone} showWhatCounts={false} />
         {goal.participants?.length > 1 && <section className="space-y-2">

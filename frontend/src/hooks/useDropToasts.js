@@ -36,6 +36,7 @@ export function useDropToasts() {
         item_name: d.item_name,
         item_icon: d.item_icon,
         item_sprite_key: d.item_sprite_key,
+        item_catalog_icon: d.item_catalog_icon,
         item_rarity: d.item_rarity,
         was_salvaged: d.was_salvaged,
       }))]);

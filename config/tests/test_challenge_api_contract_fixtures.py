@@ -431,7 +431,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         completed = response.json()
         goal = next(row for row in completed["results"] if row["id"] == preview["id"])
         self.assertEqual(goal["reward_receipt"]["coins_awarded"], 5)
-        self.assertEqual(goal["reward_receipt"]["items"], [{"item_name": frame.name, "quantity": 1}])
+        self.assertEqual(goal["reward_receipt"]["items"], [{"item_name": frame.name, "item_catalog_icon": None, "quantity": 1}])
         self.assert_response_fixture(response, "challenges-items-delivered.json")
         paid = self.state()
         self.assertEqual(self.log_run("1.25").status_code, 201)
@@ -487,7 +487,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             response = self.client.get("/api/challenges/")
             receipt = response.json()["results"][0]["reward_receipt"]
             self.assertEqual(receipt["coins_awarded"], 30)
-            self.assertEqual(receipt["items"], [{"item_name": egg.name, "quantity": 1, "salvaged_to_coins": 25}])
+            self.assertEqual(receipt["items"], [{"item_name": egg.name, "item_catalog_icon": None, "quantity": 1, "salvaged_to_coins": 25}])
             completed = self.assert_response_fixture(response, "challenges-items-converted.json")
             self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
             paid = self.state()

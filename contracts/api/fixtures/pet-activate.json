@@ -8,7 +8,9 @@
     "sprite_key": "wolf",
     "description": "A synthetic trail companion.",
     "food_preference": "meat",
-    "catalog_available": true
+    "catalog_available": true,
+    "catalog_icon": null,
+    "grown_catalog_icon": null
   },
   "potion": {
     "id": 43,

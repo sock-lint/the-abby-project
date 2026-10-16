@@ -5,6 +5,7 @@
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
       "origin": "catalog",
+      "catalog_icon": null,
       "metric": "count",
       "target": "2",
       "progress": "2",
@@ -23,7 +24,8 @@
             "quantity": 1,
             "item_name": "Fixture Wolf Egg",
             "item_icon": "",
-            "item_sprite_key": ""
+            "item_sprite_key": "",
+            "item_catalog_icon": null
           }
         ]
       },
@@ -43,6 +45,7 @@
         "items": [
           {
             "item_name": "Fixture Wolf Egg",
+            "item_catalog_icon": null,
             "quantity": 1,
             "salvaged_to_coins": 25
           }
@@ -57,6 +60,7 @@
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
       "origin": "catalog",
+      "catalog_icon": null,
       "metric": "count",
       "target": "2",
       "progress": "2",
@@ -75,7 +79,8 @@
             "quantity": 1,
             "item_name": "Fixture Wolf Egg",
             "item_icon": "",
-            "item_sprite_key": ""
+            "item_sprite_key": "",
+            "item_catalog_icon": null
           }
         ]
       },
@@ -95,6 +100,7 @@
         "items": [
           {
             "item_name": "Fixture Wolf Egg",
+            "item_catalog_icon": null,
             "quantity": 1,
             "salvaged_to_coins": 25
           }
@@ -119,6 +125,7 @@
             "items": [
               {
                 "item_name": "Fixture Wolf Egg",
+                "item_catalog_icon": null,
                 "quantity": 1,
                 "salvaged_to_coins": 25
               }
