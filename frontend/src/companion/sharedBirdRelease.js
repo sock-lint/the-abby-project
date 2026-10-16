@@ -7,6 +7,16 @@ const files = import.meta.glob('../avatar/shared/**/*.{glb,png}', { eager: true,
 export const BIRD_FAMILY = 'meshtint-bird-evolution';
 export const BIRD_STAGES = ['chick', 'fledgling', 'bird'];
 
+/** Stable refetches replace response objects, not the immutable runtime pack.
+ * Include resolved payload URLs so a real transport/release change still loads
+ * a new independently owned instance. Callback identity is not a resource key. */
+export function birdPlaybackIdentity(appearance) {
+  return JSON.stringify([
+    appearance.key, appearance.manifestUrl, appearance.manifestSha256, appearance.url,
+    (appearance.release?.files || []).map((file) => [file.path, appearance.resolveUrl(file.path)]),
+  ]);
+}
+
 /** Only the exact checked-in release pin can supply an owned bird appearance. */
 export function stagedBirdRelease(available = manifests, urls = files, lock = assetLock, indexes = manifestUrls) {
   const pin = lock.releases?.find((entry) => entry.family_id === BIRD_FAMILY);

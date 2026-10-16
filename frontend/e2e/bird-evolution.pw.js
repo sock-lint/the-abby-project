@@ -50,6 +50,11 @@ test('all 31 published motions render on native rigs; both confirmed evolutions 
   test.skip(!manifest, 'Private shared Bird payload absent; real asset acceptance remains pending.');
   const errors = await open(page);
   let count = 0;
+  const modelRequests = [];
+  page.on('request', (request) => {
+    const url = new URL(request.url());
+    if (url.pathname.endsWith('.glb') && !url.searchParams.has('import')) modelRequests.push(url.pathname);
+  });
   for (const stage of ['chick', 'fledgling', 'bird']) {
     if (stage !== 'chick') {
       await page.getByRole('button', { name: stage === 'bird' ? 'Use evolved Bird' : 'Use Fledgling', exact: true }).click();
@@ -60,6 +65,11 @@ test('all 31 published motions render on native rigs; both confirmed evolutions 
       await expect(playback(page)).toHaveAttribute('data-variant-id', 'source-idle');
     }
     await page.screenshot({ path: info.outputPath(`${stage}-idle.png`), fullPage: true });
+    const loaded = modelRequests.length;
+    await page.getByRole('button', { name: 'Reload saved companion', exact: true }).click();
+    await page.waitForLoadState('networkidle');
+    await expect(playback(page)).toHaveAttribute('data-playback-status', 'idle');
+    expect(modelRequests.length, 'A same-stage saved-state reload must retain the native rig and consumed evolution.').toBe(loaded);
     await page.getByText('More motions', { exact: true }).click();
     const variants = manifest.assets.find((entry) => entry.id === stage).variants;
     await expect(page.getByRole('combobox', { name: 'Companion motion' }).locator('option')).toHaveCount(variants.length);

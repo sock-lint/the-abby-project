@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';
 import { createSharedBirdPlayback } from './sharedBirdPlayback';
+import { birdPlaybackIdentity } from './sharedBirdRelease';
 import WoodlandScene, { WoodlandCamera } from './WoodlandScene';
 import { WOODLAND_BACKGROUND, WOODLAND_CAMERA } from './prepareWoodland';
 import useSceneMotionAllowed from './useSceneMotionAllowed';
@@ -75,6 +76,12 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
   const lastReaction = useRef(null);
   const [error, setError] = useState(null);
   const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const resourceIdentity = birdPlaybackIdentity(appearance);
+  const notifyReady = useEffectEvent(() => onReady());
+  const notifyPlayback = useEffectEvent((state) => onPlaybackState?.(state));
+  const createPlayback = useEffectEvent(() => createSharedBirdPlayback(appearance, {
+    onReady: () => notifyReady(), onPlaybackState: (state) => notifyPlayback(state), onError: setError, invalidate,
+  }));
   useEffect(() => {
     const media = window.matchMedia('(prefers-reduced-motion: reduce)');
     const update = () => setReducedMotion(media.matches);
@@ -82,7 +89,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
     return () => media.removeEventListener('change', update);
   }, []);
   useEffect(() => {
-    const instance = createSharedBirdPlayback(appearance, { onReady, onPlaybackState, onError: setError, invalidate });
+    const instance = createPlayback();
     playback.current = instance;
     lastEvolution.current = null;
     lastInteraction.current = null;
@@ -95,7 +102,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
       instance.dispose();
       root.remove(instance.root);
     };
-  }, [appearance, root, onReady, onPlaybackState, invalidate]);
+  }, [resourceIdentity, root]);
   useEffect(() => {
     if (!animate || reducedMotion) {
       if (evolution?.id) lastEvolution.current = evolution.id;
@@ -108,7 +115,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
     if (!evolution?.id || lastEvolution.current === evolution.id) return;
     lastEvolution.current = evolution.id;
     playback.current?.evolve(evolution.from, evolution.to);
-  }, [evolution, appearance, animate, motionAllowed, reducedMotion]);
+  }, [evolution, resourceIdentity, animate, motionAllowed, reducedMotion]);
   useEffect(() => {
     if (!interaction?.id || lastInteraction.current === interaction.id) return;
     // An accessible control can sit below the canvas. Keep its request queued

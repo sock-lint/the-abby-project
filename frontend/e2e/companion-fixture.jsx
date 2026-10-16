@@ -14,6 +14,7 @@ export default function Fixture() {
       <Button onClick={() => setCreature(chick)}>Use Chick</Button>
       <Button onClick={() => setCreature({ ...chick, growth_points: 50, evolution_stage: 'fledgling' })}>Use Fledgling</Button>
       <Button onClick={() => setCreature({ ...chick, growth_points: 100, evolution_stage: 'bird', evolved_to_mount: true })}>Use evolved Bird</Button>
+      <Button onClick={() => setCreature((saved) => ({ ...saved, species: { ...saved.species }, potion: { ...saved.potion } }))}>Reload saved companion</Button>
       <Button onClick={() => setCreature({ ...chick, id: 2, species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' } })}>Use Fox</Button>
     </div>
     <CompanionPreview creature={creature}><Button variant="secondary">Existing care controls</Button></CompanionPreview>

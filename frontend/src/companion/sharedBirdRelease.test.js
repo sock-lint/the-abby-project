@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { birdMotions, birdStage, resolveSharedBirdAppearance, stagedBirdRelease } from './sharedBirdRelease';
+import { birdMotions, birdPlaybackIdentity, birdStage, resolveSharedBirdAppearance, stagedBirdRelease } from './sharedBirdRelease';
 import { stagedBirdFixture, syntheticBird } from '../test/birdReleaseFixture';
 
 describe('Pinned shared bird release', () => {
+  it('keys runtime ownership by the exact pin, stage and resolved payloads rather than object identity', () => {
+    const staged = stagedBirdFixture();
+    const selected = resolveSharedBirdAppearance(syntheticBird, 'pet', staged);
+    const refreshed = resolveSharedBirdAppearance({ ...syntheticBird, growth_points: 15 }, 'pet', { ...staged, resolveUrl: (file) => staged.resolveUrl(file) });
+    expect(birdPlaybackIdentity(refreshed)).toBe(birdPlaybackIdentity(selected));
+    expect(birdPlaybackIdentity({ ...selected, manifestSha256: 'b'.repeat(64) })).not.toBe(birdPlaybackIdentity(selected));
+    expect(birdPlaybackIdentity({ ...selected, key: 'fledgling' })).not.toBe(birdPlaybackIdentity(selected));
+    expect(birdPlaybackIdentity({ ...selected, resolveUrl: (file) => `/native/${file}` })).not.toBe(birdPlaybackIdentity(selected));
+  });
+
   it('exposes all 31 native motions and selects only server-confirmed stages', () => {
     const staged = stagedBirdFixture();
     expect(['chick', 'fledgling', 'bird'].flatMap((stage) => birdMotions(staged.release, stage, staged.resolveUrl))).toHaveLength(31);
