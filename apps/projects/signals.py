@@ -37,6 +37,18 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         sender.objects.filter(pk=instance.pk).update(started_at=timezone.now())
 
     elif instance.status == "completed" and previous != "completed":
+        # Project.save keeps this unique receipt and every award in one
+        # transaction. Concurrent approvals and reopening/reassigning a project
+        # may change its status again, but cannot create another reward.
+        if instance.assigned_to_id:
+            from .models import ProjectCompletionRewardReceipt
+
+            _receipt, first_completion = ProjectCompletionRewardReceipt.objects.get_or_create(
+                project=instance, defaults={"user_id": instance.assigned_to_id},
+            )
+            if not first_completion:
+                return
+
         logger.info(
             "Project completed: '%s' by user %s (payment_kind=%s)",
             instance.title, instance.assigned_to, getattr(instance, "payment_kind", "required"),
@@ -50,7 +62,9 @@ def handle_project_status_change(sender, instance, created, **kwargs):
                    "Your project has been approved! Great work!", "project_approved",
                    link=f"/projects/{instance.id}")
 
-        sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
+        if instance.completed_at is None:
+            instance.completed_at = timezone.now()
+        sender.objects.filter(pk=instance.pk).update(completed_at=instance.completed_at)
 
         is_bounty = getattr(instance, "payment_kind", "required") == "bounty"
 

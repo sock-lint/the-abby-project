@@ -6,11 +6,9 @@ from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
 
 from apps.payments.models import PaymentLedger
-from apps.payments.services import PaymentService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
-from apps.rewards.services import CoinService
 from config.services import finalize_decision
 
 from .models import Chore, ChoreCompletion
@@ -45,7 +43,7 @@ class ChoreService:
 
     @staticmethod
     def get_available_chores(user, target_date=None):
-        """Return chores available to a child, annotated with completion status.
+        """Return the family's available chores, annotated with completion status.
 
         Each chore in the result has ``is_done_today`` (bool) and
         ``today_completion_status`` (str|None) annotations.
@@ -53,7 +51,11 @@ class ChoreService:
         if target_date is None:
             target_date = timezone.localdate()
 
-        qs = Chore.objects.filter(is_active=True, pending_parent_review=False)
+        qs = Chore.objects.filter(
+            family_id=user.family_id,
+            is_active=True,
+            pending_parent_review=False,
+        )
 
         if user.role == "child":
             qs = qs.filter(Q(assigned_to=user) | Q(assigned_to__isnull=True))
@@ -119,6 +121,9 @@ class ChoreService:
     @transaction.atomic
     def submit_completion(user, chore, notes=""):
         """Child marks a chore as done. Creates a pending ChoreCompletion."""
+        if chore.family_id != user.family_id:
+            raise ChoreNotAvailableError("This chore is not available to you.")
+
         if not chore.is_active:
             raise ChoreNotAvailableError("This chore is no longer active.")
 

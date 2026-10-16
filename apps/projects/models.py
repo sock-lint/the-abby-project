@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 
 from apps.accounts.models import User  # noqa: F401  — re-exported for historical imports
 
@@ -68,10 +68,26 @@ class Project(TimestampedModel):
     def __str__(self):
         return self.title
 
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        # Status, the completion receipt and all reward writes must commit
+        # together. A failed award leaves the previous status retryable.
         if not self.xp_reward:
             self.xp_reward = 50 * self.difficulty
         super().save(*args, **kwargs)
+
+
+class ProjectCompletionRewardReceipt(CreatedAtModel):
+    """Permanent once-per-project guard, independent of later status edits."""
+
+    project = models.OneToOneField(
+        Project, on_delete=models.CASCADE, related_name="completion_reward_receipt",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="project_completion_receipts",
+    )
+    historical = models.BooleanField(default=False)
 
 
 class ProjectMilestone(models.Model):
