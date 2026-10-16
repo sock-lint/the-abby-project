@@ -19,7 +19,11 @@ class TimeEntryService:
 
     @staticmethod
     def completed_entries(user):
-        return TimeEntry.objects.filter(user=user, status="completed")
+        from apps.projects.models import Project
+
+        return TimeEntry.objects.filter(
+            user=user, status="completed", project__in=Project.objects.work_projects(),
+        )
 
     @classmethod
     def daily_minute_totals(cls, user):
@@ -81,6 +85,8 @@ class ClockService:
     @classmethod
     def clock_in(cls, user, project):
         """Create a new time entry. Validates constraints."""
+        if project.is_homework:
+            raise ValueError("Homework does not use time tracking or project pay.")
         active = cls.get_active_entry(user)
         if active:
             raise ValueError("Already clocked in. Clock out first.")
@@ -130,6 +136,10 @@ class ClockService:
         entry.notes = notes
         entry.status = "completed"
         entry.save()
+
+        # Close historical homework timers safely, without work rewards.
+        if entry.project.is_homework:
+            return entry
 
         from django.conf import settings
         from apps.achievements.services import AwardService
@@ -233,6 +243,7 @@ class TimecardService:
         from datetime import timedelta
         from django.contrib.auth import get_user_model
         from apps.payments.models import PaymentLedger
+        from apps.projects.models import Project
 
         # A user lock serializes even the first generation, before a weekly
         # timecard exists. All timecard decisions take locks in this order.
@@ -253,6 +264,7 @@ class TimecardService:
             user=user, status="completed",
             clock_in__date__gte=week_start,
             clock_in__date__lte=week_end,
+            project__in=Project.objects.work_projects(),
         ).select_related("project"))
         if not entries and timecard is None:
             return None
@@ -275,7 +287,7 @@ class TimecardService:
         hourly_earnings = sum(expected_by_project.values(), Decimal("0.00"))
 
         bonus_earnings = Decimal("0.00")
-        completed_projects = user.assigned_projects.filter(
+        completed_projects = user.assigned_projects.work_projects().filter(
             status="completed",
             completed_at__date__gte=week_start,
             completed_at__date__lte=week_end,
@@ -311,7 +323,6 @@ class TimecardService:
                     user=user, timecard=timecard, entry_type=PaymentLedger.EntryType.HOURLY,
                 ).values("project_id").annotate(amount=Sum("amount"))
             }
-            from apps.projects.models import Project
             projects = Project.objects.in_bulk(
                 (expected_by_project.keys() | actual_by_project.keys()) - {None},
             )

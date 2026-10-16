@@ -35,10 +35,11 @@ def _build_user_dashboard(target: User) -> dict[str, Any]:
     week_start = today - timedelta(days=today.weekday())
     week_minutes = TimeEntry.objects.filter(
         user=target, status="completed", clock_in__date__gte=week_start,
+        project__in=Project.objects.work_projects(),
     ).aggregate(total=Sum("duration_minutes"))["total"] or 0
 
     active_projects = list(
-        Project.objects.filter(
+        Project.objects.work_projects().filter(
             assigned_to=target, status__in=["active", "in_progress"],
         ).order_by("-created_at")[:5]
     )

@@ -675,6 +675,7 @@ class HomeworkService:
             assigned_to=assignment.assigned_to,
             created_by=parent,
             payment_kind=Project.PaymentKind.REQUIRED,
+            is_homework_plan=True,
         )
 
         # Milestones (kept ordered by list position).
@@ -728,10 +729,10 @@ class HomeworkService:
 
         notify(
             assignment.assigned_to,
-            title=f"Project planned: {project.title}",
+            title=f"Homework planned: {project.title}",
             message=(
                 f'Your homework "{assignment.title}" has been planned out as a '
-                f'project with {len(milestone_rows)} phases.'
+                f'homework plan with {len(milestone_rows)} phases.'
             ),
             notification_type=NotificationType.HOMEWORK_CREATED,
             link=f"/quests/ventures/{project.pk}",

@@ -5,6 +5,7 @@ import { formatDate } from '../../utils/format';
 import { ResourcePill } from './ProjectPlanItems';
 
 export default function OverviewTab({ project, isParent }) {
+  const isHomeworkPlan = project.is_homework_plan;
   return (
     <div className="space-y-4">
       {project.description && (
@@ -28,20 +29,20 @@ export default function OverviewTab({ project, isParent }) {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatTile
+        {!isHomeworkPlan && <StatTile
           label={project.payment_kind === 'bounty' ? 'Cash reward' : 'Bonus'}
           value={`$${project.bonus_amount}`}
           tone={project.payment_kind === 'bounty' ? 'royal' : 'moss'}
-        />
+        />}
         <StatTile label="Budget" value={`$${project.materials_budget}`} />
-        <StatTile label="XP reward" value={project.xp_reward} tone="teal" />
+        {!isHomeworkPlan && <StatTile label="XP reward" value={project.xp_reward} tone="teal" />}
         <StatTile label="Due date" value={project.due_date ? formatDate(project.due_date) : 'None'}>
           {project.due_date && (
             <AddToCalendar className="w-full justify-center" event={{
               id: `project:${project.id}`,
-              title: `Project due: ${project.title}`,
+              title: `${isHomeworkPlan ? 'Homework' : 'Project'} due: ${project.title}`,
               start: project.due_date,
-              description: 'Project due date.',
+              description: isHomeworkPlan ? 'Homework assignment due date.' : 'Project due date.',
               path: `/quests/ventures/${project.id}`,
             }} />
           )}
@@ -56,7 +57,7 @@ export default function OverviewTab({ project, isParent }) {
           <div className="font-body text-base font-medium text-ink-primary">
             {project.assigned_to.display_name || project.assigned_to.username}
           </div>
-          {project.hourly_rate_override && (
+          {!isHomeworkPlan && project.hourly_rate_override && (
             <div className="font-script text-xs text-ink-whisper mt-1">
               rate override: ${project.hourly_rate_override}/hr
             </div>
@@ -64,7 +65,7 @@ export default function OverviewTab({ project, isParent }) {
         </ParchmentCard>
       )}
 
-      {!project.assigned_to && project.payment_kind === 'bounty' && (
+      {!isHomeworkPlan && !project.assigned_to && project.payment_kind === 'bounty' && (
         <ParchmentCard className="border-royal/50 bg-royal/5">
           <div className="font-script text-sm text-royal font-semibold uppercase tracking-wider">
             Available to claim

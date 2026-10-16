@@ -150,7 +150,7 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     filter by ``assigned_to_id`` to narrow to a specific child.
     """
     user = get_current_user()
-    qs = Project.objects.select_related(
+    qs = Project.objects.work_projects().select_related(
         "assigned_to", "category",
     ).prefetch_related("milestones")
 
@@ -326,6 +326,7 @@ def update_project_status(params: UpdateProjectStatusIn) -> dict[str, Any]:
     """
     user = get_current_user()
     project = _get_project_for_user(params.project_id, user)
+    _require_work_project(project)
 
     if user.role != "parent" and params.status not in _child_allowed_statuses():
         raise MCPPermissionDenied(
@@ -359,6 +360,7 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
         raise MCPNotFoundError(f"Milestone {params.milestone_id} not found.")
 
     project = milestone.project
+    is_homework = project.is_homework
     if user.role != "parent" and project.assigned_to_id != user.id:
         raise MCPPermissionDenied("Milestone is not on your project.")
 
@@ -377,13 +379,13 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
 
         xp_total = 0
         skill_xp_tags = list(milestone.skill_tags.select_related("skill").all())
-        if skill_xp_tags and project.assigned_to_id:
+        if skill_xp_tags and project.assigned_to_id and not is_homework:
             for tag in skill_xp_tags:
                 SkillService.award_xp(project.assigned_to, tag.skill, tag.xp_amount)
                 xp_total += tag.xp_amount
 
         coins = 0
-        if milestone.bonus_amount and project.assigned_to_id:
+        if milestone.bonus_amount and project.assigned_to_id and not is_homework:
             coins = min(100, int(round(float(milestone.bonus_amount) * 2)))
             if coins > 0:
                 AwardService.grant(
@@ -470,6 +472,11 @@ def _get_project_parent_only(project_id: int) -> Project:
     )
 
 
+def _require_work_project(project):
+    if project.is_homework:
+        raise MCPValidationError("Use the homework assignment for completion; homework does not earn project pay.")
+
+
 @tool()
 @safe_tool
 def update_project(params: UpdateProjectIn) -> dict[str, Any]:
@@ -482,6 +489,9 @@ def update_project(params: UpdateProjectIn) -> dict[str, Any]:
     parent = require_parent()
 
     data = params.model_dump(exclude={"project_id"}, exclude_unset=True)
+
+    if project.is_homework and {"assigned_to_id", "bonus_amount", "payment_kind", "hourly_rate_override"}.intersection(data):
+        raise MCPValidationError("Homework ownership and pay cannot be changed through projects.")
 
     if "assigned_to_id" in data:
         # Cross-family safety: same as create_project — only assign to a
@@ -522,6 +532,7 @@ def activate_project(params: ProjectActionIn) -> dict[str, Any]:
     stamps ``started_at`` if unset.
     """
     project = _get_project_parent_only(params.project_id)
+    _require_work_project(project)
     if project.status not in ("draft", "in_review"):
         raise MCPValidationError(
             f"Cannot activate from status {project.status!r}. "
@@ -543,6 +554,7 @@ def approve_project(params: ProjectActionIn) -> dict[str, Any]:
     signals fire on save, awarding XP/coins/badges just like the REST path.
     """
     project = _get_project_parent_only(params.project_id)
+    _require_work_project(project)
     project.status = "completed"
     if project.completed_at is None:
         project.completed_at = timezone.now()
@@ -559,6 +571,7 @@ def request_project_changes(params: RequestProjectChangesIn) -> dict[str, Any]:
     child submits for review but the work needs iteration.
     """
     project = _get_project_parent_only(params.project_id)
+    _require_work_project(project)
     project.status = "in_progress"
     if project.started_at is None:
         project.started_at = timezone.now()
