@@ -8,7 +8,7 @@ import { normalizeList } from '../utils/api';
 import { createRequestId } from '../utils/requestId';
 import {
   createMovementType,
-  getSkills,
+  getAllSkills,
   listMovementTypes,
   logMovementSession,
 } from '../api';
@@ -35,7 +35,15 @@ function groupSkillsBySubject(skills) {
   return Array.from(groups.entries());
 }
 
-function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
+function NewTypeSubForm({ onCancel, onCreated }) {
+  const {
+    data: skillsData, loading, refreshing, error: skillsError, reload: reloadSkills,
+  } = useApi(getAllSkills);
+  const skillsLoading = loading || refreshing;
+  const skills = useMemo(
+    () => normalizeList(skillsData).filter((skill) => skill.category_name === 'Physical'),
+    [skillsData],
+  );
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
   const [defaultIntensity, setDefaultIntensity] = useState('medium');
@@ -46,7 +54,8 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
 
   const skillsBySubject = useMemo(() => groupSkillsBySubject(skills), [skills]);
 
-  const canSubmit = name.trim().length > 0 && !!primary && !saving;
+  const skillsUnavailable = skillsLoading || !!skillsError || skills.length === 0;
+  const canSubmit = name.trim().length > 0 && !!primary && !saving && !skillsUnavailable;
 
   const submit = async (e) => {
     if (e?.preventDefault) e.preventDefault();
@@ -100,12 +109,26 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </SelectField>
+      {skillsLoading ? (
+        <p role="status" className="font-body text-body text-ink-secondary">Loading Physical skills…</p>
+      ) : (
+        <ErrorAlert
+          message={skillsError || (skills.length === 0
+            ? 'No Physical skills are available yet. Try again, or ask an administrator to check the skill catalog.'
+            : '')}
+          onRetry={reloadSkills}
+        />
+      )}
       <SelectField
         id="new-type-primary"
         label="Primary skill"
         value={primary}
-        onChange={(e) => setPrimary(e.target.value)}
-        disabled={skillsLoading}
+        onChange={(e) => {
+          const value = e.target.value;
+          setPrimary(value);
+          if (!value || value === secondary) setSecondary('');
+        }}
+        disabled={skillsUnavailable}
         helpText="Which Physical skill does this work on most?"
       >
         <option value="">Choose a Physical skill…</option>
@@ -124,7 +147,7 @@ function NewTypeSubForm({ skills, skillsLoading, onCancel, onCreated }) {
         label="Secondary skill (optional)"
         value={secondary}
         onChange={(e) => setSecondary(e.target.value)}
-        disabled={skillsLoading || !primary}
+        disabled={skillsUnavailable || !primary}
         helpText="XP splits 70/30 when both are set."
       >
         <option value="">No secondary</option>
@@ -181,12 +204,6 @@ export default function MovementSessionLogModal({ onClose, onSaved, initialMovem
   const [requestId] = useState(createRequestId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-
-  const { data: skillsData, loading: skillsLoading } = useApi(getSkills);
-  const physicalSkills = useMemo(
-    () => normalizeList(skillsData).filter((s) => s.category_name === 'Physical'),
-    [skillsData],
-  );
 
   const selectedType = useMemo(
     () => types.find((t) => String(t.id) === String(movementTypeId)),
@@ -268,8 +285,6 @@ export default function MovementSessionLogModal({ onClose, onSaved, initialMovem
     >
       {mode === 'new' ? (
         <NewTypeSubForm
-          skills={physicalSkills}
-          skillsLoading={skillsLoading}
           onCancel={() => setMode('log')}
           onCreated={handleTypeCreated}
         />
