@@ -6,16 +6,17 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 
 export default function MaterialsTab({
   project, isParent,
-  onMarkPurchased, onDeleteMaterial,
+  onMarkReady, onDeleteMaterial,
   onOpenAddMaterial,
 }) {
   const materials = project.materials || [];
   const spent = materials.reduce(
-    (s, m) => s + parseFloat(m.actual_cost || m.estimated_cost || 0),
+    (s, m) => s + parseFloat(m.actual_cost ?? 0),
     0,
   );
-  const budget = parseFloat(project.materials_budget || 1);
-  const percent = Math.min(100, (spent / budget) * 100);
+  const budget = parseFloat(project.materials_budget || 0);
+  const percent = budget > 0 ? Math.min(100, (spent / budget) * 100) : (spent > 0 ? 100 : 0);
+  const overBudget = spent > budget;
 
   return (
     <div className="space-y-2">
@@ -40,10 +41,18 @@ export default function MaterialsTab({
               ${project.materials_budget}
             </span>
           </div>
-          <div className="h-2 bg-ink-page-shadow/60 rounded-full mt-2 overflow-hidden">
+          <div
+            role="progressbar"
+            aria-label="Materials spending"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percent}
+            aria-valuetext={`$${spent.toFixed(2)} spent of $${budget.toFixed(2)} budget`}
+            className="h-2 bg-ink-page-shadow/60 rounded-full mt-2 overflow-hidden"
+          >
             <div
               className={`h-full rounded-full ${
-                percent > 100 ? 'bg-ember' : 'bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal'
+                overBudget ? 'bg-ember' : 'bg-gradient-to-r from-sheikah-teal-deep to-sheikah-teal'
               }`}
               style={{ width: `${percent}%` }}
             />
@@ -59,27 +68,40 @@ export default function MaterialsTab({
       )}
 
       {materials.map((mat) => (
-        <ParchmentCard key={mat.id} className="flex items-center justify-between gap-3">
+        <ParchmentCard key={mat.id} className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="font-body font-medium text-body text-ink-primary">{mat.name}</div>
+            <div className="font-body font-medium text-body text-ink-primary break-words">{mat.name}</div>
             <div className="font-script text-tiny text-ink-whisper">
               est: ${mat.estimated_cost}
-              {mat.actual_cost && <> · actual: ${mat.actual_cost}</>}
+              {mat.actual_cost != null && <> · actual: ${mat.actual_cost}</>}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {mat.is_purchased ? (
-              <span className="font-script text-tiny text-moss flex items-center gap-1">
-                <Check size={14} /> purchased
-              </span>
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {mat.is_ready || mat.is_purchased ? (
+              <>
+                <span className="font-script text-tiny text-moss flex items-center gap-1">
+                  <Check size={14} /> Ready
+                </span>
+                {!mat.is_purchased && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    aria-label={`Change readiness for ${mat.name}`}
+                    onClick={() => onMarkReady(mat)}
+                  >
+                    Change
+                  </Button>
+                )}
+              </>
             ) : (
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
-                onClick={() => onMarkPurchased(mat.id, mat.estimated_cost)}
+                onClick={() => onMarkReady(mat)}
               >
-                Mark purchased
+                Mark ready
               </Button>
             )}
             {isParent && (

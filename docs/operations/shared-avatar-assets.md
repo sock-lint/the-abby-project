@@ -6,6 +6,9 @@ manifest SHA-256. Appearance assembly, fitted equipment, resource ownership and
 animation playback come from `@abby-assets/avatar-runtime`. React, Three.js and
 React Three Fiber remain this application's dependencies.
 
+Bird Evolution 1.0.0 is pinned alongside Archer; its delivery, code-package upgrade,
+server stages and rollback are documented in [bird-evolution.md](bird-evolution.md).
+
 ## Install and update
 
 From `frontend/`, install the checked-in, code-only package tarballs with `npm ci`.

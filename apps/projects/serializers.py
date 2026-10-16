@@ -182,12 +182,14 @@ class ProjectMilestoneSerializer(NestedProjectResourceSerializer):
 
 
 class MaterialItemSerializer(NestedProjectResourceSerializer):
+    is_ready = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = MaterialItem
         fields = [
             "id", "project", "name", "description", "estimated_cost",
             "actual_cost", "is_purchased", "purchased_at", "receipt_photo",
-            "reimbursed",
+            "reimbursed", "is_ready",
         ]
         read_only_fields = ["purchased_at"]
 

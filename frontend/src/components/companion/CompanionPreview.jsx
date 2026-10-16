@@ -1,9 +1,11 @@
-import { Component, lazy, Suspense, useCallback, useId, useMemo, useState } from 'react';
+import { Component, lazy, Suspense, useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Heart, MoveUp, RotateCcw, Settings2, Sparkles } from 'lucide-react';
 import Button from '../Button';
 import RpgSprite from '../rpg/RpgSprite';
 import { petSpriteKeys } from '../rpg/petSpriteKeys';
 import { creatureLabel, resolveAppearance } from '../../companion/appearance';
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
+import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 
 class SceneBoundary extends Component {
@@ -17,34 +19,63 @@ class SceneBoundary extends Component {
 }
 
 export default function CompanionPreview({ creature, kind = 'pet', variant = 'preview', ...props }) {
-  // Identity/stage changes remount local presentation. A greeting or preview
-  // choice must never carry to another creature or change saved ownership.
-  const identity = `${variant}:${kind}:${creature?.id}:${creature?.evolved_to_mount === true}:${creature?.species?.sprite_key}:${creature?.potion?.slug}`;
-  return <Preview key={identity} creature={creature} kind={kind} variant={variant} {...props} />;
+  const identity = `${variant}:${kind}:${creature?.id}:${creature?.species?.slug}:${creature?.species?.sprite_key}:${creature?.potion?.slug}`;
+  return <OwnedPreview key={identity} creature={creature} kind={kind} variant={variant} {...props} />;
 }
 
-function Preview({ creature, kind, variant, kicker = 'Your companion', summary, onInteract, interactionLabel, reaction, children }) {
+function OwnedPreview({ creature, kind, variant, ...props }) {
+  const [enabled, setEnabled] = useState(variant === 'primary');
+  const [animate, setAnimate] = useState(variant === 'primary');
+  const [attempt, setAttempt] = useState(0);
+  const bird = creature?.species?.slug === 'chick' && creature?.species?.sprite_key === 'cute-chick' && creature?.potion?.slug === 'base';
+  const stage = bird && ['chick', 'fledgling', 'bird'].includes(creature?.evolution_stage) ? creature.evolution_stage : null;
+  const [observed, setObserved] = useState({ stage, count: 0, evolution: null });
+  if (observed.stage !== stage) {
+    const forward = (observed.stage === 'chick' && (stage === 'fledgling' || stage === 'bird')) || (observed.stage === 'fledgling' && stage === 'bird');
+    setObserved({ stage, count: observed.count + 1, evolution: forward && enabled ? { id: observed.count + 1, from: observed.stage, to: stage } : null });
+  }
+  // Stage changes reset transient greetings/loading and invalidate old callbacks,
+  // while retaining this creature's explicit display and motion preferences.
+  const identity = `${stage}:${creature?.evolved_to_mount === true}:${attempt}`;
+  return <Preview key={identity} creature={creature} kind={kind} variant={variant} stage={stage}
+    enabled={enabled} setEnabled={setEnabled} animate={animate} setAnimate={setAnimate}
+    evolution={observed.evolution} restartScene={() => {
+      setObserved((previous) => ({ ...previous, evolution: null }));
+      setEnabled(true);
+      setAttempt((previous) => previous + 1);
+    }} {...props} />;
+}
+
+function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate, setAnimate, evolution, restartScene, kicker = 'Your companion', summary, onInteract, interactionLabel, reaction, onPresentationChange, children }) {
   const primary = variant === 'primary';
   const headingId = useId();
-  const [enabled, setEnabled] = useState(primary);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   const [greeting, setGreeting] = useState(0);
-  const [animate, setAnimate] = useState(primary);
   const [interaction, setInteraction] = useState(null);
-  // Recreate the lazy wrapper after a failed chunk, whose rejection React caches.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const CompanionScene = useMemo(() => lazy(() => import('../../companion/CompanionScene')), [attempt]);
+  const [playback, setPlayback] = useState(null);
+  // A retry remounts this component, recreating React's rejected lazy wrapper.
+  const CompanionScene = useMemo(() => lazy(() => import('../../companion/CompanionScene')), []);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const appearance = useMemo(() => import.meta.env.VITE_COMPANION_3D === 'false' ? null : resolveAppearance(creature, kind), [creature, kind]);
   const onReady = useCallback(() => setReady(true), []);
   const onUnavailable = useCallback(() => setFailed({ urls: [] }), []);
+  const onPlaybackState = useCallback((state) => setPlayback(state), []);
   const onAssetFailure = useCallback((error) => setFailed({
     urls: [appearance?.url, appearance?.woodland?.url, ...Object.values(appearance?.interactions || {}).map((take) => take.url)].filter((url) => url && error?.message?.includes(url)),
   }), [appearance]);
   const label = creatureLabel(creature);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
+  const reducedMotion = usePrefersReducedMotion();
+  const evolutionMotionEnabled = animate && !reducedMotion;
+  useEffect(() => {
+    onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && appearance?.pipeline === 'abby-assets-bird'), evolutionMotionEnabled });
+  }, [appearance?.pipeline, creature?.id, evolutionMotionEnabled, onPresentationChange, ready, showScene]);
   const mount = kind === 'mount' || creature?.evolved_to_mount === true;
   const sprite = kind === 'mount'
     ? { spriteKey: creature?.species?.sprite_key && `${creature.species.sprite_key}-mount`, fallbackSpriteKey: creature?.species?.sprite_key }
@@ -52,11 +83,15 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
   const playTogether = (action) => {
     const messages = {
       hello: `${name} is happy to see you.`,
-      play: appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.` : `${name} hops along with you.`,
+      play: appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.`
+        : appearance?.key === 'fledgling' ? `${name} takes a little walk with you.` : `${name} hops along with you.`,
       left: `${name} looks around the clearing with you.`,
       right: `${name} looks around the clearing with you.`,
     };
     setInteraction((previous) => ({ id: (previous?.id || 0) + 1, action, message: messages[action] }));
+  };
+  const playMotion = (motion) => {
+    setInteraction((previous) => ({ id: (previous?.id || 0) + 1, action: motion.id, message: `${name}: ${motion.label}.` }));
   };
 
   const startScene = async () => {
@@ -68,10 +103,7 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
         resetModels(failed.urls, [appearance.url, ...Object.values(appearance.interactions || {}).map((take) => take.url)]);
       } catch { /* The DOM companion remains usable if the network is down. */ }
     }
-    setReady(false);
-    setFailed(false);
-    setAttempt((value) => value + 1);
-    setEnabled(true);
+    if (mounted.current) restartScene();
   };
 
   return (
@@ -80,7 +112,7 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
         <div>
           <p className="text-caption font-semibold text-sheikah-teal-deep">{kicker}</p>
           <h2 id={headingId} className={`${primary ? 'companion-primary-name text-2xl sm:text-3xl' : 'text-lede'} font-bold text-ink-primary`}>{(primary ? name : label) || 'Choose a companion'}</h2>
-          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
+          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{stage ? `${stage[0].toUpperCase()}${stage.slice(1)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
           {primary && summary && <p className="companion-primary-summary">{summary}</p>}
         </div>
         {appearance && (primary ? <details className="companion-view-settings">
@@ -100,9 +132,9 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
           {creature ? <RpgSprite {...sprite} icon={creature.species?.icon} size={160} alt={primary ? `${name}, your companion` : label} potionSlug={creature.potion?.slug} dim={!mount && creature.happiness_level !== 'happy' ? creature.happiness_level : null} /> : <Heart size={48} aria-hidden="true" />}
         </div>}
         {showScene && <div className="companion-preview-canvas" aria-hidden="true">
-          <SceneBoundary key={attempt} onFailure={onAssetFailure}>
+          <SceneBoundary onFailure={onAssetFailure}>
             <Suspense fallback={null}>
-              <CompanionScene appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} onReady={onReady} onUnavailable={onUnavailable} />
+              <CompanionScene appearance={appearance} greeting={greeting} interaction={interaction} evolution={evolution} reaction={reaction} animate={animate} onReady={onReady} onUnavailable={onUnavailable} onPlaybackState={onPlaybackState} />
             </Suspense>
           </SceneBoundary>
         </div>}
@@ -120,7 +152,7 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
       {primary && creature && <div className="companion-play-area">
         <div className="companion-play-controls" role="group" aria-label={`Spend time with ${name}`}>
           <Button size="sm" variant="secondary" onClick={() => playTogether('hello')}><Heart size={16} aria-hidden="true" /> Say hello</Button>
-          {appearance?.interactions?.play && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether('play')}><MoveUp size={16} aria-hidden="true" />{appearance.key === 'bird' ? 'Fly together' : 'Hop together'}</Button>}
+          {appearance?.interactions?.play && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether('play')}><MoveUp size={16} aria-hidden="true" />{appearance.key === 'bird' ? 'Fly together' : appearance.key === 'fledgling' ? 'Walk together' : 'Hop together'}</Button>}
           {appearance?.interactions?.left && appearance?.interactions?.right && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether(interaction?.action === 'left' ? 'right' : 'left')}><Sparkles size={16} aria-hidden="true" /> Look around</Button>}
         </div>
         <p className="companion-play-response" role="status" aria-live="polite">{interaction?.message || `Take a little break with ${name}.`}</p>
@@ -133,6 +165,14 @@ function Preview({ creature, kind, variant, kicker = 'Your companion', summary, 
           <Button size="sm" variant="ghost" onClick={startScene} aria-label="Reset companion view"><RotateCcw size={16} aria-hidden="true" /> Reset view</Button>
         </>}
       </div>}
+      {appearance?.motions?.length > 0 && <CompanionMotionControls motions={appearance.motions} disabled={!showScene || !ready} onPlay={playMotion} />}
+      {appearance?.pipeline === 'abby-assets-bird' && showScene && <p className="companion-playback-status" role="status" aria-label="Companion playback" aria-live="polite"
+        data-playback-status={playback?.status || 'loading'} data-variant-id={playback?.variantId} data-stage={playback?.stage || stage}>
+        {playback?.status === 'idle' ? 'Your companion is resting.'
+          : playback?.status === 'evolving' ? 'Your companion is growing into their next stage.'
+            : playback?.status === 'playing' ? `Playing ${appearance.motions.find((motion) => motion.id === playback.variantId)?.label || 'companion motion'}.`
+              : 'Loading companion motion…'}
+      </p>}
       {children}
     </section>
   );

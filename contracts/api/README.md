@@ -39,6 +39,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
 | `report-card-corrected.json` | `PATCH /api/chronicle/301/grade/`; corrected and shared report card keeps its original save identity and reward receipt |
 | `report-card-invalid.json` | Report card rejected with HTTP 400 for an unknown subject field; indexed nested errors and no saved result or reward |
+| `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
+| `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
@@ -56,6 +58,10 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
 | `project-ai-plan-existing.json` | Parent `POST /api/projects/401/plan/`; reviewable additions with the existing project's opaque plan version |
 | `project-ai-plan-applied.json` | Parent `POST /api/projects/401/apply-plan/`; confirmed atomic append of the reviewed plan |
+| `material-unready.json`, `material-list.json` | Material detail and paginated list retain an estimate without claiming readiness, a purchase or actual spending; clearing an on-hand mark returns the same unready detail |
+| `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
+| `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
+| `material-not-owned.json` | Another family's readiness write is rejected with HTTP 404 without changing the material |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -390,6 +396,30 @@ Greenlight fixture checks still verify decimal-string amounts, explicit unknown
 balance, the external observation timestamp, and reconciliation outcomes. These
 checks do not add a runtime banking client or include fixtures in player builds.
 
+## Material readiness and purchase records
+
+Material responses include the read-only boolean `is_ready`: a material is
+ready when it is on hand or has been purchased. Existing purchases remain ready
+without a backfill. `POST /api/projects/<project>/materials/<material>/mark-ready/`
+accepts an empty JSON object and records only that the supply is on hand. It
+does not set `is_purchased`, `purchased_at`, `actual_cost` or `reimbursed`, and
+does not replace the estimate. The matching `mark-not-ready/` action also takes
+an empty object and clears only the on-hand mark; a saved purchase still makes
+the material ready and retains its purchase date and actual cost. Both actions
+can be repeated safely. The existing `mark-purchased/` action remains
+available for actual purchases with an optional `actual_cost`; an explicit
+`"0.00"` remains zero. Estimates and readiness alone are not actual spending.
+
+`config/tests/test_material_api_contract_fixtures.py` produces all material
+fixtures through real child-authenticated endpoints with fixed identities and
+timestamps. It checks saved state, repeat readiness calls, the shared MCP
+material projection and rejection of another family's write.
+`frontend/src/api/materialContractFixtures.test.js` consumes those exact bodies
+through `getMaterials`, `markMaterialReady`, `markMaterialNotReady` and `markPurchased`, checking request
+verbs, paths, payloads, decimal strings and rejection propagation. Run both
+modules with the standard backend and frontend test commands above; regenerate
+the fixture producer only for an intentional API change.
+
 ## Saved Archer appearance
 
 Character responses also contain `avatar_configuration`:
@@ -606,3 +636,10 @@ second report card or individual result that day receives a zero-XP
 `daily_limit` receipt. The producer checks persisted skill progress and the
 daily counter after replay, history reads and corrections; rejected nested
 fields consume no eligibility.
+
+Pet and mount responses include read-only `evolution_stage`: `chick`,
+`fledgling`, `bird`, or null for other identities. Only exact
+`chick` / `cute-chick` / `base` uses these stages. Persisted growth below 50
+selects Chick, 50 or higher selects Fledgling until confirmed mount evolution;
+confirmed evolved pets and owned mounts select Bird. Client stage fields cannot
+grant growth, ownership, rewards or mount eligibility.
