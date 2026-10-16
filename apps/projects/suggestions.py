@@ -63,9 +63,8 @@ def get_project_suggestions(user):
         logger.exception("AI project suggestions failed for user %s", user)
         return _fallback_suggestions(completed, skills, categories)
 
-    # Backwards-compatible: accept either a top-level array (old Anthropic
-    # path used to coerce to one) or a wrapped {"suggestions": [...]}, which
-    # is what Ollama's JSON mode produces reliably (it requires an object).
+    # Accept both the legacy top-level array and the prompted
+    # {"suggestions": [...]} object shape.
     if isinstance(result, list):
         suggestions = result
     elif isinstance(result, dict):

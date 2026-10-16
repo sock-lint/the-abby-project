@@ -270,22 +270,17 @@ HOMEWORK_LATE_CUTOFF_DAYS = 3
 HOMEWORK_SELF_PLAN_LEAD_DAYS = 3
 
 # --- Text LLM (ingestion enrich, project suggestions, homework planning) --
-# All three call sites route through ``config.llm.complete_json``. The
-# active backend is picked by ``LLM_BACKEND`` (auto|anthropic|ollama|none).
-# ``auto`` (default) prefers Anthropic when a key is set, then Ollama when a
-# base URL is set, then falls back to the non-AI path each call site already
-# ships. Settings should always be read via ``django.conf.settings`` — never
-# re-read os.environ in app code.
+# All three call sites route through ``config.llm.complete_json``. Homework and project planning
+# require a saved family connection. Ingestion and project suggestions use
+# the backend picked by ``LLM_BACKEND`` (auto|anthropic|none).
+# ``auto`` (default) uses Anthropic when a key is set, otherwise each call
+# site uses its non-AI path. Read settings via ``django.conf.settings`` —
+# never re-read os.environ in app code.
 LLM_BACKEND = os.environ.get("LLM_BACKEND", "auto")
 
 # Anthropic (hosted Claude)
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
-
-# Ollama (local LAN). Empty base URL disables the backend.
-OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "")
-OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma4:latest")
-OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "120"))
 
 # --- Google Gemini (sprite generation) ------------------------------------
 # Optional. When set, enables the ``generate_sprite_sheet`` MCP tool which

@@ -46,6 +46,9 @@ export const getLorebook = () => api.get('/lorebook/');
 export const getProjects = () => api.get('/projects/');
 export const getProject = (id) => api.get(`/projects/${id}/`);
 export const createProject = (data) => api.post('/projects/', data);
+export const draftProjectPlan = (data) => api.post('/projects/plan/', data);
+export const draftExistingProjectPlan = (id, data) => api.post(`/projects/${id}/plan/`, data);
+export const applyProjectPlan = (id, data) => api.post(`/projects/${id}/apply-plan/`, data);
 export const updateProject = (id, data) => api.patch(`/projects/${id}/`, data);
 export const activateProject = (id) => api.post(`/projects/${id}/activate/`);
 export const submitProject = (id) => api.post(`/projects/${id}/submit/`);
@@ -489,6 +492,9 @@ export const updateCalendarSettings = (data) => api.patch('/auth/google/calendar
 export const triggerCalendarSync = () => api.post('/auth/google/calendar/sync/');
 
 // Homework
+export const getHomeworkAISettings = () => api.get('/homework/ai-settings/');
+export const updateHomeworkAISettings = (data) => api.put('/homework/ai-settings/', data);
+export const deleteHomeworkAISettings = () => api.delete('/homework/ai-settings/');
 export const getHomeworkDashboard = () => api.get('/homework/dashboard/');
 export const getHomework = () => api.get('/homework/');
 export const getHomeworkDetail = (id) => api.get(`/homework/${id}/`);

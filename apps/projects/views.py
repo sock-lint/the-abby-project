@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth import authenticate
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
@@ -371,6 +372,59 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         if self.action in ("create", "destroy"):
             return [IsParent()]
         return [permissions.IsAuthenticated()]
+
+    def _generate_plan_response(self, request, *, project=None):
+        from config.llm import LLMUnavailable
+        from .planning import ProjectPlanningError, generate_project_plan, project_plan_snapshot
+        from .planning_serializers import ExistingProjectPlanRequestSerializer, ProjectPlanRequestSerializer
+
+        serializer_class = ExistingProjectPlanRequestSerializer if project else ProjectPlanRequestSerializer
+        serializer = serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        fields = serializer.validated_data.copy()
+        version = None
+        if project:
+            version, context = project_plan_snapshot(project)
+            fields.update(title=project.title, description=project.description, difficulty=project.difficulty, context=context)
+        try:
+            plan = generate_project_plan(request.user, **fields)
+        except LLMUnavailable:
+            return Response({"error": (
+                "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Planning AI."
+            )}, status=status.HTTP_501_NOT_IMPLEMENTED)
+        except ProjectPlanningError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"plan": plan, "plan_version": version})
+
+    @action(detail=False, methods=["post"], permission_classes=[IsParent], url_path="plan")
+    def plan(self, request):
+        """Preview a new project plan without saving a project or progress."""
+        return self._generate_plan_response(request)
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent], url_path="plan")
+    def plan_existing(self, request, pk=None):
+        return self._generate_plan_response(request, project=self.get_object())
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent], url_path="apply-plan")
+    @transaction.atomic
+    def apply_plan(self, request, pk=None):
+        from .planning import append_project_plan, project_plan_snapshot
+        from .planning_serializers import ApplyProjectPlanSerializer
+
+        # Re-evaluate family access while locking the current project row.
+        # Restrict FOR UPDATE to that row because the access query joins a
+        # nullable assignee; PostgreSQL cannot lock the nullable join side.
+        project = get_object_or_404(self.get_queryset().select_for_update(of=("self",)), pk=pk)
+        self.check_object_permissions(request, project)
+        serializer = ApplyProjectPlanSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        version, _ = project_plan_snapshot(project)
+        if serializer.validated_data["plan_version"] != version:
+            return Response({"error": "This project plan changed. Generate a fresh plan before applying it."},
+                            status=status.HTTP_409_CONFLICT)
+        append_project_plan(project, serializer.validated_data["plan"])
+        project.save(update_fields=["updated_at"])
+        return Response({"applied": True})
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def activate(self, request, pk=None):

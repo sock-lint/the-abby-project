@@ -5,6 +5,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.utils.decorators import method_decorator
+from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 
 from config.permissions import IsParent
 from config.viewsets import (
@@ -16,14 +18,43 @@ from config.viewsets import (
     child_not_found_response,
 )
 
-from .models import HomeworkAssignment, HomeworkProof, HomeworkSubmission, HomeworkTemplate
+from .models import HomeworkAISettings, HomeworkAssignment, HomeworkProof, HomeworkSubmission, HomeworkTemplate
 from .serializers import (
+    HomeworkAISettingsWriteSerializer,
     HomeworkAssignmentSerializer,
     HomeworkAssignmentWriteSerializer,
     HomeworkSubmissionSerializer,
     HomeworkTemplateSerializer,
 )
 from .services import HomeworkError, HomeworkService
+
+
+@method_decorator(sensitive_post_parameters("api_key"), name="dispatch")
+class HomeworkAISettingsView(APIView):
+    """Parent-only settings; the authenticated household is the only scope."""
+
+    permission_classes = [IsParent]
+
+    def get(self, request):
+        from .ai_settings import settings_response
+        config = HomeworkAISettings.objects.filter(family=request.user.family).first()
+        return Response(settings_response(config))
+
+    @sensitive_variables("serializer")
+    def put(self, request):
+        from .ai_settings import AISettingsError, settings_response, update_settings
+        serializer = HomeworkAISettingsWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            config = update_settings(request.user.family, **serializer.validated_data)
+        except AISettingsError as exc:
+            raise serializers.ValidationError({"api_key": str(exc)}) from None
+        return Response(settings_response(config))
+
+    def delete(self, request):
+        from .ai_settings import settings_response, update_settings
+        update_settings(request.user.family, provider="default", model="")
+        return Response(settings_response())
 
 
 class HomeworkAssignmentViewSet(

@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
-import ParchmentCard from '../../components/journal/ParchmentCard';
-import Button from '../../components/Button';
-import IconButton from '../../components/IconButton';
-import { TextField } from '../../components/form';
+import ParchmentCard from '../journal/ParchmentCard';
+import Button from '../Button';
+import IconButton from '../IconButton';
+import { TextField, TextAreaField } from '../form';
 
-export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }) {
+export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove, maxItems = Infinity, titleLimit, descriptionLimit, showDescription = false }) {
   return (
     <ParchmentCard className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -13,6 +13,7 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
           variant="ghost"
           size="sm"
           onClick={onAdd}
+          disabled={materials.length >= maxItems}
           className="flex items-center gap-1 !text-sheikah-teal-deep hover:!text-sheikah-teal"
         >
           <Plus size={14} /> Add
@@ -24,6 +25,7 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
             className="min-w-0"
             aria-label={`Material ${i + 1} name`}
             value={m.name}
+            maxLength={titleLimit}
             onChange={(e) => onUpdate(i, { name: e.target.value })}
             placeholder="Material name"
           />
@@ -42,6 +44,9 @@ export default function MaterialsEditor({ materials, onAdd, onUpdate, onRemove }
           >
             <Trash2 size={18} />
           </IconButton>
+          {showDescription && <TextAreaField className="col-span-full row-start-3 sm:row-start-2"
+            aria-label={`Material ${i + 1} description`} value={m.description || ''} maxLength={descriptionLimit} rows={2}
+            onChange={(event) => onUpdate(i, { description: event.target.value })} />}
         </div>
       ))}
     </ParchmentCard>

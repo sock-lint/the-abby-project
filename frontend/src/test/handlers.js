@@ -242,6 +242,12 @@ export const handlers = [
   http.post('*/api/greenlight/import/', ok),
 
   // Homework
+  http.get('*/api/homework/ai-settings/', () => HttpResponse.json({ provider: 'default', model: '', has_api_key: false })),
+  http.put('*/api/homework/ai-settings/', async ({ request }) => {
+    const { provider, model } = await request.json();
+    return HttpResponse.json({ provider, model, has_api_key: provider !== 'default' });
+  }),
+  http.delete('*/api/homework/ai-settings/', () => HttpResponse.json({ provider: 'default', model: '', has_api_key: false })),
   http.get('*/api/homework/dashboard/', () => HttpResponse.json({ assignments: [] })),
   http.get('*/api/homework/', empty),
   http.post('*/api/homework/', ok),

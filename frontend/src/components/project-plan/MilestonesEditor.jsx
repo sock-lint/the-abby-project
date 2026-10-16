@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from 'lucide-react';
-import ParchmentCard from '../../components/journal/ParchmentCard';
-import Button from '../../components/Button';
-import IconButton from '../../components/IconButton';
-import { TextField, TextAreaField } from '../../components/form';
+import ParchmentCard from '../journal/ParchmentCard';
+import Button from '../Button';
+import IconButton from '../IconButton';
+import { TextField, TextAreaField } from '../form';
 
-export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove }) {
+export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove, maxItems = Infinity, titleLimit, descriptionLimit }) {
   return (
     <ParchmentCard className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -13,6 +13,7 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
           variant="ghost"
           size="sm"
           onClick={onAdd}
+          disabled={milestones.length >= maxItems}
           className="flex items-center gap-1 !text-sheikah-teal-deep hover:!text-sheikah-teal"
         >
           <Plus size={14} /> Add
@@ -28,6 +29,7 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
               className="flex-1 min-w-0"
               aria-label={`Milestone ${i + 1} title`}
               value={m.title}
+              maxLength={titleLimit}
               onChange={(e) => onUpdate(i, { title: e.target.value })}
               placeholder={`Milestone ${i + 1}`}
             />
@@ -42,6 +44,7 @@ export default function MilestonesEditor({ milestones, onAdd, onUpdate, onRemove
           <TextAreaField
             aria-label={`Milestone ${i + 1} description`}
             value={m.description || ''}
+            maxLength={descriptionLimit}
             onChange={(e) => onUpdate(i, { description: e.target.value })}
             rows={2}
             placeholder="Description (optional)"

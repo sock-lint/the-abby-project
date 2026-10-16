@@ -49,6 +49,11 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
+| `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; disconnected family Planning AI connection |
+| `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
+| `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
+| `project-ai-plan-existing.json` | Parent `POST /api/projects/401/plan/`; reviewable additions with the existing project's opaque plan version |
+| `project-ai-plan-applied.json` | Parent `POST /api/projects/401/apply-plan/`; confirmed atomic append of the reviewed plan |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -295,6 +300,45 @@ copy of `unity/AbbyCamp`.
 
 ## Check for drift
 
+`config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
+settings through real parent-only reads, saves and resets. The exact response
+contains only `provider`, `model` and `has_api_key`; API keys are write-only and
+the synthetic key never appears in fixtures. Coparents share a family connection,
+other families remain independent, and children cannot read or change it.
+`frontend/src/api/homeworkAIContractFixtures.test.js` consumes the same bodies,
+checking authenticated GET/PUT calls, optional key omission and an empty DELETE.
+PUT accepts `provider`, `model` and optional `api_key`. An omitted or blank key
+retains the saved key only for the same provider; a provider change requires a
+new key. `provider: "default"` or DELETE removes the family connection and
+returns the disconnected sentinel `{provider: "default", model: "",
+has_api_key: false}`. AI homework and project planning remain unavailable until
+the family configures OpenAI or Claude; deployment credentials do not supply a
+planning fallback. The settings URL is retained for compatibility. Saving
+settings does not contact a provider or validate its key/model access.
+
+`config.tests.test_project_ai_api_contract_fixtures` runs project planning through
+the real endpoints and provider response parser, with only the provider network
+mocked. Generation creates no project or plan rows. New-project drafts accept
+`title`, optional `description`, `difficulty` and optional `guidance`, returning
+`{plan, plan_version: null}`. A parent saves the reviewed arrays in `plan_create`
+on the ordinary project-create request, so the project and its plan save together.
+Existing-project drafts accept optional `guidance` and return the same `plan`
+plus an opaque `plan_version`. Apply sends `{plan, plan_version}` and appends
+the reviewed entries atomically; it preserves existing milestones, steps and
+materials. A changed project or repeated application returns HTTP 409 without
+further writes. Clients retain the version from generation and request a fresh
+draft after a conflict.
+
+Plans contain exactly `milestones`, `steps` and `materials` arrays. Each step's
+nullable `milestone_index` refers to a milestone in that proposed array, rather
+than a saved ID or an existing project milestone. Material `estimated_cost`
+values are decimal strings; generated costs start at `"0.00"` and can be edited
+before saving. Planning remains parent-only and within the authenticated family.
+The producer verifies nonmutating drafts, reviewed creation, append/retry
+behavior and scope. `frontend/src/api/projectAIContractFixtures.test.js` consumes
+the same bodies and checks exact request routes, reviewed payloads, version
+retention and conflict propagation through the API wrappers.
+
 `config.tests.test_drive_export_api_contract_fixtures` exercises the real source
 list and stored-file upload endpoints with synthetic files and only Google's
 network mocked. `frontend/src/api/googleDriveContracts.test.js` consumes the
@@ -304,7 +348,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -312,7 +356,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -328,7 +372,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }

@@ -14,6 +14,7 @@ One-off homework assignments with a submit→approve workflow requiring proof im
 - `HomeworkService` — `create_assignment`, `submit_completion`, `approve_submission`, `plan_assignment` (AI), `get_timeliness`, `can_self_plan`.
 
 ## Endpoints
+- `/api/homework/ai-settings/` (parent-only `GET`/`PUT`/`DELETE`; current family's planner settings).
 - `/api/homework/` (CRUD + `submit` + `save-template` + `plan`).
 - `/api/homework-submissions/` (read-only + `approve` / `reject` / `withdraw`).
 - `/api/homework-proofs/{id}/` (destroy-only — owner or parent — deletes a single proof image without voiding the submission).
@@ -31,6 +32,41 @@ MCP tools: `list_homework`, `get_homework`, `create_homework`, `submit_homework`
 ## Tunable settings
 - `HOMEWORK_LATE_CUTOFF_DAYS` (default `3`) — past this many days late, a submission's `Timeliness` flips from `late` to `beyond_cutoff`. Homework pays no money/coins, so this only affects the submission label and the `on_time` quest filter — not any reward value.
 - `HOMEWORK_SELF_PLAN_LEAD_DAYS` (default `3`) — how many days out an assignment's `due_date` must be for a child to self-trigger AI planning on their own assignments. Parents bypass this gate. Tuned so "planning ahead" earns autonomy while panic-mode (`due_date - today < N`) still requires a parent conversation. Read by `HomeworkService.can_self_plan`.
+
+## Family planning AI settings
+
+Parents configure homework and project planning in Settings → Planning AI. The optional
+`HomeworkAISettings` row belongs to one `Family` and selects `openai` or
+`anthropic` plus an explicit model ID. The settings endpoint derives the family
+only from the authenticated parent and returns `{provider, model, has_api_key}`;
+it never returns a saved key or ciphertext. `PUT` accepts `provider`, `model`
+and an optional write-only `api_key`. An omitted/empty key preserves a key only
+for the same provider; selecting another provider requires a replacement key.
+`DELETE` or `provider="default"` removes the connection and disables new AI
+homework and project drafts. The existing wire sentinel (`provider="default"`, empty model,
+`has_api_key=false`) means disconnected; there is no deployment fallback.
+Existing linked projects remain available. Updates lock the family row to
+serialize co-parent saves.
+
+`ai_settings.py` encrypts credentials with Fernet using a distinct HKDF domain
+derived from Django `SECRET_KEY`. Rotating that secret requires entering saved
+planning API keys again. Keep credentials out of logs, exceptions, localStorage,
+fixtures and API read responses. Decryption/provider failures return a safe
+message and never silently switch to another provider. Planning looks up the
+assignment child's family at call time, preserving existing assignment and
+lead-time permission gates. Children can use the configured planner when those
+gates allow it but cannot inspect or edit its credentials. A missing family
+connection stops before any provider request and asks a parent to connect OpenAI
+or Claude in Settings → Planning AI. A connected planner always uses an
+8192-token output budget through `config.llm.complete_json`. Planning never uses
+the deployment-wide AI configuration. Those deployment settings
+continue to serve project idea suggestions and ingestion enrichment. Family keys
+serve homework planning and the reviewed project plan assistant. The existing
+homework settings endpoint, model and encryption domain remain compatible.
+
+`tests/test_ai_settings.py` covers credential storage, validation, family/role
+boundaries, settings removal and provider/model selection in the real planning
+service. All provider calls use mocks and synthetic test keys.
 
 ## Automatic challenge planning credit
 

@@ -25,6 +25,7 @@ import Button from '../components/Button';
 import { ToggleField } from '../components/form';
 import InstallCard from '../pwa/InstallCard';
 import PushNotificationsCard from '../pwa/PushNotificationsCard';
+import HomeworkAISettings from './settings/HomeworkAISettings';
 
 // Auto-dismiss window for transient Google-account status banners. Long
 // enough to read but short enough that the user doesn't come back to
@@ -36,9 +37,11 @@ export default function SettingsPage() {
   const { user, logout: onLogout, setUser } = useAuth();
   const { hash } = useLocation();
   const appearanceRef = useRef(null);
+  const homeworkAIRef = useRef(null);
   useEffect(() => {
     if (hash === '#appearance') appearanceRef.current?.scrollIntoView({ block: 'start' });
-  }, [hash]);
+    if (hash === '#homework-ai') homeworkAIRef.current?.scrollIntoView({ block: 'start' });
+  }, [hash, user?.id]);
   const initialTheme = LEGACY_THEME_ALIASES[user?.theme] || user?.theme || 'hyrule';
   const [currentTheme, setCurrentTheme] = useState(initialTheme);
 
@@ -434,9 +437,11 @@ export default function SettingsPage() {
       <InstallCard />
       <PushNotificationsCard />
 
+      <HomeworkAISettings sectionRef={homeworkAIRef} />
+
       {/* Google */}
       <ParchmentCard>
-        <SectionHeader index={3} title="Google account" kicker="connect a calendar" className="mb-4" />
+        <SectionHeader index={user?.role === 'parent' ? 4 : 3} title="Google account" kicker="connect a calendar" className="mb-4" />
         <p className="font-body text-body text-ink-secondary mb-3">
           Use Add to calendar beside a saved deadline or scheduled return to open Google Calendar
           or download an Apple Calendar (.ics) file. Duties let you choose a reminder date.
@@ -482,7 +487,7 @@ export default function SettingsPage() {
       {/* Calendar Sync */}
       {googleAccount?.linked && (
         <ParchmentCard>
-          <SectionHeader index={4} title="Calendar sync" kicker="weave the dates in" className="mb-2" />
+          <SectionHeader index={user?.role === 'parent' ? 5 : 4} title="Calendar sync" kicker="weave the dates in" className="mb-2" />
           <p className="font-body text-body text-ink-secondary mb-4">
             Sync project deadlines, chore schedules, and work sessions to your Google Calendar.
           </p>
@@ -517,7 +522,7 @@ export default function SettingsPage() {
 
       {/* About */}
       <ParchmentCard>
-        <SectionHeader index={5} title="About The Abby Project" className="mb-2" />
+        <SectionHeader index={user?.role === 'parent' ? 6 : 5} title="About The Abby Project" className="mb-2" />
         <p className="font-body text-body text-ink-secondary">
           Track projects, chores, habits, and homework. Log time, build skills,
           earn coins, and care for your pets.
@@ -526,7 +531,7 @@ export default function SettingsPage() {
 
       {/* Sign off */}
       <ParchmentCard>
-        <SectionHeader index={6} title="Account" className="mb-4" />
+        <SectionHeader index={user?.role === 'parent' ? 7 : 6} title="Account" className="mb-4" />
         <Button
           size="sm"
           onClick={onLogout}

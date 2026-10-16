@@ -10,6 +10,7 @@ router.register(r"homework-proofs", views.HomeworkProofViewSet, basename="homewo
 router.register(r"homework-templates", views.HomeworkTemplateViewSet, basename="homework-template")
 
 urlpatterns = [
+    path("homework/ai-settings/", views.HomeworkAISettingsView.as_view(), name="homework-ai-settings"),
     path("homework/dashboard/", views.HomeworkDashboardView.as_view(), name="homework-dashboard"),
     path("", include(router.urls)),
 ]

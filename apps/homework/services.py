@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
+from django.views.decorators.debug import sensitive_variables
 
 from apps.achievements.services import AwardService, BadgeService
 from apps.notifications.models import NotificationType
@@ -563,7 +564,7 @@ class HomeworkService:
         }
 
     # ------------------------------------------------------------------
-    # AI planning — generate a linked Project via Claude
+    # AI planning — generate a linked Project using the household's provider
     # ------------------------------------------------------------------
     # NOTE: this template is rendered via ``str.format(...)`` below, so every
     # literal ``{`` / ``}`` in the JSON example block is doubled (``{{`` /
@@ -619,12 +620,13 @@ class HomeworkService:
 
     @staticmethod
     @transaction.atomic
+    @sensitive_variables()
     def plan_assignment(assignment, parent):
         """Use an LLM to generate a multi-step Project for a homework assignment.
 
         Raises HomeworkError if:
         - the assignment already has a linked project,
-        - no LLM backend is configured (see :mod:`config.llm`), or
+        - the child's family has no saved OpenAI or Claude connection, or
         - the LLM call / JSON parse fails.
         """
         from apps.projects.models import (
@@ -634,6 +636,7 @@ class HomeworkService:
             ProjectStep,
         )
         from config.llm import LLMError, LLMUnavailable, complete_json
+        from .ai_settings import AISettingsError, planner_options
 
         if assignment.project_id:
             raise HomeworkError("This assignment already has a linked project.")
@@ -647,15 +650,18 @@ class HomeworkService:
         )
 
         try:
-            spec = complete_json(prompt=prompt, max_tokens=2048)
-        except LLMUnavailable as exc:
-            raise HomeworkError("AI planning is not configured.") from exc
-        except LLMError as exc:
-            logger.warning("Homework AI planning failed for assignment %s: %s", assignment.pk, exc)
-            raise HomeworkError(f"AI planning failed: {exc}") from exc
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Homework AI planning failed for assignment %s", assignment.pk)
-            raise HomeworkError(f"AI planning failed: {exc}") from exc
+            options = planner_options(assignment.assigned_to.family)
+            spec = complete_json(prompt=prompt, max_tokens=8192, **options)
+        except LLMUnavailable:
+            raise HomeworkError(
+                "AI planning is not configured. Ask a parent to connect OpenAI or Claude in Settings → Planning AI."
+            ) from None
+        except (AISettingsError, LLMError):
+            logger.warning("Homework AI planning failed for assignment %s", assignment.pk)
+            raise HomeworkError("AI planning failed. Check your homework AI settings and try again.") from None
+        except Exception:  # noqa: BLE001
+            logger.warning("Homework AI planning failed for assignment %s", assignment.pk)
+            raise HomeworkError("AI planning failed. Check your homework AI settings and try again.") from None
 
         if not isinstance(spec, dict):
             raise HomeworkError("AI planner returned a non-object response.")

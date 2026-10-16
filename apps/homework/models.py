@@ -9,6 +9,21 @@ from config.base_models import (
 )
 
 
+class HomeworkAISettings(TimestampedModel):
+    """A household's optional homework planner; credentials stay server-side."""
+
+    class Provider(models.TextChoices):
+        OPENAI = "openai", "OpenAI"
+        ANTHROPIC = "anthropic", "Anthropic"
+
+    family = models.OneToOneField(
+        "families.Family", on_delete=models.CASCADE, related_name="homework_ai_settings",
+    )
+    provider = models.CharField(max_length=12, choices=Provider.choices)
+    model = models.CharField(max_length=128)
+    encrypted_api_key = models.BinaryField(editable=False)
+
+
 class HomeworkAssignment(TimestampedModel):
     class Subject(models.TextChoices):
         MATH = "math", "Math"
