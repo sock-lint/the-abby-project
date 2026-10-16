@@ -1,3 +1,4 @@
+import { chooseDropdown } from './dropdown-helpers.js';
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -178,14 +179,14 @@ test('profile has its Archer character and saves appearance without companion or
   await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveCount(0);
   await page.getByRole('link', { name: 'Customize avatar' }).click();
   await expect(page).toHaveURL(`${origin}/profile/customize`);
-  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-01');
-  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('archer-01');
-  await expect(page.getByRole('combobox', { name: 'Face', exact: true })).toHaveValue('face-01');
-  await expect(page.getByRole('combobox', { name: 'Ears', exact: true })).toHaveValue('head-02');
-  await page.getByRole('combobox', { name: 'Hairstyle' }).selectOption('hair-04');
-  await page.getByRole('combobox', { name: 'Hair color' }).selectOption('light');
-  await page.getByRole('combobox', { name: 'Skin tone' }).selectOption('tan');
-  await page.getByRole('combobox', { name: 'Palette', exact: true }).selectOption('fire');
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveJSProperty('value', 'hair-01');
+  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveJSProperty('value', 'archer-01');
+  await expect(page.getByRole('combobox', { name: 'Face', exact: true })).toHaveJSProperty('value', 'face-01');
+  await expect(page.getByRole('combobox', { name: 'Ears', exact: true })).toHaveJSProperty('value', 'head-02');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Hairstyle' }), 'hair-04');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Hair color' }), 'light');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Skin tone' }), 'tan');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Palette', exact: true }), 'fire');
   expect(mutations).toEqual([]);
   await page.getByRole('button', { name: 'Save avatar' }).click();
   await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
@@ -193,8 +194,8 @@ test('profile has its Archer character and saves appearance without companion or
     avatar_configuration: avatarConfiguration({ ...avatarDefaults, hair_style: 'hair-04', hair_color: 'light', skin_tone: 'tan', outfit: 'fire' }),
   } }]);
   await page.reload();
-  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-04');
-  await expect(page.getByRole('combobox', { name: 'Palette', exact: true })).toHaveValue('fire');
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveJSProperty('value', 'hair-04');
+  await expect(page.getByRole('combobox', { name: 'Palette', exact: true })).toHaveJSProperty('value', 'fire');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath('profile-phone.png'), fullPage: true });
 });
@@ -209,7 +210,7 @@ test('expanded character identity saves and reloads every supplied choice withou
   await page.getByRole('link', { name: 'Customize avatar' }).click();
   const labels = { hair_style: 'Hairstyle', hair_color: 'Hair color', skin_tone: 'Skin tone', outfit: 'Palette', outfit_style: 'Outfit', face_style: 'Face', head_style: 'Ears' };
   for (const [key, value] of Object.entries(preferences)) {
-    await page.getByRole('combobox', { name: labels[key], exact: true }).selectOption(value);
+    await chooseDropdown(page.getByRole('combobox', { name: labels[key], exact: true }), value);
   }
   expect(mutations).toEqual([]);
   await page.getByRole('button', { name: 'Save avatar' }).click();
@@ -217,7 +218,7 @@ test('expanded character identity saves and reloads every supplied choice withou
   expect(mutations).toEqual([{ url: `${origin}/api/character/avatar/configuration/`, method: 'POST', body: { avatar_configuration: avatarConfiguration({ ...avatarDefaults, ...preferences }) } }]);
   await page.reload();
   for (const [key, value] of Object.entries(preferences)) {
-    await expect(page.getByRole('combobox', { name: labels[key], exact: true })).toHaveValue(value);
+    await expect(page.getByRole('combobox', { name: labels[key], exact: true })).toHaveJSProperty('value', value);
   }
   expect(mutations).toHaveLength(1);
 });
@@ -230,12 +231,12 @@ test('wardrobe presets and individual None choices save at phone width without r
   await page.getByRole('link', { name: 'Customize avatar' }).click();
   const wardrobe = page.getByRole('group', { name: 'Accessories', exact: true });
   await expect(wardrobe).toBeVisible();
-  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await expect(wardrobe.getByRole('combobox', { name: label, exact: true })).toHaveValue('none');
+  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await expect(wardrobe.getByRole('combobox', { name: label, exact: true })).toHaveJSProperty('value', 'none');
   await page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true }).click();
   await expect(page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveValue('hair-04');
-  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveValue('archer-03');
-  await wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }).selectOption('none');
+  await expect(page.getByRole('combobox', { name: 'Hairstyle' })).toHaveJSProperty('value', 'hair-04');
+  await expect(page.getByRole('combobox', { name: 'Outfit' })).toHaveJSProperty('value', 'archer-03');
+  await chooseDropdown(wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }), 'none');
   await expect(page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: 'Dark', exact: true })).toHaveAttribute('aria-pressed', 'false');
   expect(mutations).toEqual([]);
   await page.getByRole('button', { name: 'Save avatar' }).click();
@@ -244,11 +245,11 @@ test('wardrobe presets and individual None choices save at phone width without r
     ...identity, outfit: 'dark', headwear_style: 'hood-mystical', mask_style: 'mask-undercover', quiver_style: 'quiver-tale',
   }) } }]);
   await page.reload();
-  await expect(wardrobe.getByRole('combobox', { name: 'Headwear', exact: true })).toHaveValue('hood-mystical');
-  await expect(wardrobe.getByRole('combobox', { name: 'Face accessory', exact: true })).toHaveValue('mask-undercover');
-  await expect(wardrobe.getByRole('combobox', { name: 'Left hand', exact: true })).toHaveValue('none');
-  await expect(wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true })).toHaveValue('quiver-tale');
-  for (const label of ['Headwear', 'Face accessory', 'Back accessory']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  await expect(wardrobe.getByRole('combobox', { name: 'Headwear', exact: true })).toHaveJSProperty('value', 'hood-mystical');
+  await expect(wardrobe.getByRole('combobox', { name: 'Face accessory', exact: true })).toHaveJSProperty('value', 'mask-undercover');
+  await expect(wardrobe.getByRole('combobox', { name: 'Left hand', exact: true })).toHaveJSProperty('value', 'none');
+  await expect(wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true })).toHaveJSProperty('value', 'quiver-tale');
+  for (const label of ['Headwear', 'Face accessory', 'Back accessory']) await chooseDropdown(wardrobe.getByRole('combobox', { name: label, exact: true }), 'none');
   await page.getByRole('button', { name: 'Save avatar' }).click();
   await expect(page.getByText('Avatar saved.', { exact: true })).toBeVisible();
   expect(mutations).toHaveLength(2);
@@ -273,7 +274,7 @@ test('private Archer wardrobe renders supplied gear, retains Idle and restores s
   await page.getByRole('link', { name: 'Customize avatar' }).click();
   const wardrobe = page.getByRole('group', { name: 'Accessories', exact: true });
   for (const costume of ['archer-01', 'archer-02', 'archer-03']) {
-    await page.getByRole('combobox', { name: 'Outfit' }).selectOption(costume);
+    await chooseDropdown(page.getByRole('combobox', { name: 'Outfit' }), costume);
     for (const preset of ['Aqua', 'Nature', 'Fire', 'Dark']) {
       await page.getByRole('group', { name: 'Coordinated looks', exact: true }).getByRole('button', { name: preset, exact: true }).click();
       await view.scrollIntoViewIfNeeded();
@@ -284,16 +285,16 @@ test('private Archer wardrobe renders supplied gear, retains Idle and restores s
   }
   // Compare deterministic reduced-motion captures within one palette. Adding
   // a real crown must change actual rendered pixels, not only the controls.
-  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await wardrobe.getByRole('combobox', { name: label, exact: true }).selectOption('none');
+  for (const label of ['Headwear', 'Face accessory', 'Left hand', 'Back accessory']) await chooseDropdown(wardrobe.getByRole('combobox', { name: label, exact: true }), 'none');
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   const bare = await archerCapture(canvas, test.info().outputPath('wardrobe-none.png'));
-  await wardrobe.getByRole('combobox', { name: 'Headwear', exact: true }).selectOption('crown-eve');
+  await chooseDropdown(wardrobe.getByRole('combobox', { name: 'Headwear', exact: true }), 'crown-eve');
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   expect(await archerCapture(canvas, test.info().outputPath('wardrobe-crown.png'))).not.toBe(bare);
-  await wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }).selectOption('bow-myth');
-  await wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true }).selectOption('quiver-tale');
+  await chooseDropdown(wardrobe.getByRole('combobox', { name: 'Left hand', exact: true }), 'bow-myth');
+  await chooseDropdown(wardrobe.getByRole('combobox', { name: 'Back accessory', exact: true }), 'quiver-tale');
   await view.scrollIntoViewIfNeeded();
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await page.emulateMedia({ reducedMotion: 'no-preference' });
@@ -356,7 +357,7 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
   const rigReady = new Promise((resolve) => { releaseRig = resolve; });
   await page.route('**/archer-02.glb', async (route) => { await rigReady; await route.continue(); });
   try {
-    await page.getByRole('combobox', { name: 'Outfit' }).selectOption('archer-02');
+    await chooseDropdown(page.getByRole('combobox', { name: 'Outfit' }), 'archer-02');
     await expect(view).toHaveAttribute('aria-busy', 'true');
     await expect(page.getByText('Loading your avatar…')).toBeVisible();
   } finally { releaseRig(); }
@@ -375,17 +376,17 @@ test('private Archer Idle renders moving skin, pauses for reduced motion and cha
       subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['aria-busy'],
     });
   });
-  await page.getByRole('combobox', { name: 'Ears', exact: true }).selectOption('head-01');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Ears', exact: true }), 'head-01');
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await expect.poll(() => page.evaluate(() => window.__abbyAvatarLoadingPhases.some((phase) => phase.before === 'true' && phase.after === 'false'))).toBe(true);
   await page.evaluate(() => window.__abbyAvatarLoadingObserver.disconnect());
-  await page.getByRole('combobox', { name: 'Hair color' }).selectOption('brown');
-  await page.getByRole('combobox', { name: 'Face', exact: true }).selectOption('face-02');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Hair color' }), 'brown');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Face', exact: true }), 'face-02');
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await archerCapture(canvas, test.info().outputPath('archer-outfit-2-rounded-face-2.png'));
   // Costume 3 contains the publisher's fifth influence on one vertex. Force
   // its actual shader to compile and render, retaining that all-weight pose.
-  await page.getByRole('combobox', { name: 'Outfit' }).selectOption('archer-03');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Outfit' }), 'archer-03');
   await expect(view).toHaveAttribute('aria-busy', 'false');
   await expect(canvas).toBeVisible();
   await archerCapture(canvas, test.info().outputPath('archer-outfit-3-rounded-face-2.png'));

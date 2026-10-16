@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpResponse } from 'msw';
 import { act, renderWithProviders, screen, within } from '../../test/render';
@@ -69,7 +70,7 @@ describe('ReportCardFormModal', () => {
     const onClose = vi.fn();
     const { user } = mount({ onSaved, onClose });
     await completeBasics(user, '0');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Quarter' }), '4');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Quarter' }), '4');
     const stored = readReportCardDraft(1);
     await user.click(screen.getByRole('button', { name: 'Save report card' }));
     await screen.findByText('+20 XP earned');
@@ -92,17 +93,17 @@ describe('ReportCardFormModal', () => {
     server.use(spy.handler);
     const { user } = mount();
     await completeBasics(user);
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Quarter' }), '4');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Reporting period' }), 'semester');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Quarter' }), '4');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Reporting period' }), 'semester');
     expect(screen.getByRole('combobox', { name: 'Semester' })).toHaveValue('2');
-    expect(within(screen.getByRole('combobox', { name: 'Semester' })).getAllByRole('option')).toHaveLength(2);
+    expect((await openDropdown(user, screen.getByRole('combobox', { name: 'Semester' }))).getAllByRole('option')).toHaveLength(2);
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
     await user.type(row(2).getByRole('textbox', { name: 'Subject or class' }), 'Science');
-    await user.selectOptions(row(2).getByRole('combobox', { name: 'Grade format' }), 'letter');
-    await user.selectOptions(row(2).getByRole('combobox', { name: 'Letter grade' }), 'B-');
+    await selectDropdown(user, row(2).getByRole('combobox', { name: 'Grade format' }), 'letter');
+    await selectDropdown(user, row(2).getByRole('combobox', { name: 'Letter grade' }), 'B-');
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
     await user.type(row(3).getByRole('textbox', { name: 'Subject or class' }), 'Art');
-    await user.selectOptions(row(3).getByRole('combobox', { name: 'Grade format' }), 'points');
+    await selectDropdown(user, row(3).getByRole('combobox', { name: 'Grade format' }), 'points');
     await user.type(row(3).getByRole('textbox', { name: 'Points earned' }), '105.5');
     await user.type(row(3).getByRole('textbox', { name: 'Points possible' }), '100');
     await user.click(screen.getByRole('button', { name: 'Add subject' }));
@@ -159,8 +160,8 @@ describe('ReportCardFormModal', () => {
     await completeBasics(first.user);
     await first.user.click(screen.getByRole('button', { name: 'Add subject' }));
     await first.user.type(row(2).getByRole('textbox', { name: 'Subject or class' }), 'Science');
-    await first.user.selectOptions(row(2).getByRole('combobox', { name: 'Grade format' }), 'letter');
-    await first.user.selectOptions(row(2).getByRole('combobox', { name: 'Letter grade' }), 'F');
+    await selectDropdown(first.user, row(2).getByRole('combobox', { name: 'Grade format' }), 'letter');
+    await selectDropdown(first.user, row(2).getByRole('combobox', { name: 'Letter grade' }), 'F');
     const requestId = readReportCardDraft(1).client_entry_id;
     await first.user.click(screen.getByRole('button', { name: 'Keep draft & close' }));
     first.unmount();
@@ -241,7 +242,7 @@ describe('ReportCardFormModal', () => {
     const { user } = mount({ mode: 'edit', entry: original });
     await user.clear(row().getByRole('textbox', { name: 'Percentage' }));
     await user.type(row().getByRole('textbox', { name: 'Percentage' }), '90');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Quarter' }), '2');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Quarter' }), '2');
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2026-01-02');
     await user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'Correction confirmed.');

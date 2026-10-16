@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor } from '@testing-library/react';
@@ -121,7 +122,7 @@ it('a delayed response from a previous selected child cannot replace the current
   }));
   const { user } = renderWithProviders(<JournalReader />);
   await waitFor(() => expect(release).toBeDefined());
-  await user.selectOptions(screen.getByRole('combobox', { name: 'Viewing' }), '8');
+  await selectDropdown(user, screen.getByRole('combobox', { name: 'Viewing' }), '8');
   await screen.findByText('Ben memory');
   release();
   await new Promise((resolve) => setTimeout(resolve, 0));

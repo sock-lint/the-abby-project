@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, renderWithProviders, screen, waitFor, within } from '../../test/render';
@@ -81,7 +82,7 @@ describe('GradeEntryFormModal', () => {
     server.use(spy.handler);
     const { user } = mount();
     await completeBasics(user, '105.5');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'points');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Grade format' }), 'points');
     await user.type(screen.getByRole('textbox', { name: 'Points possible' }), '100');
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2026-01-02');
@@ -102,10 +103,10 @@ describe('GradeEntryFormModal', () => {
     server.use(spy.handler);
     const { user } = mount();
     await completeBasics(user, '82.5');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'points');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Grade format' }), 'points');
     await user.type(screen.getByRole('textbox', { name: 'Points possible' }), '100');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Letter grade' }), letter);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Letter grade' }), letter);
     await user.click(screen.getByRole('button', { name: 'Save grade' }));
     await screen.findByText('+15 XP earned');
     expect(spy.calls[0].body).toMatchObject({ grade_format: 'letter', letter });
@@ -131,7 +132,7 @@ describe('GradeEntryFormModal', () => {
     await completeBasics(user, '101');
     await user.click(screen.getByRole('button', { name: 'Save grade' }));
     expect(screen.getByText(/percentage between 0 and 100/i)).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'points');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Grade format' }), 'points');
     await user.type(screen.getByRole('textbox', { name: 'Points possible' }), '0');
     await user.clear(screen.getByLabelText('Date received'));
     await user.type(screen.getByLabelText('Date received'), '2099-01-01');
@@ -145,8 +146,8 @@ describe('GradeEntryFormModal', () => {
     const onClose = vi.fn();
     const first = mount({ onClose });
     await completeBasics(first.user);
-    await first.user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
-    await first.user.selectOptions(screen.getByRole('combobox', { name: 'Letter grade' }), 'B-');
+    await selectDropdown(first.user, screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
+    await selectDropdown(first.user, screen.getByRole('combobox', { name: 'Letter grade' }), 'B-');
     await first.user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await first.user.type(screen.getByRole('textbox', { name: 'Reflection (optional)' }), 'Remember this.');
     const draft = JSON.parse(localStorage.getItem(gradeDraftKey(1)));
@@ -239,8 +240,8 @@ describe('GradeEntryFormModal', () => {
     const { user } = mount({ mode: 'edit', entry: older });
     expect(screen.getByRole('dialog', { name: 'Correct grade' })).toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Points earned' })).toBeEnabled();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Letter grade' }), 'B');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Grade format' }), 'letter');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Letter grade' }), 'B');
     await user.click(screen.getByRole('checkbox', { name: 'Share with parents in my family' }));
     await user.click(screen.getByRole('button', { name: 'Save correction' }));
     await screen.findByRole('dialog', { name: 'Grade corrected' });

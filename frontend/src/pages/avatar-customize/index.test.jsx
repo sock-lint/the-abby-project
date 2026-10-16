@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { Link, Route, Routes } from 'react-router-dom';
@@ -46,8 +47,8 @@ describe('dedicated avatar customization session', () => {
     server.use(save.handler, equip.handler);
     const view = await open();
     expect(screen.queryByRole('combobox', { name: 'Avatar', exact: true })).toBeNull();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Back accessory' }), 'quiver-rook');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Back accessory' }), 'quiver-rook');
     expect(save.calls).toHaveLength(0);
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     await waitFor(() => expect(save.calls).toHaveLength(1));
@@ -65,7 +66,7 @@ describe('dedicated avatar customization session', () => {
   it('retains a failed draft across shell navigation and Undo restores server-confirmed state', async () => {
     const user = userEvent.setup();routes();
     server.use(http.post('*/api/character/avatar/configuration/', () => HttpResponse.json({ avatar_configuration: { accessories: { left_hand: ['unsupported'] } } }, { status: 400 })));
-    await open();await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await open();await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     const unload = new Event('beforeunload', { cancelable: true });window.dispatchEvent(unload);expect(unload.defaultPrevented).toBe(true);
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Some avatar choices could not be saved');
@@ -81,7 +82,7 @@ describe('dedicated avatar customization session', () => {
   it.each([{}, { avatar_configuration: { ...archerConfiguration, appearance: {} } }, { avatar_configuration: { ...archerConfiguration, avatar_id: 'wrong-base' } }])('retains edits when a successful status cannot confirm a complete matching saved configuration', async (response) => {
     const user = userEvent.setup();routes();
     server.use(http.post('*/api/character/avatar/configuration/', () => HttpResponse.json(response)));
-    await open();await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await open();await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not confirm the saved avatar');
     expect(screen.getByRole('combobox', { name: 'Weapon' })).toHaveValue('bow-greenhorn');
@@ -91,7 +92,7 @@ describe('dedicated avatar customization session', () => {
 
   it('guards Back with a discard confirmation and clears only the unsaved draft', async () => {
     const user = userEvent.setup();routes();await open();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await user.click(screen.getByRole('button', { name: 'Back to Profile' }));
     expect(screen.getByRole('alertdialog', { name: 'Unsaved avatar changes' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -107,16 +108,17 @@ describe('dedicated avatar customization session', () => {
     const user = userEvent.setup();routes({ catalog: syntheticCatalog });
     const expected = { avatar_id: 'synthetic-knight', appearance: { armor_style: 'steel', crest_style: 'none' }, accessories: { headwear: 'none', face_accessory: 'none', left_hand: 'bow-greenhorn', right_hand: 'sword-long', back: 'quiver-rook' } };
     const save = spyHandler('post', /\/api\/character\/avatar\/configuration\/$/, { avatar_configuration: expected });server.use(save.handler);
-    await open();await user.selectOptions(screen.getByRole('combobox', { name: 'Headwear' }), 'hood-mystical');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Back accessory' }), 'quiver-rook');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Avatar', exact: true }), 'synthetic-knight');
+    await open();await selectDropdown(user, screen.getByRole('combobox', { name: 'Headwear' }), 'hood-mystical');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Back accessory' }), 'quiver-rook');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Avatar', exact: true }), 'synthetic-knight');
     expect(screen.getByRole('combobox', { name: 'Weapon' })).toHaveValue('bow-greenhorn');
     expect(screen.getByRole('combobox', { name: 'Back accessory' })).toHaveValue('quiver-rook');
     expect(screen.getByRole('status')).toHaveTextContent('Mystical hood');
     expect(screen.getByRole('combobox', { name: 'Headwear' })).toHaveValue('none');
-    expect(screen.getByRole('option', { name: 'Round shield' })).toHaveValue('shield-round');
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Right hand accessory' }), 'sword-long');
+    const accessories = await openDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }));
+    expect(accessories.getByRole('option', { name: 'Round shield' })).toHaveAttribute('data-value', 'shield-round');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Right hand accessory' }), 'sword-long');
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     await waitFor(() => expect(save.calls).toHaveLength(1));
     expect(save.calls[0].body).toEqual({ avatar_configuration: expected });
@@ -137,7 +139,7 @@ describe('dedicated avatar customization session', () => {
     let finish;
     const pending = new Promise((resolve) => { finish = resolve; });
     const request = vi.spyOn(api, 'saveAvatarConfiguration').mockReturnValue(pending);
-    const view = await open();await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    const view = await open();await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));await waitFor(() => expect(request).toHaveBeenCalledOnce());
     await act(async () => { setToken('synthetic-rotated-session'); });
     expect(screen.queryByRole('combobox', { name: 'Weapon' })).toBeNull();

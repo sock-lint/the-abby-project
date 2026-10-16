@@ -1,3 +1,4 @@
+import { chooseDropdown } from './dropdown-helpers.js';
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -144,15 +145,15 @@ test('design library previews covers and recovers a failed read without API requ
   });
   await page.setViewportSize({ width: 375, height: 740 });
   await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
-  await page.getByRole('combobox', { name: 'Color theme', exact: true }).selectOption('vigil');
+  await chooseDropdown(page.getByRole('combobox', { name: 'Color theme', exact: true }), 'vigil');
   await expect.poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue('--color-ink-page'))).toBe('#292538');
   const states = page.getByRole('region', { name: 'Data and feedback', exact: true });
-  await states.getByRole('combobox', { name: 'Data state', exact: true }).selectOption('error');
+  await chooseDropdown(states.getByRole('combobox', { name: 'Data state', exact: true }), 'error');
   await expect(states.getByRole('alert')).toContainText('Could not load activities');
   await expect(states.getByText('No activities yet', { exact: true })).toHaveCount(0);
   await states.getByRole('button', { name: 'Try again', exact: true }).click();
   await expect(states.getByText('Make a paper kite', { exact: true })).toBeVisible();
-  await states.getByRole('combobox', { name: 'Data state', exact: true }).selectOption('filtered');
+  await chooseDropdown(states.getByRole('combobox', { name: 'Data state', exact: true }), 'filtered');
   await states.getByRole('button', { name: 'Clear filter', exact: true }).click();
   await expect(states.getByText('Make a paper kite', { exact: true })).toBeVisible();
   expect(apiRequests).toEqual([]);
@@ -209,7 +210,7 @@ for (const theme of ['hyrule', 'vigil', 'sunlit', 'snowquill', 'verdant', 'harve
     await page.goto(`${origin}/e2e/design-gallery-fixture.html?theme=${theme}`);
     await page.getByRole('checkbox', { name: 'Long content', exact: true }).check();
     await page.getByRole('checkbox', { name: 'Larger text', exact: true }).check();
-    await page.getByRole('combobox', { name: 'Example role', exact: true }).selectOption('parent');
+    await chooseDropdown(page.getByRole('combobox', { name: 'Example role', exact: true }), 'parent');
     await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320);
     const notification = page.getByRole('group', { name: 'success notification example', exact: true });

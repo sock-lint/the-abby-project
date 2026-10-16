@@ -1,3 +1,4 @@
+import { openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -92,7 +93,8 @@ describe('TestSection', () => {
     });
   });
 
-  it('Target dropdown renders one <option> per child (regression — was empty)', async () => {
+  it('Target dropdown offers every child (regression — was empty)', async () => {
+    const user = userEvent.setup();
     // The original bug: <SelectField options={array}> silently ignored
     // the options prop because the primitive expects <option> children.
     // After the fix, the Target select must list every kid.
@@ -101,11 +103,8 @@ describe('TestSection', () => {
 
     const heading = await screen.findByText('Force drop');
     const card = heading.closest('div').parentElement;
-    const targetSelect = within(card)
-      .getByText(/^target$/i)
-      .parentElement.querySelector('select');
-
-    const opts = targetSelect.querySelectorAll('option');
+    const targetSelect = within(card).getByRole('combobox', { name: /^target$/i });
+    const opts = (await openDropdown(user, targetSelect)).getAllByRole('option');
     expect(opts).toHaveLength(2);
     expect(opts[0]).toHaveTextContent('Abby');
     expect(opts[1]).toHaveTextContent('Sib');

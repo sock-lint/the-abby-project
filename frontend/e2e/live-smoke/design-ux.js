@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { chooseDropdown, dropdownValues } from './dropdowns.js';
 import { contrastRatio } from '../../src/utils/contrast.js';
 
 const check = expect.configure({ timeout: 6_000 });
@@ -111,18 +112,18 @@ export async function assertDesignUx(page, baseUrl, { designPath = '/__design' }
 
     await settings.getByRole('checkbox', { name: 'Long content', exact: true }).check();
     await settings.getByRole('checkbox', { name: 'Larger text', exact: true }).check();
-    await settings.getByRole('combobox', { name: 'Example role', exact: true }).selectOption('parent');
+    await chooseDropdown(settings.getByRole('combobox', { name: 'Example role', exact: true }), 'parent');
     await page.evaluate(() => document.fonts.ready);
     const cover = settings.getByRole('combobox', { name: 'Color theme', exact: true });
-    check(await cover.locator('option').evaluateAll(options => options.map(option => option.value)), 'DESIGN_THEMES').toEqual(COVERS);
+    check(await dropdownValues(cover), 'DESIGN_THEMES').toEqual(COVERS);
     await check(settings.getByText('Long content', { exact: true })).toHaveCSS('font-size', '20px');
     const palette = () => page.evaluate(() => ['--color-ink-page', '--color-ink-primary', '--color-control-border', '--color-sheikah-teal-deep']
       .map(token => getComputedStyle(document.documentElement).getPropertyValue(token)).join('|'));
     const renderedPalettes = new Set();
     for (const theme of COVERS) {
       const previousPalette = await palette();
-      await cover.selectOption(theme);
-      await check(cover).toHaveValue(theme);
+      await chooseDropdown(cover, theme);
+      await check(cover).toHaveJSProperty('value', theme);
       if (renderedPalettes.size) await check.poll(palette).not.toBe(previousPalette);
       renderedPalettes.add(await palette());
       check(await page.evaluate(() => document.documentElement.scrollWidth), 'DESIGN_MOBILE').toBeLessThanOrEqual(320);

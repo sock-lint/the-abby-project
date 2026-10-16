@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -73,7 +74,7 @@ describe('SkillTagEditor', () => {
     render(<SkillTagEditor skills={SKILLS} value={value} onChange={onChange} />);
 
     const weight = screen.getByLabelText(/Weight for tag 1/i);
-    await user.selectOptions(weight, '3');
+    await selectDropdown(user, weight, '3');
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0][0]).toEqual({ skill_id: 1, xp_weight: 3 });
   });

@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -290,7 +291,7 @@ describe('Manage — child DOB + grade_entry_year', () => {
 
     // Select a grade entry year
     const gradeSelect = await screen.findByLabelText(/grade entry year/i);
-    await user.selectOptions(gradeSelect, '2025');
+    await selectDropdown(user, gradeSelect, '2025');
 
     // Submit the form
     await user.click(screen.getByRole('button', { name: /^save$/i }));

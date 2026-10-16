@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within, waitFor, act } from '../../test/render';
@@ -200,11 +201,11 @@ describe('Automatic challenges', () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, ({ body }) => { created = body; return goal; });
     server.use(create.handler);
     const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'View child' }), '8');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'View child' }), '8');
     await user.click(await screen.findByRole('button', { name: 'Create challenge' }));
     const form = screen.getByRole('dialog', { name: 'Create a challenge' });
     expect(within(form).getByLabelText('Child')).toHaveValue('8');
-    await user.selectOptions(within(form).getByLabelText('Child'), '7');
+    await selectDropdown(user, within(form).getByLabelText('Child'), '7');
     await user.click(within(form).getByRole('button', { name: 'Create challenge' }));
     await waitFor(() => expect(create.calls).toHaveLength(1));
     expect(create.calls[0].body.user_id).toBe(7);
@@ -221,10 +222,10 @@ describe('Automatic challenges', () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json({ error: 'request_id was already used for different goal details' }, { status: 409 }));
     server.use(create.handler);
     const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
-    await user.selectOptions(await screen.findByRole('combobox', { name: 'View child' }), '8');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'View child' }), '8');
     await user.click(await screen.findByRole('button', { name: 'Create challenge' }));
     const form = screen.getByRole('dialog', { name: 'Create a challenge' });
-    await user.selectOptions(within(form).getByLabelText('Child'), '7');
+    await selectDropdown(user, within(form).getByLabelText('Child'), '7');
     await user.click(within(form).getByRole('button', { name: 'Create challenge' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('This challenge was already saved with different details.');
     expect(screen.getByRole('combobox', { name: 'View child' })).toHaveValue('8');

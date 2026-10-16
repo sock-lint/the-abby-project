@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import SubjectFormModal from './SubjectFormModal.jsx';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
+import { selectDropdown } from '../../test/selectDropdown';
 
 describe('SubjectFormModal', () => {
   it.each(['create', 'edit'])('saves a selected icon when users %s a subject', async (mode) => {
@@ -15,7 +16,7 @@ describe('SubjectFormModal', () => {
     render(<SubjectFormModal item={mode === 'edit' ? item : undefined} categories={[{ id: 2, name: 'Learning' }]} onClose={vi.fn()} onSaved={vi.fn()} />);
     if (mode === 'create') {
       await user.type(screen.getByRole('textbox', { name: 'Name' }), 'Reading');
-      await user.selectOptions(screen.getByRole('combobox', { name: 'Category' }), '2');
+      await selectDropdown(user, screen.getByRole('combobox', { name: 'Category' }), '2');
     }
     await user.click(screen.getByRole('button', { name: 'Choose icon' }));
     await user.click(screen.getByRole('button', { name: 'Book', exact: true }));
