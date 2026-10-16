@@ -1,4 +1,5 @@
 import { expect } from '@playwright/test';
+import { chooseDropdown, dropdownValues } from './dropdowns.js';
 import { requireCheck } from '../../scripts/live-checks-contract.mjs';
 
 const WAIT = 6_000;
@@ -58,7 +59,7 @@ async function memoryTab(page, name, childId, parent, requests) {
   await requests.read(name, () => page.getByRole('tablist', { name: 'Memories sections', exact: true })
     .getByRole('tab', { name, exact: true }).click());
   if (parent) {
-    await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toHaveValue(String(childId), { timeout: WAIT });
+    await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toHaveJSProperty('value', String(childId), { timeout: WAIT });
     await expect(page).toHaveURL((url) => url.searchParams.get('child') === String(childId));
   } else {
     await expect(page.getByRole('combobox', { name: 'Viewing', exact: true })).toHaveCount(0);
@@ -116,12 +117,12 @@ async function projectReturn(page, base, gate) {
   const row = rows.find((item) => item.title === label.slice(5));
   requireCheck(row && ['draft', 'in_progress', 'in_review', 'completed'].includes(row.status)
     && ['required', 'bounty'].includes(row.payment_kind), 'BROWSER');
-  await main.getByRole('combobox', { name: 'Filter by status', exact: true }).selectOption(row.status);
-  await main.getByRole('combobox', { name: 'Filter by type', exact: true }).selectOption(row.payment_kind);
+  await chooseDropdown(main.getByRole('combobox', { name: 'Filter by status', exact: true }), row.status);
+  await chooseDropdown(main.getByRole('combobox', { name: 'Filter by type', exact: true }), row.payment_kind);
   if (gate.role === 'parent') {
     requireCheck(row.assigned_to == null || row.assigned_to.id === gate.credentials.child.id, 'ISOLATION');
-    await main.getByRole('combobox', { name: 'Filter by child', exact: true })
-      .selectOption(row.assigned_to == null ? 'unassigned' : String(row.assigned_to.id));
+    await chooseDropdown(main.getByRole('combobox', { name: 'Filter by child', exact: true }),
+      row.assigned_to == null ? 'unassigned' : String(row.assigned_to.id));
   }
   const search = main.getByRole('searchbox', { name: 'Filter projects', exact: true });
   await search.fill(label.slice(5, 261));
@@ -131,10 +132,10 @@ async function projectReturn(page, base, gate) {
   const savedSearch = new URL(page.url()).search;
   const savedTop = await page.evaluate(() => window.scrollY);
   const restoredFilters = async () => {
-    await expect(main.getByRole('combobox', { name: 'Filter by status', exact: true })).toHaveValue(row.status);
-    await expect(main.getByRole('combobox', { name: 'Filter by type', exact: true })).toHaveValue(row.payment_kind);
+    await expect(main.getByRole('combobox', { name: 'Filter by status', exact: true })).toHaveJSProperty('value', row.status);
+    await expect(main.getByRole('combobox', { name: 'Filter by type', exact: true })).toHaveJSProperty('value', row.payment_kind);
     if (gate.role === 'parent') await expect(main.getByRole('combobox', { name: 'Filter by child', exact: true }))
-      .toHaveValue(row.assigned_to == null ? 'unassigned' : String(row.assigned_to.id));
+      .toHaveJSProperty('value', row.assigned_to == null ? 'unassigned' : String(row.assigned_to.id));
   };
   await card.click();
   await expect(page).toHaveURL((url) => /^\/quests\/ventures\/\d+$/.test(url.pathname));
@@ -246,12 +247,12 @@ export async function checkParentUx(page, credentials, gate) {
     await requests.read('Timeline', () => timeline.click());
     await expect(page).toHaveURL((url) => url.pathname === '/chronicle' && url.searchParams.get('child') === String(credentials.child.id));
     const viewing = page.getByRole('combobox', { name: 'Viewing', exact: true });
-    await expect(viewing).toHaveValue(String(credentials.child.id));
-    await expect(viewing.getByRole('option')).toHaveCount(1);
+    await expect(viewing).toHaveJSProperty('value', String(credentials.child.id));
+    expect(await dropdownValues(viewing)).toEqual([String(credentials.child.id)]);
     for (const name of ['Journal', 'Grades', 'Timeline']) await memoryTab(page, name, credentials.child.id, true, requests);
     await requests.read('Journal', () => visit(page, base, '/chronicle?tab=journal&child=0'), true);
-    await expect(viewing).toHaveValue(String(credentials.child.id));
-    await expect(viewing.getByRole('option')).toHaveCount(1);
+    await expect(viewing).toHaveJSProperty('value', String(credentials.child.id));
+    expect(await dropdownValues(viewing)).toEqual([String(credentials.child.id)]);
     requests.check();
     gate.assertSafe();
     return { memoryContext: 'verified_parent', invalidChild: 'verified_roster_recovery', projectReturn: await projectReturn(page, base, gate) };

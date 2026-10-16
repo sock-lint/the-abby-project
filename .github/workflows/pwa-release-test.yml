@@ -32,11 +32,11 @@ jobs:
           cache: 'pip'
       - name: Install Python dependencies
         run: python -m pip install -r requirements.txt
-      - name: Install frontend dependencies and browser
+      - name: Install frontend dependencies and browsers
         working-directory: frontend
         run: |
           npm ci
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps chromium webkit
       - name: Verify private portrait build loader
         working-directory: frontend
         run: npm run test:licensed-art
