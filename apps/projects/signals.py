@@ -33,6 +33,9 @@ def handle_project_status_change(sender, instance, created, **kwargs):
     if previous == instance.status:
         return
 
+    if instance.is_homework:
+        return
+
     if instance.status == "in_progress" and not instance.started_at:
         sender.objects.filter(pk=instance.pk).update(started_at=timezone.now())
 
@@ -139,6 +142,9 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
 
     logger.info("Milestone completed: '%s' on project %s", instance.title, instance.project_id)
     sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
+
+    if instance.project.is_homework:
+        return
 
     user = instance.project.assigned_to
 

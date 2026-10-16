@@ -19,6 +19,7 @@ import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
+import ParchmentCard from '../components/journal/ParchmentCard';
 import TabList from '../components/layout/TabList';
 import ProjectHeader from './project/ProjectHeader';
 import OverviewTab from './project/OverviewTab';
@@ -52,7 +53,7 @@ function ProjectDetailPage() {
   const returnList = projectListDestination(location.state?.projectListReturn, user?.id);
   const { id } = useParams();
   const { data: project, loading, error: loadError, reload } = useApi(() => getProject(id), [id]);
-  const [activeTab, setActiveTab] = useState('Overview');
+  const [activeTab, setActiveTab] = useState(null);
   const [changesOpen, setChangesOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
@@ -97,6 +98,9 @@ function ProjectDetailPage() {
   );
 
   const isAssigned = project.assigned_to?.id === user?.id;
+  const isHomeworkPlan = project.is_homework_plan;
+  const currentTab = activeTab || (isHomeworkPlan ? 'Plan' : 'Overview');
+  const backDestination = isHomeworkPlan ? { to: '/quests?tab=study' } : returnList;
 
   const openAddStep = (milestoneId = null) => {
     setAddStepMilestoneId(milestoneId);
@@ -156,7 +160,7 @@ function ProjectDetailPage() {
   const handleCompleteMilestone = (msId) => {
     if (pendingMilestoneId) return;
     const ms = (project.milestones || []).find((m) => m.id === msId);
-    const bonus = ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
+    const bonus = !isHomeworkPlan && ms?.bonus_amount ? ` and pay the ${formatCurrency(ms.bonus_amount)} bonus` : '';
     askConfirm({
       title: 'Mark this milestone complete?',
       message: `This will close out “${ms?.title || 'this milestone'}”${bonus}. It can't be undone.`,
@@ -210,7 +214,7 @@ function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <BackLink {...returnList}>Back to Projects</BackLink>
+      <BackLink {...backDestination}>Back to {isHomeworkPlan ? 'Homework' : 'Projects'}</BackLink>
 
       <ProjectHeader
         project={project}
@@ -223,28 +227,36 @@ function ProjectDetailPage() {
 
       <ErrorAlert message={error} />
 
+      {isHomeworkPlan && (
+        <ParchmentCard>
+          <p className="font-body text-body text-ink-primary">
+            Follow the plan, then submit your homework from the Homework tab. Homework does not earn money or coins.
+          </p>
+        </ParchmentCard>
+      )}
+
       <TabList
         tabs={tabs.map((id) => ({ id, label: id }))}
-        activeId={activeTab}
+        activeId={currentTab}
         onSelect={setActiveTab}
         variant="pill"
-        ariaLabel="Project sections"
+        ariaLabel={isHomeworkPlan ? 'Homework plan sections' : 'Project sections'}
         stretch
         scrollFades={false}
       />
 
       <AnimatePresence mode="wait">
         <motion.div
-          key={activeTab}
+          key={currentTab}
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0 }}
         >
-          {activeTab === 'Overview' && (
+          {currentTab === 'Overview' && (
             <OverviewTab project={project} isParent={isParent} />
           )}
-          {activeTab === 'Plan' && (<div className="space-y-3">
-            {isParent && <ProjectAIAssist project={project} onApplied={reload} onRefresh={reload} />}
+          {currentTab === 'Plan' && (<div className="space-y-3">
+            {isParent && !isHomeworkPlan && <ProjectAIAssist project={project} onApplied={reload} onRefresh={reload} />}
             <PlanTab
               project={project}
               isParent={isParent}
@@ -260,7 +272,7 @@ function ProjectDetailPage() {
               onOpenAddResource={() => setAddResourceOpen(true)}
             />
           </div>)}
-          {activeTab === 'Materials' && (
+          {currentTab === 'Materials' && (
             <div className="space-y-6">
               <MaterialsTab
                 project={project}
@@ -292,6 +304,7 @@ function ProjectDetailPage() {
         {addMilestoneOpen && (
           <AddMilestoneModal
             projectId={id}
+            isHomeworkPlan={isHomeworkPlan}
             onClose={() => setAddMilestoneOpen(false)}
             onSaved={() => { setAddMilestoneOpen(false); reload(); }}
           />

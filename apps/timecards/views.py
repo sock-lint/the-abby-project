@@ -1,3 +1,4 @@
+from django.http import JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -20,7 +21,9 @@ class ClockView(APIView):
         entry = ClockService.get_active_entry(request.user)
         if entry:
             return Response(TimeEntrySerializer(entry).data)
-        return Response(None)
+        # DRF renders Response(None) as an empty body without Content-Type.
+        # Keep the idle state as JSON null so the shared API client can read it.
+        return JsonResponse(None, safe=False)
 
     def post(self, request):
         action = request.data.get("action")

@@ -287,6 +287,8 @@ def save_project_as_template(params: SaveProjectAsTemplateIn) -> dict[str, Any]:
         Project, params.project_id, actor=parent,
         family_path="assigned_to__family",
     )
+    if project.is_homework:
+        raise MCPValidationError("Homework plans cannot become paid project templates.")
 
     with transaction.atomic():
         template = ProjectTemplate.objects.create(

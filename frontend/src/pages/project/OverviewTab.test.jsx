@@ -5,6 +5,16 @@ import OverviewTab from './OverviewTab.jsx';
 import { buildProject } from '../../test/factories.js';
 
 describe('OverviewTab', () => {
+  it('shows school planning information without project payouts or XP rewards', () => {
+    render(<OverviewTab project={buildProject({
+      is_homework_plan: true, payment_kind: 'bounty', bonus_amount: '13.00',
+      hourly_rate_override: '8.50', xp_reward: 99, description: 'Research the solar system.',
+    })} />);
+    expect(screen.getByText('Research the solar system.')).toBeInTheDocument();
+    expect(screen.queryByText(/cash reward|^bonus$|xp reward|rate override/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('$13.00')).not.toBeInTheDocument();
+  });
+
   it('exports the project due date without keeper notes or project description', async () => {
     const user = userEvent.setup();
     render(<OverviewTab project={buildProject({

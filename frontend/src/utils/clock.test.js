@@ -12,6 +12,11 @@ const robot = { id: 8, title: 'Robot', status: 'in_progress' };
 const finished = { id: 9, title: 'Old kite', status: 'completed' };
 
 describe('activeProjectsOf', () => {
+  it('excludes homework plans even if an old project status is workable', () => {
+    const schoolPlan = { id: 10, title: 'Science report', status: 'active', is_homework_plan: true };
+    expect(activeProjectsOf([birdhouse, schoolPlan, robot])).toEqual([birdhouse, robot]);
+  });
+
   it('keeps only active and in_progress projects', () => {
     expect(activeProjectsOf([birdhouse, robot, finished])).toEqual([birdhouse, robot]);
   });

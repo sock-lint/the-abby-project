@@ -43,6 +43,7 @@ export default function ProjectHeader({
   onAction, onEdit, onOpenQR,
 }) {
   const navigate = useNavigate();
+  const isHomeworkPlan = project.is_homework_plan;
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
 
@@ -73,14 +74,14 @@ export default function ProjectHeader({
           />
           <div className="min-w-0 flex-1">
             <div className="font-script text-sheikah-teal-deep text-body">
-              project
+              {isHomeworkPlan ? 'Homework plan' : 'project'}
             </div>
             <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
               {project.title}
             </h1>
             <div className="flex items-center gap-2 mt-2 text-body flex-wrap">
-              <StatusBadge status={project.status} />
-              {project.payment_kind === 'bounty' && (
+              {!isHomeworkPlan && <StatusBadge status={project.status} />}
+              {!isHomeworkPlan && project.payment_kind === 'bounty' && (
                 <RuneBadge tone="royal" size="sm">optional project</RuneBadge>
               )}
               {project.category && (
@@ -92,7 +93,7 @@ export default function ProjectHeader({
             </div>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        {!isHomeworkPlan && <div className="flex gap-2 flex-wrap">
           {!isParent && isAssigned && ['active', 'in_progress'].includes(project.status) && (
             <Button
               size="sm"
@@ -158,7 +159,7 @@ export default function ProjectHeader({
           >
             <QrCode size={14} /> QR
           </Button>
-        </div>
+        </div>}
       </div>
 
       {flash && (
