@@ -21,9 +21,11 @@ from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
 from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount, UserPet
+from apps.projects.models import Project
 from apps.quests.models import DailyChallenge
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory
+from apps.timecards.models import TimeEntry
 from config.tests.factories import make_family
 
 
@@ -126,6 +128,32 @@ class SharedApiResponseFixtureTests(APITestCase):
             f"API response drifted from {path.name}; review the contract and regenerate deliberately.",
         )
         return actual
+
+    def test_clock_idle_and_active_responses_are_self_scoped_json(self):
+        project = Project.objects.create(
+            id=401, title="Paper bookmark", created_by=self.child,
+            assigned_to=self.child, status="in_progress",
+        )
+        # Another account's running timer must never replace this child's idle state.
+        for owner in (self.sibling, self.outsider):
+            TimeEntry.objects.create(
+                user=owner, project=project, clock_in=FIXED_NOW, status="active",
+            )
+        self.assertIsNone(self.assert_response_fixture(
+            self.client.get("/api/clock/"), "clock-idle.json",
+        ))
+        entry = TimeEntry.objects.create(
+            id=501, user=self.child, project=project,
+            clock_in=FIXED_NOW - timedelta(minutes=6), status="active",
+        )
+        body = self.assert_response_fixture(self.client.get("/api/clock/"), "clock-active.json")
+        self.assertEqual((body["id"], body["user"], body["project"]), (501, 7, 401))
+        entry.clock_out = FIXED_NOW
+        entry.status = "completed"
+        entry.save()
+        self.assertIsNone(self.assert_response_fixture(
+            self.client.get("/api/clock/"), "clock-idle.json",
+        ))
 
     def seed_companion_care(self):
         """Synthetic ownership and typed food inputs; production services stay real."""

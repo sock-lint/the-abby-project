@@ -81,7 +81,7 @@ export const handlers = [
   http.get(/\/api\/projects\/\d+\/qr\/$/, () => new HttpResponse('png-bytes')),
 
   // Clock / Time Entries / Timecards
-  http.get('*/api/clock/', () => HttpResponse.json({ active: null })),
+  http.get('*/api/clock/', () => HttpResponse.json(null)),
   http.post('*/api/clock/', ok),
   http.get('*/api/time-entries/', empty),
   http.post(/\/api\/time-entries\/\d+\/void\/$/, ok),
