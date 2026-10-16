@@ -18,6 +18,7 @@ LOREBOOK_PATH = settings.BASE_DIR / "content" / "lorebook" / "entries.yaml"
 EXPECTED_ENTRY_SLUGS = {
     "duties",
     "rituals",
+    "movement",
     "study",
     "journal",
     "creations",
@@ -135,6 +136,7 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
     from apps.creations.models import Creation
     from apps.habits.models import HabitLog
     from apps.homework.models import HomeworkAssignment, HomeworkSubmission
+    from apps.movement.models import MovementSession
     from apps.payments.models import PaymentLedger
     from apps.pets.models import UserMount, UserPet
     from apps.projects.models import Project
@@ -160,6 +162,11 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
         HomeworkAssignment.objects.filter(assigned_to=user).exists()
         or HomeworkSubmission.objects.filter(user=user).exists(),
         "first_study_record",
+    )
+    mark(
+        "movement",
+        MovementSession.objects.filter(user=user).exists(),
+        "first_movement_session",
     )
     mark(
         "journal",

@@ -25,6 +25,17 @@ function renderPlan(project, isParent = false, extraProps = {}) {
 }
 
 describe('PlanTab', () => {
+  it('preserves homework phase progress without showing a legacy cash bonus', () => {
+    renderPlan(buildProject({
+      is_homework_plan: true,
+      milestones: [{ id: 1, title: 'Research', is_completed: false, bonus_amount: '5.00' }],
+      steps: [{ id: 10, title: 'Read chapter one', milestone: 1, is_completed: true }],
+    }));
+    expect(screen.getByText('Research')).toBeInTheDocument();
+    expect(screen.getByText('1/1')).toBeInTheDocument();
+    expect(screen.queryByText('5.00')).not.toBeInTheDocument();
+  });
+
   it('renders empty state when no milestones and no steps', () => {
     renderPlan(buildProject({ milestones: [], steps: [] }));
     expect(

@@ -5,7 +5,7 @@ import { useFormState } from '../../../hooks/useFormState';
 import Button from '../../../components/Button';
 import { TextField, TextAreaField } from '../../../components/form';
 
-export default function AddMilestoneModal({ projectId, onClose, onSaved }) {
+export default function AddMilestoneModal({ projectId, isHomeworkPlan = false, onClose, onSaved }) {
   const { form, set, saving, setSaving, error, setError } = useFormState({
     title: '',
     description: '',
@@ -23,7 +23,7 @@ export default function AddMilestoneModal({ projectId, onClose, onSaved }) {
         project: projectId,
         title: form.title,
         description: form.description,
-        bonus_amount: form.bonus_amount || null,
+        bonus_amount: isHomeworkPlan ? null : form.bonus_amount || null,
       });
       onSaved();
     } catch (err) {
@@ -39,7 +39,7 @@ export default function AddMilestoneModal({ projectId, onClose, onSaved }) {
         <ErrorAlert message={error} />
         <TextField label="Title" value={form.title} onChange={onField('title')} required autoFocus />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" placeholder="Optional" />
+        {!isHomeworkPlan && <TextField label="Bonus ($)" value={form.bonus_amount} onChange={onField('bonus_amount')} type="number" step="0.01" min="0" placeholder="Optional" />}
         <div className="flex gap-2">
           <Button variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel

@@ -56,7 +56,7 @@ export default function PlanTab({
 
       {milestones.length === 0 && (project.steps || []).length === 0 && (
         <EmptyState className="py-8">
-          No plan yet. Add milestones and steps to organize this project.
+          No plan yet. Add milestones and steps to organize this {project.is_homework_plan ? 'homework' : 'project'}.
         </EmptyState>
       )}
 
@@ -125,7 +125,7 @@ export default function PlanTab({
                     >
                       {ms.title}
                     </div>
-                    {ms.bonus_amount && (
+                    {!project.is_homework_plan && ms.bonus_amount && (
                       <span className="font-rune text-caption text-moss flex items-center gap-0.5">
                         <DollarSign size={12} />{ms.bonus_amount}
                       </span>

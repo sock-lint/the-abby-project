@@ -3,8 +3,16 @@ import { describe, expect, it } from 'vitest';
 import newDraft from '../../../contracts/api/fixtures/project-ai-plan-new.json';
 import existingDraft from '../../../contracts/api/fixtures/project-ai-plan-existing.json';
 import appliedPlan from '../../../contracts/api/fixtures/project-ai-plan-applied.json';
+import homeworkPlan from '../../../contracts/api/fixtures/homework-plan-detail.json';
+import homeworkAssignment from '../../../contracts/api/fixtures/homework-with-plan.json';
+import homeworkClockDenied from '../../../contracts/api/fixtures/homework-plan-clock-denied.json';
+import projectWork from '../../../contracts/api/fixtures/project-work-detail.json';
+import projectList from '../../../contracts/api/fixtures/projects-with-homework-plan.json';
 import { server } from '../test/server';
-import { applyProjectPlan, createProject, draftExistingProjectPlan, draftProjectPlan } from './index';
+import {
+  applyProjectPlan, clockIn, createProject, draftExistingProjectPlan, draftProjectPlan,
+  getHomeworkDetail, getProject, getProjects,
+} from './index';
 
 describe('reviewable project plans through the shared React API client', () => {
   it('drafts a new project from its description and creates it with reviewed plan content', async () => {
@@ -75,5 +83,50 @@ describe('reviewable project plans through the shared React API client', () => {
     const payload = { plan: existingDraft.plan, plan_version: existingDraft.plan_version };
     await expect(applyProjectPlan(401, payload)).rejects.toMatchObject({ status: 409, response: rejection });
     expect(requests).toEqual([payload]);
+  });
+
+  it('reads homework plan identity and its assignment without adding the plan to paid projects', async () => {
+    const paths = [];
+    server.use(
+      http.get('*/api/projects/', ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json(projectList);
+      }),
+      http.get('*/api/projects/:projectId/', ({ request, params }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json(Number(params.projectId) === homeworkPlan.id ? homeworkPlan : projectWork);
+      }),
+      http.get('*/api/homework/:assignmentId/', ({ request }) => {
+        paths.push(new URL(request.url).pathname);
+        return HttpResponse.json(homeworkAssignment);
+      }),
+    );
+
+    const projects = await getProjects();
+    expect(projects).toEqual(projectList);
+    expect(projects.results.map((project) => project.id)).toEqual([projectWork.id]);
+    const plan = await getProject(homeworkPlan.id);
+    expect(plan.is_homework_plan).toBe(true);
+    expect(plan.homework_assignment_id).toBe(homeworkAssignment.id);
+    expect(plan.steps[0].title).toBe('Outline the presentation');
+    expect(await getHomeworkDetail(plan.homework_assignment_id)).toEqual(homeworkAssignment);
+    expect(homeworkAssignment.project).toBe(plan.id);
+    const work = await getProject(projectWork.id);
+    expect(work.is_homework_plan).toBe(false);
+    expect(work.homework_assignment_id).toBeNull();
+    expect(paths).toEqual(['/api/projects/', '/api/projects/402/', '/api/homework/801/', '/api/projects/401/']);
+  });
+
+  it('propagates a homework clock-in rejection without retrying the write', async () => {
+    const requests = [];
+    server.use(http.post('*/api/clock/', async ({ request }) => {
+      requests.push(await request.json());
+      return HttpResponse.json(homeworkClockDenied, { status: 400 });
+    }));
+
+    await expect(clockIn(homeworkPlan.id)).rejects.toMatchObject({
+      status: 400, response: homeworkClockDenied,
+    });
+    expect(requests).toEqual([{ action: 'in', project_id: homeworkPlan.id }]);
   });
 });
