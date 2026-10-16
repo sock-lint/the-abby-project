@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, waitFor, within } from '../test/render';
@@ -132,7 +133,7 @@ describe('Movement page', () => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
 
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '1',
     );

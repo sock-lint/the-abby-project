@@ -1,3 +1,4 @@
+import { chooseDropdown, dropdownListbox } from './dropdown-helpers.js';
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -72,9 +73,12 @@ test('all 31 published motions render on native rigs; both confirmed evolutions 
     expect(modelRequests.length, 'A same-stage saved-state reload must retain the native rig and consumed evolution.').toBe(loaded);
     await page.getByText('More motions', { exact: true }).click();
     const variants = manifest.assets.find((entry) => entry.id === stage).variants;
-    await expect(page.getByRole('combobox', { name: 'Companion motion' }).locator('option')).toHaveCount(variants.length);
+    const motions = page.getByRole('combobox', { name: 'Companion motion' });
+    await motions.click();
+    await expect(dropdownListbox(motions).getByRole('option')).toHaveCount(variants.length);
+    await page.keyboard.press('Escape');
     for (const variant of variants) {
-      await page.getByRole('combobox', { name: 'Companion motion' }).selectOption(variant.id);
+      await chooseDropdown(page.getByRole('combobox', { name: 'Companion motion' }), variant.id);
       await page.getByRole('button', { name: 'Play motion', exact: true }).click();
       // Offscreen scenes pause; returning to the canvas must retain the request.
       await page.locator('canvas').scrollIntoViewIfNeeded();

@@ -71,7 +71,7 @@ test('trusted design helper rejects unreadable rendered controls', async ({ page
   await page.addInitScript(() => {
     document.addEventListener('DOMContentLoaded', () => {
       const style = document.createElement('style');
-      style.textContent = 'select { color: black !important; background-color: black !important; }';
+      style.textContent = 'select, [role="combobox"] { color: black !important; background-color: black !important; }';
       document.head.appendChild(style);
     });
   });

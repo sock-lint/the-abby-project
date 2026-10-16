@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -344,7 +345,7 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
     const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
+    await selectDropdown(user, within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
     const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
     expect(input).toHaveValue(null);
     expect(within(dialog).getByRole('button', { name: /^mark ready$/i })).toBeDisabled();
@@ -375,7 +376,7 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     await user.click(await screen.findByRole('button', { name: 'Change readiness for Calculator' }));
     const dialog = await screen.findByRole('dialog', { name: /update material readiness/i });
-    await user.selectOptions(within(dialog).getByRole('combobox'), 'needed');
+    await selectDropdown(user, within(dialog).getByRole('combobox'), 'needed');
     expect(within(dialog).queryByRole('spinbutton')).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: /^mark not ready$/i }));
 
@@ -402,7 +403,7 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     await user.click(await screen.findByRole('button', { name: 'Change readiness for Calculator' }));
     const dialog = await screen.findByRole('dialog', { name: /update material readiness/i });
-    await user.selectOptions(within(dialog).getByRole('combobox'), 'purchased');
+    await selectDropdown(user, within(dialog).getByRole('combobox'), 'purchased');
     await user.type(within(dialog).getByRole('spinbutton', { name: /actual cost/i }), '12.50');
     await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
 
@@ -456,7 +457,7 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
     const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
+    await selectDropdown(user, within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
     const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
     await user.type(input, '1.25');
     await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
@@ -482,7 +483,7 @@ describe('ProjectDetail', () => {
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
     await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
     const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
-    await user.selectOptions(within(dialog).getByRole('combobox'), 'purchased');
+    await selectDropdown(user, within(dialog).getByRole('combobox'), 'purchased');
     const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
     await user.type(input, '2.25');
     await user.keyboard('{Escape}');

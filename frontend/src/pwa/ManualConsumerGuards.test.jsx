@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, renderWithProviders, screen, waitFor } from '../test/render';
@@ -121,7 +122,7 @@ describe('Manual consumer update guards', () => {
     await user.paste(csv);
     await protectedWork();
     await user.click(screen.getByRole('button', { name: 'Preview CSV' }));
-    await user.selectOptions(await screen.findByLabelText('Action for row 2'), 'record');
+    await selectDropdown(user, await screen.findByLabelText('Action for row 2'), 'record');
     await user.click(screen.getByRole('checkbox'));
     await user.click(screen.getByRole('button', { name: 'Reconcile 1 selected transfers' }));
     await screen.findByText('Please check the current payouts.');

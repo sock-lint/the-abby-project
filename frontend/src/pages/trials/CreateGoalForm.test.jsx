@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within, waitFor } from '../../test/render';
@@ -20,9 +21,9 @@ describe('Parent measurable challenges', () => {
     server.use(create.handler);
     const { user } = renderForm();
     await user.click(screen.getByRole('button', { name: 'Create challenge' }));
-    await user.selectOptions(screen.getByLabelText('Activity'), 'movement_session');
-    await user.selectOptions(await screen.findByLabelText('Movement activity'), '3');
-    await user.selectOptions(screen.getByLabelText('Measure'), 'distance');
+    await selectDropdown(user, screen.getByLabelText('Activity'), 'movement_session');
+    await selectDropdown(user, await screen.findByLabelText('Movement activity'), '3');
+    await selectDropdown(user, screen.getByLabelText('Measure'), 'distance');
     await user.click(screen.getByLabelText('Repeat each week'));
     const preview = screen.getByRole('region', { name: 'Challenge preview' });
     expect(within(preview).getByText('Run · 2 miles this week')).toBeInTheDocument();
@@ -39,7 +40,7 @@ describe('Parent measurable challenges', () => {
     const { user } = renderForm();
     await user.click(screen.getByRole('button', { name: 'Create challenge' }));
     await user.click(screen.getByLabelText('Repeat each week'));
-    await user.selectOptions(screen.getByLabelText('Timeframe'), 'custom');
+    await selectDropdown(user, screen.getByLabelText('Timeframe'), 'custom');
     await user.type(screen.getByLabelText('Start date'), '2026-10-14');
     await user.type(screen.getByLabelText('End date'), '2026-10-21');
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' }));

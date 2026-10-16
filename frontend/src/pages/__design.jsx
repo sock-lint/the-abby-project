@@ -23,6 +23,7 @@ import CollectionsShowcase from './design/CollectionsShowcase';
 import DesignEnvironment from './design/DesignEnvironment';
 import PatternLibrary from './design/PatternLibrary';
 import TasksShowcase from './design/TasksShowcase';
+import DropdownShowcase from './design/DropdownShowcase';
 
 export default function DesignShowcase() {
   const hasRouter = useInRouterContext();
@@ -311,7 +312,7 @@ function DesignShowcaseContent() {
         <SelectField
           id="demo-select"
           label="Choose an activity"
-          helpText="SelectField — labeled select; pass <option> children directly."
+          helpText="SelectField — themed dropdown; pass <option> children directly."
         >
           <option value="">Choose…</option>
           <option value="dragon">Draw a dragon</option>
@@ -332,6 +333,8 @@ function DesignShowcaseContent() {
           error="This field has an error message wired through aria-describedby."
         />
       </ParchmentCard>
+
+      <DropdownShowcase />
 
       <DeckleDivider glyph="compass-rose" label="Task folio" />
 
