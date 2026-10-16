@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -84,8 +85,8 @@ describe('Financial history recovery', () => {
         await user.click(screen.getByRole('button', { name: 'Switch account' }));
       } else {
         const childFilter = screen.getByRole('combobox', { name: 'Filter by kid' });
-        await within(childFilter).findByRole('option', { name: 'Beck' });
-        await user.selectOptions(childFilter, '2');
+        await (await openDropdown(user, childFilter)).findByRole('option', { name: 'Beck' });
+        await selectDropdown(user, childFilter, '2');
       }
       expect(await screen.findByText('Current account or child payment')).toBeVisible();
       expect(screen.queryByText('Previous account or child latest payment')).not.toBeInTheDocument();

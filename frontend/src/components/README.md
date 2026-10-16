@@ -128,6 +128,29 @@ When a page-area has constants used by both a parent and an extracted card (e.g.
 
 Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve used by Skills domain components); [`components/atlas/mastery.constants.js`](./atlas/mastery.constants.js) holds the Illuminated Atlas shared vocabulary — see [Atlas cohort](#atlas-cohort) for the full export list; [`pages/achievements/collections.constants.js`](../pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy — `COLLECTIONS` (seven chapters keyed by criterion family), `collectionForCriterion` / `collectionForBadge`, `groupBadgesByCollection`, `rarityCounts`, `unlockHint` (plain-English template for every known `criterion_type` — passed to `<BadgeSigil hint={...}>` by `CollectionFolio`), and `ladderSiblings` (tier progressions for the detail sheet); [`pages/character/character.constants.js`](../pages/character/character.constants.js) holds the Frontispiece taxonomy — `COSMETIC_CHAPTERS` (four cosmetic slots keyed to rubric numerals + drop-cap letters), `STREAK_TIERS` + `streakTier(days)` (flame-size ladder aligned with backend streak milestones), `mergeSlotCosmetics` (dedupe + sort owned against catalog), `slotRarityCounts`, and `cosmeticLockHint`. The Reliquary chapter taxonomy and the cosmetic chapter taxonomy are deliberately page-scoped — only the rarity / progress / chapter-numeral vocabulary is shared.
 
+### Dropdowns
+
+Use `SelectField` from `components/form` for a choice from a list, including
+compact toolbar filters (`variant="filter"`). Its shared `Dropdown` control
+styles both the trigger and the open list with Meadow tokens across all six
+covers. Keep passing `<option>` and `<optgroup>` children and reading
+`event.target.value`; option values and saved API payloads stay the same.
+The design library's [Dropdowns](/__design#design-dropdowns) section includes
+grouped, long, disabled, error and modal examples.
+
+Every dropdown needs a visible `label`, an external label linked by `id`, or
+an `aria-label`. Error and help text remain associated with the trigger.
+Arrow keys, Home/End and typing move through enabled options; Enter/Space
+confirms, Escape cancels, and Tab continues through the form. Opening and
+browsing a list does not submit the form or change its saved selection.
+Use the existing action-menu components for commands rather than putting
+actions in a choice list.
+
+Consumer tests use `selectDropdown(user, control, value)` from
+`src/test/selectDropdown.js` to open the real menu and choose an enabled
+option. Browser fixtures use `e2e/dropdown-helpers.js` for the same interaction.
+Do not change a hidden form control directly in interaction tests.
+
 ### Accessibility roles
 
 `AddToCalendar` opens a shared `BottomSheet` with a [Google event template](https://developers.google.com/workspace/calendar/api/concepts/inviting-attendees-to-events) and an [Apple Calendar `.ics` import](https://support.apple.com/guide/calendar/import-or-export-calendars-icl1023/mac). It accepts a saved event via `event`, and optionally `dateEditable`, `dateHelp`, and `validateDate` for choosing a duty reminder day. Invalid or missing dates render no trigger. Keep the trigger outside navigation links/buttons. Exports follow [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545) and never read browser credentials or the current page's query/fragment. Show one-time-copy behavior; later source changes do not update the calendar event.
@@ -141,6 +164,7 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `ErrorAlert` | `alert` | Errors interrupt — assertive politeness |
 | `ProgressBar` / `QuillProgress` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
 | `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
+| `SelectField` / `Dropdown` | `combobox` + controlled `listbox` / `option` | One tab stop, virtual option focus, selected and disabled states, grouped choices |
 | `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
 | `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + one tab stop | Wrapping collection cards or compact filter pills; Left/Right wrap, Home/End select first/last, keyboard focus stays with selection |
 | `TabList` | `tablist` + `tab` + `aria-selected` + one tab stop | Left/Right wrap and select; Home/End select first/last; horizontal rail scrolling respects reduced motion |

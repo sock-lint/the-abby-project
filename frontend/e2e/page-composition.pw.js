@@ -1,3 +1,4 @@
+import { chooseDropdown } from './dropdown-helpers.js';
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -112,7 +113,7 @@ for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]
     await page.screenshot({ path: testInfo.outputPath('materials-list.png'), fullPage: true });
     await opener.click();
     const sheet = page.getByRole('dialog', { name: 'Mark material ready', exact: true });
-    await expect(sheet.getByLabel('How did you get it?')).toHaveValue('on_hand');
+    await expect(sheet.getByLabel('How did you get it?')).toHaveJSProperty('value', 'on_hand');
     await expect(sheet.getByLabel('Actual cost ($)')).toHaveCount(0);
     const save = sheet.getByRole('button', { name: 'Mark ready', exact: true });
     await save.scrollIntoViewIfNeeded();
@@ -131,7 +132,7 @@ for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]
 
     await page.getByRole('button', { name: 'Change readiness for Class notes and worksheets', exact: true }).click();
     const updateSheet = page.getByRole('dialog', { name: 'Update material readiness', exact: true });
-    await updateSheet.getByLabel('How did you get it?').selectOption('needed');
+    await chooseDropdown(updateSheet.getByLabel('How did you get it?'), 'needed');
     await updateSheet.getByRole('button', { name: 'Mark not ready', exact: true }).click();
     await expect(updateSheet).toHaveCount(0);
     await expect(page.getByText('Ready', { exact: true })).toHaveCount(0);
@@ -143,7 +144,7 @@ for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]
     await expect(sheet).toHaveCount(0);
     await expect(page.getByText('Ready', { exact: true })).toHaveCount(1);
     await page.getByRole('button', { name: 'Change readiness for Notebook or scratch paper', exact: true }).click();
-    await updateSheet.getByLabel('How did you get it?').selectOption('purchased');
+    await chooseDropdown(updateSheet.getByLabel('How did you get it?'), 'purchased');
     await updateSheet.getByLabel('Actual cost ($)').fill('1.25');
     await updateSheet.getByRole('button', { name: 'Mark ready', exact: true }).click();
     await expect(updateSheet).toHaveCount(0);
@@ -243,8 +244,8 @@ test('Payments filters fit a phone and preserve date selection, reads and cleari
   await page.getByRole('button', { name: 'This month', exact: true }).click();
   const from = page.getByLabel('From', { exact: true });
   const to = page.getByLabel('To', { exact: true });
-  await expect(from).toHaveValue(/\d{4}-\d{2}-01/);
-  await expect(to).toHaveValue(/\d{4}-\d{2}-\d{2}/);
+  await expect(from).toHaveJSProperty('value', /\d{4}-\d{2}-01/);
+  await expect(to).toHaveJSProperty('value', /\d{4}-\d{2}-\d{2}/);
   await expect(page.getByRole('button', { name: 'This month', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => reads.length).toBeGreaterThan(0);
   expect(reads.at(-1).searchParams.get('start_date')).toBe(await from.inputValue());
@@ -252,8 +253,8 @@ test('Payments filters fit a phone and preserve date selection, reads and cleari
   const clear = page.getByRole('button', { name: 'Clear all filters', exact: true });
   expect((await clear.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await clear.click();
-  await expect(from).toHaveValue('');
-  await expect(to).toHaveValue('');
+  await expect(from).toHaveJSProperty('value', '');
+  await expect(to).toHaveJSProperty('value', '');
   await expect(clear).not.toBeAttached();
   expect(mutations).toEqual([]);
 });

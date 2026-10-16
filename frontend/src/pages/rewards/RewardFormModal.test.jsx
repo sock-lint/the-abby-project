@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -19,9 +20,10 @@ describe('RewardFormModal', () => {
       { id: 2, name: 'Party Hat', item_type: 'cosmetic_pet_accessory', catalog_available: false },
     ])));
     render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Fulfillment' }), 'digital_item');
-    expect(await screen.findByRole('option', { name: /Birdseed/ })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Party Hat/ })).toBeNull();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Fulfillment' }), 'digital_item');
+    const items = await openDropdown(user, await screen.findByLabelText(/inventory item/i));
+    expect(await items.findByRole('option', { name: /Birdseed/ })).toBeInTheDocument();
+    expect(items.queryByRole('option', { name: /Party Hat/ })).toBeNull();
   });
   it.each([0, 7])('clears existing stock %s to unlimited with an explicit empty multipart field', async (stock) => {
     const user = userEvent.setup();
@@ -114,8 +116,8 @@ describe('RewardFormModal', () => {
     const inputs = screen.getAllByRole('textbox');
     await user.type(inputs[0], 'Buy Freeze');
     await user.type(screen.getAllByRole('spinbutton')[0], '60');
-    await user.selectOptions(screen.getByLabelText(/fulfillment/i), 'digital_item');
-    await user.selectOptions(await screen.findByLabelText(/inventory item/i), '9');
+    await selectDropdown(user, screen.getByLabelText(/fulfillment/i), 'digital_item');
+    await selectDropdown(user, await screen.findByLabelText(/inventory item/i), '9');
     await user.click(screen.getByRole('button', { name: /^create$/i }));
 
     await waitFor(() => expect(calls).toHaveLength(1));

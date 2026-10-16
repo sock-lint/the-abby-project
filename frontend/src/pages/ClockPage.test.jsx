@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -79,7 +80,7 @@ describe('ClockPage', () => {
     await user.click(within(alert).getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(play).toBeEnabled());
     expect(screen.getByRole('combobox', { name: 'Project' })).toBeEnabled();
-    expect(screen.getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
+    expect((await openDropdown(user, screen.getByRole('combobox', { name: 'Project' }))).getByRole('option', { name: 'Alpha' })).toBeInTheDocument();
   });
 
   it('does not claim there are no time entries when history fails', async () => {
@@ -135,7 +136,7 @@ describe('ClockPage', () => {
       ),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('Alpha'));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Clock in' })).toBeEnabled());
     expect(screen.getByText('00:00:00')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Clock out' })).not.toBeInTheDocument();
@@ -227,8 +228,8 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
-    await user.selectOptions(screen.getByRole('combobox'), '7');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('Alpha'));
+    await selectDropdown(user, screen.getByRole('combobox'), '7');
     const play = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
     await user.click(play);
 
@@ -378,8 +379,8 @@ describe('ClockPage', () => {
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
       clock.handler,
     ]);
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
-    await user.selectOptions(screen.getByRole('combobox'), '7');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('Alpha'));
+    await selectDropdown(user, screen.getByRole('combobox'), '7');
 
     const play = screen.getByRole('button', { name: 'Clock in' });
     await user.dblClick(play);
@@ -405,8 +406,8 @@ describe('ClockPage', () => {
         HttpResponse.json({ error: 'quiet hours' }, { status: 400 }),
       ),
     ]);
-    await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
-    await user.selectOptions(screen.getByRole('combobox'), '1');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Project' })).toHaveTextContent('Alpha'));
+    await selectDropdown(user, screen.getByRole('combobox'), '1');
     const play = screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
     await user.click(play);
     expect(await screen.findByText(/quiet hours/i)).toBeInTheDocument();

@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../../test/selectDropdown';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, render, screen, waitFor } from '@testing-library/react';
@@ -91,7 +92,7 @@ describe('AddResourceModal', () => {
     const save = spyHandler('post', '*/api/projects/5/resources/', { id: 11 });
     server.use(resolve.handler, save.handler);
     render(<AddResourceModal projectId={5} steps={[{ id: 10, title: 'Experiment' }]} onClose={vi.fn()} onSaved={onSaved} />);
-    await user.selectOptions(screen.getByLabelText('Attach to Step'), '10');
+    await selectDropdown(user, screen.getByLabelText('Attach to Step'), '10');
     await openPicker(user);
     selectFile({ id: 'school-pdf-1', mimeType: 'application/pdf' });
     await waitFor(() => expect(screen.getByLabelText('Title (optional)')).toHaveValue('Science worksheet.pdf'));

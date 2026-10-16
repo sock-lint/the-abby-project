@@ -82,7 +82,7 @@ export default function DesignEnvironment({ children }) {
           <nav aria-label="Design sections" className="flex flex-wrap gap-2">
             {[
               ['design-foundations', 'Foundations'], ['design-data', 'Data and feedback'],
-              ['design-forms', 'Forms and dialogs'], ['design-recipes', 'Page recipes'],
+              ['design-forms', 'Forms and dialogs'], ['design-dropdowns', 'Dropdowns'], ['design-recipes', 'Page recipes'],
               ['design-outcomes', 'Status and outcomes'],
               ['design-family', 'Family context'], ['design-notifications', 'Notifications'],
               ['design-attachments', 'Attachments'], ['design-atlas', 'Atlas primitives'],

@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -41,9 +42,10 @@ describe('Bird Evolution companion controls', () => {
       act(() => scene.props.onReady());
       await user.click(screen.getByText('More motions'));
       const picker = screen.getByRole('combobox', { name: 'Companion motion' });
-      expect([...picker.options].map((option) => option.value)).toEqual(stageActions.map((action) => `source-${action}`));
+      const motions = await openDropdown(user, picker);
+      expect(motions.getAllByRole('option').map((option) => option.getAttribute('data-value'))).toEqual(stageActions.map((action) => `source-${action}`));
       for (const action of stageActions) {
-        await user.selectOptions(picker, `source-${action}`);
+        await selectDropdown(user, picker, `source-${action}`);
         await user.click(screen.getByRole('button', { name: 'Play motion' }));
         expect(scene.props.interaction).toMatchObject({ action: `source-${action}` });
         count += 1;

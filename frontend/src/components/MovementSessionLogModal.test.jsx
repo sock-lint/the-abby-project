@@ -1,6 +1,7 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor, within } from '../test/render';
+import { renderWithProviders, screen, waitFor } from '../test/render';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import MovementSessionLogModal from './MovementSessionLogModal';
@@ -68,7 +69,7 @@ describe('MovementSessionLogModal', () => {
   async function openNewActivity(user) {
     const picker = screen.getByRole('combobox', { name: /what did you do/i });
     await waitFor(() => expect(picker).toBeEnabled());
-    await user.selectOptions(picker, '__new__');
+    await selectDropdown(user, picker, '__new__');
   }
 
   const physicalSkills = [
@@ -97,14 +98,14 @@ describe('MovementSessionLogModal', () => {
     const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
     await openNewActivity(user);
     const primary = screen.getByRole('combobox', { name: /primary skill/i });
-    await within(primary).findByRole('option', { name: 'Strength' });
-    expect(within(primary).queryByRole('option', { name: 'Soldering' })).not.toBeInTheDocument();
-    expect(within(primary).getByRole('group', { name: 'Sports' })).toHaveTextContent('Cycling');
+    await (await openDropdown(user, primary)).findByRole('option', { name: 'Strength' });
+    expect((await openDropdown(user, primary)).queryByRole('option', { name: 'Soldering' })).not.toBeInTheDocument();
+    expect((await openDropdown(user, primary)).getByRole('group', { name: 'Sports' })).toHaveTextContent('Cycling');
     await user.type(screen.getByRole('textbox', { name: /activity name/i }), 'Parkour');
-    await user.selectOptions(primary, '11');
+    await selectDropdown(user, primary, '11');
     const secondary = screen.getByRole('combobox', { name: /secondary skill/i });
-    expect(within(secondary).queryByRole('option', { name: 'Strength' })).not.toBeInTheDocument();
-    await user.selectOptions(secondary, '10');
+    expect((await openDropdown(user, secondary)).queryByRole('option', { name: 'Strength' })).not.toBeInTheDocument();
+    await selectDropdown(user, secondary, '10');
     await user.click(screen.getByRole('button', { name: /add activity/i }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0]).toMatchObject({
@@ -159,17 +160,17 @@ describe('MovementSessionLogModal', () => {
     const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
     await openNewActivity(user);
     await user.type(screen.getByRole('textbox', { name: /activity name/i }), 'Parkour');
-    await user.selectOptions(screen.getByRole('combobox', { name: /default intensity/i }), 'high');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /default intensity/i }), 'high');
     expect(await screen.findByRole('alert')).toHaveTextContent(/skills temporarily unavailable/i);
     expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /add activity/i })).toBeDisabled();
     fail = false;
     await user.click(screen.getByRole('button', { name: /try again/i }));
-    await within(screen.getByRole('combobox', { name: /primary skill/i })).findByRole('option', { name: 'Strength' });
+    await (await openDropdown(user, screen.getByRole('combobox', { name: /primary skill/i }))).findByRole('option', { name: 'Strength' });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: /activity name/i })).toHaveValue('Parkour');
     expect(screen.getByRole('combobox', { name: /default intensity/i })).toHaveValue('high');
-    await user.selectOptions(screen.getByRole('combobox', { name: /primary skill/i }), '11');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /primary skill/i }), '11');
     await user.click(screen.getByRole('button', { name: /add activity/i }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
     expect(spy.calls[0].url).toMatch(/\/api\/movement-types\/$/);
@@ -188,7 +189,7 @@ describe('MovementSessionLogModal', () => {
     expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeDisabled();
     stubSkills(physicalSkills);
     await user.click(screen.getByRole('button', { name: /try again/i }));
-    await within(screen.getByRole('combobox', { name: /primary skill/i })).findByRole('option', { name: 'Strength' });
+    await (await openDropdown(user, screen.getByRole('combobox', { name: /primary skill/i }))).findByRole('option', { name: 'Strength' });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -199,15 +200,15 @@ describe('MovementSessionLogModal', () => {
     await openNewActivity(user);
     const primary = screen.getByRole('combobox', { name: /primary skill/i });
     const secondary = screen.getByRole('combobox', { name: /secondary skill/i });
-    await within(primary).findByRole('option', { name: 'Strength' });
-    await user.selectOptions(primary, '11');
-    await user.selectOptions(secondary, '10');
-    await user.selectOptions(primary, '10');
+    await (await openDropdown(user, primary)).findByRole('option', { name: 'Strength' });
+    await selectDropdown(user, primary, '11');
+    await selectDropdown(user, secondary, '10');
+    await selectDropdown(user, primary, '10');
     expect(secondary).toHaveValue('');
-    expect(within(secondary).queryByRole('option', { name: 'Endurance' })).not.toBeInTheDocument();
-    expect(within(secondary).getByRole('option', { name: 'Strength' })).toBeInTheDocument();
+    expect((await openDropdown(user, secondary)).queryByRole('option', { name: 'Endurance' })).not.toBeInTheDocument();
+    expect((await openDropdown(user, secondary)).getByRole('option', { name: 'Strength' })).toBeInTheDocument();
     // Reselecting the old primary must not restore a hidden secondary value.
-    await user.selectOptions(primary, '11');
+    await selectDropdown(user, primary, '11');
     expect(secondary).toHaveValue('');
   });
 
@@ -246,7 +247,7 @@ describe('MovementSessionLogModal', () => {
     );
     await waitFor(() => expect(screen.getByRole('combobox', { name: /what did you do/i })).toHaveValue('1'));
     await user.type(screen.getByRole('spinbutton', { name: /distance \(optional\)/i }), '1.25');
-    await user.selectOptions(screen.getByRole('combobox', { name: /distance unit/i }), 'km');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /distance unit/i }), 'km');
     await user.click(screen.getByRole('button', { name: /log session/i }));
     await screen.findByRole('alert');
     expect(screen.getByRole('spinbutton', { name: /distance \(optional\)/i })).toHaveValue(1.25);
@@ -259,7 +260,7 @@ describe('MovementSessionLogModal', () => {
   it('renders the activity picker populated from /api/movement-types/', async () => {
     stubTypes();
     stubSkills();
-    renderWithProviders(<MovementSessionLogModal onClose={() => {}} onSaved={() => {}} />);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} onSaved={() => {}} />);
 
     await waitFor(() => {
       const picker = screen.getByRole('combobox', { name: /what did you do/i });
@@ -267,7 +268,7 @@ describe('MovementSessionLogModal', () => {
     });
 
     const picker = screen.getByRole('combobox', { name: /what did you do/i });
-    const options = within(picker).getAllByRole('option').map((o) => o.textContent);
+    const options = (await openDropdown(user, picker)).getAllByRole('option').map((o) => o.textContent);
     expect(options).toEqual(expect.arrayContaining([
       expect.stringMatching(/Run/),
       expect.stringMatching(/Yoga/),
@@ -286,7 +287,7 @@ describe('MovementSessionLogModal', () => {
     });
 
     const picker = screen.getByRole('combobox', { name: /what did you do/i });
-    await user.selectOptions(picker, '2'); // yoga
+    await selectDropdown(user, picker, '2'); // yoga
 
     const intensity = screen.getByRole('combobox', { name: /how hard/i });
     await waitFor(() => expect(intensity).toHaveValue('low'));
@@ -307,7 +308,7 @@ describe('MovementSessionLogModal', () => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
 
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '1',
     );
@@ -364,13 +365,13 @@ describe('MovementSessionLogModal', () => {
   it('picker includes a "+ New activity…" option', async () => {
     stubTypes();
     stubSkills();
-    renderWithProviders(<MovementSessionLogModal onClose={() => {}} onSaved={() => {}} />);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} onSaved={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
     const picker = screen.getByRole('combobox', { name: /what did you do/i });
-    const options = within(picker).getAllByRole('option').map((o) => o.textContent);
+    const options = (await openDropdown(user, picker)).getAllByRole('option').map((o) => o.textContent);
     expect(options).toEqual(
       expect.arrayContaining([expect.stringMatching(/New activity/)]),
     );
@@ -386,7 +387,7 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '__new__',
     );
@@ -409,7 +410,7 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '__new__',
     );
@@ -429,7 +430,7 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '__new__',
     );
@@ -438,7 +439,7 @@ describe('MovementSessionLogModal', () => {
       expect(screen.getByRole('combobox', { name: /primary skill/i })).not.toBeDisabled();
     });
     const primary = screen.getByRole('combobox', { name: /primary skill/i });
-    const options = within(primary).getAllByRole('option').map((o) => o.textContent);
+    const options = (await openDropdown(user, primary)).getAllByRole('option').map((o) => o.textContent);
     expect(options).toEqual(expect.arrayContaining([
       expect.stringMatching(/Endurance/),
       expect.stringMatching(/Strength/),
@@ -483,7 +484,7 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '__new__',
     );
@@ -495,15 +496,15 @@ describe('MovementSessionLogModal', () => {
       screen.getByRole('textbox', { name: /activity name/i }),
       'Parkour',
     );
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /default intensity/i }),
       'high',
     );
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /primary skill/i }),
       '11', // Strength
     );
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /secondary skill/i }),
       '12', // Flexibility
     );
@@ -544,7 +545,7 @@ describe('MovementSessionLogModal', () => {
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /what did you do/i })).not.toBeDisabled();
     });
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /what did you do/i }),
       '__new__',
     );
@@ -556,7 +557,7 @@ describe('MovementSessionLogModal', () => {
       screen.getByRole('textbox', { name: /activity name/i }),
       'Run',
     );
-    await user.selectOptions(
+    await selectDropdown(user,
       screen.getByRole('combobox', { name: /primary skill/i }),
       '10',
     );

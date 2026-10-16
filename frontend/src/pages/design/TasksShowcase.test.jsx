@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, renderWithProviders, screen, userEvent, waitFor, within } from '../../test/render';
 import DesignShowcase from '../__design';
 import TasksShowcase from './TasksShowcase';
+import { selectDropdown } from '../../test/selectDropdown';
 
 function runningGoal() {
   return screen.getByRole('article', { name: 'Run 2 miles this week' });
@@ -63,7 +64,7 @@ describe('Task folio design showcase', () => {
 
   it('previews the parent presentation while retaining saved goals and hiding child pin controls', async () => {
     const { user } = renderWithProviders(<TasksShowcase />, { withAuth: false });
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Preview role' }), 'parent');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Preview role' }), 'parent');
     expect(within(runningGoal()).getByText('Parent goal')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Sample daily bonus' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^(Unpin|Pin to Today)$/ })).not.toBeInTheDocument();

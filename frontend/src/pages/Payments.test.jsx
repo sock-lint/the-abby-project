@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -123,16 +124,13 @@ describe('Payments', () => {
     );
     await user.click(screen.getByRole('button', { name: /adjust money owed/i }));
 
-    // Scope to the modal — the page also has a filter <select> rendering
-    // "Abby" as an option, so global getByRole('option', ...) ambiguously
-    // matches both controls. The dialog is the relevant context here.
+    // Open the modal's kid picker and inspect its controlled listbox.
     const dialog = await screen.findByRole('dialog');
     const kidPicker = within(dialog).getByLabelText(/^kid$/i);
-    await waitFor(() =>
-      expect(within(dialog).getByRole('option', { name: 'Abby' })).toBeInTheDocument(),
-    );
-    expect(within(dialog).getByRole('option', { name: 'Beck' })).toBeInTheDocument();
-    await user.selectOptions(kidPicker, '8');
+    const kids = await openDropdown(user, kidPicker);
+    expect(await kids.findByRole('option', { name: 'Abby' })).toBeInTheDocument();
+    expect(kids.getByRole('option', { name: 'Beck' })).toBeInTheDocument();
+    await selectDropdown(user, kidPicker, '8');
 
     const amount = within(dialog).getByRole('spinbutton');
     await user.type(amount, '10');
@@ -160,10 +158,9 @@ describe('Payments', () => {
     );
     await user.click(screen.getByRole('button', { name: /adjust money owed/i }));
     const dialog = await screen.findByRole('dialog');
-    await waitFor(() =>
-      expect(within(dialog).getByRole('option', { name: 'Abby' })).toBeInTheDocument(),
-    );
-    await user.selectOptions(within(dialog).getByLabelText(/^kid$/i), '7');
+    const kids = await openDropdown(user, within(dialog).getByLabelText(/^kid$/i));
+    expect(await kids.findByRole('option', { name: 'Abby' })).toBeInTheDocument();
+    await selectDropdown(user, within(dialog).getByLabelText(/^kid$/i), '7');
     await user.type(within(dialog).getByRole('spinbutton'), '1');
     await user.click(within(dialog).getByRole('button', { name: /^adjust$/i }));
     expect(await screen.findByText(/bad amount/i)).toBeInTheDocument();

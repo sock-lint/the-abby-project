@@ -6,6 +6,7 @@ import {
   formErrorClass,
 } from '../../constants/styles';
 import useFieldIds from './useFieldIds';
+import Dropdown from './Dropdown';
 
 // "filter" variant: compact toolbar select with no fixed full-width sizing,
 // smaller padding, and caption text on larger screens. Closes the previous
@@ -18,7 +19,7 @@ const FILTER_VARIANT_CLASS =
   'focus:outline-2 focus:outline-solid focus:outline-offset-2 focus:outline-sheikah-teal-deep focus:border-sheikah-teal-deep focus:ring-2 focus:ring-sheikah-teal-deep';
 
 /**
- * SelectField — labeled <select> with built-in error and helpText slots.
+ * SelectField — labeled themed dropdown with built-in error and helpText slots.
  * Mirrors the TextField API; consumers pass <option> children directly.
  *
  * Pass ``variant="filter"`` for a compact toolbar select (no full-width
@@ -40,16 +41,16 @@ const SelectField = forwardRef(function SelectField(
   return (
     <div className={`min-w-0 max-w-full ${className}`}>
       {label && <label htmlFor={id} className={formLabelClass}>{label}</label>}
-      <select
+      <Dropdown
         ref={ref}
         id={id}
         className={selectClass}
         aria-invalid={error ? 'true' : undefined}
-        aria-describedby={describedBy}
+        aria-describedby={error ? errorId : describedBy}
         {...rest}
       >
         {children}
-      </select>
+      </Dropdown>
       {helpText && !error && <p id={helpId} className={formHelpClass}>{helpText}</p>}
       {error && <p id={errorId} role="alert" className={formErrorClass}>{error}</p>}
     </div>

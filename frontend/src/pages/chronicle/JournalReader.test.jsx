@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -274,7 +275,7 @@ describe('JournalReader — parent view', () => {
     renderReader();
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await screen.findByRole('textbox', { name: 'Your family response' });
-    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
+    await selectDropdown(user, screen.getByLabelText('Viewing'), '8');
     expect(screen.queryByText('Abby shared')).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Your family response' })).toBeNull();
     finishSecond();

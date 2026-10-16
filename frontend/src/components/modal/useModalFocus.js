@@ -41,6 +41,9 @@ function handleKeyDown(event) {
   const modal = topModal();
   if (!modal || modal.suspendedRef.current) return;
   if (event.key === 'Escape') {
+    // The expanded select owns the first Escape, with virtual focus on its
+    // trigger. Its next Escape can dismiss the containing sheet normally.
+    if (event.target.closest?.('[data-dropdown-trigger][aria-expanded="true"]')) return;
     event.preventDefault();
     event.stopPropagation();
     modal.onEscapeRef.current?.();

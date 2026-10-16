@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +11,7 @@ it('names the viewed child and keeps selection and companion actions keyboard ac
   const picker = screen.getByRole('combobox', { name: 'Viewing' });
   expect(picker).toHaveValue('7');
   const user = userEvent.setup();
-  await user.selectOptions(picker, '8');
+  await selectDropdown(user, picker, '8');
   expect(select).toHaveBeenCalledWith('8');
   expect(screen.getByRole('button', { name: 'Add memory' })).toBeInTheDocument();
 });
