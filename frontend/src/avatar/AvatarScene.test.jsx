@@ -3,10 +3,12 @@ import { StrictMode, useRef } from 'react';
 import { act, render, screen } from '@testing-library/react';
 import { AnimationClip, AnimationMixer, Bone, BoxGeometry, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, NumberKeyframeTrack, PerspectiveCamera, Skeleton, SkinnedMesh, Texture, Uint16BufferAttribute, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { createAnimationController } from '@abby-assets/avatar-runtime';
 import AvatarScene from './AvatarScene';
 import useSceneMotionAllowed from '../companion/useSceneMotionAllowed';
 
-const harness = vi.hoisted(() => ({ canvas: null, camera: null, gltf: null, textures: null, frame: null, invalidate: null, reactionRoot: null }));
+const harness = vi.hoisted(() => ({ canvas: null, camera: null, gltf: null, textures: null, frame: null, invalidate: null, reactionRoot: null, shared: null }));
+vi.mock('@abby-assets/avatar-runtime/react', () => ({ useAvatar: () => harness.shared }));
 vi.mock('./avatarReactions', async (importOriginal) => {
   const actual = await importOriginal();
   return { createAvatarReactions: (root) => {
@@ -34,6 +36,7 @@ beforeEach(() => {
   harness.camera = new PerspectiveCamera();
   harness.camera.position.set(0, 1.05, 3.7);
   harness.invalidate = vi.fn();
+  harness.shared = { avatar: null, error: null, loading: false };
   const scene = new Group();
   for (const name of ['Body', 'Head', 'Face', 'Hair 01', 'Hair 02']) {
     const part = new Mesh(new BoxGeometry(1, 1, 1), new MeshStandardMaterial());
@@ -42,6 +45,88 @@ beforeEach(() => {
   }
   harness.gltf = { scene, animations: [] };
   harness.textures = [new Texture(), new Texture(), new Texture()];
+});
+
+function sharedArcher() {
+  const scene = new Group(), motion = new Group(), model = new Group(), root = new Group();
+  root.name = 'JumpRoot'; model.add(root); motion.add(model); scene.add(motion);
+  const clips = [
+    new AnimationClip('Idle', 1, [new NumberKeyframeTrack('JumpRoot.rotation[z]', [0, 1], [0, .5])]),
+    new AnimationClip('Jump', 1, [new NumberKeyframeTrack('JumpRoot.position[y]', [0, .5, 1], [0, 1, 0])]),
+  ];
+  const controllers = [];
+  const avatar = {
+    scene, identityBounds: { min: [-1, -2, -1], max: [1, 2, 1], size: [2, 4, 2] }, dispose: vi.fn(),
+    createAnimationController: vi.fn(() => {
+      const playback = createAnimationController(model, clips, { motionRoot: motion,
+        animations: { root_node: 'JumpRoot', actions: { idle: 'Idle', jump: 'Jump' }, clips: [{ name: 'Idle', loop: true }, { name: 'Jump', loop: false }] } });
+      vi.spyOn(playback, 'play'); vi.spyOn(playback, 'dispose'); controllers.push(playback); return playback;
+    }),
+  };
+  return { avatar, root, controllers };
+}
+
+describe('shared AvatarScene integration', () => {
+  const sharedAppearance = { pipeline: 'abby-assets', release: {}, configuration: {}, resolveUrl: () => '/synthetic.glb', rotationY: 0, idleClip: 'Idle' };
+
+  it('frames raw identity once and returns from the shared semantic jump to idle', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { avatar, root, controllers } = sharedArcher(); harness.shared = { avatar, error: null };
+    const onReady = vi.fn(), onUnavailable = vi.fn();
+    const props = { appearance: sharedAppearance, onReady, onUnavailable, motionAllowed: true };
+    const { rerender, unmount } = render(<AvatarScene {...props} />);
+    const display = harness.reactionRoot.children[0];
+    expect(display.scale.x).toBeCloseTo(1.65 / 4); expect(display.position.y).toBeCloseTo(2 * 1.65 / 4);
+    expect(display.children).toEqual([avatar.scene]); expect(avatar.scene.scale.x).toBe(1);
+    expect(onReady).toHaveBeenCalledExactlyOnceWith(avatar); expect(onUnavailable).not.toHaveBeenCalled();
+    const playback = controllers[0]; expect(playback.action.getClip().name).toBe('Idle');
+    act(() => harness.frame({}, .05)); expect(root.rotation.z).toBeGreaterThan(0);
+    rerender(<AvatarScene {...props} interaction={{ id: 1, action: 'hop' }} />);
+    expect(playback.play).toHaveBeenCalledWith('jump', { loop: false, fadeSeconds: .12 });
+    act(() => harness.frame({}, .05)); expect(root.position.y).toBeGreaterThan(0);
+    act(() => { for (let frame = 0; frame < 30; frame++) harness.frame({}, .05); });
+    expect(playback.action.getClip().name).toBe('Idle'); expect(root.position.y).toBeCloseTo(0);
+    expect(harness.reactionRoot.children[0]).toBe(display);
+    unmount(); expect(playback.dispose).toHaveBeenCalledOnce(); expect(avatar.scene.parent).toBeNull();
+    // Resource disposal belongs to useAvatar; this adapter must not dispose it a second time.
+    expect(avatar.dispose).not.toHaveBeenCalled();
+  });
+
+  it('pauses shared playback and reactions without requesting frames or replaying a consumed interaction', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { avatar, root, controllers } = sharedArcher(); harness.shared = { avatar, error: null };
+    const props = { appearance: sharedAppearance, onReady: vi.fn(), onUnavailable: vi.fn(), interaction: { id: 1, action: 'hop' } };
+    const { rerender } = render(<AvatarScene {...props} motionAllowed />);
+    act(() => harness.frame({}, .05)); expect(root.position.y).toBeGreaterThan(0);
+    rerender(<AvatarScene {...props} motionAllowed={false} />);
+    expect(controllers[0].action.getClip().name).toBe('Idle');
+    const pausedTime = controllers[0].time; harness.invalidate.mockClear();
+    act(() => harness.frame({}, 30));
+    expect(controllers[0].time).toBe(pausedTime); expect(harness.invalidate).not.toHaveBeenCalled();
+    rerender(<AvatarScene {...props} motionAllowed />);
+    act(() => harness.frame({}, .05)); expect(controllers[0].action.getClip().name).toBe('Idle');
+    expect(controllers[0].play.mock.calls.filter(([name]) => name === 'jump')).toHaveLength(1);
+  });
+
+  it('detaches an old instance and disposes its mixer when the owned hook supplies a replacement', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const first = sharedArcher(), second = sharedArcher(); harness.shared = { avatar: first.avatar, error: null };
+    const props = { appearance: sharedAppearance, onReady: vi.fn(), onUnavailable: vi.fn() };
+    const { rerender, unmount } = render(<AvatarScene {...props} />);
+    harness.shared = { avatar: second.avatar, error: null }; rerender(<AvatarScene {...props} />);
+    expect(first.controllers[0].dispose).toHaveBeenCalledOnce(); expect(first.avatar.scene.parent).toBeNull();
+    expect(harness.reactionRoot.children).toHaveLength(1); expect(harness.reactionRoot.children[0].children).toEqual([second.avatar.scene]);
+    expect(props.onReady).toHaveBeenCalledTimes(2);
+    unmount(); expect(second.controllers[0].dispose).toHaveBeenCalledOnce();
+  });
+
+  it('surfaces verified loader failure without signaling readiness', () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const error = new Error('Asset SHA-256 does not match the release'); harness.shared = { avatar: null, error };
+    const onReady = vi.fn(), onUnavailable = vi.fn();
+    render(<AvatarScene appearance={sharedAppearance} onReady={onReady} onUnavailable={onUnavailable} />);
+    expect(onUnavailable).toHaveBeenCalledExactlyOnceWith(error); expect(onReady).not.toHaveBeenCalled();
+  });
 });
 
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });

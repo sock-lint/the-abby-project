@@ -1,9 +1,11 @@
 import { AVATAR_OPTIONS, normalizeAvatarPreferences } from './preferences';
+import { resolveSharedAvatarAppearance, stagedArcherRelease } from './sharedRelease';
 
 const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, import: 'default' });
 const assets = import.meta.glob('./licensed/*.{glb,png}', { eager: true, query: '?url', import: 'default' });
 
-export function resolveAvatarAppearance(preferences, source = manifests['./licensed/manifest.json'], urls = assets) {
+export function resolveAvatarAppearance(preferences, source = stagedArcherRelease() || manifests['./licensed/manifest.json'], urls = assets) {
+  if (source?.pipeline === 'abby-assets') return resolveSharedAvatarAppearance(preferences, source);
   if (![1, 2, 3].includes(source?.schema_version)) return null;
   const selected = normalizeAvatarPreferences(preferences);
   const expanded = source.schema_version >= 2;

@@ -1,0 +1,11 @@
+{
+  "releases": [
+    {
+      "directory": "meshtint-female-archer-pack-01/1.0.2/4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3",
+      "family_id": "meshtint-female-archer-pack-01",
+      "manifest_sha256": "4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3",
+      "release_version": "1.0.2"
+    }
+  ],
+  "schema_version": 1
+}
