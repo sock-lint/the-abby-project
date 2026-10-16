@@ -33,6 +33,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
+from apps.rpg.catalog_icons import item_catalog_icon
 
 from .catalog_support import available_items, item_is_available
 
@@ -434,6 +435,7 @@ class DropService:
         return [{
             "item_id": item.pk,
             "item_name": item.name,
+            "item_catalog_icon": item_catalog_icon(item),
             "item_icon": item.icon,
             "item_type": item.item_type,
             "item_rarity": item.rarity,

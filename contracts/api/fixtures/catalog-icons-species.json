@@ -1,0 +1,22 @@
+[
+  {
+    "id": 86,
+    "name": "Chick",
+    "icon": "C",
+    "sprite_key": "cute-chick",
+    "description": "",
+    "food_preference": "",
+    "available_potions": [
+      {
+        "id": 85,
+        "slug": "base",
+        "name": "Base",
+        "color_hex": "#8B7355",
+        "rarity": "common"
+      }
+    ],
+    "catalog_available": true,
+    "catalog_icon": "portrait-chick",
+    "grown_catalog_icon": "portrait-chick-grown"
+  }
+]

@@ -194,7 +194,7 @@ class ItemCatalogView(ListAPIView):
     def get_queryset(self):
         return available_items(ItemDefinition.objects.select_related(
             "pet_species", "potion_type", "food_species",
-        ).order_by("item_type", "rarity", "name"))
+        ).order_by("item_type", "rarity", "name", "id"))
 
 
 class CosmeticCatalogView(APIView):

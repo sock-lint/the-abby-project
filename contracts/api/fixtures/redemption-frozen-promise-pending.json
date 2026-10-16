@@ -22,6 +22,7 @@
       "description": "",
       "icon": "frame",
       "sprite_key": "",
+      "catalog_icon": null,
       "item_type": "cosmetic_frame",
       "type_display": "Avatar Frame",
       "rarity": "common",

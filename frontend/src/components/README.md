@@ -277,3 +277,17 @@ Props: `spriteKey`, `fallbackSpriteKey` (optional base-species fallback), `icon`
 A11y: static `<img>` gets `alt`; animated and fallback `<span>` elements get `role="img"` + `aria-label`. The fallback glyph and animated strip's load probe are hidden from assistive technology, so the entity name is announced once. Potion and happiness filters apply to every render mode. Animations respect `prefers-reduced-motion` via a freeze rule in `index.css` — no per-instance motion logic needed.
 
 Do not call `fetchSpriteCatalog` or access `localStorage` directly in pages; go through `useSpriteCatalog().getSpriteUrl` / `.getSpriteMeta` for consistent cache behavior.
+
+### CatalogIcon
+
+`<CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={40} alt={item.name} />`
+
+Use the server-confirmed `catalog_icon` identity on item/challenge/catalog image
+surfaces; flattened item responses use `item_catalog_icon`. The private shared
+family resolves static PNG URLs beneath its pinned manifest directory. Images
+use smooth interpolation and contain sizing at the requested CSS size. A missing
+identity/install or failed PNG retains the existing `RpgSprite` fallback chain.
+Use empty `alt` for a decorative image whose adjacent label already describes it.
+Keep creature/gameplay presentation on its existing renderer and equipped frames
+on their existing overlays. Never infer catalog image identity from a shared
+legacy sprite key or a parent-authored challenge name.

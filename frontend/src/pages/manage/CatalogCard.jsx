@@ -1,8 +1,8 @@
-import RpgSprite from '../../components/rpg/RpgSprite';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { RARITY_COLORS, RARITY_TEXT_COLORS } from '../../constants/colors';
 
 export default function CatalogCard({
-  rarity, icon, spriteKey, fallbackSpriteKey, name, subtitle, onClick,
+  rarity, icon, assetId, spriteKey, fallbackSpriteKey, name, subtitle, onClick,
 }) {
   return (
     <button
@@ -13,7 +13,8 @@ export default function CatalogCard({
       }`}
     >
       <div className="flex items-center justify-center h-12 mb-1">
-        <RpgSprite
+        <CatalogIcon
+          assetId={assetId}
           spriteKey={spriteKey}
           fallbackSpriteKey={fallbackSpriteKey}
           icon={icon}

@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from apps.rpg.catalog_icons import challenge_catalog_icon, item_catalog_icon
 
 from .models import (
     DailyChallenge,
@@ -31,14 +32,18 @@ class DailyChallengeSerializer(serializers.ModelSerializer):
 
 
 class QuestRewardItemSerializer(serializers.ModelSerializer):
+    item_catalog_icon = serializers.SerializerMethodField()
     item_name = serializers.CharField(source="item.name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
     item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
 
     class Meta:
         model = QuestRewardItem
-        fields = ["id", "item", "item_name", "item_icon", "item_sprite_key", "quantity"]
+        fields = ["id", "item", "item_name", "item_icon", "item_sprite_key", "item_catalog_icon", "quantity"]
         read_only_fields = fields
+
+    def get_item_catalog_icon(self, obj):
+        return item_catalog_icon(obj.item)
 
 
 class QuestSkillTagSerializer(serializers.ModelSerializer):
@@ -52,6 +57,7 @@ class QuestSkillTagSerializer(serializers.ModelSerializer):
 
 
 class QuestDefinitionSerializer(serializers.ModelSerializer):
+    catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     reward_items = serializers.SerializerMethodField()
     skill_tags = QuestSkillTagSerializer(many=True, read_only=True)
@@ -79,10 +85,13 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             return True
         return badge_goal_is_available(obj.required_badge, user)
 
+    def get_catalog_icon(self, obj):
+        return challenge_catalog_icon(obj)
+
     class Meta:
         model = QuestDefinition
         fields = [
-            "id", "name", "description", "icon", "sprite_key", "quest_type", "quest_type_display",
+            "id", "name", "description", "icon", "sprite_key", "catalog_icon", "quest_type", "quest_type_display",
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items", "skill_tags",
             "required_badge", "required_badge_name",

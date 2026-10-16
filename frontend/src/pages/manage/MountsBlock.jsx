@@ -24,6 +24,7 @@ export default function MountsBlock({ species, onSelect }) {
           key={s.id}
           rarity="rare"
           icon={s.icon}
+          assetId={s.grown_catalog_icon}
           spriteKey={`${s.sprite_key}-mount`}
           fallbackSpriteKey={s.sprite_key}
           name={s.name}

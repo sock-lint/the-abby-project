@@ -8,6 +8,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |
+| `catalog-icons-drops.json`, `catalog-icons-goals.json` | Recent drops, automatic goals and reward previews retain verified image IDs while same-name parent goals keep null |
 | `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |
 | `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
 | `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |
@@ -379,7 +381,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -403,7 +405,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
@@ -577,11 +579,25 @@ describes the activity filter and catalog eligibility. Catalog planning says
 The eligibility flag is private server state and is never authorable through the
 API. The action may include a movement type ID.
 
+Catalog image IDs are presentation only. `catalog_icon` is an approved asset ID
+or null, resolved by Django from `shared/catalog/icon-bindings.json` using exact
+item slug/name/type, system challenge name/type, or Chick slug/name/sprite identity.
+Species also expose `grown_catalog_icon` for the catalog portrait. Flattened
+drop and reward rows expose `item_catalog_icon`. Unknown or changed identities
+retain null and the existing sprite/emoji fallback; clients must not infer a
+binding from a sprite key or display name. The sixteen inferred consumable
+entries preserve their confirmation flag and require each actual receiving
+record to match. These fields grant no ownership, availability or progression.
+Automatic goal art uses its retained catalog definition; parent goals and
+catalog goals whose definition was removed return null. Purchased image bytes,
+manifest object paths and reader credentials are absent from these responses.
+
 `rewards` is the frozen preview. `reward_receipt` identifies the occurrence and
 reports `pending`, `awarded` or `legacy`, actual `coins_awarded`/`xp_awarded`, and
 a nullable `awarded_at`. Clients must not add either the preview or a replayed
 receipt to a balance. Awarded automatic receipts also expose persisted `items`
-outcomes as `{item_name, quantity}` rows. An egg converted to Coins additionally
+outcomes as `{item_name, item_catalog_icon, quantity}` rows for new awards;
+earlier saved receipts may omit the presentation ID. An egg converted to Coins additionally
 has `salvaged_to_coins`; that amount is already included in `coins_awarded`, and
 the row is not a delivered inventory item. Skipped unavailable items are absent
 from the outcome list. Pending and retained legacy receipts omit actual item
