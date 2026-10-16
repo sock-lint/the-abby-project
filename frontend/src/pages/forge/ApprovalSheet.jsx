@@ -6,6 +6,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { TextAreaField, TextField } from '../../components/form';
 import { approvePrintRequest, rejectPrintRequest } from '../../api';
+import { fieldErrors } from '../../utils/api';
 import PlateFilenameChip from './PlateFilenameChip';
 import { formatCap, formatGrams, formatMinutes } from './forge.constants';
 import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
@@ -23,7 +24,7 @@ import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
  * parent is the one who decides. Branching is on `err.status`, never on the
  * message text.
  */
-export default function ApprovalSheet({ request, onClose, onDecided }) {
+export default function ApprovalSheet({ request, budget, pricingLoading = false, pricingError, onClose, onDecided }) {
   const [grams, setGrams] = useState(
     request.estimated_grams !== null && request.estimated_grams !== undefined
       ? String(request.estimated_grams) : '',
@@ -35,6 +36,7 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [estimateError, setEstimateError] = useState('');
   const [conflict, setConflict] = useState(null); // { problems, budget }
   const [approved, setApproved] = useState(null); // the saved request
   const initialEstimates = useRef({ grams, minutes });
@@ -46,6 +48,13 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   // one does too rather than being a single irreversible tap.
   const [confirmingReject, setConfirmingReject] = useState(false);
 
+  const rate = Number(budget?.minutes_per_coin);
+  const requiresCoins = Number.isInteger(rate) && rate > 0;
+  const estimatedMinutes = Number(minutes);
+  const validCoinEstimate = Number.isInteger(estimatedMinutes) && estimatedMinutes > 0;
+  const coinCost = requiresCoins && validCoinEstimate ? Math.ceil(estimatedMinutes / rate) : null;
+  const pricingUnavailable = pricingLoading || Boolean(pricingError);
+
   const numeric = (value) => {
     const trimmed = (value ?? '').toString().trim();
     if (trimmed === '') return null;
@@ -54,8 +63,10 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   };
 
   const doApprove = async (force) => {
+    if (pricingUnavailable || (requiresCoins && !validCoinEstimate)) return;
     setBusy(true);
     setError('');
+    setEstimateError('');
     try {
       const saved = await approvePrintRequest(request.id, {
         estimated_grams: numeric(grams),
@@ -73,7 +84,9 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           budget: err.response?.budget || null,
         });
       } else {
-        setError(err?.message || 'Could not approve that request.');
+        const fields = fieldErrors(err);
+        setEstimateError(fields.estimated_minutes || '');
+        if (!fields.estimated_minutes) setError(err?.message || 'Could not approve that request.');
       }
     } finally {
       setBusy(false);
@@ -140,15 +153,16 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
   }
 
   if (approved) {
+    const quoted = approved.status === 'quoted';
     return (
-      <BottomSheet title="Approved" onClose={onClose}>
+      <BottomSheet title={quoted ? 'Coin quote sent' : 'Approved'} onClose={onClose}>
         <div className="space-y-3">
           <p className="font-body text-body text-ink-secondary">
-            {approved.title} is approved. Slice it in Bambu Studio and save the
-            plate under this exact name — that is how the printer’s job finds
-            its way back to the request.
+            {quoted
+              ? `${approved.title}: ${request.user_name || request.username || 'Your child'} must exchange ${approved.coin_cost} ${approved.coin_cost === 1 ? 'coin' : 'coins'} before this print can start.`
+              : `${approved.title} is approved. Slice it in Bambu Studio and save the plate under this exact name — that is how the printer’s job finds its way back to the request.`}
           </p>
-          <PlateFilenameChip filename={approved.plate_filename} />
+          {!quoted && <PlateFilenameChip filename={approved.plate_filename} />}
           <Button onClick={onClose} className="w-full">Done</Button>
         </div>
       </BottomSheet>
@@ -170,6 +184,9 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           )}
         </ParchmentCard>
 
+        {pricingLoading && <p role="status" className="font-body text-caption text-ink-secondary">Loading coin exchange settings…</p>}
+        {pricingError && <ErrorAlert message={`Could not load coin exchange settings. ${pricingError}`} />}
+
         <TextField
           id="forge-grams"
           label="Filament estimate (grams)"
@@ -185,11 +202,27 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           id="forge-minutes"
           label="Print time estimate (minutes)"
           type="number"
-          min="0"
+          min={requiresCoins ? '1' : '0'}
           step="1"
           value={minutes}
-          onChange={(e) => setMinutes(e.target.value)}
+          onChange={(e) => { setMinutes(e.target.value); setEstimateError(''); setConflict(null); }}
+          error={estimateError}
+          helpText={requiresCoins
+            ? 'Enter whole minutes from the selected print profile or slicer. A time estimate is required for the coin quote.'
+            : 'From the selected print profile or slicer.'}
         />
+
+        {requiresCoins && (
+          <ParchmentCard tone="deep" className="!p-3 space-y-1">
+            <p className="font-body text-body text-ink-primary">
+              {coinCost !== null ? `Coin quote: ${coinCost} ${coinCost === 1 ? 'coin' : 'coins'}` : 'Enter a print time to calculate the coin quote.'}
+            </p>
+            <p className="font-body text-caption text-ink-secondary">
+              1 coin per {rate} print {rate === 1 ? 'minute' : 'minutes'}, rounded up. Your child chooses whether to exchange
+              coins before printing. This fixes the price; retries do not cost extra coins.
+            </p>
+          </ParchmentCard>
+        )}
 
         <TextAreaField
           id="forge-notes"
@@ -226,9 +259,9 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
               variant="danger"
               size="sm"
               onClick={() => doApprove(true)}
-              disabled={busy}
+              disabled={busy || pricingUnavailable || (requiresCoins && !validCoinEstimate)}
             >
-              Approve anyway
+              {requiresCoins ? 'Send quote anyway' : 'Approve anyway'}
             </Button>
           </div>
         )}
@@ -247,9 +280,10 @@ export default function ApprovalSheet({ request, onClose, onDecided }) {
           <Button
             onClick={() => doApprove(false)}
             loading={busy}
+            disabled={pricingUnavailable || (requiresCoins && !validCoinEstimate)}
             className="flex-1"
           >
-            Approve
+            {requiresCoins ? 'Send coin quote' : 'Approve'}
           </Button>
         </div>
       </div>

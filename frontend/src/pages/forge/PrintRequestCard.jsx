@@ -7,7 +7,7 @@ import Button from '../../components/Button';
 import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
 import PlateFilenameChip from './PlateFilenameChip';
-import { isJobOpen, jobProgressLabel } from './forge.constants';
+import { formatMinutes, isJobOpen, jobProgressLabel } from './forge.constants';
 
 /**
  * PrintRequestCard — one row of the Forge.
@@ -23,13 +23,21 @@ export default function PrintRequestCard({
   request,
   canDecide = false,
   canCancel = false,
+  canExchange = false,
+  exchanging = false,
+  exchangeDisabled = false,
   onDecide,
   onCancel,
+  onExchange,
   showOwner = false,
 }) {
   const job = request.latest_job;
   const live = isJobOpen(job);
   const failed = job && job.state === 'failed';
+  const quoted = request.status === 'quoted';
+  const paid = Number(request.coins_paid) > 0;
+  const refunded = Number(request.coins_refunded) > 0;
+  const coinLabel = (coins) => `${coins} ${Number(coins) === 1 ? 'coin' : 'coins'}`;
 
   return (
     <ParchmentCard className="space-y-3">
@@ -65,7 +73,9 @@ export default function PrintRequestCard({
                 request.title
               )}
             </h3>
-            <StatusBadge status={request.status} />
+            {quoted
+              ? <RuneBadge tone="gold">Awaiting coin exchange</RuneBadge>
+              : <StatusBadge status={request.status} />}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -103,7 +113,27 @@ export default function PrintRequestCard({
         </div>
       </div>
 
-      {request.plate_filename && request.status !== 'rejected'
+      {(quoted || paid || refunded) && (
+        <div className="space-y-1 rounded-lg border border-gold-leaf/30 bg-gold-leaf/10 px-3 py-2">
+          <p className="font-body text-body text-ink-primary">
+            {refunded ? `Refunded ${coinLabel(request.coins_refunded)}`
+              : paid ? `Exchanged ${coinLabel(request.coins_paid)}`
+                : `Fixed quote: ${coinLabel(request.coin_cost)}`}
+          </p>
+          {request.minutes_per_coin_snapshot != null && (
+            <p className="font-body text-caption text-ink-secondary">
+              Estimated print time: {formatMinutes(request.estimated_minutes)} · {request.minutes_per_coin_snapshot} {Number(request.minutes_per_coin_snapshot) === 1 ? 'minute' : 'minutes'} per coin
+            </p>
+          )}
+          {!refunded && (
+            <p className="font-body text-caption text-ink-secondary">
+              Retries do not cost extra coins. Cancelling before the first print job refunds exchanged coins.
+            </p>
+          )}
+        </div>
+      )}
+
+      {request.plate_filename && !quoted && request.status !== 'rejected'
         && request.status !== 'cancelled' && (
         <PlateFilenameChip filename={request.plate_filename} />
       )}
@@ -135,11 +165,16 @@ export default function PrintRequestCard({
         </div>
       )}
 
-      {(canDecide || canCancel) && (
-        <div className="flex justify-end gap-2">
+      {(canDecide || canCancel || canExchange) && (
+        <div className="flex flex-wrap justify-end gap-2">
           {canCancel && (
-            <Button variant="ghost" size="sm" onClick={() => onCancel?.(request)}>
+            <Button variant="ghost" size="sm" disabled={exchangeDisabled || exchanging} onClick={() => onCancel?.(request)}>
               Cancel
+            </Button>
+          )}
+          {canExchange && quoted && (
+            <Button size="sm" loading={exchanging} disabled={exchangeDisabled} onClick={() => onExchange?.(request)}>
+              Exchange {coinLabel(request.coin_cost)}
             </Button>
           )}
           {canDecide && (

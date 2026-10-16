@@ -51,6 +51,7 @@ class PrintRequestSerializer(serializers.ModelSerializer):
             "model_file_url", "color", "reason", "needed_by", "status",
             "status_display", "parent_notes", "slug", "plate_filename",
             "estimated_grams", "estimated_minutes", "decided_at",
+            "minutes_per_coin_snapshot", "coin_cost", "coins_paid", "coins_refunded",
             "decided_by", "decided_by_name", "started_at", "completed_at",
             "print_count", "latest_job", "created_at", "updated_at",
         ]
@@ -121,6 +122,14 @@ class PrintRequestEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrintRequest
         fields = ["title", "color", "reason", "needed_by"]
+
+    def update(self, instance, validated_data):
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        # ModelSerializer's default full save also writes stale status and
+        # payment fields. Persist only this editor's explicitly allowed data.
+        instance.save(update_fields=[*validated_data, "updated_at"])
+        return instance
 
 
 class PrintRequestApproveSerializer(serializers.Serializer):
@@ -218,6 +227,7 @@ class PrintBudgetSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "user_name", "username", "grams_per_month",
             "minutes_per_month", "is_active", "notes", "period_month",
+            "minutes_per_coin",
             "grams_used", "minutes_used", "grams_remaining",
             "minutes_remaining", "updated_at",
         ]

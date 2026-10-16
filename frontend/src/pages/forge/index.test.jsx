@@ -184,8 +184,86 @@ describe('3D Printing', () => {
 
     await waitFor(() => expect(urls.length).toBeGreaterThanOrEqual(2));
     const statuses = urls.map((u) => new URL(u).searchParams.get('status'));
-    expect(statuses).toContain('pending,approved,printing,failed');
+    expect(statuses).toContain('pending,quoted,approved,printing,failed');
     expect(statuses).toContain('completed,rejected,cancelled');
+  });
+
+  it('exchanges the owner’s quoted coins and displays the confirmed paid request', async () => {
+    stubMe(buildUser({ id: 1 }));
+    let request = buildRequest({
+      status: 'quoted', coin_cost: 3, minutes_per_coin_snapshot: 10,
+      estimated_minutes: 21, coins_paid: 0, coins_refunded: 0,
+      plate_filename: 'req-0005-articulated-dragon.3mf',
+    });
+    let reads = 0;
+    server.use(http.get('*/api/print-requests/', ({ request: read }) => {
+      reads += 1;
+      return HttpResponse.json(new URL(read.url).searchParams.get('status').includes(request.status) ? [request] : []);
+    }));
+    const exchange = spyHandler('post', /\/api\/print-requests\/5\/exchange\/$/, () => {
+      request = { ...request, status: 'approved', coins_paid: 3 };
+      return request;
+    });
+    server.use(exchange.handler);
+    const { user } = renderWithProviders(<Forge />);
+    await user.click(await screen.findByRole('button', { name: 'Exchange 3 coins' }));
+    await waitFor(() => expect(exchange.calls).toHaveLength(1));
+    expect(exchange.calls[0].body).toEqual({});
+    expect(exchange.calls[0].url).toMatch(/\/api\/print-requests\/5\/exchange\/$/);
+    expect(await screen.findByText('Exchanged 3 coins')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exchange 3 coins' })).not.toBeInTheDocument();
+    expect(await screen.findByText('req-0005-articulated-dragon.3mf')).toBeInTheDocument();
+    await waitFor(() => expect(reads).toBeGreaterThanOrEqual(4));
+  });
+
+  it('keeps an insufficient-balance quote retryable and allows cancelling it', async () => {
+    stubMe(buildUser({ id: 1 }));
+    stubRequests([buildRequest({ status: 'quoted', coin_cost: 3, minutes_per_coin_snapshot: 10 })]);
+    const exchange = spyHandler('post', /\/api\/print-requests\/5\/exchange\/$/,
+      HttpResponse.json({ error: 'You need 3 coins but only have 2.' }, { status: 409 }));
+    const cancel = spyHandler('post', /\/api\/print-requests\/5\/cancel\/$/, { id: 5, status: 'cancelled' });
+    server.use(exchange.handler, cancel.handler);
+    const { user } = renderWithProviders(<Forge />);
+    await user.click(await screen.findByRole('button', { name: 'Exchange 3 coins' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('You need 3 coins but only have 2.');
+    expect(screen.getByRole('button', { name: 'Exchange 3 coins' })).toBeEnabled();
+    expect(screen.queryByText('Exchanged 3 coins')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(await screen.findByRole('button', { name: 'Cancel it' }));
+    await waitFor(() => expect(cancel.calls).toHaveLength(1));
+    expect(cancel.calls[0].body).toBeNull();
+  });
+
+  it('shows parents the waiting quote without the child’s exchange action', async () => {
+    stubMe(buildParent());
+    stubRequests([buildRequest({ status: 'quoted', coin_cost: 3 })]);
+    renderWithProviders(<Forge />);
+    expect(await screen.findByText('Awaiting coin exchange')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Exchange 3 coins' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the paid server receipt when the follow-up list read fails', async () => {
+    stubMe(buildUser({ id: 1 }));
+    const quoted = buildRequest({
+      status: 'quoted', coin_cost: 4, minutes_per_coin_snapshot: 15,
+      estimated_minutes: 60, coins_paid: 0, coins_refunded: 0,
+    });
+    let paid = false;
+    server.use(http.get('*/api/print-requests/', ({ request }) => {
+      if (paid) return HttpResponse.json({ detail: 'Cannot refresh right now.' }, { status: 503 });
+      return HttpResponse.json(new URL(request.url).searchParams.get('status').includes('quoted') ? [quoted] : []);
+    }));
+    const exchange = spyHandler('post', /\/api\/print-requests\/5\/exchange\/$/, () => {
+      paid = true;
+      return { ...quoted, status: 'approved', coins_paid: 4 };
+    });
+    server.use(exchange.handler);
+    const { user } = renderWithProviders(<Forge />);
+    await user.click(await screen.findByRole('button', { name: 'Exchange 4 coins' }));
+    expect(await screen.findByText('Exchanged 4 coins')).toBeInTheDocument();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cannot refresh right now.');
+    expect(screen.queryByRole('button', { name: 'Exchange 4 coins' })).not.toBeInTheDocument();
+    expect(exchange.calls).toHaveLength(1);
   });
 
   it('says how much closed history it is not showing', async () => {

@@ -105,8 +105,11 @@ def cache_request_thumbnail(request_id: int) -> str:
             or "thumb.jpg")[:80]
     print_request.thumbnail.save(
         f"{print_request.pk}-{name}", ContentFile(BytesIO(content).getvalue()),
-        save=True,
+        save=False,
     )
+    # The fetch may overlap approval, payment or cancellation. FileField's
+    # default full model save would restore the pre-download payment state.
+    print_request.save(update_fields=["thumbnail", "updated_at"])
     return f"cached thumbnail for {request_id}"
 
 

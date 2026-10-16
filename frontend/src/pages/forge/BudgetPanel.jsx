@@ -7,7 +7,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import EmptyState from '../../components/EmptyState';
 import { CheckboxField, TextField } from '../../components/form';
 import { adjustPrintBudget, getPrintBudgetLedger, updatePrintBudget } from '../../api';
-import { normalizeList } from '../../utils/api';
+import { fieldErrors, normalizeList } from '../../utils/api';
 import { formatDate } from '../../utils/format';
 import {
   formatCap, formatGrams, formatMinutes, isOverage, usagePercent,
@@ -57,6 +57,9 @@ function BudgetRow({ budget, onChanged }) {
       ? '' : String(budget.minutes_per_month),
   );
   const [active, setActive] = useState(budget.is_active !== false);
+  const [requiresCoins, setRequiresCoins] = useState(budget.minutes_per_coin != null);
+  const [minutesPerCoin, setMinutesPerCoin] = useState(String(budget.minutes_per_coin ?? 1));
+  const [rateError, setRateError] = useState('');
   const [adjGrams, setAdjGrams] = useState('');
   const [adjMinutes, setAdjMinutes] = useState('');
   const [adjNote, setAdjNote] = useState('');
@@ -98,18 +101,27 @@ function BudgetRow({ budget, onChanged }) {
   };
 
   const saveCaps = async () => {
+    const rate = Number(minutesPerCoin);
+    if (requiresCoins && (!Number.isInteger(rate) || rate <= 0)) {
+      setRateError('Enter a whole number of minutes greater than zero.');
+      return;
+    }
     setBusy(true);
     setError('');
+    setRateError('');
     try {
       await updatePrintBudget(budget.id, {
         grams_per_month: capValue(grams),
         minutes_per_month: capValue(minutes),
+        minutes_per_coin: requiresCoins ? rate : null,
         is_active: active,
       });
       setPane(null);
       onChanged?.();
     } catch (err) {
-      setError(err?.message || 'Could not save those caps.');
+      const fields = fieldErrors(err);
+      setRateError(fields.minutes_per_coin || '');
+      if (!fields.minutes_per_coin) setError(err?.message || 'Could not save those caps.');
     } finally {
       setBusy(false);
     }
@@ -182,6 +194,12 @@ function BudgetRow({ budget, onChanged }) {
         barLabel={`${name} print time used this month`}
       />
 
+      <p className="font-body text-caption text-ink-secondary">
+        {budget.minutes_per_coin != null
+          ? `Coin exchange: 1 coin per ${budget.minutes_per_coin} print ${Number(budget.minutes_per_coin) === 1 ? 'minute' : 'minutes'}.`
+          : 'Coin exchange is off. New approvals are free.'}
+      </p>
+
       {error && <ErrorAlert message={error} />}
 
       {pane === 'caps' && (
@@ -210,6 +228,29 @@ function BudgetRow({ budget, onChanged }) {
             checked={active}
             onChange={(e) => setActive(e.target.checked)}
           />
+          <CheckboxField
+            id={`forge-coins-required-${budget.id}`}
+            label="Require coins for new prints"
+            checked={requiresCoins}
+            onChange={(e) => { setRequiresCoins(e.target.checked); setRateError(''); }}
+          />
+          {requiresCoins && (
+            <TextField
+              id={`forge-minutes-per-coin-${budget.id}`}
+              label="Print minutes per coin"
+              type="number"
+              min="1"
+              step="1"
+              value={minutesPerCoin}
+              onChange={(e) => { setMinutesPerCoin(e.target.value); setRateError(''); }}
+              error={rateError}
+              helpText="The parent's time estimate is rounded up to whole coins. Existing quotes keep their saved price."
+            />
+          )}
+          <p className="font-body text-caption text-ink-whisper">
+            Children accept the fixed quote before printing. Retries do not cost extra coins.
+            Cancelling before the first print job refunds exchanged coins.
+          </p>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={() => setPane(null)}>Cancel</Button>
             <Button size="sm" onClick={saveCaps} loading={busy}>Save caps</Button>

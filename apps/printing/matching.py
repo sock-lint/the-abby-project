@@ -127,7 +127,7 @@ def request_id_from_name(normalized: str) -> int | None:
         return None
 
 
-def find_request(normalized: str, *, family=None):
+def find_request(normalized: str, *, family=None, for_update=False):
     """Resolve a normalised subtask name to a bindable ``PrintRequest``.
 
     Two exact strategies, in order:
@@ -149,6 +149,8 @@ def find_request(normalized: str, *, family=None):
         return None
 
     qs = PrintRequest.objects.filter(status__in=PrintRequest.BINDABLE_STATUSES)
+    if for_update:
+        qs = qs.select_for_update(of=("self",))
     if family is not None:
         qs = qs.filter(user__family=family)
 
