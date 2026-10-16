@@ -135,9 +135,9 @@ class SharedApiResponseFixtureTests(APITestCase):
             assigned_to=self.child, status="in_progress",
         )
         # Another account's running timer must never replace this child's idle state.
-        for owner in (self.sibling, self.outsider):
+        for entry_id, owner in ((502, self.sibling), (503, self.outsider)):
             TimeEntry.objects.create(
-                user=owner, project=project, clock_in=FIXED_NOW, status="active",
+                id=entry_id, user=owner, project=project, clock_in=FIXED_NOW, status="active",
             )
         self.assertIsNone(self.assert_response_fixture(
             self.client.get("/api/clock/"), "clock-idle.json",
