@@ -12,6 +12,46 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('RewardFormModal', () => {
+  it.each(['create', 'edit'])('saves a selected icon in the multipart reward %s request only after submit', async (mode) => {
+    const user = userEvent.setup();
+    const forms = [];
+    const write = spyHandler(mode === 'edit' ? 'patch' : 'post', mode === 'edit' ? /\/api\/rewards\/3\/$/ : /\/api\/rewards\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 3 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), write.handler);
+    render(<RewardFormModal reward={mode === 'edit' ? { id: 3, name: 'Art time', cost_coins: 20, icon: 'custom' } : undefined} onClose={vi.fn()} onSaved={vi.fn()} />);
+    if (mode === 'create') {
+      await user.type(screen.getByLabelText('Name'), 'Art time');
+      await user.type(screen.getByLabelText('Cost (coins)'), '20');
+    } else {
+      expect(screen.getByLabelText('Icon (emoji)')).toHaveValue('custom');
+    }
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Art' }));
+    expect(screen.getByLabelText('Icon (emoji)')).toHaveValue('🎨');
+    expect(write.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: mode === 'edit' ? 'Update' : 'Create' }));
+    await waitFor(() => expect(write.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ name: 'Art time', icon: '🎨', cost_coins: '20', fulfillment_kind: 'real_world' });
+  });
+
+  it('preserves a custom reward icon when editing other fields', async () => {
+    const user = userEvent.setup();
+    const forms = [];
+    const update = spyHandler('patch', /\/api\/rewards\/3\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 3 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), update.handler);
+    render(<RewardFormModal reward={{ id: 3, name: 'Art time', cost_coins: 20, icon: 'family mark' }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(screen.getByLabelText('Icon (emoji)')).toHaveValue('family mark');
+    await user.type(screen.getByLabelText('Name'), ' together');
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ name: 'Art time together', icon: 'family mark' });
+  });
+
   it('does not offer unavailable catalog items for a new digital reward', async () => {
     const user = userEvent.setup();
     server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([

@@ -5,3 +5,4 @@ export { default as DateField } from './DateField.jsx';
 export { default as CheckboxField } from './CheckboxField.jsx';
 export { default as ToggleField } from './ToggleField.jsx';
 export { default as DueDateChips } from './DueDateChips.jsx';
+export { default as IconPicker } from './IconPicker.jsx';

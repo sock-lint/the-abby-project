@@ -8,6 +8,7 @@ import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildParent, buildUser, buildProject } from '../test/factories.js';
+import idleClock from '../../../contracts/api/fixtures/clock-idle.json';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -58,7 +59,7 @@ describe('ClockPage', () => {
     let projectCalls = 0;
     const clock = spyHandler('post', '*/api/clock/', { ok: true });
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => {
         projectCalls += 1;
         return projectCalls === 1
@@ -85,7 +86,7 @@ describe('ClockPage', () => {
     const user = userEvent.setup();
     let entryCalls = 0;
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () => {
         entryCalls += 1;
@@ -110,7 +111,7 @@ describe('ClockPage', () => {
       http.get('*/api/clock/', () => {
         statusCalls += 1;
         return statusCalls === 1
-          ? HttpResponse.json({ status: 'idle' })
+          ? HttpResponse.json(idleClock)
           : HttpResponse.json({ error: 'Clock unavailable' }, { status: 503 });
       }),
       http.get('*/api/projects/', () => HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })])),
@@ -126,22 +127,26 @@ describe('ClockPage', () => {
     expect(clock.calls).toHaveLength(1);
   });
 
-  it('renders idle state with project dropdown', async () => {
+  it('shows an enabled clock-in control for the confirmed JSON null idle response', async () => {
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () =>
         HttpResponse.json([buildProject({ id: 1, title: 'Alpha', status: 'active' })]),
       ),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
     await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Clock in' })).toBeEnabled());
+    expect(screen.getByText('00:00:00')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Clock out' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.getByText(/no time entries yet/i)).toBeInTheDocument();
   });
 
   it('requires a project selection before clocking in', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () => HttpResponse.json([])),
     ]);
@@ -176,7 +181,7 @@ describe('ClockPage', () => {
   it('renders entries list and voids an entry (parent only)', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () =>
         HttpResponse.json([
@@ -197,7 +202,7 @@ describe('ClockPage', () => {
   it('cancels the void confirmation', async () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', () =>
         HttpResponse.json([
@@ -215,7 +220,7 @@ describe('ClockPage', () => {
     const user = userEvent.setup();
     const clock = spyHandler('post', '*/api/clock/', { ok: true });
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () =>
         HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]),
       ),
@@ -337,7 +342,7 @@ describe('ClockPage', () => {
     let releaseEntries;
     const gate = new Promise((r) => { releaseEntries = r; });
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () => HttpResponse.json([])),
       http.get('*/api/time-entries/', async () => {
         await gate;
@@ -365,7 +370,7 @@ describe('ClockPage', () => {
         statusCalls += 1;
         // Hold the post-clock-in status refetch so the seal stays busy.
         if (statusCalls > 1) await reloadGate;
-        return HttpResponse.json({ status: 'idle' });
+        return HttpResponse.json(idleClock);
       }),
       http.get('*/api/projects/', () =>
         HttpResponse.json([buildProject({ id: 7, title: 'Alpha', status: 'active' })]),
@@ -376,21 +381,22 @@ describe('ClockPage', () => {
     await waitFor(() => expect(screen.getByText('Alpha')).toBeInTheDocument());
     await user.selectOptions(screen.getByRole('combobox'), '7');
 
-    const play = () =>
-      screen.getAllByRole('button').find((b) => b.querySelector('svg')?.classList?.contains('lucide-play'));
-    await user.click(play());
-    await waitFor(() => expect(play()).toBeDisabled());
-    await user.click(play());
+    const play = screen.getByRole('button', { name: 'Clock in' });
+    await user.dblClick(play);
+    await waitFor(() => expect(clock.calls).toHaveLength(1));
+    // A confirmed null status reloads behind a skeleton, leaving no second
+    // clock-in control available while the first request is being confirmed.
+    expect(screen.queryByRole('button', { name: 'Clock in' })).not.toBeInTheDocument();
 
     releaseStatusReload();
-    await waitFor(() => expect(play()).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Clock in' })).toBeEnabled());
     expect(clock.calls).toHaveLength(1);
   });
 
   it('surfaces clock-in server error', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [
-      http.get('*/api/clock/', () => HttpResponse.json({ status: 'idle' })),
+      http.get('*/api/clock/', () => HttpResponse.json(idleClock)),
       http.get('*/api/projects/', () =>
         HttpResponse.json([buildProject({ id: 1, title: 'Alpha', status: 'active' })]),
       ),

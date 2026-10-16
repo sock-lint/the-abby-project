@@ -10,6 +10,7 @@ from apps.chronicle.models import ChronicleEntry
 from apps.creations.models import Creation
 from apps.habits.models import Habit, HabitLog
 from apps.homework.models import HomeworkAssignment
+from apps.movement.models import MovementSession, MovementType
 from apps.payments.models import PaymentLedger
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.projects.models import Project, User
@@ -17,6 +18,7 @@ from apps.quests.models import Quest, QuestDefinition, QuestParticipant
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, DropLog, ItemDefinition
 from apps.timecards.models import TimeEntry
+from config.tests.factories import make_family
 
 from ..services import (
     EXPECTED_ENTRY_SLUGS,
@@ -59,8 +61,8 @@ class LorebookViewTests(APITestCase):
         resp = self.client.get("/api/lorebook/")
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data["counts"], {"unlocked": 17, "trained": 17, "total": 17})
-        self.assertEqual(len(data["entries"]), 17)
+        self.assertEqual(data["counts"], {"unlocked": 18, "trained": 18, "total": 18})
+        self.assertEqual(len(data["entries"]), 18)
         self.assertTrue(all(entry["unlocked"] for entry in data["entries"]))
         self.assertTrue(all(entry["trained"] for entry in data["entries"]))
         self.assertTrue(
@@ -94,12 +96,99 @@ class LorebookViewTests(APITestCase):
         # Other entries are unaffected.
         self.assertFalse(by_slug["rituals"]["trained"])
 
+    def test_parent_reference_includes_movement_rewards(self):
+        self.client.force_authenticate(self.parent)
+        response = self.client.get("/api/lorebook/")
+        self.assertEqual(response.status_code, 200)
+        by_slug = {entry["slug"]: entry for entry in response.json()["entries"]}
+        self.assertIn("movement", list(by_slug))
+        movement = by_slug["movement"]
+        self.assertEqual(movement["title"], "Movement")
+        self.assertTrue(movement["unlocked"])
+        self.assertTrue(movement["trained"])
+        self.assertEqual(movement["unlocked_reason"], "parent_reference")
+        self.assertEqual(movement["economy"], {
+            "money": False,
+            "coins": False,
+            "xp": True,
+            "drops": True,
+            "quest_progress": True,
+            "streak_credit": True,
+        })
+
+    def test_movement_unlock_requires_the_childs_own_saved_session(self):
+        household = make_family(children=[{"username": "runner"}, {"username": "sibling"}])
+        other_household = make_family(children=[{"username": "other-runner"}])
+        child, sibling = household.children
+        movement_type = MovementType.objects.create(name="Walking", slug="walking")
+        for other_child in (sibling, other_household.children[0]):
+            MovementSession.objects.create(
+                user=other_child,
+                movement_type=movement_type,
+                duration_minutes=10,
+                occurred_on=timezone.localdate(),
+            )
+        self.client.force_authenticate(child)
+        data = self.client.get("/api/lorebook/").json()
+        by_slug = {entry["slug"]: entry for entry in data["entries"]}
+        self.assertIn("movement", list(by_slug))
+        self.assertFalse(by_slug["movement"]["unlocked"])
+        self.assertNotIn("movement", newly_unlocked_entries(child))
+
+        # A saved session is the encounter, even when it earned no XP.
+        MovementSession.objects.create(
+            user=child,
+            movement_type=movement_type,
+            duration_minutes=5,
+            occurred_on=timezone.localdate(),
+            xp_awarded=0,
+        )
+        data = self.client.get("/api/lorebook/").json()
+        by_slug = {entry["slug"]: entry for entry in data["entries"]}
+        self.assertTrue(by_slug["movement"]["unlocked"])
+        self.assertEqual(by_slug["movement"]["unlocked_reason"], "first_movement_session")
+        self.assertFalse(by_slug["movement"]["trained"])
+        self.assertIn("movement", newly_unlocked_entries(child))
+
+    def test_movement_seen_and_training_flags_remain_independent(self):
+        movement_type = MovementType.objects.create(name="Walking", slug="walking")
+        MovementSession.objects.create(
+            user=self.child,
+            movement_type=movement_type,
+            duration_minutes=10,
+            occurred_on=timezone.localdate(),
+        )
+        self.assertIn("movement", newly_unlocked_entries(self.child))
+        self.client.force_authenticate(self.child)
+        response = self.client.patch(
+            "/api/auth/me/", {"lorebook_flags": {"movement_seen": True}}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertNotIn("movement", newly_unlocked_entries(self.child))
+        data = self.client.get("/api/lorebook/").json()
+        movement = next(entry for entry in data["entries"] if entry["slug"] == "movement")
+        self.assertTrue(movement["unlocked"])
+        self.assertFalse(movement["trained"])
+
+        response = self.client.patch(
+            "/api/auth/me/", {"lorebook_flags": {"movement_trained": True}}, format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.child.refresh_from_db()
+        self.assertTrue(self.child.lorebook_flags["movement_seen"])
+        data = self.client.get("/api/lorebook/").json()
+        movement = next(entry for entry in data["entries"] if entry["slug"] == "movement")
+        self.assertTrue(movement["trained"])
+        self.assertEqual(data["counts"]["trained"], 1)
+        self.assertNotIn("movement", newly_unlocked_entries(self.child))
+
     def test_fresh_child_sees_entries_locked(self):
         self.client.force_authenticate(self.child)
         resp = self.client.get("/api/lorebook/")
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
-        self.assertEqual(data["counts"]["total"], 17)
+        self.assertEqual(data["counts"]["total"], 18)
         by_slug = {entry["slug"]: entry for entry in data["entries"]}
         for slug in ["duties", "pets", "money", "quests", "cosmetics"]:
             self.assertFalse(by_slug[slug]["unlocked"])
@@ -130,6 +219,13 @@ class LorebookViewTests(APITestCase):
         )
         habit = Habit.objects.create(name="Read", user=self.child, created_by=self.parent)
         HabitLog.objects.create(habit=habit, user=self.child, direction=1)
+        movement_type = MovementType.objects.create(name="Walking", slug="walking")
+        MovementSession.objects.create(
+            user=self.child,
+            movement_type=movement_type,
+            duration_minutes=10,
+            occurred_on=timezone.localdate(),
+        )
         HomeworkAssignment.objects.create(
             title="Math",
             subject=HomeworkAssignment.Subject.MATH,

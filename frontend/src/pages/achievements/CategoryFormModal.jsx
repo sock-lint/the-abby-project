@@ -5,7 +5,7 @@ import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import { formLabelClass } from '../../constants/styles';
 import Button from '../../components/Button';
-import { TextField, TextAreaField } from '../../components/form';
+import { TextField, TextAreaField, IconPicker } from '../../components/form';
 
 // <input type="color"> only accepts #rrggbb; browsers reset anything else (e.g. #f00) to black.
 function toColorInputValue(color) {
@@ -45,19 +45,17 @@ export default function CategoryFormModal({ item, onClose, onSaved }) {
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} />
-          <div>
-            <label htmlFor={colorId} className={formLabelClass}>Color</label>
-            {/* Raw <input type="color"> stays — color picker has its own visual treatment, not inputClass-styled */}
-            <input
-              id={colorId}
-              type="color"
-              className="w-full h-10 rounded-lg border border-ink-page-shadow bg-ink-page cursor-pointer"
-              value={toColorInputValue(form.color)}
-              onChange={onField('color')}
-            />
-          </div>
+        <IconPicker label="Icon (emoji)" placeholder="" value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} />
+        <div className="sm:w-1/2">
+          <label htmlFor={colorId} className={formLabelClass}>Color</label>
+          {/* Raw <input type="color"> stays — color picker has its own visual treatment, not inputClass-styled */}
+          <input
+            id={colorId}
+            type="color"
+            className="w-full h-10 rounded-lg border border-ink-page-shadow bg-ink-page cursor-pointer"
+            value={toColorInputValue(form.color)}
+            onChange={onField('color')}
+          />
         </div>
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <div className="flex justify-end gap-2 pt-2">

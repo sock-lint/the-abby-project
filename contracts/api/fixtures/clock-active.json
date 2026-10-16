@@ -1,0 +1,12 @@
+{
+  "id": 501,
+  "user": 7,
+  "project": 401,
+  "project_title": "Paper bookmark",
+  "clock_in": "2026-10-10T11:54:00-07:00",
+  "clock_out": null,
+  "duration_minutes": 0,
+  "notes": "",
+  "auto_clocked_out": false,
+  "status": "active"
+}

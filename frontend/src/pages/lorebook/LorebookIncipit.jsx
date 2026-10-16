@@ -12,12 +12,18 @@ export default function LorebookIncipit({ unlocked, trained = 0, total, mode = '
   return (
     <ParchmentCard variant="sealed" tone="bright" flourish seal="top-right" className="overflow-hidden">
       <div className="flex items-center gap-5 pr-12">
-        <IlluminatedVersal
-          letter="G"
-          size="xl"
-          tier={tier}
-          progressPct={progressPct}
-        />
+        {mode === 'parent' ? (
+          <span aria-hidden="true" className="shrink-0 font-display text-6xl text-sheikah-teal-deep">
+            G
+          </span>
+        ) : (
+          <IlluminatedVersal
+            letter="G"
+            size="xl"
+            tier={tier}
+            progressPct={progressPct}
+          />
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-script text-sheikah-teal-deep text-base leading-snug">
             Learn how the app works
@@ -46,7 +52,7 @@ export default function LorebookIncipit({ unlocked, trained = 0, total, mode = '
       </div>
       <p className="mt-4 text-sm text-ink-secondary max-w-3xl">
         {mode === 'parent'
-          ? 'A parent guide to earnings, coins, XP, item drops, challenge progress, and streaks.'
+          ? 'Browse how activities, rewards, progress, and personal settings work. Every topic is available to read.'
           : 'Learn how each feature works. Topics unlock when you use them in the app. Complete a short practice activity to mark a topic as completed.'}
       </p>
     </ParchmentCard>

@@ -42,8 +42,9 @@ class ClockViewTests(_Fixture):
         self.client.force_authenticate(self.child)
         resp = self.client.get("/api/clock/")
         self.assertEqual(resp.status_code, 200)
-        # The view returns Response(None) which serializes to empty body.
-        self.assertFalse(resp.content.strip() and resp.content.strip() != b"null")
+        self.assertEqual(resp.get("Content-Type"), "application/json")
+        self.assertEqual(resp.content, b"null")
+        self.assertIsNone(resp.json())
 
     @patch("apps.timecards.services.timezone.localtime")
     def test_clock_in_action(self, mock_local):

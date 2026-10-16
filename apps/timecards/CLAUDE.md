@@ -15,6 +15,11 @@ Nonpositive totals never offer payment; negative totals cannot be closed.
 Only positive approved totals are offered in Greenlight's payment selection.
 
 ## Services
+`GET /api/clock/` returns the authenticated user's serialized active entry, or
+HTTP 200 with `Content-Type: application/json` and the literal `null` when idle.
+Use an explicit JSON response for idle: DRF's `Response(None)` produces an empty
+body without a content type, which the shared frontend API client rejects.
+
 - `TimeEntryService` — read helpers: `completed_entries`, `daily_minute_totals`, `distinct_days`, `current_streak`, `longest_streak_at_least`.
 - `ClockService`:
   - Homework plans are ineligible for clock-in. A historical homework timer can close without hourly XP, Coins or game-loop credit. Weekly payable hours and project bonuses exclude marked and legacy-linked homework plans; open-week reconciliation corrects earlier hourly credits, while approved/paid/closed history keeps its existing settlement protection.

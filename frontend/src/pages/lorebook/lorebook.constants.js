@@ -10,8 +10,8 @@ export const LOREBOOK_CHAPTERS = [
     rubric: chapterMark(0),
     letter: 'D',
     name: 'Daily Life',
-    kicker: 'Chores, habits, homework, journals, and creations',
-    entries: ['duties', 'rituals', 'study', 'journal', 'creations'],
+    kicker: 'Chores, habits, homework, movement, journals, and creations',
+    entries: ['duties', 'rituals', 'study', 'movement', 'journal', 'creations'],
   },
   {
     id: 'long_work',

@@ -12,8 +12,10 @@ entries:
     mechanics:
       - "A child submits a completed chore; a parent approves or rejects it."
       - "Approved chores can pay money, Coins, XP through skill tags, streak credit, drops, and challenge progress."
+      - "Base money and Coin rewards are fixed when the child submits, so later chore edits do not change that pending completion's promised amounts."
       - "Daily and weekly chores use one active completion per day/week; rejected completions do not block a retry."
       - "Alternating-week schedules support shared custody without pre-generating task instances."
+      - "Children can propose chores; a parent sets the rewards and publishes them before they can be completed."
     parent_knobs:
       settings: []
       powers_badges:
@@ -49,6 +51,7 @@ entries:
       - "Habits never pay money or Coins directly."
       - "Positive taps are capped per local day by max_taps_per_day; negative taps stay uncapped."
       - "Habit strength moves toward zero overnight when a habit is not logged."
+      - "Children can propose habits; a parent sets XP and skill tags and publishes them before they can be logged."
     parent_knobs:
       settings: []
       powers_badges:
@@ -78,15 +81,17 @@ entries:
     chapter: daily_life
     summary: "Track school assignments and earn skill XP when approved."
     kid_voice: |
-      Add your school assignments, plan the steps, and submit your finished
-      work. Approved homework earns skill XP. It does not pay money or coins.
+      Add your school assignments, plan the steps, and submit proof photos
+      of your finished work for a parent to review. Approved homework earns
+      skill XP. It does not pay money or coins directly.
     mechanics:
-      - "Homework pays no money and no Coins."
+      - "Homework pays no money or Coins directly; separate check-in, challenge, or badge bonuses can still apply."
       - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress."
       - "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time challenge filters and badge criteria."
-      - "The first planned homework assignment per child per local day can count for built-in challenges, drops, and streak credit; create-delete-create cannot farm it."
+      - "The first homework assignment added per child per local day can count for built-in challenges, drops, and streak credit; create-delete-create cannot farm it."
       - "A parent's assigned planning goal can count every valid matching assignment, including later assignments that day."
-      - "Children can self-plan AI breakdowns only when the due date is far enough out; parents can always plan."
+      - "With a family Planning AI connection, children can request a breakdown when the due date is far enough out; parents can plan regardless of lead time."
+      - "A parent connects the family's Planning AI in Settings for homework and project drafts. Existing assignments can still be used without a connection."
     parent_knobs:
       settings:
         - key: HOMEWORK_LATE_CUTOFF_DAYS
@@ -110,7 +115,7 @@ entries:
     trial_template: tap_and_reward
     trial:
       prompt: "Tap to submit your math sheet."
-      payoff: "+10 XP · timeliness logged"
+      payoff: "Parent approval → skill XP · timeliness logged"
       target_icon: "📝"
       reward_icon: "📚"
 
@@ -123,12 +128,12 @@ entries:
     kid_voice: |
       Write what mattered today: something you did, a worry, a funny moment,
       or anything you want to remember. Keep it private or choose to share
-      it with your family.
+      it with your parents.
     mechanics:
       - "Each child may write one journal entry per local day; the database enforces one-per-day."
       - "The first saved entry can earn writing XP from a 15 XP pool split toward Creative Writing and Vocabulary, and counts for streaks, drops, and challenges. The save confirmation shows any verified XP award."
       - "Children can edit entry text on the day it was written. After midnight, the text is read-only, but its sharing setting can still be changed."
-      - "New journal entries default to Only you. Parents can read only entries the child shares with the family."
+      - "New journal entries default to Only me. Parents can read only entries marked Shared with parents."
     parent_knobs:
       settings: []
       powers_badges:
@@ -157,9 +162,9 @@ entries:
     chapter: daily_life
     summary: "Photos of things made, with a two-per-day XP gate."
     kid_voice: |
-      Save things you make with a photo, a caption, or an audio recording.
-      Choose the creative skills you used, and submit a creation for a
-      parent to review for bonus XP.
+      Save things you make with a photo. Add a caption or audio recording
+      if you like, choose the creative skills you used, and submit a
+      creation for a parent to review for bonus XP.
     mechanics:
       - "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and built-in challenge progress."
       - "The 3rd and later Creations still appear in Gallery and Timeline but do not grant baseline XP that day."
@@ -189,6 +194,44 @@ entries:
       target_icon: "🖼️"
       reward_icon: "🎨"
 
+  - slug: movement
+    title: Movement
+    icon: "🏃"
+    audience_title: "Physical activity"
+    chapter: daily_life
+    summary: "Log activity, earn physical skill XP, and track movement goals."
+    kid_voice: |
+      Log a workout, practice, walk, or run with its time and intensity.
+      Add the distance when you measured it. Your first three sessions
+      each day can earn skill XP, and saved sessions can count toward
+      matching challenges.
+    mechanics:
+      - "Movement is self-reported and does not need parent approval. It pays no money or Coins directly."
+      - "The first 3 sessions per child per family-local day can grant skill XP, a drop chance, and streak credit. Later sessions remain saved and can still advance matching activity, minutes, or distance goals."
+      - "The base XP pool is 5 per complete 10 minutes, multiplied by intensity: low 0.5×, medium 1×, high 1.5×, then rounded down to a whole number and split across the activity's skill tags. Under 10 minutes earns no movement XP."
+      - "Sessions must be at least 1 minute; saved duration and its XP calculation are capped at 240 minutes. Optional measured distance uses miles or kilometres and never replaces time."
+      - "Deleting a session does not reset the daily reward counter. Removing a session corrects unpaid goal progress without paying a completed goal again."
+    parent_knobs:
+      settings: []
+      powers_badges:
+        - movement_sessions_logged
+        - movement_total_minutes
+        - movement_type_breadth
+      content_sources:
+        - "Activity types supply default intensity and skill tags; new activities can use primary and optional secondary Physical skills."
+    economy:
+      money: false
+      coins: false
+      xp: true
+      drops: true
+      quest_progress: true
+      streak_credit: true
+    trial_template: observe
+    trial:
+      prompt: "Watch a sample movement session add time toward a matching goal."
+      payoff: "Saved activity → matching goal progress"
+      caption: "This example saves no activity. Real movement XP depends on time, intensity, skill tags, and the daily limit."
+
   - slug: ventures
     title: Projects
     icon: "🛠️"
@@ -204,6 +247,8 @@ entries:
       - "Projects can be required allowance work or optional projects with a cash reward; completion posts the matching payment ledger entry."
       - "Milestones are parent-set checkpoints; completing one can pay milestone money and fixed skill XP."
       - "Steps are instructional tasks only — checking them off never pays money, Coins, or XP by itself."
+      - "Materials can be marked ready when already owned, borrowed, or received for free. Purchased materials record actual cost separately; an estimate is not money spent."
+      - "Find 3D Prints under Rewards when a project needs a printed part. A print request has its own review and budget checks."
       - "Quiet hours, max-entry length, auto-clock-out, and one-active-entry constraints protect time tracking."
     parent_knobs:
       settings:
@@ -244,7 +289,7 @@ entries:
       linked to each activity. Gain levels and meet requirements to unlock
       more skills.
     mechanics:
-      - "Skill XP comes from tagged projects, milestones, homework, chores, habits, challenges, journal entries, and creations."
+      - "Skill XP comes from tagged projects, milestones, homework, chores, habits, movement, challenges, journal entries, and creations."
       - "Weighted tags split a pool proportionally; homework/milestone tags use fixed XP amounts."
       - "Level thresholds are shared across skills and unlock richer mastery visuals."
       - "Locked skills can require prerequisites before they count toward some mastery badges."
@@ -359,7 +404,7 @@ entries:
       to see it on Today; work counts even when the goal is not pinned.
     mechanics:
       - "Every eligible goal progresses automatically; pinning only chooses the goal featured on Today."
-      - "Built-in challenges count the first planned homework assignment and first two logged creations each day. Extra valid records can count toward a parent's assigned goal."
+      - "Built-in challenges count the first homework assignment added and first two logged creations each day. Extra valid records can count toward a parent's assigned goal."
       - "Movement goal progress counts every valid saved session; its separate first-three-session XP and drop limit stays in place."
       - "Challenges have a defined period. Badges remain permanent recognition and are earned separately."
       - "Bonus awards do not recursively complete new challenges; default goals count effort, and expedition returns require an explicit rule."
@@ -406,12 +451,13 @@ entries:
     summary: "Egg + potion companions that grow through care."
     kid_voice: |
       Hatch a Chick with a Chick egg and a Base potion. Feed it to help
-      it grow into a Bird, and choose an active pet to keep you company.
+      it grow through Fledgling into Bird, and choose an active pet to keep
+      you company.
       Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
       - "Hatching consumes one egg item and one potion item and creates a unique species/potion pet."
       - "New hatching supports Chick with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
-      - "The 3D Chick becomes Bird only after confirmed evolution; Fledgling is preview art, not an earned stage."
+      - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
       - "Earlier saved pets can still be fed, activated and evolved; another species is never displayed as Chick or Bird."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
       - "At 100 growth the pet evolves into a mount while the original pet remains in your collection."
@@ -435,11 +481,11 @@ entries:
     trial_template: sequence
     trial:
       prompt: "Hatch a pet, feed it, and help it grow into a mount."
-      payoff: "Egg → Pet → Mount"
+      payoff: "Egg → Chick → Fledgling → Bird"
       steps:
         - "Combine a Chick egg and Base potion to hatch Chick."
-        - "Feed preferred food to climb growth fastest."
-        - "At growth 100 the pet evolves; the original stays in your collection."
+        - "Feed preferred food to grow; at 50 growth Chick becomes Fledgling."
+        - "At growth 100 confirmed evolution brings Bird and a mount; the original stays in your collection."
 
   - slug: mounts
     title: Mounts
@@ -456,7 +502,8 @@ entries:
       - "Only one mount can be active for a user at a time."
       - "Breeding requires two distinct available grown pets and available output ingredients. The current Base Chick collection provides no breeding pair, so breeding is unavailable."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
-      - "A mount can be sent on an Expedition (2h, 4h, or 8h) once per local day. Loot is rolled when the mount leaves and stored on the row, so the payout is the same whenever you claim. Returning mounts pay coins (with Lucky Coin doubling) and a small handful of items, and route streak / challenge credit through the same game-loop trigger as everything else."
+      - "Each mount can start one expedition per local day, lasting 2, 4, or 8 hours. Collect a returned trip before starting another; the Pets screen shows when the mount can explore again."
+      - "Base loot is fixed when the trip starts. New trips choose available items; earlier saved loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
     parent_knobs:
       settings: []
       powers_badges:
@@ -533,7 +580,7 @@ entries:
         - perfect_days_count
         - streak_freeze_used
       content_sources:
-        - "Game-loop triggers from work, chores, homework, habits, journal, and creations feed the streak service."
+        - "Game-loop triggers from work, chores, homework, habits, journal, creations, eligible movement sessions, and expedition returns feed the streak service."
     economy:
       money: false
       coins: true
@@ -561,8 +608,10 @@ entries:
       3D print. Review the fixed price before choosing to exchange your coins.
     mechanics:
       - "Coins are tracked in an append-only CoinLedger separate from real money."
-      - "Coins can come from tracked time, project/milestone bonuses, badges, chores, exchanges, drops/salvage, birthdays, and parent adjustments."
+      - "Coins can come from tracked time, project/milestone bonuses, badges, chores, challenges, daily check-ins, expeditions, exchanges, drops/salvage, birthdays, and parent adjustments."
+      - "The personal note on Today is separate from Journal: its first save each local day earns 2 Coins, with no XP, drop chance, challenge progress, or streak credit. Edits do not pay again, and skipping a note has no penalty."
       - "Reward redemption deducts Coins immediately as a held debit; rejection refunds them."
+      - "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory when fulfilled; unavailable new offers are omitted while earlier pending promises are preserved."
       - "Money-to-Coins exchange is parent-approved and snapshots the exchange rate at request time."
       - "Parents can enable a minutes-per-coin rate for each child's 3D prints. A reviewed time estimate sets a rounded-up fixed quote; coins are spent only when the child accepts it."
       - "Print quotes keep their original rate when settings change. Retries of the same request cost no extra coins; cancelling before any print starts refunds the paid amount once. Monthly print budgets still apply."
@@ -603,16 +652,18 @@ entries:
     icon: "💵"
     audience_title: "Earnings and payments"
     chapter: trade_coin
-    summary: "Real allowance-style earnings tracked apart from Coins."
+    summary: "Money your parent owes you, tracked apart from Coins and card balances."
     kid_voice: |
-      Track the real money you earn from work, projects, and chores.
-      Parents record payments and adjustments, and you can follow
-      your savings goals.
+      Track what your parent owes you from work, projects, and chores.
+      When your parent pays you outside Abby, they record the payment
+      here. A reported Greenlight card balance is shown separately.
     mechanics:
       - "Money lives in PaymentLedger, separate from CoinLedger."
       - "Hourly work, project bonuses, optional project rewards, milestone bonuses, chore rewards, reimbursements, payouts, adjustments, and coin exchanges have distinct entry types."
       - "Exchange approval debits money and credits Coins atomically; money is not held at request time."
       - "Parents can record payouts and adjustments; timecards preserve weekly audit history."
+      - "Parents make Greenlight transfers outside Abby, then confirm them here. CSV preview records no payment; only selected reconciliation rows record or match confirmed transfers. Abby does not move money."
+      - "A reported card balance is a parent's dated observation, separate from earnings owed and approved money ready to pay. An approved zero-dollar timecard can be closed without a payout."
     parent_knobs:
       settings:
         - key: COINS_PER_DOLLAR
@@ -643,18 +694,19 @@ entries:
     icon: "👑"
     audience_title: "Personalize your profile"
     chapter: self_expression
-    summary: "Owned frames, titles and covers, plus earned badge trophies."
+    summary: "Customize your avatar, equip owned cosmetics, and display earned badges."
     kid_voice: |
-      Choose a title, a profile frame or app colors. You can also display
-      an earned badge as your trophy. Memory Meadow is
+      Open Customize avatar from Profile to choose an available look and
+      compatible accessories, then save it. Choose an owned title or
+      profile frame, or display an earned badge as your trophy. Memory Meadow is
       the starter cover; other covers can arrive as item drops. Settings
       shows the covers you own and the ones you can still collect.
     mechanics:
       - "Cosmetics are owned in inventory and equipped without being consumed."
       - "Only one item per cosmetic slot can be active at a time."
       - "Frames, Titles and Covers remain available. Earlier pet accessories stay in Saved collection, but cannot be newly collected or equipped; a previous selection can be removed."
-      - "Profile's basic Archer hair, skin and outfit choices are saved appearance preferences, independent from earned cosmetics and rewards."
-      - "Equipping a journal cover from Settings or Profile routes through the same equip endpoint — both surfaces stay in lockstep."
+      - "Customize avatar saves the available appearance and compatible accessories for your chosen avatar. These choices are free preferences, separate from earned cosmetics, Coins, XP, and pet accessories. Preview changes become saved appearance only after Save avatar succeeds."
+      - "Choose and equip owned journal covers in Settings → Appearance. Profile links to this same Color theme selector."
       - "The trophy badge slot only accepts badges the user has earned."
       - "Duplicate cosmetic drops salvage to Coins."
       - "Available locked cosmetics can appear as goals, but are not clickable until owned. Unreachable collection badges are omitted unless already earned."
@@ -677,12 +729,12 @@ entries:
       prompt: "Choose a frame for your profile."
       payoff: "Frame equipped · the look is yours."
       choices:
-        - label: "Bookworm"
-          icon: "📖"
-          outcome: "A modest, gold-leaf border."
-        - label: "Scholar"
-          icon: "🎓"
-          outcome: "A study-hall ribbon and laurel."
-        - label: "Hyrule"
-          icon: "✨"
-          outcome: "A champion's filigree."
+        - label: "Bronze Frame"
+          icon: "🟫"
+          outcome: "A warm bronze border."
+        - label: "Silver Frame"
+          icon: "⬜"
+          outcome: "A bright silver border."
+        - label: "Gold Frame"
+          icon: "🟨"
+          outcome: "A golden border."

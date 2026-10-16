@@ -65,6 +65,188 @@ function stubSkills(skills) {
 }
 
 describe('MovementSessionLogModal', () => {
+  it('saves a selected icon when adding an activity only after explicit submit', async () => {
+    stubTypes();
+    stubSkills();
+    const create = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Jogging', icon: '🏃', default_intensity: 'medium' });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await openNewActivity(user);
+    await user.type(screen.getByLabelText('Activity name'), 'Jogging');
+    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Running' }));
+    expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('🏃');
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Add activity' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toEqual({ name: 'Jogging', icon: '🏃', default_intensity: 'medium', primary_skill_id: 10, secondary_skill_id: null });
+  });
+
+  it('allows a custom activity icon with the existing four-character limit', async () => {
+    stubTypes();
+    stubSkills();
+    const create = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Jogging', icon: 'abcd', default_intensity: 'medium' });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await openNewActivity(user);
+    await user.type(screen.getByLabelText('Activity name'), 'Jogging');
+    await within(screen.getByRole('combobox', { name: 'Primary skill' })).findByRole('option', { name: /Endurance/ });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Primary skill' }), '10');
+    await user.type(screen.getByLabelText('Emoji (optional)'), 'abcde');
+    expect(screen.getByLabelText('Emoji (optional)')).toHaveValue('abcd');
+    await user.click(screen.getByRole('button', { name: 'Add activity' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body.icon).toBe('abcd');
+  });
+
+  async function openNewActivity(user) {
+    const picker = screen.getByRole('combobox', { name: /what did you do/i });
+    await waitFor(() => expect(picker).toBeEnabled());
+    await user.selectOptions(picker, '__new__');
+  }
+
+  const physicalSkills = [
+    { id: 10, name: 'Endurance', category_name: 'Physical', subject_name: 'Body Work' },
+    { id: 11, name: 'Strength', category_name: 'Physical', subject_name: 'Body Work' },
+    { id: 20, name: 'Cycling', category_name: 'Physical', subject_name: 'Sports' },
+  ];
+
+  it('loads later skill pages and submits primary and secondary Physical skills', async () => {
+    stubTypes();
+    const pages = [];
+    server.use(http.get('*/api/skills/', ({ request }) => {
+      const page = new URL(request.url).searchParams.get('page');
+      pages.push(page);
+      if (page === '3') return HttpResponse.json({ count: 23, next: null, results: physicalSkills.slice(1) });
+      if (page === '2') return HttpResponse.json({ count: 23, next: '/api/skills/?page=3', results: physicalSkills.slice(0, 1) });
+      return HttpResponse.json({
+        count: 23, next: '/api/skills/?page=2',
+        results: Array.from({ length: 20 }, (_, i) => ({
+          id: 99 + i, name: i === 0 ? 'Soldering' : `Making skill ${i}`, category_name: 'Making',
+        })),
+      });
+    }));
+    const spy = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Parkour' });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
+    await openNewActivity(user);
+    const primary = screen.getByRole('combobox', { name: /primary skill/i });
+    await within(primary).findByRole('option', { name: 'Strength' });
+    expect(within(primary).queryByRole('option', { name: 'Soldering' })).not.toBeInTheDocument();
+    expect(within(primary).getByRole('group', { name: 'Sports' })).toHaveTextContent('Cycling');
+    await user.type(screen.getByRole('textbox', { name: /activity name/i }), 'Parkour');
+    await user.selectOptions(primary, '11');
+    const secondary = screen.getByRole('combobox', { name: /secondary skill/i });
+    expect(within(secondary).queryByRole('option', { name: 'Strength' })).not.toBeInTheDocument();
+    await user.selectOptions(secondary, '10');
+    await user.click(screen.getByRole('button', { name: /add activity/i }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0]).toMatchObject({
+      url: expect.stringMatching(/\/api\/movement-types\/$/),
+      body: {
+        name: 'Parkour', icon: '', default_intensity: 'medium',
+        primary_skill_id: 11, secondary_skill_id: 10,
+      },
+    });
+    expect(pages).toEqual([null, '2', '3']);
+  });
+
+  it('keeps skill selection disabled until every page finishes loading', async () => {
+    stubTypes();
+    let release;
+    const laterPage = new Promise((resolve) => { release = resolve; });
+    server.use(http.get('*/api/skills/', async ({ request }) => {
+      if (new URL(request.url).searchParams.has('page')) {
+        await laterPage;
+        return HttpResponse.json({ next: null, results: physicalSkills.slice(1) });
+      }
+      return HttpResponse.json({ next: '/api/skills/?page=2', results: physicalSkills.slice(0, 1) });
+    }));
+    try {
+      const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
+      await openNewActivity(user);
+      expect(screen.getByRole('status')).toHaveTextContent(/loading physical skills/i);
+      expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeDisabled();
+      expect(screen.getByRole('combobox', { name: /secondary skill/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /add activity/i })).toBeDisabled();
+      release();
+      await waitFor(() => expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeEnabled());
+      expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    } finally {
+      release();
+    }
+  });
+
+  it('retries a failed later page without losing the activity draft and saves a primary alone', async () => {
+    stubTypes();
+    let fail = true;
+    server.use(http.get('*/api/skills/', ({ request }) => {
+      if (!new URL(request.url).searchParams.has('page')) {
+        return HttpResponse.json({ next: '/api/skills/?page=2', results: physicalSkills.slice(0, 1) });
+      }
+      return fail
+        ? HttpResponse.json({ error: 'Skills temporarily unavailable.' }, { status: 503 })
+        : HttpResponse.json({ next: null, results: physicalSkills.slice(1) });
+    }));
+    const spy = spyHandler('post', /\/api\/movement-types\/$/, { id: 777, name: 'Parkour' });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
+    await openNewActivity(user);
+    await user.type(screen.getByRole('textbox', { name: /activity name/i }), 'Parkour');
+    await user.selectOptions(screen.getByRole('combobox', { name: /default intensity/i }), 'high');
+    expect(await screen.findByRole('alert')).toHaveTextContent(/skills temporarily unavailable/i);
+    expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /add activity/i })).toBeDisabled();
+    fail = false;
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await within(screen.getByRole('combobox', { name: /primary skill/i })).findByRole('option', { name: 'Strength' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: /activity name/i })).toHaveValue('Parkour');
+    expect(screen.getByRole('combobox', { name: /default intensity/i })).toHaveValue('high');
+    await user.selectOptions(screen.getByRole('combobox', { name: /primary skill/i }), '11');
+    await user.click(screen.getByRole('button', { name: /add activity/i }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].url).toMatch(/\/api\/movement-types\/$/);
+    expect(spy.calls[0].body).toEqual({
+      name: 'Parkour', icon: '', default_intensity: 'high',
+      primary_skill_id: 11, secondary_skill_id: null,
+    });
+  });
+
+  it('explains an empty Physical catalog and lets the user refresh it', async () => {
+    stubTypes();
+    stubSkills([{ id: 99, name: 'Soldering', category_name: 'Making' }]);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
+    await openNewActivity(user);
+    expect(await screen.findByRole('alert')).toHaveTextContent(/no physical skills are available/i);
+    expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeDisabled();
+    stubSkills(physicalSkills);
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await within(screen.getByRole('combobox', { name: /primary skill/i })).findByRole('option', { name: 'Strength' });
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('clears the secondary selection when it becomes the primary skill', async () => {
+    stubTypes();
+    stubSkills(physicalSkills);
+    const { user } = renderWithProviders(<MovementSessionLogModal onClose={() => {}} />);
+    await openNewActivity(user);
+    const primary = screen.getByRole('combobox', { name: /primary skill/i });
+    const secondary = screen.getByRole('combobox', { name: /secondary skill/i });
+    await within(primary).findByRole('option', { name: 'Strength' });
+    await user.selectOptions(primary, '11');
+    await user.selectOptions(secondary, '10');
+    await user.selectOptions(primary, '10');
+    expect(secondary).toHaveValue('');
+    expect(within(secondary).queryByRole('option', { name: 'Endurance' })).not.toBeInTheDocument();
+    expect(within(secondary).getByRole('option', { name: 'Strength' })).toBeInTheDocument();
+    // Reselecting the old primary must not restore a hidden secondary value.
+    await user.selectOptions(primary, '11');
+    expect(secondary).toHaveValue('');
+  });
+
   it('logs fractional distance and a stable request identity with a goal-selected activity', async () => {
     stubTypes();
     stubSkills();
