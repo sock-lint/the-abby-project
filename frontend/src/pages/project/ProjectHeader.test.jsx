@@ -21,6 +21,21 @@ function renderHeader(props = {}) {
 }
 
 describe('ProjectHeader', () => {
+  it.each(['draft', 'active', 'in_progress', 'in_review', 'completed'])(
+    'labels a homework plan without separate project controls in %s status',
+    (status) => {
+      renderHeader({ isParent: true, isAssigned: true, project: { status, is_homework_plan: true, payment_kind: 'bounty' } });
+      expect(screen.getByText('Homework plan')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /start project|submit for review|approve|request changes|save as template|^edit$/i })).not.toBeInTheDocument();
+      expect(screen.queryByText('optional project')).not.toBeInTheDocument();
+    },
+  );
+
+  it('does not offer a timer for assigned homework', () => {
+    renderHeader({ isAssigned: true, project: { is_homework_plan: true } });
+    expect(screen.queryByRole('button', { name: 'Work on this project' })).not.toBeInTheDocument();
+  });
+
   it('renders project title', () => {
     renderHeader({ project: { title: 'Test Project' } });
     expect(screen.getByText('Test Project')).toBeInTheDocument();

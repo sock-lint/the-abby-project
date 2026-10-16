@@ -1,11 +1,19 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 
 from apps.accounts.models import User  # noqa: F401  — re-exported for historical imports
 
 from config.base_models import CreatedAtModel, TimestampedModel
+
+
+class ProjectQuerySet(models.QuerySet):
+    def work_projects(self):
+        """Paid-project surfaces must also exclude legacy linked study plans."""
+        return self.filter(is_homework_plan=False, homework_assignments__isnull=True).annotate(
+            _is_work_project=models.Value(True, output_field=models.BooleanField()),
+        )
 
 
 class Project(TimestampedModel):
@@ -61,6 +69,9 @@ class Project(TimestampedModel):
     completed_at = models.DateTimeField(null=True, blank=True)
     xp_reward = models.PositiveIntegerField(default=0)
     parent_notes = models.TextField(blank=True)
+    is_homework_plan = models.BooleanField(default=False, editable=False, db_index=True)
+
+    objects = ProjectQuerySet.as_manager()
 
     class Meta:
         ordering = ["-created_at"]
@@ -68,10 +79,40 @@ class Project(TimestampedModel):
     def __str__(self):
         return self.title
 
+    @property
+    def is_homework(self):
+        """Retain study classification even after its assignment is removed."""
+        return self.is_homework_plan or self.homework_assignments.exists()
+
+    @property
+    def homework_assignment_id(self):
+        if not self.assigned_to_id:
+            return None
+        return self.homework_assignments.filter(
+            assigned_to_id=self.assigned_to_id,
+            assigned_to__family_id=self.assigned_to.family_id,
+        ).order_by("pk").values_list("pk", flat=True).first()
+
+    @transaction.atomic
     def save(self, *args, **kwargs):
+        # Status, the completion receipt and all reward writes must commit
+        # together. A failed award leaves the previous status retryable.
         if not self.xp_reward:
             self.xp_reward = 50 * self.difficulty
         super().save(*args, **kwargs)
+
+
+class ProjectCompletionRewardReceipt(CreatedAtModel):
+    """Permanent once-per-project guard, independent of later status edits."""
+
+    project = models.OneToOneField(
+        Project, on_delete=models.CASCADE, related_name="completion_reward_receipt",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="project_completion_receipts",
+    )
+    historical = models.BooleanField(default=False)
 
 
 class ProjectMilestone(models.Model):

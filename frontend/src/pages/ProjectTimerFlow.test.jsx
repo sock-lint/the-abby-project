@@ -53,6 +53,16 @@ function renderFlow({
 }
 
 describe('Project timer flow', () => {
+  it('keeps a homework plan out of clock-in even through a direct timer link', async () => {
+    const user = userEvent.setup();
+    const clock = renderFlow({ initialEntry: '/clock?project=42', project: { is_homework_plan: true } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/not available for you to work on/i);
+    const start = screen.getByRole('button', { name: 'Clock in' });
+    expect(start).toBeDisabled();
+    await user.click(start);
+    expect(clock.calls).toHaveLength(0);
+  });
+
   it.each(['required', 'bounty'])('confirms the exact %s project before starting its timer', async (paymentKind) => {
     const user = userEvent.setup();
     const clock = renderFlow({ project: { payment_kind: paymentKind } });
