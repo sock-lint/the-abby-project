@@ -29,6 +29,7 @@ import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import { hapticTap } from '../utils/haptics';
 import QuestFolio from './quests/QuestFolio';
+import HabitIconPicker from './habits/HabitIconPicker';
 
 // Strength color — journal-safe sepia gradient from ember (low) through
 // moss (positive) to royal (mastered).
@@ -150,22 +151,22 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
+        <HabitIconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Icon" value={form.icon} onChange={onField('icon')} placeholder="⚡" />
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
             <option value="positive">Build a habit (+)</option>
             <option value="negative">Reduce a habit (−)</option>
             <option value="both">Both</option>
           </SelectField>
+          <TextField
+            label="Max taps / day"
+            type="number"
+            min="1"
+            max="50"
+            value={form.max_taps_per_day}
+            onChange={onField('max_taps_per_day')}
+          />
         </div>
-        <TextField
-          label="Max taps / day"
-          type="number"
-          min="1"
-          max="50"
-          value={form.max_taps_per_day}
-          onChange={onField('max_taps_per_day')}
-        />
         {canSetRewards && children?.length > 0 && (
           <SelectField label="Child" value={form.user} onChange={onField('user')}>
             <option value="">-- Select child --</option>

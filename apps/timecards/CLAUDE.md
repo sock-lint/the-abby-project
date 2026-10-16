@@ -21,6 +21,7 @@ body without a content type, which the shared frontend API client rejects.
 
 - `TimeEntryService` — read helpers: `completed_entries`, `daily_minute_totals`, `distinct_days`, `current_streak`, `longest_streak_at_least`.
 - `ClockService`:
+  - Homework plans are ineligible for clock-in. A historical homework timer can close without hourly XP, Coins or game-loop credit. Weekly payable hours and project bonuses exclude marked and legacy-linked homework plans; open-week reconciliation corrects earlier hourly credits, while approved/paid/closed history keeps its existing settlement protection.
   - `clock_in(user, project)` — enforces one active entry, project assignment, workable status, quiet hours (10pm–7am). Auto-transitions project `active → in_progress`.
   - `clock_out(user, notes)` — awards XP (10/hr) + coins (`COINS_PER_HOUR` × hours) via `AwardService.grant`, fires RPG game loop (`TriggerType.CLOCK_OUT`).
   - `get_active_entry(user)` — returns current active entry with `select_related("project")`.

@@ -67,6 +67,7 @@ def _common_dashboard(user, today) -> dict[str, Any]:
     week_entries = TimeEntry.objects.filter(
         user=user, status="completed",
         clock_in__date__gte=week_start,
+        project__in=Project.objects.work_projects(),
     )
     week_aggregate = week_entries.aggregate(
         minutes=Sum("duration_minutes"),
@@ -76,7 +77,7 @@ def _common_dashboard(user, today) -> dict[str, Any]:
     week_hours = round(week_minutes / 60, 1)
 
     active_projects = ProjectListSerializer(
-        Project.objects.filter(
+        Project.objects.work_projects().filter(
             assigned_to=user, status__in=["active", "in_progress"],
         )[:5],
         many=True,
@@ -184,6 +185,7 @@ def _this_week_by_kid(user, today) -> list[dict[str, Any]]:
     empty list as "no week data yet".
     """
     from apps.families.queries import children_in
+    from apps.projects.models import Project
     from apps.timecards.models import TimeEntry
 
     if not user.family_id:
@@ -195,6 +197,7 @@ def _this_week_by_kid(user, today) -> list[dict[str, Any]]:
             user__in=children_in(user.family),
             status="completed",
             clock_in__date__gte=week_start,
+            project__in=Project.objects.work_projects(),
         )
         .values("user_id", "user__display_name", "user__username", "user__hourly_rate")
         .annotate(minutes=Sum("duration_minutes"))

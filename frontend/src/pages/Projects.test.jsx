@@ -23,6 +23,17 @@ function renderPage(user = buildUser(), handlers = []) {
 }
 
 describe('Projects', () => {
+  it('shows ordinary projects without duplicating linked homework plans', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/projects/', () => HttpResponse.json([
+        buildProject({ id: 12, title: 'Birdhouse' }),
+        buildProject({ id: 13, title: 'Science homework plan', is_homework_plan: true }),
+      ])),
+    ]);
+    expect(await screen.findByRole('button', { name: 'Open Birdhouse' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Open Science homework plan' })).not.toBeInTheDocument();
+  });
+
   it('exports only a dated saved project and keeps its calendar control separate from navigation', async () => {
     const user = userEvent.setup();
     renderPage(buildUser(), [

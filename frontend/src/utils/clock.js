@@ -11,7 +11,7 @@ import { STORAGE_KEYS } from '../constants/storage';
 export const ACTIVE_PROJECT_STATUSES = ['active', 'in_progress'];
 
 export function activeProjectsOf(projects) {
-  return projects.filter((p) => ACTIVE_PROJECT_STATUSES.includes(p.status));
+  return projects.filter((p) => !p.is_homework_plan && ACTIVE_PROJECT_STATUSES.includes(p.status));
 }
 
 /** Persist the venture just clocked into. Best-effort — storage may be unavailable. */

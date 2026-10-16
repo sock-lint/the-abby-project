@@ -84,7 +84,7 @@ export default function Projects() {
     }, { replace: true });
   };
 
-  const allProjects = normalizeList(data);
+  const allProjects = normalizeList(data).filter((p) => !p.is_homework_plan);
   const children = normalizeList(childrenData);
 
   const projects = useMemo(() => {
