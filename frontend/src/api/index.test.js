@@ -197,6 +197,7 @@ const CASES = [
   ['getTimeEntries', [], /\/api\/time-entries\/$/, 'GET'],
   ['voidTimeEntry', [5], /\/api\/time-entries\/5\/void\/$/, 'POST'],
   ['getTimecards', [], /\/api\/timecards\/$/, 'GET'],
+  ['getTimecards', [{ page: 2 }], /\/api\/timecards\/\?page=2$/, 'GET'],
   ['getTimecard', [5], /\/api\/timecards\/5\/$/, 'GET'],
   ['approveTimecard', [5, 'ok'], /\/api\/timecards\/5\/approve\/$/, 'POST'],
   ['disputeTimecard', [5], /\/api\/timecards\/5\/dispute\/$/, 'POST'],

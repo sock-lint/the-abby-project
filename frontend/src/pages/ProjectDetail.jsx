@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   getProject, submitProject, approveProject, requestChanges,
@@ -31,11 +31,14 @@ import AddStepModal from './project/modals/AddStepModal';
 import AddResourceModal from './project/modals/AddResourceModal';
 import RequestChangesModal from './project/modals/RequestChangesModal';
 import ProjectQRSheet from './project/modals/ProjectQRSheet';
+import { projectListDestination } from './project/projectListReturn';
 
 const tabs = ['Overview', 'Plan', 'Materials'];
 
 export default function ProjectDetail() {
   const { user, isParent } = useRole();
+  const location = useLocation();
+  const returnList = projectListDestination(location.state?.projectListReturn, user?.id);
   const { id } = useParams();
   const { data: project, loading, error: loadError, reload } = useApi(() => getProject(id), [id]);
   const [activeTab, setActiveTab] = useState('Overview');
@@ -65,7 +68,7 @@ export default function ProjectDetail() {
   // a kid their project is gone and offering no way back.
   if (loadError) return (
     <div className="space-y-4">
-      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
+      <BackLink {...returnList}>Back to Projects</BackLink>
       <ErrorAlert message={loadError} />
       <Button variant="primary" onClick={reload}>
         Try again
@@ -74,7 +77,7 @@ export default function ProjectDetail() {
   );
   if (!project) return (
     <div className="space-y-4">
-      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
+      <BackLink {...returnList}>Back to Projects</BackLink>
       <EmptyState>
         This project is unavailable. It may have been deleted or belong to another family.
       </EmptyState>
@@ -198,7 +201,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="space-y-6">
-      <BackLink to="/quests?tab=ventures">Back to Projects</BackLink>
+      <BackLink {...returnList}>Back to Projects</BackLink>
 
       <ProjectHeader
         project={project}

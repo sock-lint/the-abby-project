@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getToken } from '../api/client';
 import { AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
@@ -31,6 +32,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import IconButton from '../components/IconButton';
 import TabList from '../components/layout/TabList';
 import { TextField, SelectField, TextAreaField, CheckboxField } from '../components/form';
@@ -48,6 +50,12 @@ const TAB_ICONS = {
 };
 
 export default function Manage() {
+  const { user } = useAuth();
+  if (!user?.id) return <Loader />;
+  return <AccountManage key={`${user.id}:${user.role}:${user.family?.id ?? ''}:${getToken()}`} />;
+}
+
+function AccountManage() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Two staff-only tabs gated on backend probes — server is the source of
   // truth, the ping just hides them from non-staff so they don't see
@@ -84,14 +92,7 @@ export default function Manage() {
 
   return (
     <PageShell rhythm="loose">
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Family, accounts, and project templates
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Manage
-        </h1>
-      </header>
+      <PageHeader title="Manage" kicker="Family, accounts, and project templates" />
 
       <TabList
         tabs={tabDescriptors}
@@ -117,6 +118,7 @@ function ChildrenSection() {
   const { data, loading, error, reload } = useApi(getChildren);
   const [editChild, setEditChild] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [createdChild, setCreatedChild] = useState(null);
   const [showInactive, setShowInactive] = useState(false);
   const allChildren = normalizeList(data);
   const children = showInactive ? allChildren : allChildren.filter((c) => c.is_active !== false);
@@ -141,6 +143,18 @@ function ChildrenSection() {
           <UserPlus size={14} /> New child
         </Button>
       </div>
+      {createdChild && (
+        <ParchmentCard role="status" aria-label="Child account created" className="space-y-3">
+          <h2 className="font-body font-semibold text-lede">{createdChild.display_name || createdChild.username} can sign in</h2>
+          <p className="text-body text-ink-secondary">Their sign-in name is <strong className="break-all">{createdChild.username}</strong>.</p>
+          <p className="text-body text-ink-secondary">On a different device or a private browser window, open Abby and sign in with that name and the secret word you just chose. This keeps your parent session separate.</p>
+          <p className="text-body text-ink-secondary">Try one small activity together. You can change their secret word later from Edit.</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline" to="/quests?tab=study&new=1">Choose a first activity</Link>
+            <Button variant="ghost" onClick={() => setCreatedChild(null)}>Dismiss sign-in guidance</Button>
+          </div>
+        </ParchmentCard>
+      )}
       {/* A failed fetch is NOT an empty family — showing "No children yet" on a
           500 tells a parent their kids are gone. Surface the error with a
           retry and suppress the empty state until we actually know. */}
@@ -201,7 +215,7 @@ function ChildrenSection() {
         {creating && (
           <CreateChildModal
             onClose={() => setCreating(false)}
-            onCreated={() => { setCreating(false); reload(); }}
+            onCreated={(child) => { setCreatedChild(child); setCreating(false); reload(); }}
           />
         )}
       </AnimatePresence>
@@ -224,13 +238,15 @@ function CreateChildModal({ onClose, onCreated }) {
     setSaving(true);
     setError(null);
     try {
-      await createChild({
+      const created = await createChild({
         username: form.username.trim(),
         password: form.password,
         display_name: form.display_name.trim(),
         hourly_rate: form.hourly_rate,
       });
-      onCreated();
+      // Only confirmed non-secret identity leaves the creation interaction.
+      set({ password: '' });
+      onCreated({ id: created.id, username: created.username, display_name: created.display_name });
     } catch (err) {
       setError(err.message);
     } finally {

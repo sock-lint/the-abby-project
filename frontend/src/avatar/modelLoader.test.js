@@ -21,4 +21,8 @@ describe('avatar failed-asset retry', () => {
     resetAvatarAssets(appearance, []);
     expect(useLoader.clear).not.toHaveBeenCalled();
   });
+  it('leaves shared loads to their owned resource lifecycle so a retry fetches fresh bytes', () => {
+    resetAvatarAssets({ ...appearance, pipeline: 'abby-assets' }, ['/archer.glb']);
+    expect(useLoader.clear).not.toHaveBeenCalled();
+  });
 });

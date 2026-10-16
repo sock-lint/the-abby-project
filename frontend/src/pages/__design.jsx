@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { MemoryRouter, useInRouterContext } from 'react-router-dom';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import QuestLogEntry from '../components/journal/QuestLogEntry';
@@ -18,10 +20,19 @@ import SectionHeader from '../components/SectionHeader';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import SkillsShowcase from './design/SkillsShowcase';
 import CollectionsShowcase from './design/CollectionsShowcase';
+import DesignEnvironment from './design/DesignEnvironment';
+import PatternLibrary from './design/PatternLibrary';
+import TasksShowcase from './design/TasksShowcase';
 
 export default function DesignShowcase() {
+  const hasRouter = useInRouterContext();
+  return hasRouter ? <DesignShowcaseContent /> : <MemoryRouter><DesignShowcaseContent /></MemoryRouter>;
+}
+
+function DesignShowcaseContent() {
+  const [interaction, setInteraction] = useState('');
   return (
-    <div className="max-w-5xl mx-auto px-4 md:px-6 py-8 space-y-10">
+    <DesignEnvironment><div id="design-foundations" className="max-w-5xl mx-auto py-8 space-y-10 min-w-0">
       {/* Header */}
       <header>
         <div className={headingScript + ' text-lg'}>
@@ -33,8 +44,11 @@ export default function DesignShowcase() {
         <p className="font-body text-ink-secondary mt-2 max-w-prose">
           A visual QA page for our Meadow components. Navigate to{' '}
           <code className="font-rune text-sm">/__design</code> in dev to inspect
-          typography, controls, collection navigation and progress states.
+          typography, controls, Task folios, collection navigation and progress states.
         </p>
+        <nav aria-label="Showcase sections" className="mt-3 font-body text-body">
+          <a href="#task-folio" className="inline-flex min-h-11 items-center text-sheikah-teal-deep underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sheikah-teal">Task folio</a>
+        </nav>
       </header>
 
       <DeckleDivider glyph="compass-rose" label="Typography" />
@@ -69,17 +83,18 @@ export default function DesignShowcase() {
           ['ink-page', 'ink-primary'],
           ['ink-page-aged', 'ink-primary'],
           ['ink-page-shadow', 'ink-primary'],
-          ['sheikah-teal', 'ink-primary'],
+          ['sheikah-teal', 'ink-page-rune-glow'],
           ['sheikah-teal-deep', 'ink-page-rune-glow'],
           ['moss', 'ink-page-rune-glow'],
           ['ember', 'ink-page-rune-glow'],
           ['ember-deep', 'ink-page-rune-glow'],
           ['royal', 'ink-page-rune-glow'],
-          ['gold-leaf', 'ink-primary'],
+          ['gold-leaf', 'ink-page-rune-glow'],
         ].map(([bg, fg]) => (
           <div
             key={bg}
-            className={`rounded-lg border border-ink-page-shadow bg-${bg} text-${fg} p-3 text-center`}
+            className="rounded-lg border border-ink-page-shadow p-3 text-center"
+            style={{ backgroundColor: `var(--color-${bg})`, color: `var(--color-${fg})` }}
           >
             <div className="font-rune text-xs">{bg}</div>
           </div>
@@ -89,10 +104,10 @@ export default function DesignShowcase() {
       <DeckleDivider glyph="flourish-corner" label="Buttons" />
 
       <section className="flex flex-wrap gap-3">
-        <Button size="sm">Wax-seal primary</Button>
-        <Button variant="success" size="sm">Mossy success</Button>
-        <Button variant="secondary" size="sm">Parchment secondary</Button>
-        <Button variant="danger" size="sm">Ember danger</Button>
+        <Button size="sm">Primary action</Button>
+        <Button variant="success" size="sm">Confirm action</Button>
+        <Button variant="secondary" size="sm">Secondary action</Button>
+        <Button variant="danger" size="sm">Destructive action</Button>
         <Button variant="ghost" size="sm">Ghost action</Button>
       </section>
 
@@ -115,31 +130,31 @@ export default function DesignShowcase() {
       <section className="grid md:grid-cols-3 gap-4">
         <ParchmentCard variant="plain">
           <div className="font-script text-ink-whisper text-xs">variant: plain</div>
-          <h3 className="font-display text-lg mt-1">Plain parchment</h3>
+          <h3 className="font-display text-lg mt-1">Standard panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Standard aged-paper panel with a hairline border.
+            Rounded Meadow panel with a quiet border.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" flourish>
           <div className="font-script text-ink-whisper text-xs">flourish</div>
-          <h3 className="font-display text-lg mt-1">Flourished corners</h3>
+          <h3 className="font-display text-lg mt-1">Decorated panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Decorative rune-flourish in each corner.
+            Optional soft sparkles in the corners.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" seal>
           <div className="font-script text-ink-whisper text-xs">seal</div>
-          <h3 className="font-display text-lg mt-1">Wax-sealed</h3>
+          <h3 className="font-display text-lg mt-1">Flower accent</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            A wax seal stamped in the corner.
+            Optional decorative flower in the corner.
           </p>
         </ParchmentCard>
 
         <ParchmentCard variant="plain" tone="bright">
           <div className="font-script text-ink-whisper text-xs">tone: bright</div>
-          <h3 className="font-display text-lg mt-1">Bright parchment</h3>
+          <h3 className="font-display text-lg mt-1">Bright panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
             Lighter tone — use for hero/spotlight panels.
           </p>
@@ -147,7 +162,7 @@ export default function DesignShowcase() {
 
         <ParchmentCard variant="plain" tone="deep">
           <div className="font-script text-ink-whisper text-xs">tone: deep</div>
-          <h3 className="font-display text-lg mt-1">Deep parchment</h3>
+          <h3 className="font-display text-lg mt-1">Deep panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
             Deeper tone — for nested / quieter panels.
           </p>
@@ -155,9 +170,9 @@ export default function DesignShowcase() {
 
         <ParchmentCard variant="deckle">
           <div className="font-script text-ink-whisper text-xs">variant: deckle</div>
-          <h3 className="font-display text-lg mt-1">Deckle edge</h3>
+          <h3 className="font-display text-lg mt-1">Rounded compatibility variant</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Torn-paper edges via SVG mask. No border.
+            The retained deckle prop uses the current rounded panel treatment.
           </p>
         </ParchmentCard>
       </section>
@@ -168,7 +183,7 @@ export default function DesignShowcase() {
         <ul className="space-y-2">
           <QuestLogEntry
             title="Make bed"
-            meta="Daily duty · due today"
+            meta="Chore · due today"
             reward="$0.50 · 3🪙"
             kind="duty"
             tone="moss"
@@ -186,7 +201,7 @@ export default function DesignShowcase() {
           />
           <QuestLogEntry
             title="Mount Yamatori — 120 HP remaining"
-            meta="Trial · expires in 2 days"
+            meta="Challenge · ends in 2 days"
             reward="+25 XP · egg"
             kind="trial"
             tone="royal"
@@ -196,7 +211,7 @@ export default function DesignShowcase() {
           <QuestLogEntry
             title="Sketch a dragon in under 10 min"
             meta="Habit · strength 4"
-            reward="+1🪙"
+            reward="Progress from saved activity"
             kind="virtue"
             tone="gold"
             status="done"
@@ -233,7 +248,7 @@ export default function DesignShowcase() {
         </ParchmentCard>
       </section>
 
-      <section className="grid md:grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <PartyCard
           pet={{ species_name: 'Ember Drake', potion_variant: 'fire', growth_points: 62 }}
           variant="compact"
@@ -241,10 +256,12 @@ export default function DesignShowcase() {
         <PartyCard
           pet={{ species_name: 'Tidebloom', potion_variant: 'water', growth_points: 18 }}
           variant="full"
-          onFeed={() => alert('fed!')}
+          onFeed={() => setInteraction('Example feed action selected. No pet or reward changed.')}
         />
         <PartyCard pet={null} />
       </section>
+
+      {interaction && <p role="status" className="font-body text-body text-ink-secondary">{interaction}</p>}
 
       <RuneBand projectTitle="Stained-glass dragon lantern" elapsedLabel="00:42:17" />
 
@@ -252,11 +269,11 @@ export default function DesignShowcase() {
 
       <section className="flex flex-wrap gap-6 items-center text-ink-primary">
         <Labeled label="Today"><TodayIcon size={32} /></Labeled>
-        <Labeled label="Quests"><QuestsIcon size={32} /></Labeled>
-        <Labeled label="Bestiary"><BestiaryIcon size={32} /></Labeled>
-        <Labeled label="Treasury"><TreasuryIcon size={32} /></Labeled>
-        <Labeled label="Atlas"><AtlasIcon size={32} /></Labeled>
-        <Labeled label="Chronicle"><ChronicleIcon size={32} /></Labeled>
+        <Labeled label="Tasks"><QuestsIcon size={32} /></Labeled>
+        <Labeled label="Pets"><BestiaryIcon size={32} /></Labeled>
+        <Labeled label="Rewards"><TreasuryIcon size={32} /></Labeled>
+        <Labeled label="Progress"><AtlasIcon size={32} /></Labeled>
+        <Labeled label="Memories"><ChronicleIcon size={32} /></Labeled>
         <div className="w-px h-10 bg-ink-page-shadow" />
         <Labeled label="Clock">
           <span className="text-sheikah-teal-deep"><ClockFabIcon size={32} /></span>
@@ -271,7 +288,7 @@ export default function DesignShowcase() {
       <section className="space-y-4">
         <SectionHeader title="Meadow markers" index={1} kicker="rounded chapter waypoints" />
         <AccordionSection
-          title="Treasury"
+          title="Rewards"
           index={0}
           kicker="this week at a glance"
           icon={<TreasuryIcon size={18} />}
@@ -287,25 +304,25 @@ export default function DesignShowcase() {
       <ParchmentCard className="space-y-4">
         <TextField
           id="demo-text"
-          label="What ventures are stirring today?"
-          placeholder="Sketch a dragon, plan a campfire, ink a letter…"
+          label="Activity name"
+          placeholder="Sketch a picture, plan a project, write a letter…"
           helpText="TextField — labeled input with helpText slot."
         />
         <SelectField
           id="demo-select"
-          label="Pick a quest"
+          label="Choose an activity"
           helpText="SelectField — labeled select; pass <option> children directly."
         >
           <option value="">Choose…</option>
-          <option value="dragon">Slay a dragon</option>
-          <option value="forge">Forge a sword</option>
-          <option value="map">Chart a map</option>
+          <option value="dragon">Draw a dragon</option>
+          <option value="forge">Build a model</option>
+          <option value="map">Make a map</option>
         </SelectField>
         <TextAreaField
           id="demo-textarea"
-          label="Notes for the next traveller"
+          label="Activity notes"
           rows={3}
-          placeholder="Mind the embers near dusk…"
+          placeholder="What would help you get started?"
           helpText="TextAreaField — labeled textarea; rows defaults to 3."
         />
         <TextField
@@ -315,6 +332,10 @@ export default function DesignShowcase() {
           error="This field has an error message wired through aria-describedby."
         />
       </ParchmentCard>
+
+      <DeckleDivider glyph="compass-rose" label="Task folio" />
+
+      <TasksShowcase />
 
       <DeckleDivider glyph="dragon-crest" label="Skills · Wayfinder" />
 
@@ -338,12 +359,14 @@ export default function DesignShowcase() {
         </div>
       </section>
 
+      <PatternLibrary />
+
       <DeckleDivider glyph="dragon-crest" />
 
       <footer className="text-center font-script text-ink-whisper text-sm pt-2 pb-8">
         End of entry · {new Date().toLocaleDateString()}
       </footer>
-    </div>
+    </div></DesignEnvironment>
   );
 }
 

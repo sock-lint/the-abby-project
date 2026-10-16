@@ -66,7 +66,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
               size="sm"
               icon={isPrivate ? <Lock size={10} aria-hidden="true" /> : <Users size={10} aria-hidden="true" />}
             >
-              {isPrivate ? 'Only you' : 'Shared with family'}
+              {isPrivate ? 'Only me' : 'Shared with parents'}
             </RuneBadge>
           )}
         </div>

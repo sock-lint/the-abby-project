@@ -135,7 +135,7 @@ export const getTimeEntries = () => api.get('/time-entries/');
 export const voidTimeEntry = (id) => api.post(`/time-entries/${id}/void/`);
 
 // Timecards
-export const getTimecards = () => api.get('/timecards/');
+export const getTimecards = ({ page } = {}) => api.get(`/timecards/${page ? `?page=${encodeURIComponent(page)}` : ''}`);
 export const getTimecard = (id) => api.get(`/timecards/${id}/`);
 export const approveTimecard = (id, notes) =>
   api.post(`/timecards/${id}/approve/`, { notes });
@@ -541,6 +541,8 @@ export const listPendingCreations = () => api.get('/creations/pending/');
 
 // RPG
 export const getCharacterProfile = () => api.get('/character/');
+export const getAvatarCatalog = () => api.get('/character/avatar/catalog/');
+export const saveAvatarConfiguration = (avatar_configuration) => api.post('/character/avatar/configuration/', { avatar_configuration });
 export const saveAvatarPreferences = (avatar_preferences) => api.post('/character/avatar/', { avatar_preferences });
 export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');

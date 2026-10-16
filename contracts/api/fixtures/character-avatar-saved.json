@@ -21,17 +21,36 @@
   "active_pet_accessory": null,
   "active_trophy_badge": null,
   "avatar_preferences": {
+    "outfit_style": "archer-03",
     "hair_style": "hair-04",
     "hair_color": "grey",
-    "skin_tone": "tan",
-    "outfit": "fire",
-    "outfit_style": "archer-03",
     "face_style": "face-02",
     "head_style": "head-01",
+    "skin_tone": "tan",
+    "outfit": "fire",
     "headwear_style": "crown-eve",
     "mask_style": "mask-undercover",
     "bow_style": "bow-vines",
     "quiver_style": "quiver-rook"
+  },
+  "avatar_configuration": {
+    "avatar_id": "female-archer",
+    "appearance": {
+      "hair_style": "hair-04",
+      "hair_color": "grey",
+      "skin_tone": "tan",
+      "outfit": "fire",
+      "outfit_style": "archer-03",
+      "face_style": "face-02",
+      "head_style": "head-01"
+    },
+    "accessories": {
+      "headwear": "crown-eve",
+      "face_accessory": "mask-undercover",
+      "left_hand": "bow-vines",
+      "right_hand": "none",
+      "back": "quiver-rook"
+    }
   },
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00"

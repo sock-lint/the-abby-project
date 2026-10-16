@@ -1,5 +1,6 @@
 import * as Sentry from '@sentry/react';
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { MotionConfig } from 'framer-motion';
 import { BrowserRouter, Routes, Route, Navigate, useParams, useLocation } from 'react-router-dom';
 import { useAuth } from './hooks/useApi';
 import { applyTheme } from './themes';
@@ -39,6 +40,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const QuestsHub = lazy(() => import('./pages/quests'));
 const BestiaryHub = lazy(() => import('./pages/bestiary'));
 const Character = lazy(() => import('./pages/Character'));
+const CustomizeAvatar = lazy(() => import('./pages/avatar-customize'));
 const TreasuryHub = lazy(() => import('./pages/treasury'));
 const AtlasHub = lazy(() => import('./pages/atlas'));
 const ChronicleHub = lazy(() => import('./pages/chronicle'));
@@ -86,17 +88,25 @@ function TrialsLegacyRedirect() {
 }
 
 export default function App() {
+  return <MotionConfig reducedMotion="user"><AppContent /></MotionConfig>;
+}
+
+function AppContent() {
   const { user, loading, login, signup, sessionError } = useAuth();
+  const designRoute = typeof window !== 'undefined' && window.location.pathname === '/__design';
+  const savedTheme = user?.theme;
+  const userId = user?.id;
   const [celebration, setCelebration] = useState(null);
   const [celebrationNotice, setCelebrationNotice] = useState(null);
 
   useEffect(() => {
-    if (user?.theme) applyTheme(user.theme);
+    if (designRoute) return;
+    if (savedTheme) applyTheme(savedTheme);
     else applyTheme('hyrule');
-  }, [user?.theme]);
+  }, [designRoute, savedTheme]);
 
   useEffect(() => {
-    if (!user) return;
+    if (designRoute || !userId) return;
     let cancelled = false;
     getPendingCelebration()
       .then((res) => {
@@ -111,12 +121,12 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [designRoute, userId]);
 
   // Streak / Perfect Day reveal — shown only after any pending birthday
   // is dismissed so the two never compete for attention on the same load.
   useEffect(() => {
-    if (!user) return;
+    if (designRoute || !userId) return;
     if (celebration) return;
     let cancelled = false;
     getPendingCelebrationNotification()
@@ -132,11 +142,11 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, celebration]);
+  }, [designRoute, userId, celebration]);
 
   // Dev-only design showcase route bypasses auth so primitives can be QA'd
   // without a running backend. Matches the path before any other routing.
-  if (typeof window !== 'undefined' && window.location.pathname === '/__design') {
+  if (designRoute) {
     return (
       <Sentry.ErrorBoundary fallback={ErrorFallback} showDialog={false}>
         <Suspense
@@ -228,6 +238,7 @@ export default function App() {
 
               {/* Sigil — the user's character/identity page, surfaced via the avatar menu */}
               <Route path="/sigil" element={<Character />} />
+              <Route path="/profile/customize" element={<CustomizeAvatar />} />
 
               {/* Chapter IV — Treasury */}
               <Route path="/treasury" element={<TreasuryHub />} />

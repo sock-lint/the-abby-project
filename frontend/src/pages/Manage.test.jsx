@@ -4,7 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Manage from './Manage.jsx';
-import { AuthProvider } from '../hooks/useApi.js';
+import { AuthProvider, useAuth } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { buildParent, buildUser } from '../test/factories.js';
 import { spyHandler } from '../test/spy.js';
@@ -620,4 +620,64 @@ describe('Manage — Admin tab', () => {
     });
     expect(await screen.findByText(/Created.*New House/i)).toBeInTheDocument();
   });
+});
+
+it('shows the confirmed child sign-in name and next step without retaining their password', async () => {
+  server.use(
+    http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+    http.get('*/api/children/', () => HttpResponse.json([])),
+  );
+  const create = spyHandler('post', /\/api\/children\/$/, { id: 7, username: 'abby-confirmed', display_name: 'Abby' });
+  server.use(create.handler);
+  const user = userEvent.setup();
+  renderPage();
+  await user.click(await screen.findByRole('button', { name: 'New child' }));
+  await user.type(screen.getByRole('textbox', { name: 'Sign-in name' }), 'abby');
+  await user.type(screen.getByLabelText('Secret word'), 'private-password');
+  await user.click(screen.getByRole('button', { name: 'Create child' }));
+  expect(await screen.findByRole('status', { name: 'Child account created' })).toHaveTextContent('abby-confirmed');
+  expect(screen.getByText(/different device or a private browser window/i)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Choose a first activity' })).toHaveAttribute('href', '/quests?tab=study&new=1');
+  expect(create.calls).toHaveLength(1);
+  expect(create.calls[0].body).toMatchObject({ username: 'abby', password: 'private-password' });
+  expect(screen.queryByDisplayValue('private-password')).toBeNull();
+  expect(document.body).not.toHaveTextContent('private-password');
+  expect(JSON.stringify(localStorage)).not.toContain('private-password');
+  await user.click(screen.getByRole('button', { name: 'Dismiss sign-in guidance' }));
+  expect(screen.queryByRole('status', { name: 'Child account created' })).toBeNull();
+});
+
+
+function SwitchFamilyManage() {
+  const { setUser } = useAuth();
+  return <><button onClick={() => {
+    localStorage.setItem('abby_auth_token', 'new-family-session');
+    setUser(buildParent({ id: 100, family: { id: 2 } }));
+  }}>Switch family account</button><Manage /></>;
+}
+
+it('a creation response cannot show the previous family child guidance after account replacement', async () => {
+  let release;
+  server.use(
+    http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ family: { id: 1 } }))),
+    http.get('*/api/children/', () => HttpResponse.json([])),
+    http.post('*/api/children/', async () => {
+      await new Promise((resolve) => { release = resolve; });
+      return HttpResponse.json({ id: 7, username: 'old-family-child' });
+    }),
+  );
+  render(<MemoryRouter><AuthProvider><SwitchFamilyManage /></AuthProvider></MemoryRouter>);
+  const user = userEvent.setup();
+  await user.click(await screen.findByRole('button', { name: 'New child' }));
+  await user.type(screen.getByRole('textbox', { name: 'Sign-in name' }), 'old-family-child');
+  await user.type(screen.getByLabelText('Secret word'), 'private-password');
+  await user.click(screen.getByRole('button', { name: 'Create child' }));
+  await waitFor(() => expect(release).toBeDefined());
+  await user.click(screen.getByRole('button', { name: 'Switch family account' }));
+  await screen.findByRole('button', { name: 'New child' });
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByRole('status', { name: 'Child account created' })).toBeNull();
+  expect(screen.queryByText('old-family-child')).toBeNull();
+  expect(screen.queryByDisplayValue('private-password')).toBeNull();
 });

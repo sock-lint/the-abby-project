@@ -6,11 +6,16 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from .avatar import (
+    avatar_catalog, avatar_appearance, configuration_from_preferences,
+    legacy_preferences_from_configuration, saved_avatar_configuration,
+)
 from .catalog_support import available_items
 
 from .models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .serializers import (
     AvatarPreferencesUpdateSerializer,
+    AvatarConfigurationUpdateSerializer,
     CharacterProfileSerializer,
     ItemDefinitionSerializer,
     UserInventorySerializer,
@@ -25,6 +30,20 @@ class CharacterView(APIView):
         profile, _created = CharacterProfile.objects.get_or_create(user=request.user)
         serializer = CharacterProfileSerializer(profile)
         return Response(serializer.data)
+
+
+class AvatarCatalogView(APIView):
+    """Read registered control definitions, without saved state or rewards."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if set(request.query_params) - {"_abby_session"}:
+            return Response(
+                {"error": "Avatar catalog does not accept query parameters."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(avatar_catalog())
 
 
 class AvatarPreferencesView(APIView):
@@ -50,9 +69,49 @@ class AvatarPreferencesView(APIView):
             profile, _created = CharacterProfile.objects.select_for_update().get_or_create(
                 user=request.user,
             )
+            fields = []
+            configuration = configuration_from_preferences(preferences)
+            if saved_avatar_configuration(profile.avatar_configuration, profile.avatar_preferences) != configuration:
+                profile.avatar_configuration = configuration
+                fields.append("avatar_configuration")
             if profile.avatar_preferences != preferences:
                 profile.avatar_preferences = preferences
-                profile.save(update_fields=["avatar_preferences", "updated_at"])
+                fields.append("avatar_preferences")
+            if fields:
+                profile.save(update_fields=[*fields, "updated_at"])
+            data = CharacterProfileSerializer(profile).data
+        return Response(data)
+
+
+class AvatarConfigurationView(APIView):
+    """Save a base and fitted shared items, preserving unknown saved reads."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        if set(request.query_params) - {"_abby_session"}:
+            return Response({"error": "Avatar configuration does not accept query parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        profile, _created = CharacterProfile.objects.get_or_create(user=request.user)
+        return Response(CharacterProfileSerializer(profile).data)
+
+    def post(self, request):
+        if request.query_params:
+            return Response({"error": "Avatar configuration does not accept query parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = AvatarConfigurationUpdateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        configuration = serializer.validated_data["avatar_configuration"]
+        with transaction.atomic():
+            profile, _created = CharacterProfile.objects.select_for_update().get_or_create(user=request.user)
+            fields = []
+            if saved_avatar_configuration(profile.avatar_configuration, profile.avatar_preferences) != configuration:
+                profile.avatar_configuration = configuration
+                fields.append("avatar_configuration")
+            preferences = legacy_preferences_from_configuration(configuration)
+            if preferences is not None and avatar_appearance(profile.avatar_preferences) != preferences:
+                profile.avatar_preferences = preferences
+                fields.append("avatar_preferences")
+            if fields:
+                profile.save(update_fields=[*fields, "updated_at"])
             data = CharacterProfileSerializer(profile).data
         return Response(data)
 

@@ -53,6 +53,9 @@ export default function Homework() {
   const [showSubmit, setShowSubmit] = useState(null);
   const [planning, setPlanning] = useState(null);
   const [planError, setPlanError] = useState('');
+  const [pendingDecision, setPendingDecision] = useState(null);
+  const [decisionError, setDecisionError] = useState(null);
+  const decisionInFlight = useRef(false);
 
   const openCreate = () => { setEditing(null); setShowForm(true); };
   const openEdit = (a) => { setEditing(a); setShowForm(true); };
@@ -68,15 +71,23 @@ export default function Homework() {
     }
   }, [searchParams, setSearchParams]);
 
-  const handleApprove = async (id) => {
-    await approveHomeworkSubmission(id);
-    reload();
+  const handleDecision = async (id, decision) => {
+    if (decisionInFlight.current) return;
+    decisionInFlight.current = true;
+    setPendingDecision({ id, decision });
+    setDecisionError(null);
+    try {
+      await (decision === 'approve' ? approveHomeworkSubmission(id) : rejectHomeworkSubmission(id));
+      await reload();
+    } catch (err) {
+      setDecisionError({ id, decision, message: err?.message || 'Could not save this review. Try again.' });
+    } finally {
+      decisionInFlight.current = false;
+      setPendingDecision(null);
+    }
   };
-
-  const handleReject = async (id) => {
-    await rejectHomeworkSubmission(id);
-    reload();
-  };
+  const handleApprove = (id) => handleDecision(id, 'approve');
+  const handleReject = (id) => handleDecision(id, 'reject');
 
   const handleWithdraw = async (submissionId) => {
     setActionError('');
@@ -307,9 +318,25 @@ export default function Homework() {
                       </p>
                     )}
                     <ProofGallery proofs={sub.proofs} />
-                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                    <fieldset
+                      disabled={pendingDecision !== null}
+                      aria-label={`Review ${sub.assignment_title}`}
+                      aria-busy={pendingDecision?.id === sub.id || undefined}
+                      className="flex min-w-0 items-center justify-end gap-1.5 flex-wrap"
+                    >
                       {actions}
-                    </div>
+                    </fieldset>
+                    {pendingDecision?.id === sub.id && (
+                      <p role="status" className="font-body text-body text-ink-secondary">
+                        {pendingDecision.decision === 'approve' ? 'Approving homework…' : 'Rejecting homework…'}
+                      </p>
+                    )}
+                    {decisionError?.id === sub.id && (
+                      <ErrorAlert
+                        message={decisionError.message}
+                        onRetry={() => handleDecision(sub.id, decisionError.decision)}
+                      />
+                    )}
                   </ParchmentCard>
                 )}
               </ApprovalQueue>

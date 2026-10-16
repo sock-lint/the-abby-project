@@ -1,14 +1,12 @@
 import { TOAST_DURATION_LONG } from '../constants/timing';
 import { useEffect, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Package, X } from 'lucide-react';
+import { AnimatePresence } from 'framer-motion';
+import { Package } from 'lucide-react';
 import { useDropToasts } from '../hooks/useDropToasts';
-import IconButton from './IconButton';
+import NotificationToast from './NotificationToast';
 import RpgSprite from './rpg/RpgSprite';
 import RareDropReveal from './RareDropReveal';
 import { RARE_TIERS } from './rareDropTiers';
-import { swipeToDismiss } from './toastSwipe';
-import { RARITY_SOLID_COLORS } from '../constants/colors';
 // Shared with the Lorebook first-encounter sheet — both are pulse-driven
 // reveals that must wait for an open form before taking over the screen.
 import { useDeferUntilDialogsClose } from './lorebook/dialogPresence';
@@ -20,15 +18,11 @@ function ToastItem({ toast, onDismiss }) {
   }, [toast.id, onDismiss]);
 
   return (
-    <motion.div
-      layout
-      initial={{ x: 300, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: 300, opacity: 0 }}
-      {...swipeToDismiss(() => onDismiss(toast.id))}
-      className={`flex items-center gap-3 rounded-lg border border-white/25 px-3 py-2 shadow-lg ${RARITY_SOLID_COLORS[toast.item_rarity] || RARITY_SOLID_COLORS.common}`}
+    <NotificationToast
+      rarity={toast.item_rarity}
+      onDismiss={() => onDismiss(toast.id)}
     >
-      <Package size={18} className="text-white shrink-0" />
+      <Package size={18} className="text-current shrink-0" />
       <RpgSprite
         spriteKey={toast.item_sprite_key}
         icon={toast.item_icon}
@@ -36,21 +30,12 @@ function ToastItem({ toast, onDismiss }) {
         alt={toast.item_name}
       />
       <div className="flex-1 min-w-0">
-        <div className="text-caption font-medium text-white">
+        <div className="text-caption font-medium text-current">
           {toast.was_salvaged ? 'Salvaged' : 'You got'}: {toast.item_name}
         </div>
-        <div className="text-micro text-white/70 capitalize">{toast.item_rarity}</div>
+        <div className="text-caption text-current capitalize">{toast.item_rarity}</div>
       </div>
-      <IconButton
-        onClick={() => onDismiss(toast.id)}
-        variant="ghost"
-        size="sm"
-        aria-label="Dismiss notification"
-        className="text-white/70 hover:text-white shrink-0"
-      >
-        <X size={14} />
-      </IconButton>
-    </motion.div>
+    </NotificationToast>
   );
 }
 

@@ -150,10 +150,113 @@ public HTML/JSON reporters and browser console capture are disabled. The
 controller verifies the exact report schema, scope, source, target, health and
 freshness independently and re-observes deployment state before accepting it.
 
+## Design and UX journeys
+
+The reviewed harness also exercises the deployed `/__design` route without an
+account. At a real 320-pixel viewport it checks all six cover palettes, enlarged
+and long content, text/control/focus contrast, 44-pixel controls, changing the
+browser's reduced-motion preference, keyboard dialog containment and restored
+focus, local Task details, and attachment selection, replacement, removal,
+preview failure and linked errors. Gallery saves and simulated upload failures
+are synthetic local state; they do not submit domain records.
+
+After verifying the dedicated identities, the parent journey follows the child's
+Today card into Timeline, retains the verified child across Journal, Grades and
+Timeline, and rejects an invalid local selection. Chronicle requests with an
+explicit `user_id` are fenced to the designated accounts before forwarding.
+Each initial Journal, Grades and Timeline read must finish successfully before
+the journey continues; returning to a retained panel reuses that confirmed read.
+An absent alert while a request is still loading does not establish success.
+The child journey verifies self-scoped Memories, task filtered/true-empty states,
+Movement's recorded-session/actual-XP summary and local image/model chooser
+controls in the real forms. Project detail/back restoration is exercised when
+the dedicated account already has a visible project; otherwise the journey
+requires a successful empty response and the true-empty UI. It never creates a
+project to manufacture coverage.
+
+Task recovery is a bounded browser connectivity fault. The Tasks hub statically
+loads its tab components online, then the already-authenticated browser briefly
+goes offline for the first Habits mount. Visited panels remain mounted, so
+reopening an already loaded Habits tab would not exercise a failed read. The
+actual error and “Try again” flow must recover after restoring connectivity;
+habit filtering runs afterwards. No API response is replaced, and connectivity
+is restored in a `finally` block before cleanup. Loopback checks render the real
+task hub and error controls so their retained-panel behavior and accessible names
+are part of the harness regression tests.
+
+PWA update protection uses an in-memory registration/event probe while native
+service workers remain blocked. The real deployed `PwaStatusProvider`, new
+project page and new-child dialog must protect local drafts, recheck work opened
+during activation, handle a failed activation, and reload only after an explicit
+retry or the existing fallback. The probe cannot register, install, activate or
+contact a native worker; it never submits either form. This establishes deployed
+UI behavior under controlled worker events, not native cache/install acceptance.
+Actual replacement-worker/offline-cache behavior remains covered by the isolated
+two-release browser tests. Server-confirmed saves, upload retries, approvals and
+rewards remain outside this read-only observer.
+
+All assertions run before their existing `publicShell`, `parent` or `child`
+receipt flag becomes true. The seven-check receipt schema, private transport,
+fixed failure categories, two logins/two logouts, mutation fence and time limits
+are unchanged. A missing control or failed assertion fails the whole receipt;
+arbitrary DOM, file content and account values never enter the report.
+The receipt is a gate result, not a per-journey inventory: a pass cannot establish
+that populated-project return or unmatched-search branches ran. Those checks
+require existing dedicated-family data; keep this limitation in verification
+reports rather than interpreting a true-empty check as populated coverage.
+
+## Installing a reviewed harness revision
+
+Installation is an explicitly authorized operator action. Source must come from
+the exact GitHub-confirmed merged commit after hosted CI and independent review,
+not a worktree, draft or uncommitted file. Verify the squash/rebase merge's tree
+against the reviewed PR head, and record the PR, source SHA and checks. Keep the
+previous immutable installation and manifest available for recovery.
+
+Prepare a new `/opt/abby-live-checks/<sourceCommit>` containing these exact Git
+archive paths, including all transitive live-helper imports:
+
+- `frontend/package.json`, `frontend/package-lock.json`,
+  `frontend/playwright.live.config.js`;
+- `frontend/e2e/live-smoke/`;
+- `frontend/scripts/run-live-checks.mjs`, `live-checks-contract.mjs`,
+  `live-process-group.mjs`, `live-checks-contract.check.mjs`;
+- `frontend/src/utils/contrast.js`.
+
+Do not copy credentials, worker homes, `.env`, private art, browser profiles,
+working-tree files or candidate-written pass receipts. If the archived lockfile
+is byte-identical to the previous sealed installation's lockfile, its unchanged
+root-owned `frontend/node_modules`, Node binary and matching `.browsers` runtime
+may be copied into the new installation. Verify both source and destination
+digests. A different lockfile requires a separately reviewed locked runtime
+preparation; do not silently reuse incompatible dependencies or execute npm
+lifecycle hooks as root.
+
+Write the new root-owned `0644` `frontend/.abby-live-source.json` with only
+`schemaVersion: 1` and the exact `sourceCommit`. Verify every staged file against
+its Git archive/runtime source, root ownership, no group/world write permission,
+regular files/directories, and symlinks whose resolved targets stay inside the
+new installation. Check that the Node binary is executable and Chromium's
+revision matches the locked Playwright package. Only then atomically replace
+the root-owned `0644` `/etc/abby-live-checks/manifest.json` with its existing five
+keys and paths inside the new immutable root. Never edit the previous tree or
+change the credential file, observer wrapper, loop grants or failure holds.
+
+Run the fixed observer against the freshly finished and served application
+commit. Verify the returned `sourceCommit` is the newly installed revision and
+that expected/deployed/served commits match the actual application release.
+An installation or browser failure retains the evidence for repair; it does not
+authorize a deployment retry, pin bypass, product write or fabricated pass.
+
 ## Offline validation
 
 Hosted PR validation runs `npm run test:live-config` with synthetic files and
 processes; it does not run the deployed suite or receive production credentials.
+The ordinary `npm run test:pwa` gate also runs the design, family/task and PWA
+helper checks against disposable loopback fixtures. Negative cases reject
+unreadable controls, missing draft guards, false empty responses, unverified
+identity and an unexpected file upload. The PWA fixture is a production-mode
+build of the real providers and forms, with native worker methods trapped.
 The existing frontend coverage/build, backend PostgreSQL and API-fixture gates
 remain required. Locally, also run:
 

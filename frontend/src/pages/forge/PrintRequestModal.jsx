@@ -3,6 +3,8 @@ import { Box, Link2, Upload } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
+import AttachmentField from '../../components/attachments/AttachmentField';
+import { attachmentErrorMessages } from '../../components/attachments/attachmentHelpers';
 import ModalActions from '../../components/ModalActions';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { DateField, TextAreaField, TextField } from '../../components/form';
@@ -40,6 +42,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
   const [mode, setMode] = useState('link'); // 'link' | 'upload'
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState('');
   const [title, setTitle] = useState('');
   const [color, setColor] = useState('');
   const [reason, setReason] = useState('');
@@ -112,7 +115,9 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
       onSaved?.(saved);
       onClose?.();
     } catch (err) {
-      setError(err?.message || 'Could not send that request.');
+      const feedback = attachmentErrorMessages(err, 'model_file', 'Could not send that request.');
+      setFileError(feedback.fileError);
+      setError(feedback.message);
     } finally {
       setSaving(false);
     }
@@ -131,6 +136,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
             variant={mode === 'link' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setMode('link')}
+            disabled={saving}
             aria-pressed={mode === 'link'}
             className="flex-1 flex items-center justify-center gap-1"
           >
@@ -140,6 +146,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
             variant={mode === 'upload' ? 'primary' : 'secondary'}
             size="sm"
             onClick={() => setMode('upload')}
+            disabled={saving}
             aria-pressed={mode === 'upload'}
             className="flex-1 flex items-center justify-center gap-1"
           >
@@ -161,24 +168,10 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [] }) {
             helpText="MakerWorld, Printables, Thingiverse — or any model page."
           />
         ) : (
-          <div>
-            {/* intentional: native file picker markup — the form primitives
-                don't wrap <input type="file">, same retention the ingest
-                and photo-upload flows carry. */}
-            <label htmlFor="forge-file" className="font-script text-body text-ink-secondary mb-1 block">
-              Model file
-            </label>
-            <input
-              id="forge-file"
-              type="file"
-              accept=".stl,.3mf,.step,.stp,.obj"
-              onChange={(e) => setFile(e.target.files?.[0] || null)}
-              className="w-full text-body text-ink-secondary file:mr-3 file:rounded-lg file:border file:border-ink-page-shadow file:bg-ink-page-aged file:px-3 file:py-1.5 file:text-body file:text-ink-primary"
-            />
-            <p className="text-caption text-ink-whisper mt-1">
-              STL, 3MF, STEP or OBJ.
-            </p>
-          </div>
+          <AttachmentField id="forge-file" label="Model file" file={file}
+            onChange={(selected) => { setFile(selected); setFileError(''); setError(''); }}
+            accept=".stl,.3mf,.step,.stp,.obj" helpText="Choose an STL, 3MF, STEP, STP or OBJ model file."
+            disabled={saving} error={fileError} />
         )}
 
         {mode === 'link' && (previewing || preview) && (

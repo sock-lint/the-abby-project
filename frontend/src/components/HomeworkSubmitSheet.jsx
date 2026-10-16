@@ -5,11 +5,29 @@ import BottomSheet from './BottomSheet';
 import SubjectBadge from './SubjectBadge';
 import TimelinessBadge from './TimelinessBadge';
 import ErrorAlert from './ErrorAlert';
-import { submitHomework } from '../api';
+import { getHomeworkDetail, submitHomework } from '../api';
+import { useApi } from '../hooks/useApi';
 import { downscaleImage } from '../utils/image';
 import { formLabelClass } from '../constants/styles';
 import Button from './Button';
 import { TextAreaField } from './form';
+
+function AssignmentInstructions({ description }) {
+  if (!description) return null;
+  return (
+    <div className="rounded-xl bg-ink-page px-3 py-2 space-y-1">
+      <p className="font-body font-semibold text-caption text-ink-secondary">Instructions</p>
+      <p className="font-body text-body text-ink-primary whitespace-pre-wrap break-words">{description}</p>
+    </div>
+  );
+}
+
+function FetchedAssignmentInstructions({ assignmentId }) {
+  const { data, loading, error, reload } = useApi(() => getHomeworkDetail(assignmentId), [assignmentId]);
+  if (loading) return <p role="status" className="font-body text-body text-ink-secondary">Loading assignment instructions…</p>;
+  if (error) return <ErrorAlert message={`Couldn't load assignment instructions. ${error}`} onRetry={reload} />;
+  return <AssignmentInstructions description={data?.description} />;
+}
 
 /**
  * HomeworkSubmitSheet — bottom-sheet form for submitting homework proof.
@@ -93,6 +111,10 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
             )}
           </div>
         </div>
+
+        {typeof assignment.description === 'string'
+          ? <AssignmentInstructions description={assignment.description} />
+          : assignment.id != null && <FetchedAssignmentInstructions key={assignment.id} assignmentId={assignment.id} />}
 
         <div>
           <label htmlFor={proofInputId} className={formLabelClass}>Proof photos (required)</label>

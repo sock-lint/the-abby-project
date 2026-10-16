@@ -97,6 +97,10 @@ class CharacterProfile(TimestampedModel):
         default=dict, blank=True,
         help_text="Saved appearance choices for the owned Archer avatar; independent of rewards and cosmetic inventory.",
     )
+    avatar_configuration = models.JSONField(
+        default=dict, blank=True,
+        help_text="Saved base avatar, appearance and shared equipment; independent of rewards and cosmetic inventory.",
+    )
 
     class Meta:
         ordering = ["-level"]

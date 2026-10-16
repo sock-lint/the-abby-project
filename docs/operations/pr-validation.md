@@ -85,3 +85,10 @@ check explicit source maps, preserved originals, private temporary output,
 review requirements and bounded conversion reports without Blender or paid art.
 The separate `test_blender_archer.py` math checks require local Blender/bpy;
 hosted guards do not claim that they or real Archer renders were executed.
+
+The backend gate also evaluates both staging Compose recipes with synthetic
+configuration through `scripts/operations/test_staging_recipe.py`. It checks
+database/runtime isolation, unpublished container ports and staging-only
+transport-peer/forwarded-HTTPS labels, explicit build secrets and external
+database volume preservation. It does not contact staging or establish
+Cloudflare Access, live proxy routing or native-device acceptance.

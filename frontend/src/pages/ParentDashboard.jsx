@@ -10,7 +10,7 @@ import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import SectionHeader from '../components/SectionHeader';
 import { getChildren } from '../api';
-import { useApi } from '../hooks/useApi';
+import { useApi, useAuth } from '../hooks/useApi';
 import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
 import PageShell from '../components/layout/PageShell';
@@ -44,6 +44,7 @@ function NoChildrenWelcome() {
 }
 
 export default function ParentDashboard() {
+  const { user } = useAuth();
   const {
     pending, weekByKid, dashboard, reload, loading, failedSources = [], error,
   } = useParentDashboard();
@@ -140,8 +141,8 @@ export default function ParentDashboard() {
                     <button
                       key={child.id}
                       type="button"
-                      onClick={() => navigate('/manage')}
-                      aria-label={`Manage ${name}`}
+                      onClick={() => navigate(`/chronicle?tab=yearbook&child=${child.id}`)}
+                      aria-label={`View ${name}'s timeline`}
                       className="min-w-0 text-left"
                     >
                       <ParchmentCard className="h-full space-y-1">
@@ -155,6 +156,7 @@ export default function ParentDashboard() {
                               ? `${kidWeek.hours ?? 0}h clocked · ${formatCurrency(kidWeek.earnings)} clocked earnings`
                               : 'No clocked time this week.'}
                         </span>
+                        <span className="font-body text-caption text-sheikah-teal-deep block">View timeline</span>
                       </ParchmentCard>
                     </button>
                   );
@@ -178,7 +180,7 @@ export default function ParentDashboard() {
             </div>
           </section>
 
-          <OnboardingChecklist data={dashboard} />
+          <OnboardingChecklist data={dashboard} user={user} />
 
           <AccordionSection
             title="Quick adjusts"

@@ -181,6 +181,117 @@ describe('Rewards', () => {
     expect(redeem.calls[0].body).toEqual({});
   });
 
+  it('confirms a saved reward request using its actual held cost and opens its history', async () => {
+    const user = userEvent.setup();
+    const savedRequest = {
+      id: 91, status: 'pending', coin_cost_snapshot: 60,
+      reward: { id: 13, name: 'Ice Cream Sundae', icon: '🍨' },
+      requested_at: '2026-10-14T12:00:00Z',
+    };
+    const redeem = spyHandler('post', '*/api/rewards/13/redeem/', savedRequest);
+    renderPage(buildUser(), redeemHandlers(redeem));
+
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
+    const confirm = await screen.findByRole('dialog', { name: /ice cream/i });
+    expect(screen.queryByRole('status', { name: 'Reward request update' })).not.toBeInTheDocument();
+    await user.click(within(confirm).getByRole('button', { name: /request reward/i }));
+
+    const receipt = await screen.findByRole('status', { name: 'Reward request update' });
+    expect(receipt).toHaveTextContent('Request sent — awaiting parent approval');
+    expect(receipt).toHaveTextContent('Ice Cream Sundae');
+    expect(receipt).toHaveTextContent('60 coins held for this request');
+    expect(receipt).not.toHaveTextContent('50 coins held');
+    expect(redeem.calls).toHaveLength(1);
+    expect(new URL(redeem.calls[0].url).pathname).toBe('/api/rewards/13/redeem/');
+    expect(redeem.calls[0].body).toEqual({});
+
+    await user.click(screen.getByRole('button', { name: 'View request history' }));
+    const history = await screen.findByRole('dialog', { name: 'Reward request history' });
+    expect(within(history).getByText('Ice Cream Sundae')).toBeInTheDocument();
+    expect(within(history).getByText('pending')).toBeInTheDocument();
+    expect(within(history).getByText(/60 coins/)).toBeInTheDocument();
+    expect(redeem.calls).toHaveLength(1);
+  });
+
+  it('confirms an automatically fulfilled reward without saying parent approval is needed', async () => {
+    const user = userEvent.setup();
+    const redeem = spyHandler('post', '*/api/rewards/13/redeem/', {
+      id: 92, status: 'fulfilled', coin_cost_snapshot: 45,
+      reward: { id: 13, name: 'Ice Cream', icon: '🍨' },
+      requested_at: '2026-10-14T12:00:00Z',
+    });
+    renderPage(buildUser(), redeemHandlers(redeem));
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
+    const confirm = await screen.findByRole('dialog', { name: /ice cream/i });
+    await user.click(within(confirm).getByRole('button', { name: /request reward/i }));
+
+    const receipt = await screen.findByRole('status', { name: 'Reward request update' });
+    expect(receipt).toHaveTextContent('Reward received');
+    expect(receipt).toHaveTextContent('45 coins spent');
+    expect(receipt).not.toHaveTextContent('awaiting parent approval');
+    expect(redeem.calls).toHaveLength(1);
+    expect(redeem.calls[0].body).toEqual({});
+  });
+
+  it('keeps the saved receipt when refresh fails and retries reads without repeating the request', async () => {
+    const user = userEvent.setup();
+    let saved = false;
+    let failRefresh = true;
+    const savedRequest = {
+      id: 93, status: 'pending', coin_cost_snapshot: 50,
+      reward: { id: 13, name: 'Ice Cream', icon: '🍨' },
+      requested_at: '2026-10-14T12:00:00Z',
+    };
+    const redeem = spyHandler('post', '*/api/rewards/13/redeem/', () => {
+      saved = true;
+      return savedRequest;
+    });
+    const historyReads = spyHandler('get', '*/api/redemptions/', () => {
+      if (saved && failRefresh) return HttpResponse.json({ detail: 'History temporarily unavailable' }, { status: 503 });
+      return saved ? [savedRequest] : [];
+    });
+    renderPage(buildUser(), [historyReads.handler, ...redeemHandlers(redeem)]);
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
+    const confirm = await screen.findByRole('dialog', { name: /ice cream/i });
+    await user.click(within(confirm).getByRole('button', { name: /request reward/i }));
+
+    expect(await screen.findByRole('status', { name: 'Reward request update' })).toHaveTextContent('Request sent — awaiting parent approval');
+    expect(await screen.findByText(/Your request is saved. Some details couldn't refresh/)).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('History temporarily unavailable');
+    failRefresh = false;
+    await user.click(screen.getByRole('button', { name: 'Refresh reward details' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    expect(screen.getByRole('status', { name: 'Reward request update' })).toHaveTextContent('50 coins held');
+    await waitFor(() => expect(historyReads.calls).toHaveLength(3));
+    expect(redeem.calls).toHaveLength(1);
+    expect(redeem.calls[0].body).toEqual({});
+  });
+
+  it('shows a rejected request error without a saved receipt and allows an explicit retry', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const redeem = spyHandler('post', '*/api/rewards/13/redeem/', () => {
+      attempts += 1;
+      return attempts === 1
+        ? HttpResponse.json({ detail: 'Request was not accepted' }, { status: 400 })
+        : { id: 94, status: 'pending', coin_cost_snapshot: 50, reward: { id: 13, name: 'Ice Cream' } };
+    });
+    renderPage(buildUser(), redeemHandlers(redeem));
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
+    let confirm = await screen.findByRole('dialog', { name: /ice cream/i });
+    await user.click(within(confirm).getByRole('button', { name: /request reward/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Request was not accepted');
+    expect(screen.queryByRole('status', { name: 'Reward request update' })).not.toBeInTheDocument();
+    expect(redeem.calls).toHaveLength(1);
+
+    await user.click(screen.getByRole('button', { name: /request reward/i }));
+    confirm = await screen.findByRole('dialog', { name: /ice cream/i });
+    await user.click(within(confirm).getByRole('button', { name: /request reward/i }));
+    expect(await screen.findByRole('status', { name: 'Reward request update' })).toHaveTextContent('Request sent — awaiting parent approval');
+    expect(redeem.calls).toHaveLength(2);
+    expect(redeem.calls.every(({ body }) => JSON.stringify(body) === '{}')).toBe(true);
+  });
+
   it('backing out of the reward request confirm spends nothing', async () => {
     const user = userEvent.setup();
     const redeem = spyHandler('post', /\/api\/rewards\/\d+\/redeem\/$/, { ok: true });

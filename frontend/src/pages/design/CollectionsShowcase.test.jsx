@@ -16,9 +16,9 @@ describe('Collection navigation design showcase', () => {
     expect(screen.queryByText('First adventure')).not.toBeInTheDocument();
   });
 
-  it('opens a Lorebook topic with a long name and its available entries', async () => {
+  it('opens a Guide topic with a long name and its available entries', async () => {
     const { user } = renderWithProviders(<CollectionsShowcase />, { withAuth: false });
-    const tabs = within(screen.getByRole('tablist', { name: 'Demo Lorebook topics' }));
+    const tabs = within(screen.getByRole('tablist', { name: 'Demo Guide topics' }));
     const selected = tabs.getByRole('tab', { name: 'Skills, experience & growing at your own pace, 2 entries' });
     await user.click(selected);
     expect(selected).toHaveAttribute('aria-selected', 'true');
@@ -30,7 +30,7 @@ describe('Collection navigation design showcase', () => {
 
   it('filters the sample inventory and restores all treasures', async () => {
     const { user } = renderWithProviders(<CollectionsShowcase />, { withAuth: false });
-    const tabs = within(screen.getByRole('tablist', { name: 'Demo Satchel filters' }));
+    const tabs = within(screen.getByRole('tablist', { name: 'Demo Inventory filters' }));
     const potions = tabs.getByRole('tab', { name: 'Potions, 42 items' });
     await user.click(potions);
     expect(potions).toHaveAttribute('aria-selected', 'true');

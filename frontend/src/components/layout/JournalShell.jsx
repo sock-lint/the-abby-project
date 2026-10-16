@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { useOutlet } from 'react-router-dom';
+import { useLocation, useOutlet } from 'react-router-dom';
 import { ChapterSidebar, ChapterBottomBar } from './ChapterNav';
 import ParchmentSkeleton from '../ParchmentSkeleton';
 import QuickActionsFab from './QuickActionsFab';
@@ -30,6 +30,8 @@ import { useAuth } from '../../hooks/useApi';
  */
 export default function JournalShell() {
   const { user, logout, offline } = useAuth();
+  const { pathname } = useLocation();
+  const customizingAvatar = pathname.toLowerCase().replace(/\/+$/, '') === '/profile/customize';
   // Capture the matched element for each transition. A retained <Outlet>
   // reads the live route context and would render the incoming page again
   // inside the outgoing page's animation, duplicating its IDs and controls.
@@ -112,7 +114,7 @@ export default function JournalShell() {
               role="status"
               className="bg-ink-page-aged/80 border-t border-ink-page-shadow/50 px-4 lg:px-6 py-2 text-center font-body text-caption text-ink-secondary"
             >
-              Offline — showing your last journal
+              Connection unavailable — current tasks and memories need a connection.
             </div>
           )}
         </div>
@@ -142,7 +144,7 @@ export default function JournalShell() {
       </main>
 
       <ChapterBottomBar user={user} />
-      <QuickActionsFab />
+      {!customizingAvatar && <QuickActionsFab />}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { motion } from 'framer-motion';
 
 /**
@@ -11,6 +12,7 @@ export default function ProgressBar({
   className = '',
   'aria-label': ariaLabel = 'Progress',
 }) {
+  const reducedMotion = usePrefersReducedMotion();
   const safeValue = max > 0 ? Math.min(max, Math.max(0, value)) : 0;
   const pct = max > 0 ? (safeValue / max) * 100 : 0;
   return (
@@ -24,9 +26,9 @@ export default function ProgressBar({
     >
       <motion.div
         className={`h-full ${color} rounded-full`}
-        initial={{ width: 0 }}
+        initial={reducedMotion ? false : { width: 0 }}
         animate={{ width: `${pct}%` }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: reducedMotion ? 0 : 0.5, ease: 'easeOut' }}
       />
     </div>
   );

@@ -9,6 +9,21 @@ stable routes and component identifiers, not the labels to show users.
 
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
+`/__design` documents reusable page recipes and interactive recovery states.
+Utility screens compose the shared page and section headers. Hub tabs keep
+their compact phone layout while retaining an accessible page heading. Return
+navigation from a project uses the canonical, account-bound list context in
+`project/projectListReturn.js`, preserving only supported filters/search and a
+bounded scroll position.
+
+Journal, Grades and Timeline share `useChildContext` and `ChildContext` for
+parent selection. A child ID from the URL or per-parent/family remembered
+choice is accepted only after a fresh current-account roster verifies it.
+Account/family/credential changes fence old responses; entry author and privacy
+checks remain intact. Parent Today links directly to the selected child's
+timeline. Child creation shows a confirmed username and optional next activity
+guidance, without persisting passwords or inventing setup completion.
+
 The 2026-05 audit lifted two layout primitives out of the per-page copy-paste pattern:
 
 - **`<PageShell>`** ([`components/layout/PageShell.jsx`](/frontend/src/components/layout/PageShell.jsx)) — root wrapper replacing the copy-pasted `<motion.div className="max-w-6xl mx-auto space-y-5">`. Owns spine width (`max-w-6xl` wide / `max-w-3xl` narrow), vertical rhythm (3 tiers: `loose` = `space-y-6`, `default` = `space-y-5`, `tight` = `space-y-3`), and the fade-in animation. Does NOT add horizontal padding (that stays in `JournalShell`'s `px-4 md:px-6` to avoid double-padding). Set `animate={false}` for pages handling their own motion; pass `variants` to take over the motion config entirely. Set `as="main"` for `<main>` semantics. Used today across 17 surfaces — Achievements, ActivityPage, Badges, Character, ChildDashboard, ClockPage, CodexPage, DashboardSkeleton, Inventory, Manage, ParentDashboard, Payments, ProjectIngest, ProjectNew, Rewards, SettingsPage and Timecards. Quests-hub tab bodies (Chores, Habits, Projects, Homework, Movement, Forge, Trials) deliberately wear `QuestFolio` instead — they are tabs inside a hub, not page roots.
@@ -87,6 +102,29 @@ The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/in
 - `/habits` → `/quests?tab=rituals`
 - `/trials` → `/quests?tab=trials` via `TrialsLegacyRedirect()` in [`App.jsx`](/frontend/src/App.jsx) (preserves older `/trials?scroll=<itemId>` links without consuming the saved scroll).
 
+### Task actions and history
+
+Homework cards and proof sheets show the assignment description, preserving
+line breaks without displaying private notes. Sheets opened from Today fetch
+missing instructions through the assignment detail endpoint, with loading and
+retry states. Parent homework decisions disable review actions while saving;
+failures stay with the submission and retry the same decision.
+
+Assigned children can open `/clock?project=ID` from a workable project's
+“Work on this project” action. The clock verifies that exact assignment before
+offering an explicit clock-in; an unavailable target never falls back to a
+remembered project. An existing timer always shows its actual project.
+
+Payments and Timecards use `usePagedList` for complete history, totals and
+“Load more” recovery. Requests rebuild page numbers through the known API
+helpers with the current filters; server `next` URLs are never fetch targets.
+Filter/account changes fence older requests, and refreshing after a decision
+reloads the already-loaded pages so an older week remains visible.
+
+Reward requests show an accessible receipt from the saved redemption status
+and frozen coin cost, with a direct history view. A failed follow-up read keeps
+that receipt and offers read-only refresh instead of repeating the request.
+
 ### Shared folio shell
 
 [`pages/quests/QuestFolio.jsx`](/frontend/src/pages/quests/QuestFolio.jsx) is the verso/recto shell shared by Ventures, Duties, Study, Rituals, Movement. Modeled on the former Skills layout at `pages/achievements/FolioSpread.jsx` but parameterized so a tab can fill in its own letter / title / stats / progress without dragging the skill-tree XP math along.
@@ -106,24 +144,36 @@ Ventures + Study render a `RarityStrand` on the verso. Duties, Rituals, Movement
 
 ### Challenges sub-architecture
 
-Tasks → Challenges (`/quests?tab=trials`) lists every automatically tracking
-personal goal. A pin only features one active goal on Today and in the header;
+Tasks → Challenges (`/quests?tab=trials`) uses the shared Task folio shell.
+The pinned challenge and parent-created goals lead the working list. Up to three
+bonus challenges with positive progress appear next, ranked by proportion toward
+completion. The remaining bonus goals and history stay in collapsed disclosures.
+Every matching goal continues tracking regardless of its placement or whether a
+disclosure is open. A pin only features one active goal on Today and in the header;
 children do not start or claim goals to make their work count.
 
-- `trials/index.jsx` owns the parent's child selector, goal details, pin actions,
-  and In progress/Upcoming/History sections. Parents use `CreateGoalForm.jsx`
+- `trials/index.jsx` owns the parent's child selector, goal details and pin actions.
+  `ChallengesFolio.jsx` presents the shared `QuestFolio` layout; `challengeFocus.js`
+  groups the full server response without changing saved state or eligibility.
+  Parents use `CreateGoalForm.jsx`
   to assign count, minute or distance goals, with a period and optional weekly
   repeat. The form previews the activity, date window and reward and retains a
   UUID for identical save retries.
-- `ChallengeGoalCard.jsx` presents the server's decimal progress, activity rule,
-  deadline, planned reward and actual completion receipt. Action links open the
-  relevant activity flow; running goals preselect the movement type.
+- `ChallengeGoalCard.jsx` presents the server's decimal progress, origin, activity
+  rule, planned reward and actual completion receipt. Parent and pinned deadlines
+  remain visible; background bonus dates stay in full details. Origin is the
+  server-owned `parent|catalog|legacy` field, never inferred from a title. Action
+  links open the relevant activity flow; running goals preselect the movement type.
+  Closing details restores focus to a live goal button or the disclosure when a
+  pin change moved its original opener.
 - `goalDisplay.js` formats progress and household-local deadlines. Do not derive
   eligibility, paid amounts or recurrence from the browser clock.
 - `hooks/useChallenges.js` shares scoped server data, refreshes after Pulse and
   pin changes, and fences responses by account/credential/selected-child identity.
 - Existing boss/collection components and routes remain reference and legacy
   compatibility surfaces; the new page does not spend saved quest scrolls.
+- `/__design#task-folio` demonstrates these same presentation components with
+  synthetic goals and local-only pin/detail and parent/child preview controls.
 
 ### Forge sub-architecture
 
@@ -251,13 +301,14 @@ Flattens the `/api/portfolio/` response (`{projects, homework}`) into one unifie
 
 The inside-cover plate of the journal — personal author-portrait rather than a dashboard. Architecture in [`pages/character/`](/frontend/src/pages/character/):
 
-- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled Archer character through `AvatarCustomizer`, compact trophy and real streak statistics. Character identity offers four hairstyles, five hair colors, two skin tones, four palettes, three independent costume styles, three faces and rounded/pointed ears. A separate Wardrobe fieldset offers a crown or hood, mask, three bows and three quivers; every slot also offers None. Aqua/Nature/Fire/Dark buttons preview coordinated palette/equipment choices while preserving costume, skin, hair, face and ears. Explicit Save persists all eleven preferences through the self-only `POST /api/character/avatar/`; selections remain independent of earned cosmetics, inventory, XP and rewards.
+- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled saved avatar preview, compact trophy and real streak statistics. “Customize avatar” opens the dedicated `/profile/customize` screen; Profile does not contain wardrobe editing controls.
+- [`avatar-customize/`](/frontend/src/pages/avatar-customize/) — the live preview remains beside the options on desktop and above them on phones, with a separately scrolling options panel and Save/Undo actions. Layout measures the marked shell header and bottom navigation. The authenticated avatar catalog supplies base-specific appearance controls and compatible shared accessory choices. Base identity and equipment are saved separately in `avatar_configuration`: a Knight can reuse the same bow/quiver IDs as an Archer when its attachment bindings are prepared; source pack is provenance, not an equipment restriction. Only prepared base avatars are offered. Current Archer configuration maps to the existing private renderer, including fitted hood hair and saved ordinary hair under a crown. Drafts remain in memory for the same account and credential; Save adopts the confirmed server configuration, failed saves retain the draft, Undo restores the saved look, and the editor Back action asks before discarding. Wardrobe changes do not acquire inventory, grant XP/Coins or change earned cosmetics.
   A reviewed private v2 release renders the 2,880 identity combinations with supplied Idle and requires empty wardrobe slots. Schema 3 adds all wardrobe modules to each complete matching rig, with source-derived rigid bone attachments and palette texture aliases; the frontend can resolve 276,480 combined selections after that release is verified and reviewed. Only the selected pieces render. The hood uses supplied fitted hat hair while retaining the saved underlying hairstyle; the crown retains that hairstyle. Equipment never changes identity-based framing. Older static releases retain the original 64 appearances, and older releases never omit an unsupported saved piece just to render a different look. Missing private models/textures or renderer failure keeps customization and existing Profile controls usable. Idle pauses offscreen, in background tabs and for reduced motion; costume and wardrobe changes reset loading and local playback.
 - [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — empty slot is a debossed intaglio ("choose from your reliquary"); filled slot wears full `RARITY_HALO`. Picker is a `BottomSheet` that passes earned badges through `groupBadgesByCollection` — clicking a seal sets the trophy; clicking the current trophy clears it (null payload).
 - Two [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios offer Frames and Titles through the existing DOM presentation. Each [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) is equipped, owned or locked; locked supported offers remain noninteractive until owned. Counts exclude unavailable items. [`SavedCosmetics.jsx`](/frontend/src/pages/character/SavedCosmetics.jsx) keeps earlier accessories and unavailable items under Saved collection, with a button to remove a previous active selection. New accessories and accessory equip are unavailable; saved avatar preferences remain independent from earned cosmetics.
 - **Color themes**: Profile shows the current Meadow palette name and links to `/settings#appearance`; Settings owns the only selector. The palette stays selected when clicked again. Inventory theme actions use the same destination; saved cover keepsakes cannot expose a second remove control. Theme display names derive from `themes.js` while saved catalog names and ownership remain compatible.
 - Per-area shared logic lives in [`character.constants.js`](/frontend/src/pages/character/character.constants.js) — `COSMETIC_CHAPTERS` (slot → rubric/letter/name/kicker), `STREAK_TIERS` + `streakTier(days)` (flame sizing ladder aligned with backend milestone thresholds 1/7/30/100), `mergeSlotCosmetics(slot, owned, catalog, activeId)` (dedupe + sort: equipped → owned → locked, each sub-sorted by rarity then name), `slotRarityCounts` (feeds the strand), `cosmeticLockHint` (description-or-rarity-flavored fallback).
-- [`Character.jsx`](/frontend/src/pages/Character.jsx) is a thin orchestrator: parallel fetches via `useApi` for `getCharacterProfile` + `getCosmetics` + `getCosmeticCatalog` + `getBadges` + `getAchievementsSummary`, with `useMemo`'d `allBadges`/`earnedBadges` passed to the picker. Equip/unequip + trophy-set all optimistically mutate via `refresh()` without a full page reload.
+- [`Character.jsx`](/frontend/src/pages/Character.jsx) is a thin orchestrator: parallel fetches via `useApi` for `getCharacterProfile` + optional `getAvatarCatalog` + `getCosmetics` + `getCosmeticCatalog` + `getBadges` + `getAchievementsSummary`, with `useMemo`'d `allBadges`/`earnedBadges` passed to the picker. Equip/unequip + trophy-set all optimistically mutate via `refresh()` without a full page reload.
 
 ## Dashboard (role-split)
 
@@ -312,7 +363,7 @@ chore and habit rows use their existing endpoints and refresh the dashboard.
 
 ## Profile pictures and characters
 
-`accounts.User.avatar` ImageField → `upload_to="avatars/"`. Self-uploaded through Profile's page-specific `ProfilePictureEditor` component, labeled “Profile picture”; the Archer is labeled “Your character.” The hidden file picker has an accessible name and an Upload/Change picture button. Remove picture opens `ConfirmDialog` and sends `PATCH /api/auth/me/ {avatar: ""}`. Upload runs `downscaleImage` (`maxDim: 512`) before multipart delivery. Late preprocessing and responses are fenced by account identity, credential and mounted state. `SigilFrontispiece` and `AvatarMenu` show the saved picture with an initial fallback; the selected frame decorates the Profile picture. `MeView.patch` accepts multipart/JSON; a file replaces the old image, and the empty-string sentinel clears it. `AuthProvider.setUser` refreshes Profile and navigation after the confirmed response.
+`accounts.User.avatar` ImageField → `upload_to="avatars/"`. Self-uploaded through Profile's page-specific `ProfilePictureEditor` component, labeled “Profile picture”; the saved avatar is labeled separately from the profile picture. The hidden file picker has an accessible name and an Upload/Change picture button. Remove picture opens `ConfirmDialog` and sends `PATCH /api/auth/me/ {avatar: ""}`. Upload runs `downscaleImage` (`maxDim: 512`) before multipart delivery. Late preprocessing and responses are fenced by account identity, credential and mounted state. `SigilFrontispiece` and `AvatarMenu` show the saved picture with an initial fallback; the selected frame decorates the Profile picture. `MeView.patch` accepts multipart/JSON; a file replaces the old image, and the empty-string sentinel clears it. `AuthProvider.setUser` refreshes Profile and navigation after the confirmed response.
 
 ## Daily reflection and challenges
 
@@ -369,6 +420,8 @@ pages/
   Character.jsx, character/    Sigil Frontispiece, TrophySlot,
                                TrophyBadgePicker, CosmeticChapter,
                                CosmeticSigil, character.constants
+  avatar-customize/            Dedicated live avatar preview, shared equipment
+                               controls, account-bound draft and explicit Save
   Timecards, Payments, Rewards
   Achievements                 Skills tab inside AtlasHub (skill tree +
                                parent View|Manage toggle)

@@ -5,7 +5,7 @@ import {
   getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid, closeTimecard,
   downloadTimecardsCsv,
 } from '../api';
-import { useApi } from '../hooks/useApi';
+import usePagedList from '../hooks/usePagedList';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
@@ -15,12 +15,20 @@ import { ScrollIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { formatCurrency, formatDate, formatDuration } from '../utils/format';
-import { normalizeList } from '../utils/api';
+const fetchTimecardPage = (page) => getTimecards(page > 1 ? { page } : {});
 
 export default function Timecards() {
+  const { user } = useRole();
+  if (!user) return <ParchmentSkeleton variant="list" count={5} />;
+  return <AccountTimecards key={`${user.id}:${user.role}:${user.family?.id || ''}`} />;
+}
+
+function AccountTimecards() {
   const { isParent } = useRole();
-  const { data, loading, error: loadError, reload } = useApi(getTimecards);
+  const history = usePagedList(fetchTimecardPage);
+  const { items: timecards, loading, error: loadError, reload } = history;
   const [expandedId, setExpandedId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailError, setDetailError] = useState('');
@@ -32,9 +40,6 @@ export default function Timecards() {
   // back into view on mobile — without this, expanding a mid-list card
   // pushes its detail below the fold and the user has to scroll manually.
   const rowRefs = useRef({});
-
-  const timecards = normalizeList(data);
-
   const loadDetail = async (id) => {
     setDetail(null);
     setDetailError('');
@@ -118,29 +123,21 @@ export default function Timecards() {
 
   return (
     <PageShell rhythm="loose">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            Weekly hours and earnings from your clocked time
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Timecards
-          </h1>
-        </div>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleExport}
-          className="flex items-center gap-1"
-          title="Export timecards to CSV"
+      <PageHeader
+        title="Timecards" kicker="Weekly hours and earnings from your clocked time"
+        actions={<Button
+          size="sm" variant="ghost" onClick={handleExport}
+          className="flex items-center gap-1" title="Export timecards to CSV"
         >
           <Download size={14} /> Export CSV
-        </Button>
-      </header>
+        </Button>}
+      />
 
       {exportError && <ErrorAlert message={exportError} />}
       <ErrorAlert message={error} />
 
+      {!loading && !loadError && <p role="status" className="text-caption text-ink-secondary">Showing {timecards.length} of {history.count} timecards</p>}
+      {history.refreshing && <p role="status" className="text-body text-ink-secondary">Refreshing timecards…</p>}
       {/* A failed list fetch used to read as "no weeks logged yet" — data
           loss, as far as a kid on spotty wifi could tell — with no way back
           short of force-quitting the installed app. */}
@@ -319,6 +316,12 @@ export default function Timecards() {
             </motion.div>
           ))}
         </div>
+      )}
+      <ErrorAlert message={history.moreError} />
+      {history.nextPage && !loadError && (
+        <Button variant="secondary" onClick={history.loadMore} loading={history.loadingMore} disabled={history.loadingMore || history.refreshing}>
+          {history.moreError ? 'Try loading more timecards again' : 'Load more timecards'}
+        </Button>
       )}
     </PageShell>
   );

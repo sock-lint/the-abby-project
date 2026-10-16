@@ -47,4 +47,15 @@ describe('UpdateBanner', () => {
     await user.click(screen.getByRole('button', { name: /reload/i }));
     expect(applyUpdate).toHaveBeenCalledTimes(1);
   });
+
+  it('explains blocked updates and prevents the banner from discarding open work', async () => {
+    const applyUpdate = vi.fn();
+    const user = userEvent.setup();
+    renderWithStatus({ updateReady: true, updateBlocked: true, applyUpdate });
+    expect(screen.getByRole('status')).toHaveTextContent('Finish or close your open work before updating.');
+    const reload = screen.getByRole('button', { name: /reload/i });
+    expect(reload).toBeDisabled();
+    await user.click(reload);
+    expect(applyUpdate).not.toHaveBeenCalled();
+  });
 });

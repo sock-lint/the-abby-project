@@ -180,6 +180,15 @@ test('production Django routes survive offline boots and replacement releases un
   await expectOfflineShell(page, origin, 'A');
   await expect(page.getByText('New version available.', { exact: true })).toBeVisible();
   await context.setOffline(false);
+  const draft = page.getByRole('textbox', { name: 'Synthetic unsaved note', exact: true });
+  await draft.fill('Keep this local note until I choose to finish.');
+  await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeDisabled();
+  await expect(page.getByRole('status')).toContainText('Finish or close your open work before updating.');
+  expect(await page.evaluate(async () => Boolean((await navigator.serviceWorker.getRegistration('/'))?.waiting))).toBe(true);
+  await expect(page.locator('#release')).toHaveText('Release A');
+  await expect(draft).toHaveValue('Keep this local note until I choose to finish.');
+  await draft.clear();
+  await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeEnabled();
   await page.getByRole('button', { name: 'Reload', exact: true }).click();
   await expect(page.locator('#release')).toHaveText('Release B');
   await expect(page.getByText('New version available.', { exact: true })).toHaveCount(0);

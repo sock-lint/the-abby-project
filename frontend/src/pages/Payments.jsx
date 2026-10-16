@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DollarSign, TrendingUp, ArrowDownRight, ArrowUpRight, ArrowRightLeft, Target, Plus, Download, Filter, X } from 'lucide-react';
@@ -7,6 +7,7 @@ import {
   getPaymentLedger, downloadPaymentLedgerCsv,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import usePagedList from '../hooks/usePagedList';
 import { useFormState } from '../hooks/useFormState';
 import { useRole } from '../hooks/useRole';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
@@ -21,6 +22,7 @@ import { normalizeList } from '../utils/api';
 import Button from '../components/Button';
 import Sparkline from '../components/Sparkline';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { TextField, SelectField, DateField } from '../components/form';
 import GreenlightWorkflow from './payments/GreenlightWorkflow';
 
@@ -147,11 +149,6 @@ function PaymentsView() {
     () => getBalance({ user_id: isParent ? userIdParam || undefined : undefined }),
     [userIdParam, isParent],
   );
-  const [ledgerVersion, setLedgerVersion] = useState(0);
-  const ledgerChanged = () => {
-    reload();
-    setLedgerVersion((version) => version + 1);
-  };
 
   // Drop ?adjust=1 as the sheet closes so a tab switch back here (ChapterHub
   // remounts tab bodies) doesn't re-open it.
@@ -204,9 +201,6 @@ function PaymentsView() {
     end_date: endDate,
     user_id: userIdParam,
   }), [entryTypes, startDate, endDate, userIdParam]);
-  const [filteredLedger, setFilteredLedger] = useState(null);
-  const [filterLoading, setFilterLoading] = useState(false);
-  const [filterError, setFilterError] = useState('');
   const [exportError, setExportError] = useState('');
   const { data: childrenData } = useApi(
     isParent ? getChildren : () => Promise.resolve({ results: [] }),
@@ -221,8 +215,7 @@ function PaymentsView() {
     return kid ? (kid.display_name || kid.username) : null;
   }, [children]);
 
-  // Any filter active? Drives whether we fetch the ledger directly vs.
-  // showing the summary's recent_transactions slice.
+  // Active filters control the clear action and empty-state wording.
   const hasFilter = useMemo(
     () =>
       filters.entry_types.length > 0
@@ -232,48 +225,18 @@ function PaymentsView() {
     [filters],
   );
 
-  // Re-fetch the filtered ledger when filters become active or change.
-  // ``filteredLedger`` is only consumed in render when ``hasFilter`` is
-  // true (see ``entriesToRender`` below), so we leave any stale value
-  // sitting in state when filters are cleared rather than calling
-  // setFilteredLedger(null) here — that would be a synchronous setState
-  // inside an effect body for no externally-visible reason. The stale
-  // value is shadowed at render time, and replaced wholesale on the
-  // next filter activation.
-  useEffect(() => {
-    if (!hasFilter) return;
-    // Marking "loading" before kicking off the fetch is a legitimate
-    // synchronization-with-external-system pattern — the rule's
-    // "don't setState in an effect" guidance targets effects that
-    // should be derived state, not ones that wrap async network IO.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFilterLoading(true);
-    setFilterError('');
-    const params = {
-      start_date: filters.start_date || undefined,
-      end_date: filters.end_date || undefined,
-      user_id: filters.user_id || undefined,
-      entry_type: filters.entry_types.length
-        ? filters.entry_types.join(',')
-        : undefined,
-    };
-    let cancelled = false;
-    getPaymentLedger(params)
-      .then((resp) => {
-        if (cancelled) return;
-        setFilteredLedger(normalizeList(resp));
-      })
-      .catch((failure) => {
-        if (cancelled) return;
-        setFilteredLedger([]);
-        setFilterError(failure.message || 'Could not load the filtered ledger.');
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setFilterLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [filters, hasFilter, ledgerVersion]);
+  const fetchLedgerPage = useCallback((page) => getPaymentLedger({
+    start_date: filters.start_date || undefined,
+    end_date: filters.end_date || undefined,
+    user_id: isParent ? filters.user_id || undefined : undefined,
+    entry_type: filters.entry_types.length ? filters.entry_types.join(',') : undefined,
+    page: page > 1 ? page : undefined,
+  }), [filters, isParent]);
+  const ledger = usePagedList(fetchLedgerPage);
+  const entriesToRender = ledger.items;
+  const filterLoading = ledger.loading || ledger.refreshing;
+  const filterError = ledger.error;
+  const ledgerChanged = () => { reload(); void ledger.reload(); };
 
   const toggleEntryType = (type) => {
     const has = entryTypes.includes(type);
@@ -334,47 +297,24 @@ function PaymentsView() {
     );
   }
 
-  const { balance, breakdown, recent_transactions } = data;
-  // Render the filtered ledger when any filter is active; otherwise show
-  // the small recent_transactions slice from the balance summary. The
-  // ``hasFilter`` shadow is what lets the effect leave stale filteredLedger
-  // values in state without leaking them into the UI.
-  const entriesToRender = hasFilter
-    ? (filteredLedger ?? [])
-    : (recent_transactions ?? []);
+  const { balance, breakdown } = data;
 
   return (
     <div className="space-y-6">
-      <header className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <div className="font-script text-sheikah-teal-deep text-base">
-            Track earnings and payouts
-          </div>
-          <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-            Payments
-          </h1>
-        </div>
-        {isParent && (
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={handleExport}
-              className="flex items-center gap-1"
-              title="Export current view to CSV"
-            >
-              <Download size={14} /> Export CSV
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowAdjust(true)}
-              className="flex items-center gap-1"
-            >
-              <Plus size={14} /> Adjust money owed
-            </Button>
-          </div>
-        )}
-      </header>
+      <PageHeader
+        title="Payments" kicker="Track earnings and payouts"
+        actions={isParent && <>
+          <Button
+            size="sm" variant="ghost" onClick={handleExport}
+            className="flex items-center gap-1" title="Export current view to CSV"
+          >
+            <Download size={14} /> Export CSV
+          </Button>
+          <Button size="sm" onClick={() => setShowAdjust(true)} className="flex items-center gap-1">
+            <Plus size={14} /> Adjust money owed
+          </Button>
+        </>}
+      />
 
       {exportError && <ErrorAlert message={exportError} />}
 
@@ -451,8 +391,8 @@ function PaymentsView() {
 
       {/* Filter strip — entry-type pills, optional date range + child select */}
       <section aria-labelledby="ledger-filters-heading">
-        <DeckleDivider glyph="flourish-corner" label="recent entries" />
-        {/* Entry-type pills carry the same min-h-9 / px-3 sizing as the
+        <DeckleDivider glyph="flourish-corner" label="payment history" />
+        {/* Entry-type pills carry the same min-h-11 / px-3 sizing as the
             date-range chips below them — one toolbar shouldn't hold two
             different tap standards. */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2" id="ledger-filters-heading">
@@ -465,7 +405,7 @@ function PaymentsView() {
                 type="button"
                 onClick={() => toggleEntryType(type)}
                 aria-pressed={active}
-                className={`min-h-9 px-3 text-caption font-script rounded-full border transition-colors ${
+                className={`min-h-11 px-3 text-caption font-script rounded-full border transition-colors ${
                   active
                     ? 'bg-sheikah-teal-deep/15 text-sheikah-teal-deep border-sheikah-teal-deep/40'
                     : 'bg-ink-page-aged hover:bg-ink-page-shadow/40 text-ink-whisper border-ink-page-shadow/30'
@@ -478,16 +418,14 @@ function PaymentsView() {
           {hasFilter && (
             <>
               <span className="font-script text-caption text-sheikah-teal-deep tabular-nums">
-                ({entriesToRender.length})
+                ({ledger.count})
               </span>
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="min-h-9 px-3 text-caption font-script rounded-full bg-ember-deep/10 text-ember-deep border border-ember-deep/30 hover:bg-ember-deep/20 flex items-center gap-1"
-                aria-label="Clear all filters"
+              <Button
+                size="sm" variant="ghost" onClick={clearFilters}
+                className="flex items-center gap-1" aria-label="Clear all filters"
               >
-                <X size={12} aria-hidden="true" /> clear
-              </button>
+                <X size={12} aria-hidden="true" /> Clear filters
+              </Button>
             </>
           )}
         </div>
@@ -496,19 +434,13 @@ function PaymentsView() {
             {Object.entries(quickRanges()).map(([key, range]) => {
               const active = startDate === range.start && endDate === range.end;
               return (
-                <button
-                  key={key}
-                  type="button"
+                <Button
+                  key={key} size="sm" variant={active ? 'primary' : 'secondary'}
                   aria-pressed={active}
                   onClick={() => { setStartDate(range.start); setEndDate(range.end); }}
-                  className={`min-h-9 px-3 rounded-full border font-body text-caption transition-colors ${
-                    active
-                      ? 'bg-sheikah-teal-deep text-ink-page-rune-glow border-sheikah-teal-deep'
-                      : 'border-ink-page-shadow text-ink-secondary hover:text-ink-primary'
-                  }`}
                 >
                   {range.label}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -546,16 +478,17 @@ function PaymentsView() {
 
       {filterError && <div className="space-y-2">
         <ErrorAlert message={filterError} />
-        <Button variant="secondary" onClick={() => setLedgerVersion((version) => version + 1)}>Retry ledger</Button>
+        <Button variant="secondary" onClick={ledger.reload}>Retry ledger</Button>
       </div>}
 
-      {/* Ledger entries — switches to filtered ledger when any filter is active */}
+      {filterLoading && <p role="status" className="text-body text-ink-secondary">Loading payment history…</p>}
+      {!ledger.loading && !filterError && (
+        <p role="status" className="text-caption text-ink-secondary">Showing {entriesToRender.length} of {ledger.count} payment entries</p>
+      )}
+      {/* Complete ledger, including unfiltered history, comes from its list endpoint. */}
       {entriesToRender.length > 0 && (
         <section>
           <div className="space-y-2">
-            {filterLoading && (
-              <div className="font-script text-tiny text-ink-whisper">filtering…</div>
-            )}
             {entriesToRender.map((tx) => {
               const { icon: Icon, tone } = typeIcons[tx.entry_type] || typeIcons.adjustment;
               const isPositive = parseFloat(tx.amount) >= 0;
@@ -603,12 +536,19 @@ function PaymentsView() {
         </section>
       )}
 
-      {!breakdown && !entriesToRender.length && (
+      <ErrorAlert message={ledger.moreError} />
+      {ledger.nextPage && (
+        <Button variant="secondary" onClick={ledger.loadMore} loading={ledger.loadingMore} disabled={ledger.loadingMore || ledger.refreshing}>
+          {ledger.moreError ? 'Try loading more payments again' : 'Load more payments'}
+        </Button>
+      )}
+
+      {!hasFilter && !entriesToRender.length && !filterLoading && !filterError && (
         <EmptyState icon={<DollarSign size={32} />}>
           No payment entries yet. Earn money from project work to see entries here.
         </EmptyState>
       )}
-      {hasFilter && entriesToRender.length === 0 && !filterLoading && (
+      {hasFilter && entriesToRender.length === 0 && !filterLoading && !filterError && (
         <EmptyState icon={<Filter size={32} />}>
           No entries match those filters — clear them to see the full ledger.
         </EmptyState>

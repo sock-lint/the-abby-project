@@ -1,7 +1,9 @@
 import { Component, lazy, Suspense, useCallback, useId, useMemo, useRef, useState } from 'react';
-import { UserRound } from 'lucide-react';
+import { RotateCcw, UserRound } from 'lucide-react';
 import Button from '../Button';
+import IconButton from '../IconButton';
 import { resolveAvatarAppearance } from '../../avatar/appearance';
+import { avatarPreviewPreferences } from '../../avatar/configuration';
 import useSceneMotionAllowed from '../../companion/useSceneMotionAllowed';
 
 const REACTIONS = ['hop', 'twirl', 'bow'];
@@ -14,14 +16,22 @@ class AvatarBoundary extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export default function AvatarPreview({ preferences }) {
-  const appearance = useMemo(() => resolveAvatarAppearance(preferences), [preferences]);
-  const identity = [appearance?.url, appearance?.hairStyle, appearance?.headStyle,
+export default function AvatarPreview({ preferences, configuration, avatarDefinition, className = '', stageClassName = 'h-80', compact = false }) {
+  const rendererAdapter = avatarDefinition ? avatarDefinition.renderer_adapter : 'female-archer';
+  const registeredArcher = rendererAdapter === 'female-archer' && (!avatarDefinition || avatarDefinition.id === 'female-archer');
+  const previewPreferences = useMemo(() => configuration === undefined ? preferences : avatarPreviewPreferences(configuration, avatarDefinition), [configuration, avatarDefinition, preferences]);
+  const configurationReady = configuration === undefined || previewPreferences != null;
+  const appearance = useMemo(() => registeredArcher && configurationReady ? resolveAvatarAppearance(previewPreferences) : null, [previewPreferences, registeredArcher, configurationReady]);
+  const identity = [avatarDefinition?.id ?? rendererAdapter, appearance?.url, appearance?.hairStyle, appearance?.headStyle,
+    appearance?.configuration ? JSON.stringify(appearance.configuration) : '',
     ...Object.values(appearance?.wardrobe || {}), ...Object.values(appearance?.textures || {})].join(':');
-  return <Preview key={identity} appearance={appearance} />;
+  const generic = !!avatarDefinition || configuration !== undefined;
+  const avatarLabel = avatarDefinition ? `Your ${avatarDefinition.label || 'selected'} avatar` : generic ? 'Your avatar' : 'Your Archer character';
+  return <Preview key={identity} appearance={appearance} avatarLabel={avatarLabel} noun={generic ? 'avatar' : 'character'}
+    className={className} stageClassName={stageClassName} compact={compact} />;
 }
 
-function Preview({ appearance }) {
+function Preview({ appearance, avatarLabel, noun, className, stageClassName, compact }) {
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -53,7 +63,7 @@ function Preview({ appearance }) {
     if (interactive) setCameraReset((value) => value + 1);
   };
   const pointerDown = (event) => {
-    if (!interactive) return;
+    if (!interactive || event.target.closest?.('button')) return;
     const active = pointers.current;
     // OrbitControls owns capture on the real canvas. Observe its events without
     // putting a button or another capture target in the camera's way.
@@ -77,7 +87,7 @@ function Preview({ appearance }) {
     pointers.current.delete(event.pointerId);
   };
   const keyDown = (event) => {
-    if (!interactive || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (!interactive || event.target.closest?.('button') || event.altKey || event.ctrlKey || event.metaKey) return;
     const directions = {
       ArrowLeft: [1, 0], ArrowRight: [-1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1],
     };
@@ -109,13 +119,13 @@ function Preview({ appearance }) {
   };
 
   return (
-    <div className="space-y-2">
-      <div className="relative h-80 overflow-hidden rounded-2xl border border-ink-page-shadow bg-ink-page-aged focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sheikah-teal-deep"
+    <div className={`space-y-2 ${className}`}>
+      <div className={`relative ${stageClassName || 'h-80'} overflow-hidden rounded-2xl border border-ink-page-shadow bg-ink-page-aged focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sheikah-teal-deep`}
         ref={stageRef} role="group" aria-label="Character view" aria-describedby={interactive ? helpId : undefined} tabIndex={interactive ? 0 : -1}
         aria-busy={!!showScene && !ready}
         onPointerDownCapture={pointerDown} onPointerMoveCapture={pointerMove} onPointerUpCapture={pointerUp}
         onPointerCancelCapture={pointerCancel} onLostPointerCaptureCapture={pointerCancel} onKeyDown={keyDown}>
-        <div className="absolute inset-0" role="img" aria-label="Your Archer character">
+        <div className="absolute inset-0" role="img" aria-label={avatarLabel}>
           {showScene && <div className="absolute inset-0" aria-hidden="true">
             <AvatarBoundary key={attempt} onFailure={onFailure}>
               <Suspense fallback={null}>
@@ -125,20 +135,22 @@ function Preview({ appearance }) {
             </AvatarBoundary>
           </div>}
         </div>
+        {compact && showScene && <IconButton aria-label="Reset view" size="sm" variant="secondary" disabled={!interactive} onClick={resetView}
+          className="absolute right-2 top-2 z-10 bg-ink-page/90"><RotateCcw size={18} aria-hidden="true" /></IconButton>}
         {(!showScene || !ready) && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center">
           <UserRound size={64} className="text-sheikah-teal-deep" aria-hidden="true" />
           <p className="font-body text-body text-ink-secondary" role="status">
-            {showScene ? 'Loading your character…' : 'The character preview is unavailable. You can still customize your look.'}
+            {showScene ? `Loading your ${noun}…` : `The ${noun} preview is unavailable. You can still customize your look.`}
           </p>
-          {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry character preview</Button>}
+          {failed && <Button size="sm" variant="secondary" onClick={retry}>Retry {noun} preview</Button>}
         </div>}
       </div>
       {showScene && <>
-        <div className="flex flex-wrap gap-2">
+        {!compact && <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" disabled={!interactive || !motionAllowed} onClick={play}>Play animation</Button>
           <Button size="sm" variant="ghost" disabled={!interactive} onClick={resetView}>Reset view</Button>
-        </div>
-        <p id={helpId} className="font-body text-caption text-ink-secondary">
+        </div>}
+        <p id={helpId} className={compact ? 'sr-only' : 'font-body text-caption text-ink-secondary'}>
           {motionAllowed ? 'Tap for an animation. Drag to look around.' : 'Drag to look around. Animations are paused.'}
           {' Scroll outside the preview.'}
           <span className="sr-only"> Focus the character view and use arrow keys to look around. Press Home to reset the view.{motionAllowed && ' Press Enter or Space to play an animation.'}</span>

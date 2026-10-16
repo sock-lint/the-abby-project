@@ -53,6 +53,79 @@ function renderPage(user, handlers = [], { route = '/homework' } = {}) {
 }
 
 describe('Homework', () => {
+  it.each(['approve', 'reject'])('keeps %s decisions busy and prevents competing or repeated requests', async (decision) => {
+    const user = userEvent.setup();
+    let finishDecision;
+    let decided = false;
+    const response = new HttpResponse(new ReadableStream({
+      start(controller) {
+        finishDecision = () => {
+          decided = true;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify({ ok: true })));
+          controller.close();
+        };
+      },
+    }), { headers: { 'Content-Type': 'application/json' } });
+    const request = spyHandler('post', new RegExp(`/api/homework-submissions/9/${decision}/$`), response);
+    const opposite = spyHandler('post', new RegExp(`/api/homework-submissions/9/${decision === 'approve' ? 'reject' : 'approve'}/$`), { ok: true });
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+        assignments: [], pending_submissions: decided ? [] : [
+          { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+        ],
+      })),
+      request.handler, opposite.handler,
+    ]);
+
+    const button = await screen.findByRole('button', { name: new RegExp(`^${decision}$`, 'i') });
+    const other = screen.getByRole('button', { name: decision === 'approve' ? /^reject$/i : /^approve$/i });
+    try {
+      await user.click(button);
+      await waitFor(() => expect(request.calls).toHaveLength(1));
+      expect(button).toBeDisabled();
+      expect(other).toBeDisabled();
+      expect(screen.getByRole('status')).toHaveTextContent(decision === 'approve' ? 'Approving homework…' : 'Rejecting homework…');
+      await user.click(button);
+      await user.click(other);
+      expect(request.calls).toHaveLength(1);
+      expect(opposite.calls).toHaveLength(0);
+      expect(request.calls[0].body).toEqual(decision === 'approve' ? null : { notes: '' });
+    } finally {
+      finishDecision();
+    }
+    await waitFor(() => expect(screen.queryByText('Reading log')).not.toBeInTheDocument());
+  });
+
+  it.each(['approve', 'reject'])('shows failed %s decisions in place and retries the same request safely', async (decision) => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    let decided = false;
+    const request = spyHandler('post', new RegExp(`/api/homework-submissions/9/${decision}/$`), () => {
+      attempts += 1;
+      if (attempts === 1) return HttpResponse.json({ detail: 'Review is temporarily unavailable.' }, { status: 503 });
+      decided = true;
+      return { ok: true };
+    });
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+        assignments: [], pending_submissions: decided ? [] : [
+          { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+        ],
+      })),
+      request.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: new RegExp(`^${decision}$`, 'i') }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Review is temporarily unavailable.');
+    expect(screen.getByText('Reading log')).toBeVisible();
+    await user.click(within(alert).getByRole('button', { name: /try again/i }));
+    await waitFor(() => expect(request.calls).toHaveLength(2));
+    expect(request.calls[1].body).toEqual(decision === 'approve' ? null : { notes: '' });
+    expect(request.calls[1].url).toMatch(new RegExp(`/homework-submissions/9/${decision}/$`));
+    await waitFor(() => expect(screen.queryByText('Reading log')).not.toBeInTheDocument());
+  });
+
   it('keeps overdue pending homework visible and lets the child withdraw it', async () => {
     const user = userEvent.setup();
     let withdrawn = false;

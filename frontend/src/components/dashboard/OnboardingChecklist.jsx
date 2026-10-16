@@ -15,11 +15,12 @@ const SUGGESTIONS = [
   { key: 'project', label: 'Explore projects', route: '/quests?tab=ventures' },
 ];
 
-export default function OnboardingChecklist({ data }) {
+export default function OnboardingChecklist({ data, user }) {
   const navigate = useNavigate();
-  const [dismissed, setDismissed] = useState(
-    () => localStorage.getItem(STORAGE_KEY) === 'true',
-  );
+  const storageKey = user?.id ? `${STORAGE_KEY}:${user.family?.id ?? ''}:${user.id}` : STORAGE_KEY;
+  const [dismissedFor, setDismissedFor] = useState(null);
+  let dismissed = dismissedFor === storageKey;
+  try { dismissed ||= localStorage.getItem(storageKey) === 'true'; } catch { /* Storage is optional. */ }
 
   if (dismissed || !data) return null;
 
@@ -28,8 +29,8 @@ export default function OnboardingChecklist({ data }) {
     : SUGGESTIONS;
 
   const handleDismiss = () => {
-    localStorage.setItem(STORAGE_KEY, 'true');
-    setDismissed(true);
+    try { localStorage.setItem(storageKey, 'true'); } catch { /* Storage is optional. */ }
+    setDismissedFor(storageKey);
   };
 
   return (
@@ -47,6 +48,7 @@ export default function OnboardingChecklist({ data }) {
           <X size={16} />
         </IconButton>
       </div>
+      {data.children_count > 0 && <p className="text-body text-ink-secondary mb-3">Children sign in with their own sign-in name and secret word, on their device or in a private browser window. Find their sign-in name under Manage → Children.</p>}
       <ul className="space-y-2">
         {suggestions.map((step) => (
           <li key={step.key}>

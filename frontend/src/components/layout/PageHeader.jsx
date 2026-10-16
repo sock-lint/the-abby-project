@@ -2,6 +2,7 @@ export default function PageHeader({
   title,
   kicker,
   actions,
+  as: Heading = 'h1',
   className = '',
 }) {
   return (
@@ -12,9 +13,9 @@ export default function PageHeader({
             {kicker}
           </div>
         )}
-        <h1 className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight tracking-tight break-words">
+        <Heading className="font-body font-bold text-2xl md:text-3xl text-ink-primary leading-tight tracking-tight break-words">
           {title}
-        </h1>
+        </Heading>
       </div>
       {actions && (
         <div className="flex w-full min-w-0 max-w-full flex-wrap items-center gap-2 pt-1 sm:w-auto sm:shrink-0">{actions}</div>

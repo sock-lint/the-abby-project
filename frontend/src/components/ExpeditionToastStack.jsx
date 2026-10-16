@@ -1,10 +1,9 @@
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Map as MapIcon, X } from 'lucide-react';
-import IconButton from './IconButton';
+import { AnimatePresence } from 'framer-motion';
+import { Map as MapIcon } from 'lucide-react';
+import NotificationToast from './NotificationToast';
 import RpgSprite from './rpg/RpgSprite';
 import { useExpeditionToasts } from '../hooks/useExpeditionToasts';
-import { swipeToDismiss } from './toastSwipe';
 
 /**
  * ExpeditionToastStack — soft slide-in nudge when one or more mounts
@@ -21,18 +20,17 @@ export default function ExpeditionToastStack({ inline = false }) {
   const items = (
     <AnimatePresence>
       {ready.map((expedition) => (
-        <motion.div
+        <NotificationToast
             key={expedition.id}
-            layout
-            initial={{ x: 300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 300, opacity: 0 }}
-            {...swipeToDismiss(() => dismiss(expedition.id))}
-            className="pointer-events-auto flex items-center gap-3 rounded-lg border border-gold-leaf/60 bg-gold-leaf/15 px-3 py-2 shadow-lg cursor-pointer"
+            tone="treasure"
+            onDismiss={() => dismiss(expedition.id)}
+            className="pointer-events-auto cursor-pointer"
             onClick={() => navigate('/bestiary?tab=mounts')}
             role="button"
             tabIndex={0}
             onKeyDown={(e) => {
+              // The nested dismiss button owns its own Enter/Space activation.
+              if (e.target !== e.currentTarget) return;
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
                 navigate('/bestiary?tab=mounts');
@@ -40,7 +38,7 @@ export default function ExpeditionToastStack({ inline = false }) {
             }}
             aria-label={`${expedition.species_name} returned — claim rewards on Mounts`}
           >
-            <MapIcon size={18} className="text-gold-leaf shrink-0" aria-hidden="true" />
+            <MapIcon size={18} className="text-current shrink-0" aria-hidden="true" />
             <RpgSprite
               spriteKey={expedition.species_sprite_key ? `${expedition.species_sprite_key}-mount` : null}
               fallbackSpriteKey={expedition.species_sprite_key}
@@ -50,26 +48,14 @@ export default function ExpeditionToastStack({ inline = false }) {
               potionSlug={expedition.potion_slug}
             />
             <div className="flex-1 min-w-0">
-              <div className="text-caption font-medium text-ink-primary">
+              <div className="text-caption font-medium text-current">
                 {expedition.species_name} is back
               </div>
-              <div className="text-micro text-ink-whisper">
+              <div className="text-caption text-current">
                 tap to claim · {expedition.tier} expedition
               </div>
             </div>
-            <IconButton
-              variant="ghost"
-              size="sm"
-              aria-label="Dismiss notification"
-              className="text-ink-secondary shrink-0"
-              onClick={(e) => {
-                e.stopPropagation();
-                dismiss(expedition.id);
-              }}
-            >
-              <X size={14} />
-            </IconButton>
-          </motion.div>
+          </NotificationToast>
         ))}
       </AnimatePresence>
   );

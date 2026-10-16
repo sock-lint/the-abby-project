@@ -10,6 +10,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | --- | --- |
 | `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
 | `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
+| `challenges-origins.json` | Same list endpoint; parent, retired catalog and saved legacy goals retain distinct server-owned origins despite identical names |
 | `challenge-pinned.json`, `challenge-unpinned.json` | `POST`/`DELETE /api/challenges/goal:1/pin/`; self-scoped presentation preference, without progress or rewards |
 | `challenge-run-first.json` | `POST /api/movement-sessions/`; real 0.75-mile run advances multiple goals and qualifies the daily bonus |
 | `challenges-partial.json` | Goal list retains progress on both the pinned distance goal and unpinned count goal, with the automatic daily reward receipt |
@@ -24,6 +25,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `character-avatar-saved.json` | `POST /api/character/avatar/`; confirmed self-scoped appearance save returns the full character, also returned on later reads and retries |
 | `character-avatar-legacy.json` | `GET /api/character/`; a legacy four-option saved look retains its choices and projects the default costume, face, ears and empty wardrobe without writing |
 | `character-avatar-invalid.json` | Avatar save rejected with HTTP 400 for an unsupported outfit, without writes |
+| `avatar-catalog.json` | Authenticated `GET /api/character/avatar/catalog/`; ordered base controls, shared item IDs and explicitly supported attachment bindings |
+| `character-avatar-configuration-saved.json` | Generic configuration save/retry and read, with shared equipment and a synchronized legacy Archer projection |
+| `character-avatar-configuration-invalid.json` | Generic equipment rejected with HTTP 400 for an unfit slot, without writes |
 | `report-card-created.json` | `POST /api/chronicle/grades/`; private quarterly report card with percentage, points and letter subjects and a verified recognition receipt |
 | `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
 | `report-card-corrected.json` | `PATCH /api/chronicle/301/grade/`; corrected and shared report card keeps its original save identity and reward receipt |
@@ -337,6 +341,56 @@ checks do not add a runtime banking client or include fixtures in player builds.
 
 ## Saved Archer appearance
 
+Character responses also contain `avatar_configuration`:
+`{avatar_id, appearance, accessories}`. Appearance keys belong to the selected
+base; accessory keys are shared logical slots (`headwear`, `face_accessory`,
+`left_hand`, `right_hand`, `back`). Their values are global item IDs or `none`.
+The separate `CharacterProfile.avatar_configuration` JSON field defaults to
+`{}`. Existing profiles project their saved Archer choices when that field is
+unsaved, without a backfill or persisted read. A nonempty saved configuration
+is returned unchanged, including a previously available base or item missing
+from the current catalog. Clients show unavailable presentation and permit an
+explicit change; they must not replace that saved body with another avatar.
+
+`GET /api/character/avatar/catalog/` returns schema version 1, a
+`default_avatar_id`, ordered `accessory_slots`, an `accessories` map and ordered
+`avatars`. Shared item metadata contains its display label and public source-pack
+ID. Source provenance is not a compatibility or earned-ownership rule. Each base
+defines its own appearance defaults, groups/fields/choices, shared-slot defaults,
+presets and `accessory_bindings`. Accessory choices reference the shared registry
+with `accessory_id`; their labels come from that item. Per-base bindings contain
+the supported `item_ids`, the reviewed attachment and an optional
+`legacy_preference_key` for the Archer adapter. The default Archer currently has
+no right-hand items. Only the prepared Archer and its nine shared pieces are
+offered. Synthetic tests reuse the same Archer bow/quiver IDs on a separate
+Knight definition with independently declared sword/shield bindings; no Knight
+art or availability is claimed.
+
+`POST /api/character/avatar/configuration/` accepts exactly
+`{avatar_configuration: {avatar_id, appearance, accessories}}` and returns the
+complete character. The base ID is required. Omitted appearance/accessory values
+use its declared defaults. Unknown fields/types, unregistered bases, and items
+outside that base's explicit slot bindings are rejected without writes. A base
+switch can retain shared pieces when fitted to both bases; carrying an unfit
+item ID is rejected rather than silently dropping it. Omitted slots reset to
+`none` under the full-replacement contract. All writes remain
+authenticated, self-only, locked and independent of inventory/rewards. Repeating
+the same canonical configuration changes no timestamp and does not materialize
+an already equal default projection. The companion GET returns the same character.
+Both catalog/configuration GETs ignore only the client's noncredential
+`_abby_session` cache namespace; other queries (including account targeting)
+are rejected. Both POST endpoints reject all query parameters.
+
+The existing flat `avatar_preferences` and POST contract below remain available.
+A generic Archer save synchronizes that flat projection. The legacy POST
+explicitly selects Archer and synchronizes the generic configuration; an equal
+legacy retry does not persist an otherwise unsaved generic field. Other bases
+retain the last Archer projection for older clients, while current clients use
+`avatar_configuration` as the selected presentation. Future bases require actual
+prepared artwork, their own reviewed renderer/attachment adapter and registered
+appearance/binding definitions. A source-pack name or catalog entry alone does
+not establish fit or public-runtime approval.
+
 `config/tests/test_avatar_api_contract_fixtures.py` produces the avatar fixtures
 through the real authenticated character endpoints. `avatar_preferences` contains
 `hair_style` (`hair-01` through `hair-04`), `hair_color` (`light`, `dark`, `brown`,
@@ -392,8 +446,8 @@ participants, daily promises, paid/unpaid goal windows, contributions, receipts,
 inventory, Coins, skill XP and movement counters remain intact without payouts
 or invented distance. Retirement backfills private catalog origin and frozen
 name/type, leaves parent goals outside catalog history, and permits deletion of
-the original template while keeping saved goal promises. These private fields
-do not change the public response bodies.
+the original template while keeping saved goal promises. The public origin label
+uses that saved marker; the underlying catalog identity/history fields stay private.
 
 `GET /api/challenges/` returns `results`, the nullable `pin`, completed goal
 `recent_receipts`, saved activity `challenge_receipts`, and `daily_bonus`.
@@ -403,7 +457,10 @@ Activity goal deltas follow the underlying goal records in ascending saved
 identity order; their public IDs continue to identify occurrences.
 Parents may select a same-family child with `user_id`; children cannot use that query to
 read another account. Goal IDs identify occurrences (`goal:1`), not catalog
-definitions. Retained legacy rows use `legacy:91`. `target` and `progress` are
+definitions. Retained legacy rows use `legacy:91`. Each goal reports server-owned
+`origin: parent|catalog|legacy`; catalog origin survives template retirement and
+legacy rows retain `legacy` regardless of their original author. Clients can group
+these for presentation without inferring origin from a name or pin. `target` and `progress` are
 decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
 New catalog goals receive their full window on first automatic offer/evaluation,
 subject to cutover, template creation, badge and legacy cutoffs. Pending eligible

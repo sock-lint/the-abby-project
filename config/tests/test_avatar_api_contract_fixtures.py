@@ -83,3 +83,46 @@ class AvatarApiResponseFixtureTests(APITestCase):
         )
         self.profile.refresh_from_db()
         self.assertEqual(self.profile.avatar_preferences, before)
+
+    def test_avatar_control_catalog_is_global_metadata_without_profile_writes(self):
+        before = CharacterProfile.objects.filter(pk=self.profile.pk).values().get()
+        response = self.assert_response_fixture(
+            self.client.get("/api/character/avatar/catalog/?_abby_session=synthetic-cache-key"), "avatar-catalog.json",
+        )
+        self.assertEqual(response["default_avatar_id"], "female-archer")
+        self.assertEqual([entry["id"] for entry in response["avatars"]], ["female-archer"])
+        self.assertEqual(response["avatars"][0]["defaults"]["appearance"], {
+            key: value for key, value in AVATAR_DEFAULTS.items()
+            if key not in {"headwear_style", "mask_style", "bow_style", "quiver_style"}
+        })
+        self.assertEqual(CharacterProfile.objects.filter(pk=self.profile.pk).values().get(), before)
+
+    def test_generic_configuration_save_and_retry_keep_legacy_archer_projection(self):
+        configuration = {
+            "avatar_id": "female-archer",
+            "appearance": {"hair_style": "hair-04", "hair_color": "grey", "skin_tone": "tan", "outfit": "fire",
+                           "outfit_style": "archer-03", "face_style": "face-02", "head_style": "head-01"},
+            "accessories": {"headwear": "crown-eve", "face_accessory": "mask-undercover", "left_hand": "bow-vines",
+                            "right_hand": "none", "back": "quiver-rook"},
+        }
+        response = self.assert_response_fixture(self.client.post(
+            "/api/character/avatar/configuration/", {"avatar_configuration": configuration}, format="json",
+        ), "character-avatar-configuration-saved.json")
+        self.assertEqual(response["avatar_configuration"], configuration)
+        self.assertEqual(response["avatar_preferences"]["bow_style"], "bow-vines")
+        self.profile.refresh_from_db()
+        before = CharacterProfile.objects.filter(pk=self.profile.pk).values().get()
+        self.assertEqual(self.client.get(
+            "/api/character/avatar/configuration/?_abby_session=synthetic-cache-key",
+        ).json(), response)
+        self.assertEqual(self.client.post("/api/character/avatar/configuration/", {
+            "avatar_configuration": configuration,
+        }, format="json").json(), response)
+        self.assertEqual(CharacterProfile.objects.filter(pk=self.profile.pk).values().get(), before)
+
+    def test_unfit_generic_configuration_fixture_has_no_write(self):
+        before = CharacterProfile.objects.filter(pk=self.profile.pk).values().get()
+        self.assert_response_fixture(self.client.post("/api/character/avatar/configuration/", {
+            "avatar_configuration": {"avatar_id": "female-archer", "accessories": {"right_hand": "bow-greenhorn"}},
+        }, format="json"), "character-avatar-configuration-invalid.json", status=400)
+        self.assertEqual(CharacterProfile.objects.filter(pk=self.profile.pk).values().get(), before)

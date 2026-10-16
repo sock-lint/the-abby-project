@@ -16,6 +16,7 @@ import RuneBadge from '../components/journal/RuneBadge';
 import ErrorAlert from '../components/ErrorAlert';
 import SectionHeader from '../components/SectionHeader';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import { useAuth } from '../hooks/useApi';
 import { themes, applyTheme, LEGACY_THEME_ALIASES } from '../themes';
 import { cosmeticLockHint } from './character/character.constants';
@@ -253,14 +254,7 @@ export default function SettingsPage() {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <header>
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Your account and app preferences
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Settings
-        </h1>
-      </header>
+      <PageHeader title="Settings" kicker="Your account and app preferences" />
 
       {/* Account details */}
       <ParchmentCard>

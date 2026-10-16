@@ -88,7 +88,7 @@ describe('retained Chronicle grade histories', () => {
     const form = screen.getByRole('dialog', { name: 'Correct grade' });
     await user.clear(within(form).getByLabelText('Points earned'));
     await user.type(within(form).getByLabelText('Points earned'), '9');
-    await user.click(within(form).getByLabelText('Share with my family'));
+    await user.click(within(form).getByLabelText('Share with parents in my family'));
     await user.click(within(form).getByRole('button', { name: 'Save correction' }));
     expect(await screen.findByRole('dialog', { name: 'Grade corrected' })).toBeInTheDocument();
     expect(reads.yearbook).toBe(1);
@@ -96,13 +96,13 @@ describe('retained Chronicle grade histories', () => {
     await waitFor(() => expect(reads.yearbook).toBe(2));
     await visit(user, 'Timeline');
     const row = await screen.findByRole('button', { name: /Math · Fractions quiz/ });
-    expect(row).toHaveTextContent('Shared with family');
+    expect(row).toHaveTextContent('Shared with parents');
     expect(row).toHaveTextContent('9 / 10 points');
     await user.click(row);
     await user.click(screen.getByRole('button', { name: 'Correct grade or sharing' }));
     const freshForm = screen.getByRole('dialog', { name: 'Correct grade' });
     expect(within(freshForm).getByLabelText('Points earned')).toHaveValue('9');
-    expect(within(freshForm).getByLabelText('Share with my family')).toBeChecked();
+    expect(within(freshForm).getByLabelText('Share with parents in my family')).toBeChecked();
     expect(writes).toHaveLength(1);
   });
 
@@ -151,7 +151,7 @@ describe('retained Chronicle grade histories', () => {
     await waitFor(() => expect(reads.yearbook).toBe(2));
     await visit(user, 'Timeline');
     const row = await screen.findByRole('button', { name: /Science · Lab report/ });
-    expect(row).toHaveTextContent('Only you');
+    expect(row).toHaveTextContent('Only me');
     expect(row).toHaveTextContent('0%');
   });
 
@@ -166,11 +166,11 @@ describe('retained Chronicle grade histories', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     const row = await screen.findByRole('button', { name: /Math · Fractions quiz/ });
     expect(row).toHaveTextContent('10 / 10 points');
-    expect(row).toHaveTextContent('Shared with family');
+    expect(row).toHaveTextContent('Shared with parents');
     await user.click(row);
     await user.click(screen.getByRole('button', { name: 'Correct grade or sharing' }));
     expect(screen.getByLabelText('Points earned')).toHaveValue('10');
-    expect(screen.getByLabelText('Share with my family')).toBeChecked();
+    expect(screen.getByLabelText('Share with parents in my family')).toBeChecked();
     expect(screen.getByLabelText('Date received')).toHaveValue('2025-09-20');
     if (mode === 'correction') {
       expect(screen.getByLabelText('Reflection (optional)')).toHaveValue('A reflection to keep.');

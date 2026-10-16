@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Copy, Pencil, QrCode } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Copy, Pencil, QrCode, Play } from 'lucide-react';
 import { saveProjectAsTemplate } from '../../api';
 import StarRating from '../../components/StarRating';
 import StatusBadge from '../../components/StatusBadge';
@@ -41,6 +42,7 @@ export default function ProjectHeader({
   project, isParent, isAssigned,
   onAction, onEdit, onOpenQR,
 }) {
+  const navigate = useNavigate();
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
 
@@ -91,6 +93,15 @@ export default function ProjectHeader({
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
+          {!isParent && isAssigned && ['active', 'in_progress'].includes(project.status) && (
+            <Button
+              size="sm"
+              onClick={() => navigate(`/clock?project=${project.id}`)}
+              className="flex items-center gap-1"
+            >
+              <Play size={14} aria-hidden="true" /> Work on this project
+            </Button>
+          )}
           {isParent && (project.status === 'draft' || project.status === 'active') && (
             <Button size="sm" onClick={() => onAction('activate')}>
               Start project

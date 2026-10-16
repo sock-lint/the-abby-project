@@ -38,8 +38,9 @@
   --color-ink-page-shadow: #E5DCF6;
   --color-ink-page-rune-glow: #FFF8EE;
   --color-ink-primary: #49384F;
-  --color-ink-secondary: #726779;
+  --color-ink-secondary: #64596B;
   --color-ink-whisper: #685E70;
+  --color-control-border: #756B7D;
   --color-sheikah-teal: #685093;
   --color-sheikah-teal-deep: #7560A8;
   --color-sheikah-teal-glow: color-mix(in srgb, var(--color-sheikah-teal) 20%, transparent);
@@ -51,11 +52,13 @@
   --color-rose: #A24F6F;
   --color-gold-leaf: #866329;
 
-  --color-rarity-common: var(--color-moss);
-  --color-rarity-uncommon: var(--color-sheikah-teal-deep);
-  --color-rarity-rare: var(--color-royal);
-  --color-rarity-epic: var(--color-ember);
-  --color-rarity-legendary: var(--color-gold-leaf);
+  /* Solid rarity notices always carry white text. Cover accents may become
+     pale in Twilight, so these earned-item colors stay cover independent. */
+  --color-rarity-common: #486B55;
+  --color-rarity-uncommon: #7560A8;
+  --color-rarity-rare: #685093;
+  --color-rarity-epic: #A24C41;
+  --color-rarity-legendary: #866329;
 
   --color-modal-wash: color-mix(in srgb, #49384F 35%, transparent);
   --color-modal-vignette-mid: color-mix(in srgb, #49384F 8%, transparent);
@@ -278,6 +281,13 @@ h1, h2, h3, h4 {
 .animate-cosmic-burst    { animation: cosmic-burst 0.55s ease-out both; transform-origin: center; }
 
 @media (prefers-reduced-motion: reduce) {
+  /* A live preference change can leave an older WebKit animation effect
+     active over React's new target. Keep page content settled immediately. */
+  .page-shell {
+    filter: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
   .animate-flame-flicker,
   .animate-rune-pulse,
   .animate-rune-band,
@@ -378,3 +388,20 @@ h1, h2, h3, h4 {
     background-position: 0 0 !important;
   }
 }
+
+/* Notifications pair readable foregrounds with opaque surfaces. Compositing a
+   tint here avoids page content bleeding through floating notifications. */
+.notification-surface {
+  --notification-accent: var(--color-sheikah-teal-deep);
+  color: var(--color-ink-primary);
+}
+.notification-surface:not([data-notification-rarity]):not([data-notification-custom]) {
+  border-color: color-mix(in srgb, var(--notification-accent) 55%, var(--color-ink-page-aged));
+  background-color: color-mix(in srgb, var(--notification-accent) 12%, var(--color-ink-page-aged));
+}
+.notification-success, .notification-growth { --notification-accent: var(--color-moss); }
+.notification-danger { --notification-accent: var(--color-ember-deep); }
+.notification-info { --notification-accent: var(--color-royal); }
+.notification-treasure { --notification-accent: var(--color-gold-leaf); }
+.notification-surface[data-notification-rarity] { color: white; border-color: rgb(255 255 255 / 25%); }
+.notification-surface [data-notification-dismiss] { color: inherit; }

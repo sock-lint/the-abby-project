@@ -1,7 +1,9 @@
+import usePrefersReducedMotion from '../hooks/usePrefersReducedMotion';
 import { useState, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Square, Ban } from 'lucide-react';
-import { getClockStatus, clockIn, clockOut, getProjects, getTimeEntries, voidTimeEntry } from '../api';
+import { getClockStatus, clockIn, clockOut, getProject, getProjects, getTimeEntries, voidTimeEntry } from '../api';
 import { useApi } from '../hooks/useApi';
 import { useRole } from '../hooks/useRole';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -10,6 +12,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ParchmentSkeleton from '../components/ParchmentSkeleton';
 import PageShell from '../components/layout/PageShell';
+import PageHeader from '../components/layout/PageHeader';
 import IconButton from '../components/IconButton';
 import { ClockFabIcon, InkwellIcon } from '../components/icons/JournalIcons';
 import { SelectField, TextAreaField } from '../components/form';
@@ -26,7 +29,21 @@ import { activeProjectsOf, defaultClockProjectId, rememberClockProject } from '.
 const CLOCK_OUT_CONFIRM_THRESHOLD_SECONDS = 60;
 
 export default function ClockPage() {
-  const { isParent } = useRole();
+  const { user } = useRole();
+  const [searchParams] = useSearchParams();
+  const requestedProjectId = searchParams.get('project');
+  if (!user) return <ParchmentSkeleton variant="hero" />;
+  // Changing the account or requested project resets stale selections and
+  // fences the previous target's in-flight reads through useApi's cleanup.
+  return <ClockPageBody key={`${user.id}:${requestedProjectId === null ? 'picker' : `project:${requestedProjectId}`}`} requestedProjectId={requestedProjectId} />;
+}
+
+function ClockPageBody({ requestedProjectId }) {
+  const reducedMotion = usePrefersReducedMotion();
+  const { user, isParent } = useRole();
+  const hasRequestedProject = requestedProjectId !== null;
+  const validRequestedId = /^[1-9]\d*$/.test(requestedProjectId || '')
+    && Number.isSafeInteger(Number(requestedProjectId));
   const {
     data: status, loading: loadingStatus, refreshing: refreshingStatus,
     error: statusError, reload: reloadStatus,
@@ -34,7 +51,11 @@ export default function ClockPage() {
   const {
     data: projectsData, loading: loadingProjects, refreshing: refreshingProjects,
     error: projectsError, reload: reloadProjects,
-  } = useApi(getProjects);
+  } = useApi(hasRequestedProject ? () => Promise.resolve([]) : getProjects);
+  const {
+    data: requestedProject, loading: loadingRequestedProject, refreshing: refreshingRequestedProject,
+    error: requestedProjectError, reload: reloadRequestedProject,
+  } = useApi(() => validRequestedId ? getProject(requestedProjectId) : Promise.resolve(null));
   const {
     data: entriesData, loading: loadingEntries,
     error: entriesError, reload: reloadEntries,
@@ -55,13 +76,23 @@ export default function ClockPage() {
   const entries = normalizeList(entriesData);
   const isClocked = status && status.status === 'active';
   const clockInAt = isClocked ? status?.clock_in : null;
-  const statusReady = Boolean(status) && !loadingStatus && !refreshingStatus && !statusError;
-  const projectsReady = !loadingProjects && !refreshingProjects && !projectsError;
+  // GET /clock/ returns null for a confirmed idle clock. Loading/error state,
+  // rather than payload truthiness, distinguishes idle from an unknown clock.
+  const statusReady = !loadingStatus && !refreshingStatus && !statusError;
+  const requestedProjectEligible = requestedProject
+    && String(requestedProject.id) === requestedProjectId
+    && requestedProject.assigned_to?.id === user.id
+    && activeProjectsOf([requestedProject]).length > 0;
+  const requestedProjectReady = validRequestedId && !loadingRequestedProject
+    && !refreshingRequestedProject && !requestedProjectError && requestedProjectEligible;
+  const projectsReady = hasRequestedProject ? requestedProjectReady
+    : !loadingProjects && !refreshingProjects && !projectsError;
 
   // Preselect the remembered venture (or the only active one) so the daily
   // repeat case is a single tap on the Play seal instead of a picker session.
   const activeProjects = activeProjectsOf(projects);
-  const effectiveProject = selectedProject ?? defaultClockProjectId(activeProjects);
+  const effectiveProject = hasRequestedProject ? (requestedProjectReady ? requestedProjectId : '')
+    : selectedProject ?? defaultClockProjectId(activeProjects);
 
   useEffect(() => {
     if (!clockInAt) return undefined;
@@ -82,7 +113,7 @@ export default function ClockPage() {
 
   const handleClockIn = async () => {
     setError('');
-    if (clockBusy || !statusReady || !projectsReady) return;
+    if (clockBusy || isClocked || !statusReady || !projectsReady) return;
     if (!effectiveProject) { setError('Select a project first'); return; }
     setClockBusy(true);
     try {
@@ -91,6 +122,9 @@ export default function ClockPage() {
       await reloadStatus();
     } catch (err) {
       setError(err.message);
+      // A failed response can follow a successful clock-in. Recheck before
+      // offering another start, including a timer opened in another tab.
+      await reloadStatus();
     } finally {
       setClockBusy(false);
     }
@@ -138,17 +172,12 @@ export default function ClockPage() {
 
   return (
     <PageShell width="narrow" rhythm="loose">
-      <header className="text-center">
-        <div className="font-script text-sheikah-teal-deep text-base">
-          Track your project work
-        </div>
-        <h1 className="font-display italic text-3xl md:text-4xl text-ink-primary leading-tight">
-          Time tracking
-        </h1>
-        <div className="font-script text-body text-ink-whisper mt-1">
+      <div>
+        <PageHeader title="Time tracking" kicker="Track your project work" />
+        <p className="font-body text-body text-ink-secondary mt-1">
           Log project time to earn coins, XP, and weekly pay.
-        </div>
-      </header>
+        </p>
+      </div>
 
       <ErrorAlert
         message={statusError ? `Couldn't check your clock. ${statusError}` : null}
@@ -158,13 +187,21 @@ export default function ClockPage() {
         message={projectsError ? `Couldn't load projects. ${projectsError}` : null}
         onRetry={reloadProjects}
       />
+      {!isClocked && hasRequestedProject && !loadingRequestedProject && (
+        <ErrorAlert
+          message={requestedProjectError
+            ? `Couldn't load the selected project. ${requestedProjectError}`
+            : !requestedProjectEligible ? 'This project is not available for you to work on. Choose another project.' : null}
+          onRetry={validRequestedId ? reloadRequestedProject : undefined}
+        />
+      )}
 
       {/* Timer Display — held behind a skeleton until getClockStatus lands.
           Painting the idle 00:00:00 + Play seal first meant a kid who WAS
           clocked in saw (and could tap) the wrong control. */}
       {loadingStatus ? (
         <ParchmentSkeleton variant="hero" />
-      ) : status && !statusError ? (
+      ) : !statusError ? (
         <motion.div layout>
           <ParchmentCard
             flourish
@@ -180,6 +217,11 @@ export default function ClockPage() {
                   <div className="font-display text-lg text-ink-primary mb-3">
                     {status.project_title}
                   </div>
+                  {hasRequestedProject && String(status.project) !== requestedProjectId && (
+                    <p className="font-body text-body text-ink-secondary mb-3">
+                      Your existing timer is still running. Clock out before starting another session.
+                    </p>
+                  )}
                   <div className="font-rune text-5xl md:text-6xl font-bold text-ember-deep mb-6 tabular-nums">
                     {formatTime(elapsed)}
                   </div>
@@ -195,7 +237,7 @@ export default function ClockPage() {
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockOut}
                     disabled={clockBusy || !statusReady}
                     aria-label="Clock out"
@@ -217,7 +259,17 @@ export default function ClockPage() {
                     00:00:00
                   </div>
                   <div className="mb-4">
-                    <SelectField
+                    {hasRequestedProject ? (
+                      <div className="space-y-2 font-body text-body">
+                        <p className="text-ink-secondary">Project</p>
+                        <p className="font-semibold text-ink-primary">
+                          {loadingRequestedProject ? 'Checking selected project…' : requestedProject?.title || 'Project unavailable'}
+                        </p>
+                        <Link to="/clock" className="inline-flex min-h-11 items-center text-sheikah-teal-deep hover:underline">
+                          Choose another project
+                        </Link>
+                      </div>
+                    ) : <SelectField
                       label="Project"
                       value={effectiveProject}
                       onChange={(e) => setSelectedProject(e.target.value)}
@@ -227,11 +279,11 @@ export default function ClockPage() {
                       {activeProjects.map((p) => (
                         <option key={p.id} value={p.id}>{p.title}</option>
                       ))}
-                    </SelectField>
+                    </SelectField>}
                   </div>
                   <motion.button
                     type="button"
-                    whileTap={{ scale: 0.95 }}
+                    whileTap={reducedMotion ? undefined : { scale: 0.95 }}
                     onClick={handleClockIn}
                     disabled={clockBusy || !statusReady || !projectsReady}
                     aria-label="Clock in"
@@ -243,7 +295,9 @@ export default function ClockPage() {
                   <div className="font-script text-body text-ink-whisper mt-3">
                     {clockBusy
                       ? 'Clocking in…'
-                      : 'Clock in to start tracking your work.'}
+                      : hasRequestedProject && requestedProjectReady
+                        ? `Clock in to work on ${requestedProject.title}.`
+                        : 'Clock in to start tracking your work.'}
                   </div>
                 </motion.div>
               )}
