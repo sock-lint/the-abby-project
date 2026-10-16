@@ -54,6 +54,10 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
 | `project-ai-plan-existing.json` | Parent `POST /api/projects/401/plan/`; reviewable additions with the existing project's opaque plan version |
 | `project-ai-plan-applied.json` | Parent `POST /api/projects/401/apply-plan/`; confirmed atomic append of the reviewed plan |
+| `material-unready.json`, `material-list.json` | Material detail and paginated list retain an estimate without claiming readiness, a purchase or actual spending |
+| `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
+| `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
+| `material-not-owned.json` | Another family's readiness write is rejected with HTTP 404 without changing the material |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -387,6 +391,27 @@ Unity currently leaves payment actions in the parent web app. Its Editor-only
 Greenlight fixture checks still verify decimal-string amounts, explicit unknown
 balance, the external observation timestamp, and reconciliation outcomes. These
 checks do not add a runtime banking client or include fixtures in player builds.
+
+## Material readiness and purchase records
+
+Material responses include the read-only boolean `is_ready`: a material is
+ready when it is on hand or has been purchased. Existing purchases remain ready
+without a backfill. `POST /api/projects/<project>/materials/<material>/mark-ready/`
+accepts an empty JSON object and records only that the supply is on hand. It
+does not set `is_purchased`, `purchased_at`, `actual_cost` or `reimbursed`, and
+does not replace the estimate. The existing `mark-purchased/` action remains
+available for actual purchases with an optional `actual_cost`; an explicit
+`"0.00"` remains zero. Estimates and readiness alone are not actual spending.
+
+`config/tests/test_material_api_contract_fixtures.py` produces all material
+fixtures through real child-authenticated endpoints with fixed identities and
+timestamps. It checks saved state, repeat readiness calls, the shared MCP
+material projection and rejection of another family's write.
+`frontend/src/api/materialContractFixtures.test.js` consumes those exact bodies
+through `getMaterials`, `markMaterialReady` and `markPurchased`, checking request
+verbs, paths, payloads, decimal strings and rejection propagation. Run both
+modules with the standard backend and frontend test commands above; regenerate
+the fixture producer only for an intentional API change.
 
 ## Saved Archer appearance
 

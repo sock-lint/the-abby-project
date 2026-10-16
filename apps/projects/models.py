@@ -106,6 +106,7 @@ class MaterialItem(models.Model):
     actual_cost = models.DecimalField(
         max_digits=8, decimal_places=2, null=True, blank=True
     )
+    is_on_hand = models.BooleanField(default=False)
     is_purchased = models.BooleanField(default=False)
     purchased_at = models.DateTimeField(null=True, blank=True)
     receipt_photo = models.ImageField(
@@ -118,6 +119,10 @@ class MaterialItem(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.project.title})"
+
+    @property
+    def is_ready(self):
+        return self.is_on_hand or self.is_purchased
 
 
 class ProjectStep(TimestampedModel):

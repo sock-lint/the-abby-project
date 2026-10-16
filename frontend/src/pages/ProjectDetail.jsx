@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   getProject, submitProject, approveProject, requestChanges,
   completeMilestone, deleteMilestone,
-  markPurchased, deleteMaterial,
+  deleteMaterial,
   activateProject,
   completeStep, uncompleteStep, updateStep, deleteStep,
   deleteResource,
@@ -27,6 +27,7 @@ import MaterialsTab from './project/MaterialsTab';
 import EditProjectModal from './project/modals/EditProjectModal';
 import AddMilestoneModal from './project/modals/AddMilestoneModal';
 import AddMaterialModal from './project/modals/AddMaterialModal';
+import MaterialReadyModal from './project/modals/MaterialReadyModal';
 import AddStepModal from './project/modals/AddStepModal';
 import AddResourceModal from './project/modals/AddResourceModal';
 import RequestChangesModal from './project/modals/RequestChangesModal';
@@ -55,6 +56,7 @@ function ProjectDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [addMilestoneOpen, setAddMilestoneOpen] = useState(false);
   const [addMaterialOpen, setAddMaterialOpen] = useState(false);
+  const [readyMaterial, setReadyMaterial] = useState(null);
   const [addStepOpen, setAddStepOpen] = useState(false);
   const [addStepMilestoneId, setAddStepMilestoneId] = useState(null);
   const [addResourceOpen, setAddResourceOpen] = useState(false);
@@ -172,9 +174,6 @@ function ProjectDetailPage() {
     });
   };
 
-  const handleMarkPurchased = (matId, cost) =>
-    runAction(() => markPurchased(id, matId, cost));
-
   const handleToggleStep = (step) =>
     runAction(() => (step.is_completed
       ? uncompleteStep(id, step.id)
@@ -264,7 +263,7 @@ function ProjectDetailPage() {
             <MaterialsTab
               project={project}
               isParent={isParent}
-              onMarkPurchased={handleMarkPurchased}
+              onMarkReady={setReadyMaterial}
               onDeleteMaterial={handleDeleteMaterial}
               onOpenAddMaterial={() => setAddMaterialOpen(true)}
             />
@@ -298,6 +297,14 @@ function ProjectDetailPage() {
             projectId={id}
             onClose={() => setAddMaterialOpen(false)}
             onSaved={() => { setAddMaterialOpen(false); reload(); }}
+          />
+        )}
+        {readyMaterial && (
+          <MaterialReadyModal
+            projectId={id}
+            material={readyMaterial}
+            onClose={() => setReadyMaterial(null)}
+            onSaved={() => { setReadyMaterial(null); reload(); }}
           />
         )}
         {addStepOpen && (

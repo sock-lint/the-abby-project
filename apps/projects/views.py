@@ -516,6 +516,13 @@ class MaterialItemViewSet(NestedProjectResourceMixin, viewsets.ModelViewSet):
     serializer_class = MaterialItemSerializer
     queryset = MaterialItem.objects.all()
 
+    @action(detail=True, methods=["post"], url_path="mark-ready")
+    def mark_ready(self, request, project_pk=None, pk=None):
+        item = self.get_object()
+        item.is_on_hand = True
+        item.save(update_fields=["is_on_hand"])
+        return Response(MaterialItemSerializer(item).data)
+
     @action(detail=True, methods=["post"], url_path="mark-purchased")
     def mark_purchased(self, request, project_pk=None, pk=None):
         from django.utils import timezone

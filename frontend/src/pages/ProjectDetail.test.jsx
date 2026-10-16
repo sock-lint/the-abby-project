@@ -18,7 +18,7 @@ function renderPage(user, projectOverrides = {}) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     http.get(/\/api\/projects\/42\/$/, () =>
-      HttpResponse.json(buildProject({ id: 42, title: 'TestPrj', ...projectOverrides })),
+      HttpResponse.json(buildProject({ id: 42, title: 'TestPrj', ...(typeof projectOverrides === 'function' ? projectOverrides() : projectOverrides) })),
     ),
   );
   return render(
@@ -257,36 +257,209 @@ describe('ProjectDetail', () => {
     ).toBeNull();
   });
 
-  it('marking a material purchased posts to /projects/{pid}/materials/{mid}/mark-purchased/', async () => {
+  it('marks an existing or borrowed supply ready without recording a purchase and reloads saved readiness', async () => {
     const user = userEvent.setup();
-    const mark = spyHandler('post', /\/api\/projects\/\d+\/materials\/\d+\/mark-purchased\/$/, { ok: true });
-    server.use(
-      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
-      http.get(/\/api\/projects\/42\/$/, () =>
-        HttpResponse.json(buildProject({
-          id: 42, title: 'TestPrj',
-          materials: [{ id: 11, name: 'Plywood', estimated_cost: '5.00', is_purchased: false }],
-        })),
-      ),
-      mark.handler,
-    );
-    render(
-      <MemoryRouter initialEntries={['/quests/ventures/42']}>
-        <AuthProvider>
-          <Routes>
-            <Route path="/quests/ventures/:id" element={<ProjectDetail />} />
-          </Routes>
-        </AuthProvider>
-      </MemoryRouter>,
-    );
+    const material = { id: 11, name: 'Class notes', estimated_cost: '5.00', actual_cost: null, is_purchased: false, is_ready: false };
+    let reads = 0;
+    const ready = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, () => {
+      material.is_ready = true;
+      return material;
+    });
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, {});
+    server.use(ready.handler, purchase.handler);
+    renderPage(buildUser(), () => { reads += 1; return { materials: [material] }; });
 
-    await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());
+    await screen.findByText('TestPrj');
     await user.click(screen.getByRole('tab', { name: /^materials$/i }));
-    const purchasedBtn = await screen.findByRole('button', { name: /mark purchased/i });
-    await user.click(purchasedBtn);
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    expect(within(dialog).getByRole('combobox', { name: /how did you get it/i })).toHaveValue('on_hand');
+    expect(within(dialog).queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(ready.calls).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
 
-    await waitFor(() => expect(mark.calls).toHaveLength(1));
-    expect(mark.calls[0].url).toMatch(/\/projects\/42\/materials\/11\/mark-purchased\/$/);
-    expect(mark.calls[0].body).toEqual({ actual_cost: '5.00' });
+    await waitFor(() => expect(ready.calls).toHaveLength(1));
+    expect(ready.calls[0].url).toMatch(/\/projects\/42\/materials\/11\/mark-ready\/$/);
+    expect(ready.calls[0].body).toEqual({});
+    expect(purchase.calls).toHaveLength(0);
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(reads).toBe(2);
+    expect(screen.getByText('spent $0.00')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByText(/actual:/i)).not.toBeInTheDocument();
+  });
+
+  it.each(['3.75', '0.00'])('records an explicitly entered purchase cost of %s instead of its estimate', async (cost) => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Plywood', estimated_cost: '5.00', actual_cost: null, is_purchased: false, is_ready: false };
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, ({ body }) => {
+      Object.assign(material, { actual_cost: body.actual_cost, is_purchased: true, is_ready: true });
+      return material;
+    });
+    const ready = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, {});
+    server.use(purchase.handler, ready.handler);
+    renderPage(buildUser(), { materials: [material] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
+    const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
+    expect(input).toHaveValue(null);
+    expect(within(dialog).getByRole('button', { name: /^mark ready$/i })).toBeDisabled();
+    await user.type(input, cost);
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+
+    await waitFor(() => expect(purchase.calls).toHaveLength(1));
+    expect(purchase.calls[0].url).toMatch(/\/projects\/42\/materials\/11\/mark-purchased\/$/);
+    expect(purchase.calls[0].body).toEqual({ actual_cost: cost });
+    expect(ready.calls).toHaveLength(0);
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(screen.getByText(`spent $${cost}`)).toBeInTheDocument();
+    expect(screen.getByText(`est: $5.00 · actual: $${cost}`)).toBeInTheDocument();
+  });
+
+  it('retains a failed readiness choice for retry without claiming a saved result', async () => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Calculator', estimated_cost: '10.00', actual_cost: null, is_purchased: false, is_ready: false };
+    let reads = 0;
+    const ready = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, HttpResponse.json({ error: 'Could not save readiness' }, { status: 503 }));
+    server.use(ready.handler);
+    renderPage(buildUser(), () => { reads += 1; return { materials: [material] }; });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Could not save readiness');
+    expect(ready.calls).toHaveLength(1);
+    expect(ready.calls[0].body).toEqual({});
+    expect(reads).toBe(1);
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: /^mark ready$/i })).toBeEnabled();
+
+    const retry = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, () => {
+      material.is_ready = true;
+      return material;
+    });
+    server.use(retry.handler);
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(retry.calls).toHaveLength(1);
+    expect(retry.calls[0].body).toEqual({});
+  });
+
+  it('shows purchase field errors beside the entered cost without discarding the value', async () => {
+    const user = userEvent.setup();
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, HttpResponse.json({ actual_cost: ['Enter a valid amount.'] }, { status: 400 }));
+    server.use(purchase.handler);
+    renderPage(buildUser(), { materials: [{ id: 11, name: 'Paper', estimated_cost: '5.00', is_purchased: false }] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: /how did you get it/i }), 'purchased');
+    const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
+    await user.type(input, '1.25');
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Enter a valid amount.');
+    expect(input).toHaveValue(1.25);
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(purchase.calls).toHaveLength(1);
+    expect(purchase.calls[0].body).toEqual({ actual_cost: '1.25' });
+  });
+
+  it('retains an entered purchase amount when a passive dismissal is canceled', async () => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Paper', estimated_cost: '5.00', is_purchased: false };
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, ({ body }) => {
+      Object.assign(material, { actual_cost: body.actual_cost, is_purchased: true, is_ready: true });
+      return material;
+    });
+    server.use(purchase.handler);
+    renderPage(buildUser(), { materials: [material] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    await user.selectOptions(within(dialog).getByRole('combobox'), 'purchased');
+    const input = within(dialog).getByRole('spinbutton', { name: /actual cost/i });
+    await user.type(input, '2.25');
+    await user.keyboard('{Escape}');
+
+    const discard = await screen.findByRole('alertdialog', { name: /discard changes/i });
+    expect(purchase.calls).toHaveLength(0);
+    await user.click(within(discard).getByRole('button', { name: /^cancel$/i }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(input).toHaveValue(2.25);
+    expect(within(dialog).getByRole('combobox')).toHaveValue('purchased');
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(purchase.calls).toHaveLength(1);
+    expect(purchase.calls[0].body).toEqual({ actual_cost: '2.25' });
+  });
+
+  it('keeps the sheet open and blocks duplicate submits or cancellation while saving', async () => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Calculator', estimated_cost: '10.00', is_purchased: false, is_ready: false };
+    let finish;
+    const body = new ReadableStream({
+      start(controller) {
+        finish = () => {
+          material.is_ready = true;
+          controller.enqueue(new TextEncoder().encode(JSON.stringify(material)));
+          controller.close();
+        };
+      },
+    });
+    const ready = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, new HttpResponse(body, { headers: { 'Content-Type': 'application/json' } }));
+    server.use(ready.handler);
+    renderPage(buildUser(), { materials: [material] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: /^mark ready$/i }));
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    const submit = within(dialog).getByRole('button', { name: /^mark ready$/i });
+    await user.dblClick(submit);
+    await waitFor(() => expect(ready.calls).toHaveLength(1));
+    expect(submit).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: /^cancel$/i })).toBeDisabled();
+    expect(within(dialog).getByRole('combobox')).toBeDisabled();
+    await user.keyboard('{Escape}');
+    expect(dialog).toBeInTheDocument();
+
+    finish();
+    expect(await screen.findByText('Ready')).toBeInTheDocument();
+    expect(ready.calls).toHaveLength(1);
+    expect(ready.calls[0].body).toEqual({});
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('cancels a readiness choice without writing anything', async () => {
+    const user = userEvent.setup();
+    const ready = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-ready\/$/, {});
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, {});
+    server.use(ready.handler, purchase.handler);
+    renderPage(buildUser(), { materials: [{ id: 11, name: 'Notes', estimated_cost: '0.00', is_purchased: false }] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    const opener = await screen.findByRole('button', { name: /^mark ready$/i });
+    await user.click(opener);
+    const dialog = await screen.findByRole('dialog', { name: /mark material ready/i });
+    await user.click(within(dialog).getByRole('button', { name: /^cancel$/i }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(ready.calls).toHaveLength(0);
+    expect(purchase.calls).toHaveLength(0);
+    expect(opener).toHaveFocus();
   });
 });

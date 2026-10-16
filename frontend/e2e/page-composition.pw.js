@@ -66,6 +66,85 @@ test.beforeEach(async ({ page }) => {
 });
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
+
+for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]) {
+  test(`materials can be ready without a purchase at ${width}px on ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height });
+    const writes = [];
+    const project = {
+      id: 42, title: 'Get ready for a math test', status: 'in_progress',
+      difficulty: 2, materials_budget: '5.00', assigned_to: { id: 2 },
+      milestones: [], steps: [], resources: [], skill_tags: [], collaborators: [],
+      materials: [
+        { id: 11, name: 'Class notes and worksheets', estimated_cost: '0.00', actual_cost: null, is_ready: false, is_purchased: false },
+        { id: 12, name: 'Notebook or scratch paper', estimated_cost: '3.00', actual_cost: null, is_ready: false, is_purchased: false },
+      ],
+    };
+    await page.route('**/api/**', async (route) => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (path === '/api/auth/me/') {
+        return route.fulfill({ json: { id: 2, username: 'material-fixture', display_name: 'Test child', role: 'child', theme, family: { id: 1, name: 'Synthetic family' } } });
+      }
+      if (path === '/api/projects/42/') return route.fulfill({ json: project });
+      if (/^\/api\/projects\/42\/materials\/\d+\/mark-(ready|purchased)\/$/.test(path)) {
+        const body = request.postDataJSON();
+        writes.push({ path, method: request.method(), body });
+        const material = project.materials.find((item) => String(item.id) === path.split('/')[5]);
+        material.is_ready = true;
+        if (path.endsWith('/mark-purchased/')) {
+          material.is_purchased = true;
+          material.actual_cost = body.actual_cost;
+        }
+        return route.fulfill({ json: material });
+      }
+      return route.fallback();
+    });
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-materials`);
+    await page.getByRole('tab', { name: 'Materials', exact: true }).click();
+    await expect(page.getByText('spent $0.00', { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const opener = page.getByRole('button', { name: 'Mark ready', exact: true }).first();
+    await opener.scrollIntoViewIfNeeded();
+    const bounds = await opener.boundingBox();
+    expect(bounds.height).toBeGreaterThanOrEqual(44);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    await page.screenshot({ path: testInfo.outputPath('materials-list.png'), fullPage: true });
+    await opener.click();
+    const sheet = page.getByRole('dialog', { name: 'Mark material ready', exact: true });
+    await expect(sheet.getByLabel('How did you get it?')).toHaveValue('on_hand');
+    await expect(sheet.getByLabel('Actual cost ($)')).toHaveCount(0);
+    const save = sheet.getByRole('button', { name: 'Mark ready', exact: true });
+    await save.scrollIntoViewIfNeeded();
+    expect(await save.evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      return box.left >= 0 && box.right <= window.innerWidth && box.height >= 44;
+    })).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath('materials-on-hand.png'), fullPage: true });
+    await save.click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(1);
+    await expect(page.getByText('spent $0.00', { exact: true })).toBeVisible();
+    expect(writes).toEqual([{ path: '/api/projects/42/materials/11/mark-ready/', method: 'POST', body: {} }]);
+    expect(project.materials[0].is_purchased).toBe(false);
+    expect(project.materials[0].actual_cost).toBeNull();
+
+    await page.getByRole('button', { name: 'Mark ready', exact: true }).click();
+    await sheet.getByLabel('How did you get it?').selectOption('purchased');
+    await sheet.getByLabel('Actual cost ($)').fill('1.25');
+    await sheet.getByRole('button', { name: 'Mark ready', exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(2);
+    await expect(page.getByText('spent $1.25', { exact: true })).toBeVisible();
+    expect(writes[1]).toEqual({ path: '/api/projects/42/materials/12/mark-purchased/', method: 'POST', body: { actual_cost: '1.25' } });
+    await page.reload();
+    await page.getByRole('tab', { name: 'Materials', exact: true }).click();
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(2);
+    await expect(page.getByText('spent $1.25', { exact: true })).toBeVisible();
+    expect(writes).toHaveLength(2);
+  });
+}
+
 test('the real app suppresses clock transforms and Today hero blur under reduced motion', async ({ page }) => {
   await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-clock`);
   const clock = page.getByRole('button', { name: 'Clock in', exact: true });

@@ -26,7 +26,7 @@ def project_plan_snapshot(project):
         "id", "title", "description", "order", "milestone_id", "is_completed", "completed_at",
     ))
     materials = list(project.materials.order_by("id").values(
-        "id", "name", "description", "estimated_cost", "actual_cost", "is_purchased", "purchased_at", "reimbursed",
+        "id", "name", "description", "estimated_cost", "actual_cost", "is_on_hand", "is_purchased", "purchased_at", "reimbursed",
     ))
     snapshot = {
         "project": {key: getattr(project, key) for key in (
