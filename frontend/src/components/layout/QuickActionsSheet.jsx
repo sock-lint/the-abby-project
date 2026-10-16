@@ -418,7 +418,7 @@ export default function QuickActionsSheet({
                 label="Ask for a print"
                 hint="3D print request — parent approves it"
                 tone="teal"
-                onClick={() => { onClose(); navigate('/quests?tab=forge&new=1'); }}
+                onClick={() => { onClose(); navigate('/treasury?tab=forge&new=1'); }}
               />
               <ActionRow
                 icon={<Sparkles size={18} />}

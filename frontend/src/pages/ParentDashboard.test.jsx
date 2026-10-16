@@ -195,6 +195,73 @@ describe('ParentDashboard', () => {
     expect(screen.getByText(/2 (things|items) to review/i)).toBeInTheDocument();
   });
 
+  it.each([1, 2])('includes %i pending prints in attention with a review link instead of inline approval', async (count) => {
+    const user = userEvent.setup();
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1 })),
+      http.get('*/api/print-requests/', () => HttpResponse.json({
+        count, next: null,
+        results: Array.from({ length: count }, (_, i) => ({ id: i + 1, title: 'Dragon', status: 'pending' })),
+      })),
+    ]);
+
+    const link = await screen.findByRole('link', { name: `Review ${count} print request${count === 1 ? '' : 's'}` });
+    expect(link).toHaveAttribute('href', '/treasury?tab=forge');
+    expect(link.closest('#approval-queue')).not.toBeNull();
+    expect(screen.getByRole('heading', { name: `${count} ${count === 1 ? 'thing' : 'things'} to review today` })).toBeInTheDocument();
+    expect(screen.queryByText(/you're all caught up|no pending approvals/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /approve dragon|approve all/i })).toBeNull();
+
+    await user.click(link);
+    expect(screen.getByLabelText('Current location')).toHaveTextContent('/treasury?tab=forge');
+  });
+
+  it('adds print reviews to the timecard and inline approval attention counts', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1, pending_timecards: 2 })),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([
+        { id: 11, chore_title: 'Dishes', user: 2, user_name: 'Abby' },
+      ])),
+      http.get('*/api/print-requests/', () => HttpResponse.json([
+        { id: 1, status: 'pending' }, { id: 2, status: 'pending' },
+      ])),
+    ]);
+
+    expect(await screen.findByRole('heading', { name: '5 things to review today' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review 2 print requests' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review 2 timecards' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve Dishes' })).toBeInTheDocument();
+  });
+
+  it('keeps a failed print queue incomplete and recovers its review link on retry', async () => {
+    const user = userEvent.setup();
+    let attempts = 0;
+    const fetch = spyHandler('get', '*/api/print-requests/', ({ request }) => {
+      expect(new URL(request.url).searchParams.get('status')).toBe('pending');
+      attempts += 1;
+      return attempts === 1
+        ? HttpResponse.json({ detail: 'Temporary failure' }, { status: 503 })
+        : [{ id: 1, status: 'pending' }];
+    });
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({ ...emptyDashboard, children_count: 1 })),
+      fetch.handler,
+    ]);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/print approvals/i);
+    expect(screen.getByRole('heading', { name: 'Some updates are unavailable' })).toBeInTheDocument();
+    expect(screen.queryByText(/you're all caught up|no pending approvals/i)).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /^retry$/i }));
+    expect(await screen.findByRole('link', { name: 'Review 1 print request' })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByText(/you're all caught up|no pending approvals/i)).toBeNull();
+    expect(fetch.calls).toHaveLength(2);
+  });
+
   it('shows a child-list failure without claiming the family has no children', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),

@@ -6,6 +6,7 @@ import TreasuryHub from './index.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { buildUser } from '../../test/factories.js';
+import userEvent from '@testing-library/user-event';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -13,6 +14,17 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('TreasuryHub', () => {
+  it('opens print requests alongside the reward shop', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    const user = userEvent.setup();
+    render(<MemoryRouter initialEntries={['/treasury?tab=bazaar']}>
+      <AuthProvider><TreasuryHub /></AuthProvider>
+    </MemoryRouter>);
+    await user.click(await screen.findByRole('tab', { name: '3D Prints' }));
+    expect(await screen.findByRole('heading', { level: 1, name: '3D Prints' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ask for a print' })).toBeInTheDocument();
+  });
+
   it('renders the treasury hub default coffers tab', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

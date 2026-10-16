@@ -4,6 +4,7 @@ import Timecards from '../Timecards';
 import Rewards from '../Rewards';
 import HoardsTab from './HoardsTab';
 import Inventory from '../Inventory';
+import Forge from '../forge';
 
 /**
  * Treasury — hub page for "money, coins, and the things they buy or fall as."
@@ -22,6 +23,7 @@ export default function TreasuryHub() {
         { id: 'coffers', label: 'Payments', render: () => <Payments /> },
         { id: 'wages',   label: 'Timecards', render: () => <Timecards /> },
         { id: 'bazaar',  label: 'Shop', render: () => <Rewards /> },
+        { id: 'forge',   label: '3D Prints', render: () => <Forge /> },
         { id: 'satchel', label: 'Inventory', render: () => <Inventory /> },
         { id: 'hoards',  label: 'Savings goals', render: () => <HoardsTab /> },
       ]}

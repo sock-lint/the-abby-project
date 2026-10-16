@@ -4,7 +4,32 @@ The Forge — 3D print requests. A child asks for a model to be printed; a paren
 approves it against a monthly filament + print-time budget; the parent slices
 and prints normally from Bambu Studio or Handy; a single MQTT listener notices
 the print, links it to the request **deterministically**, tracks it to FINISH or
-FAILED, and debits the budget. Frontend lives at `/quests?tab=forge`.
+FAILED, and debits the budget. Frontend lives at `/treasury?tab=forge`
+(Rewards → 3D Prints), with a secondary request/tracking entry from a project's Materials tab.
+
+## Project parts
+
+`PrintRequest.project` is optional, nullable and `SET_NULL`: deleting a project
+preserves the child's request, print history and financial receipts. Creation
+accepts `project_id`; later edits cannot change the association. Ordinary
+requests continue to work without a project. Project requests follow exactly
+the same parent review, optional coin exchange and printer lifecycle.
+
+`projects_for_printing(user)` combines the shared project-access helper with
+the project's current effective family (assignee's family, or creator's for
+unassigned projects). Children must be assigned or collaborating. Parent
+requests on behalf of a child require both the parent's project access and
+that child's participation. A stale collaborator row after cross-family
+reassignment never grants project access.
+
+`GET /api/print-requests/?project_id=<id>` narrows the existing owner/family
+request scope; collaboration does not expose another child's requests.
+The filter applies only to lists and returns 404 for an inaccessible project.
+Read responses include `project` and `project_title`, both null when absent or
+no longer accessible to the current viewer. Projection batches the page's
+project lookups and fails closed without authenticated serializer context.
+Use `self.get_serializer(...)` for every request/action response so reassignment
+cannot reveal a new family's project title through an old print request.
 
 ## The one idea worth understanding
 

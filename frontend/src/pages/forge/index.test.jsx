@@ -83,7 +83,7 @@ describe('3D Printing', () => {
     ).toBeInTheDocument();
   });
 
-  it('gives the parent an approval queue and the budget panel; the child gets neither', async () => {
+  it('gives parents a review queue and a settings link without hardware administration', async () => {
     stubMe(buildParent());
     stubRequests([buildRequest()]);
     server.use(
@@ -103,8 +103,9 @@ describe('3D Printing', () => {
     const { unmount } = renderWithProviders(<Forge />);
 
     expect(await screen.findByText('Awaiting approval')).toBeInTheDocument();
-    expect(screen.getByText('Monthly budgets')).toBeInTheDocument();
-    expect(screen.getByText('Printers')).toBeInTheDocument();
+    expect(screen.queryByText('Monthly budgets')).not.toBeInTheDocument();
+    expect(screen.queryByText('Printers')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Printing settings' })).toHaveAttribute('href', '/manage?tab=3D+Printing');
     expect(screen.getByRole('button', { name: 'Decide' })).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /ask for a print/i }),
@@ -149,7 +150,7 @@ describe('3D Printing', () => {
     expect(spy.calls[0].url).toMatch(/\/api\/print-requests\/5\/cancel\/$/);
   });
 
-  it('asks only for unlinked jobs — without the filter a parent sees every print', async () => {
+  it('keeps printer housekeeping reads out of the request page', async () => {
     const urls = [];
     server.use(
       http.get('*/api/print-jobs/', ({ request }) => {
@@ -161,11 +162,8 @@ describe('3D Printing', () => {
     stubRequests([]);
     renderWithProviders(<Forge />);
 
-    await waitFor(() => expect(urls.length).toBeGreaterThan(0));
-    const jobsUrl = new URL(urls[0]);
-    expect(jobsUrl.pathname).toBe('/api/print-jobs/');
-    expect(jobsUrl.searchParams.get('unlinked')).toBe('true');
-    expect(jobsUrl.searchParams.get('_abby_session')).toBeTruthy();
+    await screen.findByRole('heading', { name: '3D Prints' });
+    expect(urls).toHaveLength(0);
   });
 
   it('asks the server for the open statuses so history cannot bury the queue', async () => {
@@ -212,7 +210,7 @@ describe('3D Printing', () => {
     expect(exchange.calls[0].url).toMatch(/\/api\/print-requests\/5\/exchange\/$/);
     expect(await screen.findByText('Exchanged 3 coins')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Exchange 3 coins' })).not.toBeInTheDocument();
-    expect(await screen.findByText('req-0005-articulated-dragon.3mf')).toBeInTheDocument();
+    expect(screen.queryByText('req-0005-articulated-dragon.3mf')).not.toBeInTheDocument();
     await waitFor(() => expect(reads).toBeGreaterThanOrEqual(4));
   });
 
@@ -277,7 +275,7 @@ describe('3D Printing', () => {
     expect(await screen.findByText(/Showing the 1 most recent of 57/i)).toBeInTheDocument();
   });
 
-  it('shows the live printer view to a child only while her own print is running', async () => {
+  it('shows a child their print progress without the hardware dashboard', async () => {
     server.use(
       http.get('*/api/printers/', () =>
         HttpResponse.json({
@@ -304,6 +302,7 @@ describe('3D Printing', () => {
       },
     })]);
     renderWithProviders(<Forge />);
-    expect(await screen.findByText('Printing now')).toBeInTheDocument();
+    expect(await screen.findByRole('progressbar', { name: 'Articulated Dragon print progress' })).toHaveAttribute('aria-valuenow', '62');
+    expect(screen.queryByText('X1C in the garage')).not.toBeInTheDocument();
   });
 });

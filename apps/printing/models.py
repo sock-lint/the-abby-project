@@ -260,6 +260,10 @@ class PrintRequest(ApprovalWorkflowModel, TimestampedModel):
         on_delete=models.CASCADE,
         related_name="print_requests",
     )
+    project = models.ForeignKey(
+        "projects.Project", on_delete=models.SET_NULL,
+        related_name="print_requests", null=True, blank=True,
+    )
 
     # --- What she wants ---------------------------------------------------
     title = models.CharField(

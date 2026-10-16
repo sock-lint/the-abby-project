@@ -7,13 +7,50 @@ import paid from '../../../contracts/api/fixtures/printing-exchange-paid.json';
 import refunded from '../../../contracts/api/fixtures/printing-cancel-refunded.json';
 import invalidExchange from '../../../contracts/api/fixtures/printing-exchange-invalid.json';
 import notOwned from '../../../contracts/api/fixtures/printing-request-not-owned.json';
+import projectRequest from '../../../contracts/api/fixtures/printing-project-request.json';
+import projectRequests from '../../../contracts/api/fixtures/printing-project-requests.json';
+import unavailableProjects from '../../../contracts/api/fixtures/printing-project-requests-unavailable.json';
 import { server } from '../test/server';
 import {
-  approvePrintRequest, cancelPrintRequest, exchangePrintRequest,
+  approvePrintRequest, cancelPrintRequest, createPrintRequest, exchangePrintRequest,
   listPrintRequests, updatePrintBudget,
 } from './index';
 
 describe('printing Coin responses through the shared React API client', () => {
+  it('creates a project part with only the selected verified project identity and reads the filtered list', async () => {
+    const calls = [];
+    const payload = {
+      title: projectRequest.title, source_url: projectRequest.source_url,
+      color: projectRequest.color, reason: projectRequest.reason,
+      needed_by: projectRequest.needed_by, project_id: projectRequest.project,
+    };
+    server.use(
+      http.post('*/api/print-requests/', async ({ request }) => {
+        expect(request.headers.get('Authorization')).toBe('Token test-session');
+        calls.push(await request.json());
+        return HttpResponse.json(projectRequest, { status: 201 });
+      }),
+      http.get('*/api/print-requests/', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('project_id')).toBe(String(projectRequest.project));
+        return HttpResponse.json(projectRequests);
+      }),
+    );
+    expect(await createPrintRequest(payload)).toEqual(projectRequest);
+    expect(calls).toEqual([payload]);
+    const results = await listPrintRequests({ project_id: projectRequest.project });
+    expect(results).toEqual(projectRequests);
+    expect(results.results).toEqual([projectRequest]);
+    expect(results.results[0]).toMatchObject({ project: 61, project_title: 'Synthetic paper pumpkin' });
+  });
+
+  it('preserves nullable project context when the associated project is no longer accessible', async () => {
+    server.use(http.get('*/api/print-requests/', () => HttpResponse.json(unavailableProjects)));
+    const rows = await listPrintRequests();
+    expect(rows).toEqual(unavailableProjects);
+    expect(rows.results[0]).toMatchObject({ id: projectRequest.id, project: null, project_title: null });
+    expect(rows.results[0].coins_paid).toBe(0);
+  });
+
   it('saves a parent rate and returns the server quote without changing its Coin or decimal types', async () => {
     const requests = [];
     const budgetPayload = {

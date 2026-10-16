@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { Box, Plus } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
@@ -7,7 +7,6 @@ import {
   cancelPrintRequest,
   exchangePrintRequest,
   listPrintBudgets,
-  listPrintJobs,
   listPrintRequests,
   listPrinters,
 } from '../../api';
@@ -18,37 +17,17 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
-import QuestFolio from '../quests/QuestFolio';
+import PageHeader from '../../components/layout/PageHeader';
 import PrintRequestCard from './PrintRequestCard';
 import PrintRequestModal from './PrintRequestModal';
 import ApprovalSheet from './ApprovalSheet';
-import BudgetPanel from './BudgetPanel';
-import PrinterStatus from './PrinterStatus';
-import PrinterConfigPanel from './PrinterConfigPanel';
-import UnlinkedJobsPanel from './UnlinkedJobsPanel';
+import usePrintRequestRefresh from './usePrintRequestRefresh';
 import {
-  CLOSED_REQUEST_STATUSES, OPEN_REQUEST_STATUSES, budgetProgress,
+  CLOSED_REQUEST_STATUSES, OPEN_REQUEST_STATUSES,
 } from './forge.constants';
 
-/**
- * Forge — the 3D print request tab of the Quests hub.
- *
- * The loop, in one paragraph: a child submits a link (or an uploaded model)
- * with a colour and a reason; a parent approves it, which attaches a monthly
- * filament + print-time budget and mints a plate filename; the parent slices
- * in Bambu Studio and saves the plate under exactly that name; our single
- * MQTT listener sees the printer start it, matches `subtask_name` to the
- * minted slug by exact equality, and streams progress back here until the
- * print finishes and the budget is debited.
- *
- * Role gating: children see their own requests, a submit button, and the
- * live printer view while one of their prints is running. Parents also get
- * the approval queue, the budget panel, the unlinked-jobs escape hatch, and
- * printer config.
- *
- * This is a hub tab, so it deliberately does NOT use PageShell — QuestFolio
- * is the shell every Quests tab wears, and the hub owns the page header.
- */
+/** Shared request and fulfillment view in Rewards. Printer administration lives
+ * in Manage; project parts use this same request and coin-exchange lifecycle. */
 export default function Forge() {
   const { user, isParent } = useRole();
   const [searchParams] = useSearchParams();
@@ -77,8 +56,7 @@ export default function Forge() {
   const { data: closedData, reload: reloadClosed, setData: setClosedData } = useApi(fetchClosed);
 
   const reload = useCallback(() => {
-    reloadOpen();
-    reloadClosed();
+    return Promise.all([reloadOpen(), reloadClosed()]);
   }, [reloadOpen, reloadClosed]);
 
   const fetchBudgets = useCallback(() => listPrintBudgets(), []);
@@ -87,52 +65,26 @@ export default function Forge() {
   } = useApi(fetchBudgets);
 
   const fetchPrinters = useCallback(() => listPrinters(), []);
-  const { data: printersData, reload: reloadPrinters } = useApi(fetchPrinters);
-
-  // Unlinked jobs are the parent's escape hatch only — a child has nothing
-  // to do with a plate that didn't match anything.
-  const fetchJobs = useCallback(
-    () => (isParent ? listPrintJobs({ unlinked: true }) : Promise.resolve([])),
-    [isParent],
-  );
-  const { data: jobsData, reload: reloadJobs } = useApi(fetchJobs, [isParent]);
-
-  // Dismissed rows are a second fetch rather than a flag on the first: the
-  // panel's default list must stay exactly what needs attention, and the
-  // cleared ones are only rendered behind a toggle.
-  const fetchDismissed = useCallback(
-    () => (isParent
-      ? listPrintJobs({ unlinked: true, dismissed: true })
-      : Promise.resolve([])),
-    [isParent],
-  );
-  const { data: dismissedData, reload: reloadDismissed } = useApi(
-    fetchDismissed, [isParent],
-  );
+  const { data: printersData } = useApi(fetchPrinters);
 
   const open = useMemo(() => normalizeList(openData), [openData]);
   const closed = useMemo(() => normalizeList(closedData), [closedData]);
-  // The linker needs every request a job may bind to, which spans both lists.
+  // Saved mutation receipts update either list without inventing payment state.
   const requests = useMemo(() => [...open, ...closed], [open, closed]);
   // The server's own count, so a truncated history reads as "20 of 57"
   // rather than looking like the whole story.
   const closedTotal = closedData?.count ?? closed.length;
   const budgets = useMemo(() => normalizeList(budgetsData), [budgetsData]);
   const printers = useMemo(() => normalizeList(printersData), [printersData]);
-  const unlinkedJobs = useMemo(() => normalizeList(jobsData), [jobsData]);
-  const dismissedJobs = useMemo(() => normalizeList(dismissedData), [dismissedData]);
 
   const pending = open.filter((r) => r.status === 'pending');
   const quotedCount = open.filter((r) => r.status === 'quoted').length;
-  const printingCount = open.filter((r) => r.status === 'printing').length;
-
-  const gramsUsed = budgets.reduce((sum, b) => sum + (Number(b.grams_used) || 0), 0);
-  const { pct: budgetPct, label: budgetLabel } = budgetProgress(budgets);
-
-  // A child only gets the live view while something of theirs is on the bed;
-  // otherwise the panel would narrate a sibling's print.
-  const activePrinters = printers.filter((p) => p.is_active !== false);
-  const showLive = activePrinters.length > 0 && (isParent || printingCount > 0);
+  usePrintRequestRefresh({
+    requests: open,
+    reload,
+    paused: submitOpen || Boolean(deciding) || busy || exchanging !== null
+      || Boolean(searchParams.get('tab') && searchParams.get('tab') !== 'forge'),
+  });
 
   const canCancel = (request) => (
     (isParent || request.user === user?.id)
@@ -202,34 +154,26 @@ export default function Forge() {
 
   return (
     <div className="space-y-6">
-      <QuestFolio
-        letter="P"
-        title="3D Printing"
-        kicker="Request and track your prints"
-        meta="Choose a model and submit it for parent review before printing."
-        stats={[
-          { value: pending.length + quotedCount, label: 'awaiting action' },
-          { value: printingCount, label: 'printing' },
-          { value: Math.round(gramsUsed), label: 'grams' },
-        ]}
-        progressPct={budgetPct}
-        progressLabel={budgetLabel}
-      >
-        <ErrorAlert message={error || actionError} onRetry={error ? reload : undefined} />
-        {isParent && budgetsError && <ErrorAlert message={`Could not load print budgets. ${budgetsError}`} onRetry={reloadBudgets} />}
-
-        {!isParent && (
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              onClick={() => setSubmitOpen(true)}
-              className="flex items-center gap-1 shrink-0"
-            >
-              <Plus size={16} /> Ask for a print
-            </Button>
-          </div>
+      <PageHeader
+        title="3D Prints"
+        kicker="Rewards and parts for your projects"
+        actions={isParent ? (
+          <Link to="/manage?tab=3D+Printing" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">
+            Printing settings
+          </Link>
+        ) : (
+          <Button size="sm" onClick={() => setSubmitOpen(true)} className="flex items-center gap-1">
+            <Plus size={16} aria-hidden="true" /> Ask for a print
+          </Button>
         )}
-
+      />
+      <p className="font-body text-body text-ink-secondary">
+        Choose something you want or a part for your project. A parent reviews each
+        request and can approve it for free or send a coin quote for you to accept.
+      </p>
+      <ErrorAlert message={error || actionError} onRetry={error ? reload : undefined} />
+      {budgetsError && <ErrorAlert message={`Could not load print budgets. ${budgetsError}`} onRetry={reloadBudgets} />}
+      <div className="space-y-5">
         {isParent && pending.length > 0 && (
           <section>
             <ChapterRubric index={nextRubric()} name="Awaiting approval" />
@@ -239,6 +183,7 @@ export default function Forge() {
                   key={request.id}
                   request={request}
                   showOwner
+                  showPlateFilename
                   canDecide
                   canCancel={canCancel(request)}
                   onDecide={setDeciding}
@@ -271,6 +216,7 @@ export default function Forge() {
                     key={request.id}
                     request={request}
                     showOwner={isParent}
+                    showPlateFilename={isParent}
                     canDecide={isParent && request.status === 'pending'}
                     canCancel={canCancel(request)}
                     canExchange={!isParent && request.user === user?.id && request.status === 'quoted'}
@@ -284,44 +230,6 @@ export default function Forge() {
             </div>
           )}
         </section>
-
-        {showLive && (
-          <section>
-            <ChapterRubric index={nextRubric()} name="Printing now" />
-            <div className="space-y-2">
-              {activePrinters.map((printer) => (
-                <PrinterStatus key={printer.id} printer={printer} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {isParent && (
-          <section>
-            <ChapterRubric index={nextRubric()} name="Monthly budgets" />
-            <BudgetPanel budgets={budgets} onChanged={reloadBudgets} />
-          </section>
-        )}
-
-        {isParent && (
-          <section>
-            <ChapterRubric index={nextRubric()} name="Prints without a request" />
-            <UnlinkedJobsPanel
-              jobs={unlinkedJobs}
-              dismissedJobs={dismissedJobs}
-              requests={requests}
-              onLinked={() => { reloadJobs(); reloadDismissed(); reload(); }}
-              onChanged={() => { reloadJobs(); reloadDismissed(); }}
-            />
-          </section>
-        )}
-
-        {isParent && (
-          <section>
-            <ChapterRubric index={nextRubric()} name="Printers" />
-            <PrinterConfigPanel printers={printers} onChanged={reloadPrinters} />
-          </section>
-        )}
 
         {closed.length > 0 && (
           <section>
@@ -337,14 +245,15 @@ export default function Forge() {
                   key={request.id}
                   request={request}
                   showOwner={isParent}
+                  showPlateFilename={isParent}
                 />
               ))}
             </div>
           </section>
         )}
-      </QuestFolio>
+      </div>
 
-      {submitOpen && (
+      {submitOpen && !isParent && (
         <PrintRequestModal
           onClose={() => setSubmitOpen(false)}
           onSaved={() => { setSubmitOpen(false); reload(); }}

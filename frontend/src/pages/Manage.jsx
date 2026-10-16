@@ -4,7 +4,7 @@ import { getToken } from '../api/client';
 import { AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, UsersRound, BookTemplate, ScrollText, Pencil, Trash2, Play, DollarSign, Globe, Link2, Unlink, KeyRound, UserX, UserCheck, Shield,
-  TestTubeDiagonal,
+  TestTubeDiagonal, Printer,
 } from 'lucide-react';
 import {
   getChildren, createChild, updateChild, deleteChild, resetChildPassword,
@@ -20,6 +20,7 @@ import {
 } from '../api';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
+import PrintingSection from './manage/PrintingSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
 import { useApi, useAuth } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
@@ -47,6 +48,7 @@ const TAB_ICONS = {
   Guide: ScrollText,
   Admin: Shield,
   Test: TestTubeDiagonal,
+  '3D Printing': Printer,
 };
 
 export default function Manage() {
@@ -56,6 +58,7 @@ export default function Manage() {
 }
 
 function AccountManage() {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   // Two staff-only tabs gated on backend probes — server is the source of
   // truth, the ping just hides them from non-staff so they don't see
@@ -78,6 +81,7 @@ function AccountManage() {
   }, []);
   const tabs = [
     ...BASE_TABS,
+    ...(user?.role === 'parent' ? ['3D Printing'] : []),
     ...(adminEnabled ? ['Admin'] : []),
     ...(devToolsEnabled ? ['Test'] : []),
   ];
@@ -106,6 +110,7 @@ function AccountManage() {
       {activeTab === 'Family' && <FamilySection />}
       {activeTab === 'Templates' && <TemplatesSection />}
       {activeTab === 'Guide' && <GuideSection />}
+      {activeTab === '3D Printing' && user?.role === 'parent' && <PrintingSection />}
       {activeTab === 'Admin' && adminEnabled && <AdminSection />}
       {activeTab === 'Test' && devToolsEnabled && <TestSection />}
     </PageShell>

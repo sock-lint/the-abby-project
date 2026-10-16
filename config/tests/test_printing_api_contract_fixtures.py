@@ -8,6 +8,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.printing.models import PrintBudget, PrintBudgetLedger, PrintRequest
+from apps.projects.models import Project, ProjectCollaborator
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 from config.tests.factories import make_family
@@ -164,5 +165,46 @@ class PrintingApiResponseFixtureTests(APITestCase):
         self.assertEqual(CoinService.get_balance(self.child), 80)
         self.assertEqual(CoinService.get_balance(self.sibling), 0)
         self.assertEqual(CoinService.get_balance(self.outsider), 0)
+        self.assertEqual(CoinLedger.objects.count(), 1)
+        self.model_fetch.assert_not_called()
+
+    def test_project_request_projection_and_filtered_owner_list(self):
+        project = Project.objects.create(
+            id=61, title="Synthetic paper pumpkin", assigned_to=self.child,
+            created_by=self.parent,
+        )
+        PrintRequest.objects.filter(pk=self.print_request.pk).update(project=project)
+        self.authenticate(self.child)
+        associated = self.assert_response_fixture(
+            self.client.get("/api/print-requests/31/"), "printing-project-request.json",
+        )
+        listed = self.assert_response_fixture(
+            self.client.get("/api/print-requests/", {"project_id": project.pk}),
+            "printing-project-requests.json",
+        )
+        self.assertEqual(listed["results"], [associated])
+        self.authenticate(self.parent)
+        self.assert_response_fixture(
+            self.client.get("/api/print-requests/31/"), "printing-project-request.json",
+        )
+        self.model_fetch.assert_not_called()
+
+    def test_reassigned_project_projection_is_private_even_with_old_collaborator(self):
+        project = Project.objects.create(
+            id=61, title="Other family's private project", assigned_to=self.outsider,
+            created_by=self.parent,
+        )
+        ProjectCollaborator.objects.create(project=project, user=self.child)
+        PrintRequest.objects.filter(pk=self.print_request.pk).update(project=project)
+        for user in (self.child, self.parent):
+            self.authenticate(user)
+            unavailable = self.assert_response_fixture(
+                self.client.get("/api/print-requests/31/"), "printing-project-unavailable.json",
+            )
+            listed = self.assert_response_fixture(
+                self.client.get("/api/print-requests/"), "printing-project-requests-unavailable.json",
+            )
+            self.assertEqual(listed["results"], [unavailable])
+        self.assertEqual(CoinService.get_balance(self.child), 80)
         self.assertEqual(CoinLedger.objects.count(), 1)
         self.model_fetch.assert_not_called()

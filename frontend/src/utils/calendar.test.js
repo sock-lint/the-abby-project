@@ -47,6 +47,16 @@ afterEach(() => {
 });
 
 describe('Google Calendar event template', () => {
+  it('keeps the Rewards printing destination in exports while stripping unrelated parameters', () => {
+    const event = { ...EVENT, path: '/treasury?tab=forge&new=1&token=synthetic#private' };
+    const file = buildCalendarFile(event, NOW, ORIGIN);
+    expect(parseFile(file).properties.URL).toBe('https://abby.example/treasury?tab=forge');
+    const url = new URL(buildGoogleCalendarUrl(event, ORIGIN));
+    expect(url.searchParams.get('details')).toContain('https://abby.example/treasury?tab=forge');
+    expect(file).not.toContain('synthetic');
+    expect(file).not.toContain('new=1');
+  });
+
   it('encodes the title, description, navigation link and exclusive all-day end', () => {
     const url = new URL(buildGoogleCalendarUrl({ ...EVENT, title: 'Science & art + music?' }, ORIGIN));
     expect(url.origin).toBe('https://calendar.google.com');

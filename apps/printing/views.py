@@ -16,10 +16,11 @@ from __future__ import annotations
 
 from django.db import transaction
 from django.db.models import Prefetch
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from rest_framework import mixins, permissions, status, viewsets
+from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
@@ -58,7 +59,9 @@ from .serializers import (
     PrintRequestSerializer,
     PrintRequestWriteSerializer,
 )
-from .services import BudgetExceededError, PrintRequestError, PrintRequestService
+from .services import (
+    BudgetExceededError, PrintRequestError, PrintRequestService, projects_for_printing,
+)
 
 
 class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
@@ -92,6 +95,12 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         user_id = self.request.query_params.get("user_id")
         if user_id and self.request.user.role == "parent":
             qs = qs.filter(user_id=user_id)
+        if self.action == "list" and "project_id" in self.request.query_params:
+            project_id = serializers.IntegerField(min_value=1).run_validation(
+                self.request.query_params["project_id"],
+            )
+            project = get_object_or_404(projects_for_printing(self.request.user), pk=project_id)
+            qs = qs.filter(project=project)
         return qs
 
     # ------------------------------------------------------------------ #
@@ -112,6 +121,16 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             if target_user is None:
                 return child_not_found_response()
 
+        project = None
+        if data.get("project_id") is not None:
+            # The parent must see the project, and its requesting child must
+            # participate. Picking any other same-family child is insufficient.
+            project = get_object_or_404(
+                projects_for_printing(request.user).filter(
+                    pk__in=projects_for_printing(target_user).values("pk"),
+                ), pk=data["project_id"],
+            )
+
         source_url = data.get("source_url", "")
         model_file = data.get("model_file")
         source_kind = (
@@ -119,16 +138,22 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             else PrintRequest.SourceKind.UPLOAD
         )
 
-        print_request = PrintRequestService.create_request(
-            target_user,
-            title=data.get("title", ""),
-            reason=data["reason"],
-            color=data["color"],
-            source_kind=source_kind,
-            source_url=source_url,
-            needed_by=data.get("needed_by"),
-            model_file=model_file,
-        )
+        try:
+            print_request = PrintRequestService.create_request(
+                target_user,
+                title=data.get("title", ""),
+                reason=data["reason"],
+                color=data["color"],
+                source_kind=source_kind,
+                source_url=source_url,
+                needed_by=data.get("needed_by"),
+                model_file=model_file,
+                project=project,
+            )
+        except PrintRequestError as exc:
+            # Membership or assignment may have changed after the initial
+            # project lookup. The service recheck still fails as a 404.
+            raise NotFound(str(exc)) from exc
 
         # Enrich asynchronously — a slow model host must never block a submit.
         # Falls back to running inline when Celery isn't reachable so a
@@ -143,7 +168,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             print_request.refresh_from_db()
 
         return Response(
-            PrintRequestSerializer(print_request).data,
+            self.get_serializer(print_request).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -166,7 +191,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         edit = PrintRequestEditSerializer(instance, data=request.data, partial=True)
         edit.is_valid(raise_exception=True)
         edit.save()
-        return Response(PrintRequestSerializer(instance).data)
+        return Response(self.get_serializer(instance).data)
 
     def destroy(self, request, *args, **kwargs):
         # Preserve the frozen quote/payment receipt, including after refund.
@@ -218,7 +243,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             )
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(PrintRequestSerializer(print_request).data)
+        return Response(self.get_serializer(print_request).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def reject(self, request, pk=None):
@@ -231,7 +256,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             )
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(PrintRequestSerializer(print_request).data)
+        return Response(self.get_serializer(print_request).data)
 
     @action(detail=True, methods=["post"],
             permission_classes=[permissions.IsAuthenticated])
@@ -250,7 +275,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             return Response({"error": str(exc)}, status=status.HTTP_409_CONFLICT)
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(PrintRequestSerializer(print_request).data)
+        return Response(self.get_serializer(print_request).data)
 
     @action(detail=True, methods=["post"],
             permission_classes=[permissions.IsAuthenticated])
@@ -263,7 +288,7 @@ class PrintRequestViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             print_request = PrintRequestService.cancel(print_request, request.user)
         except PrintRequestError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(PrintRequestSerializer(print_request).data)
+        return Response(self.get_serializer(print_request).data)
 
     @action(detail=False, methods=["post"],
             permission_classes=[permissions.IsAuthenticated])

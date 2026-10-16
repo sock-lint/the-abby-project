@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 
@@ -17,6 +18,7 @@ from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from apps.rewards.services import CoinService
 from config.services import finalize_decision
+from config.viewsets import filter_projects_accessible_to
 
 from .budget import PrintBudgetService, quantize_grams
 from .matching import mint_slug, plate_filename_for
@@ -25,7 +27,23 @@ from .models import PrintBudgetLedger, PrintJob, PrintJobEvent, PrintRequest
 logger = logging.getLogger(__name__)
 
 #: Where the frontend surfaces the Forge. Used for notification deep links.
-FORGE_LINK = "/quests?tab=forge"
+FORGE_LINK = "/treasury?tab=forge"
+
+
+def projects_for_printing(user):
+    """Project access plus the current family boundary, including after reassignment.
+
+    A collaborator row can outlive a move to another family's assignee. It
+    never grants that former collaborator access to the new household's work.
+    """
+    from apps.projects.models import Project
+
+    if not getattr(user, "is_authenticated", False) or not user.family_id:
+        return Project.objects.none()
+    return filter_projects_accessible_to(user, Project.objects.all()).filter(
+        Q(assigned_to__family_id=user.family_id)
+        | Q(assigned_to__isnull=True, created_by__family_id=user.family_id),
+    )
 
 
 class PrintRequestError(Exception):
@@ -53,15 +71,18 @@ class PrintRequestService:
     @transaction.atomic
     def create_request(user, *, title, reason, color, source_kind, source_url="",
                        thumbnail_url="", source_author="", needed_by=None,
-                       model_file=None):
+                       model_file=None, project=None):
         """Create a pending request and tell the parents about it.
 
         Metadata enrichment (title/thumbnail scraped from the link) runs
         afterwards via Celery so a slow or unreachable model host never
         blocks the child's submit — see ``tasks.enrich_request_metadata``.
         """
+        if project is not None and not projects_for_printing(user).filter(pk=project.pk).exists():
+            raise PrintRequestError("Project not found.")
         request = PrintRequest.objects.create(
             user=user,
+            project=project,
             title=(title or "").strip()[:160] or "Untitled print",
             reason=reason,
             color=color,

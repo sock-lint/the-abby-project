@@ -101,7 +101,7 @@ class CreateRequestTests(_Fixture):
         )
         self.assertIn(request.title, note.message)
         self.assertIn("Abby", note.message)
-        self.assertEqual(note.link, "/quests?tab=forge")
+        self.assertEqual(note.link, "/treasury?tab=forge")
 
     def test_create_request_does_not_notify_the_child(self):
         self.submit()

@@ -14,9 +14,9 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderPage() {
+function renderPage(route = '/manage') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
         <Manage />
       </AuthProvider>
@@ -25,6 +25,30 @@ function renderPage() {
 }
 
 describe('Manage', () => {
+  it('provides parent printer administration outside the print request page', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
+    renderPage('/manage?tab=3D+Printing');
+    expect(await screen.findByRole('region', { name: 'Printing settings' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '3D Printing' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByRole('heading', { name: 'Monthly budgets' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Printers' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Review print requests' })).toHaveAttribute('href', '/treasury?tab=forge');
+  });
+
+  it('never loads printer administration for a child entering its deep link', async () => {
+    const reads = vi.fn();
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/print-jobs/', () => { reads(); return HttpResponse.json([]); }),
+      http.get('*/api/print-budgets/', () => { reads(); return HttpResponse.json([]); }),
+      http.get('*/api/printers/', () => { reads(); return HttpResponse.json([]); }),
+    );
+    renderPage('/manage?tab=3D+Printing');
+    await screen.findByRole('tab', { name: 'Children' });
+    expect(screen.queryByRole('tab', { name: '3D Printing' })).not.toBeInTheDocument();
+    expect(reads).not.toHaveBeenCalled();
+  });
+
   it('renders the children tab by default', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),

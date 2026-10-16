@@ -155,10 +155,11 @@ adventure metaphors for everyday tasks and status (for example, use “Save”,
 | Current display name | Legacy display name / stable route |
 | --- | --- |
 | Tasks | Quests / `/quests` |
-| Homework, Chores, Habits, Projects, 3D Printing, Challenges | Study, Duties, Rituals, Ventures, Forge, Trials (existing tab IDs) |
+| Homework, Chores, Habits, Projects, Challenges | Study, Duties, Rituals, Ventures, Trials (existing tab IDs) |
 | Pets | Bestiary / `/bestiary` |
 | Rewards | Treasury / `/treasury` |
 | Payments, Timecards, Shop, Inventory, Savings goals | Coffers, Wages, Bazaar, Satchel, Hoards (existing tab IDs) |
+| 3D Prints (Rewards) | Forge / `/treasury?tab=forge`; old Tasks links redirect |
 | Progress | Atlas / `/atlas` |
 | Guide | Lorebook (existing `lorebook` tab ID) |
 | Memories | Chronicle / `/chronicle` |
