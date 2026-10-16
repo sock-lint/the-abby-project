@@ -25,12 +25,22 @@ when its implementation touches only React.
 These rules are mandatory for agents working in this repository. See
 [CLAUDE.md](CLAUDE.md#worktree-lifecycle) for verification and recovery details.
 
-- Before creating a worktree, inspect this chat's attached artifacts and reuse
-  a suitable active worktree. Create isolated checkouts through `create_worktree`
-  and attach them to their owning chat; attach every PR created or continued.
+Choose the lifecycle by the tools available in this session and the checkout's
+recorded ownership. When `create_worktree` is unavailable, an
+owner-directed remote chat may reuse its own isolated checkout or create an
+unmanaged Git worktree using the [remote-chat procedure](docs/operations/improvement-loop.md#owner-directed-remote-chats).
+The owner's request to do the work authorizes this routine isolation; do not
+request a worktree exception just because managed tools are absent. An existing
+managed checkout remains managed even when its tools are unavailable.
+
+- Inspect this chat's attached artifacts when `list_artifacts` is available,
+  and reuse a suitable active worktree. Use `create_worktree` when available for
+  a new managed checkout and attach it to its owning chat; otherwise use the
+  remote-chat procedure above. Attach every PR created or continued
+  when the PR attachment tool is available; otherwise record its exact URL.
 - Record the PR URL, target branch, canonical checkout branch/path, and managed
-  worktree identity/root in the owning chat. Confirm the exact PR's merge on
-  GitHub before treating its work as merged.
+  worktree identity/root when applicable in the owning chat. Confirm the exact
+  PR's merge on GitHub before treating its work as merged.
 - After a confirmed merge, archive every eligible managed worktree owned by this chat
   through `archive_worktree`. It saves a recoverable snapshot and removes the
   checkout. Do not substitute raw filesystem deletion or forced Git removal.
@@ -45,12 +55,16 @@ These rules are mandatory for agents working in this repository. See
   once its purpose is complete, needed work is preserved, and no active follow-up
   needs it. Record that completion as the cleanup reason; lack of a PR alone
   must not leave a disposable checkout stranded.
-- If an open PR is the reason to retain a worktree, create or update a heartbeat
-  in its owning chat to watch that PR's merge and archive the eligible worktree
+- If an open PR is the reason to retain a worktree and heartbeat tools are
+  available, create or update a heartbeat in its owning chat to watch that PR's
+  merge and archive the eligible worktree
   afterwards, then clean up its eligible task branch. Stay quiet while nothing
   changes, and stop/delete that monitor after both cleanup steps. A central chat
   cannot archive another chat's attachments; monitoring and cleanup must run in
-  the owning chat.
+  the owning chat. Without monitoring tools, use an existing station/MAIN merge
+  watch when available, or record the retention reason and next action. Do not
+  claim to have installed a monitor or ask for a worktree exception because a
+  monitoring tool is absent.
 - For an unmanaged worktree owned by this chat, the user's standing automatic
   cleanup request for this repository is authorization: do not ask again. Remove
   it only when clean, inactive, fully merged, and matched to a confirmed exact
@@ -66,7 +80,8 @@ Git hook or a repository-wide timer. Configure the owner-chat monitor when neede
 Unattended Abby station sessions use station-owned worktrees and their task/PR
 records because the station has no Codex app artifact service. Follow the
 [station lifecycle](docs/operations/improvement-loop.md#station-checkouts) for
-those checkouts. Codex app chats continue to use the managed lifecycle above.
+those checkouts. Managed checkouts continue to use the managed lifecycle above;
+if their archive tool is unavailable, retain them for the owning app to archive.
 
 ## Branch lifecycle
 

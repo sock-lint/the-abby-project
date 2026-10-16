@@ -84,3 +84,35 @@ task branch afterward using the branch-verification rules in `AGENTS.md`.
 Retain divergent/unmerged work with its reason and next action. A deleted remote
 branch is not merge evidence. Station task records supply the ownership and
 cleanup evidence that a Codex app chat would keep in its artifact inventory.
+
+### Owner-directed remote chats
+
+Some owner-directed remote Codex/CLI chats have shell and Git access without
+`create_worktree`, even if some artifact tools are available. The owner's request
+authorizes routine isolated work in those sessions without a separate worktree exception.
+Choose by actual tool availability and recorded ownership, not the client name.
+
+Before editing, inspect `git worktree list --porcelain`, checkout status, active
+station tasks and open PRs. Reuse only a suitable isolated checkout whose
+ownership by this chat is established. Otherwise fetch the target branch and
+use normal `git worktree add -b codex/<unique-task> <absolute-path> origin/main`.
+Choose a new path outside app-managed roots such as `~/.codex/worktrees` and
+outside station workers' `.claude/worktrees`; do not reuse another task's branch
+or change the shared primary checkout. Record the owning chat/task, absolute
+path, branch, base SHA, target and exact PR URL in the chat and a local ownership
+receipt outside the checkout. Keep that receipt separate from the loop's state
+and task records. Attach the PR if the attachment tool is available.
+
+Do not invoke `newtask` merely to make a checkout for the current chat: it starts
+another agent. Do not use `endtask` for a generic remote checkout or a managed
+app artifact. Unmanaged checkout cleanup uses the existing exact-PR, ownership,
+clean/inactive and nonforced-removal rules in `AGENTS.md`. A managed checkout
+still requires its owning app's `archive_worktree`; absent tools are a reason to
+retain it with a next action, never to reclassify or forcibly remove it.
+
+Use an existing station/MAIN merge watch when available if this chat cannot
+create a heartbeat; otherwise record the exact PR, retained checkout and next
+action without claiming a monitor exists. PR CI, independent review, the trusted
+live observer and asset-release holds still apply. MAIN/the controller owns
+merging; an implementation chat does not merge its own PR or take over a loop
+task. MAIN must preserve another chat's checkout when using station merge tools.
