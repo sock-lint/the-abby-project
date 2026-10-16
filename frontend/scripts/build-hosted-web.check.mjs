@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { webBuildEnvironment, webBuildSettings } from './build-hosted-web.mjs'
 
 const absent = async () => { throw Object.assign(new Error('Synthetic missing mount'), { code: 'ENOENT' }) }
@@ -25,6 +29,58 @@ test('explicit BuildKit mounts override public build argument defaults', async (
   })
   assert.equal(child.VITE_ALLOW_SIGNUP, 'false')
   assert.deepEqual(requested, webBuildSettings)
+})
+
+test('the browser DSN reaches Vite from the build environment or an overriding mount', async () => {
+  const input = { VITE_SENTRY_DSN: 'https://synthetic-public@logs.example.invalid/12' }
+  const mountedDsn = 'https://synthetic-mounted@logs.example.invalid/34'
+  assert.equal((await webBuildEnvironment(input, absent)).VITE_SENTRY_DSN, input.VITE_SENTRY_DSN)
+  const mounted = await webBuildEnvironment(input, name => name === 'VITE_SENTRY_DSN' ? `${mountedDsn}\n` : absent())
+  assert.equal(mounted.VITE_SENTRY_DSN, mountedDsn)
+  assert.equal(input.VITE_SENTRY_DSN, 'https://synthetic-public@logs.example.invalid/12')
+  assert.equal((await webBuildEnvironment({}, absent)).VITE_SENTRY_DSN, undefined)
+})
+
+test('Compose forwards public browser Sentry settings to the build without the upload token', async () => {
+  const configured = {
+    VITE_SENTRY_DSN: 'https://synthetic-public@logs.example.invalid/12',
+    VITE_SENTRY_ENVIRONMENT: 'synthetic',
+    VITE_SENTRY_TRACES_SAMPLE_RATE: '0.125',
+    VITE_SENTRY_RELEASE: 'synthetic-release',
+  }
+  const defaults = {
+    VITE_SENTRY_DSN: '',
+    VITE_SENTRY_ENVIRONMENT: 'production',
+    VITE_SENTRY_TRACES_SAMPLE_RATE: '0.2',
+    VITE_SENTRY_RELEASE: '',
+  }
+  const directory = await mkdtemp(join(tmpdir(), 'abby-sentry-build-'))
+  try {
+    for (const settings of [configured, {}]) {
+      const envFile = join(directory, 'synthetic.env')
+      await writeFile(envFile, Object.entries({
+        SECRET_KEY: 'synthetic-signing-key',
+        SENTRY_AUTH_TOKEN: 'synthetic-upload-token',
+        ...settings,
+      }).map(([key, value]) => `${key}=${value}`).join('\n'))
+      // Render only: ignore the checkout's runtime .env and isolate Docker's
+      // configuration from the station account. No daemon or network is used.
+      const env = Object.fromEntries(['PATH', 'Path', 'SystemRoot', 'ComSpec', 'PATHEXT']
+        .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]))
+      const output = execFileSync('docker', ['compose', '--env-file', envFile,
+        '-f', 'docker-compose.yml', 'config', '--format', 'json', '--no-env-resolution'], {
+        cwd: fileURLToPath(new URL('../..', import.meta.url)),
+        env: { ...env, HOME: directory, USERPROFILE: directory, DOCKER_CONFIG: directory },
+        encoding: 'utf8',
+      })
+      const build = JSON.parse(output).services.django.build
+      assert.deepEqual(build.args, settings === configured ? configured : defaults)
+      assert.equal(Object.hasOwn(build.args, 'SENTRY_AUTH_TOKEN'), false)
+      assert.equal(JSON.stringify(build).includes('synthetic-upload-token'), false)
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
 })
 
 test('oversized or multiline web settings fail before spawning a build', async () => {
