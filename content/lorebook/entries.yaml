@@ -128,12 +128,12 @@ entries:
     kid_voice: |
       Write what mattered today: something you did, a worry, a funny moment,
       or anything you want to remember. Keep it private or choose to share
-      it with your family.
+      it with your parents.
     mechanics:
       - "Each child may write one journal entry per local day; the database enforces one-per-day."
       - "The first saved entry can earn writing XP from a 15 XP pool split toward Creative Writing and Vocabulary, and counts for streaks, drops, and challenges. The save confirmation shows any verified XP award."
       - "Children can edit entry text on the day it was written. After midnight, the text is read-only, but its sharing setting can still be changed."
-      - "New journal entries default to Only you. Parents can read only entries the child shares with the family."
+      - "New journal entries default to Only me. Parents can read only entries marked Shared with parents."
     parent_knobs:
       settings: []
       powers_badges:
