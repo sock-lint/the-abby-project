@@ -51,6 +51,8 @@ class SkillService:
         progress.save(update_fields=["xp_points", "level"])
 
         cls.evaluate_unlocks(user)
+        from apps.rpg.models import CharacterProfile
+        CharacterProfile.sync_level_from_skills(user)
         return progress
 
     @classmethod
@@ -557,3 +559,5 @@ class BadgeService:
             sp.level = SkillService.level_for_xp(sp.xp_points)
             sp.save(update_fields=["xp_points", "level"])
         SkillService.evaluate_unlocks(user)
+        from apps.rpg.models import CharacterProfile
+        CharacterProfile.sync_level_from_skills(user)

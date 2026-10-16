@@ -129,6 +129,15 @@ class RewardService:
     def request_redemption(user, reward):
         from .availability import reward_is_available
 
+        # Wallet/decision paths share this lock order: child, then offer (or
+        # child, redemption, offer). Metadata edits need only the offer lock.
+        user = User.objects.select_for_update(no_key=True).get(pk=user.pk)
+        # Callers may hold an offer fetched before another child bought its
+        # final item, or before a parent edited it. Serialize reservations on
+        # the authoritative row before checking eligibility, price and stock.
+        reward = Reward.objects.select_for_update(no_key=True).get(pk=reward.pk)
+        if reward.family_id != user.family_id:
+            raise RewardUnavailableError("This reward is not currently available.")
         if not reward_is_available(reward):
             raise RewardUnavailableError("This reward is not currently available.")
         if not reward.is_active:
@@ -146,6 +155,13 @@ class RewardService:
             user=user,
             reward=reward,
             coin_cost_snapshot=reward.cost_coins,
+            fulfillment_kind_snapshot=reward.fulfillment_kind,
+            item_definition_snapshot_id=(
+                reward.item_definition_id
+                if reward.fulfillment_kind != Reward.FulfillmentKind.REAL_WORLD
+                else None
+            ),
+            stock_reserved=reward.stock is not None,
             status=(
                 RewardRedemption.Status.PENDING
                 if reward.requires_parent_approval
@@ -231,6 +247,7 @@ class RewardService:
     @staticmethod
     @transaction.atomic
     def approve(redemption, parent, notes=""):
+        User.objects.select_for_update(no_key=True).get(pk=redemption.user_id)
         _lock_decision(redemption)
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
@@ -250,25 +267,20 @@ class RewardService:
 
     @staticmethod
     def _maybe_credit_digital_item(redemption):
-        """Credit the linked ItemDefinition to UserInventory when the reward
-        is a digital-item fulfillment.
+        """Credit the requested ItemDefinition, independently of offer edits.
 
         Called once within the locked transition into ``FULFILLED`` (or
         the initial auto-fulfillment transaction). A noop for ``real_world``
-        rewards or rewards without a linked item. Missing FK + non-real_world kind is logged
-        but not raised — we don't want a mis-configured reward to block
-        an approval the parent already greenlit.
+        rewards. An earlier misconfigured digital promise with no recoverable
+        item remains pending for correction or denial; it cannot be silently
+        fulfilled without delivering the promised inventory.
         """
-        reward = redemption.reward
-        if reward.fulfillment_kind == Reward.FulfillmentKind.REAL_WORLD:
+        if redemption.fulfillment_kind_snapshot == Reward.FulfillmentKind.REAL_WORLD:
             return
-        if reward.item_definition_id is None:
-            logger.warning(
-                "Reward %s has fulfillment_kind=%s but no item_definition; "
-                "skipping inventory credit.",
-                reward.pk, reward.fulfillment_kind,
+        if redemption.item_definition_snapshot_id is None:
+            raise RewardUnavailableError(
+                "The saved digital reward has no inventory item. Deny it to refund the held coins."
             )
-            return
         from apps.rpg.models import UserInventory
         # ``select_for_update`` already locks the row, but pairing with
         # ``F("quantity") + 1`` makes the increment correct under any
@@ -277,7 +289,7 @@ class RewardService:
         # in case the caller inspects it.
         inv, _ = UserInventory.objects.select_for_update().get_or_create(
             user=redemption.user,
-            item=reward.item_definition,
+            item_id=redemption.item_definition_snapshot_id,
             defaults={"quantity": 0},
         )
         UserInventory.objects.filter(pk=inv.pk).update(
@@ -295,6 +307,7 @@ class RewardService:
         only the callable/route name is normalized to ``reject`` to match
         chores/homework.
         """
+        User.objects.select_for_update(no_key=True).get(pk=redemption.user_id)
         _lock_decision(redemption)
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
@@ -306,8 +319,8 @@ class RewardService:
             created_by=parent,
             redemption=redemption,
         )
-        reward = redemption.reward
-        if reward.stock is not None:
+        reward = Reward.objects.select_for_update(no_key=True).get(pk=redemption.reward_id)
+        if redemption.stock_reserved and reward.stock is not None:
             Reward.objects.filter(pk=reward.pk).update(stock=F("stock") + 1)
         finalize_decision(
             redemption, RewardRedemption.Status.DENIED, parent, notes,
