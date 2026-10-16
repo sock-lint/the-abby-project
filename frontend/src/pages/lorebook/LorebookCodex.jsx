@@ -25,6 +25,7 @@ export default function LorebookCodex({
   showEconomyDiagram = false,
   onTrained,
 }) {
+  const parentMode = mode === 'parent';
   const [detailEntry, setDetailEntry] = useState(null);
   const [trialEntry, setTrialEntry] = useState(null);
   // User-clicked chapter override, seeded from localStorage. The effective
@@ -57,7 +58,7 @@ export default function LorebookCodex({
   if (trialSlug && trialSlug !== handledTrialSlug) {
     setHandledTrialSlug(trialSlug);
     const target = entries.find((entry) => entry.slug === trialSlug);
-    if (target && target.unlocked && !target.trained) {
+    if (!parentMode && target && target.unlocked && !target.trained) {
       setTrialEntry(target);
       // Select the chapter the deep-linked entry lives in, so
       // closing the trial leaves the kid looking at the right folio.
@@ -76,7 +77,7 @@ export default function LorebookCodex({
   }, [trialSlug, location.pathname, location.search, navigate]);
 
   const handleSelect = (entry, selectMode) => {
-    if (selectMode === 'trial') setTrialEntry(entry);
+    if (!parentMode && selectMode === 'trial') setTrialEntry(entry);
     else if (selectMode === 'detail') setDetailEntry(entry);
   };
 
@@ -101,6 +102,16 @@ export default function LorebookCodex({
   const shelfItems = useMemo(
     () =>
       grouped.map((chapter) => {
+        if (parentMode) {
+          const count = `${chapter.total} ${chapter.total === 1 ? 'topic' : 'topics'}`;
+          return {
+            id: chapter.chapter.id,
+            name: chapter.chapter.name,
+            icon: chapter.chapter.letter,
+            chip: count,
+            ariaLabel: `${chapter.chapter.name}, ${count}`,
+          };
+        }
         const pct = chapter.total ? (chapter.trained / chapter.total) * 100 : 0;
         return {
           id: chapter.chapter.id,
@@ -112,7 +123,7 @@ export default function LorebookCodex({
           ariaLabel: `${chapter.chapter.name}, ${chapter.trained} of ${chapter.total} completed`,
         };
       }),
-    [grouped],
+    [grouped, parentMode],
   );
 
   const activeChapter =
@@ -126,7 +137,16 @@ export default function LorebookCodex({
     <div className="space-y-5">
       <LorebookIncipit unlocked={unlocked} trained={trained} total={total} mode={mode} />
 
-      {showEconomyDiagram && <EconomyDiagram entries={entries} />}
+      {showEconomyDiagram && (
+        <details className="rounded-xl border border-ink-page-shadow bg-ink-page-aged/45 p-4">
+          <summary className="cursor-pointer font-display text-base font-semibold text-ink-primary min-h-11 content-center">
+            Compare rewards by activity
+          </summary>
+          <div className="mt-3">
+            <EconomyDiagram entries={entries} />
+          </div>
+        </details>
+      )}
 
       <TomeShelf
         items={shelfItems}
@@ -143,6 +163,7 @@ export default function LorebookCodex({
           unlocked={activeChapter.unlocked}
           trained={activeChapter.trained}
           total={activeChapter.total}
+          mode={mode}
           onSelect={handleSelect}
         />
       )}
@@ -156,7 +177,7 @@ export default function LorebookCodex({
             onClose={() => setDetailEntry(null)}
           />
         )}
-        {trialEntry && (
+        {!parentMode && trialEntry && (
           <TrialSheet
             entry={trialEntry}
             onClose={() => setTrialEntry(null)}

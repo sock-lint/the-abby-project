@@ -41,15 +41,32 @@ The required economy keys are:
 
 ## Current core entries
 
-The catalog ships 17 entries:
+The catalog ships 18 entries:
 
-`duties`, `rituals`, `study`, `journal`, `creations`, `ventures`, `skills`,
+`duties`, `rituals`, `study`, `journal`, `creations`, `movement`, `ventures`, `skills`,
 `badges`, `chronicle`, `quests`, `pets`, `mounts`, `drops`, `streaks`, `coins`,
 `money`, `cosmetics`.
 
 Exchange, rewards, and trophies currently live inside the Coins/Money/Cosmetics
 entries rather than as separate tiles. Splitting them later only requires adding
 new YAML entries, frontend chapter placement, and unlock derivation.
+
+## Keeping the Guide current
+
+Check mechanics against the owning service and current screen before changing
+copy. Source reward caps and challenge windows can use different local-day
+policies; distinguish direct activity rewards from check-in, challenge and badge
+bonuses. The personal note on Today is separate from the private Journal.
+Values in `parent_knobs.settings` are authored reference defaults, not a read of
+the deployment's effective settings or a family's saved configuration.
+
+New pet acquisition follows the supported-art registry, while saved collections
+retain earlier ownership. Base Chick's persisted growth selects Chick below 50,
+Fledgling from 50, and Bird after confirmed evolution at 100. Avatar appearance
+and compatible wardrobe choices are free saved preferences; earned cosmetics
+still require ownership. Confirm the current selector location before describing
+a control, and use real catalog examples in practice trials. Trials are examples
+and do not award the activity rewards they illustrate.
 
 ## Unlock derivation
 
@@ -58,6 +75,7 @@ first-encounter signals. Examples:
 
 - `study` unlocks from the first homework assignment or submission.
 - `creations` unlocks from the first `Creation`.
+- `movement` unlocks from the first `MovementSession`.
 - `pets` unlocks from the first `UserPet`.
 - `streaks` unlocks once `CharacterProfile.login_streak >= 2`.
 - Parents always receive `unlocked=true` for every entry (`parent_reference`).

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/server';
-import { getSkillCatalog } from './index';
+import { getAllSkills, getSkillCatalog } from './index';
 
 const subjects = [
   { id: 1, name: 'Shop Basics', category: 7 },
@@ -16,6 +16,30 @@ const skills = [
 
 beforeEach(() => {
   localStorage.removeItem('abby_auth_token');
+});
+
+describe('getAllSkills', () => {
+  it('loads every skill page without requesting unused subjects', async () => {
+    const paths = [];
+    let subjectRequests = 0;
+    server.use(
+      http.get('*/api/subjects/', () => {
+        subjectRequests += 1;
+        return HttpResponse.json([]);
+      }),
+      http.get('*/api/skills/', ({ request }) => {
+        const url = new URL(request.url);
+        paths.push(url.pathname + url.searchParams.get('page'));
+        return HttpResponse.json(url.searchParams.has('page')
+          ? { next: null, results: skills.slice(1) }
+          : { next: 'https://catalog-proxy.example/api/skills/?page=2', results: skills.slice(0, 1) });
+      }),
+    );
+
+    await expect(getAllSkills()).resolves.toEqual(skills);
+    expect(paths).toEqual(['/api/skills/null', '/api/skills/2']);
+    expect(subjectRequests).toBe(0);
+  });
 });
 
 describe('getSkillCatalog', () => {
