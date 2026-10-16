@@ -103,10 +103,10 @@ describe('Bird Evolution companion controls', () => {
     const view = render(<CompanionPreview variant="primary" creature={pet} onPresentationChange={onPresentationChange} />);
     await screen.findByTestId('bird-scene');
     act(() => scene.props.onReady());
-    expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: true });
+    expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: true, evolutionMotionEnabled: true });
     await user.click(screen.getByText('View'));
     await user.click(screen.getByRole('button', { name: '2D portrait' }));
-    expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: false });
+    expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: false, evolutionMotionEnabled: true });
     view.rerender(<CompanionPreview variant="primary" creature={{ ...pet, growth_points: 50, evolution_stage: 'fledgling' }} onPresentationChange={onPresentationChange} />);
     expect(screen.queryByTestId('bird-scene')).toBeNull();
     await user.click(screen.getByText('View'));
@@ -134,5 +134,32 @@ describe('Bird Evolution companion controls', () => {
     expect(screen.queryByText(/3d view could not load/i)).toBeNull();
     act(() => scene.props.onReady());
     expect(screen.queryByText('Loading the woodland…')).toBeNull();
+  });
+
+  it('keeps model readiness separate from the view setting and live reduced-motion preference', async () => {
+    let reduced = false;
+    const listeners = new Set();
+    const media = { get matches() { return reduced; },
+      addEventListener: (_event, listener) => listeners.add(listener),
+      removeEventListener: (_event, listener) => listeners.delete(listener),
+    };
+    const matchMedia = vi.spyOn(window, 'matchMedia').mockReturnValue(media);
+    try {
+      const user = userEvent.setup();
+      const onPresentationChange = vi.fn();
+      const view = render(<CompanionPreview variant="primary" creature={pet} onPresentationChange={onPresentationChange} />);
+      await screen.findByTestId('bird-scene');
+      act(() => scene.props.onReady());
+      await user.click(screen.getByText('View'));
+      await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+      expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: true, evolutionMotionEnabled: false });
+      await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+      expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: true, evolutionMotionEnabled: true });
+      act(() => { reduced = true; listeners.forEach((listener) => listener()); });
+      expect(onPresentationChange).toHaveBeenLastCalledWith({ creatureId: 1, sharedBirdReady: true, evolutionMotionEnabled: false });
+      expect(screen.getByTestId('bird-scene')).toBeInTheDocument();
+      view.unmount();
+      expect(listeners.size).toBe(0);
+    } finally { matchMedia.mockRestore(); }
   });
 });

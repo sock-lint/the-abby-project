@@ -52,7 +52,7 @@ describe('Server-confirmed Bird growth in Companions', () => {
     const view = page();
     await user.click(await screen.findByRole('button', { name: 'Feed your companion' }));
     // A ready shared scene displays the supplied Evolve take; 2D retains its ceremony.
-    act(() => preview.props.onPresentationChange({ creatureId: 1, sharedBirdReady: true }));
+    act(() => preview.props.onPresentationChange({ creatureId: 1, sharedBirdReady: true, evolutionMotionEnabled: true }));
     await user.click(within(screen.getByRole('dialog', { name: 'Care for Peep' })).getByRole('button', { name: /Birdseed/ }));
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(within(screen.getByRole('region', { name: 'Companion home' })).getByText(from)).toBeInTheDocument();

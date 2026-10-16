@@ -57,9 +57,10 @@ const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loo
  * The component is presentational — no API calls. Callers handle
  * success bookkeeping (refetch, refresh, etc.) before mounting it.
  */
-export default function PetCeremonyModal({ mode, pet, species, potion, parents, result, expedition, onDismiss }) {
+export default function PetCeremonyModal({ mode, pet, species, potion, parents, result, expedition, reducedMotion = false, onDismiss }) {
   const titleId = useId();
-  const reduced = usePrefersReducedMotion();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const reduced = reducedMotion || prefersReducedMotion;
 
   const isHatch = mode === 'hatch';
   const isEvolve = mode === 'evolve';
@@ -277,7 +278,7 @@ function EvolveSequence({ species, potion, phase, reduced, titleId, onDismiss })
               initial={reduced ? {} : { scale: 1.25, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={reduced ? { duration: 0 } : { duration: 0.6, type: 'spring', bounce: 0.3 }}
-              className="relative animate-gilded-glint rounded-full"
+              className={`relative rounded-full${reduced ? '' : ' animate-gilded-glint'}`}
               style={{ padding: 6 }}
             >
               <RpgSprite

@@ -108,8 +108,9 @@ export default function Companions() {
       const result = await feedPet(pet.id, foodItemId);
       if (!request.isCurrent()) return;
       setSelectedPet(null);
-      if (result?.evolved && !(presentation.current?.creatureId === pet.id && presentation.current.sharedBirdReady)) {
-        setEvolveCeremony({ species: pet.species, potion: pet.potion });
+      const currentPresentation = presentation.current?.creatureId === pet.id ? presentation.current : null;
+      if (result?.evolved && !(currentPresentation?.sharedBirdReady && currentPresentation.evolutionMotionEnabled)) {
+        setEvolveCeremony({ species: pet.species, potion: pet.potion, reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
       }
       const changedStage = result?.evolution_stage && result.evolution_stage !== pet.evolution_stage;
       if (changedStage) setReaction(null);
@@ -153,6 +154,7 @@ export default function Companions() {
           mode="evolve"
           species={evolveCeremony.species}
           potion={evolveCeremony.potion}
+          reducedMotion={evolveCeremony.reducedMotion}
           onDismiss={() => setEvolveCeremony(null)}
         />
       )}

@@ -4,6 +4,7 @@ import Button from '../Button';
 import RpgSprite from '../rpg/RpgSprite';
 import { petSpriteKeys } from '../rpg/petSpriteKeys';
 import { creatureLabel, resolveAppearance } from '../../companion/appearance';
+import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 
@@ -70,9 +71,11 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
   const label = creatureLabel(creature);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
+  const reducedMotion = usePrefersReducedMotion();
+  const evolutionMotionEnabled = animate && !reducedMotion;
   useEffect(() => {
-    onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && appearance?.pipeline === 'abby-assets-bird') });
-  }, [appearance?.pipeline, creature?.id, onPresentationChange, ready, showScene]);
+    onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && appearance?.pipeline === 'abby-assets-bird'), evolutionMotionEnabled });
+  }, [appearance?.pipeline, creature?.id, evolutionMotionEnabled, onPresentationChange, ready, showScene]);
   const mount = kind === 'mount' || creature?.evolved_to_mount === true;
   const sprite = kind === 'mount'
     ? { spriteKey: creature?.species?.sprite_key && `${creature.species.sprite_key}-mount`, fallbackSpriteKey: creature?.species?.sprite_key }
