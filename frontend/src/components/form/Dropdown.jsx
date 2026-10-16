@@ -130,10 +130,16 @@ const Dropdown = forwardRef(function Dropdown({
     if (canUsePopover) popup.showPopover();
     updatePosition();
     const dismiss = (event) => {
-      if (!triggerRef.current?.contains(event.target) && !popup.contains(event.target)) setOpen(false);
+      if (!triggerRef.current?.contains(event.target) && !popup.contains(event.target)) {
+        searchRef.current = { text: '', time: 0 };
+        setOpen(false);
+      }
     };
     const leave = (event) => {
-      if (!triggerRef.current?.contains(event.target) && !popup.contains(event.target)) setOpen(false);
+      if (!triggerRef.current?.contains(event.target) && !popup.contains(event.target)) {
+        searchRef.current = { text: '', time: 0 };
+        setOpen(false);
+      }
     };
     document.addEventListener('pointerdown', dismiss, true);
     document.addEventListener('focusin', leave);
@@ -177,6 +183,7 @@ const Dropdown = forwardRef(function Dropdown({
       select.dispatchEvent(new Event('input', { bubbles: true }));
       select.dispatchEvent(new Event('change', { bubbles: true }));
     }
+    searchRef.current = { text: '', time: 0 };
     setOpen(false);
     triggerRef.current?.focus({ preventScroll: true });
   }
@@ -196,13 +203,14 @@ const Dropdown = forwardRef(function Dropdown({
   function handleKeyDown(event) {
     rest.onKeyDown?.(event);
     if (event.defaultPrevented || disabled) return;
-    if (event.key === 'Tab') { setOpen(false); return; }
+    if (event.key === 'Tab') { searchRef.current = { text: '', time: 0 }; setOpen(false); return; }
     if (event.key === 'Escape') {
       if (isOpen) { event.preventDefault(); event.stopPropagation(); setOpen(false); searchRef.current = { text: '', time: 0 }; }
       return;
     }
     if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
       event.preventDefault();
+      searchRef.current = { text: '', time: 0 };
       if (!isOpen) { show(event.key === 'Home' ? 'first' : event.key === 'End' ? 'last' : 'selected'); return; }
       const current = enabledOptions.findIndex((option) => option.index === activeIndex);
       let next = current;
@@ -210,6 +218,14 @@ const Dropdown = forwardRef(function Dropdown({
       else if (event.key === 'End') next = enabledOptions.length - 1;
       else next = Math.max(0, Math.min(enabledOptions.length - 1, current + (event.key === 'ArrowDown' ? 1 : -1)));
       setActiveIndex(enabledOptions[next]?.index ?? -1);
+      return;
+    }
+    // Space belongs to a phrase while typeahead is active. Otherwise it
+    // retains the standard combobox open/confirm keyboard action.
+    if (event.key === ' ' && searchRef.current.text && event.timeStamp - searchRef.current.time < 700
+      && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      typeahead(event.key, event.timeStamp);
       return;
     }
     if (event.key === 'Enter' || event.key === ' ') {
@@ -316,7 +332,7 @@ const Dropdown = forwardRef(function Dropdown({
         aria-controls={listboxId}
         aria-activedescendant={isOpen && currentActiveIndex >= 0 ? `${listboxId}-option-${currentActiveIndex}` : undefined}
         className={`${className} flex items-center justify-between gap-3 text-left disabled:cursor-not-allowed disabled:opacity-50`}
-        onClick={() => { if (isOpen) setOpen(false); else show(); }}
+        onClick={() => { searchRef.current = { text: '', time: 0 }; if (isOpen) setOpen(false); else show(); }}
         onKeyDown={handleKeyDown}
         onFocus={onFocus}
         onBlur={onBlur}

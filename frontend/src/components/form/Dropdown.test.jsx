@@ -1,5 +1,5 @@
 import { Fragment, createRef, useImperativeHandle, useRef, useState } from 'react';
-import { act, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import Dropdown from './Dropdown';
@@ -65,6 +65,53 @@ describe('Dropdown', () => {
     expect(trigger).toHaveValue('a');
     await user.keyboard(' {End} ');
     expect(trigger).toHaveValue('e');
+  });
+
+  it('keeps spaces in multiword typeahead until Enter confirms the match', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<Dropdown aria-label="Frozen activity" defaultValue="" onChange={onChange}><option value="">-</option><option value="a">Ice cream</option><option value="b">Ice skating</option></Dropdown>);
+    const trigger = screen.getByRole('combobox', { name: 'Frozen activity' });
+    act(() => trigger.focus());
+    await user.keyboard('ice s');
+    expect(trigger).toHaveValue('');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('option', { name: 'Ice skating' })).toHaveAttribute('data-active', 'true');
+    await user.keyboard('{Enter}');
+    expect(trigger).toHaveValue('b');
+    expect(onChange).toHaveBeenCalledOnce();
+  });
+
+  it('uses Space to confirm a search match after the typeahead buffer expires', () => {
+    render(<Dropdown aria-label="Frozen activity" defaultValue=""><option value="">-</option><option value="a">Ice cream</option><option value="b">Ice skating</option></Dropdown>);
+    const trigger = screen.getByRole('combobox');
+    function keyAt(key, timeStamp) {
+      const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true });
+      Object.defineProperty(event, 'timeStamp', { value: timeStamp });
+      fireEvent(trigger, event);
+    }
+    keyAt('i', 1000);
+    expect(trigger).toHaveValue('');
+    keyAt(' ', 1701);
+    expect(trigger).toHaveValue('a');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it.each(['{Escape}', '{ArrowDown}', 'click'])('resets phrase typeahead after %s', async (action) => {
+    const user = userEvent.setup();
+    render(<Dropdown aria-label="Frozen activity" defaultValue=""><option value="">-</option><option value="a">Ice cream</option><option value="b">Ice skating</option></Dropdown>);
+    const trigger = screen.getByRole('combobox');
+    act(() => trigger.focus());
+    await user.keyboard('ice');
+    if (action === 'click') {
+      await user.click(trigger);
+      await user.click(trigger);
+    } else await user.keyboard(action);
+    // Escape closes; one Space opens and the next confirms. Arrow/click
+    // leave a fresh open menu, so Space confirms immediately.
+    await user.keyboard(action === '{Escape}' ? '  ' : ' ');
+    expect(trigger).toHaveAttribute('aria-expanded', 'false');
+    expect(trigger).toHaveValue(action === '{ArrowDown}' ? 'b' : '');
   });
 
   it('closes on Tab and outside press without stealing destination focus', async () => {

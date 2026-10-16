@@ -130,6 +130,7 @@ test.describe('touch dropdowns', () => {
         await page.setViewportSize({ width, height: 740 });
         await page.emulateMedia({ reducedMotion: 'reduce' });
         await page.goto(`${origin}/e2e/design-gallery-fixture.html?theme=${theme}`);
+        await page.evaluate(() => document.fonts.ready);
         const grouped = page.getByRole('combobox', { name: 'Grouped activities', exact: true });
         await grouped.tap();
         const popup = dropdownListbox(grouped);
@@ -144,7 +145,19 @@ test.describe('touch dropdowns', () => {
         await expect(popup.getByRole('group', { name: 'Creative', exact: true }).getByRole('option', { name: 'Drawing', exact: true })).toBeVisible();
         const disabled = popup.getByRole('option', { name: /Swimming/ });
         await expect(disabled).toHaveAttribute('aria-disabled', 'true');
-        await disabled.tap({ force: true });
+        // Reveal the entire row before sending a real touch. A forced locator
+        // tap skips stable-layout and hit-target checks while scrolling this
+        // clipped row; aria-disabled also makes a normal locator tap wait.
+        await disabled.scrollIntoViewIfNeeded();
+        await expect(disabled).toBeInViewport({ ratio: 1 });
+        const touch = await disabled.evaluate(element => {
+          const bounds = element.getBoundingClientRect();
+          const x = bounds.x + bounds.width / 2;
+          const y = bounds.y + bounds.height / 2;
+          return { x, y, hitsOption: element.contains(document.elementFromPoint(x, y)) };
+        });
+        expect(touch.hitsOption).toBe(true);
+        await page.touchscreen.tap(touch.x, touch.y);
         await expect(grouped).toHaveJSProperty('value', 'drawing');
         await expect(popup).toBeVisible();
         await page.screenshot({ path: info.outputPath(`dropdown-${theme}-${width}.png`) });
