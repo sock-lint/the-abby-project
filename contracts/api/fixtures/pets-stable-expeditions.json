@@ -31,7 +31,8 @@
       "last_fed_at": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     },
     {
       "id": 53,
@@ -64,7 +65,8 @@
       "last_fed_at": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     },
     {
       "id": 52,
@@ -97,7 +99,8 @@
       "last_fed_at": "2026-10-01T12:00:00-07:00",
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     }
   ],
   "mounts": [
@@ -163,7 +166,8 @@
       "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     },
     {
       "id": 63,
@@ -245,7 +249,8 @@
       "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     },
     {
       "id": 62,
@@ -318,7 +323,8 @@
       "expedition_available_in_seconds": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": true
+      "catalog_available": true,
+      "evolution_stage": null
     }
   ],
   "total_pets": 3,

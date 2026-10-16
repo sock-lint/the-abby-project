@@ -181,7 +181,7 @@ The replaceable Meadow presentation also supplies the welcome screen. Its licens
 **Supported offers and saved collections:** use Django's read-only
 `catalog_available` fields through `utils/catalogAvailability.js`; React does
 not infer acquisition eligibility from an icon or model filename. New pet
-offers are Base Chick, with Bird only after confirmed evolution. Companions
+offers are Base Chick. The server-derived `evolution_stage` selects Chick below 50 growth, Fledgling from 50, and Bird after confirmed evolution at 100; see `docs/operations/bird-evolution.md`. Companions
 and Grown pets keep earlier unsupported rows in Saved collection with their
 existing care, activation and expedition controls. Unknown identities never
 receive the Chick/Bird model. Collection counts use supported rows and the

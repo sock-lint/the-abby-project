@@ -6,7 +6,7 @@
       "species_slug": "chick",
       "sprite_key": "cute-chick",
       "potion_slugs": ["base"],
-      "stages": {"pet": "chick", "evolved": "bird", "mount": "bird"},
+      "stages": {"pet": "chick", "intermediate": "fledgling", "evolved": "bird", "mount": "bird"},
       "source": "meshtint-bird-family"
     }
   ],
@@ -28,9 +28,9 @@
       "id": "meshtint-bird-family",
       "publisher": "Meshtint Studio",
       "pack": "Chick / Fledgling / Bird Evolution",
-      "prepared_models": ["chick", "bird"],
-      "accepted_clips": {"chick": ["Idle"], "bird": ["Fly Idle"]},
-      "owned_unprepared_forms": ["Fledgling"],
+      "prepared_models": ["chick", "fledgling", "bird"],
+      "accepted_clips": {"chick": ["Bite Attack", "Cast Spell", "Die", "Idle", "Jump Forward In Place", "Jump Forward W Root", "Take Damage", "Turn Left", "Turn Right"], "fledgling": ["Bite Attack", "Cast Spell", "Die", "Idle", "Idle 02", "Run Forward In Place", "Run Forward W Root", "Take Damage", "Turn Left", "Turn Right", "Walk Forward In Place", "Walk Forward W Root"], "bird": ["Bite Attack", "Cast Spell", "Die", "Fly Forward In Place", "Fly Forward W Root", "Fly Idle", "Projectile Attack", "Take Damage", "Turn Left", "Turn Right"]},
+      "owned_unprepared_forms": [],
       "prepared_potion_variants": ["base"]
     },
     {
