@@ -1,4 +1,5 @@
 import { isCatalogAvailable } from '../utils/catalogAvailability';
+import { resolveSharedBirdAppearance } from './sharedBirdRelease';
 
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
@@ -6,7 +7,15 @@ const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, im
 const assets = import.meta.glob('./licensed/*.glb', { eager: true, query: '?url', import: 'default' });
 const manifest = manifests['./licensed/manifest.json'];
 
-export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets) {
+export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets, shared) {
+  const suppliedLegacy = source !== manifest || urls !== assets;
+  const prepared = resolveSharedBirdAppearance(creature, kind, shared === undefined && suppliedLegacy ? null : shared);
+  if (prepared) {
+    const woodland = source?.models?.woodland;
+    return { ...prepared, woodland: woodland?.file && urls[`./licensed/${woodland.file}`]
+      ? { url: urls[`./licensed/${woodland.file}`], scale: woodland.scale || 1 } : null };
+  }
+  if (creature?.evolution_stage === 'fledgling') return null;
   if (!creature?.id || source?.schema_version !== 1) return null;
   const binding = source.bindings?.find((entry) =>
     entry.species_slug && entry.species_slug === creature.species?.slug

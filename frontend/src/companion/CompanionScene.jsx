@@ -1,7 +1,9 @@
-import { Suspense, useEffect, useMemo, useRef } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';
+import { createSharedBirdPlayback } from './sharedBirdPlayback';
 import WoodlandScene, { WoodlandCamera } from './WoodlandScene';
 import { WOODLAND_BACKGROUND, WOODLAND_CAMERA } from './prepareWoodland';
 import useSceneMotionAllowed from './useSceneMotionAllowed';
@@ -62,6 +64,93 @@ function Creature({ appearance, greeting, interaction, reaction, animate, motion
   </group>;
 }
 
+function SharedCreature({ appearance, greeting, interaction, reaction, evolution, animate, motionAllowed, onReady, onPlaybackState }) {
+  const invalidate = useThree((state) => state.invalidate);
+  const root = useMemo(() => new Group(), []);
+  const group = useRef(root);
+  const playback = useRef(null);
+  const greetingTime = useRef(0);
+  const lastInteraction = useRef(null);
+  const lastEvolution = useRef(null);
+  const lastReaction = useRef(null);
+  const [error, setError] = useState(null);
+  const [reducedMotion, setReducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const media = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const update = () => setReducedMotion(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  useEffect(() => {
+    const instance = createSharedBirdPlayback(appearance, { onReady, onPlaybackState, onError: setError, invalidate });
+    playback.current = instance;
+    lastEvolution.current = null;
+    lastInteraction.current = null;
+    lastReaction.current = null;
+    root.add(instance.root);
+    // Effects own instances so StrictMode's discarded render cannot leak a
+    // parsed rig or abort the instance used by the committed scene.
+    return () => {
+      playback.current = null;
+      instance.dispose();
+      root.remove(instance.root);
+    };
+  }, [appearance, root, onReady, onPlaybackState, invalidate]);
+  useEffect(() => {
+    if (!animate || reducedMotion) {
+      if (evolution?.id) lastEvolution.current = evolution.id;
+      playback.current?.reset();
+      return;
+    }
+    // Visibility initially starts false. Wait for the viewport observer rather
+    // than consuming the receipt or freezing an authored source-stage frame.
+    if (!motionAllowed) return;
+    if (!evolution?.id || lastEvolution.current === evolution.id) return;
+    lastEvolution.current = evolution.id;
+    playback.current?.evolve(evolution.from, evolution.to);
+  }, [evolution, appearance, animate, motionAllowed, reducedMotion]);
+  useEffect(() => {
+    if (!interaction?.id || lastInteraction.current === interaction.id) return;
+    // An accessible control can sit below the canvas. Keep its request queued
+    // until the scene returns to view; explicit motion preferences consume it.
+    if (!animate || reducedMotion) {
+      lastInteraction.current = interaction.id;
+      return;
+    }
+    if (!motionAllowed) return;
+    lastInteraction.current = interaction.id;
+    if (interaction.action === 'hello') greetingTime.current = 0.8;
+    else playback.current?.play(interaction.action);
+    invalidate();
+  }, [interaction, motionAllowed, animate, reducedMotion, invalidate]);
+  useEffect(() => {
+    if (!reaction?.id || lastReaction.current === reaction.id) return;
+    lastReaction.current = reaction.id;
+    if (motionAllowed && animate) greetingTime.current = 1.2;
+    invalidate();
+  }, [reaction, motionAllowed, animate, invalidate]);
+  useEffect(() => {
+    greetingTime.current = greeting && motionAllowed && animate ? 0.8 : 0;
+    if ((!motionAllowed || !animate) && group.current) {
+      group.current.position.y = 0;
+      group.current.rotation.y = appearance.rotationY;
+    }
+    invalidate();
+  }, [greeting, motionAllowed, animate, appearance.rotationY, invalidate]);
+  useFrame((_state, delta) => {
+    if (!motionAllowed || !animate || reducedMotion) return;
+    playback.current?.update(delta, { active: motionAllowed, paused: !animate });
+    if (greetingTime.current > 0 && group.current) {
+      greetingTime.current = Math.max(0, greetingTime.current - Math.min(delta, 0.05));
+      group.current.position.y = Math.sin(greetingTime.current * Math.PI * 2.5) * 0.035;
+      group.current.rotation.y = appearance.rotationY + Math.sin(greetingTime.current * Math.PI * 2.5) * 0.12;
+    }
+    invalidate();
+  });
+  if (error) throw error;
+  return <primitive object={root} dispose={null} />;
+}
+
 function ContextGuard({ onUnavailable }) {
   const canvas = useThree((state) => state.gl.domElement);
   useEffect(() => {
@@ -72,7 +161,7 @@ function ContextGuard({ onUnavailable }) {
   return null;
 }
 
-export default function CompanionScene({ appearance, greeting, interaction, reaction, animate, onReady, onUnavailable }) {
+export default function CompanionScene({ appearance, greeting, interaction, reaction, evolution, animate, onReady, onUnavailable, onPlaybackState }) {
   const sceneRef = useRef(null);
   const motionAllowed = useSceneMotionAllowed(sceneRef);
   return (
@@ -85,7 +174,9 @@ export default function CompanionScene({ appearance, greeting, interaction, reac
       <ContextGuard onUnavailable={onUnavailable} />
       <Suspense fallback={null}>
         {appearance.woodland && <WoodlandScene appearance={appearance.woodland} />}
-        <Creature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} motionAllowed={motionAllowed} onReady={onReady} />
+        {appearance.pipeline === 'abby-assets-bird'
+          ? <SharedCreature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} evolution={evolution} animate={animate} motionAllowed={motionAllowed} onReady={onReady} onPlaybackState={onPlaybackState} />
+          : <Creature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} motionAllowed={motionAllowed} onReady={onReady} />}
       </Suspense>
       </Canvas>
     </div>

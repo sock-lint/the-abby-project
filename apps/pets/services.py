@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 GROWTH_PREFERRED_FOOD = 15
 GROWTH_NEUTRAL_FOOD = 5
 EVOLUTION_THRESHOLD = 100
+BIRD_FLEDGLING_THRESHOLD = 50
 
 # Daily cap on direct-grant growth from consumables (growth_surge,
 # feast_platter). Tonic-doubled feeds are NOT capped here — those still
@@ -48,6 +49,25 @@ HAPPINESS_THRESHOLDS = {
     "stale": 14,  # fed in the last 14 days
     # > 14 days → "away"
 }
+
+
+def bird_evolution_stage(companion, *, is_mount=False):
+    """Read-only artwork stage for the exact prepared Base Chick identity.
+
+    Growth and the existing evolution flag persist the selection. The
+    intermediate artwork grants no new pet, mount, eligibility or reward;
+    even a legacy 100-growth row needs confirmed evolution to select Bird.
+    Other species/artwork/potion variants retain their existing presentation.
+    """
+    if (
+        companion.species.slug != "chick"
+        or companion.species.sprite_key != "cute-chick"
+        or companion.potion.slug != "base"
+    ):
+        return None
+    if is_mount or companion.evolved_to_mount:
+        return "bird"
+    return "fledgling" if companion.growth_points >= BIRD_FLEDGLING_THRESHOLD else "chick"
 
 
 def happiness_for_pet(pet):
@@ -373,6 +393,7 @@ class PetService:
             "new_growth": pet.growth_points,
             "evolved": evolved,
             "mount_id": mount.pk if mount else None,
+            "evolution_stage": bird_evolution_stage(pet),
         }
 
     @staticmethod

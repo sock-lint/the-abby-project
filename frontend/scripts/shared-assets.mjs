@@ -31,14 +31,14 @@ try {
   const configured = Boolean(process.env.ABBY_ASSETS_RELEASE_ROOT || process.env.ABBY_ASSETS_S3_BUCKET);
   if (mode === 'import' || (mode === 'stage' && configured)) {
     const result = await importReleases({ lock, destination });
-    process.stdout.write(`Shared Archer assets verified: ${result.releases} pinned release(s), ${result.files} files.\n`);
+    process.stdout.write(`Shared assets verified: ${result.releases} pinned release(s), ${result.files} files.\n`);
   } else if (installed) {
     await verifyImport({ lock, destination });
-    process.stdout.write('Shared Archer assets match assets.lock.json.\n');
+    process.stdout.write('Shared assets match assets.lock.json.\n');
   } else if (required) {
-    throw new Error('Shared Archer assets are required. Run npm run assets:import with a private release source.');
+    throw new Error('Shared assets are required. Run npm run assets:import with a private release source.');
   } else {
-    process.stdout.write('Shared Archer release is absent; the existing licensed avatar or labelled fallback is used.\n');
+    process.stdout.write('Shared releases are absent; existing licensed art or labelled fallbacks are used.\n');
   }
 } catch (error) {
   console.error(`Shared assets: ${error.message}`);

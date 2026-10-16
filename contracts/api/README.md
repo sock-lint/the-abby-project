@@ -39,6 +39,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `report-cards-list.json` | `GET /api/chronicle/grades/`; quarter and semester report cards in the existing paginated grade history |
 | `report-card-corrected.json` | `PATCH /api/chronicle/301/grade/`; corrected and shared report card keeps its original save identity and reward receipt |
 | `report-card-invalid.json` | Report card rejected with HTTP 400 for an unknown subject field; indexed nested errors and no saved result or reward |
+| `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
+| `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
@@ -606,3 +608,10 @@ second report card or individual result that day receives a zero-XP
 `daily_limit` receipt. The producer checks persisted skill progress and the
 daily counter after replay, history reads and corrections; rejected nested
 fields consume no eligibility.
+
+Pet and mount responses include read-only `evolution_stage`: `chick`,
+`fledgling`, `bird`, or null for other identities. Only exact
+`chick` / `cute-chick` / `base` uses these stages. Persisted growth below 50
+selects Chick, 50 or higher selects Fledgling until confirmed mount evolution;
+confirmed evolved pets and owned mounts select Bird. Client stage fields cannot
+grant growth, ownership, rewards or mount eligibility.

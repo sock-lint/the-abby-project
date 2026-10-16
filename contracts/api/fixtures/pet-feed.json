@@ -2,5 +2,6 @@
   "growth_added": 15,
   "new_growth": 35,
   "evolved": false,
-  "mount_id": null
+  "mount_id": null,
+  "evolution_stage": null
 }

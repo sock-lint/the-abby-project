@@ -1,6 +1,6 @@
 # React Three Fiber owned-asset boundary
 
-Updated October 14, 2026. React owns the complete product UI; R3F presents
+Updated October 16, 2026. React owns the complete product UI; R3F presents
 server-confirmed companions using the recorded owned art. Django remains the
 authority for accounts, permissions, contributions, rewards and progression.
 This document defines the baseline art scope and its acceptance gates.
@@ -15,7 +15,7 @@ dependency of the new companion renderer.
 
 | Pack | Baseline capability | Scope limit |
 | --- | --- | --- |
-| Chick / Fledgling / Bird Evolution | Rigged bird family, supplied diffuse textures and animation takes | Chick and confirmed Bird are the account bindings; Fledgling remains an explicitly labeled asset preview |
+| Chick / Fledgling / Bird Evolution | Rigged bird family, supplied diffuse textures and animation takes | Exact Base Chick ownership has server-confirmed Chick/Fledgling/Bird stages; see the Bird adoption runbook |
 | Forest Ruins 1.2 | Ground, woodland plants, rocks, mushrooms, steps and ruins | A small fixed setting; props do not imply furnishing ownership or new unlocks |
 | Icons for Monsters Ultimate Pack 01 v2 | Matching Chick/Fledgling/Bird portraits | Portraits remain the existing private build overlay; an icon is not proof of an owned 3D model |
 | Female Archer Pack 01 | Profile avatar with three costumes, both heads, three faces, four hairstyles, five hair colors and supplied Idle | Owner accepted the exact expanded Profile release on October 13; wardrobe requires its own converted-art review, with no creature fittings |
@@ -41,10 +41,10 @@ to own content identities and compatible acquisition paths.
 | Species slug `chick`, `species.sprite_key=cute-chick`, potion `base`, unevolved owned pet | Chick |
 | The same exact owned pet with confirmed `evolved_to_mount=true` | Bird |
 | The same species/potion's confirmed owned mount | Bird |
-| Fledgling | Asset test viewer only; no earned intermediate stage |
+| The same exact owned pet with server `evolution_stage=fledgling` (50–99 growth) | Fledgling from the pinned shared Bird family |
 | Other species, unknown identity, unsupported potion or missing model | Existing portrait/sprite fallback with usable creature controls |
 
-Growth alone never selects Bird. Hatching, feeding, activation, breeding and
+The owner approved Fledgling at 50 server-confirmed growth; growth alone never selects Bird. See [Bird Evolution adoption](../../docs/operations/bird-evolution.md) for the new shared release, motions, lifecycle and rollback. The private conversion details below retain the prior export baseline. Hatching, feeding, activation, breeding and
 expeditions use existing shared services and acknowledged Django responses.
 Appearance loading and greetings award nothing. Account changes clear old
 bindings, and stale responses cannot restore the prior account's presentation.
@@ -81,7 +81,7 @@ The October 12 source inventory distinguishes missing art from unprepared art:
 | Art | Source evidence | Active capability |
 | --- | --- | --- |
 | Chick / Bird | Prepared private models and matching Bird01/Bird03 portraits | Exact Base Chick pet and confirmed evolved/mount forms |
-| Fledgling | Owned source FBX and staged Bird02 portrait | Preview only; no active GLB or intermediate earned stage |
+| Fledgling | Published Bird Evolution 1.0.0 private runtime and retained Bird02 portrait | Intermediate stage from 50 server-confirmed growth; all native motions in the shared release |
 | Bat, Bee, Flower, Ghost, Mushroom, Spider | Owned icon pack 01 contains forms 01–03 for each | Unprepared 2D portraits; no matching owned 3D models or current species bindings |
 | Egg00–Egg03 | Four owned generic egg portraits | Unprepared inventory presentation, not distinct creature ownership |
 | Archer bodies, both heads and three faces | Owned FBX modules/face palettes in Female Archer Pack 01 | Prepared private three-costume Profile release; 2,880 saved identity choices with supplied Idle |

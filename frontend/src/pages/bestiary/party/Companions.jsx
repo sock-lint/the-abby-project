@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getStable, getInventory, feedPet, activatePet, claimExpedition } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
@@ -45,6 +45,8 @@ export default function Companions() {
   const [launchMount, setLaunchMount] = useState(null);
   const [claimedExpedition, setClaimedExpedition] = useState(null);
   const [reaction, setReaction] = useState(null);
+  const presentation = useRef(null);
+  const updatePresentation = useCallback((value) => { presentation.current = value; }, []);
   const receiptCounter = useRef(0);
   const beginMutation = usePetMutationGuard();
 
@@ -106,10 +108,12 @@ export default function Companions() {
       const result = await feedPet(pet.id, foodItemId);
       if (!request.isCurrent()) return;
       setSelectedPet(null);
-      if (result?.evolved) {
+      if (result?.evolved && !(presentation.current?.creatureId === pet.id && presentation.current.sharedBirdReady)) {
         setEvolveCeremony({ species: pet.species, potion: pet.potion });
       }
-      if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
+      const changedStage = result?.evolution_stage && result.evolution_stage !== pet.evolution_stage;
+      if (changedStage) setReaction(null);
+      else if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
       refresh();
     } catch (e) { if (request.isCurrent()) setError(e.message); }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
@@ -158,6 +162,7 @@ export default function Companions() {
         kicker="At home in your woodland"
         summary={homePet.evolved_to_mount ? 'Play together, then choose a little adventure for today.' : 'Play together or choose a snack to help your companion grow.'}
         reaction={reaction?.creatureId === homePet.id ? reaction : null}
+        onPresentationChange={updatePresentation}
       >
         <div className="companion-preview-actions">
           {!homePet.evolved_to_mount && <Button disabled={working} onClick={() => setSelectedPet(homePet)}>Feed your companion</Button>}

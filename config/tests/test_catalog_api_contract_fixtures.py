@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
-from apps.pets.models import PetSpecies, PotionType, UserPet
+from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
@@ -13,6 +13,7 @@ from config.tests import test_api_contract_fixtures as shared
 @override_settings(ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None)
 class CatalogApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared.SharedApiResponseFixtureTests.assert_response_fixture
+    pin_next_mount_identity = shared.SharedApiResponseFixtureTests.pin_next_mount_identity
 
     def setUp(self):
         clock = patch("django.utils.timezone.now", return_value=shared.FIXED_NOW)
@@ -39,6 +40,40 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-preserved-collection.json")
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")
+
+    def test_bird_stages_retain_saved_species_inventory_and_legacy_collection(self):
+        UserPet.objects.filter(pk=61).update(growth_points=35)
+        # The older Cat mount stays owned and rendered by its own family.
+        UserMount.objects.create(id=61, user=self.child, species=self.cat, potion=self.base)
+        self.pin_next_mount_identity()
+        food = ItemDefinition.objects.create(
+            id=55, slug="food-birdseed", name="Birdseed", item_type="food", food_species=self.chick,
+        )
+        inventory = UserInventory.objects.create(id=81, user=self.child, item=food, quantity=5)
+        fledgling = self.assert_response_fixture(self.client.post(
+            "/api/pets/61/feed/", {"food_item_id": food.pk}, format="json",
+        ), "pet-feed-fledgling.json")
+        self.assertEqual(fledgling["evolution_stage"], "fledgling")
+        self.assertFalse(fledgling["evolved"])
+        self.assert_response_fixture(
+            self.client.get("/api/pets/stable/"), "pets-stable-fledgling.json",
+        )
+        for _ in range(4):
+            grown = self.client.post("/api/pets/61/feed/", {"food_item_id": food.pk}, format="json")
+            self.assertEqual(grown.status_code, 200)
+        bird = self.assert_response_fixture(grown, "pet-feed-bird.json")
+        self.assertEqual(bird["evolution_stage"], "bird")
+        self.assertTrue(bird["evolved"])
+        stable = self.assert_response_fixture(
+            self.client.get("/api/pets/stable/"), "pets-stable-bird.json",
+        )
+        self.assertEqual({row["id"] for row in stable["pets"]}, {61, 62})
+        self.assertEqual({row["id"] for row in stable["mounts"]}, {61, bird["mount_id"]})
+        self.assertFalse(UserInventory.objects.filter(pk=inventory.pk).exists())
+        # Loading and repeated reads retain the confirmed stage; rendering has no writes.
+        before = list(UserPet.objects.filter(user=self.child).values())
+        self.assertEqual(self.client.get("/api/pets/stable/").json(), stable)
+        self.assertEqual(list(UserPet.objects.filter(user=self.child).values()), before)
 
     def test_owned_appearance_inventory_routes_to_each_features_editor(self):
         cover = ItemDefinition.objects.create(
