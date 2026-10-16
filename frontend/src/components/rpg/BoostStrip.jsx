@@ -7,34 +7,34 @@ import { CoinIcon } from '../icons/JournalIcons';
  * a CharacterProfile, with a live countdown. Renders nothing when no
  * boosts are active so it doesn't take up layout space.
  *
- * The serializer surfaces three timer fields in seconds-remaining
- * (`xp_boost_seconds_remaining`, etc., null when inactive) plus
- * `pet_growth_boost_remaining` as a count (number of doubled feeds left).
- * The hook re-renders every second so the countdowns tick visually.
+ * Absolute expiry fields govern the timer when available. Compatibility
+ * seconds-remaining values count down from receipt of that profile, while
+ * `pet_growth_boost_remaining` counts the doubled feeds left.
  */
 export default function BoostStrip({ profile, className = '' }) {
-  const xpInitial = profile?.xp_boost_seconds_remaining ?? null;
-  const coinInitial = profile?.coin_boost_seconds_remaining ?? null;
-  const dropInitial = profile?.drop_boost_seconds_remaining ?? null;
-  const growthCount = profile?.pet_growth_boost_remaining ?? 0;
+  const [receipt, setReceipt] = useState({ profile, generation: 0 });
+  if (profile !== receipt.profile) {
+    // A refetch supplies a new profile snapshot. Remount its countdown to
+    // capture a fresh clock in the state initializer, without an effect
+    // resetting state after a stale duration has already been painted.
+    setReceipt({ profile, generation: receipt.generation + 1 });
+  }
+  return <BoostCountdown key={receipt.generation} profile={profile} className={className} />;
+}
 
-  // Local tick state — decrement once per second from whatever the server
-  // last reported. Resets when `profile` reference changes (after a
-  // successful useItem refetch).
-  const [now, setNow] = useState(() => Date.now());
+function BoostCountdown({ profile, className }) {
+  const [anchorMs] = useState(() => Date.now());
+  const [now, setNow] = useState(anchorMs);
+  const xpRemaining = remainingSeconds(profile, 'xp', now, anchorMs);
+  const coinRemaining = remainingSeconds(profile, 'coin', now, anchorMs);
+  const dropRemaining = remainingSeconds(profile, 'drop', now, anchorMs);
+  const growthCount = profile?.pet_growth_boost_remaining ?? 0;
+  const hasCountdown = [xpRemaining, coinRemaining, dropRemaining].some((remaining) => remaining > 0);
   useEffect(() => {
-    if (xpInitial == null && coinInitial == null && dropInitial == null) return;
+    if (!hasCountdown) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [xpInitial, coinInitial, dropInitial]);
-
-  // Anchor: when the component mounts (or `profile` changes), record the
-  // wall clock so we can compute remaining = initial - elapsed.
-  const [anchorMs] = useState(() => Date.now());
-  const elapsedSec = Math.max(0, Math.floor((now - anchorMs) / 1000));
-  const xpRemaining = xpInitial != null ? Math.max(0, xpInitial - elapsedSec) : null;
-  const coinRemaining = coinInitial != null ? Math.max(0, coinInitial - elapsedSec) : null;
-  const dropRemaining = dropInitial != null ? Math.max(0, dropInitial - elapsedSec) : null;
+  }, [hasCountdown]);
 
   const chips = [];
   if (xpRemaining && xpRemaining > 0) {
@@ -104,6 +104,15 @@ const TONE_CLASSES = {
   teal: 'bg-sheikah-teal-deep/15 text-sheikah-teal-deep border border-sheikah-teal-deep/30',
   moss: 'bg-moss/15 text-moss-deep border border-moss/30',
 };
+
+function remainingSeconds(profile, kind, now, anchorMs) {
+  const expiresAt = Date.parse(profile?.[`${kind}_boost_expires_at`]);
+  if (Number.isFinite(expiresAt)) return Math.max(0, Math.ceil((expiresAt - now) / 1000));
+  const initial = profile?.[`${kind}_boost_seconds_remaining`];
+  if (initial == null) return null;
+  const elapsedSec = Math.max(0, Math.floor((now - anchorMs) / 1000));
+  return Math.max(0, initial - elapsedSec);
+}
 
 function formatDuration(seconds) {
   if (seconds < 60) return `${seconds}s`;

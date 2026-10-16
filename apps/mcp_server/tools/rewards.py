@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from typing import Any
+from django.db import transaction
 
 from apps.rewards.availability import reward_is_available
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
@@ -206,6 +207,7 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@transaction.atomic
 def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
     """Edit an existing reward (parent-only).
 
@@ -217,6 +219,12 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
     # Audit C8: per-family content; scope by Reward.family.
     reward = get_in_family(
         Reward, params.reward_id, actor=parent, family_path="family",
+    )
+    # Keep the family helper's concealment guard, then re-read after taking
+    # the same offer lock used by the shop. A metadata-only edit cannot
+    # overwrite stock reserved since its initial family-scoped lookup.
+    reward = Reward.objects.select_for_update(no_key=True).get(
+        pk=reward.pk, family_id=parent.family_id,
     )
 
     data = params.model_dump(

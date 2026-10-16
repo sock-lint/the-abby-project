@@ -64,6 +64,9 @@ class AvatarConfigurationUpdateSerializer(serializers.Serializer):
 class CharacterProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)
     display_name = serializers.CharField(source="user.display_label", read_only=True)
+    total_xp = serializers.SerializerMethodField()
+    xp_in_level = serializers.SerializerMethodField()
+    xp_needed_for_level = serializers.SerializerMethodField()
     active_frame = serializers.SerializerMethodField()
     active_title = serializers.SerializerMethodField()
     active_theme = serializers.SerializerMethodField()
@@ -89,6 +92,9 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "username",
             "display_name",
             "level",
+            "total_xp",
+            "xp_in_level",
+            "xp_needed_for_level",
             "login_streak",
             "longest_login_streak",
             "last_active_date",
@@ -112,6 +118,22 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = fields
+
+    def _xp_progress(self, obj):
+        if not hasattr(self, "_xp_by_profile"):
+            self._xp_by_profile = {}
+        if obj.pk not in self._xp_by_profile:
+            self._xp_by_profile[obj.pk] = obj.xp_progress
+        return self._xp_by_profile[obj.pk]
+
+    def get_total_xp(self, obj):
+        return self._xp_progress(obj)["total_xp"]
+
+    def get_xp_in_level(self, obj):
+        return self._xp_progress(obj)["xp_in_level"]
+
+    def get_xp_needed_for_level(self, obj):
+        return self._xp_progress(obj)["xp_needed_for_level"]
 
     def get_avatar_preferences(self, obj):
         return avatar_appearance(obj.avatar_preferences)

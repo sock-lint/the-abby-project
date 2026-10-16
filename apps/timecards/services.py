@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, time, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.core.exceptions import PermissionDenied
@@ -9,7 +10,7 @@ from django.utils import timezone
 
 from apps.payments.services import PaymentService
 
-from .models import Timecard, TimeEntry
+from .models import ClockOutDropReceipt, Timecard, TimeEntry
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,7 @@ class ClockService:
     QUIET_HOURS_START = 22  # 10 PM
     QUIET_HOURS_END = 7  # 7 AM
     MAX_ENTRY_HOURS = 8
+    DROP_MINUTES_PER_DAY = 10
 
     @classmethod
     def clock_in(cls, user, project):
@@ -126,8 +128,14 @@ class ClockService:
         return entry
 
     @classmethod
+    @transaction.atomic
     def clock_out(cls, user, notes=""):
         """Clock out the current active entry."""
+        from django.contrib.auth import get_user_model
+
+        # Two browser requests can otherwise both close a stale ACTIVE row
+        # and repeat its hourly award and game loop. Lock before reading it.
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
         entry = cls.get_active_entry(user)
         if not entry:
             raise ValueError("No active clock-in found.")
@@ -188,21 +196,58 @@ class ClockService:
                 badge_scopes={"time", "skill_xp", "coin", "badges"},
             )
 
-            # RPG game loop — wrapped via shared helper so a downstream
-            # crash can't unwind the hourly award above.
-            from apps.rpg.constants import TriggerType
-            from apps.rpg.services import safe_game_loop_call
-            safe_game_loop_call(
-                user, TriggerType.CLOCK_OUT,
-                {
-                    "project_id": entry.project_id,
-                    "hours": hours,
-                    "duration_minutes": entry.duration_minutes,
-                    "time_entry_id": entry.pk,
-                },
-            )
+            # Positive work keeps factual progress/streaks; arbitrary clock
+            # splits cannot create another drop roll. A zero-minute entry is
+            # saved for the timecard but does not start the game loop.
+            if entry.duration_minutes > 0:
+                from apps.rpg.constants import TriggerType
+                from apps.rpg.services import safe_game_loop_call
+                safe_game_loop_call(
+                    user, TriggerType.CLOCK_OUT,
+                    {
+                        "project_id": entry.project_id,
+                        "hours": hours,
+                        "duration_minutes": entry.duration_minutes,
+                        "time_entry_id": entry.pk,
+                    },
+                )
 
         return entry
+
+    @classmethod
+    @transaction.atomic
+    def claim_drop_for_entry(cls, user, entry_id):
+        """Called within the isolated drop step, so a failed roll is retryable.
+
+        Eligibility is derived from saved positive work rather than incoming
+        event quantities. Successful random misses still consume the receipt.
+        """
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        entry = TimeEntryService.completed_entries(user).filter(
+            pk=entry_id, duration_minutes__gt=0, clock_out__isnull=False,
+        ).first()
+        return entry is not None and cls._claim_daily_drop(user, entry.clock_out)
+
+    @classmethod
+    def _claim_daily_drop(cls, user, closed_at):
+        """Reserve the day's first eligible roll inside the user's lock."""
+        from apps.quests.goals import family_zone
+
+        zone = family_zone(user)
+        day = closed_at.astimezone(zone).date()
+        if ClockOutDropReceipt.objects.filter(user=user, occurred_on=day).exists():
+            return False
+        start = datetime.combine(day, time.min, tzinfo=zone)
+        end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
+        minutes = TimeEntryService.completed_entries(user).filter(
+            clock_out__gte=start, clock_out__lt=end,
+        ).aggregate(total=Sum("duration_minutes"))["total"] or 0
+        if minutes < cls.DROP_MINUTES_PER_DAY:
+            return False
+        _receipt, created = ClockOutDropReceipt.objects.get_or_create(user=user, occurred_on=day)
+        return created
 
     @staticmethod
     def get_active_entry(user):

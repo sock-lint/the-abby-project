@@ -32,6 +32,10 @@ class Habit(TimestampedModel):
     xp_reward = models.PositiveIntegerField(default=5)
     max_taps_per_day = models.PositiveSmallIntegerField(default=1)
     strength = models.IntegerField(default=0)
+    last_decay_date = models.DateField(
+        null=True, blank=True,
+        help_text="Last completed local day evaluated for strength decay.",
+    )
     is_active = models.BooleanField(default=True)
     pending_parent_review = models.BooleanField(default=False, db_index=True)
 

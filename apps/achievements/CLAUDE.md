@@ -68,16 +68,9 @@ lock-order inversions. SQLite skips the concurrency tests because its
 explicit `DATABASE_URL` for a disposable test instance. Keep background task
 execution isolated from the database test transactions.
 
-Audit boundary: `ConsumableService`'s `skill_tonic` in `apps/rpg/services.py` still
-increments progress directly, and Django admin permits direct progress edits.
-These do not participate in the achievements user gate. Raw ORM updates likewise
-need their own coordination. Outer services must also maintain lock order across
-their other rows: Chronicle retains user/progress locks while its game loop can
-lock a character profile or quest participant, while consumables lock the profile
-before progress and independent quest completion locks the participant before
-calling awards. Those cross-service orders need a coordinated change outside
-achievements; the achievements gate alone does not establish global deadlock
-freedom.
+Character level is a persisted cache of the total actual saved `SkillProgress.xp_points` across all skills, using the same seven-tier `XP_THRESHOLDS` curve (0..6). Direct skill awards and badge XP refresh it after progress and unlock writes under the shared user gate; a failed profile update rolls back the award. Read-only character XP fields project that saved credit, with `xp_needed_for_level` as the width of the current threshold band and zero progress/width at level 6. Existing manually set cache values are normalized by migration 0028 and subsequent real skill XP awards, while presentation-only profile writes preserve them.
+
+Skill Tonic now routes through `SkillService.award_xp`, including prerequisite unlocks, character-level synchronization, and badge evaluation. Consumables, pet mutations, streak activity, and cosmetic equip/unequip/starter-cover writes use the same user-first gate before profile, inventory or progress rows so they can compose with awards. Django admin and raw ORM progress edits remain outside this service contract and require their own coordination; later standard XP awards resynchronize the cache from their actual saved totals. Quest participant ordering still requires its existing outer-service coordination; this user gate alone does not claim global deadlock freedom.
 
 Validation on 2026-10-09 used a disposable localhost PostgreSQL 16.1 cluster
 and an external Django 5.1.15 environment, without loading `.env` or existing

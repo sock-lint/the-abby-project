@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.db import transaction
 
 from config.permissions import IsParent
 from config.viewsets import (
@@ -39,6 +40,7 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
     def perform_create(self, serializer):
         serializer.save(family=self.request.user.family)
 
+    @transaction.atomic
     def perform_update(self, serializer):
         # Stock-restock fanout: when a parent edits a reward and the stock
         # transitions from 0 → ≥1, notify every child who'd wishlisted it
@@ -46,10 +48,21 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
         # cycle isn't a re-spam. The notification fires once per edit
         # that actually crosses the boundary, never on PATCHes that
         # leave stock unchanged.
-        previous_stock = (
-            serializer.instance.stock if serializer.instance else None
+        # A metadata PATCH may have read its offer before a concurrent
+        # purchase reserved stock. Revalidate against the locked row, so
+        # only an explicit stock edit can replace its current quantity.
+        current = get_object_or_404(
+            Reward.objects.select_for_update(no_key=True),
+            pk=serializer.instance.pk, family_id=self.request.user.family_id,
         )
-        reward = serializer.save()
+        refreshed = type(serializer)(
+            current, data=serializer.initial_data, partial=serializer.partial,
+            context=serializer.context,
+        )
+        refreshed.is_valid(raise_exception=True)
+        previous_stock = current.stock
+        reward = refreshed.save()
+        serializer.instance = reward
         new_stock = reward.stock
         was_out = previous_stock == 0
         is_in = new_stock is not None and new_stock >= 1
@@ -231,8 +244,15 @@ class RewardRedemptionViewSet(
     ApprovalActionMixin, RoleFilteredQuerySetMixin, viewsets.ReadOnlyModelViewSet,
 ):
     serializer_class = RewardRedemptionSerializer
-    queryset = RewardRedemption.objects.select_related("reward", "user")
+    queryset = RewardRedemption.objects.select_related(
+        "reward__item_definition", "user", "item_definition_snapshot",
+    )
     approval_service = RewardService
+
+    def handle_exception(self, exc):
+        if isinstance(exc, RewardUnavailableError):
+            return Response({"error": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return super().handle_exception(exc)
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())

@@ -31,6 +31,13 @@ Use the library's page recipes and interactive states when composing a screen:
   the local form. Busy writes prevent repeated submission.
   `BottomSheet` and `useFormState` also guard app-update reloads; a manual form
   calls `usePwaUpdateGuard(dirty || saving)` while it owns unsaved work.
+- Editable emoji fields use `IconPicker` from `components/form`. It keeps a
+  labeled custom text input and opens labeled, keyboard-accessible presets
+  without submitting. Pass `value`, `onChange(string)` and the form's busy
+  state; retain the field's label, placeholder and length limit. Its optional
+  `options` list contains `[emoji, accessibleLabel]` pairs. Habits retain their
+  existing presets; chores, rewards, savings, movement and skill/badge editors
+  share the broader set. The Forms example in `/__design` previews the picker.
 - `StatusBadge` describes workflow state, `RuneBadge` describes a tone or
   catalog tier, and progress bars describe measured progress. Availability
   and retained ownership remain separate, server-confirmed concepts.
