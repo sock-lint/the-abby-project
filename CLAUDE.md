@@ -321,11 +321,20 @@ an eligible checkout stranded. The user's standing automatic-cleanup request
 for this repository authorizes eligible managed archival and unmanaged removal
 for worktrees owned by the current chat; do not ask for redundant approval.
 
-Use the chat's artifact inventory before creating a checkout. Prefer reusing
-an attached worktree; use `create_worktree` for a new managed checkout and
-`attach_worktree` if registration needs recovery. Attach created or continued
-PRs, and record their URLs, target branches, canonical checkout branches/paths, and
-managed artifact roots in the owning chat so cleanup can identify exact work.
+Choose the lifecycle by available tools and recorded checkout ownership. Inspect
+the chat's artifact inventory when `list_artifacts` is available and prefer
+reusing a suitable attached worktree. Use `create_worktree` when it is available
+for a new managed checkout, and `attach_worktree` when available if registration
+needs recovery. When `create_worktree` is absent, an owner-directed remote chat
+may reuse its own
+isolated checkout or create an unmanaged Git worktree under the
+[remote-chat procedure](docs/operations/improvement-loop.md#owner-directed-remote-chats).
+The owner's task request is standing authorization for this routine isolation;
+do not ask for a worktree exception solely because managed tools are unavailable.
+An existing managed checkout never becomes unmanaged due to missing tools.
+Attach created or continued PRs when the attachment tool is available; otherwise
+record the exact URL. Record target branches, canonical checkout branches/paths,
+ownership and managed artifact roots when applicable in the owning chat.
 
 Verify the exact PR's `merged` state on GitHub. A deleted remote branch or local
 ancestry alone does not establish a merge, and squash/rebase merges need not
@@ -340,7 +349,9 @@ before removing the checkout. Needed ignored assets must be saved separately
 and their recovery locations recorded before archival. Honor the tool's owner,
 primary/pinned/shared, submodule, and embedded-repository restrictions; an
 archive failure is a reason to retain and report the checkout, not to force
-delete it. Never remove a checkout that remains the active workspace.
+delete it. If the archive tool is unavailable, retain the managed checkout for
+archival by its owning app; do not substitute ordinary Git cleanup. Never remove
+a checkout that remains the active workspace.
 
 An owned managed checkout created for disposable verification or exploration
 may have no PR. Once its purpose is complete, needed work has been preserved,
@@ -352,12 +363,16 @@ disposable work.
 Before final handoff, audit attached worktrees. Archive eligible merged managed
 work and completed disposable managed checkouts;
 for anything retained, record its root, PR/status, concrete retention reason,
-and next action. When waiting for a PR merge, set up or update a heartbeat in the
-owning chat that checks that exact PR, stays quiet without actionable change,
-archives the eligible checkout after merge, cleans up its eligible task branch
+and next action. When waiting for a PR merge and heartbeat tools are available,
+set up or update a heartbeat in the owning chat that checks that exact PR, stays
+quiet without actionable change, archives the eligible checkout after merge,
+cleans up its eligible task branch
 as described below, and stops/deletes itself after both cleanup steps. The user's
 automatic-cleanup request authorizes this owner-chat follow-up; avoid duplicate
-monitors or repeated approval requests.
+monitors or repeated approval requests. Without monitoring tools, use an existing
+station/MAIN merge watch when available, or record the retained checkout, exact
+PR, reason and next action. Do not claim a monitor is active or request an
+exception solely because monitoring tools are missing.
 These instructions do not create a global hook or timer, and a central monitor
 cannot clean up artifacts owned by unrelated chats.
 
