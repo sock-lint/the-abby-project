@@ -8,6 +8,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |
 | `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
 | `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |
 | `printing-project-request.json`, `printing-project-requests.json` | Authenticated detail and project-filtered list retain the optional project identity/title without widening print ownership |
