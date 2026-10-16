@@ -1,5 +1,7 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import idleClock from '../../../contracts/api/fixtures/clock-idle.json';
+import activeClock from '../../../contracts/api/fixtures/clock-active.json';
 import loginResponse from '../../../contracts/api/fixtures/auth-login-child.json';
 import meResponse from '../../../contracts/api/fixtures/auth-me-child.json';
 import firstPage from '../../../contracts/api/fixtures/habits-page-1.json';
@@ -87,13 +89,25 @@ import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
   activateMount, activatePet, breedMounts, claimExpedition, closeTimecard, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
-  getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
+  getClockStatus, getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
 
 // These are the raw response files checked against Django views and loaded
 // directly by Unity. Do not replace them with a second client-specific factory.
 describe('shared Django response fixtures through the React API client', () => {
+  it('reads JSON null as an idle clock and preserves the active entry', async () => {
+    let clock = idleClock;
+    server.use(http.get('*/api/clock/', () => HttpResponse.json(clock)));
+
+    expect(await getClockStatus()).toBeNull();
+    clock = activeClock;
+    expect(await getClockStatus()).toEqual(activeClock);
+    expect(activeClock).toMatchObject({ status: 'active' });
+    clock = idleClock;
+    expect(await getClockStatus()).toBeNull();
+  });
+
   it.each([
     ['fledgling', fledglingFeed, fledglingStable, 50, false],
     ['bird', birdFeed, birdStable, 100, true],
