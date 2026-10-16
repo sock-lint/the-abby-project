@@ -224,8 +224,8 @@ export const createSubject = (data) => api.post('/subjects/', data);
 export const updateSubject = (id, data) => api.patch(`/subjects/${id}/`, data);
 export const deleteSubject = (id) => api.delete(`/subjects/${id}/`);
 export const getSkills = () => api.get('/skills/');
-// The Wayfinder needs the whole taxonomy, including entries beyond DRF's
-// first page. Keep the single-page helpers above unchanged for their callers.
+// Skill pickers and the Wayfinder need entries beyond DRF's first page.
+// Keep the single-page helpers above unchanged for their callers.
 async function getCatalogList(path) {
   const entries = [];
   const visited = new Set();
@@ -268,10 +268,11 @@ async function getCatalogList(path) {
   return entries;
 }
 
+export const getAllSkills = () => getCatalogList('/skills/');
 export const getSkillCatalog = async () => {
   const [subjects, skills] = await Promise.all([
     getCatalogList('/subjects/'),
-    getCatalogList('/skills/'),
+    getAllSkills(),
   ]);
   return { subjects, skills };
 };
