@@ -41,6 +41,27 @@ and PostgreSQL [`tests/test_catalog_concurrency.py`](tests/test_catalog_concurre
 - `PetService` — `hatch_pet`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `breed_mounts`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
+### Growth transactions
+
+Food, direct consumables and passive Companion growth acquire the achievements
+user `NO KEY UPDATE` gate before profile/pet/inventory writes. Growth Surge
+locks its selected pet, as feeding and Feast already do. A concurrent feed and
+surge preserve both consumed items' growth; a competing evolution cannot consume
+food for an already evolved pet. Growth/Morale Tonic charges double preferred
+and neutral feeds and decrement once with the successful food transaction;
+failure preserves the charge and food. Boosted food does not use the direct
+consumable daily cap.
+
+Every growth path uses `PetService._save_growth` to save the growth/evolution
+flag, obtain one matching mount, and emit the existing first-mount Chronicle and
+family-scoped notifications. Feast therefore evolves a 90-growth pet immediately.
+Mount creation failure rolls back growth, direct-growth cap and inventory.
+Chronicle/notification failures retain their existing best-effort behavior within
+savepoints. `apps/rpg/tests/test_consumable_progression.py` covers the real
+authored tonic/food/Feast combination and shared skill-tonic consequences;
+`test_consumable_concurrency.py` exercises real PostgreSQL growth overlap and
+the shared user-before-profile/inventory/progress order.
+
 ### Daily expedition presentation (October 2026)
 
 Every mount read/activation response carries `expedition_available`,

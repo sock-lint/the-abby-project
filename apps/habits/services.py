@@ -1,3 +1,6 @@
+from datetime import timedelta
+from zoneinfo import ZoneInfo
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -14,6 +17,13 @@ class HabitService:
         """Log a +1 or -1 tap on a habit, update strength, return rewards."""
         if direction not in (1, -1):
             raise ValueError(f"direction must be +1 or -1, got {direction}")
+
+        # Serialize strength updates against the daily decay worker and taps
+        # arriving with an older in-memory Habit instance.
+        from apps.accounts.models import User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
+        Habit.objects.select_for_update().get(pk=habit.pk)
+        habit.refresh_from_db()
 
         if habit.pending_parent_review:
             raise ValueError(
@@ -105,6 +115,7 @@ class HabitService:
         }
 
     @staticmethod
+    @transaction.atomic
     def decay_all_habits(user, target_date=None):
         """Decay strength of untapped habits toward 0. Returns count decayed.
 
@@ -113,32 +124,29 @@ class HabitService:
         habits feel rock-solid just because each individual slip lands the same
         unit of decay.
         """
-        if target_date is None:
-            target_date = timezone.localdate()
+        with timezone.override(ZoneInfo(user.family.timezone)):
+            if target_date is None:
+                target_date = timezone.localdate() - timedelta(days=1)
 
-        habits = Habit.objects.filter(user=user, is_active=True)
-        decayed = 0
+            habits = Habit.objects.select_for_update().filter(user=user, is_active=True)
+            decayed = 0
+            for habit in habits:
+                if habit.last_decay_date and habit.last_decay_date >= target_date:
+                    continue
+                tapped = HabitLog.objects.filter(
+                    habit=habit, user=user, created_at__date=target_date,
+                ).exists()
 
-        for habit in habits:
-            # Check if tapped today
-            tapped_today = HabitLog.objects.filter(
-                habit=habit,
-                user=user,
-                created_at__date=target_date,
-            ).exists()
+                if not tapped and habit.strength != 0:
+                    step = max(1, habit.max_taps_per_day // 2)
+                    if habit.strength > 0:
+                        habit.strength = max(0, habit.strength - step)
+                    else:
+                        habit.strength = min(0, habit.strength + step)
+                    decayed += 1
 
-            if tapped_today or habit.strength == 0:
-                continue
-
-            step = max(1, habit.max_taps_per_day // 2)
-
-            # Decay toward 0
-            if habit.strength > 0:
-                habit.strength = max(0, habit.strength - step)
-            else:
-                habit.strength = min(0, habit.strength + step)
-
-            habit.save(update_fields=["strength"])
-            decayed += 1
-
-        return decayed
+                # Even a tapped or zero-strength day is finished. A retried
+                # delivery must not decay new strength earned afterward.
+                habit.last_decay_date = target_date
+                habit.save(update_fields=["strength", "last_decay_date"])
+            return decayed

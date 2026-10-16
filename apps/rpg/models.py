@@ -108,6 +108,33 @@ class CharacterProfile(TimestampedModel):
     def __str__(self):
         return f"{self.user.display_label} (Level {self.level})"
 
+    @classmethod
+    def sync_level_from_skills(cls, user):
+        """Refresh the level cache inside an award's user/progress locks."""
+        from apps.achievements.models import SkillProgress, XP_THRESHOLDS
+
+        total = SkillProgress.objects.filter(user=user).aggregate(total=models.Sum("xp_points"))["total"] or 0
+        level = max((value for value, threshold in XP_THRESHOLDS.items() if total >= threshold), default=0)
+        profile, _ = cls.objects.select_for_update().get_or_create(user=user)
+        if profile.level != level:
+            profile.level = level
+            profile.save(update_fields=["level"])
+        return profile
+
+    @property
+    def xp_progress(self):
+        """Project saved skill XP without minting credit or changing the cache."""
+        from apps.achievements.models import SkillProgress, XP_THRESHOLDS
+
+        total = SkillProgress.objects.filter(user_id=self.user_id).aggregate(total=models.Sum("xp_points"))["total"] or 0
+        threshold = XP_THRESHOLDS.get(self.level, 0)
+        following = XP_THRESHOLDS.get(self.level + 1)
+        return {
+            "total_xp": total,
+            "xp_in_level": max(0, total - threshold) if following is not None else 0,
+            "xp_needed_for_level": following - threshold if following is not None else 0,
+        }
+
     def is_unlocked(self, slug: str) -> bool:
         entry = self.unlocks.get(slug) or {}
         return bool(entry.get("enabled"))
@@ -244,6 +271,22 @@ class DropLog(CreatedAtModel):
 
     class Meta:
         ordering = ["-created_at"]
+
+
+class PerfectDayReceipt(CreatedAtModel):
+    """Durable once-per-child/day guard for the complete Perfect Day award."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="perfect_day_receipts",
+    )
+    day = models.DateField()
+    historical = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "day"], name="unique_perfect_day_receipt"),
+        ]
 
 
 class SpriteAsset(TimestampedModel):

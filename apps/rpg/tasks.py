@@ -1,80 +1,93 @@
 import logging
 
 from celery import shared_task
+from django.db import transaction
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 
-@shared_task
-def evaluate_perfect_day_task():
-    """Award 'Perfect Day' bonus to children who completed all daily chores."""
-    from apps.chores.models import Chore
+@transaction.atomic
+def _award_perfect_day(child, today):
+    from apps.accounts.models import User
+    from apps.activity.services import ActivityLogService, activity_scope
+    from apps.chores.models import Chore, ChoreCompletion
     from apps.chores.services import ChoreService
-    from apps.families.queries import children_across_families
     from apps.notifications.services import notify
     from apps.rewards.models import CoinLedger
     from apps.rewards.services import CoinService
-    from apps.rpg.models import CharacterProfile
+    from apps.rpg.models import CharacterProfile, PerfectDayReceipt
 
-    today = timezone.localdate()
+    # Use the same user -> profile lock order as the other reward paths.
+    User.objects.select_for_update(no_key=True).get(pk=child.pk)
+    profile = CharacterProfile.objects.select_for_update().filter(user=child).first()
+    if not profile or profile.last_active_date != today:
+        return False
+
+    available = ChoreService.get_available_chores(child, today)
+    daily_chores = [c for c in available if c.recurrence == Chore.Recurrence.DAILY]
+    # Availability treats pending submissions as done to prevent duplicate
+    # submissions. Reward eligibility requires actual parent approval instead.
+    if not daily_chores or not all(
+        c.today_completion_status == ChoreCompletion.Status.APPROVED
+        for c in daily_chores
+    ):
+        return False
+
+    _receipt, created = PerfectDayReceipt.objects.get_or_create(user=child, day=today)
+    if not created:
+        return False
+
+    profile.perfect_days_count += 1
+    profile.save(update_fields=["perfect_days_count"])
+    with activity_scope(suppress_inner_ledger=True):
+        CoinService.award_coins(
+            child, 15, CoinLedger.Reason.ADJUSTMENT,
+            description="Perfect Day bonus!",
+        )
+    ActivityLogService.record(
+        category="system",
+        event_type="system.perfect_day",
+        summary="Perfect Day: +15 coins",
+        actor=None,
+        subject=child,
+        coins_delta=15,
+        breakdown=[
+            {"label": "daily chores done", "value": len(daily_chores), "op": "="},
+            {"label": "bonus", "value": 15, "op": "note"},
+            {"label": "perfect days total", "value": profile.perfect_days_count, "op": "note"},
+        ],
+        extras={
+            "day": today.isoformat(),
+            "daily_chores_done": len(daily_chores),
+            "perfect_days_count": profile.perfect_days_count,
+        },
+    )
+    notify(
+        child,
+        title="Perfect Day!",
+        message="You completed all your daily tasks. +15 coins!",
+        notification_type="perfect_day",
+        link="/",
+    )
+    return True
+
+
+@shared_task
+def evaluate_perfect_day_task():
+    """Award approved daily chores once per child and configured local date.
+
+    Chore completions and streak activity currently save this same configured
+    day. Keep the eligibility and receipt date on that shared producer contract.
+    """
+    from apps.families.queries import children_across_families
+
     awarded = 0
     seen = 0
-
+    today = timezone.localdate()
     for _family, child in children_across_families():
         seen += 1
-        profile = CharacterProfile.objects.filter(user=child).first()
-        if not profile or profile.last_active_date != today:
-            continue
-
-        available = ChoreService.get_available_chores(child, today)
-        daily_chores = [c for c in available if c.recurrence == Chore.Recurrence.DAILY]
-
-        # Require at least one daily chore AND every one of them done.
-        if not daily_chores or not all(c.is_done_today for c in daily_chores):
-            continue
-
-        # Award perfect day
-        profile.perfect_days_count += 1
-        profile.save(update_fields=["perfect_days_count"])
-
-        from apps.activity.services import (
-            ActivityLogService, activity_scope,
-        )
-        with activity_scope(suppress_inner_ledger=True):
-            CoinService.award_coins(
-                child,
-                15,
-                CoinLedger.Reason.ADJUSTMENT,
-                description="Perfect Day bonus!",
-            )
-        ActivityLogService.record(
-            category="system",
-            event_type="system.perfect_day",
-            summary="Perfect Day: +15 coins",
-            actor=None,
-            subject=child,
-            coins_delta=15,
-            breakdown=[
-                {"label": "daily chores done", "value": len(daily_chores), "op": "="},
-                {"label": "bonus", "value": 15, "op": "note"},
-                {"label": "perfect days total", "value": profile.perfect_days_count, "op": "note"},
-            ],
-            extras={
-                "daily_chores_done": len(daily_chores),
-                "perfect_days_count": profile.perfect_days_count,
-            },
-        )
-
-        notify(
-            child,
-            title="Perfect Day!",
-            message="You completed all your daily tasks. +15 coins!",
-            notification_type="perfect_day",
-            link="/",
-        )
-        awarded += 1
-
+        awarded += _award_perfect_day(child, today)
     return f"Perfect day evaluated: {awarded}/{seen} children awarded."
 
 

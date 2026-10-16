@@ -379,7 +379,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -387,7 +387,7 @@ For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
 From `frontend/`:
 
 ```sh
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/rpgIntegrityContractFixtures.test.jsx src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js
 ```
 
 For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Editor.ApiContractValidation.Run`, or use
@@ -403,7 +403,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }
@@ -533,7 +533,7 @@ for an expanded choice. Idle playback is local presentation, not an API award.
 Run the producer and permission/state tests with a disposable test database:
 
 ```sh
-python manage.py test --settings=config.settings_test apps.rpg.tests.test_avatar config.tests.test_avatar_api_contract_fixtures
+python manage.py test --settings=config.settings_test apps.rpg.tests.test_avatar config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures
 ```
 
 ## Automatic challenges and measured movement
@@ -666,3 +666,23 @@ Pet and mount responses include read-only `evolution_stage`: `chick`,
 selects Chick, 50 or higher selects Fledgling until confirmed mount evolution;
 confirmed evolved pets and owned mounts select Bird. Client stage fields cannot
 grant growth, ownership, rewards or mount eligibility.
+
+## Earned RPG progress and frozen shop promises
+
+`config.tests.test_rpg_integrity_api_contract_fixtures` produces the character
+progression and frozen redemption examples through authenticated endpoints.
+Character responses add read-only integer `total_xp`, `xp_in_level`, and
+`xp_needed_for_level`. The character uses the existing skill XP thresholds
+across the sum of saved skill XP; this projection adds no XP or currency.
+`xp_needed_for_level` is the width of the current level, rather than the
+remaining XP. At the highest authored level it is zero and Profile shows
+“Highest level”. Existing appearance saves preserve earned state.
+
+A redemption's nested `reward` retains its requested `cost_coins`,
+`fulfillment_kind`, `item_definition` and `item_definition_detail` even after
+the parent edits the current offer. Its `coin_cost_snapshot` remains the
+refund authority. Catalog requests still describe the current offer. The
+producer checks actual inventory delivery, unchanged held Coins, and approval
+retry safety. The React consumer `src/api/rpgIntegrityContractFixtures.test.jsx`
+checks these same saved promises and renders the earned/maximum character
+responses through Profile's existing frontispiece.

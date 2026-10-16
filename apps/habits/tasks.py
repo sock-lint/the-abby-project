@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def decay_habit_strength_task():
-    """Decay strength of untapped habits toward 0 for all children."""
+    """Evaluate the previous family-local day, once per active habit."""
     from apps.families.queries import children_across_families
     from apps.habits.services import HabitService
 
