@@ -242,7 +242,7 @@ describe('Habits', () => {
     expect(screen.queryByRole('button', { name: /add skill/i })).not.toBeInTheDocument();
   });
 
-  it('child submitting a proposal posts to /habits/ without xp_reward or skill_tags', async () => {
+  it('child submitting a proposal posts its selected icon to /habits/ without xp_reward or skill_tags', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/habits\/$/, { id: 1 });
     renderPage(buildUser(), [
@@ -251,18 +251,29 @@ describe('Habits', () => {
     ]);
     await user.click(await screen.findByRole('button', { name: /propose a habit/i }));
     const submit = await screen.findByRole('button', { name: /send to parent/i });
-    await user.type(screen.getByLabelText('Name'), 'Stretch');
+    await user.type(screen.getByLabelText('Name'), 'Brush teeth');
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    const suggestions = screen.getByRole('group', { name: 'Suggested icons' });
+    const toothbrush = within(suggestions).getByRole('button', { name: 'Toothbrush' });
+    toothbrush.focus();
+    await user.keyboard(' ');
+    expect(screen.getByLabelText('Icon')).toHaveValue('🪥');
+    expect(toothbrush).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('group', { name: 'Suggested icons' })).toBeInTheDocument();
+    expect(create.calls).toHaveLength(0);
     await user.click(submit);
 
     await waitFor(() => expect(create.calls).toHaveLength(1));
     const body = create.calls[0].body;
-    expect(body.name).toBe('Stretch');
+    expect(create.calls[0].url).toMatch(/\/habits\/$/);
+    expect(body.name).toBe('Brush teeth');
+    expect(body.icon).toBe('🪥');
     expect(body.xp_reward).toBeUndefined();
     expect(body.skill_tags).toBeUndefined();
     expect(body.user).toBeUndefined();
   });
 
-  it('parent reviewing a pending habit proposal posts to /habits/{id}/approve/ with xp', async () => {
+  it('parent reviewing a pending habit proposal posts its selected icon to /habits/{id}/approve/ with xp', async () => {
     const user = userEvent.setup();
     const approve = spyHandler('post', /\/api\/habits\/\d+\/approve\/$/, { id: 77 });
     const proposal = {
@@ -296,11 +307,69 @@ describe('Habits', () => {
     const review = await screen.findByRole('button', { name: /review & publish/i });
     await user.click(review);
     await screen.findByRole('dialog', { name: /approve habit proposal/i });
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Book' }));
     await user.click(screen.getByRole('button', { name: /approve & publish/i }));
 
     await waitFor(() => expect(approve.calls).toHaveLength(1));
     expect(approve.calls[0].url).toMatch(/\/habits\/77\/approve\/$/);
+    expect(approve.calls[0].body.icon).toBe('📖');
     expect(approve.calls[0].body.xp_reward).toBeDefined();
+  });
+
+  it('parent editing a habit preserves an existing custom icon when saved unchanged', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', /\/api\/habits\/31\/$/, { id: 31 });
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 31, name: 'Imagine', icon: '🦄' })],
+      )),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      update.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit habit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit habit' });
+    expect(within(dialog).getByLabelText('Icon')).toHaveValue('🦄');
+    await user.click(within(dialog).getByRole('button', { name: 'Update habit' }));
+
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].method).toBe('PATCH');
+    expect(update.calls[0].url).toMatch(/\/habits\/31\/$/);
+    expect(update.calls[0].body.icon).toBe('🦄');
+  });
+
+  it('parent editing a habit can replace a custom icon with a selected preset', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', /\/api\/habits\/31\/$/, { id: 31 });
+    renderPage(buildParent(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 31, name: 'Drink water', icon: '🦄' })],
+      )),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      update.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: 'Edit habit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit habit' });
+    await user.click(within(dialog).getByRole('button', { name: 'Choose icon' }));
+    const suggestions = within(dialog).getByRole('group', { name: 'Suggested icons' });
+    await user.click(within(suggestions).getByRole('button', { name: 'Water' }));
+    expect(within(dialog).getByLabelText('Icon')).toHaveValue('💧');
+    expect(within(suggestions).getByRole('button', { name: 'Water' })).toHaveAttribute('aria-pressed', 'true');
+    expect(update.calls).toHaveLength(0);
+    await user.click(within(dialog).getByRole('button', { name: 'Update habit' }));
+
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].method).toBe('PATCH');
+    expect(update.calls[0].url).toMatch(/\/habits\/31\/$/);
+    expect(update.calls[0].body.icon).toBe('💧');
   });
 
   it('optimistically bumps strength on tap before the server roundtrip lands', async () => {
@@ -362,7 +431,7 @@ describe('Habits', () => {
     expect(screen.getByText(/0\/3 today/)).toBeInTheDocument();
   });
 
-  it('create-habit form submits max_taps_per_day and no coin_reward', async () => {
+  it('create-habit form submits its selected icon, max_taps_per_day and no coin_reward', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/habits\/$/, { id: 42 });
     renderPage(buildParent(), [
@@ -376,6 +445,8 @@ describe('Habits', () => {
     const submit = await screen.findByRole('button', { name: /create habit/i });
     const textboxes = screen.getAllByRole('textbox');
     await user.type(textboxes[0], 'Brush teeth'); // Name field is first textbox.
+    await user.click(screen.getByRole('button', { name: 'Choose icon' }));
+    await user.click(screen.getByRole('button', { name: 'Toothbrush' }));
     // Max taps and XP are the two spinbuttons; first is max_taps_per_day per form order.
     const spinbuttons = screen.getAllByRole('spinbutton');
     await user.clear(spinbuttons[0]);
@@ -383,9 +454,11 @@ describe('Habits', () => {
     await user.click(submit);
     await waitFor(() => expect(create.calls).toHaveLength(1));
     const body = create.calls[0].body;
+    expect(create.calls[0].url).toMatch(/\/habits\/$/);
     expect(body).not.toHaveProperty('coin_reward');
     expect(body.max_taps_per_day).toBe(2);
     expect(body.name).toBe('Brush teeth');
+    expect(body.icon).toBe('🪥');
   });
 
   it('renders the QuestFolio verso but no RarityStrand (strength is its own tier system)', async () => {
