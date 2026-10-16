@@ -23,6 +23,7 @@ export default function AvatarPreview({ preferences, configuration, avatarDefini
   const configurationReady = configuration === undefined || previewPreferences != null;
   const appearance = useMemo(() => registeredArcher && configurationReady ? resolveAvatarAppearance(previewPreferences) : null, [previewPreferences, registeredArcher, configurationReady]);
   const identity = [avatarDefinition?.id ?? rendererAdapter, appearance?.url, appearance?.hairStyle, appearance?.headStyle,
+    appearance?.configuration ? JSON.stringify(appearance.configuration) : '',
     ...Object.values(appearance?.wardrobe || {}), ...Object.values(appearance?.textures || {})].join(':');
   const generic = !!avatarDefinition || configuration !== undefined;
   const avatarLabel = avatarDefinition ? `Your ${avatarDefinition.label || 'selected'} avatar` : generic ? 'Your avatar' : 'Your Archer character';

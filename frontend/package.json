@@ -18,13 +18,23 @@
     "test:pwa": "playwright test",
     "test:live": "node scripts/run-live-checks.mjs",
     "test:live-config": "node --test scripts/live-checks-contract.check.mjs",
-    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs",
+    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs scripts/shared-assets.check.mjs scripts/build-hosted-web.check.mjs",
     "test:native-config": "node --test scripts/native-build-config.check.mjs",
     "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
     "test:asset-config": "node --test scripts/asset-checks-contract.check.mjs",
-    "test:assets": "node scripts/run-asset-checks.mjs"
+    "test:assets": "node scripts/run-asset-checks.mjs",
+    "assets:import": "node scripts/shared-assets.mjs import",
+    "assets:verify": "node scripts/shared-assets.mjs verify",
+    "predev": "npm run assets:verify",
+    "prebuild": "npm run assets:verify",
+    "prebuild:native": "npm run assets:verify",
+    "prepreview": "npm run assets:verify",
+    "postbuild": "node scripts/verify-built-shared-assets.mjs dist",
+    "postbuild:native": "node scripts/verify-built-shared-assets.mjs dist-native"
   },
   "dependencies": {
+    "@abby-assets/avatar-runtime": "file:vendor/abby-assets-avatar-runtime-1.0.0.tgz",
+    "@abby-assets/contracts": "file:vendor/abby-assets-contracts-1.0.0.tgz",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
@@ -39,6 +49,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
+    "@abby-assets/release-tools": "file:vendor/abby-assets-release-tools-1.0.0.tgz",
     "@aws-sdk/client-s3": "^3.1149.0",
     "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.39.4",

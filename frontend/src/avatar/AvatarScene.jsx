@@ -2,6 +2,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
 import { AnimationMixer, Box3, Group, SRGBColorSpace, TextureLoader, Vector3 } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { useAvatar } from '@abby-assets/avatar-runtime/react';
 import { prepareModel } from '../companion/prepareModel';
 import presentation from '../storybook/presentation.json';
 import { createAvatarReactions } from './avatarReactions';
@@ -148,6 +149,68 @@ function Avatar({ appearance, onReady, motionAllowed, interaction }) {
   return <primitive object={reactions.root} dispose={null} />;
 }
 
+/** The application owns framing and reactions; the shared runtime owns the
+ * verified model, fitted modules, skeleton, equipment and animation mixer. */
+function SharedAvatar({ appearance, onReady, onUnavailable, motionAllowed, interaction }) {
+  const { avatar, error } = useAvatar(appearance.release, appearance.configuration, { resolveUrl: appearance.resolveUrl });
+  const invalidate = useThree((state) => state.invalidate);
+  const reactions = useMemo(() => {
+    const root = new Group();
+    root.rotation.y = appearance.rotationY;
+    return { root, playback: createAvatarReactions(root) };
+  }, [appearance.rotationY]);
+  const controller = useRef(null);
+  const lastInteraction = useRef(0);
+  useEffect(() => { if (error) onUnavailable(error); }, [error, onUnavailable]);
+  useLayoutEffect(() => {
+    if (!avatar) return;
+    const bounds = avatar.identityBounds;
+    const scale = 1.65 / bounds.size[1];
+    const display = new Group();
+    display.scale.setScalar(scale);
+    display.position.set(-(bounds.min[0] + bounds.max[0]) * scale / 2, -bounds.min[1] * scale,
+      -(bounds.min[2] + bounds.max[2]) * scale / 2);
+    display.add(avatar.scene);
+    reactions.root.add(display);
+    invalidate();
+    return () => { display.remove(avatar.scene); reactions.root.remove(display); };
+  }, [avatar, reactions, invalidate]);
+  useEffect(() => {
+    if (!avatar) return;
+    const playback = avatar.createAnimationController();
+    controller.current = playback;
+    playback.play('idle');
+    const stopListening = playback.onFinished(() => { playback.play('idle', { fadeSeconds: .12 }); invalidate(); });
+    onReady(avatar);
+    invalidate();
+    return () => { stopListening(); playback.dispose(); if (controller.current === playback) controller.current = null; };
+  }, [avatar, onReady, invalidate]);
+  useEffect(() => {
+    if (!motionAllowed) {
+      reactions.playback.reset();
+      const playback = controller.current;
+      if (playback && playback.action?.getClip().name !== appearance.idleClip) playback.play('idle');
+    }
+    invalidate();
+  }, [motionAllowed, appearance.idleClip, reactions, invalidate]);
+  useEffect(() => {
+    if (!interaction?.id || interaction.id === lastInteraction.current || !controller.current) return;
+    lastInteraction.current = interaction.id;
+    if (motionAllowed) {
+      if (interaction.action === 'hop') controller.current.play('jump', { loop: false, fadeSeconds: .12 });
+      else reactions.playback.play(interaction.action);
+    }
+    invalidate();
+  }, [avatar, interaction, motionAllowed, reactions, invalidate]);
+  useFrame((_state, delta) => {
+    if (!avatar || !motionAllowed) return;
+    controller.current?.update(delta);
+    if (reactions.playback.playing) reactions.playback.update(delta);
+    invalidate();
+  });
+  return <primitive object={reactions.root} dispose={null} />;
+}
+
 function ContextGuard({ onUnavailable }) {
   const canvas = useThree((state) => state.gl.domElement);
   useEffect(() => {
@@ -166,6 +229,8 @@ export default function AvatarScene({ appearance, onReady, onUnavailable, intera
     <directionalLight position={[3, 6, 4]} intensity={2.2} />
     <ContextGuard onUnavailable={onUnavailable} />
     <AvatarCamera cameraReset={cameraReset} cameraOrbit={cameraOrbit} />
-    <Suspense fallback={null}><Avatar appearance={appearance} onReady={onReady} motionAllowed={motionAllowed} interaction={interaction} /></Suspense>
+    <Suspense fallback={null}>{appearance.pipeline === 'abby-assets'
+      ? <SharedAvatar appearance={appearance} onReady={onReady} onUnavailable={onUnavailable} motionAllowed={motionAllowed} interaction={interaction} />
+      : <Avatar appearance={appearance} onReady={onReady} motionAllowed={motionAllowed} interaction={interaction} />}</Suspense>
   </Canvas>;
 }

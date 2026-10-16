@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
@@ -11,6 +12,17 @@ const config = {
   endpoint: 'https://synthetic-storage.invalid', bucket: 'synthetic-private', key: 'private/synthetic-avatar.json',
   region: 'us-east-1', accessKeyId: 'synthetic-key', secretAccessKey: 'synthetic-secret',
 };
+
+async function copyAvatarRuntime(root) {
+  const source = join(root, 'src/avatar');
+  await mkdir(source, { recursive: true });
+  for (const name of ['appearance.js', 'preferences.js', 'sharedRelease.js']) {
+    await writeFile(join(source, name), await readFile(new URL(`../src/avatar/${name}`, import.meta.url)));
+  }
+  await writeFile(join(root, 'assets.lock.json'), await readFile(new URL('../assets.lock.json', import.meta.url)));
+  return source;
+}
+const runtimeResolution = { alias: { '@abby-assets/contracts': fileURLToPath(new URL('../node_modules/@abby-assets/contracts/index.js', import.meta.url)) } };
 
 function makeGlb(parts, modify = () => {}) {
   const wardrobeNames = parts.wardrobe ? [parts.wardrobe.hair_for_hat,
@@ -365,12 +377,10 @@ test('wardrobe runtime resolves all 276480 choices through a Vite build', async 
   const bytes = Buffer.from(JSON.stringify(bundle));
   await writeFile(options.secretPath, JSON.stringify(config));
   assert.deepEqual(await stageAvatarArt({ ...options, expectedHash: digest(bytes), download: async () => bytes }), { staged: true, fileCount: 61 });
-  const source = join(root, 'src');
-  await mkdir(source);
-  for (const name of ['appearance.js', 'preferences.js']) await writeFile(join(source, name), await readFile(new URL(`../src/avatar/${name}`, import.meta.url)));
+  const source = await copyAvatarRuntime(root);
   await rename(options.destination, join(source, 'licensed'));
   const { build } = await import('vite');
-  const output = await build({ configFile: false, logLevel: 'silent', root, base: '/static/',
+  const output = await build({ configFile: false, logLevel: 'silent', root, base: '/static/', resolve: runtimeResolution,
     build: { write: false, assetsInlineLimit: 0, lib: { entry: join(source, 'appearance.js'), formats: ['es'] } } });
   const entries = (Array.isArray(output) ? output : [output]).flatMap((result) => result.output);
   const code = entries.find((entry) => entry.type === 'chunk' && entry.isEntry).code;
@@ -477,12 +487,10 @@ test('expanded runtime resolves all 2880 choices through a Vite build', async (t
   const bytes = Buffer.from(JSON.stringify(bundle));
   await writeFile(options.secretPath, JSON.stringify(config));
   assert.deepEqual(await stageAvatarArt({ ...options, expectedHash: digest(bytes), download: async () => bytes }), { staged: true, fileCount: 31 });
-  const source = join(root, 'src');
-  await mkdir(source);
-  for (const name of ['appearance.js', 'preferences.js']) await writeFile(join(source, name), await readFile(new URL(`../src/avatar/${name}`, import.meta.url)));
+  const source = await copyAvatarRuntime(root);
   await rename(options.destination, join(source, 'licensed'));
   const { build } = await import('vite');
-  const output = await build({ configFile: false, logLevel: 'silent', root, base: '/static/',
+  const output = await build({ configFile: false, logLevel: 'silent', root, base: '/static/', resolve: runtimeResolution,
     build: { write: false, assetsInlineLimit: 0, lib: { entry: join(source, 'appearance.js'), formats: ['es'] } } });
   const entries = (Array.isArray(output) ? output : [output]).flatMap((result) => result.output);
   const code = entries.find((entry) => entry.type === 'chunk' && entry.isEntry).code;
@@ -792,7 +800,8 @@ async function fixture(t) {
 test('production build stages the avatar before Vite and excludes local paid art', async () => {
   const dockerfile = await readFile(new URL('../../Dockerfile', import.meta.url), 'utf8');
   assert.ok(dockerfile.includes('node scripts/stage-avatar-art.mjs'), 'Production must stage the Archer assets before Vite resolves its globs');
-  assert.ok(dockerfile.indexOf('node scripts/stage-avatar-art.mjs') < dockerfile.indexOf('RUN npm run build'));
+  const webBuild = dockerfile.indexOf('node scripts/build-hosted-web.mjs');
+  assert.ok(webBuild > 0 && dockerfile.indexOf('node scripts/stage-avatar-art.mjs') < webBuild);
   for (const name of ['ABBY_AVATAR_ASSETS', 'ABBY_AVATAR_ASSETS_SHA256', 'ABBY_AVATAR_ASSETS_REQUIRED']) assert.match(dockerfile, new RegExp(`id=${name}(?:\\s|\\\\)`));
   assert.match(await readFile(new URL('../../.dockerignore', import.meta.url), 'utf8'), /^frontend\/src\/avatar\/licensed\/$/m);
   const workflow = await readFile(new URL('../../.github/workflows/pr-validation.yml', import.meta.url), 'utf8');
@@ -823,9 +832,7 @@ test('accepted avatar stages exact runtime files, resolving every appearance thr
   await writeFile(join(root, 'ABBY_AVATAR_ASSETS_SHA256'), digest(Buffer.from(JSON.stringify(makeBundle()))));
   assert.deepEqual(await stageAvatarArt({ ...options, expectedHash: '' }), { staged: true, fileCount: 13 });
   assert.deepEqual((await readdir(options.destination)).sort(), ['manifest.json', ...Object.keys(makeBundle().files)].sort());
-  const source = join(root, 'src');
-  await mkdir(source);
-  for (const name of ['appearance.js', 'preferences.js']) await writeFile(join(source, name), await readFile(new URL(`../src/avatar/${name}`, import.meta.url)));
+  const source = await copyAvatarRuntime(root);
   const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js');
   const modelBytes = await readFile(join(options.destination, 'archer.glb'));
   const loaded = await new GLTFLoader().parseAsync(modelBytes.buffer.slice(modelBytes.byteOffset, modelBytes.byteOffset + modelBytes.byteLength), '');
@@ -834,7 +841,7 @@ test('accepted avatar stages exact runtime files, resolving every appearance thr
   await rename(options.destination, join(source, 'licensed'));
   const { build } = await import('vite');
   const output = await build({
-    configFile: false, logLevel: 'silent', root, base: '/static/',
+    configFile: false, logLevel: 'silent', root, base: '/static/', resolve: runtimeResolution,
     build: { write: false, assetsInlineLimit: 0, lib: { entry: join(source, 'appearance.js'), formats: ['es'] } },
   });
   const entries = (Array.isArray(output) ? output : [output]).flatMap((result) => result.output);

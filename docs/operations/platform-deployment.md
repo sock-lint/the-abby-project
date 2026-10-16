@@ -78,30 +78,64 @@ native deployment and while polling it. A stale run does not queue a deployment.
 A monitored deployment resolving to another SHA, or superseded during polling,
 fails and requests cancellation when it is still active.
 
-An existing active deployment for the same application and expected SHA is
+One existing active deployment for the same application and expected SHA is
 reused. An unresolved native `HEAD` deployment can also be monitored, with the
-same exact-SHA success requirement. Preview deployments are excluded. This
-avoids redundant webhook builds and accounts for the installed API's duplicate
-response bug, which can name a UUID that has no queue row; the helper resolves
-that initial 404 only through this application's active deployment history.
+same exact-SHA success requirement. Preview deployments are excluded. Multiple
+active deployments, or an active deployment for another resolved SHA, stop the
+helper before it queues more work.
+
+Temporary connection failures and HTTP 408, 429, 500, 502, 503 and 504 responses
+to observational GETs allow four retries, with 2, 4, 8 and 16 seconds of backoff.
+This applies to Coolify, GitHub's current-main check and public health. A short
+outage no longer immediately cancels an otherwise progressing native deployment.
+Authorization/configuration failures, redirects and invalid Coolify/GitHub GET
+responses fail without those retries. During public health verification only,
+invalid JSON (including a brief HTTP 200 plaintext `ok` proxy response) remains
+unproven readiness until the next poll or the health deadline. It can never
+establish serving identity or success. Requests retain their 30-second connection/read timeout;
+the helper checks one monotonic deployment deadline before and after reads and
+caps backoff to the remaining time. A single in-flight request can finish after
+that deadline, but cannot authorize another deployment or success afterwards.
+
+The deployment POST is sent at most once. A lost connection, temporary server
+error or malformed response can follow server-side acceptance, so the helper
+does not replay it. It captures the application's last 50 deployment UUIDs
+before POST, then allows up to 60 seconds within the deployment deadline to
+identify one new, compatible, non-preview row in this application's history.
+A new finished row must already prove the exact expected SHA; an old finished
+row cannot prove acceptance. The same reconciliation handles the installed API's
+duplicate response bug, which can return a UUID without a queue row. Missing or
+ambiguous evidence fails with an instruction to inspect that application's
+queue, without queuing a replacement or cancelling an unidentified deployment.
+After an uncertain result, inspect Coolify before rerunning the workflow.
 
 Coolify 4.1.2's native deploy API does not accept an immutable commit argument.
 The application resolves its configured `HEAD` on the server, so the GitHub
 check and server fetch cannot be atomic. Do not describe this as commit pinning:
 the helper accepts success only when the finished deployment's resolved commit
-equals the workflow SHA. Its bounded polling allows 20 minutes for Coolify, then
-two minutes for `https://abby.bos.lol/health` to confirm both `status: ok` and
-`db: up`. The Actions deployment job has a 30-minute limit. Signals, timeout,
-and mismatches attempt cancellation of the monitored deployment UUID; a forced
-runner exit or an already finished deployment can prevent cancellation. Inspect
-that exact deployment in Coolify when cancellation cannot be confirmed.
+equals the workflow SHA. One 20-minute budget covers application checks,
+reconciliation, retries, native deployment and public verification. After Coolify
+finishes, up to two minutes of that remaining budget allow
+`https://abby.bos.lol/health` to confirm `status: ok`, `db: up`, the exact workflow
+`commit`, and the configured application `resourceUuid`. Current main is checked
+again after the health read before success. The Actions deployment job has a
+30-minute limit. Signals, deadline, exhausted read retries and mismatches attempt
+cancellation of the known monitored deployment UUID. A forced runner exit, an
+interruption before an uncertain POST can be reconciled, or an already finished
+deployment can prevent cancellation. Inspect that exact application/deployment
+in Coolify when cancellation or the request outcome cannot be confirmed.
+If a deployment response contradicts the expected application/resource UUID,
+deployment UUID or non-preview identity, earlier cancellation eligibility is
+revoked. The helper fails without cancelling that contradictory target; inspect
+the application's queue instead. A proved own deployment resolving to the wrong
+commit still receives cancellation while active.
 
 Coolify's existing automatic deployment remains enabled. Its native webhooks are
 outside Actions concurrency and latest-main guards, and are not evidence that
 the GitHub validation pipeline passed. The workflow preserves this setting and
 the application's private build configuration. The workflow accepts public
-`status: ok` / `db: up` plus the exact finished Coolify commit as its release
-evidence; it does not currently compare the public serving commit itself.
+health and serving identity only alongside the exact finished Coolify commit
+as its release evidence.
 
 `/health` additionally exposes `commit` only for a full lowercase 40-character
 hexadecimal `SOURCE_COMMIT`, and `resourceUuid` only when runtime
@@ -113,8 +147,8 @@ no Docker build argument or private environment change is needed.
 
 The separately authorized [live browser observer](live-browser-checks.md)
 requires that public serving identity to match fresh finished-deployment proof
-both before login and after its browser journeys. That stricter correlation is
-an additional station gate, separate from the existing deployment workflow's
+both before login and after its browser journeys. Those browser journeys are an
+additional station gate beyond the deployment workflow's public identity and
 status/database checks. Operators can also compare running containers'
 `SOURCE_COMMIT` when investigating runtime/version drift.
 
@@ -126,6 +160,12 @@ Compose stack or overwrite its private environment.
 
 ## Local guard tests
 
+The [Deployment guard regression checks](../../.github/workflows/deployment-guards.yml)
+workflow runs these synthetic checks and the executable PHP/Bash helper-command
+tests on relevant pull requests and main changes. It requires PHP and Bash, so
+missing tooling cannot turn skipped helper tests into a pass. It uses no
+production connection or private assets.
+
 The deployment helper uses only Python's standard library. These checks use
 synthetic API responses and never contact production:
 
@@ -134,6 +174,16 @@ python -m unittest discover -s scripts/operations -p test_deploy_coolify.py -v
 ```
 
 They cover stale/nonmatching commits and application targets, exact successful
-completion, supersession/timeout/interruption cancellation, public health and
-database failure, restricted HTTP URLs, redirect refusal, and credential/error
-response isolation.
+completion, temporary Coolify/GitHub/health failures, bounded retry exhaustion,
+deadline/supersession during backoff, uncertain POST reconciliation without
+replay, old/ambiguous/preview/cross-application history, interruption cancellation,
+serving identity and database failure, temporary/plaintext and persistently
+invalid public health responses, restricted HTTP URLs, redirect refusal,
+and credential/error response isolation.
+
+The version-specific, pinned Coolify image correction and its source guards,
+startup ordering checks, activation and rollback procedure are documented in
+[the Coolify helper correction](../../scripts/operations/coolify_helper/README.md).
+Its custom image override is a deliberate platform upgrade hold: remove or
+rebase it after reviewing a later official release, rather than running the
+updater against the pinned local image.

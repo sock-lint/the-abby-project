@@ -126,7 +126,9 @@ test('chronicle target-user reads are fenced to the verified dedicated actor bef
 });
 
 test('observed Cloudflare background detection is discarded before forwarding in anonymous and verified contexts', async () => {
-  for (const role of ['parent', 'child']) {
+  // Cloudflare serves the detector from rotating one-letter route variants
+  // (h/g earlier, h/b from 2026-10-15); the POST follows the script's route.
+  for (const [role, variant] of [['parent', 'g'], ['child', 'g'], ['parent', 'b'], ['child', 'b']]) {
     const gate = new RequestGate(credentials(), role);
     if (role === 'child') gate.accept(identity(role));
     let handler;
@@ -138,7 +140,7 @@ test('observed Cloudflare background detection is discarded before forwarding in
     const calls = [];
     await handler({
       request: () => ({
-        url: () => `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/g/jsd/oneshot/synthetic-challenge`,
+        url: () => `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/${variant}/jsd/oneshot/synthetic-challenge`,
         method: () => 'POST', headers: () => ({}), isNavigationRequest: () => false,
         postDataJSON: () => ({ synthetic: true }),
       }),
@@ -160,6 +162,11 @@ test('background detection exception is restricted to its observed method, origi
   for (const change of [
     { url: `${LIVE_BASE_URL}${path}-unrelated` },
     { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/g/jsd/r/synthetic` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/b/jsd/r/synthetic` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/gb/jsd/oneshot` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/B/jsd/oneshot` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/h/jsd/oneshot` },
+    { url: `${LIVE_BASE_URL}/cdn-cgi/challenge-platform/jsd/oneshot` },
     { url: `${LIVE_BASE_URL}/cdn-cgi/rum` },
     { url: `${LIVE_BASE_URL}/api/projects/` },
     { url: `${LIVE_BASE_URL}/api/auth/`, body: { action: 'logout' } },
