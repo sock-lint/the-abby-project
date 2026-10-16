@@ -137,6 +137,8 @@ covers. Keep passing `<option>` and `<optgroup>` children and reading
 `event.target.value`; option values and saved API payloads stay the same.
 The design library's [Dropdowns](/__design#design-dropdowns) section includes
 grouped, long, disabled, error and modal examples.
+Menu choices wrap; the closed field keeps one line with ellipsis and a full
+text tooltip, preserving compact form and filter layouts.
 
 Every dropdown needs a visible `label`, an external label linked by `id`, or
 an `aria-label`. Error and help text remain associated with the trigger.

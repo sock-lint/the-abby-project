@@ -173,7 +173,7 @@ test('design library preserves a dirty form and returns focus after saving', asy
   const confirmation = page.getByRole('alertdialog');
   await expect(confirmation).toBeVisible();
   await confirmation.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(dialog.getByRole('textbox', { name: 'Activity name', exact: true })).toHaveJSProperty('value', 'Build a kite');
+  await expect(dialog.getByRole('textbox', { name: 'Activity name', exact: true })).toHaveValue('Build a kite');
   await dialog.getByRole('button', { name: 'Save example', exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await expect(page.getByText('Example saved: Build a kite', { exact: true })).toBeVisible();

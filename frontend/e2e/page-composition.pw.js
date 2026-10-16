@@ -244,8 +244,8 @@ test('Payments filters fit a phone and preserve date selection, reads and cleari
   await page.getByRole('button', { name: 'This month', exact: true }).click();
   const from = page.getByLabel('From', { exact: true });
   const to = page.getByLabel('To', { exact: true });
-  await expect(from).toHaveJSProperty('value', /\d{4}-\d{2}-01/);
-  await expect(to).toHaveJSProperty('value', /\d{4}-\d{2}-\d{2}/);
+  await expect(from).toHaveValue(/\d{4}-\d{2}-01/);
+  await expect(to).toHaveValue(/\d{4}-\d{2}-\d{2}/);
   await expect(page.getByRole('button', { name: 'This month', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => reads.length).toBeGreaterThan(0);
   expect(reads.at(-1).searchParams.get('start_date')).toBe(await from.inputValue());
@@ -253,8 +253,8 @@ test('Payments filters fit a phone and preserve date selection, reads and cleari
   const clear = page.getByRole('button', { name: 'Clear all filters', exact: true });
   expect((await clear.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await clear.click();
-  await expect(from).toHaveJSProperty('value', '');
-  await expect(to).toHaveJSProperty('value', '');
+  await expect(from).toHaveValue('');
+  await expect(to).toHaveValue('');
   await expect(clear).not.toBeAttached();
   expect(mutations).toEqual([]);
 });

@@ -75,7 +75,9 @@ const Dropdown = forwardRef(function Dropdown({
   useLayoutEffect(() => {
     if (revealSelectionRef.current) {
       revealSelectionRef.current = false;
-      triggerRef.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      const trigger = triggerRef.current;
+      const field = trigger?.closest('[data-dropdown-field]') || trigger;
+      field?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
     }
   }, [selectedValue, isOpen]);
 
@@ -113,7 +115,11 @@ const Dropdown = forwardRef(function Dropdown({
       const above = bounds.top - topEdge - gap - edge;
       const placeAbove = below < 176 && above > below;
       const maxHeight = Math.max(44, Math.min(320, placeAbove ? above : below));
-      const height = Math.min(popup.scrollHeight || 320, maxHeight);
+      // Measure the visible top-layer menu at its final width. A closed
+      // popover has no layout, and wrapped choices change its natural height.
+      popup.style.width = `${width}px`;
+      popup.style.maxHeight = `${maxHeight}px`;
+      const height = popup.getBoundingClientRect().height;
       setPosition({
         left: Math.max(leftEdge + edge, Math.min(bounds.left, leftEdge + viewportWidth - width - edge)),
         top: Math.max(topEdge + edge, placeAbove ? bounds.top - gap - height : bounds.bottom + gap),
@@ -121,8 +127,8 @@ const Dropdown = forwardRef(function Dropdown({
         maxHeight,
       });
     };
-    updatePosition();
     if (canUsePopover) popup.showPopover();
+    updatePosition();
     const dismiss = (event) => {
       if (!triggerRef.current?.contains(event.target) && !popup.contains(event.target)) setOpen(false);
     };
@@ -299,6 +305,7 @@ const Dropdown = forwardRef(function Dropdown({
         autoFocus={autoFocus}
         tabIndex={rest.tabIndex}
         form={form}
+        title={rest.title || selected?.label}
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={[describedBy, !invalid && validationMessage ? `${controlId}-validation` : null].filter(Boolean).join(' ') || undefined}
@@ -314,7 +321,7 @@ const Dropdown = forwardRef(function Dropdown({
         onFocus={onFocus}
         onBlur={onBlur}
       >
-        <span className="min-w-0 flex-1 whitespace-normal break-words">{selected?.label || '\u00a0'}</span>
+        <span className="min-w-0 flex-1 truncate">{selected?.label || '\u00a0'}</span>
         <ChevronDown size={18} className={`shrink-0 text-ink-secondary transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>
       {!invalid && validationMessage && <p id={`${controlId}-validation`} role="alert" className="mt-1 text-caption text-ember-deep">{validationMessage}</p>}

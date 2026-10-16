@@ -39,7 +39,7 @@ const SelectField = forwardRef(function SelectField(
   const selectClass = variant === 'filter' ? FILTER_VARIANT_CLASS : inputClass;
 
   return (
-    <div className={`min-w-0 max-w-full ${className}`}>
+    <div data-dropdown-field="true" className={`min-w-0 max-w-full ${className}`}>
       {label && <label htmlFor={id} className={formLabelClass}>{label}</label>}
       <Dropdown
         ref={ref}

@@ -159,6 +159,38 @@ test.describe('touch dropdowns', () => {
 });
 
 for (const browserName of ['chromium', 'webkit']) {
+  test(`${browserName}: compact menus sit next to the field above and below`, async ({ playwright }, info) => {
+    const browser = await playwright[browserName].launch();
+    const page = await browser.newPage({ viewport: { width: 513, height: 740 } });
+    try {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(`${origin}/e2e/dropdowns-fixture.html?compact=1`);
+      await page.evaluate(() => document.fonts.ready);
+      await page.getByRole('button', { name: 'New assignment', exact: true }).click();
+      const child = page.getByRole('combobox', { name: 'Assign to', exact: true });
+      await child.click();
+      const above = dropdownListbox(child);
+      await expect(above.getByRole('option')).toHaveCount(3);
+      await expectPopupFits(page, above, 513, 740);
+      const triggerBounds = await child.boundingBox();
+      const aboveBounds = await above.boundingBox();
+      expect(triggerBounds.y - aboveBounds.y - aboveBounds.height).toBeCloseTo(6, 0);
+      await page.screenshot({ path: info.outputPath(`homework-compact-${browserName}.png`) });
+
+      await page.goto(`${origin}/e2e/dropdowns-fixture.html?mode=single`);
+      const single = page.getByRole('combobox', { name: 'Single choice', exact: true });
+      await single.click();
+      const below = dropdownListbox(single);
+      await expect(below.getByRole('option')).toHaveCount(1);
+      const singleBounds = await single.boundingBox();
+      const belowBounds = await below.boundingBox();
+      expect(belowBounds.y - singleBounds.y - singleBounds.height).toBeCloseTo(6, 0);
+      await expectPopupFits(page, below, 513, 740);
+    } finally {
+      await browser.close();
+    }
+  });
+
   test(`${browserName}: listbox escapes sheet clipping and Escape preserves the assignment form`, async ({ playwright }, info) => {
     const browser = await playwright[browserName].launch();
     const page = await browser.newPage();
