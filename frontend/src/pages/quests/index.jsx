@@ -5,13 +5,18 @@ import Homework from '../Homework';
 import Habits from '../Habits';
 import Movement from '../Movement';
 import Trials from '../trials';
-import Forge from '../forge';
 
 /**
  * Tasks brings everyday activities, projects and challenges into one hub.
  * Legacy tab IDs stay stable for saved links and notification destinations.
  */
 export default function QuestsHub() {
+  const [params] = useSearchParams();
+  // Saved notifications and bookmarks keep working without carrying unrelated
+  // query parameters into the new home.
+  if (params.get('tab') === 'forge') {
+    return <Navigate replace to={`/treasury?tab=forge${params.get('new') === '1' ? '&new=1' : ''}`} />;
+  }
   return (
     <ChapterHub
       title="Tasks"
@@ -24,9 +29,9 @@ export default function QuestsHub() {
         { id: 'rituals',  label: 'Habits',      render: () => <Habits /> },
         { id: 'movement', label: 'Movement',    render: () => <Movement /> },
         { id: 'ventures', label: 'Projects',    render: () => <Projects /> },
-        { id: 'forge',    label: '3D Printing', render: () => <Forge /> },
         { id: 'trials',   label: 'Challenges',  render: () => <Trials /> },
       ]}
     />
   );
 }
+import { Navigate, useSearchParams } from 'react-router-dom';

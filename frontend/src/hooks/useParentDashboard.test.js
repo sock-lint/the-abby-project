@@ -91,6 +91,61 @@ describe('useParentDashboard', () => {
     expect(fetch.calls).toHaveLength(2);
   });
 
+  it('counts every pending print page without adding prints to the inline approval queue', async () => {
+    const fetch = spyHandler('get', '*/api/print-requests/', ({ request }) => {
+      const url = new URL(request.url);
+      expect(url.searchParams.get('status')).toBe('pending');
+      return url.searchParams.get('page') === '2'
+        ? { count: 21, next: null, results: [{ id: 21, status: 'pending' }] }
+        : {
+          count: 21, next: 'http://localhost/api/print-requests/?status=pending&page=2',
+          results: Array.from({ length: 20 }, (_, i) => ({ id: i + 1, status: 'pending' })),
+        };
+    });
+    server.use(fetch.handler);
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.pendingPrintCount).toBe(21);
+    expect(result.current.pending).toEqual([]);
+    expect(result.current.failedSources).toEqual([]);
+    expect(fetch.calls).toHaveLength(2);
+  });
+
+  it('counts parent print decisions without counting quotes that await the child', async () => {
+    server.use(http.get('*/api/print-requests/', () => HttpResponse.json([
+      { id: 1, status: 'pending' },
+      { id: 2, status: 'quoted' },
+      { id: 3, status: 'approved' },
+      { id: 4, status: 'printing' },
+      { id: 5, status: 'completed' },
+    ])));
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.pendingPrintCount).toBe(1);
+    expect(result.current.pending).toEqual([]);
+  });
+
+  it('reports print approvals as unavailable if a later page cannot be checked', async () => {
+    const fetch = spyHandler('get', '*/api/print-requests/', ({ request }) => (
+      new URL(request.url).searchParams.has('page')
+        ? HttpResponse.json({ detail: 'Temporary failure' }, { status: 503 })
+        : {
+          count: 21, next: 'http://localhost/api/print-requests/?status=pending&page=2',
+          results: [{ id: 1, status: 'pending' }],
+        }
+    ));
+    server.use(fetch.handler);
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    expect(result.current.failedSources).toContain('print approvals');
+    expect(result.current.pendingPrintCount).toBe(0);
+    expect(result.current.pending).toEqual([]);
+    expect(fetch.calls).toHaveLength(2);
+  });
+
   it('includes pending money→coins exchange requests', async () => {
     server.use(
       http.get('*/api/coins/exchange/list/', () =>

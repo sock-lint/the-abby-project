@@ -1,4 +1,5 @@
 import { Box, CalendarClock, Palette } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import RuneBadge from '../../components/journal/RuneBadge';
 import StatusBadge from '../../components/StatusBadge';
@@ -30,6 +31,7 @@ export default function PrintRequestCard({
   onCancel,
   onExchange,
   showOwner = false,
+  showPlateFilename = false,
 }) {
   const job = request.latest_job;
   const live = isJobOpen(job);
@@ -94,7 +96,7 @@ export default function PrintRequestCard({
                   title: `Print needed: ${request.title}`,
                   start: request.needed_by,
                   description: 'Requested print needed by this date.',
-                  path: '/quests?tab=forge',
+                  path: '/treasury?tab=forge',
                 }} />
               </>
             )}
@@ -104,6 +106,15 @@ export default function PrintRequestCard({
               </span>
             )}
           </div>
+
+          {request.project != null && request.project_title && (
+            <Link
+              to={`/quests/ventures/${request.project}`}
+              className="inline-flex min-h-11 items-center font-body text-caption text-sheikah-teal-deep hover:underline break-words"
+            >
+              Project: {request.project_title}
+            </Link>
+          )}
 
           {request.reason && (
             <p className="font-body text-caption text-ink-secondary italic">
@@ -133,7 +144,7 @@ export default function PrintRequestCard({
         </div>
       )}
 
-      {request.plate_filename && !quoted && request.status !== 'rejected'
+      {showPlateFilename && request.plate_filename && !quoted && request.status !== 'rejected'
         && request.status !== 'cancelled' && (
         <PlateFilenameChip filename={request.plate_filename} />
       )}

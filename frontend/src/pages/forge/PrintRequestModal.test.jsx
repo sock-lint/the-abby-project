@@ -8,6 +8,53 @@ import PrintRequestModal from './PrintRequestModal';
 const URL_UNDER_TEST = 'https://makerworld.com/en/models/1';
 
 describe('PrintRequestModal', () => {
+  it('shows the verified project context and includes it in a link request', async () => {
+    const spy = spyHandler('post', /\/api\/print-requests\/$/, { id: 12, project: 42 });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<PrintRequestModal project={{ id: 42, title: 'Bird feeder' }} />);
+    expect(screen.getByText('For project: Bird feeder')).toBeInTheDocument();
+    await user.type(screen.getByLabelText(/link to the model/i), URL_UNDER_TEST);
+    await user.type(screen.getByLabelText(/colour/i), 'green');
+    await user.type(screen.getByLabelText(/why do you want it/i), 'A perch for the feeder');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    expect(spy.calls[0].body).toEqual({
+      title: '', source_url: URL_UNDER_TEST, color: 'green',
+      reason: 'A perch for the feeder', needed_by: null, project_id: 42,
+    });
+  });
+
+  it('retains project context in an uploaded model request', async () => {
+    const calls = [];
+    server.use(http.post('*/api/print-requests/', async ({ request }) => {
+      const form = await request.formData();
+      calls.push({ project: form.get('project_id'), hasFile: Boolean(form.get('model_file')) });
+      return HttpResponse.json({ id: 13, project: 42 }, { status: 201 });
+    }));
+    const { user } = renderWithProviders(<PrintRequestModal project={{ id: 42, title: 'Bird feeder' }} />);
+    await user.click(screen.getByRole('button', { name: 'Upload', exact: true }));
+    await user.upload(screen.getByLabelText('Model file'), new File(['solid'], 'perch.stl', { type: 'model/stl' }));
+    await user.type(screen.getByLabelText('Colour'), 'green');
+    await user.type(screen.getByLabelText('Why do you want it?'), 'A perch');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    await waitFor(() => expect(calls).toEqual([{ project: '42', hasFile: true }]));
+  });
+
+  it('keeps the form and shows readable project validation when that project becomes unavailable', async () => {
+    const spy = spyHandler('post', /\/api\/print-requests\/$/,
+      HttpResponse.json({ project_id: ['This project is no longer available.'] }, { status: 400 }));
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<PrintRequestModal project={{ id: 42, title: 'Bird feeder' }} />);
+    await user.type(screen.getByLabelText('Link to the model'), URL_UNDER_TEST);
+    await user.type(screen.getByLabelText('Colour'), 'green');
+    await user.type(screen.getByLabelText('Why do you want it?'), 'A perch');
+    await user.click(screen.getByRole('button', { name: 'Send request' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This project is no longer available.');
+    expect(screen.getByLabelText('Colour')).toHaveValue('green');
+    expect(screen.getByText('For project: Bird feeder')).toBeInTheDocument();
+    expect(spy.calls).toHaveLength(1);
+  });
+
   it('explains the configured time price before requesting a print', () => {
     renderWithProviders(<PrintRequestModal budget={{ minutes_per_coin: 15 }} />);
     expect(screen.getByText(/Prints cost 1 coin per 15 estimated print minutes, rounded up/)).toBeInTheDocument();

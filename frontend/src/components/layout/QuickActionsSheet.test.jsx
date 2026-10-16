@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import QuickActionsSheet from './QuickActionsSheet';
 import SuccessToastProvider from '../SuccessToast';
 import { AuthProvider } from '../../hooks/useApi';
@@ -32,12 +32,26 @@ function renderSheet(userFixture, handlers = [], props = {}) {
           onClose={props.onClose || (() => {})}
           onClockReload={props.onClockReload || (async () => {})}
         />
+        <CurrentLocation />
       </AuthProvider>
     </MemoryRouter>,
   );
 }
 
+function CurrentLocation() {
+  const location = useLocation();
+  return <output aria-label="Current location">{location.pathname}{location.search}</output>;
+}
+
 describe('QuickActionsSheet', () => {
+  it('opens a new print request in Rewards and closes quick actions', async () => {
+    const onClose = vi.fn();
+    renderSheet(buildUser(), [], { onClose });
+    await userEvent.setup().click(await screen.findByRole('button', { name: /ask for a print/i }));
+    expect(screen.getByLabelText('Current location')).toHaveTextContent('/treasury?tab=forge&new=1');
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
   it('shows child actions including Clock in and Add homework', async () => {
     renderSheet(buildUser(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({ today: [], overdue: [], pending_submissions: [] })),

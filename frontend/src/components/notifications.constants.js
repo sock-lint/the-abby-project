@@ -81,13 +81,13 @@ export const NOTIFICATION_TYPE_META = {
   creation_rejected:       { icon: Palette,       accent: 'ember',  route: '/chronicle?tab=sketchbook' },
 
   // Forge (3D print requests)
-  print_request_submitted: { icon: Box,          accent: 'teal',   route: '/quests?tab=forge' },
-  print_request_approved:  { icon: Box,          accent: 'moss',   route: '/quests?tab=forge' },
-  print_request_rejected:  { icon: Box,          accent: 'ember',  route: '/quests?tab=forge' },
-  print_started:           { icon: Printer,      accent: 'teal',   route: '/quests?tab=forge' },
-  print_finished:          { icon: Printer,      accent: 'moss',   route: '/quests?tab=forge' },
-  print_failed:            { icon: CircleAlert,  accent: 'ember',  route: '/quests?tab=forge' },
-  print_budget_low:        { icon: AlertTriangle, accent: 'ember', route: '/quests?tab=forge' },
+  print_request_submitted: { icon: Box,          accent: 'teal',   route: '/treasury?tab=forge' },
+  print_request_approved:  { icon: Box,          accent: 'moss',   route: '/treasury?tab=forge' },
+  print_request_rejected:  { icon: Box,          accent: 'ember',  route: '/treasury?tab=forge' },
+  print_started:           { icon: Printer,      accent: 'teal',   route: '/treasury?tab=forge' },
+  print_finished:          { icon: Printer,      accent: 'moss',   route: '/treasury?tab=forge' },
+  print_failed:            { icon: CircleAlert,  accent: 'ember',  route: '/treasury?tab=forge' },
+  print_budget_low:        { icon: AlertTriangle, accent: 'ember', route: '/treasury?tab=forge' },
 
   // Misc
   approval_reminder:       { icon: BellRing,      accent: 'ember',  route: '/' },

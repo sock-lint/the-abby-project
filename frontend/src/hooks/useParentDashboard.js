@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   getChoreCompletions, getHomeworkDashboard, getPendingRedemptions, getDashboard,
   listPendingCreations, listPendingChoreProposals, listPendingHabitProposals,
-  getPendingExchangeRequests, getAllApprovalPages,
+  getPendingExchangeRequests, getAllApprovalPages, listPrintRequests,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -124,6 +124,7 @@ const SOURCES = [
   { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
   { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
   { key: 'exchanges',      label: 'coin exchanges',       fn: getPendingExchangeRequests,            fallback: [] },
+  { key: 'prints',         label: 'print approvals',      fn: () => getAllApprovalPages(() => listPrintRequests({ status: 'pending' })), fallback: [] },
 ];
 
 /**
@@ -131,11 +132,13 @@ const SOURCES = [
  * and redemptions plus per-kid week stats. Returns a unified `pending` array
  * sorted newest-first, plus `failedSources` (string labels) for any fetch
  * that errored so the caller can surface the failure instead of silently
- * dropping rows from the queue.
+ * dropping rows from the queue. Prints need slicer estimates and a reviewed
+ * quote, so `pendingPrintCount` is separate from inline/bulk approval rows.
  */
 export default function useParentDashboard() {
   const [data, setData] = useState({
     pending: [],
+    pendingPrintCount: 0,
     weekByKid: [],
     dashboard: null,
     loading: true,
@@ -161,7 +164,7 @@ export default function useParentDashboard() {
 
       const {
         chores, homework: hw, redemptions: reds, dashboard: dashboardRes,
-        creations, choreProposals, habitProposals, exchanges,
+        creations, choreProposals, habitProposals, exchanges, prints,
       } = values;
 
       const unified = [
@@ -177,9 +180,11 @@ export default function useParentDashboard() {
       // Week stats — if the dashboard payload has per-kid data in the future,
       // use it; otherwise leave the list empty and the UI hides the block.
       const weekByKid = dashboardRes?.this_week_by_kid ?? [];
+      const pendingPrintCount = normalizeList(prints).filter((request) => request.status === 'pending').length;
 
       setData({
         pending: unified,
+        pendingPrintCount,
         weekByKid,
         dashboard: dashboardRes,
         loading: false,

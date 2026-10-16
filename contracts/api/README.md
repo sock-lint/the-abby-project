@@ -10,6 +10,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | --- | --- |
 | `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
 | `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |
+| `printing-project-request.json`, `printing-project-requests.json` | Authenticated detail and project-filtered list retain the optional project identity/title without widening print ownership |
+| `printing-project-unavailable.json`, `printing-project-requests-unavailable.json` | An existing print remains readable after cross-family project reassignment, with project identity/title hidden in both detail and list |
 | `printing-exchange-paid.json` | Child accepts the saved quote once; request becomes approved with 61 coins paid |
 | `printing-cancel-refunded.json` | Cancellation before the first job returns the exact charge once |
 | `printing-exchange-invalid.json`, `printing-request-not-owned.json` | Caller-supplied prices/accounts and another family's request are rejected without spending |

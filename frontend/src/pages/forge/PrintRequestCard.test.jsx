@@ -34,7 +34,7 @@ describe('PrintRequestCard', () => {
     const event = new URL(google.href).searchParams;
     expect(event.get('text')).toBe('Print needed: Articulated Dragon');
     expect(event.get('dates')).toBe('20260904/20260905');
-    expect(event.get('details')).toContain('/quests?tab=forge');
+    expect(event.get('details')).toContain('/treasury?tab=forge');
     expect(event.get('details')).not.toMatch(/Nana|Private print instructions/);
     expect(screen.getByRole('button', { name: 'Apple Calendar (.ics)' })).toBeInTheDocument();
     google.addEventListener('click', (e) => e.preventDefault());
@@ -71,6 +71,7 @@ describe('PrintRequestCard', () => {
   it('renders the minted plate filename prominently once approved', () => {
     renderWithProviders(
       <PrintRequestCard
+        showPlateFilename
         request={buildRequest({
           status: 'approved',
           slug: 'req-0042-articulated-dragon',
@@ -90,12 +91,31 @@ describe('PrintRequestCard', () => {
     // the value back through it rather than mocking writeText ourselves.
     const { user } = renderWithProviders(
       <PrintRequestCard
+        showPlateFilename
         request={buildRequest({ status: 'approved', plate_filename: 'req-0042-dragon.3mf' })}
       />,
     );
     await user.click(screen.getByRole('button', { name: /copy plate filename/i }));
     expect(await screen.findByText('Copied')).toBeInTheDocument();
     await expect(navigator.clipboard.readText()).resolves.toBe('req-0042-dragon.3mf');
+  });
+
+  it('keeps printer preparation out of the child request card', () => {
+    renderWithProviders(<PrintRequestCard request={buildRequest({
+      status: 'approved', plate_filename: 'req-0042-dragon.3mf',
+    })} />);
+    expect(screen.queryByText(/Save the sliced plate as/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy plate filename/i })).not.toBeInTheDocument();
+  });
+
+  it('links saved accessible project context without inferring it from the reason', () => {
+    renderWithProviders(<PrintRequestCard request={buildRequest({ project: 42, project_title: 'Bird feeder' })} />);
+    expect(screen.getByRole('link', { name: 'Project: Bird feeder' })).toHaveAttribute('href', '/quests/ventures/42');
+  });
+
+  it('omits unavailable project context', () => {
+    renderWithProviders(<PrintRequestCard request={buildRequest({ project: null, project_title: null })} />);
+    expect(screen.queryByRole('link', { name: /^project:/i })).not.toBeInTheDocument();
   });
 
   it('shows live progress while a job is running', () => {

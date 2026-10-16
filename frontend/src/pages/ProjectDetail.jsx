@@ -24,6 +24,7 @@ import ProjectHeader from './project/ProjectHeader';
 import OverviewTab from './project/OverviewTab';
 import PlanTab from './project/PlanTab';
 import MaterialsTab from './project/MaterialsTab';
+import ProjectPrints from './project/ProjectPrints';
 import EditProjectModal from './project/modals/EditProjectModal';
 import AddMilestoneModal from './project/modals/AddMilestoneModal';
 import AddMaterialModal from './project/modals/AddMaterialModal';
@@ -260,13 +261,16 @@ function ProjectDetailPage() {
             />
           </div>)}
           {activeTab === 'Materials' && (
-            <MaterialsTab
-              project={project}
-              isParent={isParent}
-              onMarkReady={setReadyMaterial}
-              onDeleteMaterial={handleDeleteMaterial}
-              onOpenAddMaterial={() => setAddMaterialOpen(true)}
-            />
+            <div className="space-y-6">
+              <MaterialsTab
+                project={project}
+                isParent={isParent}
+                onMarkReady={setReadyMaterial}
+                onDeleteMaterial={handleDeleteMaterial}
+                onOpenAddMaterial={() => setAddMaterialOpen(true)}
+              />
+              <ProjectPrints project={project} />
+            </div>
           )}
         </motion.div>
       </AnimatePresence>
