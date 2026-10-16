@@ -43,8 +43,10 @@ behavior. Legacy Play links stay inside React and drop obsolete token parameters
 before authentication, including offline PWA navigation.
 
 The optional view binds exact `chick` / `cute-chick` / `base` to the prepared
-Chick; confirmed evolution or an owned mount uses Bird. Growth alone does not
-change stage. Unsupported species/variants keep their existing 2D identity.
+Chick below 50 confirmed growth, Fledgling from 50, and Bird only after confirmed
+evolution or for its owned mount. The [Bird Evolution adoption](bird-evolution.md)
+adds the pinned shared family and all 31 motions/two transitions; conversion
+measurements below retain the prior private baseline. Unsupported species/variants keep their existing 2D identity.
 Greetings award nothing. Lazy loading, failed assets and WebGL loss leave DOM
 controls available. Pets starts reviewed idle motion automatically, pausing in
 hidden/offscreen tabs and for reduced motion. View settings allow 2D presentation

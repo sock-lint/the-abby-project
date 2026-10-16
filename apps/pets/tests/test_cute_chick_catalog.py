@@ -109,11 +109,12 @@ class CuteChickCatalogTests(TestCase):
         client = APIClient()
         client.force_authenticate(self.child)
 
-        def assert_chick_identity(body):
+        def assert_chick_identity(body, stage="chick"):
             self.assertEqual(body["species"]["id"], self.chick.pk)
             self.assertEqual(body["species"]["slug"], "chick")
             self.assertEqual(body["species"]["sprite_key"], "cute-chick")
             self.assertEqual(body["potion"]["slug"], "base")
+            self.assertEqual(body["evolution_stage"], stage)
 
         hatch = client.post("/api/pets/hatch/", {
             "egg_item_id": self.egg.pk,
@@ -142,19 +143,19 @@ class CuteChickCatalogTests(TestCase):
         after = client.get("/api/pets/stable/")
         self.assertEqual(after.status_code, 200)
         evolved = after.json()["pets"][0]
-        assert_chick_identity(evolved)
+        assert_chick_identity(evolved, "bird")
         self.assertEqual(evolved["id"], pet_id)
         self.assertTrue(evolved["evolved_to_mount"])
         mount = after.json()["mounts"][0]
-        assert_chick_identity(mount)
+        assert_chick_identity(mount, "bird")
         self.assertEqual(mount["id"], feed.json()["mount_id"])
 
         mounts = client.get("/api/mounts/")
         self.assertEqual(mounts.status_code, 200)
-        assert_chick_identity(mounts.json()[0])
+        assert_chick_identity(mounts.json()[0], "bird")
         activate_mount = client.post(f"/api/mounts/{mount['id']}/activate/")
         self.assertEqual(activate_mount.status_code, 200)
-        assert_chick_identity(activate_mount.json())
+        assert_chick_identity(activate_mount.json(), "bird")
 
     def test_unsupported_potion_leaves_both_ingredients_intact(self):
         egg_inventory = self.give(self.egg, quantity=2)

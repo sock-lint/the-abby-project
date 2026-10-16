@@ -5,6 +5,12 @@
       "family_id": "meshtint-female-archer-pack-01",
       "manifest_sha256": "4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3",
       "release_version": "1.0.2"
+    },
+    {
+      "directory": "meshtint-bird-evolution/1.0.0/1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a",
+      "family_id": "meshtint-bird-evolution",
+      "manifest_sha256": "1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

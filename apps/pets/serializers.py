@@ -5,7 +5,7 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from rest_framework import serializers
 from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
-from .services import MOUNT_BREEDING_COOLDOWN_DAYS
+from .services import MOUNT_BREEDING_COOLDOWN_DAYS, bird_evolution_stage
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 
 
@@ -95,6 +95,7 @@ class PetCodexEntrySerializer(serializers.ModelSerializer):
 
 class UserPetSerializer(serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
+    evolution_stage = serializers.SerializerMethodField()
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     is_fully_grown = serializers.BooleanField(read_only=True)
@@ -106,16 +107,20 @@ class UserPetSerializer(serializers.ModelSerializer):
             "id", "species", "potion", "name", "growth_points",
             "is_active", "evolved_to_mount", "is_fully_grown",
             "happiness_level", "last_fed_at",
-            "created_at", "updated_at", "catalog_available",
+            "created_at", "updated_at", "catalog_available", "evolution_stage",
         ]
         read_only_fields = fields
 
     def get_catalog_available(self, obj):
         return pet_is_available(obj.species, obj.potion)
 
+    def get_evolution_stage(self, obj):
+        return bird_evolution_stage(obj)
+
 
 class UserMountSerializer(serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
+    evolution_stage = serializers.SerializerMethodField()
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     active_expedition = serializers.SerializerMethodField()
@@ -131,12 +136,15 @@ class UserMountSerializer(serializers.ModelSerializer):
             "id", "species", "potion", "is_active",
             "last_bred_at", "active_expedition", "can_breed", "breeding_cooldown_seconds",
             "expedition_available", "expedition_available_at", "expedition_available_in_seconds",
-            "created_at", "updated_at", "catalog_available",
+            "created_at", "updated_at", "catalog_available", "evolution_stage",
         ]
         read_only_fields = fields
 
     def get_catalog_available(self, obj):
         return pet_is_available(obj.species, obj.potion)
+
+    def get_evolution_stage(self, obj):
+        return bird_evolution_stage(obj, is_mount=True)
 
     @cached_property
     def breeding_as_of(self):

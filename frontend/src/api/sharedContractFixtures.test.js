@@ -30,6 +30,10 @@ import emptyInventory from '../../../contracts/api/fixtures/inventory-empty.json
 import confirmedFeed from '../../../contracts/api/fixtures/pet-feed.json';
 import neutralFeed from '../../../contracts/api/fixtures/pet-feed-neutral.json';
 import evolvedFeed from '../../../contracts/api/fixtures/pet-feed-evolved.json';
+import fledglingFeed from '../../../contracts/api/fixtures/pet-feed-fledgling.json';
+import birdFeed from '../../../contracts/api/fixtures/pet-feed-bird.json';
+import fledglingStable from '../../../contracts/api/fixtures/pets-stable-fledgling.json';
+import birdStable from '../../../contracts/api/fixtures/pets-stable-bird.json';
 import activatedPet from '../../../contracts/api/fixtures/pet-activate.json';
 import activatedMount from '../../../contracts/api/fixtures/mount-activate.json';
 import missingFood from '../../../contracts/api/fixtures/pet-feed-missing-food.json';
@@ -102,6 +106,29 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(activeClock).toMatchObject({ status: 'active' });
     clock = idleClock;
     expect(await getClockStatus()).toBeNull();
+  });
+
+  it.each([
+    ['fledgling', fledglingFeed, fledglingStable, 50, false],
+    ['bird', birdFeed, birdStable, 100, true],
+  ])('retains the server-confirmed %s stage through feed, refresh and a later stable read', async (stage, feed, stable, growth, evolved) => {
+    const calls = [];
+    server.use(
+      http.post('*/api/pets/61/feed/', async ({ request }) => {
+        calls.push({ method: request.method, body: await request.json() });
+        return HttpResponse.json(feed);
+      }),
+      http.get('*/api/pets/stable/', () => HttpResponse.json(stable)),
+    );
+    expect(await feedPet(61, 74)).toMatchObject({ evolution_stage: stage, new_growth: growth, evolved });
+    for (let read = 0; read < 2; read += 1) {
+      const confirmed = await getStable();
+      expect(confirmed.pets.find((pet) => pet.id === 61)).toMatchObject({ evolution_stage: stage, growth_points: growth, evolved_to_mount: evolved });
+      expect(confirmed.pets.find((pet) => pet.species.slug === 'cat').evolution_stage).toBeNull();
+      expect(confirmed.mounts.find((mount) => mount.species.slug === 'cat').evolution_stage).toBeNull();
+      if (evolved) expect(confirmed.mounts.find((mount) => mount.species.slug === 'chick').evolution_stage).toBe('bird');
+    }
+    expect(calls).toEqual([{ method: 'POST', body: { food_item_id: 74 } }]);
   });
 
   it('preserves the confirmed zero-dollar timecard closure and later detail read', async () => {
