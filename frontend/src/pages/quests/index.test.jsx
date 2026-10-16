@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import QuestsHub from './index.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
@@ -51,7 +51,7 @@ describe('QuestsHub', () => {
     expect(screen.getAllByText(/projects/i).length).toBeGreaterThan(0);
   });
 
-  it('exposes seven tabs (Homework · Chores · Habits · Movement · Projects · 3D Printing · Challenges)', async () => {
+  it('keeps activities in Tasks while printing lives in Rewards', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/projects/', () => HttpResponse.json([])),
@@ -69,9 +69,23 @@ describe('QuestsHub', () => {
     expect(screen.getByRole('tab', { name: /habits/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /challenges/i })).toBeInTheDocument();
-    // The Forge slug is the binding contract for the seven print_* notification
-    // types, which all deep-link to /quests?tab=forge.
-    expect(screen.getByRole('tab', { name: /3d printing/i })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(7);
+    expect(screen.queryByRole('tab', { name: /3d print/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab')).toHaveLength(6);
+  });
+
+  it.each([
+    ['/quests?tab=forge', '/treasury?tab=forge'],
+    ['/quests?tab=forge&new=1&token=private#secret', '/treasury?tab=forge&new=1'],
+    ['/quests?tab=forge&new=0', '/treasury?tab=forge'],
+  ])('moves old printing links safely: %s', async (from, expected) => {
+    function Destination() {
+      const location = useLocation();
+      return <p>{location.pathname}{location.search}{location.hash}</p>;
+    }
+    render(<MemoryRouter initialEntries={[from]}><Routes>
+      <Route path="/quests" element={<QuestsHub />} />
+      <Route path="/treasury" element={<Destination />} />
+    </Routes></MemoryRouter>);
+    expect(await screen.findByText(expected)).toBeInTheDocument();
   });
 });

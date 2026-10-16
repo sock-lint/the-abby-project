@@ -84,7 +84,7 @@ Celebration motion respects `prefers-reduced-motion`.
 
 ## Quests hub (commits `3e8c18c`, `69d7b48`)
 
-The Quests page consolidates all "things to do" under one tab hub. Seven top-level `ChapterHub` tabs:
+The Tasks page consolidates activities under one hub. Six top-level `ChapterHub` tabs:
 
 | Tab | Slug | Backing page |
 |---|---|---|
@@ -93,13 +93,13 @@ The Quests page consolidates all "things to do" under one tab hub. Seven top-lev
 | Study | `study` | `pages/Homework/index.jsx` |
 | Rituals | `rituals` | `pages/Habits.jsx` |
 | Movement | `movement` | `pages/Movement.jsx` |
-| Forge | `forge` | `pages/forge/index.jsx` |
 | Trials | `trials` | `pages/trials/index.jsx` |
 
 The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/index.jsx). Legacy routes redirect:
 - `/chores` → `/quests?tab=duties`
 - `/homework` → `/quests?tab=study`
 - `/habits` → `/quests?tab=rituals`
+- `/quests?tab=forge` → `/treasury?tab=forge` (preserves only `new=1`)
 - `/trials` → `/quests?tab=trials` via `TrialsLegacyRedirect()` in [`App.jsx`](/frontend/src/App.jsx) (preserves older `/trials?scroll=<itemId>` links without consuming the saved scroll).
 
 ### Task actions and history
@@ -175,21 +175,30 @@ children do not start or claim goals to make their work count.
 - `/__design#task-folio` demonstrates these same presentation components with
   synthetic goals and local-only pin/detail and parent/child preview controls.
 
-### Forge sub-architecture
+### 3D Prints in Rewards
 
-Sits between Ventures and Trials — 3D print requests. Backend contract lives in [`apps/printing/CLAUDE.md`](/apps/printing/CLAUDE.md);
+Rewards → 3D Prints (`/treasury?tab=forge`) supports both reward requests and project parts. Backend contract lives in [`apps/printing/CLAUDE.md`](/apps/printing/CLAUDE.md);
 the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
 
-- `index.jsx` — orchestrator. A hub tab, so it wears `QuestFolio` and **not**
-  `PageShell`. Verso stats are pending / printing / grams-this-month; verso
-  progress is the household's filament cap consumption. Sections are numbered
-  `ChapterRubric`s: Awaiting your decision (parent) → In the queue → On the bed →
-  Monthly budgets (parent) → Prints without a request (parent) → Printers
-  (parent) → Finished & closed.
+- `index.jsx` — request orchestrator with a simple page header, parent review
+  queue, request cards and closed history. Children can accept frozen coin
+  quotes; saved mutation receipts remain visible when refresh fails.
+- `usePrintRequestRefresh.js` — shared by Rewards and project Materials:
+  refreshes request summaries every 10 seconds during printing or 45 seconds
+  for other open requests. Awaits each read, skips hidden browser tabs, pauses
+  while a request/decision sheet is open, and cleans up on completion/unmount.
+- `../manage/PrintingSection.jsx` — parent-only monthly budgets, coin rates,
+  printer status/registry and unmatched-job reconciliation. Its role gate
+  prevents administration reads for children. The request page links here.
+- `../project/ProjectPrints.jsx` — Materials entry for a verified project,
+  opening the same request form with `project_id` and showing its scoped
+  requests. Parent Today counts all pending print pages separately from bulk
+  approvals and links to the review flow, which requires slicer/quote inputs.
 - `PrintRequestCard.jsx` — thumbnail (placeholder when null), colour chip,
   needed-by, `StatusBadge`, the reason, live `ProgressBar` while a job runs, and
   the **decoded** `latest_job.failure_reason` on failure — never an HMS code.
 - `PlateFilenameChip.jsx` — the minted `plate_filename` with a copy button.
+  Request cards show it only with the parent-only `showPlateFilename` prop.
   Shared by the card and the approval sheet because that string *is* the flow:
   matching is `normalize_subtask_name(reported) == request.slug`, so a plate
   saved under the wrong name lands as an unlinked job someone has to hand-link.
@@ -247,9 +256,10 @@ the frontend half is under [`pages/forge/`](/frontend/src/pages/forge/):
   `formatCap`, `usagePercent`, `budgetProgress`, `jobProgressLabel`,
   `isJobOpen`, `describeFilament`.
 
-Child sees their own requests, a submit button, and the live view only while one
-of *their* prints is running. Parents additionally get the approval queue, the
-budget panel, the unlinked-jobs panel and printer config.
+Children see their own requests, confirmed pricing and per-request print
+progress. Parents additionally see the approval queue. Hardware administration
+lives under Manage → 3D Printing, and calendar/notification destinations use
+Rewards while saved Tasks links remain compatible.
 
 ## Atlas hub ([`pages/atlas/index.jsx`](/frontend/src/pages/atlas/index.jsx))
 

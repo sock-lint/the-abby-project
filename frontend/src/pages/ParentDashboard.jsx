@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, CalendarDays, Settings2 } from 'lucide-react';
+import { UserPlus, CalendarDays, Settings2, Box } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
@@ -46,7 +46,7 @@ function NoChildrenWelcome() {
 export default function ParentDashboard() {
   const { user } = useAuth();
   const {
-    pending, weekByKid, dashboard, reload, loading, failedSources = [], error,
+    pending, pendingPrintCount = 0, weekByKid, dashboard, reload, loading, failedSources = [], error,
   } = useParentDashboard();
   const {
     data: childrenData, loading: childrenLoading, error: childrenError, reload: reloadChildren,
@@ -59,7 +59,7 @@ export default function ParentDashboard() {
     : error;
   const incomplete = Boolean(failureMessage);
   const pendingTimecards = Number(dashboard?.pending_timecards) || 0;
-  const attentionCount = pending.length + pendingTimecards;
+  const attentionCount = pending.length + pendingTimecards + pendingPrintCount;
   const weekUnavailable = failedSources.includes('week summary');
 
   // children_count is exposed by the parent dashboard payload. While the
@@ -98,7 +98,7 @@ export default function ParentDashboard() {
             }}
           />
 
-          {/* `loading` is load-bearing: the queue aggregates eight fetches, and
+          {/* `loading` is load-bearing: the queue aggregates multiple fetches, and
               without it the list renders "No pending approvals. All quiet" for
               the whole multi-second round trip — a glance-and-leave parent
               reads that as an all-clear and misses the queue entirely. */}
@@ -114,11 +114,22 @@ export default function ParentDashboard() {
                 </Link>
               </ParchmentCard>
             )}
+            {pendingPrintCount > 0 && (
+              <ParchmentCard>
+                <Link
+                  to="/treasury?tab=forge"
+                  className="flex min-h-11 items-center gap-3 text-sheikah-teal-deep font-body font-semibold text-body hover:underline"
+                >
+                  <Box size={20} className="shrink-0" aria-hidden="true" />
+                  Review {pendingPrintCount} print request{pendingPrintCount !== 1 ? 's' : ''}
+                </Link>
+              </ParchmentCard>
+            )}
             <ApprovalQueueList
               items={pending}
               loading={loading}
               incomplete={incomplete}
-              showEmpty={pendingTimecards === 0}
+              showEmpty={pendingTimecards === 0 && pendingPrintCount === 0}
               onDone={reload}
             />
           </section>

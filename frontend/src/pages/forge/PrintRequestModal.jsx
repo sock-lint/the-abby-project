@@ -10,6 +10,7 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import { DateField, TextAreaField, TextField } from '../../components/form';
 import { createPrintRequest, previewPrintLink } from '../../api';
 import { quickDueDates } from '../../utils/dates';
+import { fieldErrors } from '../../utils/api';
 import FilamentPicker from './FilamentPicker';
 
 const DUE_CHIPS = [
@@ -38,7 +39,7 @@ const DUE_CHIPS = [
  * when the printer is off. It fills the field in and disappears when it has
  * nothing to say. `color` stays free text end to end.
  */
-export default function PrintRequestModal({ onClose, onSaved, printers = [], budget }) {
+export default function PrintRequestModal({ onClose, onSaved, printers = [], budget, project }) {
   const [mode, setMode] = useState('link'); // 'link' | 'upload'
   const [url, setUrl] = useState('');
   const [file, setFile] = useState(null);
@@ -101,6 +102,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [], bud
         payload.append('title', title.trim() || file.name);
         payload.append('color', color.trim());
         payload.append('reason', reason.trim());
+        if (project) payload.append('project_id', String(project.id));
         if (neededBy) payload.append('needed_by', neededBy);
       } else {
         payload = {
@@ -109,6 +111,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [], bud
           color: color.trim(),
           reason: reason.trim(),
           needed_by: neededBy || null,
+          ...(project ? { project_id: project.id } : {}),
         };
       }
       const saved = await createPrintRequest(payload);
@@ -117,7 +120,7 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [], bud
     } catch (err) {
       const feedback = attachmentErrorMessages(err, 'model_file', 'Could not send that request.');
       setFileError(feedback.fileError);
-      setError(feedback.message);
+      setError(fieldErrors(err).project_id || feedback.message);
     } finally {
       setSaving(false);
     }
@@ -131,6 +134,11 @@ export default function PrintRequestModal({ onClose, onSaved, printers = [], bud
       dirty={Boolean(url || file || title || color || reason || neededBy)}
     >
       <form onSubmit={submit} className="space-y-3">
+        {project && (
+          <p className="font-body text-body text-ink-primary break-words">
+            For project: {project.title}
+          </p>
+        )}
         {budget?.minutes_per_coin != null && (
           <p className="font-body text-caption text-ink-secondary">
             Prints cost 1 coin per {budget.minutes_per_coin} estimated print {Number(budget.minutes_per_coin) === 1 ? 'minute' : 'minutes'}, rounded up.

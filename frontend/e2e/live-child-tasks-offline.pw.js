@@ -110,11 +110,15 @@ test('actual first-mount Habits failure exposes Try again and recovers without m
   gate.assertSafe();
 });
 
-test('actual Forge uses 3D Printing heading and local model controls with an empty budget', async ({ page, context }) => {
+test('actual Rewards prints keep saved Tasks links and local model controls with an empty budget', async ({ page, context }) => {
   const { gate } = await prepare(page, context, false);
-  await page.getByRole('tablist', { name: 'Tasks sections', exact: true })
-    .getByRole('tab', { name: '3D Printing', exact: true }).click();
-  await expect(page.getByRole('heading', { name: '3D Printing', exact: true })).toBeVisible();
+  await expect(page.getByRole('tablist', { name: 'Tasks sections', exact: true })
+    .getByRole('tab', { name: /3D Print/ })).toHaveCount(0);
+  await page.goto(`${fixture.origin}/quests?tab=forge`);
+  await expect(page).toHaveURL(`${fixture.origin}/treasury?tab=forge`);
+  await expect(page.getByRole('tablist', { name: 'Rewards sections', exact: true })
+    .getByRole('tab', { name: '3D Prints', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('heading', { name: '3D Prints', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Forge', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: 'Ask for a print', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Ask for a print', exact: true });

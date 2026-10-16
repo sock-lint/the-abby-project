@@ -13,6 +13,7 @@ Bambu cloud token.
 """
 from __future__ import annotations
 
+from django.db.models import QuerySet
 from rest_framework import serializers
 
 from .constants import ACCESS_CODE_LOCATION
@@ -24,12 +25,15 @@ from .models import (
     PrintJobEvent,
     PrintRequest,
 )
+from .services import projects_for_printing
 
 
 # --------------------------------------------------------------------------- #
 # Requests
 # --------------------------------------------------------------------------- #
 class PrintRequestSerializer(serializers.ModelSerializer):
+    project = serializers.SerializerMethodField()
+    project_title = serializers.SerializerMethodField()
     user_name = serializers.CharField(source="user.display_name", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     decided_by_name = serializers.CharField(
@@ -46,7 +50,8 @@ class PrintRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrintRequest
         fields = [
-            "id", "user", "user_name", "username", "title", "source_kind",
+            "id", "user", "user_name", "username", "project", "project_title",
+            "title", "source_kind",
             "source_kind_display", "source_url", "source_author", "thumbnail",
             "model_file_url", "color", "reason", "needed_by", "status",
             "status_display", "parent_notes", "slug", "plate_filename",
@@ -56,6 +61,29 @@ class PrintRequestSerializer(serializers.ModelSerializer):
             "print_count", "latest_job", "created_at", "updated_at",
         ]
         read_only_fields = fields
+
+    def _project_titles(self):
+        """Resolve this response's project projections once, with current access.
+
+        List responses batch only their page's project IDs. Missing request
+        context fails closed, including callers outside the authenticated API.
+        """
+        if not hasattr(self, "_visible_project_titles"):
+            user = getattr(self.context.get("request"), "user", None)
+            instances = self.root.instance
+            if not isinstance(instances, (list, tuple, QuerySet)):
+                instances = [instances]
+            project_ids = {row.project_id for row in instances if row is not None and row.project_id}
+            self._visible_project_titles = dict(
+                projects_for_printing(user).filter(pk__in=project_ids).values_list("pk", "title"),
+            )
+        return self._visible_project_titles
+
+    def get_project(self, obj):
+        return obj.project_id if obj.project_id in self._project_titles() else None
+
+    def get_project_title(self, obj):
+        return self._project_titles().get(obj.project_id)
 
     def get_thumbnail(self, obj):
         """Prefer our cached copy; fall back to the model host's URL.
@@ -107,6 +135,7 @@ class PrintRequestWriteSerializer(serializers.Serializer):
     reason = serializers.CharField(max_length=2000)
     needed_by = serializers.DateField(required=False, allow_null=True)
     user_id = serializers.IntegerField(required=False)
+    project_id = serializers.IntegerField(required=False, allow_null=True, min_value=1)
 
     def validate(self, attrs):
         if not attrs.get("source_url") and not attrs.get("model_file"):
@@ -122,6 +151,12 @@ class PrintRequestEditSerializer(serializers.ModelSerializer):
     class Meta:
         model = PrintRequest
         fields = ["title", "color", "reason", "needed_by"]
+
+    def validate(self, attrs):
+        for field in ("project", "project_id"):
+            if field in self.initial_data:
+                raise serializers.ValidationError({field: "The project is set when requesting a print."})
+        return attrs
 
     def update(self, instance, validated_data):
         for field, value in validated_data.items():
