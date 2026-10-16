@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { markMaterialReady, markPurchased } from '../../../api';
+import { markMaterialReady, markMaterialNotReady, markPurchased } from '../../../api';
 import BottomSheet from '../../../components/BottomSheet';
 import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
@@ -14,6 +14,7 @@ export default function MaterialReadyModal({ projectId, material, onClose, onSav
   const [costError, setCostError] = useState('');
   const pending = useRef(false);
   const purchased = source === 'purchased';
+  const updating = material.is_ready && !material.is_purchased;
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -24,6 +25,7 @@ export default function MaterialReadyModal({ projectId, material, onClose, onSav
     setCostError('');
     try {
       if (purchased) await markPurchased(projectId, material.id, Number(cost).toFixed(2));
+      else if (source === 'needed') await markMaterialNotReady(projectId, material.id);
       else await markMaterialReady(projectId, material.id);
       onSaved();
     } catch (err) {
@@ -38,7 +40,7 @@ export default function MaterialReadyModal({ projectId, material, onClose, onSav
 
   return (
     <BottomSheet
-      title="Mark material ready"
+      title={updating ? 'Update material readiness' : 'Mark material ready'}
       onClose={onClose}
       disabled={saving}
       dirty={source !== 'on_hand' || cost !== (material.actual_cost ?? '')}
@@ -55,6 +57,7 @@ export default function MaterialReadyModal({ projectId, material, onClose, onSav
         >
           <option value="on_hand">Already have it or borrowing</option>
           <option value="purchased">Purchased</option>
+          {updating && <option value="needed">Still need it</option>}
         </SelectField>
         {purchased ? (
           <TextField
@@ -70,17 +73,17 @@ export default function MaterialReadyModal({ projectId, material, onClose, onSav
             error={costError}
             helpText="Enter what you paid, including zero for a free item."
           />
-        ) : (
+        ) : source === 'on_hand' ? (
           <p className="font-body text-caption text-ink-secondary">
             For supplies you own, borrow, or receive for free.
           </p>
-        )}
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving} className="flex-1">
             Cancel
           </Button>
           <Button type="submit" loading={saving} disabled={purchased && cost === ''} className="flex-1">
-            Mark ready
+            {source === 'needed' ? 'Mark not ready' : 'Mark ready'}
           </Button>
         </div>
       </form>

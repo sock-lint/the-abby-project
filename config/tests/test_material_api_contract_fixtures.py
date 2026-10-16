@@ -94,6 +94,38 @@ class MaterialApiResponseFixtureTests(APITestCase):
         self.assertIsNotNone(body["purchased_at"])
         self.assert_mcp_projection(body)
 
+    def test_readiness_can_be_cleared_and_replayed_without_recording_a_purchase(self):
+        self.assertEqual(self.client.post(self.path + "mark-ready/", {}, format="json").status_code, 200)
+        body = self.assert_response_fixture(
+            self.client.post(self.path + "mark-not-ready/", {}, format="json"),
+            "material-unready.json",
+        )
+        self.assertFalse(body["is_ready"])
+        self.assertFalse(body["is_purchased"])
+        self.assertIsNone(body["actual_cost"])
+        self.assertIsNone(body["purchased_at"])
+        self.assertEqual(self.client.get(self.path).json(), body)
+        self.assertEqual(self.client.post(self.path + "mark-not-ready/", {}, format="json").json(), body)
+        self.assert_mcp_projection(body)
+        self.assertFalse(self.material.is_on_hand)
+
+    def test_clearing_on_hand_does_not_erase_a_saved_purchase_or_its_readiness(self):
+        self.assertEqual(self.client.post(self.path + "mark-ready/", {}, format="json").status_code, 200)
+        purchase = self.client.post(
+            self.path + "mark-purchased/", {"actual_cost": "2.75"}, format="json",
+        )
+        self.assertEqual(purchase.status_code, 200)
+        body = self.assert_response_fixture(
+            self.client.post(self.path + "mark-not-ready/", {}, format="json"),
+            "material-purchased.json",
+        )
+        self.assertEqual(body, purchase.json())
+        self.assertTrue(body["is_purchased"])
+        self.assertTrue(body["is_ready"])
+        self.assertEqual(body["actual_cost"], "2.75")
+        self.assert_mcp_projection(body)
+        self.assertFalse(self.material.is_on_hand)
+
     def test_purchase_reports_actual_cost_separately_from_estimate(self):
         body = self.assert_response_fixture(
             self.client.post(self.path + "mark-purchased/", {"actual_cost": "2.75"}, format="json"),
@@ -105,11 +137,13 @@ class MaterialApiResponseFixtureTests(APITestCase):
         self.assertEqual(body["actual_cost"], "2.75")
         self.assert_mcp_projection(body)
 
-    def test_foreign_family_cannot_mark_material_ready(self):
+    def test_foreign_family_cannot_change_material_readiness(self):
         before = MaterialItem.objects.filter(pk=self.material.pk).values().get()
         self.client.force_authenticate(self.other_parent)
-        self.assert_response_fixture(
-            self.client.post(self.path + "mark-ready/", {}, format="json"),
-            "material-not-owned.json", status=404,
-        )
+        for action in ("mark-ready/", "mark-not-ready/"):
+            with self.subTest(action=action):
+                self.assert_response_fixture(
+                    self.client.post(self.path + action, {}, format="json"),
+                    "material-not-owned.json", status=404,
+                )
         self.assertEqual(MaterialItem.objects.filter(pk=self.material.pk).values().get(), before)

@@ -39,6 +39,26 @@ describe('MaterialsTab', () => {
     expect(screen.queryByRole('button', { name: /mark ready/i })).not.toBeInTheDocument();
   });
 
+  it('lets an on-hand supply be corrected or purchased later while preserving purchase history', async () => {
+    const user = userEvent.setup();
+    const onMarkReady = vi.fn();
+    const borrowed = { id: 1, name: 'Borrowed calculator', estimated_cost: '20.00', actual_cost: null, is_purchased: false, is_ready: true };
+    render(
+      <MaterialsTab
+        project={buildProject({ materials: [
+          borrowed,
+          { id: 2, name: 'Bought notebook', estimated_cost: '3.00', actual_cost: '2.00', is_purchased: true, is_ready: true },
+        ] })}
+        isParent={false}
+        onMarkReady={onMarkReady}
+      />,
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Change readiness for Borrowed calculator' }));
+    expect(onMarkReady).toHaveBeenCalledWith(borrowed);
+    expect(screen.queryByRole('button', { name: 'Change readiness for Bought notebook' })).not.toBeInTheDocument();
+  });
+
   it('counts only recorded actual costs and preserves zero without falling back to an estimate', () => {
     render(
       <MaterialsTab

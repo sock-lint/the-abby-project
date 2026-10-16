@@ -78,9 +78,22 @@ export default function MaterialsTab({
           </div>
           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             {mat.is_ready || mat.is_purchased ? (
-              <span className="font-script text-tiny text-moss flex items-center gap-1">
-                <Check size={14} /> Ready
-              </span>
+              <>
+                <span className="font-script text-tiny text-moss flex items-center gap-1">
+                  <Check size={14} /> Ready
+                </span>
+                {!mat.is_purchased && (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    aria-label={`Change readiness for ${mat.name}`}
+                    onClick={() => onMarkReady(mat)}
+                  >
+                    Change
+                  </Button>
+                )}
+              </>
             ) : (
               <Button
                 type="button"

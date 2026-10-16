@@ -87,11 +87,11 @@ for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]
         return route.fulfill({ json: { id: 2, username: 'material-fixture', display_name: 'Test child', role: 'child', theme, family: { id: 1, name: 'Synthetic family' } } });
       }
       if (path === '/api/projects/42/') return route.fulfill({ json: project });
-      if (/^\/api\/projects\/42\/materials\/\d+\/mark-(ready|purchased)\/$/.test(path)) {
+      if (/^\/api\/projects\/42\/materials\/\d+\/mark-(ready|not-ready|purchased)\/$/.test(path)) {
         const body = request.postDataJSON();
         writes.push({ path, method: request.method(), body });
         const material = project.materials.find((item) => String(item.id) === path.split('/')[5]);
-        material.is_ready = true;
+        material.is_ready = path.endsWith('/mark-not-ready/') ? material.is_purchased : true;
         if (path.endsWith('/mark-purchased/')) {
           material.is_purchased = true;
           material.actual_cost = body.actual_cost;
@@ -129,19 +129,32 @@ for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]
     expect(project.materials[0].is_purchased).toBe(false);
     expect(project.materials[0].actual_cost).toBeNull();
 
-    await page.getByRole('button', { name: 'Mark ready', exact: true }).click();
-    await sheet.getByLabel('How did you get it?').selectOption('purchased');
-    await sheet.getByLabel('Actual cost ($)').fill('1.25');
+    await page.getByRole('button', { name: 'Change readiness for Class notes and worksheets', exact: true }).click();
+    const updateSheet = page.getByRole('dialog', { name: 'Update material readiness', exact: true });
+    await updateSheet.getByLabel('How did you get it?').selectOption('needed');
+    await updateSheet.getByRole('button', { name: 'Mark not ready', exact: true }).click();
+    await expect(updateSheet).toHaveCount(0);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('spent $0.00', { exact: true })).toBeVisible();
+    expect(writes[1]).toEqual({ path: '/api/projects/42/materials/11/mark-not-ready/', method: 'POST', body: {} });
+
+    await page.getByRole('button', { name: 'Mark ready', exact: true }).nth(1).click();
     await sheet.getByRole('button', { name: 'Mark ready', exact: true }).click();
     await expect(sheet).toHaveCount(0);
-    await expect(page.getByText('Ready', { exact: true })).toHaveCount(2);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(1);
+    await page.getByRole('button', { name: 'Change readiness for Notebook or scratch paper', exact: true }).click();
+    await updateSheet.getByLabel('How did you get it?').selectOption('purchased');
+    await updateSheet.getByLabel('Actual cost ($)').fill('1.25');
+    await updateSheet.getByRole('button', { name: 'Mark ready', exact: true }).click();
+    await expect(updateSheet).toHaveCount(0);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(1);
     await expect(page.getByText('spent $1.25', { exact: true })).toBeVisible();
-    expect(writes[1]).toEqual({ path: '/api/projects/42/materials/12/mark-purchased/', method: 'POST', body: { actual_cost: '1.25' } });
+    expect(writes[3]).toEqual({ path: '/api/projects/42/materials/12/mark-purchased/', method: 'POST', body: { actual_cost: '1.25' } });
     await page.reload();
     await page.getByRole('tab', { name: 'Materials', exact: true }).click();
-    await expect(page.getByText('Ready', { exact: true })).toHaveCount(2);
+    await expect(page.getByText('Ready', { exact: true })).toHaveCount(1);
     await expect(page.getByText('spent $1.25', { exact: true })).toBeVisible();
-    expect(writes).toHaveLength(2);
+    expect(writes).toHaveLength(4);
   });
 }
 

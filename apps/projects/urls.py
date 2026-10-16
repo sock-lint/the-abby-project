@@ -50,6 +50,11 @@ urlpatterns = [
         name="project-material-ready",
     ),
     path(
+        "projects/<int:project_pk>/materials/<int:pk>/mark-not-ready/",
+        views.MaterialItemViewSet.as_view({"post": "mark_not_ready"}),
+        name="project-material-not-ready",
+    ),
+    path(
         "projects/<int:project_pk>/materials/<int:pk>/mark-purchased/",
         views.MaterialItemViewSet.as_view({"post": "mark_purchased"}),
         name="project-material-purchased",

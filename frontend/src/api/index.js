@@ -109,6 +109,8 @@ export const markPurchased = (projectId, id, actual_cost) =>
   api.post(`/projects/${projectId}/materials/${id}/mark-purchased/`, { actual_cost });
 export const markMaterialReady = (projectId, id) =>
   api.post(`/projects/${projectId}/materials/${id}/mark-ready/`, {});
+export const markMaterialNotReady = (projectId, id) =>
+  api.post(`/projects/${projectId}/materials/${id}/mark-not-ready/`, {});
 
 // Project Ingestion (auto-pull milestones/materials from a source)
 export const startIngest = ({ source_type, source_url, source_file }) => {

@@ -185,6 +185,7 @@ const CASES = [
   ['deleteMaterial', [5, 3], /\/api\/projects\/5\/materials\/3\/$/, 'DELETE'],
   ['markPurchased', [5, 3, 9.99], /\/api\/projects\/5\/materials\/3\/mark-purchased\/$/, 'POST'],
   ['markMaterialReady', [5, 3], /\/api\/projects\/5\/materials\/3\/mark-ready\/$/, 'POST'],
+  ['markMaterialNotReady', [5, 3], /\/api\/projects\/5\/materials\/3\/mark-not-ready\/$/, 'POST'],
 
   ['getIngestJob', ['a-b'], /\/api\/projects\/ingest\/a-b\/$/, 'GET'],
   ['updateIngestJob', ['a-b', {}], /\/api\/projects\/ingest\/a-b\/$/, 'PATCH'],

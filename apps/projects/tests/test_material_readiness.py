@@ -200,3 +200,113 @@ class MaterialReadinessTests(APITestCase):
         self.assertEqual(response.status_code, 409, response.content)
         self.assertFalse(self.project.steps.exists())
         self.assertFalse(self.project.milestones.exists())
+
+    def test_mark_not_ready_corrects_owned_supply_and_allows_a_later_purchase(self):
+        ready = self.client.post(self.url, {}, format="json")
+        self.assertEqual(ready.status_code, 200, ready.content)
+        version, context = project_plan_snapshot(self.project)
+        response = self.client.post(
+            self.url.replace("mark-ready/", "mark-not-ready/"), {}, format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.material.refresh_from_db()
+        self.assertFalse(self.material.is_on_hand)
+        self.assertFalse(response.data["is_ready"])
+        self.assertFalse(response.data["is_purchased"])
+        self.assertIsNone(response.data["actual_cost"])
+        current_version, current_context = project_plan_snapshot(self.project)
+        self.assertNotEqual(current_version, version)
+        self.assertEqual(current_context, context)
+        purchased = self.client.post(
+            self.url.replace("mark-ready/", "mark-purchased/"), {"actual_cost": "2.50"}, format="json",
+        )
+        self.assertEqual(purchased.status_code, 200, purchased.content)
+        self.assertTrue(purchased.data["is_ready"])
+        self.assertTrue(purchased.data["is_purchased"])
+        self.assertEqual(purchased.data["actual_cost"], "2.50")
+        self.material.refresh_from_db()
+        self.assertFalse(self.material.is_on_hand)
+
+    def test_mark_not_ready_preserves_purchase_history_and_writes_only_on_hand(self):
+        MaterialItem.objects.filter(pk=self.material.pk).update(
+            is_on_hand=True, is_purchased=True, actual_cost="2.75", purchased_at=timezone.now(),
+            receipt_photo="receipts/synthetic.jpg", reimbursed=True,
+        )
+        before_money = self.money_state()
+        before_rewards = self.reward_state()
+        with CaptureQueriesContext(connection) as captured:
+            response = self.client.post(self.url.replace("mark-ready/", "mark-not-ready/"), {
+                "is_purchased": False, "actual_cost": "0.00", "estimated_cost": "0.00",
+                "purchased_at": None, "receipt_photo": None, "reimbursed": False,
+            }, format="json")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.material.refresh_from_db()
+        self.assertFalse(self.material.is_on_hand)
+        self.assertTrue(self.material.is_ready)
+        self.assertTrue(response.data["is_ready"])
+        self.assertEqual(self.money_state(), before_money)
+        self.assertEqual(self.reward_state(), before_rewards)
+        updates = [query["sql"] for query in captured if query["sql"].lstrip().upper().startswith("UPDATE")]
+        self.assertEqual(len(updates), 1)
+        self.assertIn('"is_on_hand"', updates[0])
+        for column in ("actual_cost", "estimated_cost", "is_purchased", "purchased_at", "receipt_photo", "reimbursed"):
+            self.assertNotIn(f'"{column}"', updates[0])
+
+    def test_mark_not_ready_is_idempotent_without_money_or_reward_changes(self):
+        MaterialItem.objects.filter(pk=self.material.pk).update(is_on_hand=True)
+        before_money = self.money_state()
+        before_rewards = self.reward_state()
+        url = self.url.replace("mark-ready/", "mark-not-ready/")
+        first = self.client.post(url, {}, format="json")
+        second = self.client.post(url, {}, format="json")
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.status_code, 200, second.content)
+        self.material.refresh_from_db()
+        self.assertFalse(self.material.is_on_hand)
+        self.assertFalse(second.data["is_ready"])
+        self.assertEqual(first.data, second.data)
+        self.assertEqual(self.money_state(), before_money)
+        self.assertEqual(self.reward_state(), before_rewards)
+
+    def test_parent_and_collaborator_can_correct_material_readiness(self):
+        sibling = self.house.children[1]
+        ProjectCollaborator.objects.create(project=self.project, user=sibling)
+        for user in (self.parent, sibling):
+            with self.subTest(user=user.username):
+                MaterialItem.objects.filter(pk=self.material.pk).update(is_on_hand=True)
+                self.client.force_authenticate(user)
+                response = self.client.post(
+                    self.url.replace("mark-ready/", "mark-not-ready/"), {}, format="json",
+                )
+                self.assertEqual(response.status_code, 200, response.content)
+                self.material.refresh_from_db()
+                self.assertFalse(self.material.is_on_hand)
+                self.assertFalse(response.data["is_ready"])
+
+    def test_sibling_foreign_family_and_anonymous_cannot_clear_material_readiness(self):
+        MaterialItem.objects.filter(pk=self.material.pk).update(is_on_hand=True)
+        for user, expected in (
+            (self.house.children[1], 404), (self.other.parents[0], 404),
+            (self.other.children[0], 404), (None, 401),
+        ):
+            with self.subTest(user=getattr(user, "username", "anonymous")):
+                self.client.force_authenticate(user)
+                response = self.client.post(
+                    self.url.replace("mark-ready/", "mark-not-ready/"), {}, format="json",
+                )
+                self.assertEqual(response.status_code, expected, response.content)
+                self.assertNotIn(self.material.name, response.content.decode())
+        self.material.refresh_from_db()
+        self.assertTrue(self.material.is_on_hand)
+
+    def test_wrong_nested_project_cannot_clear_material_readiness(self):
+        MaterialItem.objects.filter(pk=self.material.pk).update(is_on_hand=True)
+        second = Project.objects.create(
+            title="Another accessible project", created_by=self.parent, assigned_to=self.child,
+        )
+        response = self.client.post(
+            f"/api/projects/{second.pk}/materials/{self.material.pk}/mark-not-ready/", {}, format="json",
+        )
+        self.assertEqual(response.status_code, 404, response.content)
+        self.material.refresh_from_db()
+        self.assertTrue(self.material.is_on_hand)

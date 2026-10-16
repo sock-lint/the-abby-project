@@ -54,7 +54,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
 | `project-ai-plan-existing.json` | Parent `POST /api/projects/401/plan/`; reviewable additions with the existing project's opaque plan version |
 | `project-ai-plan-applied.json` | Parent `POST /api/projects/401/apply-plan/`; confirmed atomic append of the reviewed plan |
-| `material-unready.json`, `material-list.json` | Material detail and paginated list retain an estimate without claiming readiness, a purchase or actual spending |
+| `material-unready.json`, `material-list.json` | Material detail and paginated list retain an estimate without claiming readiness, a purchase or actual spending; clearing an on-hand mark returns the same unready detail |
 | `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
 | `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
 | `material-not-owned.json` | Another family's readiness write is rejected with HTTP 404 without changing the material |
@@ -399,7 +399,10 @@ ready when it is on hand or has been purchased. Existing purchases remain ready
 without a backfill. `POST /api/projects/<project>/materials/<material>/mark-ready/`
 accepts an empty JSON object and records only that the supply is on hand. It
 does not set `is_purchased`, `purchased_at`, `actual_cost` or `reimbursed`, and
-does not replace the estimate. The existing `mark-purchased/` action remains
+does not replace the estimate. The matching `mark-not-ready/` action also takes
+an empty object and clears only the on-hand mark; a saved purchase still makes
+the material ready and retains its purchase date and actual cost. Both actions
+can be repeated safely. The existing `mark-purchased/` action remains
 available for actual purchases with an optional `actual_cost`; an explicit
 `"0.00"` remains zero. Estimates and readiness alone are not actual spending.
 
@@ -408,7 +411,7 @@ fixtures through real child-authenticated endpoints with fixed identities and
 timestamps. It checks saved state, repeat readiness calls, the shared MCP
 material projection and rejection of another family's write.
 `frontend/src/api/materialContractFixtures.test.js` consumes those exact bodies
-through `getMaterials`, `markMaterialReady` and `markPurchased`, checking request
+through `getMaterials`, `markMaterialReady`, `markMaterialNotReady` and `markPurchased`, checking request
 verbs, paths, payloads, decimal strings and rejection propagation. Run both
 modules with the standard backend and frontend test commands above; regenerate
 the fixture producer only for an intentional API change.

@@ -320,6 +320,60 @@ describe('ProjectDetail', () => {
     expect(screen.getByText(`est: $5.00 · actual: $${cost}`)).toBeInTheDocument();
   });
 
+  it('corrects an on-hand material to still needed without recording a purchase', async () => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Calculator', estimated_cost: '20.00', actual_cost: null, is_purchased: false, is_ready: true };
+    const notReady = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-not-ready\/$/, () => {
+      material.is_ready = false;
+      return material;
+    });
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, {});
+    server.use(notReady.handler, purchase.handler);
+    renderPage(buildUser(), { materials: [material] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: 'Change readiness for Calculator' }));
+    const dialog = await screen.findByRole('dialog', { name: /update material readiness/i });
+    await user.selectOptions(within(dialog).getByRole('combobox'), 'needed');
+    expect(within(dialog).queryByRole('spinbutton')).not.toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /^mark not ready$/i }));
+
+    expect(await screen.findByRole('button', { name: /^mark ready$/i })).toBeInTheDocument();
+    expect(screen.queryByText('Ready')).not.toBeInTheDocument();
+    expect(notReady.calls).toHaveLength(1);
+    expect(notReady.calls[0].url).toMatch(/\/projects\/42\/materials\/11\/mark-not-ready\/$/);
+    expect(notReady.calls[0].body).toEqual({});
+    expect(purchase.calls).toHaveLength(0);
+    expect(screen.getByText('spent $0.00')).toBeInTheDocument();
+  });
+
+  it('records a later purchase for a material previously marked on hand', async () => {
+    const user = userEvent.setup();
+    const material = { id: 11, name: 'Calculator', estimated_cost: '20.00', actual_cost: null, is_purchased: false, is_ready: true };
+    const purchase = spyHandler('post', /\/api\/projects\/42\/materials\/11\/mark-purchased\/$/, ({ body }) => {
+      Object.assign(material, { actual_cost: body.actual_cost, is_purchased: true });
+      return material;
+    });
+    server.use(purchase.handler);
+    renderPage(buildUser(), { materials: [material] });
+
+    await screen.findByText('TestPrj');
+    await user.click(screen.getByRole('tab', { name: /^materials$/i }));
+    await user.click(await screen.findByRole('button', { name: 'Change readiness for Calculator' }));
+    const dialog = await screen.findByRole('dialog', { name: /update material readiness/i });
+    await user.selectOptions(within(dialog).getByRole('combobox'), 'purchased');
+    await user.type(within(dialog).getByRole('spinbutton', { name: /actual cost/i }), '12.50');
+    await user.click(within(dialog).getByRole('button', { name: /^mark ready$/i }));
+
+    expect(await screen.findByText('spent $12.50')).toBeInTheDocument();
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Change readiness for Calculator' })).not.toBeInTheDocument();
+    expect(purchase.calls).toHaveLength(1);
+    expect(purchase.calls[0].url).toMatch(/\/projects\/42\/materials\/11\/mark-purchased\/$/);
+    expect(purchase.calls[0].body).toEqual({ actual_cost: '12.50' });
+  });
+
   it('retains a failed readiness choice for retry without claiming a saved result', async () => {
     const user = userEvent.setup();
     const material = { id: 11, name: 'Calculator', estimated_cost: '10.00', actual_cost: null, is_purchased: false, is_ready: false };
