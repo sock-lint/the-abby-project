@@ -331,6 +331,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         else:
             qs = self.get_role_filtered_queryset(qs)
         if self.action == "list":
+            qs = qs.work_projects()
             # Annotate the four counts the list serializer used to compute
             # via per-row .count() / .filter().count() queries — those
             # queries scale O(rows × 4) and dominated the dashboard list
@@ -430,6 +431,8 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     def activate(self, request, pk=None):
         from django.utils import timezone
         project = self.get_object()
+        if project.is_homework:
+            return Response({"error": "Use the homework assignment to manage this plan."}, status=status.HTTP_400_BAD_REQUEST)
         if project.status not in ("draft", "in_review"):
             return Response(
                 {"error": f"cannot activate from status {project.status}"},
@@ -444,6 +447,8 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
         project = self.get_object()
+        if project.is_homework:
+            return Response({"error": "Submit homework with proof from its assignment."}, status=status.HTTP_400_BAD_REQUEST)
         if project.assigned_to != request.user:
             return Response(
                 {"error": "Not your project"}, status=status.HTTP_403_FORBIDDEN
@@ -456,6 +461,8 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     def approve(self, request, pk=None):
         from django.utils import timezone
         project = self.get_object()
+        if project.is_homework:
+            return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         project.status = "completed"
         if project.completed_at is None:
             project.completed_at = timezone.now()
@@ -466,6 +473,8 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
     def request_changes(self, request, pk=None):
         from django.utils import timezone
         project = self.get_object()
+        if project.is_homework:
+            return Response({"error": "Use the homework submission to request changes."}, status=status.HTTP_400_BAD_REQUEST)
         project.status = "in_progress"
         if project.started_at is None:
             project.started_at = timezone.now()
@@ -676,6 +685,9 @@ class ProjectQRCodeView(APIView):
         if project is None:
             return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
+        if project.is_homework:
+            return Response({"error": "Homework does not use clock-in codes."}, status=status.HTTP_400_BAD_REQUEST)
+
         # QR data is a JSON payload with project ID and action
         import json
         qr_data = json.dumps({
@@ -829,6 +841,9 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
                 {"error": "Project not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        if project.is_homework:
+            return Response({"error": "Homework plans cannot become paid project templates."}, status=status.HTTP_400_BAD_REQUEST)
 
         template = ProjectTemplate.objects.create(
             title=project.title,

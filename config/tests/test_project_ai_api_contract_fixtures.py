@@ -1,5 +1,6 @@
 """Project planning responses from real family-scoped endpoints and provider parsing."""
 from copy import deepcopy
+from datetime import timedelta
 import json
 from unittest.mock import Mock, patch
 
@@ -9,7 +10,9 @@ from django.test import override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
+from apps.homework.models import HomeworkAssignment
 from apps.projects.models import MaterialItem, Project, ProjectMilestone, ProjectStep
+from apps.timecards.models import TimeEntry
 from config.tests import test_api_contract_fixtures as shared_fixtures
 from config.tests.factories import make_family
 
@@ -177,4 +180,54 @@ class ProjectAIPlanApiResponseFixtureTests(APITestCase):
                     )
                     self.assertEqual(response.status_code, 403 if user == self.child else 404, response.content)
         self.assertEqual(self.state(), before)
+        self.provider.assert_not_called()
+
+    def test_homework_plan_stays_in_homework_and_cannot_create_paid_time(self):
+        # A legacy assignment link must have the same wire behavior as a newly
+        # planned homework project, even before its durable marker is backfilled.
+        plan = Project.objects.create(
+            id=402, title="Science fair presentation", description="Prepare a school presentation.",
+            created_by=self.parent, assigned_to=self.child, status="active",
+        )
+        ProjectStep.objects.create(
+            id=602, project=plan, title="Outline the presentation", order=0,
+        )
+        assignment = HomeworkAssignment.objects.create(
+            id=801, title="Science fair presentation", subject="science",
+            description="Prepare a school presentation.",
+            due_date=shared_fixtures.FIXED_NOW.date() + timedelta(days=4),
+            created_by=self.parent, assigned_to=self.child, project=plan,
+        )
+        for user in (self.parent, self.child):
+            self.client.force_authenticate(user)
+            with self.subTest(role=user.role):
+                listing = self.client.get("/api/projects/")
+                self.assertEqual(listing.status_code, 200, listing.content)
+                self.assertEqual([row["id"] for row in listing.json()["results"]], [self.project.pk])
+                self.assert_response_fixture(listing, "projects-with-homework-plan.json")
+
+                detail = self.assert_response_fixture(
+                    self.client.get(f"/api/projects/{plan.pk}/"), "homework-plan-detail.json",
+                )
+                self.assertIs(detail["is_homework_plan"], True)
+                self.assertEqual(detail["homework_assignment_id"], assignment.pk)
+                self.assertEqual([step["title"] for step in detail["steps"]], ["Outline the presentation"])
+
+                homework = self.assert_response_fixture(
+                    self.client.get(f"/api/homework/{assignment.pk}/"), "homework-with-plan.json",
+                )
+                self.assertEqual(homework["project"], plan.pk)
+                self.assertIs(homework["has_project"], True)
+
+        ordinary = self.assert_response_fixture(
+            self.client.get(f"/api/projects/{self.project.pk}/"), "project-work-detail.json",
+        )
+        self.assertIs(ordinary["is_homework_plan"], False)
+        self.assertIsNone(ordinary["homework_assignment_id"])
+        self.assert_response_fixture(self.client.post("/api/clock/", {
+            "action": "in", "project_id": plan.pk,
+        }, format="json"), "homework-plan-clock-denied.json", status=400)
+        self.assertFalse(TimeEntry.objects.exists())
+        plan.refresh_from_db()
+        self.assertEqual(plan.status, "active")
         self.provider.assert_not_called()

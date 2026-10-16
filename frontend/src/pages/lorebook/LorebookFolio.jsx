@@ -12,8 +12,10 @@ export default function LorebookFolio({
   unlocked = 0,
   trained = 0,
   total = 0,
+  mode = 'kid',
   onSelect,
 }) {
+  const parentMode = mode === 'parent';
   const headingId = useId();
   // Progress band represents inked-page progress (the new training goal),
   // while a quieter whisper line still reports discovery so the auto-element
@@ -26,31 +28,43 @@ export default function LorebookFolio({
       <header className="flex items-start gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <ChapterMarker>{chapter.rubric}</ChapterMarker>
-          <IlluminatedVersal
-            letter={chapter.letter}
-            size="md"
-            tier={tier}
-            progressPct={progressPct}
-          />
+          {parentMode ? (
+            <span aria-hidden="true" className="shrink-0 font-display text-3xl text-sheikah-teal-deep">
+              {chapter.letter}
+            </span>
+          ) : (
+            <IlluminatedVersal
+              letter={chapter.letter}
+              size="md"
+              tier={tier}
+              progressPct={progressPct}
+            />
+          )}
           <div className="min-w-0">
             <h2
               id={headingId}
-              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight truncate"
+              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight"
             >
               {chapter.name}
             </h2>
-            <div className="font-script text-caption text-ink-whisper leading-snug truncate">
+            <div className="font-script text-caption text-ink-whisper leading-snug">
               {chapter.kicker}
             </div>
           </div>
         </div>
         <div className="shrink-0 text-right font-script text-caption text-ink-whisper pt-1 leading-snug">
-          <div>
-            <span className="tabular-nums">{trained} of {total}</span> completed
-          </div>
-          <div className="text-micro text-ink-whisper/70">
-            <span className="tabular-nums">{unlocked} of {total}</span> discovered
-          </div>
+          {parentMode ? (
+            <div><span className="tabular-nums">{total}</span> {total === 1 ? 'topic' : 'topics'}</div>
+          ) : (
+            <>
+              <div>
+                <span className="tabular-nums">{trained} of {total}</span> completed
+              </div>
+              <div className="text-micro text-ink-whisper/70">
+                <span className="tabular-nums">{unlocked} of {total}</span> discovered
+              </div>
+            </>
+          )}
         </div>
       </header>
 
@@ -71,7 +85,7 @@ export default function LorebookFolio({
               ease: [0.4, 0, 0.2, 1],
             }}
           >
-            <LorebookTile entry={entry} onSelect={onSelect} />
+            <LorebookTile entry={entry} mode={mode} onSelect={onSelect} />
           </motion.li>
         ))}
       </ul>

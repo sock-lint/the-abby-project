@@ -44,18 +44,14 @@ LOREBOOK_TRIGGER_COVERAGE: dict[str, str] = {
     TriggerType.QUEST_COMPLETE: "quests",
     TriggerType.PERFECT_DAY: "streaks",
     TriggerType.HABIT_LOG: "rituals",
+    TriggerType.MOVEMENT_SESSION: "movement",
     TriggerType.DAILY_CHECK_IN: "streaks",
     TriggerType.SAVINGS_GOAL_COMPLETE: "money",
     TriggerType.JOURNAL_ENTRY: "journal",
     TriggerType.CREATION_LOGGED: "creations",
     TriggerType.EXPEDITION_RETURNED: "mounts",
 }
-LOREBOOK_TRIGGER_EXEMPT: set[str] = {
-    # MOVEMENT_SESSION feeds the Movement subsystem; there is no Lorebook
-    # entry for movement yet. Add one (and remove this exemption) when the
-    # feature is ready to surface for kids.
-    TriggerType.MOVEMENT_SESSION,
-}
+LOREBOOK_TRIGGER_EXEMPT: set[str] = set()
 
 LOREBOOK_PAYMENT_ENTRY_COVERAGE: dict[str, str] = {
     PaymentLedger.EntryType.HOURLY: "ventures",

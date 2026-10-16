@@ -33,6 +33,46 @@ function renderPage(user, projectOverrides = {}) {
 }
 
 describe('ProjectDetail', () => {
+  it('opens homework steps with a route back to homework and saves step progress', async () => {
+    const user = userEvent.setup();
+    const step = { id: 5, title: 'Read chapter one', is_completed: false, milestone: null };
+    const complete = spyHandler('post', '*/api/projects/42/steps/5/complete/', () => {
+      step.is_completed = true;
+      return step;
+    });
+    server.use(complete.handler);
+    renderPage(buildUser(), () => ({
+      is_homework_plan: true, homework_assignment_id: 17, status: 'in_progress',
+      steps: [step], bonus_amount: '13.00', xp_reward: 99,
+    }));
+    expect(await screen.findByText('Homework plan')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to Homework' })).toHaveAttribute('href', '/quests?tab=study');
+    expect(screen.getByText(/submit your homework from the Homework tab/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Plan' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('button', { name: /work on this project|submit for review/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Mark step complete' }));
+    await waitFor(() => expect(complete.calls).toHaveLength(1));
+    expect(complete.calls[0].url).toMatch(/\/api\/projects\/42\/steps\/5\/complete\/$/);
+    expect(complete.calls[0].body).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Uncheck step' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+    expect(screen.queryByText(/cash reward|^bonus$|xp reward/i)).not.toBeInTheDocument();
+  });
+
+  it('lets a parent finish a homework phase without promising its old bonus', async () => {
+    const user = userEvent.setup();
+    const complete = spyHandler('post', '*/api/projects/42/milestones/8/complete/', {});
+    server.use(complete.handler);
+    renderPage(buildParent(), { is_homework_plan: true, milestones: [{ id: 8, title: 'Research', bonus_amount: '9.00', is_completed: false }] });
+    await user.click(await screen.findByRole('button', { name: 'Mark milestone complete' }));
+    const dialog = await screen.findByRole('alertdialog', { name: /mark this milestone complete/i });
+    expect(dialog).not.toHaveTextContent(/pay|\$9\.00/i);
+    await user.click(within(dialog).getByRole('button', { name: 'Mark complete' }));
+    await waitFor(() => expect(complete.calls).toHaveLength(1));
+    expect(complete.calls[0].url).toMatch(/\/api\/projects\/42\/milestones\/8\/complete\/$/);
+    expect(complete.calls[0].body).toBeNull();
+  });
+
   it('renders project title and tabs', async () => {
     renderPage(buildUser());
     await waitFor(() => expect(screen.getByText('TestPrj')).toBeInTheDocument());

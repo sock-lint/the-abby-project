@@ -1,6 +1,7 @@
-export default function LorebookTile({ entry, onSelect }) {
-  const unlocked = !!entry.unlocked;
-  const trained = !!entry.trained;
+export default function LorebookTile({ entry, mode: audience = 'kid', onSelect }) {
+  const parentMode = audience === 'parent';
+  const unlocked = parentMode || !!entry.unlocked;
+  const trained = !parentMode && !!entry.trained;
   const shellBase =
     'relative rounded-2xl p-3 flex flex-col items-center gap-1.5 min-h-[142px] transition-transform';
   const trainedShell =
@@ -16,7 +17,13 @@ export default function LorebookTile({ entry, onSelect }) {
   let stateText;
   let mode;
 
-  if (!unlocked) {
+  if (parentMode) {
+    shell = encounteredShell;
+    runeLabel = 'read guide';
+    kicker = entry.summary;
+    stateText = `${entry.title} · read guide`;
+    mode = 'detail';
+  } else if (!unlocked) {
     shell = lockedShell;
     runeLabel = 'undiscovered';
     kicker = 'discover by trying it in the app';
@@ -43,7 +50,7 @@ export default function LorebookTile({ entry, onSelect }) {
       data-trained={trained ? 'true' : 'false'}
       className={`${shellBase} ${shell}`}
     >
-      {unlocked && !trained && (
+      {!parentMode && unlocked && !trained && (
         <span
           aria-hidden="true"
           className="absolute top-1.5 right-1.5 inline-flex items-center rounded-full bg-sheikah-teal-deep px-2 py-0.5 text-micro font-rune uppercase tracking-wider text-ink-page"
