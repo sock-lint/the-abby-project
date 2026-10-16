@@ -110,7 +110,7 @@ Production deployment requires a separate owner request.
 ## Rollback
 
 The actual application baseline is commit
-`6db213be9f2199110c642b2017226f2910c98bd7`: no catalog-icon family pin, the three
+`87bea6b8272e462edc243be0a27b038a385818aa`: no catalog-icon family pin, the three
 code package versions above, Archer 1.0.2 at
 `4814589d481fcac4e51a62c7af8e7b4a4e1cf593fde670a281d49480bef09cb3`
 and Bird Evolution 1.0.0 at
