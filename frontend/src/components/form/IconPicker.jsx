@@ -1,28 +1,14 @@
 import { useId, useState } from 'react';
 import { Check } from 'lucide-react';
-import Button from '../../components/Button';
-import IconButton from '../../components/IconButton';
-import { TextField } from '../../components/form';
+import Button from '../Button';
+import IconButton from '../IconButton';
+import TextField from './TextField';
+import { COMMON_ICONS } from './iconPickerOptions';
 
-const ICONS = [
-  ['⚡', 'Lightning'],
-  ['🪥', 'Toothbrush'],
-  ['💧', 'Water'],
-  ['📖', 'Book'],
-  ['🛏️', 'Bed'],
-  ['🏃', 'Running'],
-  ['🧘', 'Meditation'],
-  ['🍎', 'Apple'],
-  ['🧹', 'Broom'],
-  ['🎒', 'Backpack'],
-  ['✏️', 'Pencil'],
-  ['🎨', 'Art'],
-  ['🎵', 'Music'],
-  ['🤝', 'Helping hands'],
-  ['📵', 'No phones'],
-];
-
-export default function HabitIconPicker({ value, onChange, disabled = false }) {
+export default function IconPicker({
+  value, onChange, disabled = false, label = 'Icon', placeholder = '⚡',
+  options = COMMON_ICONS, id, maxLength, error, helpText,
+}) {
   const [expanded, setExpanded] = useState(false);
   const choicesId = useId();
 
@@ -30,10 +16,14 @@ export default function HabitIconPicker({ value, onChange, disabled = false }) {
     <div className="space-y-2">
       <div className="flex items-end gap-2">
         <TextField
-          label="Icon"
+          label={label}
+          id={id}
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder="⚡"
+          placeholder={placeholder}
+          maxLength={maxLength}
+          error={error}
+          helpText={helpText}
           disabled={disabled}
           className="min-w-0 flex-1"
         />
@@ -51,7 +41,7 @@ export default function HabitIconPicker({ value, onChange, disabled = false }) {
       </div>
       <div id={choicesId} hidden={!expanded}>
         <div role="group" aria-label="Suggested icons" className="grid grid-cols-5 gap-2">
-          {ICONS.map(([icon, label]) => (
+          {options.map(([icon, label]) => (
             <IconButton
               key={label}
               aria-label={label}

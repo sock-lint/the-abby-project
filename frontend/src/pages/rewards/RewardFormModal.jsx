@@ -6,7 +6,7 @@ import { useFormState } from '../../hooks/useFormState';
 import { useApi } from '../../hooks/useApi';
 import { formLabelClass } from '../../constants/styles';
 import ModalActions from '../../components/ModalActions';
-import { TextField, SelectField, TextAreaField, CheckboxField } from '../../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from '../../components/form';
 import { downscaleImage } from '../../utils/image';
 import { normalizeList } from '../../utils/api';
 import { isCatalogAvailable } from '../../utils/catalogAvailability';
@@ -83,10 +83,8 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
       <form onSubmit={handleSubmit} className="space-y-3">
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Icon (emoji)" value={form.icon} onChange={onField('icon')} placeholder="🎁" />
-          <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
-        </div>
+        <IconPicker label="Icon (emoji)" value={form.icon} onChange={(icon) => set({ icon })} placeholder="🎁" disabled={saving} />
+        <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (

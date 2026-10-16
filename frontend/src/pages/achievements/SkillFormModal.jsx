@@ -3,7 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import Button from '../../components/Button';
-import { TextField, SelectField, TextAreaField, CheckboxField } from '../../components/form';
+import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from '../../components/form';
 
 export default function SkillFormModal({ item, categories, subjects, onClose, onSaved }) {
   const isEdit = !!item;
@@ -73,10 +73,8 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
             ))}
           </SelectField>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Icon" value={form.icon} onChange={onField('icon')} />
-          <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
-        </div>
+        <IconPicker value={form.icon} placeholder="" onChange={(icon) => set({ icon })} disabled={saving} />
+        <TextField className="sm:w-1/2" label="Order" type="number" value={form.order} onChange={onField('order')} />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <TextField
           label="Level Names (JSON)"

@@ -29,7 +29,8 @@ import { TextField, SelectField } from '../components/form';
 import { normalizeList } from '../utils/api';
 import { hapticTap } from '../utils/haptics';
 import QuestFolio from './quests/QuestFolio';
-import HabitIconPicker from './habits/HabitIconPicker';
+import IconPicker from '../components/form/IconPicker';
+import { HABIT_ICONS } from '../components/form/iconPickerOptions';
 
 // Strength color — journal-safe sepia gradient from ember (low) through
 // moss (positive) to royal (mastered).
@@ -151,7 +152,7 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <HabitIconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} />
+        <IconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} options={HABIT_ICONS} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
             <option value="positive">Build a habit (+)</option>
