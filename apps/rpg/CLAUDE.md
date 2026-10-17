@@ -53,6 +53,13 @@ the asset preparation/license boundary is
 
 Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, uses the configured local date shared by chore completions and streak activity (currently America/Phoenix), and awards `perfect_days_count += 1` and 15 bonus coins once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 
+Drop grants lock an existing inventory stack through the atomic grant, matching
+the row locks used by consumables, feeding, hatching and pouch opening. If the
+last unit is consumed first, the drop waits and recreates the stack; if the
+drop reads first, consumption waits and preserves the newly granted unit.
+`tests/test_drop_inventory_concurrency.py` checks both orders on PostgreSQL,
+including the habit response, saved drop receipt, effect and remaining item.
+
 ## Endpoints
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.

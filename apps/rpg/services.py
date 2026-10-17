@@ -388,13 +388,14 @@ class DropService:
                     )
 
         if not was_salvaged:
-            inv, created = UserInventory.objects.get_or_create(
+            # Hold an existing stack until the grant commits. Last-item use
+            # also locks this row and may delete it; an unlocked lookup can
+            # leave the increment targeting a deleted PK while logging a drop.
+            inv, created = UserInventory.objects.select_for_update().get_or_create(
                 user=user, item=item,
                 defaults={"quantity": 1},
             )
             if not created:
-                # F-expression closes the read-modify-write window — same
-                # pattern as RewardService._maybe_credit_digital_item.
                 UserInventory.objects.filter(pk=inv.pk).update(
                     quantity=F("quantity") + 1,
                 )
