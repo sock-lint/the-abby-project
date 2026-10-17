@@ -1,5 +1,6 @@
 import { Group } from 'three';
 import { loadAsset, loadAssetPack } from '@abby-assets/avatar-runtime';
+import { rosterFraming } from './rosterFraming';
 
 /** One selected native take owns its complete rig. The roster contains no
  * authored evolution transitions; stage changes select the confirmed idle. */
@@ -9,8 +10,7 @@ export function createSharedRosterPlayback(appearance, {
 } = {}) {
   const root = new Group(), lifetime = new AbortController(), owned = new Set();
   let disposed = false, generation = 0, request, active, idle;
-  const bounds = appearance.referenceBounds;
-  if (bounds) root.scale.setScalar(2.8 / Math.max(...bounds.max.map((value, axis) => value - bounds.min[axis]), 0.001));
+  root.scale.setScalar(rosterFraming(appearance.referenceBounds).scale);
   const release = (handle) => {
     if (!owned.delete(handle)) return;
     handle.unsubscribe?.();

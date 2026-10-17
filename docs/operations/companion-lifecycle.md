@@ -132,7 +132,10 @@ Egg Idle and Underground are authentic held poses, not failed animations.
 Root-travelling egg rolls use an explicit once-only host policy and return to
 rest; continuous root accumulation and seamless repeated travel are not
 claimed. Static host framing uses each stage's native default bounds and keeps
-that scale across its takes, preserving native rig, geometry and keys. These
+that scale across its takes, preserving native rig, geometry and keys. Roster
+cameras focus on the scaled native idle bounds center so elevated flying idles
+remain in view; the native scene, joint tracks and source clearance keep their
+supplied coordinates. Travel may leave this fixed view. These
 preview scales establish no gameplay size rule. The documented SnakeNaga breath-attack-right-left strongest-four
 weight reduction measured 24.28098063 mm over five source poses; this differs
 from prepared-mesh→GLB error (maximum 0.963 mm) and egg native→reimport error
@@ -143,6 +146,8 @@ report is retained; current application tests exercise the actual scene code
 and exact staged releases separately. Browser/desktop checks do not establish
 physical iPhone/Android performance, lifecycle or thermal acceptance. Those
 remain rollout gates, along with the repository's exact public-delivery process.
+The bare companion previews also do not establish acceptance of creature and
+Woodland scenery overlap in populated scenes.
 
 ## Non-destructive catalog rollout and rollback
 
@@ -202,8 +207,10 @@ The pre-adoption release pins are Archer 1.0.2 `4814589d481fcac4e51a62c7af8e7b4a
 Bird 1.0.0 `1c8bd52e4f2273b1849bebb498d21c0689e7b8d6191c1ee36e7a7bfeb09bd37a`,
 catalog 1.0.0 `0201085bd500af510bbdbcb16ac3fa68d0588b3cc321a4943d57e64c3cbd4ad2`,
 and pedestal/UI 1.0.1 `abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d`.
-Retain these exact artifacts and the private pre-adoption lock. Reverting art
-or policy never deletes new saved ownership. Recreating retired configuration
+Retain these exact artifacts and the private pre-adoption lock. An art or policy
+rollback must retain the nullable quest snapshot column and promise-preserving
+payout code; reverting those fixes would restore the retired-reward loss.
+Reverting art or policy never deletes new saved ownership. Recreating retired configuration
 requires the reviewed pre-rollout configuration snapshot; do not reset the
 database or rewrite reward promises. No rollback or deployment was executed.
 

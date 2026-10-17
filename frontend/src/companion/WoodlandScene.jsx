@@ -4,16 +4,17 @@ import { DataTexture, RGBAFormat } from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { prepareWoodland, WOODLAND_BACKGROUND } from './prepareWoodland';
 
-export function WoodlandCamera() {
+export function WoodlandCamera({ target } = {}) {
   const { camera, size, invalidate } = useThree();
+  const [targetX, targetY, targetZ] = target || [0, 0.95, -0.25];
   useEffect(() => {
     // A narrow phone must still contain the supplied Bird's full wingspan.
     const distance = Math.max(0.84, 1.15 / (size.width / Math.max(size.height, 1)));
-    camera.position.set(0.8 * distance, 3.4 * distance, 8.8 * distance);
-    camera.lookAt(0, 0.95, -0.25);
+    camera.position.set(0.8 * distance + targetX, 3.4 * distance + (targetY - 0.95), 8.8 * distance + (targetZ + 0.25));
+    camera.lookAt(targetX, targetY, targetZ);
     camera.updateProjectionMatrix();
     invalidate();
-  }, [camera, size.width, size.height, invalidate]);
+  }, [camera, size.width, size.height, invalidate, targetX, targetY, targetZ]);
   return null;
 }
 

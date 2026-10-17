@@ -5,6 +5,7 @@ import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';
 import { createSharedBirdPlayback } from './sharedBirdPlayback';
 import { createSharedRosterPlayback } from './sharedRosterPlayback';
+import { rosterFraming } from './rosterFraming';
 import { birdPlaybackIdentity } from './sharedBirdRelease';
 import WoodlandScene, { WoodlandCamera } from './WoodlandScene';
 import { WOODLAND_BACKGROUND, WOODLAND_CAMERA } from './prepareWoodland';
@@ -177,7 +178,7 @@ export default function CompanionScene({ appearance, greeting, interaction, reac
       <Canvas frameloop="demand" dpr={[1, 1.5]} camera={WOODLAND_CAMERA} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
       fallback={<span>3D display is unavailable on this device.</span>}>
       <color attach="background" args={[WOODLAND_BACKGROUND]} />
-      <WoodlandCamera />
+      <WoodlandCamera target={appearance.pipeline === 'abby-assets-roster' ? rosterFraming(appearance.referenceBounds).center : undefined} />
       {!appearance.woodland && <ambientLight intensity={2} />}
       <ContextGuard onUnavailable={onUnavailable} />
       <Suspense fallback={null}>
