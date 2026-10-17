@@ -80,6 +80,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `habit-positive-tap.json` | `POST /api/habits/9/log/`, persisted `direction: 1` tap and real game event |
 | `habit-positive-tap-no-event.json` | Same tap with the optional game-loop result explicitly absent |
 | `habit-positive-tap-limit.json` | Same-day repeat rejected with HTTP 400; no second tap persists |
+| `habit-coop-completed.json` | A real habit tap completes a custom co-op quest; the ordinary game event retains the finishing child's full reward receipt |
+| `quest-nonrepeatable-restart.json` | Restarting that completed nonrepeatable quest is rejected with HTTP 400 and no further grants |
 | `greenlight-overview-no-snapshot.json` | `GET /api/payments/greenlight/overview/?user_id=7`; money owed, approved payable and pending hourly earnings, with unknown external balance |
 | `greenlight-balance-snapshot.json` | `POST /api/payments/greenlight/snapshot/`; parent-reported Greenlight balance with its observation time |
 | `greenlight-overview.json` | Overview with a separately reported Greenlight balance; recording the observation changes no earnings or debt |
@@ -713,6 +715,16 @@ producer checks actual inventory delivery, unchanged held Coins, and approval
 retry safety. The React consumer `src/api/rpgIntegrityContractFixtures.test.jsx`
 checks these same saved promises and renders the earned/maximum character
 responses through Profile's existing frontispiece.
+
+The same producer exercises a real parent co-op assignment and child habit tap
+outside a surrounding test transaction. Completion pays the full configured
+Coins, skill XP and supported items to every participant, including a child
+with no contribution; the game event describes the finishing child's receipt.
+The producer verifies each participant's persisted payout, keeps unrelated
+families and the parent unpaid, and confirms later activity, completion retries
+and a rejected nonrepeatable restart cannot repay the campaign. The React
+consumer preserves that ordinary habit response and the restart error through
+`logHabitTap` and `startQuest`.
 
 ## Reading books and reflections
 

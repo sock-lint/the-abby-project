@@ -16,7 +16,7 @@ from apps.achievements.models import (
     ProjectSkillTag,
     Skill,
 )
-from apps.achievements.services import AwardService, SkillService
+from apps.achievements.services import AwardService
 from apps.projects.models import (
     MaterialItem,
     Project,
@@ -359,10 +359,8 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
     except ProjectMilestone.DoesNotExist:
         raise MCPNotFoundError(f"Milestone {params.milestone_id} not found.")
 
-    project = milestone.project
+    project = _get_project_for_user(milestone.project_id, user)
     is_homework = project.is_homework
-    if user.role != "parent" and project.assigned_to_id != user.id:
-        raise MCPPermissionDenied("Milestone is not on your project.")
 
     if milestone.is_completed:
         return {
@@ -377,15 +375,14 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
         milestone.completed_at = timezone.now()
         milestone.save(update_fields=["is_completed", "completed_at"])
 
-        xp_total = 0
-        skill_xp_tags = list(milestone.skill_tags.select_related("skill").all())
-        if skill_xp_tags and project.assigned_to_id and not is_homework:
-            for tag in skill_xp_tags:
-                SkillService.award_xp(project.assigned_to, tag.skill, tag.xp_amount)
-                xp_total += tag.xp_amount
+        # The shared completion signal owns XP and the permanent receipt for
+        # both clients. Only its first successful save can add this tool's
+        # existing coin bonus; a reopened REST/MCP completion cannot re-arm it.
+        xp_total = milestone._completion_reward_xp
 
         coins = 0
-        if milestone.bonus_amount and project.assigned_to_id and not is_homework:
+        if (milestone._completion_reward_claimed and milestone.bonus_amount
+                and project.assigned_to_id and not is_homework):
             coins = min(100, int(round(float(milestone.bonus_amount) * 2)))
             if coins > 0:
                 AwardService.grant(
