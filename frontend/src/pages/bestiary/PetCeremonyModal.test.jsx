@@ -231,6 +231,8 @@ describe('PetCeremonyModal — phased sequence', () => {
     expect(screen.getByText(/\+42/)).toBeInTheDocument();
     expect(screen.getByText('Training Snack')).toBeInTheDocument();
     expect(screen.getByText(/duplicate exchanged for 25 coins/i)).toBeInTheDocument();
+    expect(screen.getByText('common')).toBeInTheDocument();
+    expect(screen.getByText('rare')).toBeInTheDocument();
   });
 });
 

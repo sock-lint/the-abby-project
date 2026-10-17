@@ -200,6 +200,19 @@ availability without presenting unreachable unlocks. See the
 [asset boundary](../content/rpg/react-three-fiber-assets.md) and
 [shared contract checks](../contracts/api/README.md) before extending offers.
 
+**Rarity feedback:** badges use the server's `coin_bonus` as a base bonus, never
+as evidence of a historical payout. Challenge reward previews and future
+receipts carry `item_rarity` and exact catalog identity; shared `RewardItem`
+also handles expedition fields and sparse older receipts without inventing a
+tier. Drop reveals retain nullable `salvage_coins`, display server-provided
+effect summaries and link to the existing explicit inventory/profile/pet
+controls. They do not consume or equip an item. Inventory offers All / Rare+
+and Recently updated / Rarest; its timestamp is not an acquisition date.
+Food choosers and inventory display authoritative `effect_summary` without
+calculating growth in React. Locked cosmetics prefer current
+`acquisition_sources` hints and internal navigation; rarity alone establishes
+no earning path.
+
 **Pet interactions:** the Pets home opens its exact owned appearance automatically.
 Tapping says hello; Hop/Fly together and Look around use only staged, manifest-named
 supplied takes. Each take keeps its complete matching rig and the idle framing.

@@ -61,6 +61,14 @@ class SkillProgressSerializer(serializers.ModelSerializer):
 
 class BadgeSerializer(serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
+    coin_bonus = serializers.SerializerMethodField()
+
+    def get_coin_bonus(self, obj):
+        """Base bonus only; an active earn boost can change the actual award."""
+        from django.conf import settings
+        if not obj.award_coins:
+            return 0
+        return max(0, int(getattr(settings, "COINS_PER_BADGE_RARITY", {}).get(obj.rarity, 0)))
 
     def get_catalog_available(self, obj):
         from .availability import badge_goal_is_available
@@ -71,7 +79,7 @@ class BadgeSerializer(serializers.ModelSerializer):
         model = Badge
         fields = [
             "id", "name", "description", "icon", "subject", "criteria_type",
-            "criteria_value", "xp_bonus", "rarity", "catalog_available",
+            "criteria_value", "xp_bonus", "rarity", "catalog_available", "coin_bonus",
         ]
 
 

@@ -6,6 +6,7 @@ import Button from '../../components/Button';
 import BottomSheet from '../../components/BottomSheet';
 import AddToCalendar from '../../components/AddToCalendar';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
+import RewardItem from '../../components/rpg/RewardItem';
 import StorybookFeature from '../../pedestal/StorybookFeature';
 import { goalActionPath, goalDate, goalDeadline, goalNumber, goalProgress, goalUnit } from './goalDisplay';
 
@@ -30,8 +31,10 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showDeadline = true }
         {awarded ? 'Bonus earned automatically' : completed ? goal.legacy ? 'Original completion bonus' : 'Bonus pending' : 'Completion bonus'}
         {rewards?.coins > 0 && ` · ${rewards.coins} coins`}
         {rewards?.xp > 0 && ` · ${rewards.xp} XP`}
-        {deliveredItems.map((item) => ` · ${item.item_name || item.name} ×${item.quantity}`).join('')}
       </p>
+      {deliveredItems.length > 0 && <ul aria-label="Completion reward items" className="space-y-2">
+        {deliveredItems.map((item, index) => <li key={item.item_id || item.item || index}><RewardItem item={item} /></li>)}
+      </ul>}
     </div>
   );
 }

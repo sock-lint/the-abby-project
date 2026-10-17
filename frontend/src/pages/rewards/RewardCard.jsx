@@ -4,6 +4,7 @@ import IconButton from '../../components/IconButton';
 import { CoinIcon } from '../../components/icons/JournalIcons';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { RARITY_COLORS } from '../../constants/colors';
+import BadgeRarity from '../../components/atlas/BadgeRarity';
 
 export default function RewardCard({
   reward, isParent, coinBalance, pending, onRedeem, onEdit, onDelete, onToggleWishlist,
@@ -64,6 +65,7 @@ export default function RewardCard({
       <div className="font-body text-body font-semibold text-center text-ink-primary break-words">
         {reward.name}
       </div>
+      {reward.rarity && <div className="mt-1 flex justify-center"><BadgeRarity rarity={reward.rarity} /></div>}
       {reward.description && (
         <div className="font-body text-caption text-ink-secondary text-center mt-1 line-clamp-2">
           {reward.description}

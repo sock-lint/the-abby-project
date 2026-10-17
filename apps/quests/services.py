@@ -445,10 +445,12 @@ class QuestService:
         # cosmetic-dupe rule in DropService.
         from apps.pets.models import UserMount
         from apps.rpg.models import ItemDefinition
-        from apps.rpg.catalog_icons import item_catalog_icon
-        from apps.quests.reward_items import accepted_reward_items
+        from apps.quests.reward_items import accepted_reward_items, reward_item_details
         for reward_item in accepted_reward_items(quest):
             item = reward_item.item
+            details = {"item_id": item.pk, **reward_item_details(
+                item, snapshot=getattr(reward_item, "reward_snapshot", None),
+            ), "quantity": reward_item.quantity}
             is_owned_egg = (
                 item.item_type == ItemDefinition.ItemType.EGG
                 and item.pet_species_id is not None
@@ -464,20 +466,12 @@ class QuestService:
                 )
                 rewards["coins"] += salvage
                 rewards["items"].append({
-                    "item_name": item.display_name,
-                    "item_catalog_icon": item_catalog_icon(item),
-                    "item_icon": item.icon,
-                    "quantity": reward_item.quantity,
+                    **details,
                     "salvaged_to_coins": salvage,
                 })
                 continue
             grant_item(user, item, reward_item.quantity)
-            rewards["items"].append({
-                "item_name": item.display_name,
-                "item_catalog_icon": item_catalog_icon(item),
-                "item_icon": item.icon,
-                "quantity": reward_item.quantity,
-            })
+            rewards["items"].append(details)
 
         notify(
             user,

@@ -18,6 +18,11 @@ function buildReward(over = {}) {
 }
 
 describe('RewardCard', () => {
+  it('labels rarity in text so the tier is not conveyed only by card color', () => {
+    render(<RewardCard reward={buildReward({ rarity: 'epic' })} isParent coinBalance={100} />);
+    expect(screen.getByText('epic')).toBeInTheDocument();
+  });
+
   it('fires onRedeem with the reward when child can afford it', async () => {
     const onRedeem = vi.fn();
     const user = userEvent.setup();
