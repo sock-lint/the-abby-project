@@ -224,16 +224,18 @@ class _UserManagementActionsMixin:
             MemberRemovalError, assert_safe_to_remove,
             promote_next_primary_parent,
         )
-        try:
-            assert_safe_to_remove(instance, self.request.user, mode="delete")
-        except MemberRemovalError as exc:
-            # Re-raise as DRF ValidationError so the framework returns 400
-            # with the message — same shape as our serializer-validation 400s.
-            from rest_framework import serializers as drf_serializers
-            raise drf_serializers.ValidationError({"error": str(exc)})
-        if instance.role == "parent":
-            promote_next_primary_parent(instance.family, instance)
-        instance.delete()
+        # The founder handoff and the file-cleanup outbox must commit with
+        # the cascade. A failed delete must leave the account and family
+        # pointer intact so the same explicit action can be retried.
+        with transaction.atomic():
+            try:
+                assert_safe_to_remove(instance, self.request.user, mode="delete")
+            except MemberRemovalError as exc:
+                from rest_framework import serializers as drf_serializers
+                raise drf_serializers.ValidationError({"error": str(exc)})
+            if instance.role == "parent":
+                promote_next_primary_parent(instance.family, instance)
+            instance.delete()
 
 
 class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
