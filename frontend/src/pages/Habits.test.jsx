@@ -136,7 +136,7 @@ describe('Habits', () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     await user.click(await screen.findByRole('button', { name: /new habit/i }));
     const dialog = await screen.findByRole('dialog', { name: /new habit/i });
@@ -151,7 +151,7 @@ describe('Habits', () => {
     const user = userEvent.setup();
     renderPage(buildParent(), [
       http.get('*/api/habits/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       // Never resolves — holds the form in its saving state.
       http.post('*/api/habits/', () => new Promise(() => {})),
     ]);
@@ -281,14 +281,14 @@ describe('Habits', () => {
       name: 'Stretch',
       icon: '🧘',
       habit_type: 'positive',
-      user: 2,
+      user: 1,
       xp_reward: 5,
       max_taps_per_day: 1,
       strength: 0,
       color: 'yellow',
       taps_today: 0,
       pending_parent_review: true,
-      created_by: 2,
+      created_by: 1,
       created_by_name: 'Abby',
       skill_tags: [],
     };
@@ -326,7 +326,7 @@ describe('Habits', () => {
           ? []
           : [buildHabit({ id: 31, name: 'Imagine', icon: '🦄' })],
       )),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       update.handler,
     ]);
@@ -351,7 +351,7 @@ describe('Habits', () => {
           ? []
           : [buildHabit({ id: 31, name: 'Drink water', icon: '🦄' })],
       )),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       update.handler,
     ]);
@@ -445,6 +445,7 @@ describe('Habits', () => {
     const submit = await screen.findByRole('button', { name: /create habit/i });
     const textboxes = screen.getAllByRole('textbox');
     await user.type(textboxes[0], 'Brush teeth'); // Name field is first textbox.
+    await user.click(screen.getByRole('button', { name: 'Advanced options' }));
     await user.click(screen.getByRole('button', { name: 'Choose icon' }));
     await user.click(screen.getByRole('button', { name: 'Toothbrush' }));
     // Max taps and XP are the two spinbuttons; first is max_taps_per_day per form order.

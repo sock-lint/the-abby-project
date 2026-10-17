@@ -6,7 +6,7 @@ import {
   approveExchange, approveRedemption, rejectExchange, rejectRedemption,
   deleteReward, getCoinBalance, getExchangeRate, getExchangeRequests,
   getRedemptions, getRewards, redeemReward, getPendingRedemptions, getPendingExchangeRequests,
-  addRewardToWishlist, removeRewardFromWishlist,
+  addRewardToWishlist, removeRewardFromWishlist, getAwaitingRedemptions, deliverRedemption,
 } from '../api';
 import { hapticSuccess } from '../utils/haptics';
 import AccordionSection from '../components/dashboard/AccordionSection';
@@ -20,7 +20,8 @@ import ParchmentCard from '../components/journal/ParchmentCard';
 import SectionHeader from '../components/SectionHeader';
 import { useApi } from '../hooks/useApi';
 import { useConfirmState } from '../hooks/useConfirmState';
-import { useRole } from '../hooks/useRole';
+import useChildContext from '../hooks/useChildContext';
+import ChildContext from '../components/family/ChildContext';
 import Button from '../components/Button';
 import { normalizeList } from '../utils/api';
 import CoinAdjustModal from './rewards/CoinAdjustModal';
@@ -32,9 +33,18 @@ import RedemptionApprovalQueue from './rewards/RedemptionApprovalQueue';
 import RedemptionHistory from './rewards/RedemptionHistory';
 import RewardFormModal from './rewards/RewardFormModal';
 import RewardShop from './rewards/RewardShop';
+import RewardDeliveryQueue from './rewards/RewardDeliveryQueue';
 
 export default function Rewards() {
-  const { isParent } = useRole();
+  const context = useChildContext();
+  if (!context.user || context.loading) return <Loader />;
+  if (context.error) return <ErrorAlert message={context.error} onRetry={context.reload} />;
+  return <RewardsView key={`${context.scope}:${context.targetUserId ?? ''}`} context={context} />;
+}
+
+function RewardsView({ context }) {
+  const { isParent, selectedChild, targetUserId } = context;
+  const childName = selectedChild?.display_name || selectedChild?.first_name || selectedChild?.username;
   // Every fetch here surfaces its own error + retry. A swallowed balance
   // fetch used to paint a confident gold "0" over the kid's real coins, and
   // a swallowed shop fetch read as "no rewards yet — ask a parent".
@@ -49,7 +59,7 @@ export default function Rewards() {
   const {
     data: balanceData, loading: loadingBalance, error: balanceError,
     reload: reloadBalance,
-  } = useApi(getCoinBalance);
+  } = useApi(() => isParent && !targetUserId ? Promise.resolve(null) : getCoinBalance(isParent ? { user_id: targetUserId } : undefined), [isParent, targetUserId]);
   const {
     data: exchangeData, loading: loadingExchanges, error: exchangesError,
     reload: reloadExchanges,
@@ -62,6 +72,9 @@ export default function Rewards() {
     data: pendingExchangesData, loading: loadingPendingExchanges,
     error: pendingExchangesError, reload: reloadPendingExchanges,
   } = useApi(() => isParent ? getPendingExchangeRequests() : Promise.resolve([]), [isParent]);
+  const {
+    data: awaitingData, loading: loadingAwaiting, error: awaitingError, reload: reloadAwaiting,
+  } = useApi(() => isParent ? getAwaitingRedemptions() : Promise.resolve([]), [isParent]);
   const { data: rateData, error: rateError, reload: reloadRate } = useApi(getExchangeRate);
 
   const [error, setError] = useState('');
@@ -72,6 +85,8 @@ export default function Rewards() {
   const [outOfStock, setOutOfStock] = useState(null);
   const [confirmRedeem, setConfirmRedeem] = useState(null);
   const [redemptionReceipt, setRedemptionReceipt] = useState(null);
+  const [deliveredReceipts, setDeliveredReceipts] = useState({});
+  const [deliveryNotice, setDeliveryNotice] = useState('');
   const [showRequestHistory, setShowRequestHistory] = useState(false);
   const receiptRef = useRef(null);
   const [shopFilter, setShopFilter] = useSearchParamState('q', '');
@@ -97,6 +112,7 @@ export default function Rewards() {
   const refresh = () => {
     reloadRewards(); reloadRedemptions(); reloadBalance(); reloadExchanges();
     reloadPendingRedemptions(); reloadPendingExchanges();
+    reloadAwaiting();
   };
 
 
@@ -176,6 +192,12 @@ export default function Rewards() {
     catch (e) { setError(e.message); }
     finally { setPendingId(null); }
   };
+  const handleDeliver = async (id) => {
+    const receipt = await deliverRedemption(id);
+    setDeliveredReceipts((previous) => ({ ...previous, [id]: receipt }));
+    setDeliveryNotice(`Delivery confirmed for ${receipt.reward.name}.`);
+    refresh();
+  };
   const handleExchangeApprove = async (id) => {
     setPendingId(id);
     try { await approveExchange(id); refresh(); }
@@ -207,7 +229,7 @@ export default function Rewards() {
     });
 
   const rewards = normalizeList(rewardsData);
-  const redemptions = normalizeList(redemptionsData);
+  const redemptions = normalizeList(redemptionsData).map((row) => deliveredReceipts[row.id] || row);
   // The POST receipt survives a failed follow-up read. If history has a newer
   // decision for the same request, present that server-confirmed state instead.
   const currentReceipt = redemptionReceipt && (
@@ -222,6 +244,8 @@ export default function Rewards() {
   const coinBalance = balanceError ? null : (balanceData?.balance ?? 0);
   const pending = normalizeList(pendingRedemptionsData).filter((r) => r.status === 'pending');
   const pendingExchanges = normalizeList(pendingExchangesData).filter((e) => e.status === 'pending');
+  const awaiting = normalizeList(awaitingData).filter((row) => row.status === 'approved'
+    && ['real_world', 'both'].includes(row.reward.fulfillment_kind) && !deliveredReceipts[row.id]);
   const exchangeRate = rateData?.coins_per_dollar;
   const shopQ = shopFilter.trim().toLowerCase();
   const filteredRewards = shopQ
@@ -236,7 +260,7 @@ export default function Rewards() {
       <header className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <div className="font-script text-sheikah-teal-deep text-base">
-            Use your coins for rewards
+            {isParent ? 'Manage rewards for your family' : 'Use your coins for rewards'}
           </div>
           {/* Below md the Treasury hub's tab strip already names this page —
               the stacked h1 + explainer ate ~100px above the fold on phones. */}
@@ -244,7 +268,7 @@ export default function Rewards() {
             Rewards
           </h1>
           <div className="hidden md:block font-script text-body text-ink-whisper mt-1 max-w-xl">
-            Use earned coins for rewards. Some rewards need parent approval.
+            {isParent ? 'Review requests, deliver approved rewards, and keep the family shop up to date.' : 'Use earned coins for rewards. Some rewards need parent approval.'}
           </div>
         </div>
         {isParent && (
@@ -269,6 +293,8 @@ export default function Rewards() {
       </header>
 
       <ErrorAlert message={error} />
+      {isParent && <ChildContext children={context.children} selectedChildId={targetUserId} onSelect={context.selectChild} />}
+      {isParent && <p className="text-caption text-ink-secondary">{childName ? `Viewing ${childName}'s coin balance. ` : 'Add a child in Manage family to view their coin balance. '}Approval and delivery queues cover your whole family.</p>}
 
       {currentReceipt && (
         <ParchmentCard ref={receiptRef} className="border-moss/40 space-y-3">
@@ -276,6 +302,8 @@ export default function Rewards() {
             <h2 className="font-body text-lede font-semibold text-moss">
               {currentReceipt.status === 'pending'
                 ? 'Request sent — awaiting parent approval'
+                : currentReceipt.status === 'approved'
+                  ? 'Approved — awaiting real-world delivery'
                 : currentReceipt.status === 'fulfilled'
                   ? 'Reward received'
                   : currentReceipt.status === 'denied'
@@ -287,7 +315,7 @@ export default function Rewards() {
               <p className="font-body text-body text-ink-secondary">
                 {currentReceipt.coin_cost_snapshot} coins {currentReceipt.status === 'pending'
                   ? 'held for this request. Rejected requests return your coins.'
-                  : currentReceipt.status === 'fulfilled'
+                  : ['fulfilled', 'approved'].includes(currentReceipt.status)
                     ? 'spent on this reward.'
                     : currentReceipt.status === 'denied'
                       ? 'returned after this request was declined.'
@@ -307,7 +335,7 @@ export default function Rewards() {
         </ParchmentCard>
       )}
 
-      {loadingBalance ? <Loader /> : balanceError ? (
+      {(!isParent || targetUserId) && (loadingBalance ? <Loader /> : balanceError ? (
         <ErrorAlert
           message={`Couldn't load your coin balance. ${balanceError}`}
           onRetry={reloadBalance}
@@ -316,9 +344,10 @@ export default function Rewards() {
         <CoinBalanceCard
           coinBalance={coinBalance}
           isParent={isParent}
+          ownerName={isParent ? childName : undefined}
           onOpenExchange={() => setShowExchange(true)}
         />
-      )}
+      ))}
 
       {/* Ungated by role: these feed the parent's pending queues AND both
           roles' history accordions, so a swallowed failure silently drops a
@@ -363,6 +392,15 @@ export default function Rewards() {
           </section>
         )
       )}
+
+      {isParent && <section id="reward-deliveries" aria-label="Awaiting reward delivery" className="space-y-3 scroll-mt-28">
+        <SectionHeader title="Awaiting delivery" count={awaiting.length} />
+        {deliveryNotice && <p role="status" className="text-body text-moss">{deliveryNotice}</p>}
+        {loadingAwaiting ? <Loader /> : awaitingError
+          ? <ErrorAlert message={`Couldn't load rewards awaiting delivery. ${awaitingError}`} onRetry={reloadAwaiting} />
+          : awaiting.length > 0 ? <RewardDeliveryQueue rewards={awaiting} onDeliver={handleDeliver} />
+            : <p className="text-body text-ink-secondary">No approved rewards waiting to be handed over.</p>}
+      </section>}
 
       {isParent && (
         loadingPendingExchanges ? <Loader /> : !pendingExchangesError && pendingExchanges.length > 0 && (
@@ -478,6 +516,8 @@ export default function Rewards() {
 
       {showCoinAdjust && (
         <CoinAdjustModal
+          initialChildId={targetUserId}
+          childOptions={context.children}
           onClose={closeCoinAdjust}
           onSaved={() => { closeCoinAdjust(); refresh(); }}
         />
@@ -555,9 +595,10 @@ function ConfirmRedeemSheet({ reward, balance, onClose, onConfirm }) {
           </div>
         </div>
         <p className="font-body text-caption text-ink-secondary text-center">
-          Coins are held when you request this reward. If it needs parent
-          approval, you'll receive it after approval. You can't cancel a request
-          yourself; rejected requests return your coins.
+          Coins are held when you request this reward. Digital items arrive
+          after any required approval. Real-world rewards arrive when your
+          parent hands them over. You can&apos;t cancel a request yourself;
+          rejected requests return your coins.
         </p>
         <Button onClick={onConfirm} variant="primary" className="w-full">
           Request reward

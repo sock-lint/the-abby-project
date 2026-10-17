@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Timecards from './Timecards.jsx';
@@ -149,24 +149,25 @@ describe('Timecards', () => {
     await waitFor(() => expect(approved).toHaveBeenCalled());
   });
 
-  it('parent can mark approved timecard as paid', async () => {
+  it('canceling the completed-transfer sheet records no payment', async () => {
     const user = userEvent.setup();
     const paid = spyHandler('post', /\/api\/timecards\/2\/mark-paid\/$/, {});
     renderPage(buildParent(), [
       http.get('*/api/timecards/', () =>
-        HttpResponse.json([{ id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: '20.00', status: 'approved' }]),
+        HttpResponse.json([{ id: 2, user: 7, username: 'Abby', week_start: '2026-04-10', total_hours: 2, total_earnings: '20.00', status: 'approved' }]),
       ),
       http.get('*/api/timecards/2/', () =>
         HttpResponse.json({ id: 2, hourly_earnings: '20.00', bonus_earnings: '0.00', total_earnings: '20.00', entries: [] }),
       ),
+      http.get('*/api/payments/greenlight/overview/', () => HttpResponse.json({ approved_payable: '20.00', approved_timecards: [{ id: 2, total_earnings: '20.00', week_start: '2026-04-10' }] })),
       paid.handler,
     ]);
     await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /week of/i }));
-    await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
-    await waitFor(() => expect(paid.calls).toHaveLength(1));
-    expect(paid.calls[0].body).toEqual({ amount: '20.00' });
-    expect(paid.calls[0].url).toMatch(/\/api\/timecards\/2\/mark-paid\/$/);
+    await user.click(await screen.findByRole('button', { name: /record completed transfer/i }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Record a Greenlight transfer for Abby' }));
+    await user.click(await dialog.findByRole('button', { name: 'Cancel' }));
+    expect(paid.calls).toHaveLength(0);
   });
 
   it.each([
@@ -192,7 +193,7 @@ describe('Timecards', () => {
     await screen.findByText('Bookmark');
     expect(screen.getByText('No payment due')).toBeInTheDocument();
     expect(screen.getByText('Approved')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /mark as paid/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /record completed transfer/i })).not.toBeInTheDocument();
     expect(paid.calls).toHaveLength(0);
     if (account.role === 'child' || Number(total) < 0) {
       expect(screen.queryByRole('button', { name: 'Close timecard' })).not.toBeInTheDocument();
@@ -281,23 +282,13 @@ describe('Timecards', () => {
     await waitFor(() => expect(screen.getByText('Shed')).toBeInTheDocument());
   });
 
-  it('double-tapping Mark as paid only posts once', async () => {
-    // markTimecardPaid has no server-side status guard, so a second tap
-    // during the in-flight window really would write a second payout row.
+  it('repeated opening of a payment sheet never posts a payout before confirmation', async () => {
     const user = userEvent.setup();
-    const card = { id: 2, week_start: '2026-04-10', total_hours: 2, total_earnings: 20, status: 'approved' };
-    let listCalls = 0;
-    let releaseReload;
-    const reloadGate = new Promise((r) => { releaseReload = r; });
+    const card = { id: 2, user: 7, username: 'Abby', week_start: '2026-04-10', total_hours: 2, total_earnings: 20, status: 'approved' };
     const paid = spyHandler('post', /\/api\/timecards\/\d+\/mark-paid\/$/, { ok: true });
     renderPage(buildParent(), [
-      http.get('*/api/timecards/', async () => {
-        listCalls += 1;
-        // Hold the post-action refetch open so the button stays in its
-        // pending state long enough for a second tap.
-        if (listCalls > 1) await reloadGate;
-        return HttpResponse.json([card]);
-      }),
+      http.get('*/api/timecards/', () => HttpResponse.json([card])),
+      http.get('*/api/payments/greenlight/overview/', () => HttpResponse.json({ approved_payable: '20.00', approved_timecards: [card] })),
       http.get('*/api/timecards/2/', () =>
         HttpResponse.json({ id: 2, hourly_earnings: 20, bonus_earnings: 0, total_earnings: 20, entries: [] }),
       ),
@@ -306,17 +297,10 @@ describe('Timecards', () => {
     await waitFor(() => expect(screen.getByText('2h')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /week of/i }));
 
-    await user.click(await screen.findByRole('button', { name: /mark as paid/i }));
-    const pendingButton = await screen.findByRole('button', { name: /marking as paid/i });
-    expect(pendingButton).toBeDisabled();
-
-    await user.click(pendingButton);
-    releaseReload();
-
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /mark as paid/i })).toBeEnabled(),
-    );
-    expect(paid.calls).toHaveLength(1);
+    await user.dblClick(await screen.findByRole('button', { name: /record completed transfer/i }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Record a Greenlight transfer for Abby' }));
+    expect(await dialog.findByRole('button', { name: 'Record completed transfer' })).toBeDisabled();
+    expect(paid.calls).toHaveLength(0);
   });
 
   it('collapses an expanded timecard on second click', async () => {

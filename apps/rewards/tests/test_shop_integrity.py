@@ -158,7 +158,7 @@ class ShopIntegrityTests(ShopFixture, TestCase):
         )
         result = RewardService.request_redemption(self.child, stale)
         self.assertEqual(result.coin_cost_snapshot, 80)
-        self.assertEqual(result.status, "fulfilled")
+        self.assertEqual(result.status, "approved")
         self.assertEqual(CoinService.get_balance(self.child), 20)
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.replacement).quantity, 1)
 

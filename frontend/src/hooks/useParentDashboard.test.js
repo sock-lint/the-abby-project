@@ -68,6 +68,7 @@ describe('useParentDashboard', () => {
     });
     const fetch = spyHandler('get', `*${path}`, ({ request }) => {
       const url = new URL(request.url);
+      if (url.searchParams.get('status') === 'approved') return [];
       expect(url.searchParams.toString()).toContain(filter.slice(1));
       return url.searchParams.get('page') === '2'
         ? { count: 21, next: null, results: [makeRow(21)] }
@@ -79,13 +80,13 @@ describe('useParentDashboard', () => {
     const pending = result.current.pending.filter((row) => row.kind === kind);
     expect(pending).toHaveLength(21);
     expect(pending.some((row) => row.id === 21)).toBe(true);
-    expect(fetch.calls).toHaveLength(2);
+    expect(fetch.calls.filter((call) => new URL(call.url).searchParams.get('status') !== 'approved')).toHaveLength(2);
     expect(result.current.failedSources).toEqual([]);
   });
 
   it('reports an incomplete paginated queue as failed instead of silently showing its first page', async () => {
     const fetch = spyHandler('get', '*/api/redemptions/', ({ request }) =>
-      new URL(request.url).searchParams.has('page')
+      new URL(request.url).searchParams.get('status') === 'approved' ? [] : new URL(request.url).searchParams.has('page')
         ? HttpResponse.json({ detail: 'Temporary failure' }, { status: 503 })
         : {
           count: 21, next: 'http://localhost/api/redemptions/?status=pending&page=2',
@@ -97,7 +98,7 @@ describe('useParentDashboard', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.failedSources).toContain('reward redemptions');
     expect(result.current.pending.filter((row) => row.kind === 'redemption')).toEqual([]);
-    expect(fetch.calls).toHaveLength(2);
+    expect(fetch.calls.filter((call) => new URL(call.url).searchParams.get('status') !== 'approved')).toHaveLength(2);
   });
 
   it('counts every pending print page without adding prints to the inline approval queue', async () => {
@@ -118,7 +119,7 @@ describe('useParentDashboard', () => {
     expect(result.current.pendingPrintCount).toBe(21);
     expect(result.current.pending).toEqual([]);
     expect(result.current.failedSources).toEqual([]);
-    expect(fetch.calls).toHaveLength(2);
+    expect(fetch.calls.filter((call) => new URL(call.url).searchParams.get('status') !== 'approved')).toHaveLength(2);
   });
 
   it('counts parent print decisions without counting quotes that await the child', async () => {
@@ -152,7 +153,7 @@ describe('useParentDashboard', () => {
     expect(result.current.failedSources).toContain('print approvals');
     expect(result.current.pendingPrintCount).toBe(0);
     expect(result.current.pending).toEqual([]);
-    expect(fetch.calls).toHaveLength(2);
+    expect(fetch.calls.filter((call) => new URL(call.url).searchParams.get('status') !== 'approved')).toHaveLength(2);
   });
 
   it('includes pending money→coins exchange requests', async () => {

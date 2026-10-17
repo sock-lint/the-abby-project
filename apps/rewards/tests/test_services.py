@@ -4,7 +4,6 @@ from decimal import Decimal
 from django.test import TestCase
 
 from apps.notifications.models import Notification
-from apps.payments.models import PaymentLedger
 from apps.payments.services import PaymentService
 from apps.projects.models import User
 from apps.rewards.models import CoinLedger, ExchangeRequest, Reward, RewardRedemption
@@ -108,18 +107,18 @@ class RewardServiceTests(_Fixture):
             ).exists()
         )
 
-    def test_auto_fulfill_without_approval(self):
+    def test_real_world_without_approval_still_awaits_delivery(self):
         no_approval = Reward.objects.create(
             name="Sticker", cost_coins=10, is_active=True,
             requires_parent_approval=False,
         )
         redemption = RewardService.request_redemption(self.child, no_approval)
-        self.assertEqual(redemption.status, RewardRedemption.Status.FULFILLED)
+        self.assertEqual(redemption.status, RewardRedemption.Status.APPROVED)
 
     def test_approve_redemption(self):
         redemption = RewardService.request_redemption(self.child, self.reward)
         result = RewardService.approve(redemption, self.parent, notes="Enjoy!")
-        self.assertEqual(result.status, RewardRedemption.Status.FULFILLED)
+        self.assertEqual(result.status, RewardRedemption.Status.APPROVED)
         result.refresh_from_db()
         self.assertEqual(result.decided_by, self.parent)
 
@@ -128,7 +127,7 @@ class RewardServiceTests(_Fixture):
         RewardService.approve(redemption, self.parent)
         # Second approve should not crash.
         result = RewardService.approve(redemption, self.parent)
-        self.assertEqual(result.status, RewardRedemption.Status.FULFILLED)
+        self.assertEqual(result.status, RewardRedemption.Status.APPROVED)
 
     def test_reject_refunds_coins(self):
         redemption = RewardService.request_redemption(self.child, self.reward)

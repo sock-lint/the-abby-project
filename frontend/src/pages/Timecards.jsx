@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, ChevronUp, Download } from 'lucide-react';
 import {
-  getTimecards, getTimecard, approveTimecard, disputeTimecard, markTimecardPaid, closeTimecard,
+  getTimecards, getTimecard, approveTimecard, disputeTimecard, closeTimecard,
   downloadTimecardsCsv,
 } from '../api';
 import usePagedList from '../hooks/usePagedList';
@@ -13,6 +13,9 @@ import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import { ScrollIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
+import { getToken } from '../api/client';
+import { TextAreaField } from '../components/form';
+import TimecardTransferSheet from './payments/TimecardTransferSheet';
 import Button from '../components/Button';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
@@ -22,11 +25,11 @@ const fetchTimecardPage = (page) => getTimecards(page > 1 ? { page } : {});
 export default function Timecards() {
   const { user } = useRole();
   if (!user) return <ParchmentSkeleton variant="list" count={5} />;
-  return <AccountTimecards key={`${user.id}:${user.role}:${user.family?.id || ''}`} />;
+  return <AccountTimecards key={`${user.id}:${user.role}:${user.family?.id || ''}:${getToken()}`} />;
 }
 
 function AccountTimecards() {
-  const { isParent } = useRole();
+  const { user, isParent } = useRole();
   const history = usePagedList(fetchTimecardPage);
   const { items: timecards, loading, error: loadError, reload } = history;
   const [expandedId, setExpandedId] = useState(null);
@@ -34,6 +37,10 @@ function AccountTimecards() {
   const [detailError, setDetailError] = useState('');
   const [error, setError] = useState('');
   const [exportError, setExportError] = useState('');
+  const [parentNote, setParentNote] = useState('');
+  const [transferCard, setTransferCard] = useState(null);
+  const [notice, setNotice] = useState('');
+  const detailRequest = useRef(0);
   // Keep all row actions disabled while a decision or refresh is in flight.
   const [pendingId, setPendingId] = useState(null);
   // Per-row refs keyed by timecard id so we can scroll the expanded card
@@ -41,12 +48,16 @@ function AccountTimecards() {
   // pushes its detail below the fold and the user has to scroll manually.
   const rowRefs = useRef({});
   const loadDetail = async (id) => {
+    const request = ++detailRequest.current;
     setDetail(null);
     setDetailError('');
     try {
       const d = await getTimecard(id);
+      if (request !== detailRequest.current) return;
       setDetail(d);
+      setParentNote(d.parent_notes || '');
     } catch (err) {
+      if (request !== detailRequest.current) return;
       // Without this the promise rejected unhandled and the row simply
       // never opened — indistinguishable from a dead tap.
       setDetailError(err?.message || 'Could not open this week.');
@@ -68,6 +79,7 @@ function AccountTimecards() {
 
   const toggleExpand = (id) => {
     if (expandedId === id) {
+      detailRequest.current += 1;
       setExpandedId(null);
       setDetail(null);
       setDetailError('');
@@ -97,15 +109,14 @@ function AccountTimecards() {
   const handleAction = async (id, action) => {
     if (pendingId) return;
     setError('');
+    setNotice('');
     setPendingId(id);
     try {
-      if (action === 'approve') await approveTimecard(id, '');
-      else if (action === 'dispute') await disputeTimecard(id);
-      else if (action === 'close') await closeTimecard(id);
-      else if (action === 'pay') {
-        const tc = timecards.find((t) => t.id === id);
-        await markTimecardPaid(id, tc?.total_earnings);
-      }
+      let result;
+      if (action === 'approve') result = await approveTimecard(id, parentNote.trim());
+      else if (action === 'dispute') result = await disputeTimecard(id);
+      else if (action === 'close') result = await closeTimecard(id);
+      if (result?.id === id) setDetail((current) => current?.id === id ? { ...current, ...result } : current);
       await reload();
     } catch (err) {
       setError(err.message);
@@ -124,7 +135,7 @@ function AccountTimecards() {
   return (
     <PageShell rhythm="loose">
       <PageHeader
-        title="Timecards" kicker="Weekly hours and earnings from your clocked time"
+        title="Timecards" kicker={isParent ? "Review your family's weekly hours and earnings" : 'Weekly hours and earnings from your clocked time'}
         actions={<Button
           size="sm" variant="ghost" onClick={handleExport}
           className="flex items-center gap-1" title="Export timecards to CSV"
@@ -135,6 +146,7 @@ function AccountTimecards() {
 
       {exportError && <ErrorAlert message={exportError} />}
       <ErrorAlert message={error} />
+      {notice && <p role="status" className="text-body text-moss">{notice}</p>}
 
       {!loading && !loadError && <p role="status" className="text-caption text-ink-secondary">Showing {timecards.length} of {history.count} timecards</p>}
       {history.refreshing && <p role="status" className="text-body text-ink-secondary">Refreshing timecards…</p>}
@@ -145,7 +157,7 @@ function AccountTimecards() {
         <ErrorAlert message={`Couldn't load your timecards. ${loadError}`} onRetry={reload} />
       ) : timecards.length === 0 ? (
         <EmptyState icon={<ScrollIcon size={36} />}>
-          No timecards yet. Clock in on a project to start tracking your hours.
+          {isParent ? 'No timecards to review yet. Weekly cards appear after your children log project time.' : 'No timecards yet. Clock in on a project to start tracking your hours.'}
         </EmptyState>
       ) : (
         <div className="space-y-3">
@@ -162,6 +174,7 @@ function AccountTimecards() {
                 <button
                   type="button"
                   onClick={() => toggleExpand(tc.id)}
+                  aria-expanded={expandedId === tc.id}
                   className="w-full flex items-center justify-between text-left gap-3 flex-wrap"
                 >
                   <div className="min-w-0 flex-1">
@@ -244,41 +257,50 @@ function AccountTimecards() {
                         {detail.entries?.map((e) => (
                           <div
                             key={e.id}
-                            className="flex justify-between text-caption py-1.5 border-b border-ink-page-shadow/40 last:border-0"
+                            className="text-caption py-2 border-b border-ink-page-shadow/40 last:border-0 space-y-1"
                           >
-                            <div>
-                              <span className="font-body font-medium text-ink-primary">
-                                {e.project_title}
-                              </span>
-                              <span className="font-script text-ink-whisper ml-2">
-                                {formatDate(e.clock_in)}
+                            <div className="flex justify-between gap-3 flex-wrap">
+                              <div>
+                                <span className="font-body font-medium text-ink-primary">
+                                  {e.project_title}
+                                </span>
+                                <span className="font-script text-ink-whisper ml-2">
+                                  {formatDate(e.clock_in)}
+                                </span>
+                              </div>
+                              <span className="font-rune text-ink-secondary tabular-nums">
+                                {e.duration_minutes ? formatDuration(e.duration_minutes) : '—'}
                               </span>
                             </div>
-                            <span className="font-rune text-ink-secondary tabular-nums">
-                              {e.duration_minutes ? formatDuration(e.duration_minutes) : '—'}
-                            </span>
+                            {e.notes && <p className="font-body text-body text-ink-secondary whitespace-pre-wrap break-words">{e.notes}</p>}
+                            {e.auto_clocked_out && <p className="font-body text-caption text-ember-deep">Automatically clocked out — review this session&apos;s duration.</p>}
                           </div>
                         ))}
-                        {isParent && tc.status === 'pending' && (
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              variant="success"
-                              size="sm"
-                              onClick={() => handleAction(tc.id, 'approve')}
-                              disabled={pendingId !== null}
-                              className="flex-1"
-                            >
-                              {pendingId === tc.id ? 'Working…' : 'Approve'}
-                            </Button>
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleAction(tc.id, 'dispute')}
-                              disabled={pendingId !== null}
-                              className="flex-1"
-                            >
-                              Dispute
-                            </Button>
+                        {detail.parent_notes && !['pending', 'disputed'].includes(tc.status) && <p className="font-body text-body text-ink-secondary whitespace-pre-wrap break-words">Parent note: {detail.parent_notes}</p>}
+                        {isParent && ['pending', 'disputed'].includes(tc.status) && (
+                          <div className="space-y-3 pt-2">
+                            {tc.status === 'disputed' && <p className="text-body text-ink-secondary">Review the work together, then resolve this timecard when its hours are correct.</p>}
+                            <TextAreaField label="Parent note (optional)" value={parentNote} onChange={(event) => setParentNote(event.target.value)} disabled={pendingId !== null} />
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                variant="success"
+                                size="sm"
+                                onClick={() => handleAction(tc.id, 'approve')}
+                                disabled={pendingId !== null}
+                                className="flex-1"
+                              >
+                                {pendingId === tc.id ? 'Working…' : tc.status === 'disputed' ? 'Resolve and approve' : 'Approve'}
+                              </Button>
+                              {tc.status === 'pending' && <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleAction(tc.id, 'dispute')}
+                                disabled={pendingId !== null}
+                                className="flex-1"
+                              >
+                                Dispute
+                              </Button>}
+                            </div>
                           </div>
                         )}
                         {(tc.status === 'approved' || tc.status === 'closed') && Number(tc.total_earnings) <= 0 && (
@@ -299,13 +321,11 @@ function AccountTimecards() {
                         {isParent && tc.status === 'approved' && Number(tc.total_earnings) > 0 && (
                           <Button
                             size="sm"
-                            onClick={() => handleAction(tc.id, 'pay')}
+                            onClick={() => setTransferCard(tc)}
                             disabled={pendingId !== null}
                             className="w-full"
                           >
-                            {pendingId === tc.id
-                              ? 'Marking as paid…'
-                              : `Mark as paid (${formatCurrency(tc.total_earnings)})`}
+                            {`Record completed transfer (${formatCurrency(tc.total_earnings)})`}
                           </Button>
                         )}
                       </div>
@@ -323,6 +343,13 @@ function AccountTimecards() {
           {history.moreError ? 'Try loading more timecards again' : 'Load more timecards'}
         </Button>
       )}
+      {transferCard && <TimecardTransferSheet timecard={transferCard}
+        ownerKey={`${user.id}:${user.family?.id || ''}:${transferCard.user}`}
+        onClose={() => setTransferCard(null)} onSaved={() => {
+          setNotice(`Completed transfer recorded for ${transferCard.username || 'this child'}.`);
+          setTransferCard(null);
+          void reload();
+        }} />}
     </PageShell>
   );
 }

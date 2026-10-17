@@ -7,11 +7,13 @@ import { normalizeList } from '../../utils/api';
 import Button from '../../components/Button';
 import { TextField, SelectField } from '../../components/form';
 
-export default function CoinAdjustModal({ onClose, onSaved }) {
+export default function CoinAdjustModal({ onClose, onSaved, initialChildId, childOptions }) {
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
-    user_id: '', amount: '', description: '',
+    user_id: initialChildId ? String(initialChildId) : '', amount: '', description: '',
   });
-  const { data: childrenRes, loading: loadingChildren } = useApi(getChildren);
+  const { data: childrenRes, loading: loadingChildren } = useApi(
+    () => childOptions ? Promise.resolve(childOptions) : getChildren(), [childOptions],
+  );
   const children = normalizeList(childrenRes);
 
   const onField = (k) => (e) => set({ [k]: e.target.value });
@@ -69,7 +71,7 @@ export default function CoinAdjustModal({ onClose, onSaved }) {
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-ink-whisper hover:text-ink-primary">
             Cancel
           </button>
-          <Button type="submit" size="sm" loading={saving}>
+          <Button type="submit" size="sm" loading={saving} disabled={loadingChildren || !children.some((child) => String(child.id) === form.user_id)}>
             Adjust
           </Button>
         </div>

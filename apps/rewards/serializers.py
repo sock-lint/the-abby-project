@@ -112,7 +112,7 @@ class RewardRedemptionSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "user_name", "reward", "status",
             "coin_cost_snapshot", "requested_at", "decided_at",
-            "decided_by", "parent_notes",
+            "decided_by", "parent_notes", "delivered_at", "delivered_by",
         ]
         read_only_fields = fields
 
