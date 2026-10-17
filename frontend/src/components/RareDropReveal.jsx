@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 
@@ -12,6 +13,24 @@ import {
   RARITY_GLOW_COLORS,
   RARITY_TEXT_COLORS,
 } from '../constants/colors';
+
+// Links lead to the existing explicit controls; they never consume or equip.
+function dropItemAction(drop) {
+  const inventory = { label: 'View inventory', to: '/treasury?tab=satchel' };
+  if (drop.was_salvaged || drop.item_catalog_available === false) return inventory;
+  switch (drop.item_type) {
+    case 'cosmetic_frame': return { label: 'Choose profile frame', to: '/sigil' };
+    case 'cosmetic_title': return { label: 'Choose profile title', to: '/sigil' };
+    case 'cosmetic_theme': return { label: 'Change color theme', to: '/settings#appearance' };
+    case 'egg':
+    case 'potion': return { label: 'Go to hatching', to: '/bestiary?tab=hatchery' };
+    case 'food': return { label: 'Feed a pet', to: '/bestiary?tab=companions' };
+    case 'coin_pouch': return { label: 'Open in inventory', to: inventory.to };
+    case 'consumable': return { label: 'Use in inventory', to: inventory.to };
+    case 'quest_scroll': return { label: 'View challenges', to: '/quests?tab=trials' };
+    default: return inventory;
+  }
+}
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -53,6 +72,7 @@ export default function RareDropReveal({ drop, onDismiss }) {
   // speak — a kid learns the tier by its hue, so the reveal must not recolor it.
   const label = rarity.charAt(0).toUpperCase() + rarity.slice(1);
   const glow = `0 0 64px 10px color-mix(in srgb, ${RARITY_GLOW_COLORS[rarity]} 55%, transparent)`;
+  const action = dropItemAction(drop);
 
   const dismiss = () => onDismiss?.(drop.id);
 
@@ -82,7 +102,7 @@ export default function RareDropReveal({ drop, onDismiss }) {
               ? { duration: 0.15 }
               : { duration: 0.55, ease: [0.22, 1.4, 0.36, 1] }
           }
-          className={`relative parchment-bg-aged p-8 text-center max-w-sm w-[88%] rounded-2xl border-2 ${RARITY_BORDER_COLORS[rarity]}`}
+          className={`relative parchment-bg-aged p-8 text-center max-w-sm w-[88%] max-h-[90dvh] overflow-y-auto rounded-2xl border-2 ${RARITY_BORDER_COLORS[rarity]}`}
           style={{ boxShadow: glow }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -118,15 +138,22 @@ export default function RareDropReveal({ drop, onDismiss }) {
           </h2>
           {drop.was_salvaged ? (
             <p className="mt-1 font-script text-body text-ink-whisper">
-              already in your collection — salvaged for coins.
+              {drop.salvage_coins !== null && drop.salvage_coins !== undefined
+                ? `Already in your collection · exchanged for ${drop.salvage_coins} coins.`
+                : 'Already in your collection — salvaged for coins.'}
             </p>
           ) : (
             <p className="mt-1 font-script text-body text-ink-whisper">
               added to your inventory.
             </p>
           )}
-          <div className="mt-6">
-            <Button variant="primary" onClick={dismiss}>
+          {!drop.was_salvaged && drop.item_description && <p className="mt-3 font-body text-body text-ink-secondary">{drop.item_description}</p>}
+          {!drop.was_salvaged && drop.item_effect_summary && drop.item_effect_summary !== drop.item_description && <p className="mt-2 font-body text-body text-ink-secondary">{drop.item_effect_summary}</p>}
+          <div className="mt-6 flex flex-col gap-2">
+            <Link className="min-h-11 flex items-center justify-center rounded-full bg-sheikah-teal-deep px-4 py-2 font-body font-semibold text-ink-page-rune-glow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal" to={action.to} onClick={dismiss}>
+              {action.label}
+            </Link>
+            <Button variant="ghost" onClick={dismiss}>
               Continue →
             </Button>
           </div>

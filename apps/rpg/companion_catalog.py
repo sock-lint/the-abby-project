@@ -10,7 +10,7 @@ from .catalog_support import egg_species, item_is_available
 
 
 # The previous production pool had one common Chick egg, authored weight 10.
-# Fifteen equally weighted family eggs share that same category budget.
+# Fifteen family eggs share that category budget, retaining their rarity weights.
 EGG_CATEGORY_WEIGHT = 10
 
 

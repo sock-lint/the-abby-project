@@ -6,9 +6,11 @@ from django.db import connection
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
+from apps.achievements.models import Badge, UserBadge
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.goals import create_goal
 from apps.quests.models import ChallengeEnrollment, ChallengeGoal, ChallengeOccurrence, QuestDefinition, QuestRewardItem
+from apps.rewards.models import CoinLedger
 from apps.rpg.models import DropLog, ItemDefinition
 from config.tests import test_api_contract_fixtures as shared
 from config.tests.factories import make_family
@@ -59,7 +61,31 @@ class CatalogIconApiResponseFixtureTests(APITestCase):
         self.client.force_authenticate(self.child)
         drops = self.assert_response_fixture(self.client.get("/api/drops/recent/"), "catalog-icons-drops.json")
         self.assertEqual(drops[0]["item_catalog_icon"], "item-fish-cooked")
+        self.assertEqual(drops[0]["item_type"], "food")
+        self.assertIn("Adds 5 growth", drops[0]["item_effect_summary"])
+        self.assertIsNone(drops[0]["salvage_coins"])
+        self.assertEqual(next(row for row in items if row["id"] == self.fish.pk)["acquisition_sources"], [{
+            "kind": "challenge", "name": "Feather Collector", "path": "/quests?tab=trials",
+        }])
         goals = self.assert_response_fixture(self.client.get("/api/challenges/"), "catalog-icons-goals.json")
         self.assertEqual({row["origin"]: row["catalog_icon"] for row in goals["results"]}, {
             "catalog": "challenge-feather-collector", "parent": None,
         })
+
+    def test_catalog_and_earned_badges_expose_base_coin_bonus_without_awarding_again(self):
+        badge = Badge.objects.create(id=101, name="Fixture rare achievement", rarity="rare", criteria_type="first_project", xp_bonus=30)
+        Badge.objects.create(id=102, name="Fixture honor badge", rarity="legendary", criteria_type="first_project", award_coins=False)
+        UserBadge.objects.create(id=103, user=self.child, badge=badge)
+        outsider = make_family("Other badge household", family_id=72, children=[{"id": 99, "username": "badge-fixture-outsider"}]).children[0]
+        UserBadge.objects.create(id=104, user=outsider, badge=badge)
+        coins_before = list(CoinLedger.objects.order_by("pk").values())
+        self.client.force_authenticate(self.child)
+        catalog = self.assert_response_fixture(self.client.get("/api/badges/"), "badges-rarity-bonuses.json")
+        rows = {row["id"]: row for row in catalog["results"]}
+        self.assertEqual(rows[101]["coin_bonus"], 35)
+        self.assertEqual(rows[102]["coin_bonus"], 0)
+        earned = self.assert_response_fixture(self.client.get("/api/badges/earned/"), "badges-earned-rarity-bonuses.json")
+        self.assertEqual(earned["results"][0]["badge"]["coin_bonus"], 35)
+        self.assertEqual([(row["id"], row["user"]) for row in earned["results"]], [(103, self.child.pk)])
+        self.assertEqual(UserBadge.objects.filter(user=self.child).count(), 1)
+        self.assertEqual(list(CoinLedger.objects.order_by("pk").values()), coins_before)

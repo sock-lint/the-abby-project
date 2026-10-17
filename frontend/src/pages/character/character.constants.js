@@ -107,21 +107,16 @@ export function slotRarityCounts(entries) {
 }
 
 /**
- * Fallback hint used for un-owned cosmetic tiles. Uses `item.description`
- * when present, otherwise a rarity-flavored default ("drops at rare
- * rarity" etc.). Kept here so the three places that render sigils
- * (catalog, picker, slot) render the same copy.
+ * Prefer the server's currently eligible earning sources. Rarity alone does
+ * not establish that a reward drops or which activity can grant it.
  */
 export function cosmeticLockHint(item) {
   if (!item) return '';
+  const source = item.acquisition_sources?.find((entry) => entry.name);
+  if (source?.kind === 'challenge') return `Complete ${source.name} to earn this.`;
+  if (source?.kind === 'drop') return `Can drop from ${source.name}.`;
   if (item.description) return item.description;
-  switch (item.rarity) {
-    case 'legendary': return 'a legendary drop — exceedingly rare';
-    case 'epic':      return 'an epic drop — rare';
-    case 'rare':      return 'a rare drop';
-    case 'uncommon':  return 'uncommon — earn from quests and milestones';
-    default:          return 'earn from drops and daily tasks';
-  }
+  return 'Not yet owned';
 }
 
 export { RARITY_KEYS };

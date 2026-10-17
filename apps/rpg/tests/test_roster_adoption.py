@@ -33,7 +33,7 @@ class RosterLoadingTests(TestCase):
             self.assertEqual(egg.metadata, {"species": species.slug})
             self.assertTrue(item_is_available(egg))
             self.assertEqual(egg.coin_value, 3)
-            self.assertEqual(egg.rarity, "common")
+            self.assertEqual(egg.rarity, species.rarity)
             self.assertEqual(species.food_preference, "")
             self.assertFalse(species.foods.exists())
         self.assertNotEqual(PetSpecies.objects.get(slug="wolf").pk, PetSpecies.objects.get(slug="meshtint-wolf").pk)
@@ -160,13 +160,13 @@ class RosterLoadingTests(TestCase):
         weights = companion_drop_weights(entries)
         eggs = [(entry, weight) for entry, weight in zip(entries, weights) if entry.item.item_type == "egg"]
         self.assertEqual(len(eggs), 15)
-        self.assertEqual(sum(entry.weight for entry, _weight in eggs), 150)
+        self.assertEqual(sum(entry.weight for entry, _weight in eggs), 83)
         self.assertAlmostEqual(sum(weight for _entry, weight in eggs), 10)
         other_total = sum(entry.weight for entry in entries if entry.item.item_type != "egg")
         self.assertEqual(other_total, 480)  # Base 10 + coin pouches 60 + food 410.
         self.assertAlmostEqual(sum(weights), other_total + 10)
         for entry, weight in zip(entries, weights):
-            self.assertAlmostEqual(weight, 10 / 15 if entry.item.item_type == "egg" else entry.weight)
+            self.assertAlmostEqual(weight, entry.weight * 10 / 83 if entry.item.item_type == "egg" else entry.weight)
         self.assertAlmostEqual(sum(weight for _entry, weight in eggs) / sum(weights), 10 / (10 + other_total))
         for factor in [70, 50, 35]:
             biased = [entry.weight * factor for entry in entries]
@@ -182,7 +182,7 @@ class RosterLoadingTests(TestCase):
         combined = companion_drop_weights([*entries, custom_entry])
         self.assertEqual(combined[-1], 7)
 
-    def test_real_drop_and_expedition_rolls_share_the_preserved_egg_budget(self):
+    def test_real_drop_and_expedition_rolls_keep_acquisition_tier_probabilities(self):
         from apps.pets.expeditions import ExpeditionService
         from apps.rpg.services import DropService
 
@@ -199,15 +199,24 @@ class RosterLoadingTests(TestCase):
         ):
             DropService.process_drops(user, "clock_out")
         entries, weights = captures.pop()
-        self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.item_type == "egg"), 10)
+        for rarity, budget in {"common": 60, "uncommon": 25, "rare": 10, "epic": 4, "legendary": 1}.items():
+            self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.rarity == rarity), budget)
+            egg_weights = [weight for entry, weight in zip(entries, weights) if entry.item.item_type == "egg" and entry.item.rarity == rarity]
+            self.assertTrue(egg_weights)
+            self.assertTrue(all(weight > 0 for weight in egg_weights))
+            self.assertTrue(all(abs(weight - egg_weights[0]) < 1e-8 for weight in egg_weights))
         with patch("apps.pets.expeditions.random.choices", side_effect=select_food):
             ExpeditionService._roll_loot(user, "short")
         entries, weights = captures.pop()
-        # The fallback includes clock_out and chore_complete, both retaining
-        # weight 10, then the existing short/common rarity factor of 70.
-        self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.item_type == "egg"), 2 * 10 * 70)
+        for rarity, budget in {"common": 70, "uncommon": 25, "rare": 5, "epic": 0, "legendary": 0}.items():
+            self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.rarity == rarity), budget)
+        # Every egg in a positive tier shares that tier's egg allocation; new
+        # families cannot multiply either the overall tier or egg odds.
+        common_eggs = [weight for entry, weight in zip(entries, weights) if entry.item.item_type == "egg" and entry.item.rarity == "common"]
+        self.assertEqual(len(common_eggs), 10)  # Five families in two fallback triggers.
+        self.assertTrue(all(weight > 0 and abs(weight - common_eggs[0]) < 1e-8 for weight in common_eggs))
 
-    def test_mystery_box_keeps_its_existing_five_weight_egg_category(self):
+    def test_mystery_box_keeps_egg_category_bounded_with_mixed_acquisition_rarities(self):
         from apps.rpg.services import ConsumableService
 
         ContentPack("content/rpg/initial").load(stdout=StringIO())
@@ -217,12 +226,18 @@ class RosterLoadingTests(TestCase):
         captured = []
 
         def select_food(items, *, weights, k):
-            captured.append(sum(weight for item, weight in zip(items, weights) if item.item_type == "egg"))
+            captured.append((items, weights))
             return [next(item for item in items if item.item_type == "food")]
 
         with patch("apps.rpg.services.random.choices", side_effect=select_food):
             ConsumableService.use(user, box.pk)
-        self.assertAlmostEqual(captured[0], 5)
+        items, weights = captured[0]
+        for rarity, budget in {"common": 70, "uncommon": 30}.items():
+            self.assertAlmostEqual(sum(weight for item, weight in zip(items, weights) if item.rarity == rarity), budget)
+            egg_weights = [weight for item, weight in zip(items, weights) if item.item_type == "egg" and item.rarity == rarity]
+            self.assertEqual(len(egg_weights), 5)
+            self.assertTrue(all(weight > 0 and abs(weight - egg_weights[0]) < 1e-8 for weight in egg_weights))
+            self.assertLess(sum(egg_weights), budget)
 
     def test_all_prepared_families_use_explicit_server_growth_rules(self):
         from apps.pets.lifecycle import companion_lifecycle_stage, growth_thresholds

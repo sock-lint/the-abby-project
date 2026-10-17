@@ -5,8 +5,9 @@ from . import views
 
 router = DefaultRouter()
 router.register(r"categories", views.SkillCategoryViewSet, basename="category")
-router.register(r"badges", views.BadgeViewSet, basename="badge")
+# Keep this specific list ahead of the broad /badges/<pk>/ detail route.
 router.register(r"badges/earned", views.UserBadgeViewSet, basename="user-badge")
+router.register(r"badges", views.BadgeViewSet, basename="badge")
 router.register(r"subjects", views.SubjectViewSet, basename="subject")
 router.register(r"skills", views.SkillViewSet, basename="skill")
 router.register(r"skill-progress", views.SkillProgressViewSet, basename="skill-progress")

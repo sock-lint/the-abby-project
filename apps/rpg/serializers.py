@@ -199,6 +199,8 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):
+    effect_summary = serializers.SerializerMethodField()
+    acquisition_sources = serializers.SerializerMethodField()
     name = serializers.CharField(source="display_name", read_only=True)
     catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
@@ -214,7 +216,7 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
         model = ItemDefinition
         fields = [
             "id", "slug", "name", "description", "icon", "sprite_key", "catalog_icon", "item_type", "type_display",
-            "rarity", "rarity_display", "coin_value", "metadata",
+            "rarity", "rarity_display", "coin_value", "metadata", "effect_summary", "acquisition_sources",
             "pet_species_name", "potion_type_name", "food_species_name", "catalog_available",
             "lifecycle_stage", "pet_species_slug",
         ]
@@ -222,6 +224,16 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_available(self, obj):
         return item_is_available(obj)
+
+    def get_effect_summary(self, obj):
+        from .item_effects import effect_summary
+        return effect_summary(obj)
+
+    def get_acquisition_sources(self, obj):
+        if not item_is_available(obj):
+            return []
+        from .acquisition import sources_for_request
+        return sources_for_request(self.context.get("request")).get(obj.pk, [])
 
     def get_catalog_icon(self, obj):
         return item_catalog_icon(obj)
@@ -311,14 +323,28 @@ class DropLogSerializer(serializers.ModelSerializer):
     item_icon = serializers.CharField(source="item.icon", read_only=True)
     item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
     item_rarity = serializers.CharField(source="item.rarity", read_only=True)
+    item_type = serializers.CharField(source="item.item_type", read_only=True)
+    item_description = serializers.CharField(source="item.description", read_only=True)
+    item_metadata = serializers.JSONField(source="item.metadata", read_only=True)
+    item_catalog_available = serializers.SerializerMethodField()
+    item_effect_summary = serializers.SerializerMethodField()
+    salvage_coins = serializers.IntegerField(read_only=True, allow_null=True)
 
     class Meta:
         model = DropLog
         fields = [
             "id", "item", "item_name", "item_icon", "item_sprite_key", "item_catalog_icon", "item_rarity",
-            "trigger_type", "quantity", "was_salvaged", "created_at",
+            "item_type", "item_description", "item_metadata", "item_catalog_available", "item_effect_summary",
+            "trigger_type", "quantity", "was_salvaged", "salvage_coins", "created_at",
         ]
         read_only_fields = fields
 
     def get_item_catalog_icon(self, obj):
         return item_catalog_icon(obj.item)
+
+    def get_item_catalog_available(self, obj):
+        return item_is_available(obj.item)
+
+    def get_item_effect_summary(self, obj):
+        from .item_effects import effect_summary
+        return effect_summary(obj.item)

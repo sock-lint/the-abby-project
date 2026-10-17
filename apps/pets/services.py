@@ -382,7 +382,8 @@ class PetService:
             food_type = str(food_item.metadata.get("food_type", "")).strip()
             if food_type and food_type == pet.species.food_preference:
                 is_preferred = True
-        growth = GROWTH_PREFERRED_FOOD if is_preferred else GROWTH_NEUTRAL_FOOD
+        from apps.rpg.item_effects import PREFERRED_FOOD_BONUS, food_base_growth
+        growth = food_base_growth(food_item) + (PREFERRED_FOOD_BONUS if is_preferred else 0)
         if profile.pet_growth_boost_remaining > 0:
             growth *= 2
             profile.pet_growth_boost_remaining -= 1

@@ -25,9 +25,17 @@
         "xp": 24,
         "items": [
           {
+            "item_id": 601,
             "item_name": "Fixture team food",
-            "item_catalog_icon": null,
             "item_icon": "food",
+            "item_sprite_key": "",
+            "item_catalog_icon": null,
+            "item_rarity": "common",
+            "item_type": "food",
+            "item_description": "",
+            "item_metadata": {},
+            "item_effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+            "item_catalog_available": true,
             "quantity": 2
           }
         ]

@@ -72,7 +72,7 @@ describe('server-confirmed RPG progression and purchased promises', () => {
       quest_id: 1, completed: true, new_progress: 1, target: 1,
       rewards: {
         coins: 13, xp: 24,
-        items: [{ item_name: 'Fixture team food', item_icon: 'food', item_catalog_icon: null, quantity: 2 }],
+        items: [{ item_id: 601, item_name: 'Fixture team food', item_icon: 'food', item_catalog_icon: null, quantity: 2, item_rarity: 'common', item_type: 'food', item_catalog_available: true }],
       },
     });
     expect(requests).toEqual([{ method: 'POST', path: '/api/habits/9/log/', body: { direction: 1 } }]);

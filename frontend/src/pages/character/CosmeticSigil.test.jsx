@@ -21,6 +21,16 @@ beforeEach(() => {
 });
 
 describe('CosmeticSigil', () => {
+  it('links an unowned reward to its server-confirmed challenge without equipping it', async () => {
+    const onEquip = vi.fn();
+    const { user } = renderWithProviders(<CosmeticSigil entry={{ item: { ...baseItem, acquisition_sources: [{ kind: 'challenge', name: 'Steady reader', path: '/quests?tab=trials' }] }, owned: false, equipped: false }} slot="active_frame" onEquip={onEquip} />);
+    expect(screen.getByText('Complete Steady reader to earn this.')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'View challenge' });
+    expect(link).toHaveAttribute('href', '/quests?tab=trials');
+    await user.click(link);
+    expect(onEquip).not.toHaveBeenCalled();
+  });
+
   it('renders an owned-but-not-equipped tile as a clickable button', () => {
     renderWithProviders(
       <CosmeticSigil
