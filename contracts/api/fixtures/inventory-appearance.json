@@ -3,6 +3,7 @@
     "id": 74,
     "item": {
       "id": 54,
+      "slug": "frame-gold",
       "name": "Gold Frame",
       "description": "",
       "icon": "G",
@@ -19,7 +20,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -35,6 +38,7 @@
     "id": 75,
     "item": {
       "id": 55,
+      "slug": "cover-vigil",
       "name": "Twilight Meadow",
       "description": "",
       "icon": "T",
@@ -51,7 +55,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",

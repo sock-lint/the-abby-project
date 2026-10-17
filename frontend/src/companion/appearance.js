@@ -1,6 +1,7 @@
 import { isCatalogAvailable } from '../utils/catalogAvailability';
 import { resolveSharedBirdAppearance } from './sharedBirdRelease';
-import { birdStage, birdFormName } from './birdEvolution';
+import { companionFormName, companionStage } from './lifecycle';
+import { resolveRosterAppearance } from './sharedRosterRelease';
 
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
@@ -8,15 +9,16 @@ const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, im
 const assets = import.meta.glob('./licensed/*.glb', { eager: true, query: '?url', import: 'default' });
 const manifest = manifests['./licensed/manifest.json'];
 
-export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets, shared) {
+export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets, shared, roster) {
   const suppliedLegacy = source !== manifest || urls !== assets;
-  const prepared = resolveSharedBirdAppearance(creature, kind, shared === undefined && suppliedLegacy ? null : shared);
+  const prepared = resolveSharedBirdAppearance(creature, kind, shared === undefined && suppliedLegacy ? null : shared)
+    || resolveRosterAppearance(creature, kind, roster === undefined && suppliedLegacy ? null : roster);
   if (prepared) {
     const woodland = source?.models?.woodland;
     return { ...prepared, woodland: woodland?.file && urls[`./licensed/${woodland.file}`]
       ? { url: urls[`./licensed/${woodland.file}`], scale: woodland.scale || 1 } : null };
   }
-  if (creature?.evolution_stage === 'fledgling') return null;
+  if (creature?.lifecycle_stage === 'middle' || creature?.evolution_stage === 'fledgling') return null;
   if (!creature?.id || source?.schema_version !== 1) return null;
   const binding = source.bindings?.find((entry) =>
     entry.species_slug && entry.species_slug === creature.species?.slug
@@ -46,7 +48,7 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
 }
 
 export function creatureLabel(creature, kind = 'pet') {
-  const form = birdFormName(creature?.species, creature?.potion, birdStage(creature, kind));
+  const form = companionFormName(creature?.species, creature?.potion, companionStage(creature, kind));
   return [creature?.potion?.name, form].filter(Boolean).join(' ');
 }
 

@@ -9,7 +9,11 @@ import RpgSprite from '../../components/rpg/RpgSprite';
 import usePhasedSequence from './celebration/usePhasedSequence';
 import SparkleBurst from './celebration/SparkleBurst';
 import PotionAura from './celebration/PotionAura';
-import { BIRD_EVOLUTION_STAGES, birdFormName, isBirdIdentity } from '../../companion/birdEvolution';
+import { BIRD_EVOLUTION_STAGES, isBirdIdentity } from '../../companion/birdEvolution';
+import { companionFormName } from '../../companion/lifecycle';
+import { petSpriteKeys } from '../../components/rpg/petSpriteKeys';
+import roster from '../../../../shared/catalog/companion-roster.json';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -145,10 +149,11 @@ export default function PetCeremonyModal({ mode, pet, species, potion, fromStage
 // ─── Hatch ───────────────────────────────────────────────────────────────
 
 function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
-  const speciesName = pet?.species?.name;
+  const speciesName = companionFormName(pet?.species, pet?.potion, 'baby');
   const potionName = pet?.potion?.name;
   const potionSlug = pet?.potion?.slug;
   const headline = `${potionName} ${speciesName}`;
+  const family = roster.families.find((entry) => entry.species_slug === pet?.species?.slug && entry.sprite_key === pet?.species?.sprite_key && entry.potion_slugs.includes(potionSlug));
 
   // phase semantics:  0 = wobble, 1 = flash, 2 = reveal, 3 = settled
   const showEgg = phase < 2 && !reduced;
@@ -176,8 +181,9 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
         )}
         {showEgg && (
           <div className="animate-wobble-pulse">
-            <RpgSprite
-              spriteKey="big-egg"
+            <CatalogIcon
+              assetId={family?.egg.portrait_asset_id}
+              spriteKey={pet?.species?.slug === 'chick' && pet.species.sprite_key === 'cute-chick' ? 'chick-egg' : 'big-egg'}
               icon="🥚"
               size={96}
               alt="egg"
@@ -194,7 +200,7 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
               className="relative"
             >
               <RpgSprite
-                spriteKey={pet?.species?.sprite_key}
+                {...petSpriteKeys({ ...pet, lifecycle_stage: 'baby' })}
                 icon={pet?.species?.icon}
                 size={96}
                 alt={speciesName || 'pet'}
@@ -212,6 +218,7 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
         {headline}
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">has joined your companions.</p>
+      <p className="mt-1 text-caption text-ink-secondary">Baby companion</p>
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →
@@ -224,9 +231,11 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
 // ─── Evolve ──────────────────────────────────────────────────────────────
 
 function EvolveSequence({ species, potion, fromStage, phase, reduced, titleId, onDismiss }) {
-  const speciesName = birdFormName(species, potion, 'bird');
+  const speciesName = companionFormName(species, potion, 'grown');
   const source = isBirdIdentity(species, potion) && ['chick', 'fledgling'].includes(fromStage)
     ? BIRD_EVOLUTION_STAGES.find(({ id }) => id === fromStage) : null;
+  const sourceSprite = source ? { spriteKey: source.spriteKey, fallbackSpriteKey: species?.sprite_key }
+    : petSpriteKeys({ species, potion, lifecycle_stage: ['baby', 'middle'].includes(fromStage) ? fromStage : 'baby' });
   const potionName = potion?.name;
   const potionSlug = potion?.slug;
   const headline = `${potionName} ${speciesName}`;
@@ -268,11 +277,10 @@ function EvolveSequence({ species, potion, fromStage, phase, reduced, titleId, o
             className="relative"
           >
             <RpgSprite
-              spriteKey={source?.spriteKey || species?.sprite_key}
-              fallbackSpriteKey={source ? species?.sprite_key : null}
+              {...sourceSprite}
               icon={species?.icon}
               size={96}
-              alt={source?.name || species?.name || 'pet'}
+              alt={source?.name || companionFormName(species, potion, fromStage) || species?.name || 'pet'}
               potionSlug={potionSlug}
             />
           </div>
@@ -287,8 +295,7 @@ function EvolveSequence({ species, potion, fromStage, phase, reduced, titleId, o
               style={{ padding: 6 }}
             >
               <RpgSprite
-                spriteKey={species?.sprite_key ? `${species.sprite_key}-mount` : null}
-                fallbackSpriteKey={species?.sprite_key}
+                {...petSpriteKeys({ species, potion }, 'mount')}
                 icon={species?.icon}
                 size={96}
                 alt={speciesName || 'mount'}
@@ -358,11 +365,10 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
               className="absolute"
             >
               <RpgSprite
-                spriteKey={parentA?.species?.sprite_key ? `${parentA.species.sprite_key}-mount` : null}
-                fallbackSpriteKey={parentA?.species?.sprite_key}
+                {...petSpriteKeys(parentA, 'mount')}
                 icon={parentA?.species?.icon}
                 size={72}
-                alt={parentA?.species?.name || 'parent'}
+                alt={companionFormName(parentA?.species, parentA?.potion, 'grown') || 'parent'}
                 potionSlug={parentA?.potion?.slug}
               />
             </motion.div>
@@ -373,11 +379,10 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
               className="absolute"
             >
               <RpgSprite
-                spriteKey={parentB?.species?.sprite_key ? `${parentB.species.sprite_key}-mount` : null}
-                fallbackSpriteKey={parentB?.species?.sprite_key}
+                {...petSpriteKeys(parentB, 'mount')}
                 icon={parentB?.species?.icon}
                 size={72}
-                alt={parentB?.species?.name || 'parent'}
+                alt={companionFormName(parentB?.species, parentB?.potion, 'grown') || 'parent'}
                 potionSlug={parentB?.potion?.slug}
               />
             </motion.div>
@@ -407,7 +412,8 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
               transition={reduced ? { duration: 0 } : { duration: 0.55, type: 'spring', bounce: 0.4 }}
               className="relative flex items-center gap-4"
             >
-              <RpgSprite
+              <CatalogIcon
+                assetId={result?.egg_item_catalog_icon}
                 spriteKey={eggSpriteKey || 'big-egg'}
                 icon={eggIcon}
                 size={72}
@@ -472,9 +478,9 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
  */
 function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismiss }) {
   const mount = expedition?.mount || {};
-  const speciesName = birdFormName(
+  const speciesName = companionFormName(
     { slug: mount.species_slug, sprite_key: mount.species_sprite_key, name: mount.species_name },
-    { slug: mount.potion_slug }, 'bird');
+    { slug: mount.potion_slug }, 'grown');
   const speciesSpriteKey = mount.species_sprite_key;
   const speciesIcon = mount.species_icon;
   const potionSlug = mount.potion_slug;
@@ -547,7 +553,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
                 )}
                 {items.slice(0, 4).map((item, idx) => (
                   <span key={`${item.name}-${idx}`} className="inline-flex items-center gap-1 font-body text-tiny text-ink-secondary">
-                    <span aria-hidden="true">{item.icon || '🎁'}</span>
+                    <CatalogIcon assetId={item.catalog_icon} icon={item.icon || '🎁'} size={24} alt="" />
                     <span>{item.name}</span>
                     {item.salvaged_to_coins ? (
                       <span className="text-gold-leaf">· duplicate exchanged for {item.salvaged_to_coins} coins</span>

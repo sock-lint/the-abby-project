@@ -366,7 +366,8 @@ class DropService:
 
         # Weighted random selection
         items = list(entries)
-        weights = [e.weight for e in items]
+        from .companion_catalog import companion_drop_weights
+        weights = companion_drop_weights(items)
         selected = random.choices(items, weights=weights, k=1)[0]
         item = selected.item
 
@@ -997,6 +998,7 @@ class ConsumableService:
             # mechanic (so it stacks with a feed on the same day). Honors
             # the per-pet daily cap — see CONSUMABLE_GROWTH_DAILY_CAP.
             from apps.pets.models import UserPet
+            from apps.pets.lifecycle import companion_lifecycle_stage
             from apps.pets.services import PetService
             amount = int(meta.get("growth", 30))
             pet = UserPet.objects.select_for_update().filter(
@@ -1015,6 +1017,7 @@ class ConsumableService:
                 "growth_capped": applied < amount,
                 "new_growth": pet.growth_points,
                 "evolved_to_mount": mount is not None,
+                "lifecycle_stage": companion_lifecycle_stage(pet),
             }
         if effect == "feast_platter":
             # Sweeping small growth boost to every unevolved pet in the user's
@@ -1059,6 +1062,8 @@ class ConsumableService:
             if not eligible:
                 raise ValueError("Mystery box has no eligible items to grant")
             weights = [5 if i.rarity == "common" else 2 for i in eligible]
+            from .companion_catalog import companion_item_weights
+            weights = companion_item_weights(eligible, weights)
             granted = random.choices(eligible, weights=weights, k=1)[0]
             grant_item(profile.user, granted)
             return {

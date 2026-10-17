@@ -7,6 +7,7 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { HAPPINESS_WHISPER } from './party.constants';
 import { creatureLabel } from '../../../companion/appearance';
+import { companionStageLabel } from '../../../companion/lifecycle';
 
 export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Your companions' }) {
   return (
@@ -53,6 +54,7 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                   <div className="font-body text-body font-medium leading-tight break-words">
                     {creatureLabel(pet)}
                   </div>
+                  <div className="text-caption text-ink-secondary">{companionStageLabel(pet)}</div>
                   <div
                     className={`font-script text-tiny uppercase tracking-wider ${
                       RARITY_TEXT_COLORS[pet.potion.rarity]

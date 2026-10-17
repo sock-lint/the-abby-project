@@ -110,7 +110,16 @@ class QuestParticipantSerializer(serializers.ModelSerializer):
 
 
 class QuestSerializer(serializers.ModelSerializer):
-    definition = QuestDefinitionSerializer(read_only=True)
+    definition = serializers.SerializerMethodField()
+
+    def get_definition(self, obj):
+        from .reward_items import accepted_reward_items
+
+        data = QuestDefinitionSerializer(obj.definition, context=self.context).data
+        data["reward_items"] = QuestRewardItemSerializer(
+            accepted_reward_items(obj), many=True, context=self.context,
+        ).data
+        return data
     participants = QuestParticipantSerializer(many=True, read_only=True)
     progress_percent = serializers.IntegerField(read_only=True)
     effective_target = serializers.IntegerField(read_only=True)

@@ -1,0 +1,132 @@
+[
+  {
+    "id": 192,
+    "item": {
+      "id": 75,
+      "slug": "fixture-legacy-egg",
+      "name": "Legacy Egg",
+      "description": "",
+      "icon": "",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "species": "fixture-wolf"
+      },
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "fixture-wolf"
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  },
+  {
+    "id": 191,
+    "item": {
+      "id": 73,
+      "slug": "fixture-fox-egg",
+      "name": "Synthetic Egg",
+      "description": "",
+      "icon": "🥚",
+      "sprite_key": "big-egg",
+      "catalog_icon": null,
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "species": "fixture-wolf"
+      },
+      "pet_species_name": "Fox",
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "fixture-fox"
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  },
+  {
+    "id": 193,
+    "item": {
+      "id": 76,
+      "slug": "fixture-unknown-egg",
+      "name": "Unknown Egg",
+      "description": "",
+      "icon": "",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 194,
+    "item": {
+      "id": 71,
+      "slug": "fixture-berry-bowl",
+      "name": "Berry Bowl",
+      "description": "A synthetic favorite for foxes.",
+      "icon": "🫐",
+      "sprite_key": "berry-bowl",
+      "catalog_icon": null,
+      "item_type": "food",
+      "type_display": "Pet Food",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": "Fox",
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "feed",
+        "label": "Feed a companion",
+        "to": "/bestiary?tab=companions"
+      }
+    ]
+  }
+]

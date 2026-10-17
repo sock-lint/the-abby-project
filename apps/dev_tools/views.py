@@ -59,6 +59,7 @@ class ChildSelectView(APIView):
 
     def get(self, request):
         from apps.families.queries import children_in
+        from apps.pets.lifecycle import companion_lifecycle_stage
         from apps.pets.models import MountExpedition, UserMount, UserPet
 
         children = list(
@@ -99,6 +100,7 @@ class ChildSelectView(APIView):
                     "potion_name": p.potion.name,
                     "growth_points": p.growth_points,
                     "evolved": p.evolved_to_mount,
+                    "lifecycle_stage": companion_lifecycle_stage(p),
                 }
                 for p in getattr(c, "_dev_pets", [])
             ]
@@ -108,6 +110,7 @@ class ChildSelectView(APIView):
                     "species_name": m.species.name,
                     "species_slug": m.species.slug,
                     "potion_name": m.potion.name,
+                    "lifecycle_stage": companion_lifecycle_stage(m, is_mount=True),
                     "last_bred_at": (
                         m.last_bred_at.isoformat() if m.last_bred_at else None
                     ),

@@ -3,6 +3,7 @@
     "id": 83,
     "item": {
       "id": 73,
+      "slug": "fixture-fox-egg",
       "name": "Synthetic Egg",
       "description": "",
       "icon": "🥚",
@@ -17,7 +18,9 @@
       "pet_species_name": "Fox",
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "fixture-fox"
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -33,6 +36,7 @@
     "id": 81,
     "item": {
       "id": 71,
+      "slug": "fixture-berry-bowl",
       "name": "Berry Bowl",
       "description": "A synthetic favorite for foxes.",
       "icon": "🫐",
@@ -47,7 +51,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": "Fox",
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 2,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -63,6 +69,7 @@
     "id": 82,
     "item": {
       "id": 72,
+      "slug": "fixture-trail-mix",
       "name": "Trail Mix",
       "description": "A synthetic neutral snack.",
       "icon": "🥜",
@@ -77,7 +84,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -93,6 +102,7 @@
     "id": 84,
     "item": {
       "id": 74,
+      "slug": "fixture-wolf-meal",
       "name": "Wolf Meal",
       "description": "",
       "icon": "🍖",
@@ -107,7 +117,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": "Wolf",
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",

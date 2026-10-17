@@ -19,6 +19,13 @@ def bindings():
 def item_catalog_icon(item):
     if item is None:
         return None
+    if item.item_type == "egg":
+        from apps.rpg.catalog_support import egg_species
+        from apps.pets.roster import prepared_family
+
+        family = prepared_family(egg_species(item))
+        if family:
+            return family["egg"]["portrait_asset_id"]
     entry = bindings()["items"].get(item.slug)
     if entry and item.name == entry["name"] and item.item_type == entry["item_type"]:
         return entry["asset_id"]
@@ -37,6 +44,11 @@ def challenge_catalog_icon(definition):
 def species_catalog_icon(species, *, grown=False):
     if species is None:
         return None
+    from apps.pets.roster import prepared_family
+
+    family = prepared_family(species)
+    if family and species.name == family["name"]:
+        return family["stages"]["grown" if grown else "baby"]["portrait_asset_id"]
     entry = bindings()["pets"].get(species.slug)
     if entry and species.name == entry["name"] and species.sprite_key == entry["sprite_key"]:
         return entry["grown_catalog_icon" if grown else "catalog_icon"]

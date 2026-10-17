@@ -26,6 +26,28 @@ function renderHatchery() {
 }
 
 describe('Hatchery', () => {
+  it('connects the selected egg to its four-stage family and previews hatching into a baby without consuming anything', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { id: 1, quantity: 1, item: { id: 11, name: 'Fox Egg', item_type: 'egg', pet_species_slug: 'fox', pet_species_name: 'Fox', lifecycle_stage: 'egg' } },
+        { id: 2, quantity: 1, item: { id: 12, name: 'Base Potion', item_type: 'potion' } },
+      ])),
+    );
+    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, {});
+    server.use(hatch.handler);
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
+    expect(screen.getByRole('heading', { name: 'Fox family' })).toBeInTheDocument();
+    expect(screen.getByText('Hatches into a baby Fox.')).toBeInTheDocument();
+    const steps = screen.getByRole('list', { name: 'Pet growth stages' }).querySelectorAll('li');
+    expect(steps).toHaveLength(4);
+    expect(steps[0]).toHaveAttribute('aria-current', 'step');
+    expect(screen.queryByText(/Fledgling|Bird/)).toBeNull();
+    expect(hatch.calls).toHaveLength(0);
+  });
+
   it('offers only approved ingredients and explains unavailable breeding without suggesting a hybrid', async () => {
     const user = userEvent.setup();
     server.use(

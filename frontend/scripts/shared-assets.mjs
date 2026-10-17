@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importReleases, verifyImport } from '@abby-assets/release-tools';
+import { prepareSupplementals, verifySupplementals, supplementalDestination } from './companion-supplementals.mjs';
 import { SHARED_ASSET_SECRET_NAMES, sharedAssetsEnvironment, sharedAssetsRequired } from './shared-assets-config.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -9,6 +10,16 @@ const destination = resolve(root, 'src/avatar/shared');
 const lock = resolve(root, 'assets.lock.json');
 const mode = process.argv[2] || 'verify';
 
+export async function importSharedAssets({ lock, destination, supplementalDestination, environment = process.env,
+  supplementalDefinition } = {}) {
+  const installSupplementals = await prepareSupplementals({ destination: supplementalDestination, environment,
+    definition: supplementalDefinition });
+  const result = await importReleases({ lock, destination, releaseRoot: environment.ABBY_ASSETS_RELEASE_ROOT });
+  await installSupplementals();
+  return result;
+}
+
+async function main() {
 try {
   // BuildKit mounts remain server-side. Generic AWS secrets belong to the
   // existing media/meadow staging and are deliberately not read here.
@@ -30,17 +41,23 @@ try {
   try { await access(destination); } catch (error) { if (error.code !== 'ENOENT') throw error; installed = false; }
   const configured = Boolean(process.env.ABBY_ASSETS_RELEASE_ROOT || process.env.ABBY_ASSETS_S3_BUCKET);
   if (mode === 'import' || (mode === 'stage' && configured)) {
-    const result = await importReleases({ lock, destination });
-    process.stdout.write(`Shared assets verified: ${result.releases} pinned release(s), ${result.files} files.\n`);
+    const result = await importSharedAssets({ lock, destination, supplementalDestination });
+    process.stdout.write(`Shared assets verified: ${result.releases} pinned release(s), ${result.files} files; seven supplemental portraits verified.\n`);
   } else if (installed) {
     await verifyImport({ lock, destination });
+    await verifySupplementals(supplementalDestination);
     process.stdout.write('Shared assets match assets.lock.json.\n');
   } else if (required) {
     throw new Error('Shared assets are required. Run npm run assets:import with a private release source.');
   } else {
+    try { await access(supplementalDestination); await verifySupplementals(supplementalDestination); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
     process.stdout.write('Shared releases are absent; existing licensed art or labelled fallbacks are used.\n');
   }
 } catch (error) {
   console.error(`Shared assets: ${error.message}`);
   process.exitCode = 1;
 }
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

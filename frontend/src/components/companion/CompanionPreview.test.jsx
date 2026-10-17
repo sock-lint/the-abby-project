@@ -103,6 +103,18 @@ describe('Optional companion preview', () => {
 });
 
 describe('Primary companion home', () => {
+  it('disables native play controls while animation is explicitly off', async () => {
+    const user = userEvent.setup();
+    render(<CompanionPreview variant="primary" creature={pet} />);
+    await screen.findByTestId('optional-scene');
+    act(() => scene.props.onReady());
+    await user.click(screen.getByText('View'));
+    await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+    expect(screen.getByRole('button', { name: 'Hop together' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Look around' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+    expect(screen.getByRole('button', { name: 'Hop together' })).toBeEnabled();
+  });
   it('opens the exact owned 3D companion with idle motion and a direct accessible care action', async () => {
     const user = userEvent.setup();
     const openCare = vi.fn();
@@ -110,7 +122,7 @@ describe('Primary companion home', () => {
       <button>Choose food</button>
     </CompanionPreview>);
     expect(screen.getByRole('heading', { name: 'Peep' })).toBeInTheDocument();
-    expect(screen.getByText('Base Chick · 99/100 growth')).toBeInTheDocument();
+    expect(screen.getByText('Base Chick · Baby · 99/100 growth')).toBeInTheDocument();
     expect(screen.getByText('One more favorite snack to evolve.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show 3D view' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Say hello' })).toBeEnabled();
@@ -165,10 +177,11 @@ describe('Primary companion home', () => {
   });
 
   it('uses the purchased icon and usable actions for an unsupported species without substituting another creature', () => {
-    render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Juniper', species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' } }} onInteract={vi.fn()} />);
+    render(<CompanionPreview variant="primary" creature={{ ...pet, name: 'Juniper', lifecycle_stage: 'middle', species: { name: 'Fox', sprite_key: 'fox', icon: '🦊' } }} onInteract={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'Juniper' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Juniper, your companion' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Say hello to Juniper' })).toBeEnabled();
+    expect(screen.getByText('Base Fox · Middle · 99/100 growth')).toBeInTheDocument();
     expect(screen.queryByText('View')).toBeNull();
     expect(scene.props).toBeNull();
   });

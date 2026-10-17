@@ -318,6 +318,8 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual((potion["id"], potion["quantity"], potion["item"]["potion_type_name"]), (85, 1, "Ice"))
         self.assertIsNone(egg["item"]["potion_type_name"])
         self.assertIsNone(potion["item"]["pet_species_name"])
+        self.assertEqual((egg["item"]["lifecycle_stage"], egg["item"]["pet_species_slug"]), ("egg", "fox"))
+        self.assertIsNone(potion["item"]["lifecycle_stage"])
 
     def test_hatch_consumes_exactly_one_pair_and_returns_a_new_inactive_pet(self):
         from apps.chronicle.models import ChronicleEntry
@@ -333,6 +335,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual((pet.user_id, pet.species_id, pet.potion_id), (self.child.pk, 41, 44))
         self.assertEqual((pet.growth_points, pet.is_active, pet.evolved_to_mount), (0, False, False))
         self.assertFalse(body["is_fully_grown"])
+        self.assertEqual(body["lifecycle_stage"], "baby")
         self.assertEqual(body["happiness_level"], "happy")
         self.assertIsNone(pet.last_fed_at)
         self.assertIsNone(body["last_fed_at"])
@@ -462,6 +465,7 @@ class SharedApiResponseFixtureTests(APITestCase):
                 self.assertEqual(body["loot"]["coins"], coins)
                 self.assertEqual(len(body["loot"]["items"]), slots)
                 self.assertEqual([slot["item_id"] for slot in body["loot"]["items"]], [71] * slots)
+                self.assertEqual([slot["catalog_icon"] for slot in body["loot"]["items"]], [None] * slots)
                 self.assertEqual(expedition.loot, body["loot"])
         self.assertEqual(self.expedition_reward_state(), before)
         rows = self.assert_response_fixture(self.client.get("/api/expeditions/?user_id=99"), "expeditions.json")["expeditions"]
@@ -681,6 +685,8 @@ class SharedApiResponseFixtureTests(APITestCase):
             }, format="json")
         body = self.assert_response_fixture(response, fixture, status=201)
         self.assertEqual(body["egg_item_id"], 73)
+        self.assertEqual(body["egg_lifecycle_stage"], "egg")
+        self.assertIsNone(body["egg_item_catalog_icon"])
         self.assertEqual(body["potion_item_id"], potion_item_id)
         self.assertEqual((body["picked_species"], body["picked_species_slug"]), ("Fox", "fixture-fox"))
         self.assertEqual(body["chromatic"], chromatic)
@@ -789,6 +795,60 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertIsNone(stable["pets"][0]["last_fed_at"])
         self.assertEqual(next(row for row in stable["pets"] if row["id"] == 52)["happiness_level"], "stale")
 
+    def test_generic_species_lifecycle_is_server_confirmed_at_growth_boundaries(self):
+        self.seed_companion_care()
+        UserPet.objects.filter(pk=self.pet.pk).update(growth_points=49)
+        UserPet.objects.filter(pk=self.ready_pet.pk).update(growth_points=50)
+        # Old saved growth does not itself establish the confirmed mount state.
+        # Give this saved family its own sort key so raw response order does not
+        # depend on how PostgreSQL/SQLite order matching species/potion rows.
+        older_wolf = PetSpecies.objects.create(
+            id=45, slug="fixture-older-wolf", name="Older Wolf", icon="🐺",
+            sprite_key="older-wolf", description="A synthetic saved family.",
+        )
+        UserPet.objects.create(
+            id=54, user=self.child, species=older_wolf,
+            potion=self.mount.potion, growth_points=100,
+        )
+        before = list(UserPet.objects.order_by("pk").values())
+        response = self.client.get("/api/pets/stable/")
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual({pet["id"]: pet["lifecycle_stage"] for pet in body["pets"]}, {
+            51: "baby", 52: "middle", 53: "grown", 54: "middle",
+        })
+        self.assertTrue(all(mount["lifecycle_stage"] == "grown" for mount in body["mounts"]))
+        for companion in body["pets"] + body["mounts"]:
+            self.assertEqual(companion["species"]["lifecycle_stages"], ["egg", "baby", "middle", "grown"])
+            self.assertIsNone(companion["evolution_stage"])
+        self.assert_response_fixture(response, "pets-lifecycle-boundaries.json")
+        self.assertEqual(list(UserPet.objects.order_by("pk").values()), before)
+
+    def test_inventory_lifecycle_resolves_typed_and_legacy_eggs_without_granting_support(self):
+        self.seed_companion_care()
+        UserInventory.objects.filter(user=self.child).delete()
+        # A typed identity wins over old metadata. Unresolved eggs stay eggs.
+        typed = ItemDefinition.objects.get(pk=73)
+        typed.metadata = {"species": "fixture-wolf"}
+        typed.save(update_fields=["metadata"])
+        legacy = ItemDefinition.objects.create(
+            id=75, slug="fixture-legacy-egg", name="Legacy Egg", item_type="egg",
+            metadata={"species": "fixture-wolf"},
+        )
+        unknown = ItemDefinition.objects.create(
+            id=76, slug="fixture-unknown-egg", name="Unknown Egg", item_type="egg",
+        )
+        for pk, item in enumerate((typed, legacy, unknown, self.preferred_food), 191):
+            UserInventory.objects.create(id=pk, user=self.child, item=item)
+        response = self.client.get("/api/inventory/")
+        self.assertEqual(response.status_code, 200)
+        items = {row["item"]["id"]: row["item"] for row in response.json()}
+        self.assertEqual({pk: (item["lifecycle_stage"], item["pet_species_slug"]) for pk, item in items.items()}, {
+            73: ("egg", "fixture-fox"), 75: ("egg", "fixture-wolf"),
+            76: ("egg", None), 71: (None, None),
+        })
+        self.assert_response_fixture(response, "inventory-lifecycle-identities.json")
+
     def test_empty_stable_and_inventory_keep_the_real_response_shapes(self):
         self.seed_companion_care()
         UserPet.objects.filter(user=self.child).delete()
@@ -821,6 +881,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 1)
         self.assertFalse(self.pet.evolved_to_mount)
         self.assertFalse(body["evolved"])
+        self.assertEqual(body["lifecycle_stage"], "baby")
         self.assertIsNone(body["mount_id"])
         self.assertEqual(UserInventory.objects.get(user=self.sibling, item=self.preferred_food).quantity, 2)
 
@@ -843,6 +904,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.ready_pet.last_fed_at, FIXED_NOW)
         self.assertEqual(body["new_growth"], self.ready_pet.growth_points)
         self.assertTrue(body["evolved"])
+        self.assertEqual(body["lifecycle_stage"], "grown")
         mount = UserMount.objects.get(pk=body["mount_id"], user=self.child)
         self.assertEqual((mount.species_id, mount.potion_id), (self.ready_pet.species_id, self.ready_pet.potion_id))
         self.assertFalse(mount.is_active)

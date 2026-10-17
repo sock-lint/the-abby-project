@@ -17,7 +17,8 @@ import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
 import { creatureLabel } from '../../../companion/appearance';
-import { birdFormName, birdStage } from '../../../companion/birdEvolution';
+import { birdStage } from '../../../companion/birdEvolution';
+import { companionFormName, companionStage } from '../../../companion/lifecycle';
 import OwnedPetGrid from './OwnedPetGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import DailyExpeditionCard from './DailyExpeditionCard';
@@ -112,9 +113,10 @@ export default function Companions() {
       setSelectedPet(null);
       const currentPresentation = presentation.current?.creatureId === pet.id ? presentation.current : null;
       if (result?.evolved && !(currentPresentation?.sharedBirdReady && currentPresentation.evolutionMotionEnabled)) {
-        setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
+        setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet) || companionStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
       }
-      const changedStage = result?.evolution_stage && result.evolution_stage !== pet.evolution_stage;
+      const changedStage = (result?.lifecycle_stage && result.lifecycle_stage !== pet.lifecycle_stage)
+        || (result?.evolution_stage && result.evolution_stage !== pet.evolution_stage);
       if (changedStage) setReaction(null);
       else if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
       refresh();
@@ -174,7 +176,7 @@ export default function Companions() {
           {homePet.evolved_to_mount && !homeMount && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to={explorePath}>Visit grown pets →</Link>}
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/bestiary?tab=hatchery">Hatch a pet →</Link>
         </div>
-        {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || birdFormName(homePet.species, homePet.potion, birdStage(homePet))} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
+        {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || companionFormName(homePet.species, homePet.potion, companionStage(homePet))} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
       </CompanionPreview>}
 
       {launchMount && <ExpeditionLaunchSheet mount={launchMount} onDismiss={() => setLaunchMount(null)} onLaunched={refresh} />}
@@ -194,7 +196,7 @@ export default function Companions() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Feed companions to help them grow. Chick becomes Fledgling at 50 growth, then Bird at 100 growth, ready to explore.
+        Every companion starts as an egg. Hatch a baby, help it reach its middle stage at 50 growth, then its grown form at 100 growth, ready to explore.
       </p>
 
       {/* Covers the partial case too: stable loaded but the satchel fetch
@@ -241,7 +243,7 @@ export default function Companions() {
       {carePet && (
         <BottomSheet title={`Care for ${carePet.name?.trim() || creatureLabel(carePet)}`} onClose={() => setSelectedPet(null)} disabled={working}>
           <ErrorAlert message={error || inventoryError} onRetry={inventoryError ? reloadInventory : undefined} />
-          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${birdStage(carePet) ? `${birdFormName(carePet.species, carePet.potion, birdStage(carePet))} · ` : ''}${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
+          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${companionStage(carePet) ? `${companionFormName(carePet.species, carePet.potion, companionStage(carePet))} · ` : ''}${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
           {!carePet.is_active && (
             // <Button> for the 44px floor — this was a ~30px
             // text-xs button inside a 2-col phone tile.

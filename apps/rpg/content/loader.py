@@ -6,7 +6,8 @@ potion types, pet species (auto-materializing eggs + potion items),
 free-form items, drop-table entries, quest definitions + reward items,
 and rewards.
 
-Upserts only — never deletes. Safe to run repeatedly.
+Definitions are upserted only. Unsupported companion acquisition configuration
+is reconciled after loading; saved identities, ownership and promises remain.
 
 Entry points:
     ContentPack(path).load(stdout=None, dry_run=False, namespace="")
@@ -19,13 +20,11 @@ Used by:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable
 
 import yaml
 from django.db import transaction
-from django.utils.text import slugify
 
 
 # File names inside a pack (all optional).
@@ -50,14 +49,16 @@ class LoadStats:
     created: dict[str, int] = field(default_factory=dict)
     updated: dict[str, int] = field(default_factory=dict)
     skipped: dict[str, int] = field(default_factory=dict)
+    retired: dict[str, int] = field(default_factory=dict)
 
-    def bump(self, kind: str, key: str) -> None:
+    def bump(self, kind: str, key: str, amount: int = 1) -> None:
         bucket = getattr(self, kind)
-        bucket[key] = bucket.get(key, 0) + 1
+        if amount:
+            bucket[key] = bucket.get(key, 0) + amount
 
     def as_lines(self) -> list[str]:
         lines = []
-        for kind in ("created", "updated", "skipped"):
+        for kind in ("created", "updated", "skipped", "retired"):
             bucket = getattr(self, kind)
             for key, count in sorted(bucket.items()):
                 lines.append(f"  {kind:>8} {key}: {count}")
@@ -102,6 +103,10 @@ class ContentPack:
         # whatever's left after this savepoint is rolled back or released.
         sid = transaction.savepoint()
         try:
+            # Freeze accepted pre-cutover item links before authored quest
+            # upserts can change quantities; the dry-run savepoint rolls back.
+            from apps.quests.reward_items import freeze_legacy_quest_promises
+            freeze_legacy_quest_promises()
             self._load_skill_tree(parsed.get("skill_tree"), write)
             self._load_badges(parsed.get("badges"), write)
             self._load_potion_types(parsed.get("potion_types"), write)
@@ -110,6 +115,10 @@ class ContentPack:
             self._load_drops(parsed.get("drops"), write)
             self._load_quests(parsed.get("quests"), write)
             self._load_rewards(parsed.get("rewards"), write)
+            from apps.rpg.companion_catalog import reconcile_companion_offers
+            reconciled = reconcile_companion_offers()
+            self.stats.bump("retired", "companion_drop", reconciled["drops_removed"])
+            self.stats.bump("retired", "companion_shop_offer", reconciled["rewards_deactivated"])
 
             if dry_run:
                 transaction.savepoint_rollback(sid)
@@ -151,6 +160,8 @@ class ContentPack:
         prefix = self.namespace
         if not prefix.endswith("-"):
             prefix = f"{prefix}-"
+        if prefix == "meshtint-" and slug.startswith(prefix):
+            return slug
         return f"{prefix}{slug}"
 
     # ---- skill tree ----------------------------------------------------
@@ -293,6 +304,8 @@ class ContentPack:
 
         for entry in data.get("potions", []) or []:
             slug = self._ns(entry["slug"])
+            if slug.startswith("meshtint-"):
+                raise ContentPackError("Prepared companions reuse global Base; namespaced potion definitions are forbidden")
             defaults = {
                 "name": entry["name"],
                 "sprite_key": entry.get("sprite_key", ""),
@@ -333,11 +346,51 @@ class ContentPack:
             return
         from apps.pets.models import PetSpecies, PotionType
         from apps.rpg.models import ItemDefinition
+        from apps.pets.roster import FAMILIES
+        from apps.rpg.companion_catalog import CompanionCatalogCollision, check_prepared_identity_collisions
+
+        try:
+            check_prepared_identity_collisions()
+        except CompanionCatalogCollision as exc:
+            raise ContentPackError(str(exc)) from exc
+
+        entries = data.get("species", []) or []
+        normalized = set()
+        names = set()
+        for entry in entries:
+            slug = self._ns(entry["slug"])
+            if slug in normalized:
+                raise ContentPackError(f"duplicate normalized pet species slug {slug!r}")
+            normalized.add(slug)
+            name = entry["name"].casefold()
+            if name in names:
+                raise ContentPackError(f"pet species display-name collision for {slug!r}")
+            names.add(name)
+            collision = PetSpecies.objects.filter(name__iexact=entry["name"]).exclude(slug=slug).first()
+            if collision:
+                raise ContentPackError(f"pet species id={collision.pk} display-name collision for {slug!r}; retain the existing identity")
+            if slug.startswith("meshtint-"):
+                family = FAMILIES.get(slug)
+                if family is None:
+                    raise ContentPackError(f"Unknown prepared companion identity {slug!r}")
+                if entry.get("available_potions") != ["base"]:
+                    raise ContentPackError(f"Prepared companion {slug!r} requires explicit global Base only")
+                if entry["name"] != family["name"] or entry.get("sprite_key") != family["sprite_key"]:
+                    raise ContentPackError(f"Prepared companion identity collision for {slug!r}")
+                existing = PetSpecies.objects.filter(slug=slug).first()
+                if existing and (existing.name != family["name"] or existing.sprite_key != family["sprite_key"]):
+                    raise ContentPackError(f"Prepared companion id={existing.pk} database identity collision for {slug!r}")
+                egg = ItemDefinition.objects.filter(slug=family["egg"]["item_slug"]).first()
+                if egg:
+                    metadata = egg.metadata if isinstance(egg.metadata, dict) else {}
+                    if (existing is None or egg.item_type != "egg" or egg.pet_species_id != existing.pk
+                            or metadata.get("species") != slug):
+                        raise ContentPackError(f"Prepared egg id={egg.pk} identity collision for {slug!r}")
 
         # Preload potions by slug for available_potions M2M.
         potions_by_slug = {p.slug: p for p in PotionType.objects.all() if p.slug}
 
-        for entry in data.get("species", []) or []:
+        for entry in entries:
             slug = self._ns(entry["slug"])
             defaults = {
                 "name": entry["name"],
@@ -360,7 +413,7 @@ class ContentPack:
             else:
                 potion_objs = []
                 for ps in raw_potions or []:
-                    lookup = self._ns(ps)
+                    lookup = ps if slug in FAMILIES else self._ns(ps)
                     potion = potions_by_slug.get(lookup) or potions_by_slug.get(ps)
                     if not potion:
                         raise ContentPackError(
@@ -381,7 +434,7 @@ class ContentPack:
                 "item_type": ItemDefinition.ItemType.EGG,
                 "rarity": entry.get("egg_rarity", "common"),
                 "coin_value": entry.get("egg_coin_value", 3),
-                "metadata": {"species": entry["slug"]},
+                "metadata": {"species": species.slug},
                 "pet_species": species,
                 "description": entry.get("description", ""),
             }
@@ -418,6 +471,8 @@ class ContentPack:
         for entry in data.get("items", []) or []:
             slug = self._ns(entry["slug"])
             item_type = entry["item_type"]
+            if slug.startswith("meshtint-") and item_type in {"egg", "potion"}:
+                raise ContentPackError("Prepared eggs must be generated from species; reuse the global Base potion")
             defaults = {
                 "name": entry["name"],
                 "icon": entry.get("icon", ""),
@@ -443,6 +498,7 @@ class ContentPack:
             return
         from apps.rpg.constants import TriggerType
         from apps.rpg.models import DropTable, ItemDefinition
+        from apps.rpg.catalog_support import item_is_available
 
         valid_triggers = {t.value for t in TriggerType}
 
@@ -478,6 +534,8 @@ class ContentPack:
                         raise ContentPackError(
                             f"drops.rules references unknown item slug {raw_slug!r}"
                         ) from exc
+                    if item.item_type in {"egg", "potion"} and not item_is_available(item):
+                        continue
                     _, created = DropTable.objects.update_or_create(
                         trigger_type=trigger, item=item,
                         defaults={"weight": weight, "min_level": min_level},
@@ -511,6 +569,8 @@ class ContentPack:
 
             for trigger in triggers:
                 for item in qs:
+                    if item.item_type in {"egg", "potion"} and not item_is_available(item):
+                        continue
                     w = int(
                         weight_by_rarity.get(item.rarity, flat_weight or 1)
                     )
@@ -525,7 +585,7 @@ class ContentPack:
     def _load_quests(self, data: dict | None, write: Callable[[str], None]) -> None:
         if not data:
             return
-        from apps.achievements.models import Badge, Skill, SkillCategory
+        from apps.achievements.models import Badge, Skill
         from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
         from apps.rpg.models import ItemDefinition
 

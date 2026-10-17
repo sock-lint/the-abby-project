@@ -45,6 +45,15 @@ export function birdMotions(release, stage, resolveUrl) {
 
 export function resolveSharedBirdAppearance(creature, kind = 'pet', staged = stagedBirdRelease()) {
   const stage = birdStage(creature, kind);
+  return appearanceForStage(stage, staged);
+}
+
+export function resolveSharedBirdPreviewAppearance(item, stage, staged = stagedBirdRelease()) {
+  if (item?.slug !== 'chick-egg' || item.item_type !== 'egg' || item.pet_species_slug !== 'chick' || item.metadata?.species !== 'chick') return null;
+  return appearanceForStage({ baby: 'chick', middle: 'fledgling', grown: 'bird' }[stage], staged);
+}
+
+function appearanceForStage(stage, staged) {
   if (!stage || !staged) return null;
   const asset = staged.release.assets.find((entry) => entry.id === stage);
   const idle = asset?.variants.find((entry) => entry.id === asset.default_variant);

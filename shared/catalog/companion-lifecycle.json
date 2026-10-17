@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "middle_growth": 50,
+  "grown_growth": 100,
+  "stages": [
+    {
+      "id": "egg",
+      "label": "Egg"
+    },
+    {
+      "id": "baby",
+      "label": "Baby"
+    },
+    {
+      "id": "middle",
+      "label": "Middle"
+    },
+    {
+      "id": "grown",
+      "label": "Grown"
+    }
+  ],
+  "family_forms": [
+    {
+      "species_slug": "chick",
+      "sprite_key": "cute-chick",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Chick",
+        "middle": "Fledgling",
+        "grown": "Bird"
+      }
+    },
+    {
+      "species_slug": "meshtint-bat",
+      "sprite_key": "meshtint-bat",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Bat",
+        "middle": "Vampire Bat",
+        "grown": "Bat Lord"
+      }
+    },
+    {
+      "species_slug": "meshtint-bee",
+      "sprite_key": "meshtint-bee",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Bee",
+        "middle": "Bumble",
+        "grown": "Sting"
+      }
+    },
+    {
+      "species_slug": "meshtint-shadow",
+      "sprite_key": "meshtint-shadow",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Egglet",
+        "middle": "Shade",
+        "grown": "Shadow"
+      }
+    },
+    {
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Ghost",
+        "middle": "Spook",
+        "grown": "Phantom"
+      }
+    },
+    {
+      "species_slug": "meshtint-mushroom",
+      "sprite_key": "meshtint-mushroom",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Mushroom",
+        "middle": "Fungi",
+        "grown": "Toadstool"
+      }
+    },
+    {
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Seed",
+        "middle": "Sprout",
+        "grown": "Flower Pot Monster"
+      }
+    },
+    {
+      "species_slug": "meshtint-spider",
+      "sprite_key": "meshtint-spider",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Spider",
+        "middle": "Spider Toxin",
+        "grown": "Spider King"
+      }
+    },
+    {
+      "species_slug": "meshtint-wolf",
+      "sprite_key": "meshtint-wolf",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Wolf Pup",
+        "middle": "Wolf",
+        "grown": "Werewolf"
+      }
+    },
+    {
+      "species_slug": "meshtint-dragon",
+      "sprite_key": "meshtint-dragon",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Dragon Spark",
+        "middle": "Dragon Fire",
+        "grown": "Dragon Inferno"
+      }
+    },
+    {
+      "species_slug": "meshtint-snake",
+      "sprite_key": "meshtint-snake",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Snakelet",
+        "middle": "Snake",
+        "grown": "Snake Naga"
+      }
+    },
+    {
+      "species_slug": "meshtint-hermit-crab",
+      "sprite_key": "meshtint-hermit-crab",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Shell",
+        "middle": "Spike",
+        "grown": "Hermit King"
+      }
+    },
+    {
+      "species_slug": "meshtint-blossom",
+      "sprite_key": "meshtint-blossom",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Bud",
+        "middle": "Bloom",
+        "grown": "Blossom"
+      }
+    },
+    {
+      "species_slug": "meshtint-sunflower",
+      "sprite_key": "meshtint-sunflower",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Sun Blossom",
+        "middle": "Sunflower Fairy",
+        "grown": "Sunflora Pixie"
+      }
+    },
+    {
+      "species_slug": "meshtint-bomb",
+      "sprite_key": "meshtint-bomb",
+      "potion_slugs": [
+        "base"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Bomb",
+        "middle": "Poison Bomb",
+        "grown": "Snow Bomb"
+      }
+    }
+  ]
+}

@@ -243,7 +243,7 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         self.assertIn("planned homework (first per day)", payload["what_counts"])
         self.assertIn("positive habit taps", payload["what_counts"])
 
-    def test_reward_preview_rechecks_support_without_changing_snapshot_or_payout(self):
+    def test_reward_preview_and_payout_keep_accepted_snapshot_after_support_retirement(self):
         from apps.pets.models import PetSpecies
         from apps.quests.models import QuestRewardItem
         from apps.rpg.models import ItemDefinition, UserInventory
@@ -259,15 +259,19 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         snapshot = occurrence.snapshot
         self.assertEqual(first["rewards"]["items"][0]["item_name"], egg.name)
         self.assertEqual(snapshot["items"][0]["item_id"], egg.pk)
-        # The default supported-art registry does not include the synthetic wolf.
-        self.assertEqual(list_goals(self.child)["results"][0]["rewards"]["items"], [])
+        # The default registry no longer offers the synthetic wolf, while the
+        # accepted window keeps the preview and exact original item promise.
+        self.assertEqual(list_goals(self.child)["results"][0]["rewards"]["items"], first["rewards"]["items"])
         occurrence.refresh_from_db()
         self.assertEqual(occurrence.snapshot, snapshot)
         self.fact("first")
         self.fact("second")
         occurrence.refresh_from_db()
-        self.assertEqual(occurrence.reward_receipt, {"coins": 5, "xp": 10, "items": []})
-        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+        self.assertEqual(occurrence.reward_receipt, {"coins": 5, "xp": 10, "items": [
+            {"item_name": egg.name, "item_catalog_icon": None, "quantity": 1},
+        ]})
+        self.fact("third")
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
     def test_approval_after_cutoff_counts_catalog_and_keeps_performed_week(self):
         from apps.chores.models import Chore, ChoreCompletion
         from apps.chores.services import ChoreService

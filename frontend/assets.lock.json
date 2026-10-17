@@ -23,6 +23,18 @@
       "family_id": "meshtint-pedestal-card-ui",
       "manifest_sha256": "abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
       "release_version": "1.0.1"
+    },
+    {
+      "directory": "meshtint-companion-roster/1.0.0/2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+      "family_id": "meshtint-companion-roster",
+      "manifest_sha256": "2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+      "release_version": "1.0.0"
+    },
+    {
+      "directory": "meshtint-training-dummy/1.0.0/bceff1c1cb2676a68c45693460a26826dd3d880e513d4db32690ca8ca956a31b",
+      "family_id": "meshtint-training-dummy",
+      "manifest_sha256": "bceff1c1cb2676a68c45693460a26826dd3d880e513d4db32690ca8ca956a31b",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

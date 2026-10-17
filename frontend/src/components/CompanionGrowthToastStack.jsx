@@ -5,7 +5,9 @@ import { useCompanionGrowthToasts } from '../hooks/useCompanionGrowthToasts';
 import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
+import { petSpriteKeys } from './rpg/petSpriteKeys';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
+import { companionFormName, lifecycleStageLabel } from '../companion/lifecycle';
 
 /**
  * Surfaces silent companion auto-growth events as a slide-in toast strip
@@ -19,6 +21,9 @@ import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
  * explicit Continue dismiss.
  */
 function GrowthToast({ event, onDismiss }) {
+  const form = companionFormName(
+    { name: event.species_name, slug: event.species_slug, sprite_key: event.species_sprite_key },
+    { slug: event.potion_slug }, event.lifecycle_stage);
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(event._toastId), TOAST_DURATION_STANDARD);
     return () => clearTimeout(timer);
@@ -31,18 +36,18 @@ function GrowthToast({ event, onDismiss }) {
     >
       <Sprout size={18} className="text-current shrink-0" aria-hidden="true" />
       <RpgSprite
-        spriteKey={event.species_sprite_key}
+        {...petSpriteKeys({ species: { slug: event.species_slug, sprite_key: event.species_sprite_key }, potion: { slug: event.potion_slug }, lifecycle_stage: event.lifecycle_stage, evolved_to_mount: event.evolved })}
         icon={event.species_icon || '🐾'}
         size={32}
-        alt={event.species_name}
+        alt={form}
         potionSlug={event.potion_slug}
       />
       <div className="flex-1 min-w-0">
         <div className="text-caption font-medium text-current">
-          {event.potion_name} {event.species_name} grew
+          {event.potion_name} {form} grew
         </div>
         <div className="text-caption text-current">
-          +{event.growth_added} · {event.new_growth}/100
+          +{event.growth_added} · {event.new_growth}/100{lifecycleStageLabel(event.lifecycle_stage) ? ` · ${lifecycleStageLabel(event.lifecycle_stage)} stage` : ''}
         </div>
       </div>
     </NotificationToast>
@@ -77,6 +82,7 @@ export default function CompanionGrowthToastStack({ inline = false }) {
           mode="evolve"
           species={{
             name: activeEvolve.species_name,
+            slug: activeEvolve.species_slug,
             sprite_key: activeEvolve.species_sprite_key,
             icon: activeEvolve.species_icon,
           }}

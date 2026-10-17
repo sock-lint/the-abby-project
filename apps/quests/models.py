@@ -129,6 +129,10 @@ class Quest(TimestampedModel):
     end_date = models.DateTimeField()
     current_progress = models.PositiveIntegerField(default=0)
     rage_shield = models.PositiveIntegerField(default=0)  # boss rage mechanic
+    reward_items_snapshot = models.JSONField(
+        null=True, blank=True, editable=False,
+        help_text="Server-owned accepted item IDs/quantities; null retains pre-cutover definition links.",
+    )
 
     class Meta:
         ordering = ["-start_date"]

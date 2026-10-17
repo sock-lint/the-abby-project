@@ -1,6 +1,8 @@
 # Pet species — each entry auto-materializes both a PetSpecies row AND an
 # egg ItemDefinition (type=egg) with typed FK back to the species. Authoring
-# a new pet is one entry here; the loader handles the fan-out.
+# a new pet is one entry here; the loader handles the fan-out. Every family
+# uses Egg → Baby → Middle → Grown (shared/catalog/companion-lifecycle.json).
+# Stage-specific assets and new acquisition still require reviewed art bindings.
 #
 # Schema per entry:
 #   slug               (required, unique)
@@ -185,14 +187,141 @@ species:
     egg_rarity: common
     egg_coin_value: 3
 
-  # Owned Cute Series woodland bird. The three licensed model forms are
-  # presentation stages of this species; recolored variants are not authored.
+  # Owned Cute Series woodland bird. The three licensed post-hatch forms are
+  # Baby/Middle/Grown of this species; its egg is the inventory stage; recolored variants are not authored.
   - slug: chick
     name: Chick
     icon: "🐤"
     sprite_key: cute-chick
     description: A friendly woodland chick that grows alongside your adventures
     food_preference: birdseed
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  # Prepared roster: exact Base-only identities, no legacy crosswalk.
+  - slug: meshtint-bat
+    name: Bat
+    icon: "🐾"
+    sprite_key: meshtint-bat
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-bee
+    name: Bee
+    icon: "🐾"
+    sprite_key: meshtint-bee
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-shadow
+    name: Egglet
+    icon: "🐾"
+    sprite_key: meshtint-shadow
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-ghost
+    name: Ghost
+    icon: "🐾"
+    sprite_key: meshtint-ghost
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-mushroom
+    name: Mushroom
+    icon: "🐾"
+    sprite_key: meshtint-mushroom
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-potted-plant
+    name: Seed
+    icon: "🐾"
+    sprite_key: meshtint-potted-plant
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-spider
+    name: Spider
+    icon: "🐾"
+    sprite_key: meshtint-spider
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-wolf
+    name: Wolf Pup
+    icon: "🐾"
+    sprite_key: meshtint-wolf
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-dragon
+    name: Dragon Spark
+    icon: "🐾"
+    sprite_key: meshtint-dragon
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-snake
+    name: Snakelet
+    icon: "🐾"
+    sprite_key: meshtint-snake
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-hermit-crab
+    name: Shell
+    icon: "🐾"
+    sprite_key: meshtint-hermit-crab
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-blossom
+    name: Bud
+    icon: "🐾"
+    sprite_key: meshtint-blossom
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-sunflower
+    name: Sun Blossom
+    icon: "🐾"
+    sprite_key: meshtint-sunflower
+    description: A companion with baby, middle and grown forms
+    available_potions: [base]
+    egg_rarity: common
+    egg_coin_value: 3
+
+  - slug: meshtint-bomb
+    name: Bomb
+    icon: "🐾"
+    sprite_key: meshtint-bomb
+    description: A companion with baby, middle and grown forms
     available_potions: [base]
     egg_rarity: common
     egg_coin_value: 3

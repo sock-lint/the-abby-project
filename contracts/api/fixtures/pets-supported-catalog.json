@@ -1,6 +1,126 @@
 {
   "species": [
     {
+      "id": 142,
+      "slug": "meshtint-bat",
+      "name": "Bat",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bat",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "bat-baby-portrait",
+      "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 143,
+      "slug": "meshtint-bee",
+      "name": "Bee",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bee",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "bee-baby-portrait",
+      "grown_catalog_icon": "bee-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 155,
+      "slug": "meshtint-bomb",
+      "name": "Bomb",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bomb",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "bomb-baby-portrait",
+      "grown_catalog_icon": "bomb-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 153,
+      "slug": "meshtint-blossom",
+      "name": "Bud",
+      "icon": "🐾",
+      "sprite_key": "meshtint-blossom",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "blossom-baby-portrait",
+      "grown_catalog_icon": "blossom-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
       "id": 42,
       "slug": "chick",
       "name": "Chick",
@@ -24,7 +144,313 @@
       "owned_mount_potion_ids": [],
       "catalog_available": true,
       "catalog_icon": "portrait-chick",
-      "grown_catalog_icon": "portrait-chick-grown"
+      "grown_catalog_icon": "portrait-chick-grown",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 150,
+      "slug": "meshtint-dragon",
+      "name": "Dragon Spark",
+      "icon": "🐾",
+      "sprite_key": "meshtint-dragon",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "dragon-baby-portrait",
+      "grown_catalog_icon": "dragon-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 144,
+      "slug": "meshtint-shadow",
+      "name": "Egglet",
+      "icon": "🐾",
+      "sprite_key": "meshtint-shadow",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "shadow-baby-portrait",
+      "grown_catalog_icon": "shadow-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 145,
+      "slug": "meshtint-ghost",
+      "name": "Ghost",
+      "icon": "🐾",
+      "sprite_key": "meshtint-ghost",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "ghost-baby-portrait",
+      "grown_catalog_icon": "ghost-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 146,
+      "slug": "meshtint-mushroom",
+      "name": "Mushroom",
+      "icon": "🐾",
+      "sprite_key": "meshtint-mushroom",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "mushroom-baby-portrait",
+      "grown_catalog_icon": "mushroom-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 147,
+      "slug": "meshtint-potted-plant",
+      "name": "Seed",
+      "icon": "🐾",
+      "sprite_key": "meshtint-potted-plant",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "potted-plant-baby-portrait",
+      "grown_catalog_icon": "potted-plant-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 152,
+      "slug": "meshtint-hermit-crab",
+      "name": "Shell",
+      "icon": "🐾",
+      "sprite_key": "meshtint-hermit-crab",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "hermit-crab-baby-portrait",
+      "grown_catalog_icon": "hermit-crab-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 151,
+      "slug": "meshtint-snake",
+      "name": "Snakelet",
+      "icon": "🐾",
+      "sprite_key": "meshtint-snake",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "snake-baby-portrait",
+      "grown_catalog_icon": "snake-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 148,
+      "slug": "meshtint-spider",
+      "name": "Spider",
+      "icon": "🐾",
+      "sprite_key": "meshtint-spider",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "spider-baby-portrait",
+      "grown_catalog_icon": "spider-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 154,
+      "slug": "meshtint-sunflower",
+      "name": "Sun Blossom",
+      "icon": "🐾",
+      "sprite_key": "meshtint-sunflower",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "sunflower-baby-portrait",
+      "grown_catalog_icon": "sunflower-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 149,
+      "slug": "meshtint-wolf",
+      "name": "Wolf Pup",
+      "icon": "🐾",
+      "sprite_key": "meshtint-wolf",
+      "description": "",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 41,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "wolf-baby-portrait",
+      "grown_catalog_icon": "wolf-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
     }
   ],
   "potions": [
@@ -40,9 +466,9 @@
     }
   ],
   "totals": {
-    "species": 1,
+    "species": 15,
     "discovered_species": 1,
-    "mounts_possible": 1,
+    "mounts_possible": 15,
     "mounts_owned": 0
   }
 }

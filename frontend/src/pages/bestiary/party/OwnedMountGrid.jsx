@@ -4,10 +4,11 @@ import Button from '../../../components/Button';
 import AddToCalendar from '../../../components/AddToCalendar';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RpgSprite from '../../../components/rpg/RpgSprite';
+import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { creatureLabel } from '../../../companion/appearance';
-import { birdFormName } from '../../../companion/birdEvolution';
+import { companionFormName } from '../../../companion/lifecycle';
 import { daysUntilReady, formatExpeditionRemaining } from './party.constants';
 
 export default function OwnedMountGrid({ mounts, working, onActivate, onPreview, onClaim, onLaunch, label = 'Your grown pets' }) {
@@ -37,8 +38,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       }`}
                     >
                       <RpgSprite
-                        spriteKey={`${mount.species.sprite_key}-mount`}
-                        fallbackSpriteKey={mount.species.sprite_key}
+                        {...petSpriteKeys(mount, 'mount')}
                         icon={mount.species.icon}
                         size={64}
                         className="rounded-full"
@@ -112,7 +112,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       onClick={() => onClaim(expedition.id)}
                       disabled={working}
                       className="mt-1 w-full !bg-gold-leaf/30 !text-ember-deep !border-gold-leaf/80 hover:!bg-gold-leaf/40 disabled:cursor-not-allowed animate-gilded-glint"
-                      aria-label={`Claim expedition rewards for ${birdFormName(mount.species, mount.potion, 'bird')}`}
+                      aria-label={`Claim expedition rewards for ${companionFormName(mount.species, mount.potion, 'grown')}`}
                     >
                       {working ? 'Claiming…' : 'Claim rewards'}
                     </Button>
@@ -125,7 +125,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       onClick={() => onLaunch(mount)}
                       disabled={working}
                       className="mt-1 w-full inline-flex items-center justify-center gap-1 !bg-sheikah-teal-deep/15 !text-sheikah-teal-deep !border-sheikah-teal-deep/50 hover:!bg-sheikah-teal-deep/25 disabled:cursor-not-allowed"
-                      aria-label={`Send ${birdFormName(mount.species, mount.potion, 'bird')} on an expedition`}
+                      aria-label={`Send ${companionFormName(mount.species, mount.potion, 'grown')} on an expedition`}
                     >
                       <MapIcon size={11} aria-hidden="true" /> Expedition
                     </Button>

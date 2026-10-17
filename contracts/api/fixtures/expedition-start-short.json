@@ -24,7 +24,8 @@
         "icon": "🫐",
         "rarity": "common",
         "item_type": "food",
-        "sprite_key": "berry-bowl"
+        "sprite_key": "berry-bowl",
+        "catalog_icon": null
       }
     ]
   }

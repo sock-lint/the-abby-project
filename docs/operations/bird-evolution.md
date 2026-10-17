@@ -60,6 +60,14 @@ missing or changed assets.
 
 ## Server-owned stages and presentation
 
+The shared four-stage lifecycle is now Egg → Baby → Middle → Grown for every
+family; see [companion lifecycle](companion-lifecycle.md). The egg remains a
+species-linked Hatchery inventory item. This release supplies the three
+post-hatch Bird forms only; future egg artwork is separate and pending.
+Generic `lifecycle_stage` values coexist with the compatible Bird
+`evolution_stage` aliases below. No private release pin changes are needed.
+
+
 The owner selected Fledgling at 50 growth and Bird at the existing 100-growth
 evolution threshold. This applies only to the exact supported
 `chick` / `cute-chick` / `base` identity. The read-only `evolution_stage` is

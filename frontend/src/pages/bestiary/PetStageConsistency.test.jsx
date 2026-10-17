@@ -33,7 +33,10 @@ describe('Server-confirmed pet stages across the accessible UI', () => {
     renderWithProviders(<Companions />);
     expect(await screen.findByRole('heading', { name: `Base ${label}` })).toBeInTheDocument();
     const guide = screen.getByRole('list', { name: 'Pet growth stages' });
-    expect(within(guide).getAllByRole('listitem')).toHaveLength(3);
+    const steps = within(guide).getAllByRole('listitem');
+    expect(steps).toHaveLength(4);
+    expect(steps[0]).toHaveTextContent('Egg');
+    expect(steps[0]).not.toHaveAttribute('aria-current');
     expect(guide.querySelector('[aria-current="step"]')).toHaveTextContent(label);
     const careAction = within(screen.getByRole('list', { name: 'Your companions' })).getByRole('button', { name: `Care for Base ${label}` });
     await userEvent.setup().click(careAction);
@@ -49,17 +52,18 @@ describe('Server-confirmed pet stages across the accessible UI', () => {
     );
     renderWithProviders(<Companions />);
     expect(await screen.findByRole('heading', { name: 'Peep' })).toBeInTheDocument();
-    expect(screen.getByText('Base Fledgling · 65/100 growth')).toBeInTheDocument();
+    expect(screen.getByText('Base Fledgling · Middle · 65/100 growth')).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole('button', { name: 'Feed your companion' }));
     expect(screen.getByRole('dialog', { name: 'Care for Peep' })).toBeInTheDocument();
     expect(screen.getByText('Fledgling · 65/100 growth')).toBeInTheDocument();
   });
 
-  it('explains all three stages in the species collection without claiming ownership of the middle stage', () => {
+  it('explains all four stages in the species collection without claiming egg or pet ownership', () => {
     renderWithProviders(<SpeciesDetailSheet species={{ ...chick.species, discovered: true, owned_pet_ids: [1], available_potions: [chick.potion], owned_mount_potion_ids: [] }} onClose={() => {}} />);
     const guide = screen.getByRole('list', { name: 'Pet growth stages' });
-    expect(within(guide).getAllByRole('listitem')).toHaveLength(3);
-    expect(within(guide).getByText('Fledgling')).toBeInTheDocument();
+    expect(within(guide).getAllByRole('listitem')).toHaveLength(4);
+    expect(within(guide).getByText('Egg')).toBeInTheDocument();
+    expect(within(guide).getByText('Middle · Fledgling')).toBeInTheDocument();
     expect(within(guide).getByText('From 50 growth')).toBeInTheDocument();
     expect(guide.querySelector('[aria-current]')).toBeNull();
     expect(screen.getByRole('img', { name: 'Base Bird — not yet evolved' })).toBeInTheDocument();

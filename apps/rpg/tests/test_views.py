@@ -108,7 +108,8 @@ class ItemCatalogTests(_Fixture):
             slug="chick", name="Chick", sprite_key="cute-chick", icon="🐤",
         )
         available = ItemDefinition.objects.create(
-            name="Chick Egg", icon="🥚", item_type="egg", pet_species=chick,
+            slug="chick-egg", name="Chick Egg", icon="🥚", item_type="egg", pet_species=chick,
+            metadata={"species": "chick"},
         )
         unsupported = ItemDefinition.objects.create(name="Unprepared Egg", icon="🥚", item_type="egg")
         self.client.force_authenticate(self.parent)

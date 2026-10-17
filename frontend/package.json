@@ -18,7 +18,7 @@
     "test:pwa": "playwright test",
     "test:live": "node scripts/run-live-checks.mjs",
     "test:live-config": "node --test scripts/live-checks-contract.check.mjs",
-    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs scripts/shared-assets.check.mjs scripts/build-hosted-web.check.mjs",
+    "test:licensed-art": "node --test scripts/stage-licensed-art.check.mjs scripts/stage-avatar-art.check.mjs scripts/shared-assets.check.mjs scripts/build-hosted-web.check.mjs scripts/companion-supplementals.check.mjs",
     "test:native-config": "node --test scripts/native-build-config.check.mjs",
     "generate-pwa-icons": "pwa-assets-generator --preset minimal-2023 public/favicon.svg",
     "test:asset-config": "node --test scripts/asset-checks-contract.check.mjs",
@@ -73,6 +73,7 @@
     "tailwindcss": "^4.2.2",
     "vite": "^8.0.1",
     "vite-plugin-pwa": "^1.2.0",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.4",
+    "yauzl": "3.4.0"
   }
 }

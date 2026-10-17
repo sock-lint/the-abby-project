@@ -1,6 +1,6 @@
 # React Three Fiber owned-asset boundary
 
-Updated October 16, 2026. React owns the complete product UI; R3F presents
+Updated October 17, 2026. React owns the complete product UI; R3F presents
 server-confirmed companions using the recorded owned art. Django remains the
 authority for accounts, permissions, contributions, rewards and progression.
 This document defines the baseline art scope and its acceptance gates.
@@ -31,6 +31,18 @@ Additional species, biomes and gameplay need their own deliberate decisions.
 Use existing 2D art for unsupported content; never substitute the bird for an
 unrelated earned creature or recolor it into an unprepared potion variant.
 
+## Four-stage families
+
+All species have the shared Egg → Baby → Middle → Grown lifecycle described in
+[companion lifecycle](../../docs/operations/companion-lifecycle.md). Egg is the
+existing species-linked inventory ingredient, not a new owned pet or model.
+The prepared roster adds 14 exact namespaced Meshtint families alongside
+retained Chick, each with a supplied egg and three post-hatch forms. Exact
+bindings, intake receipts, native motion limits, preservation and rollback are
+in the [adoption runbook](../../docs/operations/companion-lifecycle.md).
+Missing stage art retains the same family's sprite/icon fallback. Dummy is
+separate future training art without any companion/acquisition binding.
+
 ## Exact content bindings
 
 The catalog in [initial/pet_species.yaml](initial/pet_species.yaml) continues
@@ -42,7 +54,8 @@ to own content identities and compatible acquisition paths.
 | The same exact owned pet with confirmed `evolved_to_mount=true` | Bird |
 | The same species/potion's confirmed owned mount | Bird |
 | The same exact owned pet with server `evolution_stage=fledgling` (50–99 growth) | Fledgling from the pinned shared Bird family |
-| Other species, unknown identity, unsupported potion or missing model | Existing portrait/sprite fallback with usable creature controls |
+| One of 14 exact `meshtint-*` slug/sprite identities, global Base potion, server-confirmed lifecycle stage | Its exact pinned native family-stage take and portrait |
+| Unknown identity, unsupported potion or missing model | Existing portrait/sprite fallback with usable creature controls |
 
 The owner approved Fledgling at 50 server-confirmed growth; growth alone never selects Bird. See [Bird Evolution adoption](../../docs/operations/bird-evolution.md) for the new shared release, motions, lifecycle and rollback. The private conversion details below retain the prior export baseline. Hatching, feeding, activation, breeding and
 expeditions use existing shared services and acknowledged Django responses.
@@ -54,8 +67,10 @@ Saved ownership is independent of model filenames and availability.
 
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive registry for new offers and acquisition. Its production pet
-allowlist is the exact `chick` / `cute-chick` / `base` combination above. The
-Base potion and matching Chick egg support this path. Fire, Ice, Shadow,
+allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
+identities in `shared/catalog/companion-roster.json`, with Base only. Exact
+egg slug, typed species FK and canonical metadata must agree. Native take
+order does not set gameplay thresholds; explicit server rules select stages. Fire, Ice, Shadow,
 Golden and Cosmic potions have no accepted bird appearances and are not new
 acquisition goals. Archer outfit palettes are separate avatar choices; they
 do not establish a potion variant or fitted creature outfit.
@@ -76,7 +91,10 @@ workflows and administration remain ordinary React screens.
 
 ### Owned sources versus accepted runtime capabilities
 
-The October 12 source inventory distinguishes missing art from unprepared art:
+The following is the historical October 12 source inventory. The prepared
+14-family roster supersedes its unprepared-creature rows; it does not change
+the Archer, Bird, pedestal/UI or catalog pins. Its exact intake and current
+application validation are recorded separately in the adoption runbook:
 
 | Art | Source evidence | Active capability |
 | --- | --- | --- |

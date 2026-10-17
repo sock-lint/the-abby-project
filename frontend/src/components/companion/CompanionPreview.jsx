@@ -9,6 +9,7 @@ import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 import { birdStage } from '../../companion/birdEvolution';
 import PetEvolutionGuide from './PetEvolutionGuide';
+import { companionStage, companionStageLabel } from '../../companion/lifecycle';
 
 class SceneBoundary extends Component {
   state = { failed: false };
@@ -29,7 +30,7 @@ function OwnedPreview({ creature, kind, variant, ...props }) {
   const [enabled, setEnabled] = useState(variant === 'primary');
   const [animate, setAnimate] = useState(variant === 'primary');
   const [attempt, setAttempt] = useState(0);
-  const stage = birdStage(creature, kind);
+  const stage = birdStage(creature, kind) || companionStage(creature, kind);
   const [observed, setObserved] = useState({ stage, count: 0, evolution: null });
   if (observed.stage !== stage) {
     const forward = (observed.stage === 'chick' && (stage === 'fledgling' || stage === 'bird')) || (observed.stage === 'fledgling' && stage === 'bird');
@@ -78,13 +79,11 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
     onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && appearance?.pipeline === 'abby-assets-bird'), evolutionMotionEnabled });
   }, [appearance?.pipeline, creature?.id, evolutionMotionEnabled, onPresentationChange, ready, showScene]);
   const mount = kind === 'mount' || creature?.evolved_to_mount === true;
-  const sprite = kind === 'mount'
-    ? { spriteKey: creature?.species?.sprite_key && `${creature.species.sprite_key}-mount`, fallbackSpriteKey: creature?.species?.sprite_key }
-    : petSpriteKeys(creature);
+  const sprite = petSpriteKeys(creature, kind);
   const playTogether = (action) => {
     const messages = {
       hello: `${name} is happy to see you.`,
-      play: appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.`
+      play: appearance?.pipeline === 'abby-assets-roster' ? `${name} plays with you.` : appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.`
         : appearance?.key === 'fledgling' ? `${name} takes a little walk with you.` : `${name} hops along with you.`,
       left: `${name} looks around the clearing with you.`,
       right: `${name} looks around the clearing with you.`,
@@ -113,7 +112,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         <div>
           <p className="text-caption font-semibold text-sheikah-teal-deep">{kicker}</p>
           <h2 id={headingId} className={`${primary ? 'companion-primary-name text-2xl sm:text-3xl' : 'text-lede'} font-bold text-ink-primary`}>{(primary ? name : label) || 'Choose a companion'}</h2>
-          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{stage && !(primary && name !== label) ? `${stage[0].toUpperCase()}${stage.slice(1)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
+          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{companionStageLabel(creature, kind) ? `${companionStageLabel(creature, kind)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
           {primary && summary && <p className="companion-primary-summary">{summary}</p>}
         </div>
         {appearance && (primary ? <details className="companion-view-settings">
@@ -153,8 +152,8 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
       {primary && creature && <div className="companion-play-area">
         <div className="companion-play-controls" role="group" aria-label={`Spend time with ${name}`}>
           <Button size="sm" variant="secondary" onClick={() => playTogether('hello')}><Heart size={16} aria-hidden="true" /> Say hello</Button>
-          {appearance?.interactions?.play && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether('play')}><MoveUp size={16} aria-hidden="true" />{appearance.key === 'bird' ? 'Fly together' : appearance.key === 'fledgling' ? 'Walk together' : 'Hop together'}</Button>}
-          {appearance?.interactions?.left && appearance?.interactions?.right && <Button size="sm" variant="secondary" disabled={!showScene || !ready} onClick={() => playTogether(interaction?.action === 'left' ? 'right' : 'left')}><Sparkles size={16} aria-hidden="true" /> Look around</Button>}
+          {appearance?.interactions?.play && <Button size="sm" variant="secondary" disabled={!showScene || !ready || !animate || reducedMotion} onClick={() => playTogether('play')}><MoveUp size={16} aria-hidden="true" />{appearance.playLabel || (appearance.key === 'bird' ? 'Fly together' : appearance.key === 'fledgling' ? 'Walk together' : 'Hop together')}</Button>}
+          {appearance?.interactions?.left && appearance?.interactions?.right && <Button size="sm" variant="secondary" disabled={!showScene || !ready || !animate || reducedMotion} onClick={() => playTogether(interaction?.action === 'left' ? 'right' : 'left')}><Sparkles size={16} aria-hidden="true" /> Look around</Button>}
         </div>
         <p className="companion-play-response" role="status" aria-live="polite">{interaction?.message || `Take a little break with ${name}.`}</p>
       </div>}
@@ -166,8 +165,8 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
           <Button size="sm" variant="ghost" onClick={startScene} aria-label="Reset companion view"><RotateCcw size={16} aria-hidden="true" /> Reset view</Button>
         </>}
       </div>}
-      {appearance?.motions?.length > 0 && <CompanionMotionControls motions={appearance.motions} disabled={!showScene || !ready} onPlay={playMotion} />}
-      {appearance?.pipeline === 'abby-assets-bird' && showScene && <p className="companion-playback-status" role="status" aria-label="Companion playback" aria-live="polite"
+      {appearance?.motions?.length > 0 && <CompanionMotionControls motions={appearance.motions} disabled={!showScene || !ready || !animate || reducedMotion} onPlay={playMotion} />}
+      {['abby-assets-bird', 'abby-assets-roster'].includes(appearance?.pipeline) && showScene && <p className="companion-playback-status" role="status" aria-label="Companion playback" aria-live="polite"
         data-playback-status={playback?.status || 'loading'} data-variant-id={playback?.variantId} data-stage={playback?.stage || stage}>
         {playback?.status === 'idle' ? 'Your companion is resting.'
           : playback?.status === 'evolving' ? 'Your companion is growing into their next stage.'

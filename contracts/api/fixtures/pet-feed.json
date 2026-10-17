@@ -3,5 +3,6 @@
   "new_growth": 35,
   "evolved": false,
   "mount_id": null,
-  "evolution_stage": null
+  "evolution_stage": null,
+  "lifecycle_stage": "baby"
 }

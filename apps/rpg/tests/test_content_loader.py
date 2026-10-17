@@ -91,7 +91,10 @@ class ContentPackInitialSeedTest(TestCase):
         # Every pet species should have at least one preferred food after
         # the 2026-04-21 review filled in the mapping gaps.
         preferred_species_ids = set(preferred.values_list("food_species_id", flat=True))
-        all_species_ids = set(PetSpecies.objects.values_list("id", flat=True))
+        # Newly adopted prepared families deliberately have neutral food only;
+        # preserve every legacy typed food binding without reassigning it.
+        from apps.pets.roster import FAMILIES
+        all_species_ids = set(PetSpecies.objects.exclude(slug__in=FAMILIES).values_list("id", flat=True))
         missing = all_species_ids - preferred_species_ids
         self.assertFalse(
             missing,

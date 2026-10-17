@@ -1,4 +1,5 @@
 import presentation from './presentation.json';
+import { resolveSupplementalPortrait } from '../companion/supplementalPortraits';
 
 // Optional imports keep public builds usable without the private staging folder.
 // The stage script copies these portraits and their matching overlay together.
@@ -28,6 +29,6 @@ export function resolveLicensedRpgSprite(spriteKey, manifest, resolveArt) {
   return url ? { url, frames: 1 } : null;
 }
 
-export function getLicensedRpgSprite(spriteKey) {
-  return resolveLicensedRpgSprite(spriteKey, manifests['./licensed/presentation.json'], art);
+export function getLicensedRpgSprite(spriteKey, variantId = 'icon') {
+  return resolveSupplementalPortrait(spriteKey, variantId) || resolveLicensedRpgSprite(spriteKey, manifests['./licensed/presentation.json'], art);
 }

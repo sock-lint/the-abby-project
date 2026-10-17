@@ -3,6 +3,7 @@
     "id": 74,
     "item": {
       "id": 54,
+      "slug": "frame-gold",
       "name": "Gold Frame",
       "description": "",
       "icon": "G",
@@ -19,7 +20,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -35,6 +38,7 @@
     "id": 73,
     "item": {
       "id": 53,
+      "slug": "accessory-crown",
       "name": "Crown",
       "description": "",
       "icon": "A",
@@ -49,7 +53,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": false
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -59,6 +65,7 @@
     "id": 71,
     "item": {
       "id": 51,
+      "slug": "cat-egg",
       "name": "Cat Egg",
       "description": "",
       "icon": "E",
@@ -73,7 +80,9 @@
       "pet_species_name": "Cat",
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": false
+      "catalog_available": false,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "cat"
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -83,6 +92,7 @@
     "id": 72,
     "item": {
       "id": 52,
+      "slug": "base-potion",
       "name": "Base Potion",
       "description": "",
       "icon": "P",
@@ -93,11 +103,15 @@
       "rarity": "common",
       "rarity_display": "Common",
       "coin_value": 0,
-      "metadata": {},
+      "metadata": {
+        "variant": "base"
+      },
       "pet_species_name": null,
       "potion_type_name": "Base",
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",

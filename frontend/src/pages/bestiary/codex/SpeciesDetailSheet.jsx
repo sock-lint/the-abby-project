@@ -8,7 +8,7 @@ import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { mountSpriteKey } from './bestiary.constants';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
-import { birdFormName } from '../../../companion/birdEvolution';
+import { companionFormName } from '../../../companion/lifecycle';
 
 /**
  * BottomSheet detail view for a single species. Shows lore, food
@@ -86,7 +86,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
                         : 'bg-ink-page-shadow/30 border-ink-page-shadow opacity-70'
                     }`}
                     role="img"
-                    aria-label={`${potion.name} ${birdFormName(species, potion, 'bird')} — ${
+                    aria-label={`${potion.name} ${companionFormName(species, potion, 'grown')} — ${
                       owned ? 'owned' : 'not yet evolved'
                     }`}
                   >

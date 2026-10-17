@@ -16,7 +16,7 @@ import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
-import { birdFormName } from '../../../companion/birdEvolution';
+import { companionFormName } from '../../../companion/lifecycle';
 import OwnedMountGrid from './OwnedMountGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import DailyExpeditionCard from './DailyExpeditionCard';
@@ -125,7 +125,7 @@ export default function Mounts() {
         summary="Play together, then choose a little adventure for today."
         reaction={reaction?.creatureId === homeMount.id ? reaction : null}
       >
-        <DailyExpeditionCard mount={homeMount} name={companionName || birdFormName(homeMount.species, homeMount.potion, 'bird')} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reload} />
+        <DailyExpeditionCard mount={homeMount} name={companionName || companionFormName(homeMount.species, homeMount.potion, 'grown')} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reload} />
       </CompanionPreview>}
       <IncipitBand
         letter="M"
@@ -141,7 +141,7 @@ export default function Mounts() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Chick becomes Fledgling at 50 growth, then Bird at 100 growth. Send them exploring and collect their finds when they return.
+        Each family grows from egg to baby, middle, and grown. Grown pets can explore once they reach 100 growth. Collect their finds when they return.
       </p>
 
       <ErrorAlert message={error || stableError} />

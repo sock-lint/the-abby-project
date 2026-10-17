@@ -10,7 +10,13 @@
     "food_preference": "meat",
     "catalog_available": true,
     "catalog_icon": null,
-    "grown_catalog_icon": null
+    "grown_catalog_icon": null,
+    "lifecycle_stages": [
+      "egg",
+      "baby",
+      "middle",
+      "grown"
+    ]
   },
   "potion": {
     "id": 43,
@@ -32,5 +38,6 @@
   "created_at": "2026-10-10T12:00:00-07:00",
   "updated_at": "2026-10-10T12:00:00-07:00",
   "catalog_available": true,
-  "evolution_stage": null
+  "evolution_stage": null,
+  "lifecycle_stage": "middle"
 }

@@ -53,13 +53,13 @@ class CuteChickCatalogTests(TestCase):
         self.assertTrue(DropTable.objects.filter(item=self.birdseed, trigger_type="chore_complete").exists())
 
     def test_stable_total_counts_only_art_supported_authored_variants(self):
-        self.assertEqual(PetSpecies.objects.count(), 18)
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 1)
+        self.assertEqual(PetSpecies.objects.count(), 32)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
 
     def test_unprepared_legacy_species_does_not_expand_available_completion_total(self):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 1)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
         self.assertEqual(self.chick.available_potions.count(), 1)
 
     def test_reload_keeps_existing_pet_mount_and_inventory(self):

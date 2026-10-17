@@ -52,6 +52,7 @@ describe('PetCeremonyModal', () => {
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
     expect(screen.getByText(/cosmic phoenix/i)).toBeInTheDocument();
     expect(screen.getByText(/has joined your companions/i)).toBeInTheDocument();
+    expect(screen.getByText('Baby companion')).toBeInTheDocument();
   });
 
   it('renders evolve headline (mode=evolve)', () => {

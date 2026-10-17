@@ -4,7 +4,7 @@ import { Map as MapIcon } from 'lucide-react';
 import NotificationToast from './NotificationToast';
 import RpgSprite from './rpg/RpgSprite';
 import { useExpeditionToasts } from '../hooks/useExpeditionToasts';
-import { birdFormName } from '../companion/birdEvolution';
+import { companionFormName } from '../companion/lifecycle';
 
 /**
  * ExpeditionToastStack — soft slide-in nudge when one or more mounts
@@ -21,9 +21,9 @@ export default function ExpeditionToastStack({ inline = false }) {
   const items = (
     <AnimatePresence>
       {ready.map((expedition) => {
-        const name = birdFormName(
+        const name = companionFormName(
           { name: expedition.species_name, slug: expedition.species_slug, sprite_key: expedition.species_sprite_key },
-          { slug: expedition.potion_slug }, 'bird');
+          { slug: expedition.potion_slug }, 'grown');
         return (
         <NotificationToast
             key={expedition.id}

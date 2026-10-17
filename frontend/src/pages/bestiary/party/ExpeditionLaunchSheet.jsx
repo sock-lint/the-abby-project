@@ -6,7 +6,7 @@ import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { startExpedition } from '../../../api';
 import usePetMutationGuard from './usePetMutationGuard';
-import { birdFormName } from '../../../companion/birdEvolution';
+import { companionFormName } from '../../../companion/lifecycle';
 
 // Tier metadata mirrors apps/pets/expeditions.py::TIER_CONFIG so the UI
 // reads truthful copy without an extra round-trip. If the backend table
@@ -72,7 +72,7 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
 
   return (
     <BottomSheet
-      title={`Send ${birdFormName(mount.species, mount.potion, 'bird')} on an expedition`}
+      title={`Send ${companionFormName(mount.species, mount.potion, 'grown')} on an expedition`}
       onClose={onDismiss}
       disabled={working}
     >

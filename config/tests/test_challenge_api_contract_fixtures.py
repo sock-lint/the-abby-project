@@ -83,11 +83,13 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         # PostgreSQL's nontransactional sequences and arbitrary suite order.
         from apps.quests.models import (
             ChallengeActivity, ChallengeEnrollment, ChallengeGoal, ChallengeOccurrence, DailyBonus,
+            Quest, QuestParticipant,
         )
         ChallengeEnrollment.objects.create(user=self.child, starts_at=FIXED_NOW, timezone_name="America/Phoenix")
         with connection.cursor() as cursor:
             for sql in connection.ops.sequence_reset_sql(no_style(), [
                 ChallengeGoal, ChallengeOccurrence, ChallengeActivity, DailyBonus, MovementSession,
+                Quest, QuestParticipant,
             ]):
                 cursor.execute(sql)
         self.tokens = {
@@ -456,7 +458,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         }
         return species, potion, egg, policy
 
-    def test_catalog_receipt_reports_skipped_item_after_support_retirement(self):
+    def test_catalog_receipt_delivers_its_frozen_item_after_support_retirement(self):
         _, _, egg, policy = self.add_synthetic_egg_reward()
         self.authenticate(self.child)
         with self.settings(RPG_ASSET_SUPPORT_POLICY=policy):
@@ -466,13 +468,64 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.log_run("1.25").status_code, 201)
         response = self.client.get("/api/challenges/")
         completed = response.json()
-        self.assertEqual(completed["results"][0]["reward_receipt"]["items"], [])
-        self.assert_response_fixture(response, "challenges-items-skipped.json")
-        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+        self.assertEqual(completed["results"][0]["reward_receipt"]["items"], [{
+            "item_name": egg.name, "item_catalog_icon": None, "quantity": 1,
+        }])
+        self.assert_response_fixture(response, "challenges-items-promised-retired.json")
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
         paid = self.state()
         self.log_run("1.25")
         self.assertEqual(self.client.get("/api/challenges/").json(), completed)
         self.assertEqual(self.state(), paid)
+
+    def test_new_catalog_snapshot_excludes_items_unavailable_before_acceptance(self):
+        _, _, egg, _policy = self.add_synthetic_egg_reward()
+        self.authenticate(self.child)
+        preview = self.client.get("/api/challenges/").json()["results"][0]
+        self.assertEqual(preview["rewards"]["items"], [])
+        self.assertEqual(self.log_run("0.75").status_code, 201)
+        self.assertEqual(self.log_run("1.25").status_code, 201)
+        response = self.client.get("/api/challenges/")
+        self.assertEqual(response.json()["results"][0]["reward_receipt"]["items"], [])
+        self.assert_response_fixture(response, "challenges-items-skipped.json")
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
+
+    def test_accepted_legacy_quest_keeps_its_item_visible_and_pays_it_once_after_retirement(self):
+        _, _, egg, policy = self.add_synthetic_egg_reward()
+        definition = QuestDefinition.objects.create(
+            id=91, name="Saved egg promise", description="A synthetic accepted family quest.",
+            quest_type="collection", target_value=1, duration_days=7,
+            trigger_filter={"allowed_triggers": ["movement_session"]},
+            coin_reward=7, xp_reward=0, is_system=False, created_by=self.parent,
+        )
+        QuestRewardItem.objects.create(id=92, quest_definition=definition, item=egg, quantity=2)
+        self.authenticate(self.child)
+        with self.settings(RPG_ASSET_SUPPORT_POLICY=policy):
+            started = self.client.post("/api/quests/start/", {"definition_id": definition.pk}, format="json")
+            self.assertEqual(started.status_code, 201)
+            accepted = started.json()
+        active = self.client.get("/api/quests/active/")
+        self.assertEqual(active.status_code, 200)
+        promised = active.json()["definition"]["reward_items"]
+        self.assertEqual([(row["item"], row["quantity"]) for row in promised], [(egg.pk, 2)])
+        self.assertEqual(active.json(), accepted)
+        self.assert_response_fixture(active, "quest-promised-item-active.json")
+        goals_response = self.client.get("/api/challenges/")
+        legacy = next(row for row in goals_response.json()["results"] if row["origin"] == "legacy")
+        self.assertEqual([(row["item"], row["quantity"]) for row in legacy["rewards"]["items"]], [(egg.pk, 2)])
+        self.assert_response_fixture(goals_response, "challenges-legacy-promised-item.json")
+
+        self.assertEqual(self.log_run("0.75").status_code, 201)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 2)
+        history = self.assert_response_fixture(self.client.get("/api/quests/history/"), "quest-promised-item-history.json")
+        self.assertEqual(history[0]["status"], "completed")
+        self.assertEqual(history[0]["definition"]["reward_items"], promised)
+        self.assertEqual(self.log_run("1.25").status_code, 201)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 2)
+        self.assertEqual(list(CoinLedger.objects.filter(
+            user=self.child, description=f"Quest complete: {definition.name}",
+        ).values_list("amount", flat=True)), [7])
+        self.assertEqual(self.client.get("/api/quests/history/").json(), history)
 
     def test_catalog_receipt_reports_owned_egg_conversion_without_claiming_delivery(self):
         from apps.pets.models import UserMount

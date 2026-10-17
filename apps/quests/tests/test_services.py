@@ -116,9 +116,10 @@ class QuestEggSalvageTest(TestCase):
         self.potion = PotionType.objects.create(slug="base", name="Base")
 
         self.egg = ItemDefinition.objects.create(
-            slug="wolf-egg", name="Wolf Egg", icon="🥚",
+            slug="chick-egg", name="Chick Egg", icon="🥚",
             item_type=ItemDefinition.ItemType.EGG,
             pet_species=self.species,
+            metadata={"species": "chick"},
             rarity="common", coin_value=3,
         )
         self.boss_def = QuestDefinition.objects.create(

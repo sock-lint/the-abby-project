@@ -107,16 +107,18 @@ class PetServiceHookTests(TestCase):
         self.species.available_potions.add(self.potion_type)
 
         self.egg_item = ItemDefinition.objects.create(
-            slug="egg-chick", name="Chick Egg", icon="\U0001f95a",
+            slug="chick-egg", name="Chick Egg", icon="\U0001f95a",
             item_type=ItemDefinition.ItemType.EGG,
             rarity="common",
             pet_species=self.species,
+            metadata={"species": "chick"},
         )
         self.potion_item = ItemDefinition.objects.create(
-            slug="potion-base", name="Base Potion", icon="\U0001f9ea",
+            slug="base-potion", name="Base Potion", icon="\U0001f9ea",
             item_type=ItemDefinition.ItemType.POTION,
             rarity="common",
             potion_type=self.potion_type,
+            metadata={"variant": "base"},
         )
         self.food_item = ItemDefinition.objects.create(
             slug="food-birdseed", name="Birdseed", icon="\U0001f33e",

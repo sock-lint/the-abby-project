@@ -28,7 +28,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `challenges-completed.json` | Completed occurrences retain reward previews and actual paid receipts; reopening the list awards nothing |
 | `challenges-boosted.json` | Daily Lucky Coin payout is distinct from its base preview; parent goal Coins retain the existing unboosted policy |
 | `challenges-items-delivered.json` | Actual frame delivery is recorded in the awarded receipt and persists without duplicate grants |
-| `challenges-items-skipped.json` | An egg becomes unavailable after the preview; completion records no item delivery |
+| `challenges-items-skipped.json` | An egg unavailable before acceptance is excluded from the new snapshot and receives no item delivery |
+| `challenges-items-promised-retired.json` | An accepted frozen item remains visible and delivers once after catalog retirement |
+| `challenges-legacy-promised-item.json`, `quest-promised-item-active.json`, `quest-promised-item-history.json` | Accepted legacy quest items remain visible and fulfill once after retirement; new starts omit unavailable items |
 | `challenges-items-converted.json` | An egg for an already-owned mount is converted to Coins; the receipt distinguishes conversion from delivery |
 | `challenge-goal-invalid.json` | Invalid nonpositive target rejected with HTTP 400; no goal or reward persists |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |
@@ -44,7 +46,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `report-card-invalid.json` | Report card rejected with HTTP 400 for an unknown subject field; indexed nested errors and no saved result or reward |
 | `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
-| `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises only Base Chick |
+| `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises 15 exact Base-only families |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
@@ -257,8 +259,8 @@ The broader hatch/breeding scenarios in `test_api_contract_fixtures.py` use an
 explicit scoped synthetic asset policy to exercise generic engine mechanics,
 including compatibility fallbacks and Cosmic upgrades. They do not advertise
 those identities as production art. `test_catalog_api_contract_fixtures.py`
-uses the unchanged production default: exact `chick` / `cute-chick` / `base`,
-Chick before evolution and Bird only after confirmed evolution. It seeds both
+uses the production default: retained `chick` / `cute-chick` plus 14 exact
+`meshtint-*` families, all Base-only, with explicit server lifecycle rules. It seeds both
 supported and unavailable saved rows, compares real catalog/stable/inventory
 responses, and verifies rejected hatch/equip requests consume nothing.
 `frontend/src/api/catalogContractFixtures.test.js` consumes the same bodies
@@ -267,8 +269,8 @@ through the real API wrappers and preserves rejection status/details.
 Read-only `catalog_available` on species, potions, owned pets/mounts and items
 describes new catalog eligibility. Stable ownership/totals retain saved legacy
 rows, while supported progress uses `total_possible`; `breeding_available`
-requires two supported ready parents and is false for the production single
-Base Chick pair. Saved pet feeding/activation/evolution and mount expeditions
+requires two distinct supported ready parents; the 15 Base-only families can
+provide eligible pairs. Saved pet feeding/activation/evolution and mount expeditions
 remain available. Cosmetic catalogs retain all slot keys with an empty
 `active_pet_accessory` list; inventory retains earlier accessories without
 equip actions. A previous accessory selection can still be removed. Flags
@@ -689,7 +691,18 @@ second report card or individual result that day receives a zero-XP
 daily counter after replay, history reads and corrections; rejected nested
 fields consume no eligibility.
 
-Pet and mount responses include read-only `evolution_stage`: `chick`,
+All creature families share ordered `lifecycle_stages: ["egg", "baby", "middle", "grown"]`
+on species/catalog/codex responses. Pet and mount `lifecycle_stage` is read-only:
+Baby below 50 saved growth, Middle from 50 until confirmed evolution, and Grown
+after confirmed evolution or for an owned mount. Egg items remain inventory
+with `lifecycle_stage: "egg"`, item `slug` and `pet_species_slug`. Registered
+roster eggs require exact slug, typed FK and canonical metadata agreement;
+retained nonregistered legacy metadata fallback cannot rescue a conflict. Other
+items return null for the stage/species fields. Hatching consumes the
+existing egg+potion pair into a Baby at zero growth. No stage read grants
+ownership, growth or currency. See [companion lifecycle](../../docs/operations/companion-lifecycle.md).
+
+Pet and mount responses also retain compatible read-only `evolution_stage`: `chick`,
 `fledgling`, `bird`, or null for other identities. Only exact
 `chick` / `cute-chick` / `base` uses these stages. Persisted growth below 50
 selects Chick, 50 or higher selects Fledgling until confirmed mount evolution;
@@ -761,3 +774,10 @@ ledger after retries, corrections, deletion and a replacement log.
 Recommendations use a bundled publisher-sourced catalog, optional topic,
 birthday age guidance when available and saved book interests/reactions. The
 ranking reads no reflection text and makes no runtime external requests.
+
+`inventory-roster-hatching.json`, `pet-hatch-roster.json` and
+`mount-breed-roster.json` cover real namespaced Base-only inventory, hatch and
+breed producers/consumers. Breed receipts add nullable `egg_item_catalog_icon`;
+newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
+and frozen receipts are retained verbatim. See the
+[adoption runbook](../../docs/operations/companion-lifecycle.md).

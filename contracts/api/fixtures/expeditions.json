@@ -26,7 +26,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           },
           {
             "item_id": 71,
@@ -35,7 +36,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           },
           {
             "item_id": 71,
@@ -44,7 +46,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           }
         ]
       }
@@ -75,7 +78,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           },
           {
             "item_id": 71,
@@ -84,7 +88,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           }
         ]
       }
@@ -115,7 +120,8 @@
             "icon": "🫐",
             "rarity": "common",
             "item_type": "food",
-            "sprite_key": "berry-bowl"
+            "sprite_key": "berry-bowl",
+            "catalog_icon": null
           }
         ]
       }

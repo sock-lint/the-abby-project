@@ -31,6 +31,12 @@ vi.mock('./sharedBirdPlayback', () => ({ createSharedBirdPlayback: vi.fn((_appea
   queueMicrotask(() => { if (!instance.dispose.mock.calls.length) callbacks.onReady(); });
   return instance;
 }) }));
+vi.mock('./sharedRosterPlayback', () => ({ createSharedRosterPlayback: vi.fn((_appearance, callbacks) => {
+  const instance = { root: new Group(), callbacks, evolve: vi.fn(), reset: vi.fn(), play: vi.fn(), update: vi.fn(), dispose: vi.fn() };
+  harness.instances.push(instance);
+  queueMicrotask(() => { if (!instance.dispose.mock.calls.length) callbacks.onReady(); });
+  return instance;
+}) }));
 
 const appearance = { pipeline: 'abby-assets-bird', key: 'bird', rotationY: 0 };
 const evolution = { id: 4, from: 'fledgling', to: 'bird' };
@@ -46,6 +52,36 @@ beforeEach(() => {
 });
 
 describe('Shared bird scene lifecycle', () => {
+  it('retains a queued interaction when immutable roster resources replace the native instance', () => {
+    const props = { appearance: { ...appearance, pipeline: 'abby-assets-roster', key: 'wolf-middle' }, animate: true,
+      interaction: { id: 8, action: 'source-cast-spell' }, onReady: vi.fn(), onUnavailable: vi.fn() };
+    const view = render(<CompanionScene {...props} />);
+    expect(harness.instances[0].play).toHaveBeenCalledOnce();
+    view.rerender(<CompanionScene {...props} appearance={{ ...props.appearance, manifestSha256: 'c'.repeat(64) }} />);
+    expect(harness.instances[0].dispose).toHaveBeenCalledOnce();
+    expect(harness.instances[1].play).toHaveBeenCalledExactlyOnceWith('source-cast-spell');
+    view.unmount();
+  });
+  it('gives roster native instances the existing visibility, reduced-motion and disposal lifecycle', () => {
+    harness.allowed = false;
+    const props = { appearance: { ...appearance, pipeline: 'abby-assets-roster', key: 'wolf-middle' }, animate: true,
+      interaction: { id: 7, action: 'source-cast-spell' }, onReady: vi.fn(), onUnavailable: vi.fn() };
+    const view = render(<CompanionScene {...props} />);
+    const instance = harness.instances[0];
+    expect(instance.play).not.toHaveBeenCalled();
+    harness.allowed = true;
+    view.rerender(<CompanionScene {...props} />);
+    expect(instance.play).toHaveBeenCalledExactlyOnceWith('source-cast-spell');
+    harness.frame({}, 0.05);
+    expect(instance.update).toHaveBeenCalledOnce();
+    const changed = media.addEventListener.mock.calls.find(([event]) => event === 'change')[1];
+    act(() => { media.matches = true; changed(); });
+    harness.frame({}, 0.05);
+    expect(instance.update).toHaveBeenCalledOnce();
+    expect(instance.reset).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(instance.dispose).toHaveBeenCalledOnce();
+  });
   it('retains the native instance and consumed evolution when a stable refresh returns an equivalent appearance', () => {
     const props = { appearance: { ...appearance }, evolution, animate: true, onReady: vi.fn(), onUnavailable: vi.fn() };
     const view = render(<CompanionScene {...props} />);
