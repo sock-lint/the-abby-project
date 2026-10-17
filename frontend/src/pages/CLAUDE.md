@@ -420,9 +420,13 @@ account/family/credential-bound preview controls contact handoff, self-deletion
 and last-active-parent family closure. Contact handoff changes only the display
 contact; all parents retain equal access. Parent self-deletion requires an
 active same-family successor for shared authored work; personal assignments
-and private journals are deleted rather than transferred. Confirmation uses
-the current Abby password and exact username or family identifier, held only
-in memory. Busy forms block repeated writes and dismissal, failures retain the
+and private journals are deleted rather than transferred.
+Child-authored shared homework assignments, chores and habits stay with an
+active family parent automatically; the child has no successor picker or
+parent-only actions. Without an active parent to keep shared work, the preview
+blocks deletion until one is active.
+Confirmation uses the current Abby password and exact username or family
+identifier, held only in memory. Busy forms block repeated writes and dismissal, failures retain the
 form, and delayed reads/writes cannot affect a replacement session. A closure
 conflict requires a fresh member-count/version review and a new confirmation.
 Successful deletion uses `signOutDeletedAccount(capturedToken)` for conditional

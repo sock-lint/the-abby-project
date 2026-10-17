@@ -23,6 +23,18 @@ and homework assigned to the departing account, personal habits, private journal
 and other personal data are deleted instead of transferred. If the departing
 parent is the family contact, the selected successor becomes the contact.
 
+Children can also author chores, habits and homework that a parent later
+publishes or assigns to another member. On child self-deletion, this shared
+work automatically passes to the active same-family contact, or otherwise
+the oldest active same-family parent by `date_joined`, then primary key. The
+child cannot select the recipient or change the family contact. Shared work
+requires an active parent; without one, the preview disables deletion and the
+operation refuses safely until a parent is active again. The final check runs
+after affected records are locked, so a just-finished approval cannot escape
+handoff. Only creator pointers change: other members' assignments, progress,
+proof files, completions and rewards survive without replay. The child's own
+submissions, logs, pending personal proposals and private journals still delete.
+
 The separate **Transfer family contact** action changes `Family.primary_parent`
 without deleting anything or transferring shared work. The field is a display
 pointer: every active parent retains equal permissions. It confers no extra
@@ -80,7 +92,7 @@ If the credential no longer works, sign in again or ask the operator to confirm.
 | --- | --- |
 | `GET /api/account/lifecycle/` | Self-scoped impact preview, eligible active successors, member counts and membership fingerprint; no private contents or credentials |
 | `POST /api/account/lifecycle/transfer/` | `{password, successor_id}`; parent changes display contact |
-| `POST /api/account/lifecycle/delete/` | `{password, confirm_username, successor_id?}`; parent must supply successor; child deletes self without one |
+| `POST /api/account/lifecycle/delete/` | `{password, confirm_username, successor_id?}`; parent must supply successor; child uses automatic shared-work handoff and cannot select a successor (an optional valid numeric ID is ignored) |
 | `POST /api/account/lifecycle/close-family/` | `{password, confirm_family_slug, family_version}`; sole active parent only |
 
 Mutation success is HTTP 204. Password/confirmation/successor failures are 400;
@@ -178,6 +190,8 @@ project is needed for those cases.
    deletion cleanup. Add server idempotency/receipts before durable retries for
    homework proof, new-project and media forms, which currently lose memory
    on reload/process death. Prevent duplicate rewards and stale overwrites.
+   First fix the existing homework PATCH response contract: reassignment can
+   persist before `skill_tags` serialization returns a `RelatedManager` TypeError.
 3. **Retention reconciliation.** Establish operator-owned backup, diagnostics,
    storage-version and provider-copy policies and a monitored support destination.
    Inventory historical orphans and interrupted uploads before claiming complete

@@ -13,6 +13,7 @@ const WORK_LABELS = {
   homework_assignments: 'Homework assignments', homework_templates: 'Homework templates',
   chores: 'Chores', habits: 'Habits',
 };
+const CHILD_SHARED_WORK = ['homework_assignments', 'chores', 'habits'];
 let nextCredentialVersion = 0;
 
 function subscribeCredential(onChange) {
@@ -87,6 +88,7 @@ function LifecyclePanel({ user }) {
   }, [load]);
 
   const canDelete = preview?.can_delete_account && (!isParent || preview.successors.length > 0);
+  const hasChildSharedWork = user.role === 'child' && CHILD_SHARED_WORK.some((key) => preview?.shared_work[key] > 0);
   return <section className="mt-4 pt-4 border-t border-ink-page-shadow space-y-3" aria-label="Account deletion and family handoff">
     <h3 className="font-body font-semibold text-ink-primary">Account deletion and family handoff</h3>
     {loading && <p role="status" className="text-body text-ink-secondary">Loading account deletion options…</p>}
@@ -101,6 +103,7 @@ function LifecyclePanel({ user }) {
         <Button variant="ghost" onClick={load}>Refresh account options</Button>
       </div>
       {isParent && !canDelete && <p className="text-caption text-ink-secondary">To leave this family, another active parent must keep the shared work. If you are the last active parent, you can close the whole family instead.</p>}
+      {!canDelete && hasChildSharedWork && <p className="text-caption text-ink-secondary">An active family parent is needed to keep your shared work before you can delete your account. Ask a family parent or operator for help, then refresh these options.</p>}
       {isParent && !preview.can_close_family && <p className="text-caption text-ink-secondary">Only the last active parent can close the family.</p>}
       {mode && <LifecycleConfirmation key={mode} mode={mode} user={user} preview={preview} credential={credential}
         onCancel={() => setMode('')}
@@ -128,6 +131,7 @@ function LifecycleConfirmation({ mode, user, preview, credential, onCancel, onRe
   const transfer = mode === 'transfer';
   const close = mode === 'close';
   const needsSuccessor = transfer || (!close && user.role === 'parent');
+  const childSharedWork = user.role === 'child' ? CHILD_SHARED_WORK.filter((key) => preview.shared_work[key] > 0) : [];
   const phrase = close ? preview.family.slug : preview.user.username;
   const title = transfer ? 'Transfer family contact' : close ? `Close ${preview.family.name}?` : 'Delete my account?';
   const action = transfer ? 'Transfer family contact' : close ? 'Close family permanently' : 'Delete my account permanently';
@@ -178,6 +182,12 @@ function LifecycleConfirmation({ mode, user, preview, credential, onCancel, onRe
           {preview.family_members && <p className="text-body text-ink-secondary">Accounts affected: {preview.family_members.parents} {preview.family_members.parents === 1 ? 'parent' : 'parents'} and {preview.family_members.children} {preview.family_members.children === 1 ? 'child' : 'children'}, including inactive accounts.</p>}
         </> : <>
           <p className="text-body text-ink-secondary">This permanently deletes your account, private journal, personal records and saved connections. Projects and homework assigned to you and your personal habits are deleted. This cannot be undone.</p>
+          {childSharedWork.length > 0 && <>
+            <p className="text-body text-ink-secondary">An active family parent will keep this shared work automatically. Other family members’ history and rewards for it stay with your family. Your own assignments, submissions, logs and private journal are still deleted and are never transferred.</p>
+            <dl className="grid grid-cols-2 gap-2 text-caption" aria-label="Shared work kept for your family">
+              {childSharedWork.map((key) => <div key={key}><dt className="text-ink-secondary">{WORK_LABELS[key]}</dt><dd className="font-semibold">{preview.shared_work[key]}</dd></div>)}
+            </dl>
+          </>}
           {needsSuccessor && <p className="text-body text-ink-secondary">Shared work you created for surviving members, including projects, homework, templates, chores and habits, moves to the parent you choose. Your private journal never transfers. Family settings stay with the family.</p>}
           {needsSuccessor && <dl className="grid grid-cols-2 gap-2 text-caption" aria-label="Shared work to hand off">
             {Object.entries(WORK_LABELS).map(([key, label]) => <div key={key}><dt className="text-ink-secondary">{label}</dt><dd className="font-semibold">{preview.shared_work[key]}</dd></div>)}

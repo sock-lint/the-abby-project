@@ -11,17 +11,17 @@
   },
   "family_members": {
     "parents": 2,
-    "children": 1
+    "children": 2
   },
-  "family_version": "4e2834004e60986b4f09bcd4cdc59779ec8d6ce5b1a47961feeb80e8ef482f49",
+  "family_version": "629fcfff7523299f5371166844a2ace001a7757bcda2436bb088c3d100bd52aa",
   "successors": [],
   "shared_work": {
     "projects": 0,
     "project_templates": 0,
-    "homework_assignments": 0,
+    "homework_assignments": 1,
     "homework_templates": 0,
-    "chores": 0,
-    "habits": 0
+    "chores": 1,
+    "habits": 1
   },
   "can_delete_account": true,
   "can_close_family": false

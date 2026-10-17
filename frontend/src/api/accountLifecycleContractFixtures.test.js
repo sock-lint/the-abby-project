@@ -42,6 +42,16 @@ describe('Account lifecycle responses shared with Django', () => {
     expect(fixture.family_version).toMatch(/^[a-f0-9]{64}$/);
   });
 
+  it('retains child shared-work impact counts without offering a successor or parent actions', async () => {
+    const read = spyHandler('get', /\/api\/account\/lifecycle\/$/, childPreview);
+    server.use(read.handler);
+    const result = await getAccountLifecycle();
+    for (const key of ['homework_assignments', 'chores', 'habits']) expect(result.shared_work[key]).toBeGreaterThan(0);
+    expect(result.successors).toEqual([]);
+    expect(result.can_delete_account).toBe(true);
+    expect(result.can_close_family).toBe(false);
+  });
+
   it('sends current-password confirmation to the exact lifecycle mutation endpoints and accepts their 204 receipts', async () => {
     const password = 'synthetic-current-password';
     const successor_id = parentPreview.successors[0].id;

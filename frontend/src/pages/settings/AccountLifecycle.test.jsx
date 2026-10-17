@@ -152,20 +152,73 @@ describe('Account lifecycle', () => {
     expect(logout.calls).toHaveLength(0);
   });
 
-  it('lets a child delete only their own account without a successor or family closure', async () => {
-    seed(preview({ user: { id: 7, username: 'child' }, successors: [], can_close_family: false }),
+  it.each([['homework_assignments', 'Homework assignments'], ['chores', 'Chores'], ['habits', 'Habits']])('reviews retained %s before a child deletes their own account without choosing a successor', async (kind, label) => {
+    seed(preview({ user: { id: 7, username: 'child' }, successors: [], can_close_family: false,
+      shared_work: { projects: 0, project_templates: 0, homework_assignments: 0, homework_templates: 0, chores: 0, habits: 0, [kind]: 2 } }),
       buildUser({ id: 7, username: 'child', family: actor().family }));
     const mutation = spyHandler('post', /\/api\/account\/lifecycle\/delete\/$/, new HttpResponse(null, { status: 204 }));
     server.use(mutation.handler);
     const { user } = renderWithProviders(<SessionHarness />);
     const dialog = await open(user, 'delete');
+    const summary = within(dialog).getByLabelText('Shared work kept for your family');
+    expect(summary).toHaveTextContent(`${label}2`);
+    expect(within(summary).getAllByRole('definition')).toHaveLength(1);
+    expect(dialog).toHaveTextContent(/active family parent.*automatically/i);
+    expect(dialog).toHaveTextContent(/other family members.*history.*stay/i);
+    expect(dialog).toHaveTextContent(/own assignments, submissions, logs and private journal.*deleted.*never transferred/i);
     expect(screen.queryByRole('button', { name: 'Close family' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Transfer family contact' })).toBeNull();
     expect(within(dialog).queryByRole('combobox')).toBeNull();
     await fill(user, dialog, 'delete', true);
     await user.click(submit(dialog, 'delete'));
     await waitFor(() => expect(mutation.calls).toHaveLength(1));
     expect(mutation.calls[0].body).toEqual({ password: PASSWORD, confirm_username: 'child' });
     await waitFor(() => expect(localStorage.getItem('abby_auth_token')).toBeNull());
+  });
+
+  it.each([['homework_assignments', 'Homework assignments'], ['chores', 'Chores'], ['habits', 'Habits']])('explains a child %s deletion hold and refreshes after a family parent becomes active', async (kind, label) => {
+    let current = preview({ user: { id: 7, username: 'child' }, successors: [], can_close_family: false,
+      can_delete_account: false, shared_work: { projects: 0, project_templates: 0, homework_assignments: 0, homework_templates: 0, chores: 0, habits: 0, [kind]: 2 } });
+    seed(current, buildUser({ id: 7, username: 'child', family: actor().family }));
+    const reads = spyHandler('get', /\/api\/account\/lifecycle\/$/, () => current);
+    const deletion = spyHandler('post', /\/api\/account\/lifecycle\/delete\/$/, new HttpResponse(null, { status: 204 }));
+    server.use(reads.handler, deletion.handler);
+    const { user } = renderWithProviders(<AccountLifecycle />);
+    const remove = await screen.findByRole('button', { name: 'Delete my account' });
+    expect(remove).toBeDisabled();
+    expect(screen.getByText(/An active family parent is needed to keep your shared work/i)).toBeInTheDocument();
+    await user.click(remove);
+    expect(deletion.calls).toHaveLength(0);
+    expect(screen.queryByRole('button', { name: 'Close family' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Transfer family contact' })).toBeNull();
+    current = { ...current, can_delete_account: true, family_version: 'b'.repeat(64) };
+    await user.click(screen.getByRole('button', { name: 'Refresh account options' }));
+    await waitFor(() => expect(reads.calls).toHaveLength(2));
+    expect(await screen.findByRole('button', { name: 'Delete my account' })).toBeEnabled();
+    expect(reads.calls[1]).toMatchObject({ method: 'GET', body: null, url: expect.stringMatching(/\/api\/account\/lifecycle\/$/) });
+    expect(screen.queryByText(/An active family parent is needed/i)).toBeNull();
+    expect(deletion.calls).toHaveLength(0);
+    const dialog = await open(user, 'delete');
+    expect(within(dialog).getByLabelText('Shared work kept for your family')).toHaveTextContent(`${label}2`);
+    expect(within(dialog).queryByRole('combobox')).toBeNull();
+  });
+
+  it('reviews all child shared-work counts together while keeping private and personal records separate', async () => {
+    seed(preview({ user: { id: 7, username: 'child' }, successors: [], can_close_family: false,
+      shared_work: { projects: 0, project_templates: 0, homework_assignments: 3, homework_templates: 0, chores: 2, habits: 1 } }),
+    buildUser({ id: 7, username: 'child', family: actor().family }));
+    const { user } = renderWithProviders(<AccountLifecycle />);
+    const dialog = await open(user, 'delete');
+    const summary = within(dialog).getByLabelText('Shared work kept for your family');
+    expect(summary).toHaveTextContent('Homework assignments3');
+    expect(summary).toHaveTextContent('Chores2');
+    expect(summary).toHaveTextContent('Habits1');
+    expect(within(summary).getAllByRole('definition')).toHaveLength(3);
+    expect(within(summary).queryByText('Projects')).toBeNull();
+    expect(dialog).toHaveTextContent(/private journal.*deleted.*never transferred/i);
+    expect(within(dialog).queryByRole('combobox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Close family' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Transfer family contact' })).toBeNull();
   });
 
   it('only offers whole-family closure to the last active parent and requires the exact family identifier', async () => {

@@ -45,10 +45,28 @@ class LifecycleApiResponseFixtureTests(APITestCase):
         self.assertEqual(body["shared_work"]["habits"], 1)
 
     def test_child_preview_matches_shared_contract(self):
-        body = self.preview(self.household.children[0], "lifecycle-child-preview.json")
+        from django.contrib.auth import get_user_model
+        from django.utils import timezone
+
+        from apps.chores.models import Chore
+        from apps.habits.models import Habit
+        from apps.homework.models import HomeworkAssignment
+
+        child = self.household.children[0]
+        sibling = get_user_model().objects.create_user(
+            id=613, username="fixture-sibling", display_name="Sky", role="child", family=self.household.family, password="pw",
+        )
+        Chore.objects.create(title="Synthetic child-proposed shared chore", family=self.household.family, created_by=child)
+        Habit.objects.create(name="Synthetic child-proposed sibling habit", user=sibling, created_by=child)
+        HomeworkAssignment.objects.create(title="Synthetic child-authored sibling homework", subject="math", due_date=timezone.localdate(), assigned_to=sibling, created_by=child)
+        body = self.preview(child, "lifecycle-child-preview.json")
         self.assertTrue(body["can_delete_account"])
         self.assertFalse(body["can_close_family"])
         self.assertEqual(body["successors"], [])
+        self.assertEqual(body["shared_work"], {
+            "projects": 0, "project_templates": 0, "homework_assignments": 1,
+            "homework_templates": 0, "chores": 1, "habits": 1,
+        })
 
     def test_last_parent_preview_includes_inactive_members_in_closure_impact(self):
         parent = self.household.parents[1]

@@ -109,25 +109,39 @@ def _shared_work(actor):
     from apps.homework.models import HomeworkAssignment, HomeworkTemplate
     from apps.projects.models import Project, ProjectTemplate
 
-    if actor.role != "parent":
-        return {}
-    return {
-        "projects": Project.objects.filter(created_by=actor).exclude(assigned_to=actor).filter(
-            Q(assigned_to__isnull=True) | Q(assigned_to__family_id=actor.family_id),
-        ),
-        "project_templates": ProjectTemplate.objects.filter(created_by=actor, family_id=actor.family_id),
+    shared = {
         "homework_assignments": HomeworkAssignment.objects.filter(
             created_by=actor, assigned_to__family_id=actor.family_id,
         ).exclude(assigned_to=actor),
-        "homework_templates": HomeworkTemplate.objects.filter(created_by=actor),
         "chores": Chore.objects.filter(created_by=actor, family_id=actor.family_id).exclude(assigned_to=actor),
         "habits": Habit.objects.filter(created_by=actor, user__family_id=actor.family_id).exclude(user=actor),
     }
+    if actor.role == "parent":
+        shared.update({
+            "projects": Project.objects.filter(created_by=actor).exclude(assigned_to=actor).filter(
+                Q(assigned_to__isnull=True) | Q(assigned_to__family_id=actor.family_id),
+            ),
+            "project_templates": ProjectTemplate.objects.filter(created_by=actor, family_id=actor.family_id),
+            "homework_templates": HomeworkTemplate.objects.filter(created_by=actor),
+        })
+    return shared
+
+
+def _automatic_shared_work_parent(family, members):
+    """A child cannot choose a recipient or gain family-contact authority."""
+    parents = [member for member in members if member.family_id == family.pk and member.role == "parent" and member.is_active]
+    return next(
+        (member for member in parents if member.pk == family.primary_parent_id),
+        min(parents, key=lambda member: (member.date_joined, member.pk), default=None),
+    )
 
 
 def lifecycle_preview(family, actor, members):
     successors = [member for member in members if member.pk != actor.pk and member.role == "parent" and member.is_active]
     shared = _shared_work(actor)
+    shared_counts = {name: shared[name].count() if name in shared else 0 for name in (
+        "projects", "project_templates", "homework_assignments", "homework_templates", "chores", "habits",
+    )}
     return {
         "user": {"id": actor.pk, "username": actor.username},
         "family": {"id": family.pk, "name": family.name, "slug": family.slug, "primary_parent_id": family.primary_parent_id},
@@ -137,10 +151,10 @@ def lifecycle_preview(family, actor, members):
         },
         "family_version": family_review_version(family, members),
         "successors": [{"id": member.pk, "display_name": member.display_label} for member in successors] if actor.role == "parent" else [],
-        "shared_work": {name: shared[name].count() if name in shared else 0 for name in (
-            "projects", "project_templates", "homework_assignments", "homework_templates", "chores", "habits",
-        )},
-        "can_delete_account": actor.role == "child" or bool(successors),
+        "shared_work": shared_counts,
+        "can_delete_account": bool(successors) if actor.role == "parent" else (
+            not any(shared_counts.values()) or _automatic_shared_work_parent(family, members) is not None
+        ),
         "can_close_family": actor.role == "parent" and not successors,
     }
 
@@ -327,14 +341,21 @@ def delete_self(family, actor, members, *, password, confirm_username, successor
     require_current_password(actor, password)
     if confirm_username != actor.username:
         raise ValidationError({"confirm_username": "Type your username exactly to confirm account deletion."})
-    successor = _successor(actor, members, successor_id) if actor.role == "parent" else None
+    successor = _successor(actor, members, successor_id) if actor.role == "parent" else _automatic_shared_work_parent(family, members)
     # Check before transfer so a malformed creator/assignee link cannot be
     # hidden by handing its author pointer to a different parent.
     collect_safe_deletion(actor, family)
+    # Parent approval can move a personal proposal to another member without
+    # the family lock. Inspect shared work only after its affected rows are
+    # locked, and choose the automatic parent even if the earlier preview
+    # found nothing shared.
+    shared = _shared_work(actor)
+    if successor is None and any(query.exists() for query in shared.values()):
+        raise ValidationError({"detail": "An active parent in your family must take over shared work before you can delete your account."})
     if successor is not None:
-        for query in _shared_work(actor).values():
+        for query in shared.values():
             query.update(created_by=successor)
-        if family.primary_parent_id == actor.pk:
+        if actor.role == "parent" and family.primary_parent_id == actor.pk:
             family.primary_parent = successor
             family.save(update_fields=["primary_parent"])
     collector = collect_safe_deletion(actor, family)

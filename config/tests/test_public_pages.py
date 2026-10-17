@@ -63,6 +63,8 @@ class PublicInformationPagesTests(SimpleTestCase):
             "The last active parent",
             "parents keep equal access",
             "remove or redact structurally linked activity",
+            "a child's shared homework, chores and habits automatically pass to an active parent in their family",
+            "If no active parent is available, that shared work must be resolved before self-deletion",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)

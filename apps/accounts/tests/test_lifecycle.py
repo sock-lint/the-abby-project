@@ -1,6 +1,7 @@
 """Lifecycle endpoints exercise real cascades; only external/failure seams mock."""
 import logging
 import tempfile
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -8,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DatabaseError, connection, transaction
 from django.test import TestCase, TransactionTestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -89,6 +91,13 @@ class LifecycleSetup:
     def deactivate_successor(self):
         self.successor.is_active = False
         self.successor.save(update_fields=["is_active"])
+
+    def child_shared_work(self):
+        return (
+            Chore.objects.create(title="Child-authored family chore", family=self.family, created_by=self.child),
+            Habit.objects.create(name="Child-authored sibling habit", user=self.sibling, created_by=self.child),
+            HomeworkAssignment.objects.create(title="Child-authored sibling homework", subject="math", due_date=timezone.localdate(), assigned_to=self.sibling, created_by=self.child),
+        )
 
 
 class AccountLifecycleTests(LifecycleSetup, TestCase):
@@ -297,6 +306,222 @@ class AccountLifecycleTests(LifecycleSetup, TestCase):
         self.assertFalse(Project.objects.filter(pk=personal.pk).exists())
         self.assertTrue(ChronicleEntry.objects.filter(pk=sibling_journal.pk, is_private=True).exists())
         self.assertTrue(User.objects.filter(pk=self.parent.pk).exists())
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed", return_value=None)
+    def test_child_departure_preserves_published_shared_proposed_chore_and_sibling_rewards(self, game_loop):
+        self.sign_in(self.child)
+        proposal = self.client.post("/api/chores/", {"title": "Shared proposed chore", "recurrence": "daily"}, format="json")
+        self.assertEqual(proposal.status_code, 201)
+        chore_id = Chore.objects.get(title="Shared proposed chore", created_by=self.child).pk
+        pending = self.client.post("/api/chores/", {"title": "Personal pending proposal"}, format="json")
+        self.assertEqual(pending.status_code, 201)
+        pending_id = Chore.objects.get(title="Personal pending proposal", created_by=self.child).pk
+        own_journal, sibling_journal = self.journal(self.child), self.journal(self.sibling)
+        self.sign_in(self.parent)
+        published = self.client.post(f"/api/chores/{chore_id}/approve/", {
+            "assigned_to": None, "coin_reward": 3, "reward_amount": "0.50", "xp_reward": 0,
+        }, format="json")
+        self.assertEqual(published.status_code, 200)
+        self.sign_in(self.sibling)
+        completed = self.client.post(f"/api/chores/{chore_id}/complete/", {}, format="json")
+        self.assertEqual(completed.status_code, 201)
+        self.sign_in(self.parent)
+        self.assertEqual(self.client.post(f"/api/chore-completions/{completed.data['id']}/approve/", {}, format="json").status_code, 200)
+        before_coins = list(CoinLedger.objects.filter(user=self.sibling).order_by("pk").values())
+        before_money = list(PaymentLedger.objects.filter(user=self.sibling).order_by("pk").values())
+        self.assertEqual(CoinLedger.objects.get(user=self.sibling).amount, 3)
+        self.assertEqual(str(PaymentLedger.objects.get(user=self.sibling).amount), "0.50")
+        loop_calls = game_loop.call_count
+        self.sign_in(self.child)
+        preview = self.client.get(BASE).data
+        response = self.client.post(BASE + "delete/", {
+            "password": "pw", "confirm_username": self.child.username,
+            "successor_id": self.other.parents[0].pk,
+        }, format="json")
+        self.assertEqual(response.status_code, 204)
+        self.assertTrue(Chore.objects.filter(pk=chore_id, created_by=self.parent).exists(), "Child departure deleted a published family chore and another child's work")
+        self.assertTrue(ChoreCompletion.objects.filter(pk=completed.data["id"], user=self.sibling, status="approved").exists())
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.sibling).order_by("pk").values()), before_coins)
+        self.assertEqual(list(PaymentLedger.objects.filter(user=self.sibling).order_by("pk").values()), before_money)
+        self.assertEqual(game_loop.call_count, loop_calls)
+        self.assertEqual(preview["shared_work"]["chores"], 1)
+        self.assertFalse(Chore.objects.filter(pk=pending_id).exists())
+        self.assertFalse(ChronicleEntry.objects.filter(pk=own_journal.pk).exists())
+        self.assertTrue(ChronicleEntry.objects.filter(pk=sibling_journal.pk, is_private=True).exists())
+        self.family.refresh_from_db()
+        self.assertEqual(self.family.primary_parent_id, self.parent.pk)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed", return_value=None)
+    def test_child_departure_preserves_parent_reassigned_proposed_habit_and_sibling_logs(self, game_loop):
+        self.sign_in(self.child)
+        proposed = self.client.post("/api/habits/", {"name": "Shared proposed habit", "user": self.child.pk}, format="json")
+        self.assertEqual(proposed.status_code, 201)
+        habit = Habit.objects.get(name="Shared proposed habit", created_by=self.child)
+        own_log = HabitLog.objects.create(habit=habit, user=self.child, direction=1)
+        personal = Habit.objects.create(name="Personal habit", created_by=self.child, user=self.child, pending_parent_review=True)
+        self.sign_in(self.parent)
+        self.assertEqual(self.client.post(f"/api/habits/{habit.pk}/approve/", {"user": self.sibling.pk, "xp_reward": 0}, format="json").status_code, 200)
+        self.sign_in(self.sibling)
+        self.assertEqual(self.client.post(f"/api/habits/{habit.pk}/log/", {"direction": 1}, format="json").status_code, 200)
+        saved_log = HabitLog.objects.get(habit=habit, user=self.sibling)
+        habit.refresh_from_db()
+        strength = habit.strength
+        loop_calls = game_loop.call_count
+        self.sign_in(self.child)
+        self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+        self.assertTrue(Habit.objects.filter(pk=habit.pk, user=self.sibling, created_by=self.parent).exists(), "Child departure deleted another child's reassigned habit")
+        habit.refresh_from_db()
+        self.assertEqual(habit.strength, strength)
+        self.assertTrue(HabitLog.objects.filter(pk=saved_log.pk, user=self.sibling).exists())
+        self.assertFalse(HabitLog.objects.filter(pk=own_log.pk).exists())
+        self.assertFalse(Habit.objects.filter(pk=personal.pk).exists())
+        self.assertEqual(game_loop.call_count, loop_calls)
+
+    @patch("apps.rpg.services.GameLoopService.on_task_completed", return_value=None)
+    def test_child_departure_preserves_parent_reassigned_homework_and_sibling_proof(self, game_loop):
+        self.sign_in(self.child)
+        created = self.client.post("/api/homework/", {"title": "Reassigned shared homework", "subject": "math", "due_date": str(timezone.localdate())}, format="json")
+        self.assertEqual(created.status_code, 201)
+        assignment_id = created.data["id"]
+        own_submission = HomeworkSubmission.objects.create(assignment_id=assignment_id, user=self.child, timeliness="on_time")
+        own_proof = HomeworkProof.objects.create(submission=own_submission)
+        own_proof_name = self.save_file(own_proof, "image", "departing-child-proof.png")
+        personal = HomeworkAssignment.objects.create(title="Personal homework", subject="math", due_date=timezone.localdate(), assigned_to=self.child, created_by=self.child)
+        self.sign_in(self.parent)
+        # The existing write response can fail after persisting reassignment
+        # because its skill_tags ListField receives a RelatedManager. Keep
+        # this regression compatible with a future healthy response too.
+        self.client.raise_request_exception = False
+        try:
+            reassigned = self.client.patch(f"/api/homework/{assignment_id}/", {"assigned_to": self.sibling.pk}, format="json")
+        finally:
+            self.client.raise_request_exception = True
+        if reassigned.status_code != 200:
+            self.assertEqual(reassigned.status_code, 500)
+            self.assertIs(reassigned.exc_info[0], TypeError)
+            self.assertEqual(str(reassigned.exc_info[1]), "'RelatedManager' object is not iterable")
+        self.assertTrue(HomeworkAssignment.objects.filter(pk=assignment_id, assigned_to=self.sibling).exists())
+        self.sign_in(self.sibling)
+        uploaded = SimpleUploadedFile("synthetic-proof.gif", b"GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\xff\xff\xff!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;", content_type="image/gif")
+        submitted = self.client.post(f"/api/homework/{assignment_id}/submit/", {"images": [uploaded]}, format="multipart")
+        self.assertEqual(submitted.status_code, 201)
+        proof = HomeworkProof.objects.get(submission_id=submitted.data["id"])
+        proof_name = proof.image.name
+        loop_calls = game_loop.call_count
+        self.sign_in(self.child)
+        self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+        self.assertTrue(HomeworkAssignment.objects.filter(pk=assignment_id, assigned_to=self.sibling, created_by=self.parent).exists(), "Child departure deleted another child's reassigned homework")
+        self.assertTrue(HomeworkSubmission.objects.filter(pk=submitted.data["id"], user=self.sibling).exists())
+        self.assertTrue(HomeworkProof.objects.filter(pk=proof.pk, image=proof_name).exists())
+        self.assertTrue(default_storage.exists(proof_name))
+        self.assertFalse(PendingFileDeletion.objects.filter(storage_key=proof_name).exists())
+        self.assertFalse(HomeworkSubmission.objects.filter(pk=own_submission.pk).exists())
+        self.assertFalse(HomeworkProof.objects.filter(pk=own_proof.pk).exists())
+        self.assertTrue(PendingFileDeletion.objects.filter(storage_key=own_proof_name).exists())
+        self.assertFalse(HomeworkAssignment.objects.filter(pk=personal.pk).exists())
+        self.assertEqual(game_loop.call_count, loop_calls)
+
+    def test_child_handoff_prefers_active_family_contact_and_ignores_supplied_successor(self):
+        rows = self.child_shared_work()
+        # The contact wins even if another active parent joined earlier.
+        User.objects.filter(pk=self.successor.pk).update(date_joined=self.parent.date_joined - timedelta(days=1))
+        inactive = User.objects.create_user(username="inactive-parent", password="pw", family=self.family, role="parent", is_active=False)
+        self.sign_in(self.child)
+        for supplied in (self.child.pk, self.sibling.pk, self.other.parents[0].pk, inactive.pk, self.successor.pk):
+            with self.subTest(supplied_successor=supplied), transaction.atomic():
+                self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username, "successor_id": supplied}, format="json").status_code, 204)
+                for row in rows:
+                    row.refresh_from_db()
+                    self.assertEqual(row.created_by_id, self.parent.pk)
+                self.family.refresh_from_db()
+                self.assertEqual(self.family.primary_parent_id, self.parent.pk)
+                transaction.set_rollback(True)
+
+    def test_child_handoff_uses_oldest_active_same_family_parent_when_contact_is_inactive(self):
+        rows = self.child_shared_work()
+        older = User.objects.create_user(username="older-active-parent", password="pw", family=self.family, role="parent")
+        User.objects.filter(pk=older.pk).update(date_joined=self.successor.date_joined - timedelta(days=1))
+        User.objects.filter(pk=self.parent.pk).update(is_active=False)
+        self.sign_in(self.child)
+        response = self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username, "successor_id": self.parent.pk}, format="json")
+        self.assertEqual(response.status_code, 204)
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(row.created_by_id, older.pk)
+        self.family.refresh_from_db()
+        self.assertEqual(self.family.primary_parent_id, self.parent.pk)
+
+    def test_child_shared_work_requires_active_parent_then_retry_preserves_all_work(self):
+        rows = self.child_shared_work()
+        private = self.journal(self.child)
+        User.objects.filter(pk__in=[self.parent.pk, self.successor.pk]).update(is_active=False)
+        self.sign_in(self.child)
+        preview = self.client.get(BASE).data
+        self.assertEqual(preview["shared_work"], {"projects": 0, "project_templates": 0, "homework_assignments": 1, "homework_templates": 0, "chores": 1, "habits": 1})
+        self.assertFalse(preview["can_delete_account"])
+        self.assertEqual(preview["successors"], [])
+        response = self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username, "successor_id": self.other.parents[0].pk}, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("active parent in your family", str(response.data))
+        self.assertTrue(Token.objects.filter(pk=self.token.pk).exists())
+        self.assertTrue(ChronicleEntry.objects.filter(pk=private.pk).exists())
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(row.created_by_id, self.child.pk)
+        User.objects.filter(pk=self.successor.pk).update(is_active=True)
+        self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(row.created_by_id, self.successor.pk)
+        self.assertFalse(ChronicleEntry.objects.filter(pk=private.pk).exists())
+
+    def test_child_without_shared_work_can_delete_with_no_active_parent(self):
+        User.objects.filter(pk__in=[self.parent.pk, self.successor.pk]).update(is_active=False)
+        self.sign_in(self.child)
+        self.assertTrue(self.client.get(BASE).data["can_delete_account"])
+        self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+
+    def test_child_handoff_checks_shared_assignment_after_preflight_locks(self):
+        from apps.accounts import lifecycle
+
+        proposed = Chore.objects.create(title="Approval about to finish", family=self.family, created_by=self.child, assigned_to=self.child, pending_parent_review=True)
+        self.sign_in(self.child)
+        self.assertEqual(self.client.get(BASE).data["shared_work"]["chores"], 0)
+        real_collect = lifecycle.collect_safe_deletion
+        calls = 0
+
+        def approval_finishes_before_lock(instance, family):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                Chore.objects.filter(pk=proposed.pk).update(assigned_to=self.sibling, pending_parent_review=False)
+            return real_collect(instance, family)
+
+        with patch.object(lifecycle, "collect_safe_deletion", side_effect=approval_finishes_before_lock):
+            self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+        proposed.refresh_from_db()
+        self.assertEqual(proposed.created_by_id, self.parent.pk)
+        self.assertEqual(proposed.assigned_to_id, self.sibling.pk)
+
+    def test_child_handoff_failure_rolls_back_then_retry_keeps_shared_work(self):
+        rows = self.child_shared_work()
+        self.sign_in(self.child)
+        real_delete = User.delete
+
+        def delete_then_fail(instance, *args, **kwargs):
+            real_delete(instance, *args, **kwargs)
+            raise DatabaseError("synthetic child deletion failure")
+
+        with patch.object(User, "delete", delete_then_fail), self.assertRaises(DatabaseError):
+            self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json")
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(row.created_by_id, self.child.pk)
+        self.assertTrue(Token.objects.filter(pk=self.token.pk).exists())
+        self.assertEqual(self.client.post(BASE + "delete/", {"password": "pw", "confirm_username": self.child.username}, format="json").status_code, 204)
+        for row in rows:
+            row.refresh_from_db()
+            self.assertEqual(row.created_by_id, self.parent.pk)
 
     def test_closure_rechecks_other_active_parents_even_for_current_primary(self):
         self.assertEqual(self.close().status_code, 400)
