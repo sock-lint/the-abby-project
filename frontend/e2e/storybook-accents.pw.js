@@ -10,6 +10,8 @@ const root = fileURLToPath(new URL('..', import.meta.url));
 const lock = JSON.parse(readFileSync(new URL('../assets.lock.json', import.meta.url), 'utf8'));
 const pin = lock.releases.find(entry => entry.family_id === 'meshtint-pedestal-card-ui');
 const privatePayloadPresent = !!pin && existsSync(new URL(`../src/avatar/shared/${pin.directory}/manifest.json`, import.meta.url));
+const kitPin = lock.releases.find(entry => entry.family_id === 'abby-achievement-card-kit');
+const privateKitPresent = !!kitPin && existsSync(new URL(`../src/avatar/shared/${kitPin.directory}/manifest.json`, import.meta.url));
 const screenshotDirectory = process.env.ABBY_PRIVATE_ACCEPTANCE_DIR;
 if (screenshotDirectory && (!isAbsolute(screenshotDirectory) || !relative(resolve(root, '..'), resolve(screenshotDirectory)).startsWith('..'))) {
   throw new Error('ABBY_PRIVATE_ACCEPTANCE_DIR must be an absolute private directory outside the checkout.');
@@ -92,6 +94,14 @@ async function layoutProblems(page) {
       if (art && visible(art) && overlaps(rect(art), rect(content), 12)) problems.push('Card artwork lacks twelve pixels of content clearance');
       for (const { bounds, text } of textRects(content)) {
         if (bounds.left < rect(content).left - 1 || bounds.right > rect(content).right + 1) problems.push(`Feature text overflows its content column: ${text}`);
+      }
+    }
+    for (const content of document.querySelectorAll('.achievement-card__content')) {
+      const box = rect(content);
+      const style = getComputedStyle(content);
+      const safe = { left: box.left + parseFloat(style.paddingLeft), right: box.right - parseFloat(style.paddingRight), top: box.top + parseFloat(style.paddingTop), bottom: box.bottom - parseFloat(style.paddingBottom) };
+      for (const { bounds, text } of textRects(content)) {
+        if (bounds.left < safe.left - 1 || bounds.right > safe.right + 1 || bounds.top < safe.top - 1 || bounds.bottom > safe.bottom + 1) problems.push(`Card text leaves its content-safe inset: ${text}`);
       }
     }
     for (const trophy of document.querySelectorAll('[data-trophy-slot]')) {
@@ -202,14 +212,23 @@ test('shared cards have no corner ornaments and preserve normal caller spacing',
     await expect(page.locator('[data-fixture-event]')).toHaveText('Clear synthetic filter');
     await page.unroute('**/*');
     const components = await open(page, { large, theme: width === 375 ? 'vigil' : 'hyrule' });
-    const cards = page.locator('[data-hero-variant] > div > div, section[aria-label="Parent Today"] > div > div, section[aria-label="Daily bonus"] > div, section[aria-label="Homework task"] > div');
-    await expect(cards).toHaveCount(8);
+    const cards = page.locator('[data-hero-variant] > div > div, section[aria-label="Parent Today"] > div > div, section[aria-label="Homework task"] > div');
+    await expect(cards).toHaveCount(6);
     for (const card of await cards.all()) {
       const padding = await card.evaluate(element => {
         const style = getComputedStyle(element);
         return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
       });
       expect(padding).toEqual(['20px', '20px', '20px', '20px']);
+    }
+    const bonusCards = page.getByRole('region', { name: 'Daily bonus', exact: true }).locator('[data-achievement-card="tall"]');
+    await expect(bonusCards).toHaveCount(2);
+    for (const card of await bonusCards.all()) {
+      const geometry = await card.evaluate(element => ({
+        width: element.getBoundingClientRect().width,
+        insets: ['paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft'].map(key => parseFloat(getComputedStyle(element.querySelector('.achievement-card__content'))[key])),
+      }));
+      for (const inset of geometry.insets) expect(inset).toBeCloseTo(geometry.width * 96 / 1024, 0);
     }
     expect(await layoutProblems(page)).toEqual([]);
     expect(components.errors).toEqual([]);
@@ -224,27 +243,29 @@ test('shared badge glyphs stay inside their artwork at enlarged text sizes', asy
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const problems = [];
   const copyProblems = [];
-  for (const [width, large] of [[375, false], [320, true], [375, true]]) {
+  for (const [width, large] of [[320, false], [375, false], [320, true], [375, true]]) {
     await page.setViewportSize({ width, height: 900 });
     await open(page, { view: 'composition', large });
     problems.push(...(await badgeGlyphProblems(page)).map(problem => ({ ...problem, width, large })));
-    if (large) {
-      const slot = page.getByRole('region', { name: 'Composed profile', exact: true }).locator('[data-trophy-slot]');
-      const copy = slot.getByText('Your trophy badge', { exact: true }).locator('..');
-      const hint = slot.getByText('Change', { exact: true });
-      const artwork = slot.locator('[data-badge-artwork]');
-      const lastCopyLine = slot.locator('[data-badge-rarity]').locator('..');
-      const [buttonBox, copyBox, hintBox, artBox, rarityBox, innerWidth] = await Promise.all([
-        slot.boundingBox(), copy.boundingBox(), hint.boundingBox(), artwork.boundingBox(), lastCopyLine.boundingBox(),
-        slot.evaluate(element => element.clientWidth - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight)),
-      ]);
-      const measurement = { viewport: width, buttonWidth: buttonBox.width, innerWidth, copyWidth: copyBox.width, copyShare: copyBox.width / innerWidth, hintBelowCopy: hintBox.y - (rarityBox.y + rarityBox.height), hintColumnOffset: hintBox.x - copyBox.x, artworkTopOffset: artBox.y - copyBox.y };
-      if (measurement.copyShare <= 0.5 || measurement.hintBelowCopy < -0.5 || Math.abs(measurement.hintColumnOffset) > 1 || Math.abs(measurement.artworkTopOffset) > 1) copyProblems.push(measurement);
-    }
+    const slot = page.getByRole('region', { name: 'Composed profile', exact: true }).locator('[data-trophy-slot]');
+    const copy = slot.locator('[data-trophy-copy]');
+    const hint = slot.getByText('Change', { exact: true });
+    const artwork = slot.locator('[data-badge-artwork]');
+    const lastCopyLine = slot.locator('[data-badge-rarity]').locator('..');
+    const [copyBox, hintBox, artBox, rarityBox, innerWidth] = await Promise.all([
+      copy.boundingBox(), hint.boundingBox(), artwork.boundingBox(), lastCopyLine.boundingBox(),
+      slot.locator('.achievement-card__content').evaluate(element => element.clientWidth - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight)),
+    ]);
+    const stacked = artBox.y + artBox.height <= copyBox.y + 0.5;
+    const measurement = { viewport: width, large, innerWidth, copyWidth: copyBox.width, copyShare: copyBox.width / innerWidth, stacked, hintBelowCopy: hintBox.y - (rarityBox.y + rarityBox.height), hintColumnOffset: hintBox.x - copyBox.x, artworkTopOffset: artBox.y - copyBox.y, rowGap: copyBox.x - (artBox.x + artBox.width) };
+    const invalidLayout = stacked
+      ? Math.abs(copyBox.width - innerWidth) > 1 || (!large && innerWidth >= 194)
+      : measurement.copyShare <= 0.5 || Math.abs(measurement.artworkTopOffset) > 1 || measurement.rowGap < 11;
+    if (invalidLayout || measurement.hintBelowCopy < -0.5 || Math.abs(measurement.hintColumnOffset) > 1) copyProblems.push(measurement);
     await page.unroute('**/*');
   }
   expect(problems).toEqual([]);
-  expect(copyProblems, 'Compact trophy copy must own the second column, with its hint below and artwork aligned to the start.').toEqual([]);
+  expect(copyProblems, 'Trophy copy must own a readable top-aligned row or the full stacked width; normal phone rows fit from194px of usable width.').toEqual([]);
 });
 
 test('badge collection, earned detail and trophy picker share artwork while preserving selection', async ({ page }) => {
@@ -280,10 +301,11 @@ test('badge collection, earned detail and trophy picker share artwork while pres
   const badgeButtons = dialog.locator('li button');
   const bounds = await badgeButtons.evaluateAll(buttons => buttons.map(button => {
     const box = button.getBoundingClientRect();
-    return { x: box.x, y: box.y, width: box.width, right: box.right };
+    return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right };
   }));
-  expect(bounds[0].y).toBeCloseTo(bounds[1].y, 0);
-  expect(bounds[0].right).toBeLessThan(bounds[1].x);
+  expect(bounds[0].x).toBeCloseTo(bounds[1].x, 0);
+  expect(bounds[0].width).toBeCloseTo(bounds[1].width, 0);
+  expect(bounds[1].y).toBeGreaterThanOrEqual(bounds[0].y + bounds[0].height + 11);
   expect(bounds.every(box => box.x >= 0 && box.right <= 320)).toBe(true);
   expect(await badgeGlyphProblems(page)).toEqual([]);
   await privateCapture(page, 'storybook-trophy-picker-large');
@@ -304,28 +326,31 @@ test('badge collection, earned detail and trophy picker share artwork while pres
   expect(result.apiRequests).toEqual([]);
 });
 
-test('composed Challenges keeps readable content beside its artwork at desktop grid boundaries', async ({ page }) => {
+test('composed Challenges keeps readable live content inside its matching tall canvas at desktop grid boundaries', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const records = [];
   for (const width of [320, 375, 1279, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await open(page, { view: 'composition', long: true, large: width <= 375 });
     const cards = page.getByRole('region', { name: 'Parent goals', exact: true }).locator('article');
     await expect(cards).toHaveCount(2);
     for (const card of await cards.all()) {
-      const image = card.locator('[data-pedestal-image]');
-      await card.evaluate(element => element.scrollIntoView({ block: 'start' }));
-      if (privatePayloadPresent) await expect(image).toHaveAttribute('data-image-state', 'ready');
-      records.push(await card.evaluate((element, viewport) => {
-        const art = element.querySelector('[data-storybook-card-art]').getBoundingClientRect();
-        const content = element.querySelector('[data-storybook-card-content]').getBoundingClientRect();
-        return { viewport, cardWidth: element.getBoundingClientRect().width, artWidth: art.width, contentWidth: content.width, sideBySide: art.right <= content.left + 1 && art.top < content.bottom && art.bottom > content.top };
-      }, width));
+      await expect(card).toHaveAttribute('data-achievement-card', 'tall');
+      if (privateKitPresent) await expect(card).toHaveAttribute('data-achievement-card-art', 'ready');
+      const geometry = await card.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        const content = element.querySelector('.achievement-card__content');
+        const style = getComputedStyle(content);
+        return { width: box.width, contentWidth: content.getBoundingClientRect().width - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight), insets: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft].map(value => parseFloat(value)) };
+      });
+      for (const inset of geometry.insets) expect(inset).toBeCloseTo(geometry.width * 96 / 1024, 0);
+      expect(geometry.contentWidth).toBeCloseTo(geometry.width * 832 / 1024, 0);
+      await expect(card.getByRole('button', { name: /^View / })).toBeEnabled();
+      await expect(card.locator('[data-pedestal-image="card-front-light"]')).toHaveCount(0);
     }
+    expect(await layoutProblems(page)).toEqual([]);
     await privateCapture(page, `storybook-composed-challenges-${width}`);
     await page.unroute('**/*');
   }
-  expect(records.filter(record => record.sideBySide && record.contentWidth < 256), JSON.stringify(records)).toEqual([]);
 });
 
 for (const starState of ['missing', 'loading', 'error']) {
@@ -372,7 +397,7 @@ for (const failImages of [false, true]) {
 }
 
 test('private release PNGs render completely and failed art collapses without hiding actions', async ({ page }) => {
-  test.skip(!privatePayloadPresent, 'Private immutable payload absent; actual PNG rendering acceptance remains pending.');
+  test.skip(!privatePayloadPresent || !privateKitPresent, 'Private immutable payloads absent; actual PNG rendering acceptance remains pending.');
   await page.setViewportSize({ width: 375, height: 812 });
   const result = await open(page);
   const syntheticFallbacks = page.locator('[data-star-fallbacks] [data-pedestal-image]');
@@ -387,16 +412,25 @@ test('private release PNGs render completely and failed art collapses without hi
     expect(await png.evaluate(element => getComputedStyle(element).objectFit)).toBe('contain');
     expect(await png.evaluate(element => Math.abs(element.getBoundingClientRect().width - element.getBoundingClientRect().height) < 1)).toBe(true);
   }
-  await expect(page.locator('.storybook-feature__art')).toHaveCount(3);
+  await expect(page.locator('.storybook-feature__art')).toHaveCount(0);
+  const kitCards = page.locator('[data-achievement-card]');
+  await expect(kitCards).toHaveCount(9);
+  for (const card of await kitCards.all()) {
+    await card.scrollIntoViewIfNeeded();
+    await expect(card).toHaveAttribute('data-achievement-card-art', 'ready');
+    const shape = await card.getAttribute('data-achievement-card');
+    const dimensions = await card.locator('img').evaluateAll(images => images.map(image => [image.naturalWidth, image.naturalHeight]));
+    expect(dimensions).toEqual([[1024, shape === 'wide' ? 512 : 1280], [1024, shape === 'wide' ? 512 : 1280]]);
+    await expect(card.locator('[data-achievement-card-layer]')).toHaveCount(2);
+  }
   expect(result.errors).toEqual([]);
   await privateCapture(page, 'storybook-private-rendered');
   await page.unroute('**/*');
   await open(page, { failImages: true });
-  for (const image of await page.locator('.storybook-feature__art [data-pedestal-image]').all()) {
-    // Once the failed lazy PNG arrives its art column disappears. Scroll the
-    // surviving feature, since Playwright cannot act on its now-hidden image.
-    await image.evaluate(element => element.closest('.storybook-feature').scrollIntoView());
-    await expect(image).toHaveAttribute('data-image-state', 'error');
+  for (const card of await page.locator('[data-achievement-card]').all()) {
+    await expect(card).toHaveAttribute('data-achievement-card-art', 'unavailable');
+    await expect(card.locator('[data-achievement-card-layer]')).toHaveCount(0);
+    await expect(card.locator('.achievement-card__content')).toBeVisible();
   }
   await expect(page.locator('.storybook-feature__art:visible')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Open projects' })).toBeEnabled();

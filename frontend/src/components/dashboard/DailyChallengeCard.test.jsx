@@ -11,8 +11,9 @@ beforeEach(() => { server.use(http.get('*/api/auth/me/', () => HttpResponse.json
 
 describe('Today’s automatic bonus', () => {
   it('shows cumulative short-session minutes and approval timing without a Claim action', async () => {
-    renderWithProviders(<DailyChallengeCard challenge={buildDailyBonus()} />);
+    const { container } = renderWithProviders(<DailyChallengeCard challenge={buildDailyBonus()} />);
     expect(await screen.findByRole('heading', { name: "Today's bonus" })).toBeInTheDocument();
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
     expect(screen.getByText(/Short sessions add together/)).toBeInTheDocument();
     expect(screen.getByText('4 / 10 minutes · Or complete one approved task')).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '4');

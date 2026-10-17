@@ -1,11 +1,11 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest';
-import { fireEvent, renderWithProviders, screen, userEvent } from '../../test/render';
+import { renderWithProviders, screen, userEvent } from '../../test/render';
 import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
 import TrophySlot from './TrophySlot';
 
 vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
 
-beforeEach(() => resolvePedestalImage.mockReturnValue(null));
+beforeEach(() => { resolvePedestalImage.mockReturnValue(null); });
 
 describe('TrophySlot', () => {
   it('renders the empty-state with an accessible prompt', () => {
@@ -52,19 +52,15 @@ describe('TrophySlot', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('frames the actual earned badge as decoration without adding a focus target', async () => {
-    resolvePedestalImage.mockReturnValue({
-      assetId: 'frame-gold', variantId: 'web', url: '/private/synthetic-frame.png', width: 512, height: 512,
-    });
+  it('keeps the actual earned icon and one keyboard picker action inside the wide canvas', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const { container } = renderWithProviders(
       <TrophySlot compact badge={{ id: 7, name: 'Night Owl', icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
     );
-    const frame = container.querySelector('[data-pedestal-image="frame-gold"]');
-    expect(frame.querySelector('img')).toHaveAttribute('alt', '');
-    expect(frame.querySelector('img')).toHaveAttribute('width', '512');
-    expect(frame.querySelector('img')).toHaveAttribute('height', '512');
+    expect(container.querySelector('[data-achievement-card="wide"]')).toBe(screen.getByRole('button'));
+    expect(container.querySelector('[data-badge-artwork="tile"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toBeNull();
     expect(screen.getByText('🦉')).toBeInTheDocument();
     expect(screen.getByText('rare')).toBeInTheDocument();
     expect(screen.getAllByRole('button')).toHaveLength(1);
@@ -73,20 +69,17 @@ describe('TrophySlot', () => {
     expect(screen.getByRole('button', { name: /Trophy badge: Night Owl/ })).toHaveFocus();
     await user.keyboard('{Enter}');
     expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(resolvePedestalImage).not.toHaveBeenCalled();
   });
 
-  it('keeps the earned name, icon, rarity and change action readable when frame loading fails', async () => {
-    resolvePedestalImage.mockReturnValue({
-      assetId: 'frame-gold', variantId: 'web', url: '/private/synthetic-frame.png', width: 512, height: 512,
-    });
+  it('keeps a long earned identity and change action available', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const name = 'A very long earned badge name that stays beside its artwork';
     const { container } = renderWithProviders(
       <TrophySlot compact badge={{ id: 7, name, icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
     );
-    fireEvent.error(container.querySelector('img'));
-    expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toHaveAttribute('data-image-state', 'error');
+    expect(container.querySelector('[data-achievement-card="wide"]')).toBeInTheDocument();
     expect(screen.getByText(name)).toBeInTheDocument();
     expect(screen.getByText('🦉')).toBeInTheDocument();
     expect(screen.getByText('rare')).toBeInTheDocument();
@@ -95,7 +88,7 @@ describe('TrophySlot', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the compact empty slot unframed with its choose action available', async () => {
+  it('keeps the empty wide canvas with its choose action available', async () => {
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const { container } = renderWithProviders(<TrophySlot compact badge={null} onOpen={onOpen} />);

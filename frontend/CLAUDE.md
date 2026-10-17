@@ -180,6 +180,17 @@ The replaceable Meadow presentation also supplies the welcome screen. Its licens
 
 `RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Today and Companions use `petSpriteKeys` for retained pet rows. The shared pure-data `companion/birdEvolution.js` resolves the exact Chick/Base identity from server-confirmed `evolution_stage` and `evolved_to_mount`, never growth alone, for 2D portraits, 3D selection, form names and the existing Bird motion adapter. The generic `companion/lifecycle.js` and four-stage `PetEvolutionGuide` use `shared/catalog/companion-lifecycle.json` for Egg → Baby → Middle → Grown across every species; `lifecycle_stage` comes from the server. Egg is the pre-hatch inventory stage, with family art names kept separate from stage IDs. See `docs/operations/companion-lifecycle.md`. Nicknames remain separate from stage names; saved species/potion identities do not change. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
 
+**Achievement card artwork:** private family `abby-achievement-card-kit` 1.0.0
+adds matching wide (1024×512) and tall (1024×1280) base/overlay pairs plus three
+512px icons. `avatar/achievementCardKit.js` resolves their explicit `wide`,
+`tall`, and `icon-512` variants through image URLs; the older pedestal resolver
+assumes square canvases, and `loadAsset` accepts GLBs only. Use the shared
+`AchievementCard` surface for wide Profile achievements and tall collection,
+challenge, and reward cards. Preserve 64px corner slices, scaled 96px safe
+insets, alpha, and live text/state/actions. Existing catalog artwork stays
+distinct; generic book/heart/compass icons establish no badge assignment or
+entitlement. See [the integration runbook](../docs/operations/achievement-card-kit.md).
+
 **Supported offers and saved collections:** use Django's read-only
 `catalog_available` fields through `utils/catalogAvailability.js`; React does
 not infer acquisition eligibility from an icon or model filename. New pet

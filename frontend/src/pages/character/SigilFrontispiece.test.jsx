@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderWithProviders, screen, userEvent } from '../../test/render';
+import { renderWithProviders, screen, userEvent, within } from '../../test/render';
 import SigilFrontispiece from './SigilFrontispiece';
 
 describe('SigilFrontispiece', () => {
@@ -61,12 +61,11 @@ describe('SigilFrontispiece', () => {
         onOpenTrophyPicker={() => {}}
       />,
     );
-    expect(screen.getByText('Streak')).toBeInTheDocument();
-    expect(screen.getByText('7 days')).toBeInTheDocument();
-    expect(screen.getByText('Perfect days')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
-    expect(screen.getByText('Best streak')).toBeInTheDocument();
-    expect(screen.getByText('12 days')).toBeInTheDocument();
+    for (const [label, value] of [['Streak', '7 days'], ['Perfect days', '4'], ['Best streak', '12 days']]) {
+      const term = screen.getAllByRole('term').find(element => element.textContent === label);
+      expect(term).toBeInTheDocument();
+      expect(within(term.parentElement).getByRole('definition')).toHaveTextContent(value);
+    }
   });
 
   it('does not invent a next-level percentage from the level', () => {

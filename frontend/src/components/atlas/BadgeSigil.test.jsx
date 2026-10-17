@@ -37,7 +37,8 @@ describe('BadgeSigil', () => {
     );
     const sigil = container.querySelector('[data-sigil="true"]');
     expect(sigil.getAttribute('data-earned')).toBe('false');
-    expect(sigil.className).toMatch(/border-dashed/);
+    expect(sigil.closest('[data-achievement-card="tall"]')).toBeInTheDocument();
+    expect(screen.queryByText('Selected')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /not yet earned/i })).toBeInTheDocument();
   });
 
@@ -121,7 +122,7 @@ describe('BadgeSigil', () => {
     expect(sigil.className).toContain('animate-gilded-glint');
   });
 
-  it('keeps a long badge name identified and selectable without a featured gold frame', async () => {
+  it('keeps the real long badge identity selectable inside the tall canvas', async () => {
     const user = userEvent.setup();
     const onSelect = vi.fn();
     const badge = buildBadge({ name: 'AnExtraordinarilyLongUnbrokenAchievementNameThatMustRemainReadable', icon: '🦉', rarity: 'rare' });
@@ -129,6 +130,8 @@ describe('BadgeSigil', () => {
     expect(screen.getByText(badge.name)).toBeInTheDocument();
     expect(screen.getByText('🦉')).toBeInTheDocument();
     expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toBeNull();
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBe(screen.getByRole('button'));
+    expect(screen.queryByText(/book|compass|heart/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: `${badge.name} · rare` })).not.toHaveAttribute('aria-pressed');
     await user.tab();
     await user.keyboard('{Enter}');

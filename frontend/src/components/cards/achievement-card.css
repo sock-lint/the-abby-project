@@ -1,0 +1,79 @@
+@layer theme, base, components, utilities;
+
+@layer components {
+.achievement-card {
+  position: relative;
+  isolation: isolate;
+  container-type: inline-size;
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--color-ink-page-aged);
+  color: var(--color-ink-primary);
+}
+
+/* The runtime PNGs have a fixed light parchment surface. Scope the existing
+   light Meadow tokens to loaded cards, including in the Twilight cover. */
+.achievement-card[data-achievement-card-art="ready"] {
+  /* intentional: fixed light artwork needs its matching readable palette. */
+  --color-ink-page: #FFF8EE;
+  --color-ink-page-aged: #FBF6FF;
+  --color-ink-page-shadow: #E5DCF6;
+  --color-ink-page-rune-glow: #FFF8EE;
+  --color-ink-primary: #49384F;
+  --color-ink-secondary: #64596B;
+  --color-ink-whisper: #685E70;
+  --color-control-border: #756B7D;
+  --color-sheikah-teal: #685093;
+  --color-sheikah-teal-deep: #7560A8;
+  --color-gold-leaf: #866329;
+  --color-moss: #486B55;
+  --color-moss-deep: #3C5C48;
+  --color-ember: #A24C41;
+  --color-ember-deep: #A24C41;
+  --color-royal: #685093;
+  --color-rose: #A24F6F;
+  background: transparent;
+}
+
+.achievement-card__layer {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  pointer-events: none;
+  /* Both 1024px-wide masters share the exact same 64px corner geometry.
+     cqw scales every edge from card WIDTH, including the top and bottom. */
+  border: 6.25cqw solid transparent;
+  border-image-slice: 64 fill;
+  border-image-width: 1;
+  border-image-repeat: stretch;
+}
+.achievement-card__base { border-image-source: var(--achievement-card-base); }
+.achievement-card__border { border-image-source: var(--achievement-card-border); }
+.achievement-card__content {
+  position: relative;
+  min-width: 0;
+  max-width: 100%;
+  /* Percentage padding uses the containing width on all four sides:
+     96 / 1024. The card grows with long titles and enlarged text. */
+  padding: 9.375%;
+  overflow-wrap: anywhere;
+}
+
+.achievement-card-icon {
+  display: inline-flex;
+  flex: none;
+  vertical-align: middle;
+}
+.achievement-card-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+}
