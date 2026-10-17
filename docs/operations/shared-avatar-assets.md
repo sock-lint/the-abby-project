@@ -19,26 +19,43 @@ protected staging and rollback. It adds no catalog or progression entitlement.
 ## Install and update
 
 From `frontend/`, install the checked-in, code-only package tarballs with `npm ci`.
-Then select a private release source and run:
+For a fresh offline install, select both the private release tree and the fully
+extracted roster verification workspace, then run:
 
 ```powershell
 $env:ABBY_ASSETS_RELEASE_ROOT = 'PATH_TO_ABBYASSETS/.local/releases'
+$env:ABBY_COMPANION_WORKSPACE = 'PATH_TO_EXTRACTED_ROSTER_VERIFICATION_WORKSPACE'
 npm run assets:import
 npm run assets:verify
 npm run dev
 ```
 
+The six-release tree does not contain the seven retained companion portraits.
+`ABBY_COMPANION_WORKSPACE` supplies them from their pinned inventory paths;
+the importer verifies the workspace inventory and every listed file before using
+any portrait. Alternatively, the existing read-only private delivery reader can
+fetch the pinned verification workspace. Setting only
+`ABBY_ASSETS_RELEASE_ROOT` is insufficient for a fresh offline install. Missing
+supplemental sources fail with instructions to provide the workspace or reader
+before the importer changes the installed release tree.
+
 The importer verifies every byte and an exact allowlist of files before swapping
 the dedicated `frontend/src/avatar/shared/` tree. This directory and interrupted
 staging trees are ignored by Git and Docker. Never add the purchased runtime
 payload, source archives, Blender files or authoring manifests to the repository.
-Verified local installs need no workshop path or remote credentials to build.
+The supplemental portraits are installed separately under the ignored
+`frontend/src/companion/supplemental/` tree. Verified local installs need no
+workshop path or remote credentials to build.
 Stop Vite before updating assets if a Windows watcher holds the directory open.
 
 For an upgrade, review the new release, copy its pin into `assets.lock.json`, import,
 run the frontend checks and inspect the Profile scene. A rollback restores the
-previous lock and imports it again. Releases are immutable; never rewrite a
-published version. Saved choice IDs need an explicit migration before removal.
+previous lock and imports it again. If its supplemental pin is unchanged, a
+fully verified installed supplemental tree can be reused without a workspace or
+remote reader. A fresh checkout, missing tree or invalid tree needs the verified
+workspace or reader before any release replacement. Releases are immutable;
+never rewrite a published version. Saved choice IDs need an explicit migration
+before removal.
 
 Portable source packages live in `frontend/vendor/`; npm's lock records their
 integrity. Publish subsequent code changes under new package versions and update

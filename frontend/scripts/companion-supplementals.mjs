@@ -154,18 +154,22 @@ export async function readOnlyDelivery(environment = process.env) {
   };
 }
 
-export async function stageSupplementals({ destination, workspace = process.env.ABBY_COMPANION_WORKSPACE,
-  definition = policy, reader, environment = process.env } = {}) {
-  try { return { ...await verifySupplementals(destination, definition), unchanged: true }; } catch { /* Reverify all source bytes before replacement. */ }
-  const guard = `${destination}.import-lock`;
-  await mkdir(dirname(destination), { recursive: true });
-  const lease = await open(guard, 'wx');
-  const stage = join(dirname(destination), `.supplemental.stage-${randomUUID()}`);
-  const previous = join(dirname(destination), `.supplemental.previous-${randomUUID()}`);
+// Resolve and authenticate every source byte without changing either installed
+// tree. The release importer can fail its preflight before swapping releases;
+// the returned installer retains only verified portrait bytes, not ZIP inputs.
+export async function prepareSupplementals({ destination, environment = process.env,
+  workspace = environment.ABBY_COMPANION_WORKSPACE, definition = policy, reader } = {}) {
+  try {
+    await verifySupplementals(destination, definition);
+    return async () => ({ ...await verifySupplementals(destination, definition), unchanged: true });
+  } catch { /* Reverify all source bytes before replacement. */ }
+  const original = await destinationState(destination, definition);
+  if (!workspace && !reader && environment.ABBY_ASSETS_RELEASE_ROOT && !environment.ABBY_ASSETS_S3_BUCKET) {
+    throw new Error('Local release import needs ABBY_COMPANION_WORKSPACE for the pinned supplemental portraits, or an already verified installed supplemental tree. The release directory does not contain these portraits.');
+  }
+  let images;
   let ownedReader;
   try {
-    const original = await destinationState(destination, definition);
-    let images;
     if (workspace) images = await localImages(workspace, definition);
     else {
       ownedReader = reader ? null : await readOnlyDelivery(environment);
@@ -182,6 +186,18 @@ export async function stageSupplementals({ destination, workspace = process.env.
       if (zip.length !== archive.bytes || digest(zip) !== archive.sha256) throw new Error('Workspace ZIP digest mismatch');
       images = await verifyWorkspaceZip(zip, definition);
     }
+  } finally { ownedReader?.close(); }
+  return () => installSupplementals({ destination, definition, images, original });
+}
+
+async function installSupplementals({ destination, definition, images, original }) {
+  const guard = `${destination}.import-lock`;
+  await mkdir(dirname(destination), { recursive: true });
+  const lease = await open(guard, 'wx');
+  const stage = join(dirname(destination), `.supplemental.stage-${randomUUID()}`);
+  const previous = join(dirname(destination), `.supplemental.previous-${randomUUID()}`);
+  try {
+    if (await destinationState(destination, definition) !== original) throw new Error('Supplemental destination changed during import; retained existing files');
     await mkdir(stage);
     for (const file of definition.files) {
       const bytes = images.get(file.filename);
@@ -208,10 +224,13 @@ export async function stageSupplementals({ destination, workspace = process.env.
     }
     return { ...result, unchanged: false };
   } finally {
-    ownedReader?.close();
     if (await exists(stage)) await rm(stage, { recursive: true });
     await lease.close(); await rm(guard);
   }
+}
+
+export async function stageSupplementals(options) {
+  return (await prepareSupplementals(options))();
 }
 
 export const supplementalDestination = resolve(dirname(fileURLToPath(import.meta.url)), '../src/companion/supplemental');

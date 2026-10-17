@@ -206,6 +206,7 @@ pin.update(release_version='1.0.1', manifest_sha256=digest, directory='meshtint-
 p.write_text(json.dumps(lock, indent=2) + '\n')
 '@ | python -
 $env:ABBY_ASSETS_RELEASE_ROOT = '<verified private directory containing the retained release>'
+$env:ABBY_COMPANION_WORKSPACE = '<fully extracted verified roster verification workspace>'
 npm --prefix frontend run assets:import
 npm --prefix frontend run assets:verify
 npm --prefix frontend run test:run -- src/avatar/sharedRelease.test.js src/avatar/AvatarScene.test.jsx
@@ -219,6 +220,14 @@ git push -u origin HEAD
 Create/review the rollback PR, validate/stage its exact source, then use the
 authorized main process. These commands do not merge or deploy. If main changed
 release or saved IDs, assertions intentionally stop; reassess compatibility.
+The workspace setting is required for this fresh offline checkout because the
+release tree does not contain the seven supplemental companion portraits. An
+existing installed supplemental tree can instead be reused without the workspace
+or S3 reader only when its exact inventory, hashes and pin verify. If neither a
+valid installed tree nor a verified workspace or configured reader is available,
+the importer fails with the missing-source action before replacing release
+files. Preserve that failure and provide the required source; do not bypass the
+supplemental checks.
 
 For a **full integration regression**, a pin rollback does not revert loader,
 runtime, Docker or UI code. Verify PR #225's actual merge method and complete

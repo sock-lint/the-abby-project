@@ -103,11 +103,22 @@ files. Seven retained Chick/Fledgling/Bird and Normal Egg portraits come from
 the roster delivery's inventory-pinned supplemental paths, recorded in
 `shared/catalog/companion-supplemental.json`; they are not invented release
 assets. `assets:import` stages these atomically into the ignored
-`frontend/src/companion/supplemental/`. It accepts `ABBY_COMPANION_WORKSPACE`
-for a fully verified extracted workspace or fetches the pinned verification
-ZIP through the application's existing GetObject-only reader. It verifies
-the index before locators, ZIP bytes/hash, every inventory file and the exact
-seven outputs. Unmanaged files are never replaced.
+`frontend/src/companion/supplemental/`. A fresh offline import requires both
+`ABBY_ASSETS_RELEASE_ROOT` for the six-release tree and
+`ABBY_COMPANION_WORKSPACE` for the fully extracted roster verification workspace;
+the release tree contains none of these seven portraits. The importer verifies
+the workspace inventory and every listed file before selecting the exact seven
+outputs. Alternatively, it fetches the pinned verification ZIP through the
+application's existing GetObject-only reader, checking the index before locators,
+ZIP bytes/hash and every inventory file.
+
+Supplemental sources are checked before any installed release files change. If
+neither a fully verified installed supplemental tree nor a workspace or configured
+reader is available, import fails with instructions to supply the required source.
+An existing supplemental tree whose pin and exact contents still verify can be
+reused for a release rollback without a workspace or S3 access. Missing or invalid
+supplementals require verified source bytes again. Unmanaged files are never
+replaced.
 
 Use `npm run assets:import`, `npm run assets:verify`, and the normal web/native
 builds. Keep the existing least-privilege reader configuration; never copy
