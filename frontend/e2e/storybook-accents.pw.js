@@ -375,9 +375,9 @@ for (const starState of ['missing', 'loading', 'error']) {
 }
 
 for (const failImages of [false, true]) {
-  test(`${failImages ? 'failed' : 'available'} artwork keeps Today, Profile, challenge and reward text clear at phone and desktop widths`, async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    for (const theme of ['hyrule', 'vigil']) {
+  for (const theme of ['hyrule', 'vigil']) {
+    test(`${theme} ${failImages ? 'failed' : 'available'} artwork keeps Today, Profile, challenge and reward text clear at phone and desktop widths`, async ({ page }) => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
       for (const width of [320, 375, 1280]) {
         for (const large of [false, true]) {
           await page.setViewportSize({ width, height: 812 });
@@ -392,8 +392,8 @@ for (const failImages of [false, true]) {
           await page.unroute('**/*');
         }
       }
-    }
-  });
+    });
+  }
 }
 
 test('private release PNGs render completely and failed art collapses without hiding actions', async ({ page }) => {

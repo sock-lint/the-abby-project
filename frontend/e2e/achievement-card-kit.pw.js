@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { isAbsolute, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
@@ -19,6 +19,7 @@ if (evidence && (!isAbsolute(evidence) || !relative(resolve(frontend, '..'), res
   throw new Error('ABBY_PRIVATE_ACCEPTANCE_DIR must be an absolute private directory outside the checkout.');
 }
 let server, origin;
+const configuredPages = new WeakMap();
 
 test.beforeAll(async () => {
   server = spawn(process.execPath, [resolve(frontend, 'node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--port', '0'], {
@@ -43,18 +44,22 @@ test.afterAll(async () => {
 });
 
 async function open(page, options = {}) {
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await page.route('**/*', route => {
-    const url = new URL(route.request().url());
-    if (url.origin !== origin) return route.abort('blockedbyclient');
-    if (url.pathname.startsWith('/api/')) return route.fulfill({ json: [] });
-    if (url.pathname.startsWith('/synthetic/')) {
-      const color = url.pathname.includes('fish') ? '#8473AE' : '#D8AE65';
-      return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><circle cx="128" cy="128" r="104" fill="${color}"/></svg>` });
-    }
-    return route.fallback();
-  });
+  let errors = configuredPages.get(page);
+  if (!errors) {
+    errors = [];
+    configuredPages.set(page, errors);
+    page.on('pageerror', error => errors.push(error.message));
+    await page.route('**/*', route => {
+      const url = new URL(route.request().url());
+      if (url.origin !== origin) return route.abort('blockedbyclient');
+      if (url.pathname.startsWith('/api/')) return route.fulfill({ json: [] });
+      if (url.pathname.startsWith('/synthetic/')) {
+        const color = url.pathname.includes('fish') ? '#8473AE' : '#D8AE65';
+        return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256"><circle cx="128" cy="128" r="104" fill="${color}"/></svg>` });
+      }
+      return route.fallback();
+    });
+  }
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`${origin}/e2e/achievement-card-kit-fixture.html?${new URLSearchParams(options)}`);
   await expect(page.locator('[data-kit-fixture]')).toBeVisible();
@@ -106,11 +111,12 @@ async function contentFits(page) {
   expect(statsOverflow, 'Actual Profile statistics must not overlap adjacent columns.').toEqual([]);
 }
 
-test('real Profile, collection, challenge and reward content reflows on light and dark phones and desktop', async ({ page }) => {
-  for (const theme of ['hyrule', 'vigil']) {
+for (const theme of ['hyrule', 'vigil']) {
+  test(`real Profile, collection, challenge and reward content reflows on ${theme}`, async ({ page }) => {
     for (const width of [320, 375, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       for (const large of ['0', '1']) {
+        await test.step(`${width}px with ${large === '1' ? '200%' : '100%'} text`, async () => {
         const errors = await open(page, { theme, long: '1', large });
         await expect(page.locator('[data-achievement-card="wide"]')).toHaveCount(1);
         expect(await page.locator('[data-achievement-card="tall"]').count()).toBeGreaterThanOrEqual(6);
@@ -139,10 +145,11 @@ test('real Profile, collection, challenge and reward content reflows on light an
         expect(await rewardIdentity.getAttribute('src')).not.toContain('abby-achievement-card-kit');
         if (large === '0' || width === 320) await capture(page, `consumers-${theme}-${width}-${large === '1' ? '200' : '100'}`);
         expect(errors).toEqual([]);
+        });
       }
     }
-  }
-});
+  });
+}
 
 test('live trophy, collection, challenge and reward actions remain usable with the new canvases', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 812 });
@@ -247,6 +254,7 @@ test('all three generic icons decode smoothly at 24, 32, 40, 64 and 96 CSS pixel
       for (const icon of await icons.all()) {
         await icon.scrollIntoViewIfNeeded();
         await expect.poll(() => icon.evaluate(element => (element.matches('img') ? element : element.querySelector('img'))?.naturalWidth)).toBe(512);
+        await icon.evaluate(element => (element.matches('img') ? element : element.querySelector('img')).decode());
         const dimensions = await icon.evaluate(element => {
           const img = element.matches('img') ? element : element.querySelector('img');
           const canvas = document.createElement('canvas');
@@ -254,14 +262,17 @@ test('all three generic icons decode smoothly at 24, 32, 40, 64 and 96 CSS pixel
           const context = canvas.getContext('2d', { willReadFrequently: true });
           context.drawImage(img, 0, 0);
           const bytes = context.getImageData(0, 0, 512, 512).data;
-          let transparent = 0, opaque = 0;
-          for (let index = 3; index < bytes.length; index += 4) { if (bytes[index] === 0) transparent += 1; if (bytes[index] === 255) opaque += 1; }
-          return img && { width: img.naturalWidth, height: img.naturalHeight, renderedWidth: img.getBoundingClientRect().width, renderedHeight: img.getBoundingClientRect().height, fit: getComputedStyle(img).objectFit, rendering: getComputedStyle(img).imageRendering, src: img.currentSrc, transparent, opaque,
+          let transparent = 0, visible = 0, alphaMax = 0;
+          for (let index = 3; index < bytes.length; index += 4) { if (bytes[index] === 0) transparent += 1; else visible += 1; alphaMax = Math.max(alphaMax, bytes[index]); }
+          return img && { width: img.naturalWidth, height: img.naturalHeight, renderedWidth: img.getBoundingClientRect().width, renderedHeight: img.getBoundingClientRect().height, fit: getComputedStyle(img).objectFit, rendering: getComputedStyle(img).imageRendering, src: img.currentSrc, transparent, visible, alphaMax,
             corners: [bytes[3], bytes[(512 - 1) * 4 + 3], bytes[((512 - 1) * 512) * 4 + 3], bytes[(512 * 512 - 1) * 4 + 3]] };
         });
         expect(dimensions).toMatchObject({ width: 512, height: 512, renderedWidth: size, renderedHeight: size, fit: 'contain', rendering: 'auto' });
         expect(dimensions.transparent).toBeGreaterThan(0);
-        expect(dimensions.opaque).toBeGreaterThan(0);
+        expect(dimensions.visible).toBeGreaterThan(0);
+        // The pinned originals intentionally peak at alpha 254. Preserve their
+        // supplied alpha instead of flattening them or forcing opaque pixels.
+        expect(dimensions.alphaMax).toBe(254);
         expect(dimensions.corners).toEqual([0, 0, 0, 0]);
         urls.push(dimensions.src);
       }
@@ -280,7 +291,7 @@ test('loaded light parchment retains readable live text and action colors in bot
     await open(page, { theme });
     const cards = page.locator('[data-achievement-card]');
     await expect.poll(() => cards.evaluateAll(elements => elements.every(element => element.dataset.achievementCardArt === 'ready'))).toBe(true);
-    const failures = await cards.evaluateAll(elements => {
+    const results = await cards.evaluateAll(elements => {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 1;
       const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -292,7 +303,7 @@ test('loaded light parchment retains readable live text and action colors in bot
       };
       const composite = (front, back) => [...front.slice(0, 3).map((value, index) => value * front[3] + back[index] * (1 - front[3])), 1];
       const luminance = color => color.slice(0, 3).map(channel => channel / 255).map(channel => channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-      const issues = [];
+      const checks = [];
       for (const card of elements) {
         const image = card.querySelector('img');
         context.clearRect(0, 0, 1, 1);
@@ -313,11 +324,15 @@ test('loaded light parchment retains readable live text and action colors in bot
           const foreground = composite(rgba(getComputedStyle(node.parentElement).color), background);
           const levels = [luminance(foreground), luminance(background)].sort((a, b) => a - b);
           const ratio = (levels[1] + 0.05) / (levels[0] + 0.05);
-          if (ratio < 4.5) issues.push({ text: node.textContent.trim(), ratio: Math.round(ratio * 100) / 100, foreground, background });
+          checks.push({ text: node.textContent.trim(), ratio, foreground, background });
         }
       }
-      return issues;
+      return { failures: checks.filter(check => check.ratio < 4.5), minimum: Math.min(...checks.map(check => check.ratio)), checks };
     });
-    expect(failures, 'Live card text, including enabled controls, must retain 4.5:1 contrast over the real parchment sample.').toEqual([]);
+    expect(results.failures, 'Live card text, including enabled controls, must retain 4.5:1 contrast over the real parchment sample.').toEqual([]);
+    if (evidence) {
+      mkdirSync(evidence, { recursive: true, mode: 0o700 });
+      writeFileSync(resolve(evidence, `contrast-${theme}.json`), JSON.stringify(results, null, 2), { mode: 0o600 });
+    }
   }
 });
