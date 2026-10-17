@@ -85,19 +85,7 @@ async function layoutProblems(page) {
       }
       return result;
     };
-    for (const card of document.querySelectorAll('[data-storybook-panel]')) {
-      const art = [...card.querySelectorAll('[data-storybook-corner]')].map(rect);
-      for (const { bounds, text } of textRects(card)) for (const corner of art) {
-        if (overlaps(bounds, corner, 8)) problems.push(`Panel text within eight pixels of corner: ${text}`);
-      }
-      for (const button of card.querySelectorAll('button')) for (const corner of art) {
-        if (overlaps(rect(button), corner, 8)) problems.push(`Panel control within eight pixels of corner: ${button.textContent.trim()}`);
-      }
-      for (const corner of art) {
-        const cardBounds = rect(card);
-        if (corner.left < cardBounds.left || corner.right > cardBounds.right || corner.top < cardBounds.top || corner.bottom > cardBounds.bottom) problems.push('Corner extends outside its card');
-      }
-    }
+    if (document.querySelector('[data-storybook-corner], .storybook-corner, [data-pedestal-image="corner-decor-01"]')) problems.push('A removed corner ornament is still rendered');
     for (const feature of document.querySelectorAll('.storybook-feature')) {
       const art = feature.querySelector('.storybook-feature__art');
       const content = feature.querySelector('.storybook-feature__content');
@@ -179,39 +167,55 @@ async function badgeGlyphProblems(page) {
   }));
 }
 
-test('shared decorated panels preserve corners, content clearance and direct-child spacing', async ({ page }) => {
+test('shared cards have no corner ornaments and preserve normal caller spacing', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  for (const [width, large] of [[320, false], [375, true], [1280, false]]) {
+  for (const [width, large] of [[320, false], [320, true], [375, true]]) {
     await page.setViewportSize({ width, height: 900 });
     const result = await open(page, { view: 'composition', large, theme: width === 375 ? 'vigil' : 'hyrule' });
-    await expect(page.getByRole('region', { name: 'Parent Today', exact: true }).locator('[data-storybook-corner]')).toHaveCount(2);
-    await expect(page.locator('[data-decor-kind="seal"] [data-storybook-corner]')).toHaveCount(1);
-    await expect(page.locator('[data-decor-kind="combined"] [data-storybook-corner]')).toHaveCount(2);
     const spacing = await page.locator('[data-rhythm-panel]').evaluate(element => {
       const children = [...element.querySelectorAll(':scope > [data-rhythm-child]')].map(child => child.getBoundingClientRect());
-      const box = element.getBoundingClientRect();
       return {
         gaps: children.slice(1).map((child, index) => child.top - children[index].bottom),
-        corners: [...element.querySelectorAll('[data-storybook-corner]')].map(corner => {
-          const bounds = corner.getBoundingClientRect();
-          return { width: bounds.width, height: bounds.height, insetX: Math.min(bounds.left - box.left, box.right - bounds.right), insetY: Math.min(bounds.top - box.top, box.bottom - bounds.bottom) };
-        }),
-        paddingTop: getComputedStyle(element).paddingTop, paddingBottom: getComputedStyle(element).paddingBottom,
       };
     });
     expect(spacing.gaps).toEqual([16, 16]);
-    expect(spacing.paddingTop).toBe('40px');
-    expect(spacing.paddingBottom).toBe('40px');
-    for (const corner of spacing.corners) {
-      expect(corner.width).toBe(20);
-      expect(corner.height).toBe(20);
-      expect(corner.insetX).toBeCloseTo(9, 0);
-      expect(corner.insetY).toBeCloseTo(9, 0);
+    for (const [cards, block, inline] of [
+      [page.locator('[data-rhythm-panel]'), 20, 20],
+      [page.locator('[data-decor-kind="seal"]'), 12, 20],
+      [page.locator('[data-decor-kind="combined"]'), 16, 16],
+      [page.getByRole('region', { name: 'Shared empty states', exact: true }).getByRole('status'), 40, 20],
+      [page.getByRole('region', { name: 'Parent Today', exact: true }).locator(':scope > div > div'), 20, 20],
+    ]) {
+      await expect(cards).not.toHaveCount(0);
+      for (const card of await cards.all()) {
+        const padding = await card.evaluate(element => {
+          const style = getComputedStyle(element);
+          return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+        });
+        expect(padding).toEqual([`${block}px`, `${inline}px`, `${block}px`, `${inline}px`]);
+      }
     }
     expect(await layoutProblems(page)).toEqual([]);
     expect(result.errors).toEqual([]);
     expect(result.apiRequests).toEqual([]);
-    await privateCapture(page, `storybook-consistency-${width}-${large ? 'large' : 'normal'}`);
+    await page.getByRole('button', { name: 'Clear filter', exact: true }).click();
+    await expect(page.locator('[data-fixture-event]')).toHaveText('Clear synthetic filter');
+    await page.unroute('**/*');
+    const components = await open(page, { large, theme: width === 375 ? 'vigil' : 'hyrule' });
+    const cards = page.locator('[data-hero-variant] > div > div, section[aria-label="Parent Today"] > div > div, section[aria-label="Daily bonus"] > div, section[aria-label="Homework task"] > div');
+    await expect(cards).toHaveCount(8);
+    for (const card of await cards.all()) {
+      const padding = await card.evaluate(element => {
+        const style = getComputedStyle(element);
+        return [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft];
+      });
+      expect(padding).toEqual(['20px', '20px', '20px', '20px']);
+    }
+    expect(await layoutProblems(page)).toEqual([]);
+    expect(components.errors).toEqual([]);
+    expect(components.apiRequests).toEqual([]);
+    await page.getByRole('region', { name: 'Homework task', exact: true }).getByRole('button', { name: 'Submit', exact: true }).click();
+    await expect(page.locator('[data-fixture-event]')).toHaveText('Submit synthetic homework');
     await page.unroute('**/*');
   }
 });
@@ -355,8 +359,7 @@ for (const failImages of [false, true]) {
           const result = await open(page, { theme, large, failImages });
           const heroes = page.locator('[data-hero-variant]');
           await expect(heroes).toHaveCount(4);
-          await expect(heroes.locator('[data-storybook-corner]')).toHaveCount(8);
-          await expect(heroes.locator('[data-storybook-panel]')).toHaveCount(4);
+          await expect(page.locator('[data-storybook-corner], .storybook-corner, [data-pedestal-image="corner-decor-01"]')).toHaveCount(0);
           await expect.poll(() => layoutProblems(page), { message: `${theme}, ${width}px, ${large ? '200%' : 'normal'} text, ${failImages ? 'failed' : 'available'} artwork` }).toEqual([]);
           expect(result.errors).toEqual([]);
           expect(result.apiRequests).toEqual([]);
@@ -414,7 +417,7 @@ test('private release PNGs render completely and failed art collapses without hi
   }
 });
 
-test('decorations preserve trophy keyboard access, challenge actions and reward availability', async ({ page }) => {
+test('storybook artwork preserves trophy keyboard access, challenge actions and reward availability', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 812 });
   const result = await open(page, { large: true, failImages: true });
   const compactTrophy = page.locator('[data-trophy-example="compact"] button');
