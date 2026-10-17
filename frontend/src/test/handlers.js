@@ -12,6 +12,17 @@ const nullBody = () => new HttpResponse(null, { status: 204 });
 
 // Order matters inside MSW — more specific paths first.
 export const handlers = [
+  // Reading
+  http.get('*/api/reading-books/', empty),
+  http.get('*/api/reading-sessions/', empty),
+  http.get('*/api/reading/summary/', () => HttpResponse.json({ books_total: 0, books_finished: 0, sessions_total: 0, total_minutes: 0, total_pages: 0, today: '2026-10-16', timezone: 'America/Phoenix' })),
+  http.get('*/api/reading/recommendations/', () => HttpResponse.json({ results: [], basis: 'Explore a topic for your next book.' })),
+  http.post('*/api/reading-books/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, ...await request.json() }, { status: 201 })),
+  http.post('*/api/reading-sessions/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, book_title: 'A book', ...await request.json() }, { status: 201 })),
+  http.patch(/\/api\/reading-books\/\d+\/$/, ok),
+  http.patch(/\/api\/reading-sessions\/\d+\/$/, ok),
+  http.delete(/\/api\/reading-books\/\d+\/$/, nullBody),
+  http.delete(/\/api\/reading-sessions\/\d+\/$/, nullBody),
   // Auth
   http.post('*/api/auth/', ok),
   http.post('*/api/auth/signup/', () =>

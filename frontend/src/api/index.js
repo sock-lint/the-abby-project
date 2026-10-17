@@ -537,6 +537,22 @@ export const logMovementSession = (data) => api.post('/movement-sessions/', data
 export const deleteMovementSession = (id) =>
   api.delete(`/movement-sessions/${id}/`);
 
+// Reading — family-scoped books and reading notes; no external text service.
+const readingQuery = (params = {}) => {
+  const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+  return query.size ? `?${query}` : '';
+};
+export const listReadingBooks = (params = {}, options) => api.get(`/reading-books/${readingQuery(params)}`, options);
+export const createReadingBook = (data) => api.post('/reading-books/', data);
+export const updateReadingBook = (id, data) => api.patch(`/reading-books/${id}/`, data);
+export const deleteReadingBook = (id) => api.delete(`/reading-books/${id}/`);
+export const listReadingSessions = (params = {}, options) => api.get(`/reading-sessions/${readingQuery(params)}`, options);
+export const createReadingSession = (data) => api.post('/reading-sessions/', data);
+export const updateReadingSession = (id, data) => api.patch(`/reading-sessions/${id}/`, data);
+export const deleteReadingSession = (id) => api.delete(`/reading-sessions/${id}/`);
+export const getReadingSummary = (params = {}, options) => api.get(`/reading/summary/${readingQuery(params)}`, options);
+export const getReadingRecommendations = (params = {}, options) => api.get(`/reading/recommendations/${readingQuery(params)}`, options);
+
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');
 export const getCreationTodayStatus = () => api.get('/creations/today_status/');

@@ -713,3 +713,27 @@ producer checks actual inventory delivery, unchanged held Coins, and approval
 retry safety. The React consumer `src/api/rpgIntegrityContractFixtures.test.jsx`
 checks these same saved promises and renders the earned/maximum character
 responses through Profile's existing frontispiece.
+
+## Reading books and reflections
+
+`config.tests.test_reading_api_contract_fixtures` produces shelf, session,
+correction, pagination, summary and validation responses through authenticated
+Django endpoints. The React consumer is
+`frontend/src/api/readingContractFixtures.test.js`. All book titles, authors,
+families and reflections in these fixtures are synthetic.
+
+Books use `reading`, `want_to_read`, `finished` and `paused` statuses. Each
+reading session belongs to one saved book and preserves its date, minutes,
+pages, chapter/section, print/ebook/audiobook format, optional reaction and
+optional family-visible reflection. Creates require a `client_request_id` UUID;
+identical retries return the saved record, including subsequent corrections,
+and changed payloads with the same UUID fail without adding another row.
+PATCH cannot reassign the owner or book. Books with saved sessions cannot be
+deleted until their sessions are explicitly removed.
+
+Children access only their own reading; parents can select only a child in
+their family using `user_id`. Summary dates use the household timezone. These
+records are separate from private journal entries and grant no currency or XP.
+Recommendations use a bundled publisher-sourced catalog, optional topic,
+birthday age guidance when available and saved book interests/reactions. The
+ranking reads no reflection text and makes no runtime external requests.

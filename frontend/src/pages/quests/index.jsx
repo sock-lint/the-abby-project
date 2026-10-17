@@ -4,6 +4,7 @@ import Chores from '../Chores';
 import Homework from '../Homework';
 import Habits from '../Habits';
 import Movement from '../Movement';
+import Reading from '../reading';
 import Trials from '../trials';
 
 /**
@@ -28,6 +29,7 @@ export default function QuestsHub() {
         { id: 'duties',   label: 'Chores',      render: () => <Chores /> },
         { id: 'rituals',  label: 'Habits',      render: () => <Habits /> },
         { id: 'movement', label: 'Movement',    render: () => <Movement /> },
+        { id: 'reading',  label: 'Reading',     render: () => <Reading /> },
         { id: 'ventures', label: 'Projects',    render: () => <Projects /> },
         { id: 'trials',   label: 'Challenges',  render: () => <Trials /> },
       ]}

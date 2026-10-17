@@ -83,7 +83,20 @@ Celebration motion respects `prefers-reduced-motion`.
 
 ## Quests hub (commits `3e8c18c`, `69d7b48`)
 
-The Tasks page consolidates activities under one hub. Six top-level `ChapterHub` tabs:
+Reading (`/quests?tab=reading`, redirected from `/reading`) uses
+`pages/reading/` and the shared Task folio. Its bookshelf supports Reading,
+Want to read, Finished and Paused; saved sessions accept minutes, pages,
+chapters, print/ebook/audiobook and optional reflection prompts. Notes are
+visible to the reader and their parents, independent of private Journal
+entries. `useChildContext` verifies the selected child; the workspace and
+in-memory forms reset by account, credential and child. Uncertain writes retain
+the exact payload and creation UUID for safe retries. A confirmed save receipt
+remains visible when a subsequent read fails. Books with session history cannot
+be deleted. Totals come from `/reading/summary/`; local curated recommendations
+use book topics/age and publisher sources, without sending notes externally or
+granting rewards.
+
+The Tasks page consolidates activities under one hub. Seven top-level `ChapterHub` tabs:
 
 | Tab | Slug | Backing page |
 |---|---|---|
@@ -92,6 +105,7 @@ The Tasks page consolidates activities under one hub. Six top-level `ChapterHub`
 | Study | `study` | `pages/Homework/index.jsx` |
 | Rituals | `rituals` | `pages/Habits.jsx` |
 | Movement | `movement` | `pages/Movement.jsx` |
+| Reading | `reading` | `pages/reading/index.jsx` |
 | Trials | `trials` | `pages/trials/index.jsx` |
 
 The hub itself lives at [`pages/quests/index.jsx`](/frontend/src/pages/quests/index.jsx). Legacy routes redirect:

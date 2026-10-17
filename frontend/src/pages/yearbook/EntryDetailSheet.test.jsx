@@ -64,6 +64,7 @@ describe('EntryDetailSheet', () => {
     expect(screen.getByRole('dialog', { name: 'Correct report card' })).toHaveTextContent('Correcting school year 2024')
   })
   it('renders occurred_on + summary for a plain entry', () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())))
     renderWithProviders(
       <EntryDetailSheet
         entry={{

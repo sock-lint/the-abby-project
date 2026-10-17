@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "apps.activity",
     "apps.creations",
     "apps.movement",
+    "apps.reading",
     "apps.wellbeing",
     "apps.printing",
     "apps.dev_tools",
