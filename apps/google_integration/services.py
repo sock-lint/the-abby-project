@@ -10,7 +10,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from django.conf import settings
-from django.db import transaction
+from django.db import OperationalError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -134,6 +134,21 @@ def _legacy_encrypt(plaintext_bytes: bytes) -> bytes:
     ciphertext = bytes(a ^ b for a, b in zip(plaintext_bytes, stream))
     tag = hmac.new(key, salt + ciphertext, hashlib.sha256).digest()
     return salt + ciphertext + tag
+
+
+def _lock_account_relations(user, *, calendar=False):
+    """Do not wait on child rows already held by an account cascade."""
+    from .models import CalendarEventMapping, GoogleAccount
+    from .oauth_exchange import AuthorizationBusy, is_lock_conflict
+
+    try:
+        list(GoogleAccount.objects.select_for_update(nowait=True).filter(user=user))
+        if calendar:
+            list(CalendarEventMapping.objects.select_for_update(nowait=True).filter(user=user))
+    except OperationalError as exc:
+        if is_lock_conflict(exc):
+            raise AuthorizationBusy() from None
+        raise
 
 
 class GoogleAuthService:
@@ -276,6 +291,7 @@ class GoogleAuthService:
         with transaction.atomic():
             if user.pk not in lock_users([user.pk]):
                 raise ValueError("Account is unavailable")
+            _lock_account_relations(user)
             account, _ = GoogleAccount.objects.update_or_create(
                 user=user,
                 defaults={
@@ -297,6 +313,7 @@ class GoogleAuthService:
         with transaction.atomic():
             if user.pk not in lock_users([user.pk]):
                 return
+            _lock_account_relations(user, calendar=True)
             CalendarEventMapping.objects.filter(user=user).delete()
             GoogleAccount.objects.filter(user=user).delete()
             invalidate_google_flows(user.pk)

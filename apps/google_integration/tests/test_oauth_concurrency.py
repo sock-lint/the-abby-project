@@ -14,7 +14,7 @@ from rest_framework.test import APIClient
 
 from apps.accounts.models import User
 from apps.google_integration import oauth_exchange
-from apps.google_integration.models import GoogleAccount
+from apps.google_integration.models import CalendarEventMapping, GoogleAccount
 from apps.google_integration.services import GoogleAuthService
 from config.tests.factories import make_family
 
@@ -178,3 +178,62 @@ class GoogleOAuthConcurrencyTests(TransactionTestCase):
 
     def test_login_redemption_declines_while_actual_user_delete_holds_google_account(self):
         self._deletion_race(link=False, child_table="google_integration_googleaccount")
+
+    def test_child_unlink_declines_while_actual_user_delete_holds_calendar_mapping(self):
+        GoogleAccount.objects.create(
+            user=self.child, google_id=GOOGLE_ID, google_email="synthetic-concurrency@example.invalid",
+            encrypted_credentials=GoogleAuthService.encrypt_credentials({"token": "synthetic-existing-token"}),
+            linked_by=self.parent,
+        )
+        CalendarEventMapping.objects.create(
+            user=self.child, content_type="chore", object_id=42,
+            google_event_id="synthetic-concurrent-calendar-event",
+        )
+        mapping_deleted, release_deletion = Event(), Event()
+
+        def delete_child():
+            self._thread_connection("delete-child")
+            try:
+                def hold_after_mapping_delete(execute, sql, params, many, context):
+                    result = execute(sql, params, many, context)
+                    if (sql.lstrip().upper().startswith("DELETE FROM")
+                            and '"google_integration_calendareventmapping"' in sql):
+                        mapping_deleted.set()
+                        if not release_deletion.wait(10):
+                            raise TimeoutError("Child cascade was not released")
+                    return result
+
+                with connection.execute_wrapper(hold_after_mapping_delete):
+                    User.objects.get(pk=self.child.pk).delete()
+            finally:
+                connection.close()
+                _worker.label = None
+
+        def unlink_child():
+            self._thread_connection("unlink-child")
+            try:
+                client = APIClient()
+                client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+                response = client.delete(BASE + f"account/?for_user={self.child.pk}")
+                return response.status_code, response.data
+            finally:
+                connection.close()
+                _worker.label = None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            deleting = pool.submit(delete_child)
+            try:
+                self.assertTrue(mapping_deleted.wait(5), "Real child deletion did not reach its calendar mapping")
+                unlinking = pool.submit(unlink_child)
+                # The surviving parent is authorized, but unlink must not
+                # wait on a cascade while holding that child's User lock.
+                status, _body = unlinking.result(timeout=3)
+                self.assertEqual(status, 409)
+            finally:
+                release_deletion.set()
+            deleting.result(timeout=15)
+
+        self.assertFalse(User.objects.filter(pk=self.child.pk).exists())
+        self.assertFalse(GoogleAccount.objects.filter(google_id=GOOGLE_ID).exists())
+        self.assertFalse(CalendarEventMapping.objects.filter(user_id=self.child.pk).exists())
+        self.assertTrue(Token.objects.filter(key=self.token.key, user=self.parent).exists())
