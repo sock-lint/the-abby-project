@@ -585,6 +585,7 @@ class PetService:
             "potion_item_name": potion_item.name,
             "potion_item_icon": potion_item.icon,
             "potion_item_sprite_key": potion_item.sprite_key,
+            "potion_item_catalog_icon": item_catalog_icon(potion_item),
             "picked_species": picked_species.name,
             "picked_species_slug": picked_species.slug,
             "picked_potion": picked_potion.name,

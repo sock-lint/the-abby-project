@@ -419,7 +419,8 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
                 size={72}
                 alt={eggName || 'egg'}
               />
-              <RpgSprite
+              <CatalogIcon
+                assetId={result?.potion_item_catalog_icon}
                 spriteKey={potionSpriteKey}
                 icon={potionIcon}
                 size={72}

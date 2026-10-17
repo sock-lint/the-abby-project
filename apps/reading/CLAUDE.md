@@ -9,8 +9,10 @@ chapters and reflections remain optional and do not determine reward value.
 Reading has no payments, approval flow or journal mirroring.
 
 The web endpoints are `/api/reading-books/`, `/api/reading-sessions/`,
-`/api/reading/summary/`, and `/api/reading/recommendations/`. Lists use the
-standard DRF pagination. Parents can view their family's records, select a
+`/api/reading/summary/`, `/api/reading/recommendations/`,
+`/api/reading/discovery-feedback/`, and `/api/reading-family-suggestions/`. Shelf,
+session and family-suggestion lists use standard DRF pagination. Parents can
+view their family's records, select a
 child using `user_id`, and create or correct entries for that child. Parents
 must explicitly select a same-family child for creates, summaries, and
 recommendations. Children only access their own shelf and log. Session lists
@@ -62,10 +64,53 @@ reward receipt. Reads create no progress, consume no opportunity and award
 nothing. Session queries select the reverse reward relation to avoid a query
 per history row; reflection prose never enters reward context or activity logs.
 
-Recommendations use the bounded, local catalog in `catalog.py` and the pure
-ranking service in `recommendations.py`. They do not use an external API,
-credentials, or reflections to personalize suggestions. See those modules for
-their source links and ranking policy.
+Recommendations use 64 publisher-sourced books in `catalog.py` and
+`catalog_data.py`, ranked locally by `recommendations.py`. Edition metadata
+includes ISBN, nullable page count, verified formats, original descriptions,
+editorial mood/style/theme tags and nullable ordered series. Saved book responses
+include `catalog_entry` or null: matching normalizes title/author case and
+whitespace; a legacy blank author matches only a unique title. No external
+metadata requests, credentials, reflections or family suggestion messages enter
+ranking. The browser loads Open Library covers with `no-referrer` and a missing
+image fallback. WorldCat links search by title/author and do not establish local
+library availability.
+
+`GET /api/reading/recommendations/` accepts optional `interest`, `mood`, `style`,
+`book_format`, `length`, `theme`, `q`, `similar_to` and `rotation`. Use
+`book_format`, not DRF's renderer-selection `format` query. The enums live in
+`constants.py`; search is bounded to 160 characters and rotation to 0–1000.
+Filters intersect publisher age bounds and exclude owned/hidden titles. Length
+means short ≤200 pages, medium 201–349, long ≥350; unknown counts do not match a
+length filter. Search uses catalog titles, authors, tags and series names.
+Read-alikes compare catalog themes/styles/moods/topics. Unfiltered picks can
+include a new topic and prioritize the next series volume only after every
+earlier catalog volume is on this reader's finished shelf. Rotation wraps
+through eligible picks six at a time. Responses include `basis`, `total`,
+`has_more`, `rotation`, and per-book `reason`/`reason_kind`.
+
+Discovery feedback GET returns this reader's `{catalog_id, choice}` rows. POST
+with `not_interested` or `already_read` upserts the unique user/catalog preference
+and hides that title; an empty `choice` clears it for Undo. These are idempotent
+preferences, with no shelf insertion, session or reward. Parents must select a
+same-family child with `user_id`; children can act only for themselves.
+
+Only parents create family suggestions, supplying a same-family child
+`user_id`, catalog ID, optional message of at most 500 characters and UUID
+`client_request_id`. The normalized retry identity includes the sender; identical
+retries return the saved invitation and conflicting payloads fail. An immutable
+author display-name snapshot preserves attribution if the parent is deleted.
+Reads remain within the recipient's family and hide suggestions whose surviving
+sender has moved families or is no longer a parent. The paginated list returns
+only `pending` invitations, including `suggested_by`, `catalog_entry` and
+`on_shelf`. PATCH accepts only `status: dismissed`. The child explicitly saves a
+chosen book through the normal shelf create; this changes `on_shelf`, not the
+invitation's status, and awards nothing. Neither sending nor dismissing an
+invitation creates a book or reading log.
+
+The existing producer `config.tests.test_reading_api_contract_fixtures` and React
+consumer `frontend/src/api/readingContractFixtures.test.js` cover enriched picks,
+feedback, attributed invitations, explicit shelf saving and dismissal with
+synthetic fixtures under `contracts/api/fixtures/`.
 
 Run `python manage.py test apps.reading --settings=config.settings_test` with
 a disposable database. PostgreSQL executes concurrent create/retry and reward

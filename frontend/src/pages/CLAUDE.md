@@ -96,6 +96,26 @@ be deleted. Totals come from `/reading/summary/`; local curated recommendations
 use book topics/age and publisher sources, without sending notes externally or
 granting rewards.
 
+`ReadingDiscovery` presents 64 locally curated publisher-sourced books with
+edition details and covers. It sends `interest`, `mood`, `style`, `book_format`,
+`length`, `theme`, `q`, `similar_to` and `rotation` to the server; length labels
+mean ≤200, 201–349 and ≥350 pages. Matching and ordered series eligibility stay
+server-owned, and reflections never enter recommendations. `DiscoveryBookCard`
+loads only Open Library cover URLs with `no-referrer` and an accessible fallback;
+its WorldCat link searches a catalog without claiming local availability.
+Saved books expose nullable `catalog_entry` for “More like this”. “Not interested”
+and “Already read” persist preferences without reading history or rewards;
+Undo clears that preference. “Show different books” rotates eligible picks.
+
+Parents can send a catalog book with a personal note of at most 500 characters.
+`FamilySuggestionForm` retains its exact UUID/payload for uncertain retries.
+The paginated pending list shows the saved parent attribution and `on_shelf`;
+the child explicitly chooses Save to want to read or Dismiss. Saving uses the
+ordinary shelf create and leaves the invitation pending with `on_shelf: true`.
+Family suggestions and discovery preferences follow the selected child/account
+reset and family-scoping rules above. Producer/consumer coverage lives in the
+existing reading API contract test modules.
+
 The daily reading card uses the summary's server-owned `reading_adventure`
 progress. New logs dated today contribute minutes toward one daily reward;
 audiobooks count and reflections remain optional. Show base XP/Coins before

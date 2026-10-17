@@ -9,7 +9,7 @@ from django.test import override_settings
 from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
-from apps.reading.models import ReadingBook, ReadingSession
+from apps.reading.models import ReadingBook, ReadingFamilySuggestion, ReadingSession
 from apps.rewards.models import CoinLedger
 from config.tests import test_api_contract_fixtures as shared
 from config.tests.factories import make_family
@@ -52,8 +52,13 @@ class ReadingApiResponseFixtureTests(APITestCase):
         ReadingSession.objects.create(id=200, user=outsider, book=seed, duration_minutes=5,
                                       occurred_on=shared.FIXED_NOW.date(), create_payload={},
                                       client_request_id="bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb")
+        ReadingFamilySuggestion.objects.create(
+            id=300, user=outsider, author_name="Other fixture parent", catalog_id="other-book",
+            message="An unrelated family's note.", create_payload={},
+            client_request_id="cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        )
         with connection.cursor() as cursor:
-            for sql in connection.ops.sequence_reset_sql(no_style(), [ReadingBook, ReadingSession]):
+            for sql in connection.ops.sequence_reset_sql(no_style(), [ReadingBook, ReadingSession, ReadingFamilySuggestion]):
                 cursor.execute(sql)
         self.client.force_authenticate(self.child)
         self.book_payload = {
@@ -61,6 +66,64 @@ class ReadingApiResponseFixtureTests(APITestCase):
             "status": "reading", "interests": ["adventure", "friendship"],
             "client_request_id": "11111111-1111-4111-8111-111111111111",
         }
+
+    def test_discovery_feedback_and_family_invitation_are_separate_from_saved_reading(self):
+        entry = {
+            "id": "fixture-clockwork-garden", "title": "The Clockwork Garden", "author": "Example Writer",
+            "interests": ["science", "friendship"], "age_min": 8, "age_max": None,
+            "description": "Friends build a garden full of surprising inventions.",
+            "source_url": "https://publisher.example/books/clockwork-garden",
+            "source_urls": ["https://publisher.example/books/clockwork-garden"],
+            "isbn": "9780000000000", "cover_url": "https://covers.openlibrary.org/b/isbn/9780000000000-M.jpg?default=false",
+            "page_count": 180, "formats": ["print", "ebook"], "moods": ["funny"],
+            "styles": ["illustrated"], "themes": ["inventors", "friendship"], "series": None,
+        }
+        with patch("apps.reading.catalog.BOOK_CATALOG", (entry,)), patch("apps.reading.recommendations.BOOK_CATALOG", (entry,)):
+            picks = self.assert_response_fixture(self.client.get(
+                "/api/reading/recommendations/", {"mood": "funny", "book_format": "ebook", "length": "short"},
+            ), "reading-discovery-picks.json")
+            self.assertEqual(picks["results"][0]["page_count"], 180)
+            self.assertFalse(picks["has_more"])
+            self.assert_response_fixture(self.client.post(
+                "/api/reading/discovery-feedback/", {"catalog_id": entry["id"], "choice": "already_read"}, format="json",
+            ), "reading-discovery-feedback.json")
+            self.assertEqual(self.client.get("/api/reading/recommendations/").json()["results"], [])
+            self.client.post("/api/reading/discovery-feedback/", {"catalog_id": entry["id"], "choice": ""}, format="json")
+            self.assertEqual(ReadingBook.objects.filter(user=self.child).count(), 0)
+            self.assertEqual(ReadingSession.objects.filter(user=self.child).count(), 0)
+            self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+
+            self.client.force_authenticate(self.parent)
+            payload = {
+                "catalog_id": entry["id"], "user_id": self.child.id,
+                "message": "Thought you would enjoy the inventions!",
+                "client_request_id": "77777777-7777-4777-8777-777777777777",
+            }
+            invitation = self.assert_response_fixture(self.client.post(
+                "/api/reading-family-suggestions/", payload, format="json",
+            ), "reading-family-suggestion.json", status=201)
+            self.assertEqual(invitation["suggested_by"]["id"], self.parent.id)
+            self.assertFalse(invitation["on_shelf"])
+            self.assertEqual(self.client.post("/api/reading-family-suggestions/", payload, format="json").status_code, 200)
+            self.assertEqual(ReadingBook.objects.filter(user=self.child).count(), 0)
+
+            self.client.force_authenticate(self.child)
+            self.assert_response_fixture(self.client.get(
+                "/api/reading-family-suggestions/"), "reading-family-suggestions.json")
+            saved = self.assert_response_fixture(self.client.post("/api/reading-books/", {
+                "title": entry["title"], "author": entry["author"], "interests": entry["interests"],
+                "status": "want_to_read", "client_request_id": "88888888-8888-4888-8888-888888888888",
+            }, format="json"), "reading-discovery-book.json", status=201)
+            self.assertEqual(saved["catalog_entry"], entry)
+            after = self.assert_response_fixture(self.client.get(
+                "/api/reading-family-suggestions/"), "reading-family-suggestions-saved.json")
+            self.assertTrue(after["results"][0]["on_shelf"])
+            self.assert_response_fixture(self.client.patch(
+                f"/api/reading-family-suggestions/{invitation['id']}/", {"status": "dismissed"}, format="json",
+            ), "reading-family-suggestion-dismissed.json")
+            self.assertEqual(self.client.get("/api/reading-family-suggestions/").json()["results"], [])
+            self.assertFalse(ReadingSession.objects.filter(user=self.child).exists())
+            self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
 
     def test_saved_book_log_correction_and_summary(self):
         book = self.assert_response_fixture(self.client.post(

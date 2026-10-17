@@ -1,0 +1,44 @@
+{
+  "results": [
+    {
+      "id": "fixture-clockwork-garden",
+      "title": "The Clockwork Garden",
+      "author": "Example Writer",
+      "interests": [
+        "science",
+        "friendship"
+      ],
+      "age_min": 8,
+      "age_max": null,
+      "description": "Friends build a garden full of surprising inventions.",
+      "source_url": "https://publisher.example/books/clockwork-garden",
+      "source_urls": [
+        "https://publisher.example/books/clockwork-garden"
+      ],
+      "isbn": "9780000000000",
+      "cover_url": "https://covers.openlibrary.org/b/isbn/9780000000000-M.jpg?default=false",
+      "page_count": 180,
+      "formats": [
+        "print",
+        "ebook"
+      ],
+      "moods": [
+        "funny"
+      ],
+      "styles": [
+        "illustrated"
+      ],
+      "themes": [
+        "inventors",
+        "friendship"
+      ],
+      "series": null,
+      "reason": "Matches your choices: funny, ebook, 200 pages or fewer.",
+      "reason_kind": "filter"
+    }
+  ],
+  "basis": "Books matching your discovery choices from our curated shelf. Starter picks; check publisher age guidance together. Publisher ages are broad guidance, not reading levels. Reflections are never used for suggestions.",
+  "total": 1,
+  "has_more": false,
+  "rotation": 0
+}
