@@ -147,6 +147,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
             }, format="json")
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["egg_item_catalog_icon"], "bat-egg-portrait")
+        self.assertEqual(response.json()["potion_item_catalog_icon"], "item-base-potion")
         body = self.assert_response_fixture(response, "mount-breed-roster.json", status=201)
         self.assertEqual(body["picked_species_slug"], bat.slug)
         self.assertEqual(body["picked_potion_slug"], "base")

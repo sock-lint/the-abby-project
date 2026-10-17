@@ -552,6 +552,11 @@ export const updateReadingSession = (id, data) => api.patch(`/reading-sessions/$
 export const deleteReadingSession = (id) => api.delete(`/reading-sessions/${id}/`);
 export const getReadingSummary = (params = {}, options) => api.get(`/reading/summary/${readingQuery(params)}`, options);
 export const getReadingRecommendations = (params = {}, options) => api.get(`/reading/recommendations/${readingQuery(params)}`, options);
+export const listReadingDiscoveryFeedback = (params = {}, options) => api.get(`/reading/discovery-feedback/${readingQuery(params)}`, options);
+export const saveReadingDiscoveryFeedback = (data) => api.post('/reading/discovery-feedback/', data);
+export const listReadingFamilySuggestions = (params = {}, options) => api.get(`/reading-family-suggestions/${readingQuery(params)}`, options);
+export const createReadingFamilySuggestion = (data) => api.post('/reading-family-suggestions/', data);
+export const updateReadingFamilySuggestion = (id, data) => api.patch(`/reading-family-suggestions/${id}/`, data);
 
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');

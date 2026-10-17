@@ -67,8 +67,14 @@ python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dra
 Active owned-art scope is recorded in
 [`react-three-fiber-assets.md`](react-three-fiber-assets.md), with new offers
 restricted by [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json).
-Every authored species automatically has an egg and the shared Egg → Baby → Middle → Grown lifecycle; see [companion lifecycle](../../docs/operations/companion-lifecycle.md) for API and future artwork integration. The accepted new-acquisition art remains exact Base Chick through Fledgling to confirmed Bird; Birdseed remains
-its preferred food. Earlier saved identities stay intact, but a YAML entry or
+The current policy allows 15 Base-potion families: Chick and the 14 exact
+namespaced identities in [`companion-roster.json`](../../shared/catalog/companion-roster.json).
+Every authored species automatically has an egg and the shared Egg → Baby → Middle → Grown lifecycle;
+see [companion lifecycle](../../docs/operations/companion-lifecycle.md) for exact
+artwork bindings, import requirements and server-confirmed growth stages.
+Birdseed remains Chick's preferred food; the new families use neutral food
+growth until preferences are deliberately authored. The 17 legacy definitions
+and their saved pets, mounts and inventory remain intact. A YAML entry or
 sprite alone does not establish available 3D art or a new acquisition goal.
 [`unity-assets.md`](unity-assets.md) retains the historical coverage review.
 
@@ -104,9 +110,16 @@ content. If you go this route:
 2. Pick a short unique namespace (e.g. `dragons-`, `kenney-`).
 3. `python manage.py loadrpgcontent --pack content/rpg/packs/<pack-name> --namespace <pack-name>-`.
 
-Pack assets (SVG/PNG) must still be served from somewhere WhiteNoise can
-see them — today `icon` is a short string and the frontend renders emoji
-inline. Wiring a real asset pipeline is a future improvement.
+`icon` remains a short string for emoji fallback. Reviewed runtime images and
+models use the private, digest-pinned importer in
+[`frontend/assets.lock.json`](../../frontend/assets.lock.json), with exact
+identity bindings and [`CatalogIcon`/`RpgSprite`](../../frontend/src/components/README.md)
+consumers. Adding an `assets/` directory to a content pack does not register
+artwork or make that family available for acquisition. Keep purchased sources
+and private runtime payloads outside Git; follow the
+[shared-asset intake](../../docs/operations/shared-avatar-assets.md) and
+[companion integration](../../docs/operations/companion-lifecycle.md#adding-later-families)
+instructions for additional art.
 
 ## Extending the schema
 

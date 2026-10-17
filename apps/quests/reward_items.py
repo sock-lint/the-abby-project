@@ -40,7 +40,7 @@ def snapshot_reward_items(definition, *, available_only=True):
     ]
 
 
-def accepted_reward_items(quest):
+def accepted_reward_items(quest, *, item_catalog=None):
     """Resolve an accepted quest promise without applying today's offer policy.
 
     Pre-cutover quests have no historical snapshot. Retain their current
@@ -50,15 +50,18 @@ def accepted_reward_items(quest):
     from apps.rpg.models import ItemDefinition
 
     if quest.reward_items_snapshot is None:
+        if "reward_items" in getattr(quest.definition, "_prefetched_objects_cache", {}):
+            return list(quest.definition.reward_items.all())
         return list(quest.definition.reward_items.select_related("item__pet_species", "item__potion_type"))
     rows = quest.reward_items_snapshot
-    items = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
-        [row["item_id"] for row in rows],
-    )
+    if item_catalog is None:
+        item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+            [row["item_id"] for row in rows],
+        )
     return [
-        SimpleNamespace(id=row.get("id"), item_id=row["item_id"], item=items[row["item_id"]],
+        SimpleNamespace(id=row.get("id"), item_id=row["item_id"], item=item_catalog[row["item_id"]],
                         quantity=row["quantity"], reward_snapshot=row)
-        for row in rows if row["item_id"] in items
+        for row in rows if row["item_id"] in item_catalog
     ]
 
 

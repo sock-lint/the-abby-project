@@ -12,13 +12,80 @@ import notOwned from '../../../contracts/api/fixtures/reading-book-not-owned.jso
 import progress from '../../../contracts/api/fixtures/reading-adventure-progress.json';
 import rewarded from '../../../contracts/api/fixtures/reading-session-rewarded.json';
 import rewardedSummary from '../../../contracts/api/fixtures/reading-summary-rewarded.json';
+import discovery from '../../../contracts/api/fixtures/reading-discovery-picks.json';
+import discoveryBook from '../../../contracts/api/fixtures/reading-discovery-book.json';
+import feedback from '../../../contracts/api/fixtures/reading-discovery-feedback.json';
+import familySuggestion from '../../../contracts/api/fixtures/reading-family-suggestion.json';
+import familySuggestions from '../../../contracts/api/fixtures/reading-family-suggestions.json';
+import savedSuggestions from '../../../contracts/api/fixtures/reading-family-suggestions-saved.json';
+import dismissedSuggestion from '../../../contracts/api/fixtures/reading-family-suggestion-dismissed.json';
 import { server } from '../test/server';
 import {
   createReadingBook, createReadingSession, listReadingBooks, listReadingSessions,
   updateReadingBook, updateReadingSession, getReadingSummary,
+  getReadingRecommendations, saveReadingDiscoveryFeedback,
+  listReadingFamilySuggestions, createReadingFamilySuggestion, updateReadingFamilySuggestion,
 } from './index';
 
 describe('reading responses shared with Django', () => {
+  it('preserves enriched discovery details and sends format filters without renderer negotiation', async () => {
+    const reads = [];
+    server.use(http.get('*/api/reading/recommendations/', ({ request }) => {
+      const url = new URL(request.url);
+      reads.push({ path: url.pathname, mood: url.searchParams.get('mood'), book_format: url.searchParams.get('book_format'), length: url.searchParams.get('length'), user_id: url.searchParams.get('user_id'), renderer: url.searchParams.get('format') });
+      return HttpResponse.json(discovery);
+    }));
+    expect(await getReadingRecommendations({ mood: 'funny', book_format: 'ebook', length: 'short', user_id: 7 })).toEqual(discovery);
+    expect(reads).toEqual([{ path: '/api/reading/recommendations/', mood: 'funny', book_format: 'ebook', length: 'short', user_id: '7', renderer: null }]);
+    expect(discovery.results[0]).toMatchObject({ page_count: 180, moods: ['funny'], styles: ['illustrated'], formats: ['print', 'ebook'], series: null, reason_kind: 'filter' });
+    expect(discoveryBook.catalog_entry.id).toBe(discovery.results[0].id);
+    expect(discovery.has_more).toBe(false);
+  });
+
+  it('keeps feedback and attributed family suggestions separate from a child choosing to save', async () => {
+    const writes = [];
+    const capture = (result, status = 200) => async ({ request }) => {
+      writes.push({ path: new URL(request.url).pathname, method: request.method, body: await request.json() });
+      return HttpResponse.json(result, { status });
+    };
+    let saved = false;
+    server.use(
+      http.post('*/api/reading/discovery-feedback/', capture(feedback)),
+      http.post('*/api/reading-family-suggestions/', capture(familySuggestion, 201)),
+      http.get('*/api/reading-family-suggestions/', () => HttpResponse.json(saved ? savedSuggestions : familySuggestions)),
+      http.post('*/api/reading-books/', async ({ request }) => {
+        writes.push({ path: new URL(request.url).pathname, method: request.method, body: await request.json() });
+        saved = true;
+        return HttpResponse.json(discoveryBook, { status: 201 });
+      }),
+      http.patch('*/api/reading-family-suggestions/:id/', capture(dismissedSuggestion)),
+    );
+    const preference = { catalog_id: feedback.catalog_id, choice: feedback.choice };
+    const invitation = { catalog_id: familySuggestion.catalog_id, user_id: 7, message: familySuggestion.message, client_request_id: familySuggestion.client_request_id };
+    expect(await saveReadingDiscoveryFeedback(preference)).toEqual(feedback);
+    expect(await createReadingFamilySuggestion(invitation)).toEqual(familySuggestion);
+    expect(await listReadingFamilySuggestions()).toEqual(familySuggestions);
+    expect(familySuggestions.results[0].on_shelf).toBe(false);
+    expect(familySuggestions.results[0].suggested_by).toEqual({ id: 6, display_name: 'reading-fixture-parent' });
+    expect(writes.some((write) => write.path === '/api/reading-books/')).toBe(false);
+    const chosenBook = {
+      title: discoveryBook.title, author: discoveryBook.author, interests: discoveryBook.interests,
+      status: 'want_to_read', client_request_id: discoveryBook.client_request_id,
+    };
+    expect(await createReadingBook(chosenBook)).toEqual(discoveryBook);
+    expect(await listReadingFamilySuggestions()).toEqual(savedSuggestions);
+    expect(savedSuggestions.results[0].on_shelf).toBe(true);
+    expect(await updateReadingFamilySuggestion(familySuggestion.id, { status: 'dismissed' })).toEqual(dismissedSuggestion);
+    expect(writes).toEqual([
+      { path: '/api/reading/discovery-feedback/', method: 'POST', body: preference },
+      { path: '/api/reading-family-suggestions/', method: 'POST', body: invitation },
+      { path: '/api/reading-books/', method: 'POST', body: chosenBook },
+      { path: `/api/reading-family-suggestions/${familySuggestion.id}/`, method: 'PATCH', body: { status: 'dismissed' } },
+    ]);
+    expect(discoveryBook.status).toBe('want_to_read');
+    expect(dismissedSuggestion.status).toBe('dismissed');
+  });
+
   it('saves a book and reflection and reads the same scoped history and totals', async () => {
     const writes = [];
     const reads = [];
