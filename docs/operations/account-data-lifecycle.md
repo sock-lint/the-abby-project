@@ -59,6 +59,14 @@ let that save finish, refresh the review and retry. This avoids reversing the
 existing approval work-row → award-user lock order. The failed attempt rolls
 back any handoff, activity cleanup and file jobs together.
 
+Before collecting the cascade, deletion takes stronger locks on the departing
+account; family closure also fences the family and every member. These locks
+prevent a newly committed foreign-key save from appearing after the ownership
+handoff. Pending reference checks and affected nullable updates, including global
+catalog author pointers, also use the busy/retry boundary. An already-running
+save that cannot commit after its account is deleted has not confirmed a 201
+save; the app does not treat that failed request as saved work.
+
 Malformed historical cross-family relationships cause a safe 409 before deletion
 or transfer, with no private record identifiers. They require operator repair;
 the deletion service does not guess which family's data to discard. The UI

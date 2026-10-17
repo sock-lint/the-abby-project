@@ -215,23 +215,34 @@ def collect_safe_deletion(instance, family):
     object IDs, private body text, storage paths, or credential material.
     """
     collector = Collector(using=instance._state.db or "default")
-    try:
-        collector.collect([instance])
-    except (ProtectedError, RestrictedError):
-        raise LifecycleConflict() from None
-    checked = set()
-    groups = [(model, model.objects.filter(pk__in=[obj.pk for obj in rows])) for model, rows in collector.data.items()]
-    groups.extend((query.model, query) for query in collector.fast_deletes)
-    for (field, _value), batches in collector.field_updates.items():
-        if field.model is ActivityEvent or not _has_family_owner(field.model):
-            continue
-        for batch in batches:
-            query = batch if isinstance(batch, models.QuerySet) else field.model.objects.filter(pk__in=[obj.pk for obj in batch])
-            groups.append((field.model, query))
     with _dependent_deletion_work(collector.using) as nowait:
-        for model, query in sorted(groups, key=lambda item: item[0]._meta.label_lower):
-            for obj in query.select_for_update(no_key=True, nowait=nowait).order_by("pk"):
-                _assert_object_family(obj, family.pk, checked)
+        # A foreign-key insert can commit while NO KEY UPDATE is held. Fence
+        # cascade roots before taking a snapshot or handing shared work off,
+        # so a newly acknowledged save cannot appear behind that handoff.
+        type(instance)._base_manager.select_for_update(nowait=nowait).get(pk=instance.pk)
+        if isinstance(instance, Family):
+            # Projects and personal records reference members, without a
+            # direct Family FK. Fence those roots before collecting too.
+            list(get_user_model().objects.filter(family=family).select_for_update(nowait=nowait).order_by("pk").values_list("pk", flat=True))
+        try:
+            collector.collect([instance])
+        except (ProtectedError, RestrictedError):
+            raise LifecycleConflict() from None
+        checked = set()
+        groups = [(model, model.objects.filter(pk__in=[obj.pk for obj in rows]), True) for model, rows in collector.data.items()]
+        groups.extend((query.model, query, True) for query in collector.fast_deletes)
+        for (field, _value), batches in collector.field_updates.items():
+            check_scope = field.model is not ActivityEvent and _has_family_owner(field.model)
+            for batch in batches:
+                query = batch if isinstance(batch, models.QuerySet) else field.model.objects.filter(pk__in=[obj.pk for obj in batch])
+                # Global catalogs and mixed activity keep their existing
+                # nullable-author behavior. Lock their actual update targets
+                # as well: a writer may hold one before checking its User FK.
+                groups.append((field.model, query, check_scope))
+        for model, query, check_scope in sorted(groups, key=lambda item: item[0]._meta.label_lower):
+            for obj in query.select_for_update(nowait=nowait).order_by("pk"):
+                if check_scope:
+                    _assert_object_family(obj, family.pk, checked)
     return collector
 
 
