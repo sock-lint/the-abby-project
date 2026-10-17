@@ -54,7 +54,7 @@ def make_oauth_token(
     *,
     application=None,
     resource: str | None = None,
-    scope: str = "mcp",
+    scope: str = "mcp:read",
     expires_in_seconds: int = 3600,
 ):
     """Mint an OAuth ``AccessToken`` row directly (skip the PKCE round-trip).

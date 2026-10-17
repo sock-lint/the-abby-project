@@ -58,9 +58,7 @@ class HealthCheckDeepModeTests(TestCase):
     """The ``?deep=true`` opt-in probes the sprite storage backend on top
     of the default DB-only liveness check. Useful for surfacing
     Cloudflare / Ceph-edge 521s that would otherwise only show up when
-    someone tries to write a sprite — the bug shape that wasted a Gemini
-    sheet's worth of API budget before the pre-flight in sprite_generation
-    landed.
+    someone tries to upload prepared artwork.
     """
 
     def test_default_health_does_not_probe_storage(self):

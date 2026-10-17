@@ -29,6 +29,13 @@ export default function SourceStep({
         </TabButton>
       </div>
 
+      <p className="text-body text-ink-secondary">
+        If AI import is enabled, Parse Source and Import PDF from Google Drive send the source title
+        {' '}and up to 12,000 characters of extracted text to Anthropic (Claude) for plan suggestions.
+        {' '}Processing starts before review. Review the draft before creating a project.
+        {' '}<a className="underline" href="/privacy/#ai" target="_blank" rel="noopener noreferrer">Privacy details</a>.
+      </p>
+
       {sourceTab === 'url' ? (
         <TextField
           label="Tutorial URL"
@@ -59,8 +66,6 @@ export default function SourceStep({
               </GoogleDrivePickerButton>
               <p className="text-caption text-ink-whisper">
                 Select a school PDF or project guide to import a copy and review it before creating a project. Up to 25 MB.
-                {' '}If AI import is enabled, PDF text is sent to the app's AI provider to suggest a plan.
-                {' '}<a className="underline" href="/privacy/#drive" target="_blank" rel="noopener noreferrer">Privacy details</a>.
               </p>
             </div>
           )}

@@ -21,14 +21,6 @@ const SPRITE_WITH_PROMPT = {
   created_by_name: 'Alice',
 };
 
-const SPRITE_LEGACY = {
-  ...SPRITE_WITH_PROMPT,
-  slug: 'legacy-rock',
-  prompt: '',
-  motion: '',
-  tile_size: null,
-};
-
 describe('SpriteDetailSheet', () => {
   it('renders authoring inputs when recorded', () => {
     const { getByText } = renderWithProviders(
@@ -38,31 +30,25 @@ describe('SpriteDetailSheet', () => {
     expect(getByText('nes palette')).toBeInTheDocument();
   });
 
-  it('disables Reroll when no stored prompt', () => {
-    const { getByRole } = renderWithProviders(
-      <SpriteDetailSheet sprite={SPRITE_LEGACY} onClose={() => {}} />,
-    );
-    expect(getByRole('button', { name: /reroll/i })).toBeDisabled();
+  it('keeps historical artwork visible without generation or replacement actions', () => {
+    renderWithProviders(<SpriteDetailSheet sprite={SPRITE_WITH_PROMPT} onClose={() => {}} />);
+    expect(screen.queryByRole('button', { name: /reroll|replace|generate/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit metadata/i })).toBeEnabled();
+    expect(screen.getByText('Historical authoring inputs')).toBeInTheDocument();
   });
 
-  it('reroll button opens confirm then POSTs to reroll endpoint', async () => {
+  it('saves metadata for prepared artwork', async () => {
     const user = userEvent.setup();
-    const spy = spyHandler('post', /\/api\/sprites\/admin\/fox-idle\/reroll\/$/, {
-      slug: 'fox-idle',
-    });
+    const spy = spyHandler('patch', /\/api\/sprites\/admin\/fox-idle\/$/, { slug: 'fox-idle' });
     server.use(spy.handler);
-
-    const { getByRole } = renderWithProviders(
-      <SpriteDetailSheet sprite={SPRITE_WITH_PROMPT} onClose={() => {}} />,
-    );
-    await user.click(getByRole('button', { name: /reroll/i }));
-    // ConfirmDialog renders a portal outside the sheet; scope the confirm
-    // button to the alertdialog so we don't collide with the original Reroll.
-    const confirm = await screen.findByRole('alertdialog');
-    await user.click(within(confirm).getByRole('button', { name: 'Reroll' }));
-
+    renderWithProviders(<SpriteDetailSheet sprite={SPRITE_WITH_PROMPT} onClose={() => {}} />);
+    await user.click(screen.getByRole('button', { name: /edit metadata/i }));
+    const pack = screen.getByLabelText('Pack');
+    await user.clear(pack);
+    await user.type(pack, 'prepared-art');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
-    expect(spy.calls[0].url).toMatch(/\/sprites\/admin\/fox-idle\/reroll\/$/);
+    expect(spy.calls[0].body).toEqual({ pack: 'prepared-art', fps: 0 });
   });
 
   it('delete button opens confirm then DELETEs and closes', async () => {

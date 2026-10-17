@@ -29,14 +29,11 @@ def probe_storage() -> tuple[bool, str]:
     Returns ``(ok, message)``. Issues a HEAD-equivalent ``.exists()``
     call against a sentinel key — the storage SDK raises on transport
     failures (Cloudflare 521, DNS, timeout, S3 auth errors, etc.) which
-    we trap into ``ok=False`` so callers can fail-fast before burning
-    paid resources (most importantly, Gemini API calls inside
-    ``generate_sprite_sheet``).
+    we trap into ``ok=False`` for the deep health check.
 
     Cost: one HEAD round-trip against S3 (~50-200ms typical) when the
     backend is S3, or a no-op ``os.path.exists`` for FileSystemStorage
-    in dev / tests. Cheap enough for the sprite generation pre-flight,
-    too expensive for every Coolify ``/health`` poll — hence the deep-
+    in dev / tests. Too expensive for every Coolify ``/health`` poll — hence the deep-
     mode opt-in on the health endpoint.
     """
     try:

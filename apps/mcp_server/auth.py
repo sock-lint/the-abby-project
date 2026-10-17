@@ -6,11 +6,12 @@ Every inbound request to ``/mcp/*`` must carry
 PKCE flow handled by django-oauth-toolkit (see ``config/oauth_views.py``);
 the MCP-spec discovery endpoints live at ``/.well-known/oauth-*``.
 
-RFC 8707 resource binding: the auth-code flow stamps a ``resource`` claim
-on each AccessToken's ``claims`` JSON. We refuse tokens whose claim
+RFC 8707 resource binding: the auth-code flow stores a durable resource binding
+for each grant and access token. We refuse tokens whose binding
 doesn't match ``settings.MCP_RESOURCE_URL`` — that's what prevents a
 token issued for a different resource server (or a different MCP server
-on the same auth-server) from being replayed against /mcp/.
+on the same auth-server) from being replayed against /mcp/. Missing bindings
+and legacy broad scopes are rejected; staff parent authorization is rechecked.
 
 The pre-OAuth flow accepted ``Authorization: Token <key>`` (DRF
 TokenAuthentication) for the same surface. That path is gone now — the
@@ -30,7 +31,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp
 
-from .context import reset_current_user, set_current_user
+from .context import (
+    reset_current_scopes, reset_current_user, set_current_scopes, set_current_user,
+)
+from .tool_policy import MCP_SCOPES
 
 
 def _parse_bearer_header(header_value: Optional[str]) -> tuple[Optional[str], Optional[str]]:
@@ -49,8 +53,8 @@ def _parse_bearer_header(header_value: Optional[str]) -> tuple[Optional[str], Op
     return scheme.lower(), key.strip() or None
 
 
-def _resolve_user(token_key: str):
-    """Look up an OAuth AccessToken row and return its User if valid.
+def _resolve_access(token_key: str):
+    """Look up an OAuth AccessToken and return its user and scopes if valid.
 
     All-or-nothing — any failed precondition (missing row, expired,
     revoked, wrong resource binding, inactive user) returns None and the
@@ -59,7 +63,7 @@ def _resolve_user(token_key: str):
     from oauth2_provider.models import AccessToken
 
     try:
-        access_token = AccessToken.objects.select_related("user", "application").get(
+        access_token = AccessToken.objects.select_related("user", "application", "mcp_resource").get(
             token=token_key,
         )
     except AccessToken.DoesNotExist:
@@ -67,24 +71,29 @@ def _resolve_user(token_key: str):
     # DOT exposes is_valid()/is_expired() — be explicit so the failure mode
     # is obvious in tests (expired rows still exist; revoked-via-expires
     # also short-circuits here).
-    if access_token.expires is not None and access_token.expires <= timezone.now():
+    if access_token.expires is None or access_token.expires <= timezone.now():
         return None
     user = access_token.user
-    if not user or not user.is_active:
+    if not user or not user.is_active or user.role != "parent" or not user.is_staff:
         return None
-    # RFC 8707 resource binding. Missing row = legacy (test fixtures /
-    # admin-created tokens); reject only on explicit mismatch.
+    scopes = frozenset(access_token.scope.split())
+    if not scopes or not scopes <= MCP_SCOPES:
+        # Legacy broad ``mcp`` grants must reconnect; never infer write access.
+        return None
     expected_resource = getattr(settings, "MCP_RESOURCE_URL", "") or ""
-    bound_resource: str = ""
     binding = getattr(access_token, "mcp_resource", None)
-    if binding is not None:
-        bound_resource = binding.resource or ""
-    if bound_resource and expected_resource and bound_resource != expected_resource:
+    if not expected_resource or binding is None or binding.resource != expected_resource:
         return None
-    return user
+    return user, scopes
 
 
-resolve_user_async = sync_to_async(_resolve_user, thread_sensitive=True)
+def _resolve_user(token_key: str):
+    """Compatibility helper for tests; middleware also needs the granted scopes."""
+    access = _resolve_access(token_key)
+    return access[0] if access is not None else None
+
+
+resolve_access_async = sync_to_async(_resolve_access, thread_sensitive=True)
 
 
 def _unauthorized(message: str, *, discovery_url: Optional[str] = None) -> JSONResponse:
@@ -104,6 +113,12 @@ def _unauthorized(message: str, *, discovery_url: Optional[str] = None) -> JSONR
             "id": None,
         },
         status_code=401,
+        headers={
+            "WWW-Authenticate": (
+                'Bearer error="invalid_token"'
+                + (f', resource_metadata="{discovery_url}"' if discovery_url else "")
+            ),
+        },
     )
 
 
@@ -156,16 +171,19 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
                 discovery_url=_discovery_url(request),
             )
 
-        user = await resolve_user_async(key)
-        if user is None:
+        access = await resolve_access_async(key)
+        if access is None:
             return _unauthorized(
                 "Invalid, expired, or revoked access token.",
                 discovery_url=_discovery_url(request),
             )
 
+        user, scopes = access
         ctx_token = set_current_user(user)
+        scopes_token = set_current_scopes(scopes)
         try:
             response = await call_next(request)
         finally:
+            reset_current_scopes(scopes_token)
             reset_current_user(ctx_token)
         return response
