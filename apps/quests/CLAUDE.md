@@ -45,6 +45,12 @@ See [automatic challenge operations](../../docs/operations/automatic-challenges.
 
 ## Preserved legacy behavior
 
+Reading Adventure's `reading_logged` event can advance saved legacy quests
+when their trigger filters match (5 base boss damage or one collection step).
+It fires at most once per family-local day after ten reading minutes. Reading
+is not an automatic challenge activity source and does not qualify the daily
+bonus; its own reading reward receipt is separate.
+
 The following model/service notes describe the existing `Quest` and `DailyChallenge` promises. Do not apply their one-active-slot or claim requirements to automatic goals and the daily bonus.
 
 Legacy nonrepeatable definitions cannot start again after a participant has

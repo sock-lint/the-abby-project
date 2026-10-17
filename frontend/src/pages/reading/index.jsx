@@ -6,6 +6,7 @@ import {
 } from '../../api';
 import { getToken } from '../../api/client';
 import { useApi, friendlyErrorMessage } from '../../hooks/useApi';
+import { usePulse } from '../../providers/pulseContext';
 import useChildContext from '../../hooks/useChildContext';
 import ChildContext from '../../components/family/ChildContext';
 import Loader from '../../components/Loader';
@@ -23,6 +24,7 @@ import { formatDate, formatDuration } from '../../utils/format';
 import QuestFolio from '../quests/QuestFolio';
 import BookForm from './BookForm';
 import SessionForm from './SessionForm';
+import ReadingAdventure from './ReadingAdventure';
 import { BOOK_STATUSES, READING_INTERESTS, REACTIONS, labelFor } from './reading.constants';
 
 // A complete shelf keeps every saved book available in the session chooser.
@@ -54,6 +56,7 @@ export default function Reading() {
 }
 
 function ReadingWorkspace({ context, credential }) {
+  const { pulse, refresh: refreshPulse } = usePulse();
   const params = context.isParent ? { user_id: context.targetUserId } : {};
   const mounted = useRef(false);
   useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
@@ -65,7 +68,7 @@ function ReadingWorkspace({ context, credential }) {
     return response;
   };
   const history = useApi((signal) => guardedRead(() => listReadingSessions(params, { signal })));
-  const summary = useApi((signal) => guardedRead(() => getReadingSummary(params, { signal })));
+  const summary = useApi((signal) => guardedRead(() => getReadingSummary(params, { signal })), [pulse]);
   const [interest, setInterest] = useState('');
   const recommendations = useApi((signal) => guardedRead(() => getReadingRecommendations({ ...params, interest }, { signal })), [interest]);
   const [filter, setFilter] = useState('reading');
@@ -94,8 +97,12 @@ function ReadingWorkspace({ context, credential }) {
     if (!current()) return;
     history.setData((previous) => ({ ...previous, results: [session, ...normalizeList(previous).filter((value) => value.id !== session.id)] }));
     setModal(null);
-    setReceipt(`Reading saved for “${session.book_title}”. You can find it in your reading history.`);
+    const reward = session.reading_reward;
+    setReceipt(`Reading ${modal?.session ? 'changes ' : ''}saved for “${session.book_title}”. ${reward ? `Daily reading reward recorded: ${reward.xp_awarded} Reading Comprehension XP and ${reward.coins_awarded} Coins on ${formatDate(reward.day)}.` : 'You can find it in your reading history.'}`);
     refresh();
+    // Re-read confirmed balances and notifications through the shared shell.
+    // A saved/replayed receipt is never added to a local balance.
+    void refreshPulse();
   };
   const remove = async () => {
     if (removalInFlight.current || !current()) return;
@@ -144,6 +151,7 @@ function ReadingWorkspace({ context, credential }) {
     {receipt && <div role="status" className="flex items-start gap-2 rounded-xl border border-moss/30 bg-moss/10 p-3 text-body text-ink-primary"><Check className="h-5 w-5 shrink-0 text-moss" aria-hidden="true" /><p>{receipt}</p></div>}
     <ErrorAlert message={mutationError} />
     <ErrorAlert message={summary.error ? `Reading totals unavailable. ${summary.error}` : ''} onRetry={summary.reload} />
+    <ReadingAdventure adventure={summary.error ? null : stats?.reading_adventure} />
 
     <section aria-label="Your bookshelf" className="space-y-3">
       <SectionHeader as="h3" title="Your bookshelf" index={0} count={shelf.data ? books.length : undefined} />
@@ -199,8 +207,8 @@ function ReadingWorkspace({ context, credential }) {
     </section>
 
     {modal?.kind === 'book' && <BookForm book={modal.book} suggestion={modal.suggestion} userId={context.isParent ? context.targetUserId : null} credential={credential} onClose={() => setModal(null)} onSaved={savedBook} />}
-    {modal?.kind === 'session' && <SessionForm session={modal.session} selectedBook={modal.selectedBook} books={books} today={stats?.today} userId={context.isParent ? context.targetUserId : null} credential={credential} onClose={() => setModal(null)} onSaved={savedSession} />}
-    {removal && <ConfirmDialog title={removal.kind === 'book' ? 'Remove book?' : 'Delete reading log?'} message={removing ? 'Removing…' : removal.kind === 'book' ? `Remove “${removal.item.title}” from this bookshelf? Books with reading logs are kept so your history stays intact.` : `Delete this reading log for “${removal.item.book_title}”? This also removes its reading note and updates the totals.`} confirmLabel={removing ? 'Removing…' : 'Delete'} onCancel={() => { if (!removing) setRemoval(null); }} onConfirm={remove} />}
+    {modal?.kind === 'session' && <SessionForm session={modal.session} selectedBook={modal.selectedBook} books={books} today={stats?.today} adventure={summary.error ? null : stats?.reading_adventure} userId={context.isParent ? context.targetUserId : null} credential={credential} onClose={() => setModal(null)} onSaved={savedSession} />}
+    {removal && <ConfirmDialog title={removal.kind === 'book' ? 'Remove book?' : 'Delete reading log?'} message={removing ? 'Removing…' : removal.kind === 'book' ? `Remove “${removal.item.title}” from this bookshelf? Books with reading logs are kept so your history stays intact.` : `Delete this reading log for “${removal.item.book_title}”? This also removes its reading note and updates the totals. Credited reward minutes and earned rewards are kept.`} confirmLabel={removing ? 'Removing…' : 'Delete'} onCancel={() => { if (!removing) setRemoval(null); }} onConfirm={remove} />}
   </QuestFolio>;
 }
 
@@ -233,6 +241,7 @@ function SessionCard({ session, onEdit, onRemove }) {
       {session.reaction && reaction && <RuneBadge tone="moss">{reaction}</RuneBadge>}
     </div>
     {session.reflection && <div className="rounded-xl bg-ink-page-rune-glow p-3"><p className="whitespace-pre-wrap break-words text-body text-ink-primary">{session.reflection}</p><p className="mt-2 text-tiny text-ink-secondary">Shared with parents</p></div>}
+    {session.reading_reward && <p className="text-caption font-semibold text-moss-deep">Daily reading reward: {session.reading_reward.xp_awarded} Reading Comprehension XP · {session.reading_reward.coins_awarded} Coins · earned {formatDate(session.reading_reward.day)}</p>}
     <div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" onClick={onEdit}>Edit log<span className="sr-only">: {session.book_title}</span></Button><Button size="sm" variant="ghost" onClick={onRemove}>Delete log<span className="sr-only">: {session.book_title}</span></Button></div>
   </ParchmentCard>;
 }

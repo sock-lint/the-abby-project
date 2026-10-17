@@ -75,15 +75,17 @@ entries:
       reward_icon: "🌿"
 
   - slug: study
-    title: Homework
+    title: Study & Reading
     icon: "📚"
-    audience_title: "School assignments"
+    audience_title: "School assignments and reading adventures"
     chapter: daily_life
-    summary: "Track school assignments and earn skill XP when approved."
+    summary: "Earn skill XP through school assignments and daily reading."
     kid_voice: |
       Add your school assignments, plan the steps, and submit proof photos
       of your finished work for a parent to review. Approved homework earns
       skill XP. It does not pay money or coins directly.
+      Your bookshelf has a Reading Adventure too: log ten minutes today
+      to earn reading skill XP, Coins, and one chance to find supplies.
     mechanics:
       - "Homework pays no money or Coins directly; separate check-in, challenge, or badge bonuses can still apply."
       - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress."
@@ -92,6 +94,10 @@ entries:
       - "A parent's assigned planning goal can count every valid matching assignment, including later assignments that day."
       - "With a family Planning AI connection, children can request a breakdown when the due date is far enough out; parents can plan regardless of lead time."
       - "A parent connects the family's Planning AI in Settings for homework and project drafts. Existing assignments can still be used without a connection."
+      - "Reading Adventure awards 15 base Reading Comprehension XP and 5 base Coins once per child per family-local day after ten cumulative newly logged minutes. Active XP and Lucky Coin boosts apply; actual XP depends on the unlocked skill."
+      - "Only new reading sessions dated today in the family's timezone count toward this reward. Pages, chapters, ratings, finishing books, optional reflections, edits, and older sessions do not earn extra rewards. Deleting a rewarded session never rearms the day."
+      - "The daily reading reward records streak activity and one drop opportunity at a 20% base rate plus normal streak and Drop Charm bonuses. Reading drops use the existing food and coin-pouch catalog. A separate first-activity check-in bonus can also apply."
+      - "Reading can match saved legacy quests, dealing 5 base boss damage or one collection step when eligible. It does not automatically credit the current Challenges goals or daily bonus."
     parent_knobs:
       settings:
         - key: HOMEWORK_LATE_CUTOFF_DAYS
@@ -105,9 +111,10 @@ entries:
         - homework_on_time_count
       content_sources:
         - "Assignments and templates author subject, effort level, due date, and fixed XP skill tags."
+        - "Reading's service owns its ten-minute threshold and daily reward; book choices and reflections are not graded."
     economy:
       money: false
-      coins: false
+      coins: true
       xp: true
       drops: true
       quest_progress: true

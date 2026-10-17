@@ -1,6 +1,7 @@
 """Small, publisher-sourced discovery shelf; no external requests at runtime.
 
-Titles, authors and publisher age guidance were checked on 2026-10-16.
+The initial shelf was checked on 2026-10-16; the teen fantasy additions on
+2026-10-17. Titles, authors and age guidance come from the linked publishers.
 Descriptions and topic tags are our own editorial summaries. A null upper age
 means the publisher's open-ended "and up", not a reading-ability assessment.
 """
@@ -152,5 +153,114 @@ BOOK_CATALOG = (
         "age_min": 12, "age_max": None,
         "description": "On his first visit to Iran, Darius finds an unexpected friendship while navigating family, identity and depression.",
         "source_url": "https://www.penguinrandomhouse.com/books/573023/darius-the-great-is-not-okay-by-adib-khorram/9780525552970/",
+    },
+    {
+        "id": "seraphina",
+        "title": "Seraphina",
+        "author": "Rachel Hartman",
+        "interests": ("fantasy", "mystery", "adventure"),
+        "age_min": 12, "age_max": None,
+        "description": "A musician hiding her dragon heritage investigates a royal murder as tensions threaten the fragile peace between humans and dragons.",
+        "source_url": "https://www.penguinrandomhouse.com/books/196826/seraphina-by-rachel-hartman/",
+    },
+    {
+        "id": "fireborne",
+        "title": "Fireborne",
+        "author": "Rosaria Munda",
+        "interests": ("fantasy", "adventure", "friendship"),
+        "age_min": 12, "age_max": None,
+        "description": "Two childhood friends compete to lead a dragonrider fleet while revolution, family loyalty, and an approaching war test their bond.",
+        "source_url": "https://www.penguinrandomhouse.com/books/586257/fireborne-by-rosaria-munda/",
+    },
+    {
+        "id": "eon",
+        "title": "Eon",
+        "author": "Alison Goodman",
+        "interests": ("fantasy", "adventure"),
+        "age_min": 12, "age_max": None,
+        "description": "Disguised as a boy, Eona trains to wield dragon magic and is drawn into a dangerous struggle over the imperial throne.",
+        "source_url": "https://www.penguinrandomhouse.com/books/299240/eon-by-alison-goodman/9780142417119/",
+    },
+    {
+        "id": "the-hero-and-the-crown",
+        "title": "The Hero and the Crown",
+        "author": "Robin McKinley",
+        "interests": ("fantasy", "adventure"),
+        "age_min": 10, "age_max": None,
+        "description": "An outcast princess discovers her courage while fighting dragons and seeking a place in a kingdom that distrusts her.",
+        "source_url": "https://www.penguinrandomhouse.com/books/296329/the-hero-and-the-crown-by-robin-mckinley/",
+    },
+    {
+        "id": "six-of-crows",
+        "title": "Six of Crows",
+        "author": "Leigh Bardugo",
+        "interests": ("fantasy", "adventure", "friendship"),
+        "age_min": 12, "age_max": 18,
+        "description": "A crew of young outcasts takes on an impossible heist, testing trust and loyalty in a world of dangerous magic.",
+        "source_url": "https://us.macmillan.com/books/9781250076960/sixofcrows/",
+    },
+    {
+        "id": "the-cruel-prince",
+        "title": "The Cruel Prince",
+        "author": "Holly Black",
+        "interests": ("fantasy", "adventure"),
+        "age_min": 14, "age_max": None,
+        "description": "Jude, a human raised among faeries, fights for a place at court as rivalries and royal schemes threaten her sisters.",
+        # Publisher's 14+ guidance: https://www.hachettebookgroup.com/little-brown-school-and-library/2018-summer-reading-list/
+        "source_url": "https://www.hachettebookgroup.com/titles/holly-black/the-cruel-prince/9780316310314/",
+    },
+    {
+        "id": "carry-on",
+        "title": "Carry On",
+        "author": "Rainbow Rowell",
+        "interests": ("fantasy", "mystery", "humor"),
+        "age_min": 14, "age_max": 18,
+        "description": "At a school for magic, Simon and his rival Baz face a monster that threatens their world while sorting through secrets and unexpected feelings.",
+        "source_url": "https://us.macmillan.com/books/9781250135025/carryon/",
+    },
+    {
+        "id": "six-crimson-cranes",
+        "title": "Six Crimson Cranes",
+        "author": "Elizabeth Lim",
+        "interests": ("fantasy", "adventure", "friendship"),
+        "age_min": 12, "age_max": None,
+        "description": "A princess cursed to silence must free her six brothers from a spell, with help from a dragon and a paper bird brought to life.",
+        "source_url": "https://www.penguinrandomhouse.com/books/646094/six-crimson-cranes-by-elizabeth-lim/",
+    },
+    {
+        "id": "the-girl-who-fell-beneath-the-sea",
+        "title": "The Girl Who Fell Beneath the Sea",
+        "author": "Axie Oh",
+        "interests": ("fantasy", "adventure", "friendship"),
+        "age_min": 13, "age_max": 18,
+        "description": "Mina dives into the sea to save her brother and enters a spirit world, where she must wake the Sea God to end her homeland's storms.",
+        "source_url": "https://us.macmillan.com/books/9781250780874/thegirlwhofellbeneaththesea/",
+    },
+    {
+        "id": "together-we-burn",
+        "title": "Together We Burn",
+        "author": "Isabel Ibañez",
+        "interests": ("fantasy", "adventure", "mystery"),
+        "age_min": 13, "age_max": 18,
+        "description": "Zarela trains with a reluctant dragon hunter to protect her family's arena, uncovering secrets in a fantasy inspired by medieval Spain.",
+        "source_url": "https://us.macmillan.com/books/9781250803368/togetherweburn/",
+    },
+    {
+        "id": "blazewrath-games",
+        "title": "Blazewrath Games",
+        "author": "Amparo Ortiz",
+        "interests": ("fantasy", "adventure"),
+        "age_min": 14, "age_max": None,
+        "description": "Lana gets a chance to compete alongside dragons in the Blazewrath World Cup, but representing her country brings unexpected dangers.",
+        "source_url": "https://macmillanlibrary.com/2022/03/10/alas-2022-rainbow-book-list/",
+    },
+    {
+        "id": "the-floating-world",
+        "title": "The Floating World",
+        "author": "Axie Oh",
+        "interests": ("fantasy", "adventure"),
+        "age_min": 13, "age_max": 18,
+        "description": "A village girl with hidden magic crosses paths with a swordsman who has lost his memories, drawing them into a conflict between realms.",
+        "source_url": "https://us.macmillan.com/books/9781250853080/thefloatingworld/",
     },
 )

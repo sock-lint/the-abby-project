@@ -141,6 +141,7 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
     from apps.pets.models import UserMount, UserPet
     from apps.projects.models import Project
     from apps.quests.models import QuestParticipant
+    from apps.reading.models import ReadingSession
     from apps.rewards.models import CoinLedger
     from apps.rpg.models import CharacterProfile, DropLog
     from apps.timecards.models import TimeEntry
@@ -160,7 +161,8 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
     mark(
         "study",
         HomeworkAssignment.objects.filter(assigned_to=user).exists()
-        or HomeworkSubmission.objects.filter(user=user).exists(),
+        or HomeworkSubmission.objects.filter(user=user).exists()
+        or ReadingSession.objects.filter(user=user).exists(),
         "first_study_record",
     )
     mark(

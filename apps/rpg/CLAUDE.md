@@ -88,6 +88,20 @@ best-effort policy and leave the quest retryable.
 - `GET /api/cosmetics/` — owned cosmetics grouped by slot.
 - `GET /api/cosmetics/catalog/` (child-accessible) — supported authored cosmetics grouped by slot keys; the retained `active_pet_accessory` key is an empty list. Non-cosmetic items are filtered server-side via `COSMETIC_SLOT_MAP.keys()`.
 
+## Reading Adventure
+
+Reading Adventure uses `TriggerType.READING_LOGGED` once per child per
+family-local day after ten cumulative newly logged minutes. The reading
+service's durable receipt commits its 15 base Reading Comprehension XP,
+5 base Coins (`CoinLedger.Reason.READING`, Lucky Coin eligible), streak
+activity and one drop opportunity together. Its drop rate is 0.20 before
+normal streak/Drop Charm bonuses, using authored existing food and coin-pouch
+pools. The service calls `GameLoopService.on_task_completed(..., strict=True)`
+inside its outer transaction: any pipeline failure propagates so all reward
+writes roll back. Existing callers retain the default independent-step
+failure isolation. Reading's new trigger is not an automatic Challenges
+source; saved legacy quests retain filtering and 5 base boss damage.
+
 ## Gotchas
 
 - **Saved Archer appearance**: `CharacterProfile.avatar_preferences` is presentation independent from cosmetic slots and inventory. Hair/skin/outfit choices and defaults live in `avatar.py`: four hairstyles, five hair colors, two skin tones, four palettes, three independent costume styles, three faces and rounded/pointed ears. Optional wardrobe choices are headwear (`none`, `crown-eve`, `hood-mystical`), mask (`none`, `mask-undercover`), bow (`none`, `bow-greenhorn`, `bow-vines`, `bow-myth`) and quiver (`none`, `quiver-angel`, `quiver-rook`, `quiver-tale`), each defaulting to `none`. These are freely selected presentation preferences, without acquisition or earned unlocks. Character reads normalize empty/invalid legacy values without writes; older four-option looks retain their selections and project the default `archer-01` costume, `face-01` face and `head-02` pointed ears. Older seven-option looks retain their identity and project all four wardrobe fields to `none`. The avatar POST accepts exactly an `avatar_preferences` object, rejects unknown fields/types/values and query targeting, and atomically writes only `request.user`'s preferences/timestamp. Missing options reset to defaults; `{}` resets all eleven. An identical normalized retry changes nothing. No Coins, XP, streak, trophy, inventory or reward consumers run from an appearance save. Raw response fixtures are produced by `config/tests/test_avatar_api_contract_fixtures.py`. Saved choices do not certify private art preparation: rendering needs the corresponding reviewed runtime release in `docs/operations/licensed-avatar-art.md`.

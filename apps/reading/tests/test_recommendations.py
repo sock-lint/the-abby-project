@@ -69,6 +69,42 @@ class ReadingRecommendationsTests(TestCase):
             self.assertEqual(book["reason"], "Because you chose mystery.")
         self.assertIn("Exploring mystery", result["basis"])
 
+    def test_fifteen_year_old_has_a_full_starter_shelf(self):
+        self.set_age(15)
+        result = recommend_books(self.reader)
+
+        self.assertEqual(result, recommend_books(self.reader))
+        self.assertEqual(len(result["results"]), 6)
+        self.assertEqual(len({book["id"] for book in result["results"]}), 6)
+        for book in result["results"]:
+            with self.subTest(book=book["id"]):
+                self.assertLessEqual(book["age_min"], 15)
+                self.assertTrue(book["age_max"] is None or book["age_max"] >= 15)
+                self.assertTrue(book["reason"])
+
+    def test_teen_fantasy_picks_replenish_after_saving_a_full_shelf(self):
+        self.set_age(15)
+        first = recommend_books(self.reader, interest="fantasy")
+        self.assertEqual(len(first["results"]), 6)
+        self.assertEqual(first, recommend_books(self.reader, interest="fantasy"))
+        for book in first["results"]:
+            self.book(book["title"], interests=book["interests"], status="want_to_read")
+
+        following = recommend_books(self.reader, interest="fantasy")
+        self.assertEqual(len(following["results"]), 6)
+        self.assertEqual(following, recommend_books(self.reader, interest="fantasy"))
+        first_ids = {book["id"] for book in first["results"]}
+        following_ids = {book["id"] for book in following["results"]}
+        self.assertEqual(len(first_ids), 6)
+        self.assertEqual(len(following_ids), 6)
+        self.assertTrue(first_ids.isdisjoint(following_ids))
+        for book in first["results"] + following["results"]:
+            with self.subTest(book=book["id"]):
+                self.assertIn("fantasy", book["interests"])
+                self.assertLessEqual(book["age_min"], 15)
+                self.assertTrue(book["age_max"] is None or book["age_max"] >= 15)
+                self.assertEqual(book["reason"], "Because you chose fantasy.")
+
     def test_saved_topics_and_liked_reading_influence_ranking(self):
         self.set_age(10)
         self.book("Fantasy adventure", interests=["fantasy", "adventure"])
@@ -152,6 +188,7 @@ class ReadingRecommendationsTests(TestCase):
                 self.assertIn(source.hostname, {
                     "www.penguinrandomhouse.com", "assets.penguinrandomhouse.com",
                     "www.hachettebookgroup.com", "books.disney.com",
+                    "us.macmillan.com", "macmillanlibrary.com",
                 })
 
     def test_a_fully_saved_catalog_returns_an_honest_empty_result(self):

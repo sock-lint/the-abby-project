@@ -15,6 +15,7 @@ from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
 
 from .constants import INTERESTS
 from .models import ReadingBook, ReadingSession
+from .services import ReadingRewardService
 from .serializers import (
     ReadingBookCreateSerializer,
     ReadingBookSerializer,
@@ -149,7 +150,7 @@ class ReadingBookViewSet(ReadingOwnerViewSet):
 
 
 class ReadingSessionViewSet(ReadingOwnerViewSet):
-    queryset = ReadingSession.objects.select_related("user", "user__family", "book")
+    queryset = ReadingSession.objects.select_related("user", "user__family", "book", "reading_daily_reward")
     serializer_class = ReadingSessionSerializer
     write_serializer_class = ReadingSessionWriteSerializer
 
@@ -182,6 +183,7 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
                 session = ReadingSession.objects.create(
                     user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
                 )
+                ReadingRewardService.credit_new_session(target, session)
             return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
@@ -204,7 +206,11 @@ class ReadingSummaryView(APIView):
             sessions_total=Count("id"), total_minutes=Sum("duration_minutes", default=0), total_pages=Sum("pages_read", default=0),
         )
         tz = household_timezone(target)
-        return Response({**books, **sessions, "today": timezone.localdate(timezone=tz).isoformat(), "timezone": str(tz)})
+        day = timezone.localdate(timezone=tz)
+        return Response({
+            **books, **sessions, "today": day.isoformat(), "timezone": str(tz),
+            "reading_adventure": ReadingRewardService.daily_payload(target, day=day),
+        })
 
 
 class ReadingRecommendationsView(APIView):

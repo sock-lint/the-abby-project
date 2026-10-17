@@ -5,5 +5,17 @@
   "total_minutes": 20,
   "total_pages": 16,
   "today": "2026-10-10",
-  "timezone": "America/Phoenix"
+  "timezone": "America/Phoenix",
+  "reading_adventure": {
+    "day": "2026-10-10",
+    "target_minutes": 10,
+    "minutes_credited": 0,
+    "remaining_minutes": 10,
+    "earned": false,
+    "base_xp": 15,
+    "base_coins": 5,
+    "xp_awarded": 0,
+    "coins_awarded": 0,
+    "skill_name": "Reading Comprehension"
+  }
 }

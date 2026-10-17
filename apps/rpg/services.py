@@ -82,6 +82,9 @@ BASE_DROP_RATES = {
     # homework_complete (0.35). The service gates on the first 2 per local
     # day — third+ Creations skip the game-loop call entirely.
     TriggerType.CREATION_LOGGED: 0.25,
+    # Reading claims one opportunity after ten newly logged minutes in the
+    # family-local day. The receipt survives later edits and deletions.
+    TriggerType.READING_LOGGED: 0.20,
     # Movement sessions sit just under creations — higher-effort than a
     # habit tap (and duration-scaled XP is the primary reward) but not
     # quite the artifact-producing act of a creation. The service caps
@@ -160,6 +163,7 @@ _BOOSTABLE_COIN_REASONS = frozenset({
     "chore_reward",
     "daily_challenge",
     "expedition",
+    "reading",
 })
 
 
@@ -511,7 +515,13 @@ class GameLoopService:
         return freeze_catalog_eligibility(user, trigger_type, context, eligible=eligible)
 
     @staticmethod
-    def on_task_completed(user, trigger_type, context=None):
+    def on_task_completed(user, trigger_type, context=None, *, strict=False):
+        """Run reward steps; strict callers own an outer atomic transaction.
+
+        Most completion flows retain their saved work if a secondary reward
+        fails. A daily Reading Adventure instead commits its receipt, direct
+        rewards and RPG steps together, and opts into failure propagation.
+        """
         if context is None:
             context = {}
 
@@ -533,7 +543,8 @@ class GameLoopService:
 
         with scope_cm:
             return _GameLoopPipeline.run(
-                user, trigger_type, context, defer_legacy_coop=defer_legacy_coop,
+                user, trigger_type, context,
+                strict=strict, defer_legacy_coop=defer_legacy_coop,
             )
 
 
@@ -791,7 +802,7 @@ class _GameLoopPipeline:
     )
 
     @classmethod
-    def run(cls, user, trigger_type, context, *, defer_legacy_coop=False):
+    def run(cls, user, trigger_type, context, *, strict=False, defer_legacy_coop=False):
         result = {
             "trigger_type": trigger_type,
             "streak": None,
@@ -809,15 +820,17 @@ class _GameLoopPipeline:
                     else:
                         step(user, trigger_type, context, result)
             except Exception:
-                # One failed step never blocks subsequent steps. The
-                # savepoint rollback contains the failed step's writes;
-                # earlier and later steps remain committed.
+                # The default isolates secondary reward failures. Strict
+                # callers propagate after this savepoint rolls back so their
+                # outer transaction can undo the whole reward receipt.
                 logger.exception(
                     "GameLoop step %s failed for user=%s trigger=%s",
                     step.__name__,
                     getattr(user, "pk", "?"),
                     trigger_type,
                 )
+                if strict:
+                    raise
         return result
 
 

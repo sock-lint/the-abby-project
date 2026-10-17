@@ -44,6 +44,15 @@ macros:
     item_type: coin_pouch
     weight_by_rarity: {common: 10, uncommon: 3}
 
+  # Reading Adventure has one daily opportunity after ten newly logged
+  # minutes. Reuse available supplies without adding creature artwork.
+  - triggers: [reading_logged]
+    item_type: food
+    weight_by_rarity: {common: 10, uncommon: 3}
+  - triggers: [reading_logged]
+    item_type: coin_pouch
+    weight_by_rarity: {common: 10, uncommon: 3}
+
   # Cosmetics only drop from high-value triggers.
   # project_complete is the biggest accomplishment — it's included so finishing
   # a whole project is as likely to yield a cosmetic as a milestone.

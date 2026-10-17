@@ -73,7 +73,7 @@ and do not award the activity rewards they illustrate.
 `apps/lorebook/services.py::compute_lorebook_unlocks` maps entries to existing
 first-encounter signals. Examples:
 
-- `study` unlocks from the first homework assignment or submission.
+- `study` unlocks from the first homework assignment, submission, or reading session. Its Study & Reading entry explains homework approval XP separately from the once-daily Reading Adventure (ten newly logged minutes, 15 base skill XP and 5 base Coins, streak activity and one supply-drop opportunity).
 - `creations` unlocks from the first `Creation`.
 - `movement` unlocks from the first `MovementSession`.
 - `pets` unlocks from the first `UserPet`.

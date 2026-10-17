@@ -1,5 +1,6 @@
 from datetime import timedelta
 from decimal import Decimal
+from uuid import uuid4
 
 from django.utils import timezone
 from rest_framework.test import APITestCase
@@ -15,6 +16,7 @@ from apps.payments.models import PaymentLedger
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.projects.models import Project, User
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant
+from apps.reading.models import ReadingBook, ReadingSession
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import CharacterProfile, DropLog, ItemDefinition
 from apps.timecards.models import TimeEntry
@@ -70,13 +72,42 @@ class LorebookViewTests(APITestCase):
         )
         study = next(entry for entry in data["entries"] if entry["slug"] == "study")
         self.assertFalse(study["economy"]["money"])
-        self.assertFalse(study["economy"]["coins"])
+        self.assertTrue(study["economy"]["coins"])
         self.assertTrue(study["economy"]["xp"])
         self.assertIn(study["trial_template"], {
             "tap_and_reward", "scribe", "observe", "choice", "drag_to_target", "sequence",
         })
         self.assertIn("prompt", study["trial"])
         self.assertIn("payoff", study["trial"])
+
+    def test_own_reading_session_unlocks_study_reward_reference(self):
+        sibling = User.objects.create_user(username="other-reader", role="child")
+
+        def log_session(user):
+            book = ReadingBook.objects.create(
+                user=user, title="A Dragon Story", client_request_id=uuid4(),
+                create_payload={},
+            )
+            return ReadingSession.objects.create(
+                user=user, book=book, occurred_on=timezone.localdate(),
+                duration_minutes=5, client_request_id=uuid4(), create_payload={},
+            )
+
+        log_session(sibling)
+        self.client.force_authenticate(self.child)
+        entries = self.client.get("/api/lorebook/").json()["entries"]
+        self.assertFalse(next(entry for entry in entries if entry["slug"] == "study")["unlocked"])
+
+        log_session(self.child)
+        entries = self.client.get("/api/lorebook/").json()["entries"]
+        study = next(entry for entry in entries if entry["slug"] == "study")
+        self.assertTrue(study["unlocked"])
+        self.assertEqual(study["unlocked_reason"], "first_study_record")
+        self.assertTrue(study["economy"]["coins"])
+        mechanics = " ".join(study["mechanics"])
+        self.assertIn("15 base Reading Comprehension XP and 5 base Coins", mechanics)
+        self.assertIn("ten cumulative newly logged minutes", mechanics)
+        self.assertIn("does not automatically credit", mechanics)
 
     def test_child_trained_flag_reads_from_lorebook_flags(self):
         self.client.force_authenticate(self.child)

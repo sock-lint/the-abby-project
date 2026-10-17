@@ -49,6 +49,7 @@ LOREBOOK_TRIGGER_COVERAGE: dict[str, str] = {
     TriggerType.SAVINGS_GOAL_COMPLETE: "money",
     TriggerType.JOURNAL_ENTRY: "journal",
     TriggerType.CREATION_LOGGED: "creations",
+    TriggerType.READING_LOGGED: "study",
     TriggerType.EXPEDITION_RETURNED: "mounts",
 }
 LOREBOOK_TRIGGER_EXEMPT: set[str] = set()
@@ -79,6 +80,7 @@ LOREBOOK_COIN_REASON_COVERAGE: dict[str, str] = {
     CoinLedger.Reason.EXCHANGE: "coins",
     CoinLedger.Reason.DAILY_CHALLENGE: "quests",
     CoinLedger.Reason.EXPEDITION: "mounts",
+    CoinLedger.Reason.READING: "study",
 }
 LOREBOOK_COIN_REASON_EXEMPT: set[str] = set()
 

@@ -17,12 +17,22 @@ class ReadingBookSerializer(serializers.ModelSerializer):
 class ReadingSessionSerializer(serializers.ModelSerializer):
     book_title = serializers.CharField(source="book.title", read_only=True)
     book_author = serializers.CharField(source="book.author", read_only=True)
+    reading_reward = serializers.SerializerMethodField()
+
+    def get_reading_reward(self, session):
+        reward = getattr(session, "reading_daily_reward", None)
+        if reward is None or reward.awarded_at is None:
+            return None
+        return {
+            "day": reward.day.isoformat(), "xp_awarded": reward.xp_awarded, "coins_awarded": reward.coins_awarded,
+        }
 
     class Meta:
         model = ReadingSession
         fields = [
             "id", "user", "book", "book_title", "book_author", "occurred_on", "duration_minutes",
             "pages_read", "section", "reflection", "format", "reaction", "client_request_id", "created_at", "updated_at",
+            "reading_reward",
         ]
         read_only_fields = fields
 

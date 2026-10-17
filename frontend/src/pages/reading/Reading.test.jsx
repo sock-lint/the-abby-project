@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { useAuth } from '../../hooks/useApi';
 import { renderWithProviders, screen, waitFor, within, act } from '../../test/render';
@@ -6,12 +6,15 @@ import { server } from '../../test/server';
 import { buildUser, buildParent } from '../../test/factories';
 import { selectDropdown } from '../../test/selectDropdown';
 import { spyHandler } from '../../test/spy';
+import { PulseContext } from '../../providers/pulseContext';
 import Reading from './index';
 
 const BOOK = { id: 12, user: 7, title: 'The Wild Robot', author: 'Peter Brown', status: 'reading', interests: ['animals', 'science'] };
 const SECOND = { ...BOOK, id: 13, title: 'A Different Story', author: 'Another Author' };
 const SESSION = { id: 42, user: 7, book: 12, book_title: BOOK.title, book_author: BOOK.author, occurred_on: '2026-10-15', duration_minutes: 20, pages_read: 14, section: 'Chapter 2', reflection: 'Roz learned to listen.', format: 'print', reaction: 'liked' };
 const SUMMARY = { books_total: 2, books_finished: 1, sessions_total: 4, total_minutes: 85, total_pages: 60, today: '2026-10-16', timezone: 'America/Phoenix' };
+const ADVENTURE = { day: SUMMARY.today, target_minutes: 10, minutes_credited: 4, remaining_minutes: 6, earned: false, base_xp: 15, base_coins: 5, xp_awarded: 0, coins_awarded: 0, skill_name: 'Reading Comprehension' };
+const REWARD = { day: SUMMARY.today, xp_awarded: 30, coins_awarded: 10 };
 const SUGGESTION = { id: 'wild-robot', title: 'The Wild Robot', author: 'Peter Brown', interests: ['animals', 'science'], age_min: 8, age_max: 12, description: 'A robot makes a home in the wild.', source_url: 'https://www.hachettebookgroup.com/titles/peter-brown/the-wild-robot/9780316381994/', reason: 'For your interest in science.' };
 function stub({ books = [BOOK, SECOND], sessions = [], parent = false } = {}) {
   server.use(
@@ -171,6 +174,195 @@ describe('Reading sessions', () => {
     await user.type(within(dialog).getByLabelText('Your reading note (optional)'), 'A reflection stays in memory.');
     expect(within(dialog).getByRole('button', { name: 'Save reading' })).toBeEnabled();
     expect(JSON.stringify(localStorage)).not.toContain('A reflection stays in memory.');
+  });
+});
+
+describe('Daily reading rewards', () => {
+  it('shows server progress and rewards only after a confirmed listening log, then refreshes shared RPG state', async () => {
+    stub();
+    let saved = false;
+    let release;
+    const rewardedSession = { ...SESSION, occurred_on: SUMMARY.today, duration_minutes: 6, pages_read: 0, reflection: '', format: 'audiobook', reading_reward: REWARD };
+    const response = new HttpResponse(new ReadableStream({ start(controller) {
+      release = () => {
+        saved = true;
+        controller.enqueue(new TextEncoder().encode(JSON.stringify(rewardedSession)));
+        controller.close();
+      };
+    } }), { headers: { 'Content-Type': 'application/json' } });
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, response);
+    server.use(post.handler,
+      http.get('*/api/reading-sessions/', () => HttpResponse.json(saved ? [rewardedSession] : [])),
+      http.get('*/api/reading/summary/', () => HttpResponse.json({ ...SUMMARY, reading_adventure: saved ? { ...ADVENTURE, minutes_credited: 10, remaining_minutes: 0, earned: true, xp_awarded: 30, coins_awarded: 10 } : ADVENTURE })),
+    );
+    const refresh = vi.fn();
+    const { user } = renderWithProviders(<PulseContext.Provider value={{ pulse: null, refresh }}><Reading /></PulseContext.Provider>);
+    const adventure = await screen.findByRole('region', { name: 'Today’s reading reward' });
+    expect(within(adventure).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '4');
+    expect(within(adventure).getByText(/6 more minutes today/)).toBeInTheDocument();
+    expect(within(adventure).getByText('15 base Reading Comprehension XP')).toBeInTheDocument();
+    expect(within(adventure).getByText('5 base Coins')).toBeInTheDocument();
+    expect(within(adventure).getByText(/activity streak and gives a chance of loot/)).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    expect(within(dialog).getByText(/Pages, chapters and notes can still be saved without minutes/)).toBeInTheDocument();
+    await selectDropdown(user, within(dialog).getByLabelText('How did you read?'), 'audiobook');
+    await user.type(within(dialog).getByLabelText('Minutes (optional)'), '6');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    await waitFor(() => expect(post.calls).toHaveLength(1));
+    expect(post.calls[0].body).toEqual({ book: 12, occurred_on: SUMMARY.today, duration_minutes: 6, pages_read: 0, section: '', reflection: '', format: 'audiobook', reaction: '', client_request_id: expect.any(String) });
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Earned today: 30/)).toBeNull();
+    await act(async () => { release(); });
+    expect(await screen.findByText(/Daily reading reward recorded: 30 Reading Comprehension XP and 10 Coins/)).toBeInTheDocument();
+    expect(await within(adventure).findByText('Earned today: 30 Reading Comprehension XP and 10 Coins.')).toBeInTheDocument();
+    expect(within(adventure).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '10');
+    expect(within(await screen.findByRole('article', { name: `Reading log: ${BOOK.title}` })).getByText(/Daily reading reward: 30 Reading Comprehension XP · 10 Coins/)).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('retains one recorded reward through an uncertain retry and later correction without inventing another award', async () => {
+    stub();
+    const rewardedSession = { ...SESSION, occurred_on: SUMMARY.today, duration_minutes: 10, reading_reward: REWARD };
+    let attempt = 0;
+    let saved = false;
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, () => {
+      if (++attempt === 1) return HttpResponse.json({ detail: 'Save confirmation interrupted.' }, { status: 503 });
+      saved = true;
+      return rewardedSession;
+    });
+    const patch = spyHandler('patch', /\/api\/reading-sessions\/42\/$/, ({ body }) => ({ ...rewardedSession, ...body }));
+    server.use(post.handler, patch.handler,
+      http.get('*/api/reading-sessions/', () => HttpResponse.json(saved ? [rewardedSession] : [])),
+      http.get('*/api/reading/summary/', () => HttpResponse.json({ ...SUMMARY, reading_adventure: { ...ADVENTURE, minutes_credited: 0, remaining_minutes: 10 } })),
+    );
+    const refresh = vi.fn();
+    const { user } = renderWithProviders(<PulseContext.Provider value={{ pulse: null, refresh }}><Reading /></PulseContext.Provider>);
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    let dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Minutes (optional)'), '10');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await screen.findByText(/We could not confirm the save/)).toBeInTheDocument();
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Daily reading reward recorded:/)).toBeNull();
+    await user.click(within(dialog).getByRole('button', { name: 'Retry save' }));
+    expect(await screen.findByText(/Daily reading reward recorded: 30 Reading Comprehension XP and 10 Coins/)).toBeInTheDocument();
+    expect(post.calls).toHaveLength(2);
+    expect(post.calls[1].body).toEqual(post.calls[0].body);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    await user.click(await screen.findByRole('button', { name: `Edit log: ${BOOK.title}` }));
+    dialog = await screen.findByRole('dialog', { name: 'Edit reading log' });
+    expect(within(dialog).getByText(/Editing a log does not add reward minutes/)).toBeInTheDocument();
+    await user.clear(within(dialog).getByLabelText('Minutes (optional)'));
+    await user.type(within(dialog).getByLabelText('Minutes (optional)'), '30');
+    await user.click(within(dialog).getByRole('button', { name: 'Save changes' }));
+    expect(await screen.findByText(/Reading changes saved for/)).toHaveTextContent('30 Reading Comprehension XP and 10 Coins');
+    expect(patch.calls).toHaveLength(1);
+    expect(patch.calls[0].body).toEqual({ occurred_on: SUMMARY.today, duration_minutes: 30, pages_read: 14, section: SESSION.section, reflection: SESSION.reflection, format: 'print', reaction: 'liked' });
+    expect(post.calls).toHaveLength(2);
+    expect(refresh).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText(/60 Reading Comprehension XP/)).toBeNull();
+  });
+
+  it('explains past dates, keeps pages-only logs valid, and shows no reward when the server returns none', async () => {
+    stub();
+    server.use(http.get('*/api/reading/summary/', () => HttpResponse.json({ ...SUMMARY, reading_adventure: ADVENTURE })));
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => ({ ...SESSION, ...body, reading_reward: null }));
+    server.use(post.handler);
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.clear(within(dialog).getByLabelText('Date read'));
+    await user.type(within(dialog).getByLabelText('Date read'), '2026-10-15');
+    expect(within(dialog).getByText(/Earlier reading belongs in your history/)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText('Pages read (optional)'), '12');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await screen.findByText(/Reading saved for/)).toBeInTheDocument();
+    expect(post.calls).toHaveLength(1);
+    expect(post.calls[0].body).toMatchObject({ occurred_on: '2026-10-15', duration_minutes: 0, pages_read: 12, reflection: '' });
+    expect(screen.queryByText(/Daily reading reward recorded:/)).toBeNull();
+    expect(screen.getByRole('progressbar', { name: 'Today’s reading reward minutes' })).toHaveAttribute('aria-valuenow', '4');
+  });
+
+  it('explains that another new log can be saved after the daily reward has been earned', async () => {
+    stub();
+    server.use(http.get('*/api/reading/summary/', () => HttpResponse.json({ ...SUMMARY, reading_adventure: { ...ADVENTURE, minutes_credited: 10, remaining_minutes: 0, earned: true, xp_awarded: 30, coins_awarded: 10 } })));
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    expect(within(dialog).getByText(/Today’s reading reward is already earned/)).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText('Chapter or section (optional)'), 'The dragon’s return');
+    expect(within(dialog).getByRole('button', { name: 'Save reading' })).toBeEnabled();
+  });
+
+  it('refreshes the household day and reward progress on the shared heartbeat without awarding anything', async () => {
+    stub();
+    let nextDay = false;
+    server.use(http.get('*/api/reading/summary/', () => HttpResponse.json({ ...SUMMARY, today: nextDay ? '2026-10-17' : SUMMARY.today, reading_adventure: nextDay ? { ...ADVENTURE, day: '2026-10-17', minutes_credited: 0, remaining_minutes: 10 } : { ...ADVENTURE, minutes_credited: 10, remaining_minutes: 0, earned: true, xp_awarded: 30, coins_awarded: 10 } })));
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, {});
+    server.use(post.handler);
+    const { user, beat } = renderWithProviders(<Reading />);
+    expect(await screen.findByText('Earned today: 30 Reading Comprehension XP and 10 Coins.')).toBeInTheDocument();
+    nextDay = true;
+    beat({ header: { coin_balance: 10 } });
+    expect(await screen.findByText(/10 more minutes today/)).toBeInTheDocument();
+    expect(screen.queryByText('Earned today: 30 Reading Comprehension XP and 10 Coins.')).toBeNull();
+    await user.click(screen.getByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    expect(within(await screen.findByRole('dialog')).getByLabelText('Date read')).toHaveValue('2026-10-17');
+    expect(post.calls).toHaveLength(0);
+  });
+
+  it('keeps the saved award when summary refresh fails and hides outdated eligibility', async () => {
+    stub();
+    let saved = false;
+    server.use(http.get('*/api/reading/summary/', () => saved ? HttpResponse.json({ detail: 'Reward progress unavailable.' }, { status: 503 }) : HttpResponse.json({ ...SUMMARY, reading_adventure: ADVENTURE })));
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => {
+      saved = true;
+      return { ...SESSION, ...body, reading_reward: REWARD };
+    });
+    server.use(post.handler);
+    const { user } = renderWithProviders(<Reading />);
+    expect(await screen.findByRole('region', { name: 'Today’s reading reward' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText('Minutes (optional)'), '6');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await screen.findByText(/Daily reading reward recorded: 30 Reading Comprehension XP and 10 Coins/)).toBeInTheDocument();
+    expect(await screen.findByText(/Reading totals unavailable. Reward progress unavailable/)).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Today’s reading reward' })).toBeNull();
+    expect(post.calls).toHaveLength(1);
+  });
+
+  it('discards a late reward response after an account change and never refreshes the replacement account from that save', async () => {
+    stub();
+    let release;
+    const response = new HttpResponse(new ReadableStream({ start(controller) {
+      release = () => {
+        controller.enqueue(new TextEncoder().encode(JSON.stringify({ ...SESSION, reading_reward: REWARD })));
+        controller.close();
+      };
+    } }), { headers: { 'Content-Type': 'application/json' } });
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, response);
+    server.use(post.handler);
+    const refresh = vi.fn();
+    function Harness() {
+      const { setUser } = useAuth();
+      return <PulseContext.Provider value={{ pulse: null, refresh }}><button onClick={() => { localStorage.setItem('abby_auth_token', 'replacement-token'); setUser(buildUser({ id: 8 })); }}>Switch account</button><Reading /></PulseContext.Provider>;
+    }
+    const { user } = renderWithProviders(<Harness />);
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Minutes (optional)'), '10');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    await waitFor(() => expect(post.calls).toHaveLength(1));
+    server.use(http.get('*/api/reading-books/', () => HttpResponse.json([{ ...SECOND, user: 8 }])), http.get('*/api/reading-sessions/', () => HttpResponse.json([])));
+    await user.click(screen.getByRole('button', { name: 'Switch account' }));
+    expect(await screen.findByRole('article', { name: SECOND.title })).toBeInTheDocument();
+    await act(async () => { release(); });
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Daily reading reward recorded:/)).toBeNull();
+    expect(screen.queryByRole('article', { name: `Reading log: ${BOOK.title}` })).toBeNull();
+    expect(post.calls).toHaveLength(1);
   });
 });
 
