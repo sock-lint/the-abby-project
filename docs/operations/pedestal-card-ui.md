@@ -50,12 +50,13 @@ the portable verification workspace is not an editable source backup.
 
 ## Application choices
 
-Storybook accents share one 2D presentation across decorated app panels:
-`ParchmentCard` reserves top/bottom gutters for small corner ornaments,
-including Today, reward balances, Hatching, sign-in and shared empty states.
-Boolean and named flourish props use the same accents; legacy seal positions
-use a single matching corner, and combined props do not add ornaments.
-Direct content children retain the caller's layout and spacing rhythm.
+Storybook artwork sits within the Meadow design system. Shared panels use
+simple rounded surfaces and normal content padding across Today, reward
+balances, Hatching, sign-in and empty states. Corner ornaments and their
+reserved gutters are removed; legacy flourish/seal props remain compatible
+without rendering decoration. Direct content children retain the caller's
+layout and spacing rhythm. The corner asset remains available in the design
+library's complete source gallery for reference.
 The daily bonus star follows the server's award state, and the featured
 earned badge and earned badge detail use one measured gold-frame component.
 Badge tiles retain quiet artwork; rarity labels and icon fallbacks are shared.
