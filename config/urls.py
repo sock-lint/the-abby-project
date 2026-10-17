@@ -187,7 +187,7 @@ _PWA_ROOT_FILES = [
 
 # These scripts have stable URLs, so both the worker and its imports must be
 # revalidated. Icons and the manifest retain their existing caching behavior.
-_PWA_REVALIDATED_SCRIPTS = {"sw.js", "push-sw.js", "registerSW.js"}
+_PWA_REVALIDATED_SCRIPTS = {"sw.js", "push-sw.js", "privacy-sw.js", "registerSW.js"}
 
 
 def _pwa_static_serve(request, path):

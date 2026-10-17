@@ -1,6 +1,6 @@
 {
   "description": "Require browser revalidation of Abby unversioned PWA scripts",
-  "expression": "(http.host eq \"abby.bos.lol\" and http.request.uri.path in {\"/sw.js\" \"/push-sw.js\" \"/registerSW.js\"})",
+  "expression": "(http.host eq \"abby.bos.lol\" and http.request.uri.path in {\"/sw.js\" \"/push-sw.js\" \"/privacy-sw.js\" \"/registerSW.js\"})",
   "action": "rewrite",
   "action_parameters": {
     "headers": {
