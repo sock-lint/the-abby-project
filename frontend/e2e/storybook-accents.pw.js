@@ -41,22 +41,27 @@ test.afterAll(async () => {
   if (server?.exitCode === null) { const stopped = once(server, 'exit'); server.kill(); await stopped; }
 });
 
-async function open(page, { theme = 'hyrule', large = false, long = true, failImages = false } = {}) {
+async function open(page, { theme = 'hyrule', large = false, long = true, failImages = false, starState = 'missing' } = {}) {
   const errors = [];
   const apiRequests = [];
+  const pendingStars = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/*', route => {
     const url = new URL(route.request().url());
     if (url.origin !== origin) return route.abort();
     if (url.pathname === '/api/auth/me/' && route.request().method() === 'GET') return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ id: 7001, username: 'synthetic-storybook-child', role: 'child' }) });
     if (url.pathname.startsWith('/api/')) { apiRequests.push(url.pathname); return route.abort(); }
+    if (url.pathname.startsWith('/synthetic/storybook-star-')) {
+      if (starState === 'loading') { pendingStars.push(route); return; }
+      return route.abort();
+    }
     if (failImages && route.request().resourceType() === 'image' && url.pathname.endsWith('.png')) return route.abort();
     return route.continue();
   });
-  await page.goto(`${origin}/e2e/storybook-accents-fixture.html?theme=${theme}&long=${long ? 1 : 0}&large=${large ? 1 : 0}`);
+  await page.goto(`${origin}/e2e/storybook-accents-fixture.html?theme=${theme}&long=${long ? 1 : 0}&large=${large ? 1 : 0}&star-state=${starState}`, { waitUntil: starState === 'loading' ? 'domcontentloaded' : 'load' });
   await page.evaluate(() => document.fonts.ready);
   await expect(page.locator('[data-bonus-star]')).toHaveCount(2);
-  return { errors, apiRequests };
+  return { errors, apiRequests, releasePendingStars: () => Promise.all(pendingStars.map(route => route.abort())) };
 }
 
 // Use each rendered text line rather than its parent's box: the parent can
@@ -125,6 +130,62 @@ async function privateCapture(page, name, locator) {
   else await page.screenshot({ ...options, fullPage: true });
 }
 
+async function fallbackStarMeasurements(stars) {
+  return stars.evaluateAll(elements => elements.map(element => {
+    const box = element.getBoundingClientRect();
+    const placeholder = element.matches('.mt-image-placeholder') ? element : element.querySelector('.mt-image-placeholder');
+    const style = getComputedStyle(placeholder);
+    const walker = document.createTreeWalker(placeholder, NodeFilter.SHOW_TEXT);
+    const glyphs = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!node.textContent.trim()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const bounds of range.getClientRects()) glyphs.push({ x: bounds.x - box.x, y: bounds.y - box.y, width: bounds.width, height: bounds.height });
+    }
+    return {
+      asset: element.dataset.pedestalImage, state: element.dataset.imageState,
+      width: box.width, height: box.height,
+      padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+      fontSize: style.fontSize, glyphs,
+      silent: placeholder.getAttribute('aria-hidden') === 'true' || !!placeholder.closest('[aria-hidden="true"]'),
+    };
+  }));
+}
+
+function fallbackStarProblems(records) {
+  return records.flatMap(record => {
+    const problems = [];
+    if (record.width !== 20 || record.height !== 20) problems.push('Fallback changed the 20px star canvas.');
+    if (record.padding.some(value => value !== '0px')) problems.push('Fallback retained placeholder padding.');
+    if (!record.silent) problems.push('Decorative fallback was exposed to assistive technology.');
+    if (!record.glyphs.length || record.glyphs.some(glyph => glyph.x < -0.5 || glyph.y < -0.5 || glyph.x + glyph.width > record.width + 0.5 || glyph.y + glyph.height > record.height + 0.5)) problems.push('Fallback glyph extends outside its star canvas.');
+    return problems.length ? [{ ...record, problems }] : [];
+  });
+}
+
+for (const starState of ['missing', 'loading', 'error']) {
+  test(`${starState} private star fallbacks stay silent and inside their canvas with normal and enlarged text`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 812 });
+    const records = [];
+    for (const large of [false, true]) {
+      const result = await open(page, { large, starState });
+      const stars = page.locator('[data-star-fallbacks] [data-pedestal-image]');
+      await expect(stars).toHaveCount(2);
+      for (const star of await stars.all()) {
+        await expect(star).toHaveAttribute('data-image-state', starState === 'missing' ? 'unavailable' : starState);
+      }
+      records.push(...(await fallbackStarMeasurements(stars)).map(record => ({ ...record, textScale: large ? '200%' : 'normal' })));
+      expect(result.errors).toEqual([]);
+      expect(result.apiRequests).toEqual([]);
+      await result.releasePendingStars();
+      await page.unroute('**/*');
+    }
+    expect(fallbackStarProblems(records), JSON.stringify(records)).toEqual([]);
+  });
+}
+
 for (const failImages of [false, true]) {
   test(`${failImages ? 'failed' : 'available'} artwork keeps Today, Profile, challenge and reward text clear at phone and desktop widths`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -152,7 +213,10 @@ test('private release PNGs render completely and failed art collapses without hi
   test.skip(!privatePayloadPresent, 'Private immutable payload absent; actual PNG rendering acceptance remains pending.');
   await page.setViewportSize({ width: 375, height: 812 });
   const result = await open(page);
-  const images = page.locator('[data-pedestal-image]');
+  const syntheticFallbacks = page.locator('[data-star-fallbacks] [data-pedestal-image]');
+  await expect(syntheticFallbacks).toHaveCount(2);
+  for (const fallback of await syntheticFallbacks.all()) await expect(fallback).toHaveAttribute('data-image-state', 'unavailable');
+  const images = page.locator('main > section [data-pedestal-image]');
   for (const image of await images.all()) {
     await image.scrollIntoViewIfNeeded();
     await expect(image).toHaveAttribute('data-image-state', 'ready');

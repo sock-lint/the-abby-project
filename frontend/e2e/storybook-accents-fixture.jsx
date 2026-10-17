@@ -9,6 +9,7 @@ import StarRating from '../src/components/StarRating';
 import TrophySlot from '../src/pages/character/TrophySlot';
 import ChallengeGoalCard from '../src/pages/trials/ChallengeGoalCard';
 import RewardShop from '../src/pages/rewards/RewardShop';
+import PedestalImage from '../src/pedestal/PedestalImage';
 import { SpriteCatalogContext } from '../src/providers/spriteCatalog.context';
 import { applyTheme } from '../src/themes';
 import { AuthProvider } from '../src/hooks/useApi';
@@ -44,6 +45,16 @@ const rewards = [
   { id: 22, name: 'Extra art time', description, cost_coins: 80, stock: 0, rarity: 'rare', icon: '🎨', fulfillment_kind: 'real_world', is_active: true },
 ];
 const sprites = { getSpriteMeta: () => null, getSpriteUrl: () => null };
+const starState = params.get('star-state') || 'missing';
+// Two ordinary image records let the same component exercise loading/error
+// placeholders even in public builds where purchased files are absent.
+const syntheticStars = {
+  release: {
+    assets: ['star-lit', 'star-unlit'].map(id => ({ id, kind: 'image', variants: [{ id: 'web', file: `${id}.png` }] })),
+    files: ['star-lit', 'star-unlit'].map(id => ({ path: `${id}.png`, media_type: 'image/png' })),
+  },
+  resolveUrl: file => `/synthetic/storybook-star-${file}`,
+};
 
 export function StorybookAccentsFixture() {
   const [event, setEvent] = useState('No action taken');
@@ -62,6 +73,11 @@ export function StorybookAccentsFixture() {
     <p className="text-caption">Local examples use current app components, synthetic data, and no account requests.</p>
     <output className="block break-words text-caption" aria-live="polite" data-fixture-event>{event}</output>
     <output className="block break-words text-caption" data-fixture-location>{location.pathname}{location.search}</output>
+    <div data-star-fallbacks className="flex items-center gap-2">
+      {['star-lit', 'star-unlit'].map((assetId, index) => starState === 'missing'
+        ? <PedestalImage key={assetId} assetId={assetId} staged={null} fallback={index ? '☆' : '★'} className="storybook-star text-gold-leaf" />
+        : <PedestalImage key={assetId} assetId={assetId} staged={syntheticStars} fallback={index ? '☆' : '★'} className="storybook-star text-gold-leaf" />)}
+    </div>
     {Object.entries(contexts).map(([variant, ctx]) => <section key={variant} aria-label={`Today ${variant}`} data-hero-variant={variant}>
       <HeroPrimaryCard role="child" ctx={ctx} />
     </section>)}
@@ -76,7 +92,7 @@ export function StorybookAccentsFixture() {
       <div data-trophy-example="empty"><TrophySlot compact badge={null} onOpen={() => record('Choose earned trophy')} /></div>
     </section>
     <section aria-label="Pinned challenge"><PinnedChallengeCard goal={goal} /></section>
-    <section aria-label="Challenge card"><ChallengeGoalCard goal={goal} timezone="UTC" onSelect={() => record('View synthetic challenge')} onPin={() => { setGoal({ ...goal, pinned: !goal.pinned }); record(goal.pinned ? 'Unpin synthetic challenge' : 'Pin synthetic challenge'); }} /></section>
+    <section aria-label="Challenge card" className="grid grid-cols-1 xl:grid-cols-2"><ChallengeGoalCard goal={goal} timezone="UTC" onSelect={() => record('View synthetic challenge')} onPin={() => { setGoal({ ...goal, pinned: !goal.pinned }); record(goal.pinned ? 'Unpin synthetic challenge' : 'Pin synthetic challenge'); }} /></section>
     <section aria-label="Reward shop"><RewardShop rewards={rewards} isParent={false} coinBalance={50} pendingId={null} onRedeem={(reward) => record(`Request reward ${reward.id}`)} onToggleWishlist={(reward) => record(`Wishlist reward ${reward.id}`)} /></section>
   </main>;
 }
