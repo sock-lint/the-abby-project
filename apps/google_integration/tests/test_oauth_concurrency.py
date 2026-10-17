@@ -7,7 +7,7 @@ from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.core.cache import cache
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.test import TransactionTestCase, override_settings, skipUnlessDBFeature
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
@@ -237,3 +237,65 @@ class GoogleOAuthConcurrencyTests(TransactionTestCase):
         self.assertFalse(GoogleAccount.objects.filter(google_id=GOOGLE_ID).exists())
         self.assertFalse(CalendarEventMapping.objects.filter(user_id=self.child.pk).exists())
         self.assertTrue(Token.objects.filter(key=self.token.key, user=self.parent).exists())
+
+    def test_logout_releases_user_before_waiting_for_actual_account_token_deletion(self):
+        token_deleted, release_deletion, waiting_for_token = Event(), Event(), Event()
+
+        def delete_account():
+            self._thread_connection("delete-logout-account")
+            try:
+                def hold_after_token_delete(execute, sql, params, many, context):
+                    result = execute(sql, params, many, context)
+                    if sql.lstrip().upper().startswith("DELETE FROM") and '"authtoken_token"' in sql:
+                        token_deleted.set()
+                        if not release_deletion.wait(10):
+                            raise TimeoutError("Account token cascade was not released")
+                    return result
+
+                with connection.execute_wrapper(hold_after_token_delete):
+                    User.objects.get(pk=self.parent.pk).delete()
+            finally:
+                connection.close()
+                _worker.label = None
+
+        def logout():
+            self._thread_connection("logout")
+            try:
+                def observe_blocking_token_wait(execute, sql, params, many, context):
+                    if ('"authtoken_token"' in sql and "FOR UPDATE" in sql.upper()
+                            and "NOWAIT" not in sql.upper()):
+                        waiting_for_token.set()
+                    return execute(sql, params, many, context)
+
+                client = APIClient()
+                client.credentials(HTTP_AUTHORIZATION=f"Token {self.token.key}")
+                with connection.execute_wrapper(observe_blocking_token_wait):
+                    response = client.post("/api/auth/", {"action": "logout"}, format="json")
+                return response.status_code, response.data
+            finally:
+                connection.close()
+                _worker.label = None
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            deleting = pool.submit(delete_account)
+            try:
+                self.assertTrue(token_deleted.wait(5), "Real account deletion did not reach its token")
+                logging_out = pool.submit(logout)
+                self.assertTrue(waiting_for_token.wait(5), "Logout did not wait for the existing token operation")
+                self.assertFalse(logging_out.done())
+                # A blocking Token wait is safe only after releasing User:
+                # the paused account cascade must still be able to delete it.
+                with transaction.atomic():
+                    self.assertTrue(User.objects.select_for_update(no_key=True, nowait=True).filter(
+                        pk=self.parent.pk,
+                    ).exists())
+            finally:
+                release_deletion.set()
+            deleting.result(timeout=3)
+            status, body = logging_out.result(timeout=3)
+
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"ok": True})
+        self.assertFalse(User.objects.filter(pk=self.parent.pk).exists())
+        self.assertFalse(Token.objects.filter(user_id=self.parent.pk).exists())
+        self.assertTrue(User.objects.filter(pk=self.child.pk).exists())

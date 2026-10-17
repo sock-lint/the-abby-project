@@ -190,7 +190,8 @@ bypass model hooks and are not a supported revocation interface.
 
 The locking order is ordered User rows (`NO KEY UPDATE`), initiating Token,
 transaction, GoogleAccount. Password login/logout follow the same User/Token
-order. Exchange locks on subordinate rows use NOWAIT so a concurrent legacy
+order. Logout releases User before waiting for an in-flight push binding, then
+revalidates its exact token under fresh User/Token locks. Exchange locks on subordinate rows use NOWAIT so a concurrent legacy
 account cascade cannot deadlock them. A changed authorization returns the safe
 exchange error; competing ordinary auth mutations may return HTTP 409 and
 roll back so they can be retried. Family IDs in the transaction are scalar snapshots, not new Family

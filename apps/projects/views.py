@@ -38,6 +38,40 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _logout_current_credential(user_id, key, endpoint):
+    """Wait for push binding without holding User against a concurrent cascade."""
+    from django.db import OperationalError
+    from apps.google_integration.oauth_exchange import AuthorizationBusy, is_lock_conflict, lock_users
+    from apps.notifications.models import PushSubscription
+
+    for attempt in range(3):
+        try:
+            with transaction.atomic():
+                if user_id not in lock_users([user_id]):
+                    return
+                credential = Token.objects.select_for_update(nowait=True).filter(user_id=user_id, key=key).first()
+                if credential:
+                    if endpoint:
+                        list(PushSubscription.objects.select_for_update(nowait=True).filter(
+                            user_id=user_id, endpoint=endpoint,
+                        ))
+                        PushSubscription.objects.filter(user_id=user_id, endpoint=endpoint).delete()
+                    credential.delete()
+            return
+        except OperationalError as exc:
+            if not is_lock_conflict(exc):
+                raise
+            if attempt == 2:
+                raise AuthorizationBusy() from None
+        # A push bind owns Token; a legacy cascade can also own it while
+        # waiting for User. Release ALL prior locks before waiting here.
+        # This transaction performs no mutation and never requests User.
+        with transaction.atomic():
+            list(Token.objects.select_for_update().filter(user_id=user_id, key=key))
+        # Recheck this exact credential after reacquiring User. An old logout
+        # must never revoke a token issued by a newer password sign-in.
+
+
 class AuthView(APIView):
     """Login / logout endpoint.
 
@@ -92,31 +126,7 @@ class AuthView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if request.user.is_authenticated and isinstance(request.auth, Token):
-                # Authentication may precede a concurrent password login's
-                # rotation. Lock only this request's credential, preserving
-                # its replacement. Push endpoints take the same lock before
-                # binding, so an old handler cannot recreate this device after
-                # logout even when the browser already aborted its fetch.
-                with transaction.atomic():
-                    from apps.google_integration.oauth_exchange import AuthorizationBusy, is_lock_conflict, lock_users
-                    from django.db import OperationalError
-                    lock_users([request.user.pk])
-                    try:
-                        credential = Token.objects.select_for_update(nowait=True).filter(
-                            user=request.user, key=request.auth.key,
-                        ).first()
-                    except OperationalError as exc:
-                        if is_lock_conflict(exc):
-                            raise AuthorizationBusy() from None
-                        raise
-                    if credential:
-                        from apps.notifications.models import PushSubscription
-
-                        if endpoint.strip():
-                            PushSubscription.objects.filter(
-                                user=request.user, endpoint=endpoint.strip(),
-                            ).delete()
-                        credential.delete()
+                _logout_current_credential(request.user.pk, request.auth.key, endpoint.strip())
             return Response({"ok": True})
         return Response(
             {"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST
