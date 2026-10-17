@@ -368,6 +368,7 @@ class ExpeditionService:
         from apps.rewards.models import CoinLedger
         from apps.rewards.services import CoinService
         from apps.rpg.models import ItemDefinition, UserInventory
+        from apps.rpg.inventory import grant_item
 
         coins_planned = int(expedition.loot.get("coins") or 0)
         coins_awarded = 0
@@ -419,14 +420,7 @@ class ExpeditionService:
                 loot_changed = True
                 continue
 
-            # Otherwise: stack into inventory. Use the same get-or-create
-            # pattern as the breeding flow so concurrent claims don't double.
-            inv, created = UserInventory.objects.get_or_create(
-                user=user, item=item, defaults={"quantity": qty},
-            )
-            if not created:
-                inv.quantity += qty
-                inv.save(update_fields=["quantity", "updated_at"])
+            grant_item(user, item, qty)
 
         return coins_awarded, loot_changed
 

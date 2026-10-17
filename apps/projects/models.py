@@ -134,6 +134,29 @@ class ProjectMilestone(models.Model):
     def __str__(self):
         return f"{self.project.title} — {self.title}"
 
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        # Completion, its permanent receipt and all signal-owned rewards must
+        # commit together. MCP reads these per-save results inside its outer
+        # transaction before adding its existing client-specific coin bonus.
+        self._completion_reward_claimed = False
+        self._completion_reward_xp = 0
+        super().save(*args, **kwargs)
+
+
+class MilestoneCompletionRewardReceipt(CreatedAtModel):
+    """Permanent once-per-milestone reward, independent of later edits."""
+
+    milestone = models.OneToOneField(
+        ProjectMilestone, on_delete=models.CASCADE,
+        related_name="completion_reward_receipt",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, related_name="milestone_completion_receipts",
+    )
+    historical = models.BooleanField(default=False)
+
 
 class MaterialItem(models.Model):
     project = models.ForeignKey(

@@ -456,7 +456,8 @@ class PetService:
         Returns a dict summarizing the roll.
         """
         from apps.pets.models import UserMount
-        from apps.rpg.models import ItemDefinition, UserInventory
+        from apps.rpg.models import ItemDefinition
+        from apps.rpg.inventory import grant_item
 
         if mount_a_id == mount_b_id:
             raise ValueError("A mount can't breed with itself — pick two different mounts")
@@ -533,11 +534,7 @@ class PetService:
             raise ValueError("No art-supported offspring is available for this pair. Your companions and inventory are unchanged.")
 
         for item in (egg_item, potion_item):
-            inv, _ = UserInventory.objects.get_or_create(
-                user=user, item=item, defaults={"quantity": 0},
-            )
-            inv.quantity += 1
-            inv.save(update_fields=["quantity", "updated_at"])
+            grant_item(user, item)
 
         for m in mounts:
             m.last_bred_at = now
