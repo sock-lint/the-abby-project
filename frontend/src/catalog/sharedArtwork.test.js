@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import bindings from '../../../shared/catalog/artwork-bindings.json';
+import activeLock from '../../assets.lock.json';
+import evaluationLock from '../../assets.evaluation.lock.json';
 import { ARTWORK_FAMILY, BIRTHDAY_ARTWORK_ID, resolveArtworkImage, stagedArtworkRelease } from './sharedArtwork';
 
 function fixture() {
@@ -25,6 +27,19 @@ function fixture() {
 }
 
 describe('pinned completion artwork', () => {
+  it('keeps the exact private Crown evaluation release outside the active application lock', () => {
+    const activeFamilies = new Set(activeLock.releases.map((pin) => pin.family_id));
+    expect(activeFamilies.has('abby-bird-accessory-pilot')).toBe(false);
+    expect(evaluationLock.schema_version).toBe(1);
+    expect(evaluationLock.releases).toEqual([{
+      directory: 'abby-bird-accessory-pilot/1.0.0/432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720',
+      family_id: 'abby-bird-accessory-pilot',
+      manifest_sha256: '432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720',
+      release_version: '1.0.0',
+    }]);
+    expect(evaluationLock.releases.filter((pin) => activeFamilies.has(pin.family_id))).toEqual([]);
+  });
+
   it('returns the approved image and digest metadata for web and native URLs', () => {
     const data = fixture();
     expect(resolveArtworkImage(data.row.asset_id, data.stage())).toEqual({

@@ -41,12 +41,6 @@
       "family_id": "abby-artwork-completion",
       "manifest_sha256": "1ceb2d42a96c2c8f7c6ec912d8e0901b0d391c4ddbabb4827ed8d3d8ddaf9cde",
       "release_version": "1.0.0"
-    },
-    {
-      "directory": "abby-bird-accessory-pilot/1.0.0/432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720",
-      "family_id": "abby-bird-accessory-pilot",
-      "manifest_sha256": "432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720",
-      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

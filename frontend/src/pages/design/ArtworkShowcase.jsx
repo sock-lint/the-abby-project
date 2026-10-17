@@ -50,7 +50,7 @@ export default function ArtworkShowcase() {
     <details className="rounded-lg border border-ink-page-shadow p-3 text-body text-ink-secondary">
       <summary className="cursor-pointer min-h-11 flex items-center">Integration and accessory limits</summary>
       <p>Application views use the server&apos;s read-only catalog_icon reference and retain readable names, rarity and locked states.</p>
-      <p className="mt-2">The separate Crown fitting pilot is pinned for private evaluation. It covers native Chick, Fledgling and Bird takes. Egg, evolution transitions, other species and the other 16 accessories have no supported fit. Acquisition and equipping remain disabled.</p>
+      <p className="mt-2">The Crown fitting pilot is reserved for private evaluation and is excluded from app builds. It covers native Chick, Fledgling and Bird takes. Egg, evolution transitions, other species and the other 16 accessories have no supported fit. Acquisition and equipping remain disabled.</p>
       <pre className="mt-2 whitespace-pre-wrap break-all text-caption">{'import ArtworkImage from "../components/rpg/ArtworkImage";\n<ArtworkImage assetId={record.catalog_icon} fallback={record.icon} />'}</pre>
     </details>
   </section>;

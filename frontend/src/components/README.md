@@ -378,5 +378,6 @@ uses the explicit candle slot and its existing 64px placeholder.
 Catalog items and challenges continue to use `CatalogIcon`, which also resolves
 the new family. The synthetic `/__design` artwork gallery shows every new
 identity and the five supported inspection sizes. Artwork never enables packs,
-rewards or equipment; the separate Crown fitting pilot remains evaluation-only.
+rewards or equipment; the separate Crown fitting pilot remains evaluation-only
+and is excluded from application imports and web/native bundles.
 See [the adoption runbook](../../../docs/operations/artwork-completion.md).
