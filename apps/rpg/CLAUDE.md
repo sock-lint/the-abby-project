@@ -111,6 +111,12 @@ synchronous. Deferred failures follow the pipeline's existing logged,
 best-effort policy and leave the quest retryable.
 
 ## Endpoints
+- Staff-parent content workbench: `/api/rpg/content-workbench/` and its
+  revisioned draft preview/simulate/publish endpoints. PostgreSQL stores private
+  drafts and explicit published overrides; bundled YAML remains the baseline.
+  Reuse the exact reviewed publication services and detached progression
+  snapshots. Existing item behavior changes require a new version. See
+  [`docs/operations/rpg-content-workbench.md`](../../docs/operations/rpg-content-workbench.md).
 - Staff-parent design workbench: `GET /api/rpg/progression-lab/` and
   `POST /api/rpg/progression-lab/simulate/`. `progression/` snapshots only
   global supported content and runs bounded seeded scenarios in memory, with

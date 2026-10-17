@@ -432,6 +432,10 @@ export const adminCreateFamily = (data) => api.post('/admin/families/', data);
 
 // Anonymous, server-calculated designer scenarios; staff parents only.
 export const getProgressionLab = (options) => api.get('/rpg/progression-lab/', options);
+export {
+  getContentWorkbench, createContentDraft, getContentDraft, updateContentDraft,
+  previewContentDraft, simulateContentDraft, publishContentDraft,
+} from './contentWorkbench';
 export const simulateProgressionLab = (data, options) =>
   api.post('/rpg/progression-lab/simulate/', data, options);
 

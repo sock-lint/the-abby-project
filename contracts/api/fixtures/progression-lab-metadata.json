@@ -125,9 +125,9 @@
     "modeled": [
       "New child with zero XP, Coins and owned companions/inventory",
       "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
-      "Weighted supported drops, character/skill tiers and prerequisite unlocks",
-      "Parallel automatic catalog challenges and eligible badge criteria",
-      "Hatching, feeding, evolution and bounded mount expeditions"
+      "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+      "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+      "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance"
     ],
     "excluded": [
       "Homework, completed projects/milestones, savings, money, birthdays and grade progression",
@@ -230,8 +230,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "6a32784c882f7d0264dbca1dd41f5019f4ed42196f90b90097c5b15dca715ab7",
-  "engine_version": "2026-10-17.1",
+  "rules_fingerprint": "ef2d1c58bc695c3e7554c5acee893e47d16620358c68f5d12f020a74a34694bc",
+  "engine_version": "2026-10-17.2",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,

@@ -9,6 +9,14 @@ stable routes and component identifiers, not the labels to show users.
 
 ## Progression lab
 
+`/manage/rpg-content` adds the staff-parent content workspace alongside the lab.
+It browses challenges and items, saves revisioned server drafts, shows reward
+wiring and audits, and compares the published and proposed catalogs before
+explicit publication. Use the exact reviewed preview and draft revision for
+comparison/publication. Editing invalidates old reviews; account changes fence
+in-flight responses. Existing item effects are versioned to preserve owned and
+promised items. See [`RPG content workbench`](../../../docs/operations/rpg-content-workbench.md).
+
 `/manage/progression-lab` is the staff-parent designer workspace, linked from
 Manage → Admin. The metadata endpoint is the authority for staff access;
 regular parents recover from its 403 without seeing simulations. All forecasts

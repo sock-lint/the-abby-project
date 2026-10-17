@@ -5,13 +5,13 @@ quietly disagrees with the application. These comparisons therefore capture
 real drop selections and exercise real pet/goal services on disposable records.
 """
 from io import StringIO
-from dataclasses import replace
+from dataclasses import FrozenInstanceError, replace
 from datetime import timedelta
 from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.db import connection
+from django.db import connection, transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
@@ -27,8 +27,8 @@ from apps.rewards.services import CoinService
 from apps.rpg.catalog_support import item_is_available
 from apps.rpg.content.loader import ContentPack
 from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition, UserInventory
-from apps.rpg.progression.catalog import load_catalog
-from apps.rpg.progression.engine import SimPet, Trial, run_trial
+from apps.rpg.progression.catalog import load_catalog, snapshot_catalog
+from apps.rpg.progression.engine import SimPet, Trial, audit_catalog, rules_fingerprint, run_trial
 from apps.rpg.services import DropService
 from config.tests.factories import make_family
 
@@ -127,6 +127,49 @@ class ProgressionCatalogParityTests(TestCase):
             report = run_trial(CONFIG, catalog, 42)
         self.assertEqual(len(report["trace"]), CONFIG["horizon_days"])
 
+    def test_snapshot_graph_is_detached_and_immutable(self):
+        catalog = snapshot_catalog()
+        skill = next(iter(catalog.skills.values()))
+        item = next(iter(catalog.items.values()))
+        quest = catalog.quests[0]
+        with self.assertRaises(FrozenInstanceError):
+            skill.name = "Changed"
+        with self.assertRaises(TypeError):
+            catalog.items[item.pk] = item
+        with self.assertRaises(TypeError):
+            item.metadata["growth"] = 30
+        with self.assertRaises(TypeError):
+            quest.trigger_filter["allowed_triggers"] = ["habit_log"]
+        self.assertIs(quest.reward_items.all(), quest.reward_items)
+        self.assertFalse(hasattr(skill, "save"))
+        self.assertFalse(hasattr(item, "_state"))
+
+    def test_proposed_snapshot_survives_rollback_without_reads_or_payouts(self):
+        from apps.rpg.progression import simulate_progression
+
+        quest = QuestDefinition.objects.create(
+            name="Preview-only reward", description="One synthetic habit", quest_type="collection",
+            target_value=1, duration_days=7, trigger_filter={"allowed_triggers": ["habit_log"]},
+            coin_reward=7, is_system=True,
+        )
+        baseline = snapshot_catalog()
+        with transaction.atomic():
+            QuestDefinition.objects.filter(pk=quest.pk).update(coin_reward=17)
+            proposed = snapshot_catalog()
+            transaction.set_rollback(True)
+        quest.refresh_from_db()
+        self.assertEqual(quest.coin_reward, 7)
+        config = {**CONFIG, "trials": 1, "reading_minutes": 0, "chores_per_day": 0,
+                  "journal_per_day": False, "expeditions_per_day": 0}
+        with self.assertNumQueries(0):
+            before = simulate_progression(config, catalog=baseline)
+            after = simulate_progression(config, catalog=proposed)
+            repeated = simulate_progression(config, catalog=proposed)
+        self.assertEqual(before["config"], after["config"])
+        self.assertNotEqual(before["catalog"]["fingerprint"], after["catalog"]["fingerprint"])
+        self.assertEqual(after["summary"]["coins_p50"] - before["summary"]["coins_p50"], 10)
+        self.assertEqual(after, repeated)
+
     def test_project_and_expedition_pools_match_real_service_weights(self):
         child = make_family(children=[{"username": "parity-drop-child"}]).children[0]
         food = ItemDefinition.objects.filter(item_type="food").first()
@@ -142,6 +185,14 @@ class ProgressionCatalogParityTests(TestCase):
             captured.append({(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)})
             return [next(row for row in entries if row.item_id == food.pk)]
 
+        def assert_weights(entries, weights):
+            projected = {(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)}
+            self.assertEqual(set(projected), set(captured[-1]))
+            for key, weight in projected.items():
+                # Runtime and snapshot iteration orders differ; tier totals
+                # accumulate the same floating-point inputs in another order.
+                self.assertAlmostEqual(weight, captured[-1][key], places=12, msg=str(key))
+
         for level, total_xp in ((0, 0), (6, 2500)):
             with self.subTest(level=level):
                 CharacterProfile.objects.filter(user=child).update(level=level)
@@ -151,20 +202,14 @@ class ProgressionCatalogParityTests(TestCase):
                 ):
                     DropService.process_drops(child, "clock_out")
                 entries, weights = trial.eligible_pool("clock_out")
-                self.assertEqual(
-                    {(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)},
-                    captured[-1],
-                )
+                assert_weights(entries, weights)
                 self.assertEqual(gated.pk in {row.item_id for row in entries}, level == 6)
                 self.assertNotIn(unsupported.pk, {row.item_id for row in entries})
                 for tier in ("short", "standard", "long"):
                     with patch("apps.pets.expeditions.random.choices", side_effect=select):
                         ExpeditionService._roll_loot(child, tier)
                     entries, weights = trial.eligible_pool("expedition_returned", expedition_tier=tier)
-                    self.assertEqual(
-                        {(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)},
-                        captured[-1],
-                    )
+                    assert_weights(entries, weights)
 
     def test_feeding_evolution_matches_actual_saved_growth(self):
         base = PotionType.objects.get(slug="base")
@@ -193,6 +238,60 @@ class ProgressionCatalogParityTests(TestCase):
                     self.assertEqual((pet.growth_points, pet.evolved_to_mount), (100, True))
                 self.assertEqual(trial.inventory[food.pk], 0)
                 self.assertFalse(UserInventory.objects.filter(user=child, item=food).exists())
+
+    def test_food_and_rarity_policy_changes_invalidate_rules_fingerprint(self):
+        from apps.rpg.item_effects import FOOD_GROWTH_BY_RARITY
+        from apps.rpg.rarity import BASE_TIER_WEIGHTS
+
+        for policy, key in ((FOOD_GROWTH_BY_RARITY, "common"), (BASE_TIER_WEIGHTS, "rare")):
+            before = rules_fingerprint()
+            with patch.dict(policy, {key: policy[key] + 1}):
+                self.assertNotEqual(before, rules_fingerprint())
+
+    def test_expedition_avoids_duplicate_cosmetics_within_its_prerolled_trip(self):
+        child = make_family(children=[{"username": "parity-expedition-child"}]).children[0]
+        cosmetics = [ItemDefinition.objects.create(
+            slug=f"parity-trip-frame-{index}", name=f"Trip frame {index}",
+            item_type="cosmetic_frame", rarity="common", coin_value=5,
+        ) for index in range(2)]
+        for item in cosmetics:
+            DropTable.objects.create(trigger_type="expedition_returned", item=item, weight=1)
+
+        def first_positive(entries, *, weights, k):
+            return [next(entry for entry, weight in zip(entries, weights) if weight > 0)]
+
+        with patch("apps.pets.expeditions.random.choices", side_effect=first_positive):
+            actual = ExpeditionService._roll_loot(child, "standard")
+        trial = Trial({**CONFIG, "expedition_tier": "standard"}, load_catalog(), 1)
+        pair, (species, potion) = next(iter(trial.catalog.pairs.items()))
+        trial.pets[pair] = SimPet(species, potion, 100, True)
+        with patch.object(trial.rng, "choices", side_effect=first_positive):
+            trial.launch_expeditions()
+        self.assertEqual(trial.pending_expeditions[0]["items"], [row["item_id"] for row in actual["items"]])
+        self.assertEqual(len(set(trial.pending_expeditions[0]["items"])), 2)
+
+    def test_finite_expedition_targets_respect_zero_weight_and_excluded_rarity(self):
+        rows = [ItemDefinition.objects.create(
+            slug=f"parity-expedition-target-{index}", name=f"Expedition target {index}",
+            item_type="cosmetic_frame", rarity=rarity,
+        ) for index, rarity in enumerate(("common", "legendary", "rare"))]
+        for index, item in enumerate(rows):
+            DropTable.objects.create(trigger_type="expedition_returned", item=item, weight=0 if index == 2 else 1)
+        trial = Trial({**CONFIG, "expedition_tier": "short"}, load_catalog(), 1)
+        self.assertIn(f"cosmetic:{rows[0].pk}", trial.finite_keys)
+        self.assertNotIn(f"cosmetic:{rows[1].pk}", trial.finite_keys)
+        self.assertNotIn(f"cosmetic:{rows[2].pk}", trial.finite_keys)
+
+    def test_guaranteed_trails_can_hatch_without_random_drops(self):
+        catalog = load_catalog()
+        config = {**CONFIG, "trials": 1, "reading_minutes": 0, "chores_per_day": 1,
+                  "habits_per_day": 0, "journal_per_day": False, "expeditions_per_day": 0}
+        with patch.object(Trial, "drop"):
+            report = run_trial(config, catalog, 42)
+        self.assertIn("first_pet", report["milestones"])
+        messages = audit_catalog(catalog)
+        self.assertTrue(any(row["code"] == "guaranteed_companion_paths" for row in messages))
+        self.assertFalse(any("no assumed starter pet or guaranteed egg/potion" in row["message"] for row in messages))
 
     def test_one_source_advances_multiple_catalog_challenges(self):
         child = make_family(children=[{"username": "parity-goal-child"}]).children[0]

@@ -1,16 +1,18 @@
 """Read global authoring data once; never inspect a household or mutate a model."""
 
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass
 import hashlib
 import json
+from types import MappingProxyType
 
 from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
 from apps.quests.models import QuestDefinition
-from apps.rpg.catalog_support import available_pet_variants, item_is_available
+from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item
 from apps.rpg.models import DropTable, ItemDefinition
 
 
@@ -50,7 +52,52 @@ MODELED_BADGE_TYPES = frozenset(
 )
 
 
-@dataclass
+def _freeze(value):
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return FrozenRows(_freeze(item) for item in value)
+    return value
+
+
+def _plain(value):
+    if isinstance(value, Mapping):
+        return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    return value
+
+
+class FrozenRows(tuple):
+    """Eager relation values with the small read interface used by domain helpers."""
+
+    def all(self):
+        return self
+
+    def exists(self):
+        return bool(self)
+
+
+@dataclass(frozen=True)
+class CatalogRecord:
+    """A detached immutable record, never a model or related manager."""
+
+    fields: Mapping
+
+    def __getattr__(self, name):
+        try:
+            return self.fields[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+
+def _record(model, **relations):
+    fields = {field.attname: getattr(model, field.attname) for field in model._meta.concrete_fields}
+    fields.update(pk=model.pk, **relations)
+    return CatalogRecord(_freeze(fields))
+
+
+@dataclass(frozen=True)
 class Catalog:
     skills: dict
     items: dict
@@ -61,6 +108,10 @@ class Catalog:
     excluded_badges: dict
     fingerprint: str
 
+    def __post_init__(self):
+        for name in ("skills", "items", "pools", "pairs", "badges", "quests", "excluded_badges"):
+            object.__setattr__(self, name, _freeze(getattr(self, name)))
+
     def summary(self):
         return {
             "fingerprint": self.fingerprint,
@@ -69,7 +120,7 @@ class Catalog:
             "supported_pet_variants": len(self.pairs),
             "modeled_badges": len(self.badges),
             "excluded_badges": sum(self.excluded_badges.values()),
-            "excluded_badge_criteria": self.excluded_badges,
+            "excluded_badge_criteria": dict(self.excluded_badges),
             "system_challenges": len(self.quests),
             "nonrepeatable_challenges": sum(not q.is_repeatable for q in self.quests),
         }
@@ -82,8 +133,13 @@ def _bounded(queryset, limit, label):
     return rows
 
 
-def load_catalog():
-    """Only global tables: the simulator intentionally has no user parameter."""
+def snapshot_catalog():
+    """Capture global rules as detached immutable values, safe after a rollback.
+
+    A publication preview can call this while proposed rows exist in its
+    savepoint, roll them back, then simulate without any subsequent ORM reads.
+    No account, family, inventory, ledger or reward writer is involved.
+    """
     skills = _bounded(
         Skill.objects.order_by("pk").select_related("category", "subject").prefetch_related("prerequisites"),
         2048,
@@ -114,6 +170,39 @@ def load_catalog():
         256,
         "challenge",
     )
+    # Detach the entire graph, including every relation consumed by pure rules.
+    species_records = {
+        s.pk: _record(s, available_potions=FrozenRows(_record(p) for p in s.available_potions.all()))
+        for s in species
+    }
+    pairs = {
+        key: (species_records[s.pk], _record(p)) for key, (s, p) in pairs.items()
+    }
+    skill_records = {
+        s.pk: _record(s, category=_record(s.category),
+                      prerequisites=FrozenRows(_record(p) for p in s.prerequisites.all()))
+        for s in skills
+    }
+    item_records = {}
+    for item in items.values():
+        species_ref = egg_species(item) if item.item_type == "egg" else item.pet_species
+        potion_ref = potion_type_for_item(item) if item.item_type == "potion" else item.potion_type
+        item_records[item.pk] = _record(
+            item, display_name=item.display_name,
+            pet_species=species_records.get(species_ref.pk) if species_ref else None,
+            pet_species_id=species_ref.pk if species_ref else None,
+            potion_type=_record(potion_ref) if potion_ref else None,
+            potion_type_id=potion_ref.pk if potion_ref else None,
+            food_species=species_records.get(item.food_species_id),
+        )
+    pools = {trigger: FrozenRows(_record(e, item=item_records[e.item_id]) for e in pool)
+             for trigger, pool in pools.items()}
+    quests = FrozenRows(_record(
+        q, skill_tags=FrozenRows(_record(t, skill=skill_records[t.skill_id]) for t in q.skill_tags.all()),
+        reward_items=FrozenRows(_record(r) for r in q.reward_items.all()),
+    ) for q in quests)
+    badges = FrozenRows(_record(b) for b in badges)
+    skills, items = list(skill_records.values()), item_records
     # A digest of the exact accepted catalog makes a saved forecast comparable.
     serialized = {
         "skills": [
@@ -173,5 +262,10 @@ def load_catalog():
             for q in quests
         ],
     }
-    digest = hashlib.sha256(json.dumps(serialized, sort_keys=True, default=str).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps(_plain(serialized), sort_keys=True, default=str).encode()).hexdigest()
     return Catalog({s.pk: s for s in skills}, items, pools, pairs, badges, quests, dict(excluded), digest)
+
+
+def load_catalog():
+    """Compatibility name for callers that need the current global snapshot."""
+    return snapshot_catalog()

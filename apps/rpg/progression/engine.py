@@ -25,7 +25,7 @@ from apps.creations.services import CreationService
 from apps.movement.services import MovementSessionService
 from apps.pets.expeditions import ExpeditionService, TIER_CONFIG
 from apps.pets.lifecycle import growth_thresholds
-from apps.pets.services import GROWTH_NEUTRAL_FOOD, GROWTH_PREFERRED_FOOD, PetService
+from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
 from apps.quests.services import TRIGGER_DAMAGE
 from apps.quests.models import DailyBonus
@@ -33,6 +33,10 @@ from apps.quests.daily_bonus import process_daily_bonus
 from apps.timecards.services import ClockService
 from apps.reading.services import ReadingRewardService
 from apps.rpg.companion_catalog import companion_drop_weights
+from apps.rpg.item_effects import FOOD_GROWTH_BY_RARITY, MAX_AUTHORED_FOOD_GROWTH, PREFERRED_FOOD_BONUS, food_base_growth
+from apps.rpg.rarity import (
+    ACCOMPLISHMENT_TIER_WEIGHTS, ACCOMPLISHMENT_TRIGGERS, BASE_TIER_WEIGHTS, tier_balanced_weights,
+)
 from apps.rpg.services import (
     BASE_CHECK_IN_COINS,
     BASE_DROP_RATES,
@@ -46,7 +50,7 @@ from .catalog import load_catalog
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-17.1"
+ENGINE_VERSION = "2026-10-17.2"
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
     "horizon_days": 90,
@@ -168,7 +172,8 @@ def rules_fingerprint():
         "max_work_units": MAX_WORK_UNITS,
         "check_in": [BASE_CHECK_IN_COINS, STREAK_MULTIPLIER_PER_DAY, STREAK_MULTIPLIER_CAP],
         "streak_drops": [STREAK_DROP_BONUS_PER_DAY, STREAK_DROP_BONUS_CAP],
-        "growth": [GROWTH_NEUTRAL_FOOD, GROWTH_PREFERRED_FOOD],
+        "growth": [FOOD_GROWTH_BY_RARITY, PREFERRED_FOOD_BONUS, MAX_AUTHORED_FOOD_GROWTH],
+        "rarity": [BASE_TIER_WEIGHTS, ACCOMPLISHMENT_TIER_WEIGHTS, sorted(ACCOMPLISHMENT_TRIGGERS)],
         "tiers": TIER_CONFIG,
         "damage": TRIGGER_DAMAGE,
         "coins_per_hour": settings.COINS_PER_HOUR,
@@ -191,6 +196,8 @@ def rules_fingerprint():
                 MovementSessionService.compute_xp_pool,
                 _amount,
                 companion_drop_weights,
+                tier_balanced_weights,
+                food_base_growth,
                 growth_thresholds,
                 process_daily_bonus,
                 ClockService.clock_out,
@@ -213,9 +220,9 @@ def coverage(catalog):
         "modeled": [
             "New child with zero XP, Coins and owned companions/inventory",
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
-            "Weighted supported drops, character/skill tiers and prerequisite unlocks",
-            "Parallel automatic catalog challenges and eligible badge criteria",
-            "Hatching, feeding, evolution and bounded mount expeditions",
+            "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+            "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+            "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         ],
         "excluded": [
             "Homework, completed projects/milestones, savings, money, birthdays and grade progression",
@@ -237,7 +244,7 @@ def coverage(catalog):
             "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content",
         ],
         "activity_skills": ACTIVITY_SKILLS,
-        "excluded_badge_criteria": catalog.excluded_badges,
+        "excluded_badge_criteria": dict(catalog.excluded_badges),
         "initial_state": {"coins": 0, "xp": 0, "pets": 0, "mounts": 0, "inventory": 0},
     }
 
@@ -271,7 +278,18 @@ def audit_catalog(catalog):
                 "message": "Global content is missing. Load the intended catalog before interpreting this forecast.",
             }
         )
-    if catalog.pairs:
+    guaranteed = False
+    for quest in catalog.quests:
+        rewards = [catalog.items[row.item_id] for row in quest.reward_items.all() if row.item_id in catalog.items]
+        eggs = {item.pet_species_id for item in rewards if item.item_type == "egg"}
+        potions = {item.potion_type_id for item in rewards if item.item_type == "potion"}
+        guaranteed |= any(species in eggs and potion in potions for species, potion in catalog.pairs)
+    if guaranteed:
+        messages.append({
+            "severity": "info", "code": "guaranteed_companion_paths",
+            "message": "The catalog includes companion trails promising an egg and compatible potion. Their activity rules, prerequisites and deadlines must be met; other acquisitions can still depend on random draws.",
+        })
+    elif catalog.pairs:
         messages.append(
             {
                 "severity": "warning",
@@ -455,25 +473,27 @@ class Trial:
         )
         return per_day * active
 
-    def eligible_pool(self, trigger, *, expedition_tier=None):
-        cache_key = (trigger, expedition_tier, self.level)
-        if cache_key in self._pool_cache:
-            return self._pool_cache[cache_key]
-        entries = [e for e in self.catalog.pools.get(trigger, []) if e.min_level <= self.level]
-        if expedition_tier is not None and not entries:
-            entries = [
-                e
-                for key in ("clock_out", "chore_complete")
-                for e in self.catalog.pools.get(key, [])
-                if e.min_level <= self.level
-            ]
-        weights = None
-        if expedition_tier is not None:
-            rarity = TIER_CONFIG[expedition_tier]["rarity_weights"]
-            weights = [max(1, e.weight * rarity.get(e.item.rarity, 1)) for e in entries]
-        result = entries, companion_drop_weights(entries, weights)
-        self._pool_cache[cache_key] = result
-        return result
+    def _source_pool(self, trigger, level, expedition_tier=None):
+        cache_key = (trigger, expedition_tier, level)
+        if cache_key not in self._pool_cache:
+            entries = [e for e in self.catalog.pools.get(trigger, []) if e.min_level <= level]
+            if expedition_tier is not None and not entries:
+                entries = [e for key in ("clock_out", "chore_complete")
+                           for e in self.catalog.pools.get(key, []) if e.min_level <= level]
+            self._pool_cache[cache_key] = entries, companion_drop_weights(entries)
+        return self._pool_cache[cache_key]
+
+    def eligible_pool(self, trigger, *, expedition_tier=None, owned_item_ids=None):
+        entries, authored = self._source_pool(trigger, self.level, expedition_tier)
+        budgets = (TIER_CONFIG[expedition_tier]["rarity_weights"] if expedition_tier is not None
+                   else ACCOMPLISHMENT_TIER_WEIGHTS if trigger in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS)
+        if owned_item_ids is None:
+            owned_item_ids = {pk for pk, quantity in self.inventory.items()
+                              if quantity > 0 and self.catalog.items[pk].item_type in COSMETIC_TYPES}
+        # Ownership changes during a run (and within an expedition's pre-roll),
+        # so only the source pool is cached, never its effective draw weights.
+        return entries, tier_balanced_weights(entries, budgets, authored_weights=authored,
+                                              owned_item_ids=owned_item_ids)
 
     def _finite_keys(self):
         # Scenario-reachable means a compatible source exists in this model,
@@ -486,12 +506,15 @@ class Trial:
             if e.min_level <= max(XP_THRESHOLDS) and e.weight > 0
         }
         if "expedition_returned" in triggers:
-            obtainable.update(
-                e.item_id
-                for key in ("expedition_returned", "clock_out", "chore_complete")
-                for e in self.catalog.pools.get(key, [])
-                if e.min_level <= max(XP_THRESHOLDS)
-            )
+            tier = self.config["expedition_tier"]
+            budgets = TIER_CONFIG[tier]["rarity_weights"]
+            # A dedicated pool suppresses fallback at that level even if all
+            # its rarities are excluded. Only positive supported draws count
+            # as finite targets; early-level fallback remains reachable.
+            for level in XP_THRESHOLDS:
+                entries, weights = self._source_pool("expedition_returned", level, tier)
+                obtainable.update(e.item_id for e, weight in zip(entries, weights)
+                                  if weight > 0 and budgets.get(e.item.rarity, 0) > 0)
         reachable_badges = self._reachable_badges(obtainable)
         egg_species = {
             self.catalog.items[pk].pet_species_id for pk in obtainable if self.catalog.items[pk].item_type == "egg"
@@ -958,16 +981,16 @@ class Trial:
                     pet = next((p for p in self.pets.values() if not p.evolved_to_mount), None)
                     if pet is None:
                         break
+                    food_type = str(food.metadata.get("food_type", "")).strip()
                     preferred = (
                         food.food_species_id == pet.species.pk
                         if food.food_species_id
-                        else bool(food.metadata.get("food_type"))
-                        and food.metadata.get("food_type") == pet.species.food_preference
+                        else bool(food_type) and food_type == pet.species.food_preference
                     )
                     middle, grown = growth_thresholds(pet)
-                    pet.growth_points = min(
-                        grown, pet.growth_points + (GROWTH_PREFERRED_FOOD if preferred else GROWTH_NEUTRAL_FOOD)
-                    )
+                    food_view = SimpleNamespace(rarity=food.rarity, metadata=dict(food.metadata or {}))
+                    growth = food_base_growth(food_view) + (PREFERRED_FOOD_BONUS if preferred else 0)
+                    pet.growth_points = min(grown, pet.growth_points + growth)
                     self.consume(pk, 1, "feeding")
                     if pet.growth_points >= middle:
                         self.milestones.setdefault("first_middle", self.day)
@@ -1006,12 +1029,18 @@ class Trial:
             if pair in active or launched >= self.config["expeditions_per_day"]:
                 continue
             coins = max(1, int(tier_config["base_coins"] * (0.85 + self.rng.random() * 0.30)))
-            entries, weights = self.eligible_pool("expedition_returned", expedition_tier=tier)
-            items = (
-                [self.rng.choices(entries, weights=weights, k=1)[0].item_id for _ in range(tier_config["item_slots"])]
-                if entries
-                else []
-            )
+            owned = {pk for pk, quantity in self.inventory.items()
+                     if quantity > 0 and self.catalog.items[pk].item_type in COSMETIC_TYPES}
+            items = []
+            for _ in range(tier_config["item_slots"]):
+                entries, weights = self.eligible_pool("expedition_returned", expedition_tier=tier,
+                                                       owned_item_ids=owned)
+                if not entries or not any(weights):
+                    break
+                entry = self.rng.choices(entries, weights=weights, k=1)[0]
+                items.append(entry.item_id)
+                if entry.item.item_type in COSMETIC_TYPES:
+                    owned.add(entry.item_id)
             self.pending_expeditions.append(
                 {
                     "pair": pair,
@@ -1224,9 +1253,9 @@ def describe_progression():
     }
 
 
-def simulate_progression(config=None):
+def simulate_progression(config=None, *, catalog=None):
     config = normalize_config(config)
-    catalog = load_catalog()
+    catalog = load_catalog() if catalog is None else catalog
     runs = [run_trial(config, catalog, config["seed"] + index) for index in range(config["trials"])]
     milestones = []
     for key, label in MILESTONES.items():

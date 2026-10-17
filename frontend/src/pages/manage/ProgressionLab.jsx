@@ -145,6 +145,7 @@ function AccountProgressionLab() {
     <PageShell rhythm="loose">
       <PageHeader title="Progression lab" kicker="Designer workspace · new children starting from zero" />
       <Link to="/manage?tab=Admin" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">Back to administration</Link>
+      <Link to="/manage/rpg-content" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">Manage challenges and items</Link>
       {denied ? <p role="status">Progression lab is available to staff parents.</p> : <>
         <p className="text-body text-ink-secondary">Explore what a child can earn and discover through an ordinary routine. These are design forecasts, not measured player behavior or a prediction of when a child becomes bored.</p>
         <ErrorAlert message={readError && `Could not load the rules and catalog. ${readError}`} onRetry={retryRead} />

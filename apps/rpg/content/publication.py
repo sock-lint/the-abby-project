@@ -77,6 +77,10 @@ def _snapshot(family, *, lock=False):
         qs = model.objects.all()
         if model._meta.label_lower == "rewards.reward":
             qs = qs.filter(family=family)
+        elif model._meta.label_lower == "quests.questdefinition":
+            qs = qs.filter(is_system=True)
+        elif model._meta.label_lower in {"quests.questrewarditem", "quests.questskilltag"}:
+            qs = qs.filter(quest_definition__is_system=True)
         if lock:
             # Catalog table locks already serialize writes. Avoid blocking the
             # KEY SHARE checks performed when accepted work grants inventory.

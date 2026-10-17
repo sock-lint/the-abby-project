@@ -1,5 +1,12 @@
 # Shared API response fixtures
 
+`content-workbench-catalog.json` and `content-workbench-denied.json` bind the
+staff content editor's catalog, exact reward references, reverse item uses,
+simulation metadata and permission denial to real Django responses. Producers
+live in `config/tests/test_content_workbench_api_contract_fixtures.py`; React
+transport and editor consumption checks live in
+`frontend/src/api/contentWorkbenchContractFixtures.test.jsx`.
+
 `badges-rarity-bonuses.json` and `badges-earned-rarity-bonuses.json` verify real catalog/earned responses, opt-outs and family isolation.
 
 Rarity responses include server-derived badge `coin_bonus` (base, before a

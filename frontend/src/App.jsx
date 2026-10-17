@@ -35,6 +35,7 @@ const ProjectIngest = lazy(() => import('./pages/ProjectIngest'));
 const ClockPage = lazy(() => import('./pages/ClockPage'));
 const Manage = lazy(() => import('./pages/Manage'));
 const ProgressionLab = lazy(() => import('./pages/manage/ProgressionLab'));
+const ContentWorkbench = lazy(() => import('./pages/manage/ContentWorkbench'));
 const CodexPage = lazy(() => import('./pages/CodexPage'));
 const ActivityPage = lazy(() => import('./pages/activity/ActivityPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -254,6 +255,7 @@ function AppContent() {
               <Route path="/clock" element={<ClockPage />} />
               <Route path="/manage" element={<Manage />} />
               <Route path="/manage/progression-lab" element={<ProgressionLab />} />
+              <Route path="/manage/rpg-content" element={<ContentWorkbench />} />
               <Route path="/codex" element={<CodexPage />} />
               <Route path="/activity" element={<ActivityPage />} />
               <Route path="/settings" element={<SettingsPage />} />
