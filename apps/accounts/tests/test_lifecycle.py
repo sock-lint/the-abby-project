@@ -489,6 +489,65 @@ class AccountLifecycleTests(LifecycleSetup, TestCase):
         self.assertEqual(self.close().status_code, 204)
         self.assertEqual(set(ContentType.objects.values_list("app_label", "model")), before)
 
+    def test_closure_queries_do_not_grow_per_activity_event(self):
+        self.deactivate_successor()
+        counts, activity_writes = [], []
+        for history_size in (2000, 4000):
+            previous_size = ActivityEvent.objects.filter(actor=self.child).count()
+            ActivityEvent.objects.bulk_create([
+                ActivityEvent(actor=self.child, subject=self.child, category="system", event_type="synthetic", summary="Private family activity")
+                for _ in range(history_size - previous_size)
+            ])
+            with transaction.atomic():
+                with CaptureQueriesContext(connection) as queries:
+                    response = self.close()
+                self.assertEqual(response.status_code, 204)
+                self.assertFalse(ActivityEvent.objects.filter(actor=self.child).exists())
+                counts.append(len(queries))
+                activity_writes.append(sum(
+                    query["sql"].lstrip().upper().startswith(("DELETE", "UPDATE"))
+                    and '"activity_activityevent"' in query["sql"]
+                    for query in queries
+                ))
+                transaction.set_rollback(True)
+        summary = f"Closure queries for 2000/4000 activity events: total={counts}, activity_writes={activity_writes}"
+        logging.getLogger(__name__).info(summary)
+        self.assertLessEqual(activity_writes[1], 20, summary)
+        self.assertLessEqual(counts[1], counts[0] + 20, summary)
+
+    def test_many_mixed_family_activity_rows_preserve_foreign_attribution_in_bounded_redaction_batches(self):
+        self.deactivate_successor()
+        private = self.journal(self.child)
+        ActivityEvent.objects.bulk_create([
+            ActivityEvent(
+                actor=self.child, subject=self.other.children[0], target=private,
+                category="award", event_type="synthetic", summary="Departing private text",
+                context={"private": "departing body"}, coins_delta=5, money_delta=1, xp_delta=10,
+            ) for _ in range(125)
+        ])
+        with CaptureQueriesContext(connection) as queries:
+            response = self.close()
+        self.assertEqual(response.status_code, 204)
+        rows = list(ActivityEvent.objects.filter(subject=self.other.children[0]))
+        self.assertEqual(len(rows), 125)
+        for row in rows:
+            self.assertIsNone(row.actor_id)
+            self.assertIsNone(row.target_ct_id)
+            self.assertIsNone(row.target_id)
+            self.assertIsNone(row.coins_delta)
+            self.assertIsNone(row.money_delta)
+            self.assertIsNone(row.xp_delta)
+            self.assertEqual(row.summary, "Account activity removed")
+            self.assertEqual(row.context, {})
+            self.assertEqual(row.event_type, "account.removed")
+        writes = sum(
+            query["sql"].lstrip().upper().startswith(("DELETE", "UPDATE"))
+            and '"activity_activityevent"' in query["sql"]
+            for query in queries
+        )
+        logging.getLogger(__name__).info("Mixed-family activity redaction: 125 rows used %s writes", writes)
+        self.assertLessEqual(writes, 10, f"125 mixed activity rows used {writes} writes")
+
 
 class FamilyClosureCleanupTests(LifecycleSetup, TransactionTestCase):
     def test_last_parent_closure_removes_family_credentials_and_records_with_durable_retry_and_global_boundaries(self):

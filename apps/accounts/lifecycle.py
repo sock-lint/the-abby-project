@@ -261,6 +261,20 @@ def delete_related_activity(collector, users):
         ct_id = content_types.get((concrete.app_label, concrete.model_name))
         if ct_id is not None:
             events.append(ActivityEvent.objects.filter(target_ct_id=ct_id, target_id__in=query.values("pk")))
+    deletions, redactions = [], []
+    redacted_fields = (
+        "summary", "context", "correlation_id", "target_ct", "target_id",
+        "event_type", "category", "coins_delta", "money_delta", "xp_delta", "actor", "subject",
+    )
+
+    def flush_activity_batch():
+        if deletions:
+            ActivityEvent.objects.filter(pk__in=deletions).delete()
+            deletions.clear()
+        if redactions:
+            ActivityEvent.objects.bulk_update(redactions, redacted_fields, batch_size=100)
+            redactions.clear()
+
     with _dependent_deletion_work(collector.using) as nowait:
         for query in events:
             for event in query.select_for_update(of=("self",), nowait=nowait).select_related("actor", "subject").order_by("pk"):
@@ -279,9 +293,15 @@ def delete_related_activity(collector, users):
                         event.actor = None
                     if event.subject_id in user_ids:
                         event.subject = None
-                    event.save()
+                    redactions.append(event)
                 else:
-                    event.delete()
+                    deletions.append(event.pk)
+                # The selected rows remain locked through the surrounding
+                # transaction. Bulk writes retain the same privacy decisions
+                # without a network round trip for every historical event.
+                if len(deletions) >= 500 or len(redactions) >= 100:
+                    flush_activity_batch()
+            flush_activity_batch()
 
 
 def transfer_contact(family, actor, members, *, password, successor_id):
