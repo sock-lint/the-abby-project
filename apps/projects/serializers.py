@@ -62,7 +62,14 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
-class ChildSerializer(serializers.ModelSerializer):
+class MemberPasswordUpdateGuard:
+    def validate_password(self, value):
+        if self.instance is not None:
+            raise serializers.ValidationError("Use the reset-password action to change a password.")
+        return value
+
+
+class ChildSerializer(MemberPasswordUpdateGuard, serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
     age_years = serializers.IntegerField(read_only=True, allow_null=True)
     current_grade = serializers.IntegerField(read_only=True, allow_null=True)
@@ -103,14 +110,13 @@ class ChildSerializer(serializers.ModelSerializer):
         return User.objects.create_user(password=password, **validated_data)
 
 
-class ParentSerializer(serializers.ModelSerializer):
+class ParentSerializer(MemberPasswordUpdateGuard, serializers.ModelSerializer):
     """Read/write shape for parents within a family.
 
     Mirrors ChildSerializer but drops earnings-side fields (``hourly_rate``,
     ``date_of_birth``, ``grade_entry_year``) since parents don't earn or
-    have a school chapter, and exposes ``is_active`` so the existing PATCH
-    surface can flip it (the ``deactivate`` / ``reactivate`` actions are the
-    canonical write path though).
+    have a school chapter. The existing ``is_active`` PATCH surface applies
+    the same lifecycle guards and token revocation as the dedicated actions.
     """
 
     google_linked = serializers.SerializerMethodField()

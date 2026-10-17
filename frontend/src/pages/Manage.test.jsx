@@ -350,7 +350,7 @@ describe('Manage — Family tab', () => {
     await user.click(await screen.findByRole('tab', { name: /^Family$/ }));
     expect(await screen.findByText('Coparent')).toBeInTheDocument();
     expect(screen.getByText(/\(you\)/)).toBeInTheDocument();
-    expect(screen.getByText(/founder/i)).toBeInTheDocument();
+    expect(screen.getByText('Family contact')).toBeInTheDocument();
   });
 
   it("self-row hides the Edit button so own-profile flows route through /settings", async () => {

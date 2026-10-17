@@ -58,6 +58,11 @@ class PublicInformationPagesTests(SimpleTestCase):
             "Failed cleanup is recorded and retried",
             "not comprehensive anonymization",
             "device drafts may also remain",
+            "password-confirmed self-deletion",
+            "Private journals are deleted with their owner and never transferred",
+            "The last active parent",
+            "parents keep equal access",
+            "remove or redact structurally linked activity",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)

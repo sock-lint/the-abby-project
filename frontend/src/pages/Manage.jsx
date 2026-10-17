@@ -814,7 +814,7 @@ function FamilySection() {
                 )}
                 {parent.is_primary && (
                   <span className="text-tiny px-1.5 py-0.5 rounded bg-sheikah-teal/20 text-sheikah-teal-deep font-normal">
-                    Founder
+                    Family contact
                   </span>
                 )}
                 {inactive && (
