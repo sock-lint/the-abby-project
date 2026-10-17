@@ -1,0 +1,178 @@
+{
+  "results": [
+    {
+      "id": "goal:1",
+      "name": "Two movement sessions",
+      "description": "Log two movement sessions during this window.",
+      "origin": "catalog",
+      "catalog_icon": null,
+      "metric": "count",
+      "target": "2",
+      "progress": "2",
+      "unit": "actions",
+      "status": "completed",
+      "starts_at": "2026-10-14T19:00:00+00:00",
+      "ends_at": "2026-10-21T19:00:00+00:00",
+      "timezone": "America/Phoenix",
+      "what_counts": "movement sessions",
+      "rewards": {
+        "coins": 5,
+        "xp": 10,
+        "items": [
+          {
+            "item_id": 63,
+            "quantity": 1,
+            "item_name": "Fixture Wolf Egg",
+            "item_icon": "",
+            "item_sprite_key": "",
+            "item_catalog_icon": null
+          }
+        ]
+      },
+      "action": {
+        "label": "Log movement",
+        "path": "/quests?tab=movement"
+      },
+      "pinned": false,
+      "repeat_weekly": false,
+      "legacy": false,
+      "reward_receipt": {
+        "id": "goal:1",
+        "status": "awarded",
+        "coins_awarded": 5,
+        "xp_awarded": 10,
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": [
+          {
+            "item_name": "Fixture Wolf Egg",
+            "item_catalog_icon": null,
+            "quantity": 1
+          }
+        ]
+      }
+    }
+  ],
+  "pin": null,
+  "recent_receipts": [
+    {
+      "id": "goal:1",
+      "name": "Two movement sessions",
+      "description": "Log two movement sessions during this window.",
+      "origin": "catalog",
+      "catalog_icon": null,
+      "metric": "count",
+      "target": "2",
+      "progress": "2",
+      "unit": "actions",
+      "status": "completed",
+      "starts_at": "2026-10-14T19:00:00+00:00",
+      "ends_at": "2026-10-21T19:00:00+00:00",
+      "timezone": "America/Phoenix",
+      "what_counts": "movement sessions",
+      "rewards": {
+        "coins": 5,
+        "xp": 10,
+        "items": [
+          {
+            "item_id": 63,
+            "quantity": 1,
+            "item_name": "Fixture Wolf Egg",
+            "item_icon": "",
+            "item_sprite_key": "",
+            "item_catalog_icon": null
+          }
+        ]
+      },
+      "action": {
+        "label": "Log movement",
+        "path": "/quests?tab=movement"
+      },
+      "pinned": false,
+      "repeat_weekly": false,
+      "legacy": false,
+      "reward_receipt": {
+        "id": "goal:1",
+        "status": "awarded",
+        "coins_awarded": 5,
+        "xp_awarded": 10,
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": [
+          {
+            "item_name": "Fixture Wolf Egg",
+            "item_catalog_icon": null,
+            "quantity": 1
+          }
+        ]
+      }
+    }
+  ],
+  "challenge_receipts": [
+    {
+      "id": "activity:2",
+      "goals": [
+        {
+          "id": "goal:1",
+          "name": "Two movement sessions",
+          "progress": "2",
+          "target": "2",
+          "unit": "actions",
+          "completed": true,
+          "rewards": {
+            "coins": 5,
+            "xp": 10,
+            "items": [
+              {
+                "item_name": "Fixture Wolf Egg",
+                "item_catalog_icon": null,
+                "quantity": 1
+              }
+            ]
+          }
+        }
+      ],
+      "daily_bonus": null
+    },
+    {
+      "id": "activity:1",
+      "goals": [
+        {
+          "id": "goal:1",
+          "name": "Two movement sessions",
+          "progress": "1",
+          "target": "2",
+          "unit": "actions",
+          "completed": false,
+          "rewards": null
+        }
+      ],
+      "daily_bonus": {
+        "date": "2026-10-14",
+        "timezone": "America/Phoenix",
+        "goal": "Complete an approved task or log 10 minutes of work or movement",
+        "progress_minutes": 20,
+        "completed": true,
+        "awarded": true,
+        "coin_reward": 10,
+        "xp_reward": 20,
+        "coins_awarded": 10,
+        "xp_awarded": 20,
+        "ends_at": "2026-10-15T00:00:00-07:00",
+        "receipt_id": "daily:1"
+      }
+    }
+  ],
+  "daily_bonus": {
+    "date": "2026-10-14",
+    "timezone": "America/Phoenix",
+    "goal": "Complete an approved task or log 10 minutes of work or movement",
+    "progress_minutes": 40,
+    "completed": true,
+    "awarded": true,
+    "coin_reward": 10,
+    "xp_reward": 20,
+    "coins_awarded": 10,
+    "xp_awarded": 20,
+    "ends_at": "2026-10-15T00:00:00-07:00",
+    "receipt_id": "daily:1"
+  }
+}

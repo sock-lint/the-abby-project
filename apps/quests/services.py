@@ -135,10 +135,12 @@ class QuestService:
                 scroll_inv.save(update_fields=["quantity", "updated_at"])
 
         now = timezone.now()
+        from apps.quests.reward_items import snapshot_reward_items
         quest = Quest.objects.create(
             definition=definition,
             start_date=now,
             end_date=now + timedelta(days=definition.duration_days),
+            reward_items_snapshot=snapshot_reward_items(definition),
         )
         QuestParticipant.objects.create(quest=quest, user=user)
 
@@ -210,10 +212,12 @@ class QuestService:
                 )
 
         now = timezone.now()
+        from apps.quests.reward_items import snapshot_reward_items
         quest = Quest.objects.create(
             definition=definition,
             start_date=now,
             end_date=now + timedelta(days=definition.duration_days),
+            reward_items_snapshot=snapshot_reward_items(definition),
         )
         for u in users:
             QuestParticipant.objects.create(quest=quest, user=u)
@@ -375,8 +379,11 @@ class QuestService:
             return None
         if not any(member.pk == user.pk for member in users):
             raise ValueError("You are not a participant in this quest")
+        if quest.reward_items_snapshot is None:
+            from apps.quests.reward_items import snapshot_reward_items
+            quest.reward_items_snapshot = snapshot_reward_items(quest.definition, available_only=False)
         quest.status = Quest.Status.COMPLETED
-        quest.save(update_fields=["status", "updated_at"])
+        quest.save(update_fields=["status", "updated_at", "reward_items_snapshot"])
         finishing_rewards = None
         for member in users:
             rewards = QuestService._award_quest_rewards(quest, member)
@@ -438,17 +445,10 @@ class QuestService:
         # cosmetic-dupe rule in DropService.
         from apps.pets.models import UserMount
         from apps.rpg.models import ItemDefinition
-        from apps.rpg.catalog_support import item_is_available
         from apps.rpg.catalog_icons import item_catalog_icon
-        for reward_item in definition.reward_items.select_related(
-            "item", "item__pet_species",
-        ).all():
+        from apps.quests.reward_items import accepted_reward_items
+        for reward_item in accepted_reward_items(quest):
             item = reward_item.item
-            # Catalog retirement preserves definitions and ownership, while
-            # excluding unavailable new grants without replacing them with
-            # invented coins or changing the quest's XP/coin rewards.
-            if not item_is_available(item):
-                continue
             is_owned_egg = (
                 item.item_type == ItemDefinition.ItemType.EGG
                 and item.pet_species_id is not None

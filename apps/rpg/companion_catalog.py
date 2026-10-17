@@ -85,12 +85,17 @@ def companion_item_weights(items, weights):
 
 @transaction.atomic
 def reconcile_companion_offers(*, dry_run=False):
-    """Retire acquisition configuration only; keep all identities and promises."""
+    """Freeze accepted promises and retire unsupported acquisition configuration."""
     from apps.quests.models import QuestRewardItem
+    from apps.quests.reward_items import freeze_legacy_quest_promises
     from apps.rewards.models import Reward
     from .models import DropTable, ItemDefinition
 
     check_prepared_identity_collisions()
+
+    # Old accepted campaigns predate server-owned snapshots. Freeze their
+    # retained definition links once, without rewards, progress or timestamps.
+    quest_ids = freeze_legacy_quest_promises(dry_run=dry_run)
 
     items = [item for item in ItemDefinition.objects.filter(
         item_type__in=["egg", "potion"],
@@ -106,6 +111,8 @@ def reconcile_companion_offers(*, dry_run=False):
         "drops_removed": drops.count(),
         "rewards_deactivated": offers.count(),
         "retained_quest_reward_links": QuestRewardItem.objects.filter(item_id__in=ids).count(),
+        "quests_snapshotted": len(quest_ids),
+        "quest_ids": quest_ids,
         "item_slugs": [item.slug for item in items],
         "items": [{"id": item.pk, "slug": item.slug, "item_type": item.item_type} for item in items],
         "drop_ids": list(drops.order_by("pk").values_list("pk", flat=True)),

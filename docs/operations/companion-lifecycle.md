@@ -166,6 +166,22 @@ python manage.py loadrpgcontent --dry-run
 python manage.py reconcile_companion_catalog --dry-run --json
 ```
 
+The adoption includes a nullable, server-only `Quest.reward_items_snapshot`
+column. Review `python manage.py migrate --plan` and exercise the migration
+and these dry runs on a disposable restored database first. The schema change
+adds the column without deleting or paying anything. New quest starts freeze
+only currently eligible reward item IDs and quantities. Reconciliation reports
+and freezes existing accepted quests' retained reward links once; dry-run
+persists nothing. That cutover cannot reconstruct definition edits made before
+the saved-data baseline, so inspect the retained links before rollout.
+
+Existing automatic challenge snapshots and accepted legacy quest item promises
+remain visible and payable after catalog retirement. Payout uses the saved
+promise rather than reapplying today's acquisition filter. Existing salvage,
+participant, locking and one-time-award rules still apply. Reads, schema
+migration and promise backfill award no XP, Coins or inventory. New goals,
+occurrences and quest starts continue excluding unavailable items.
+
 Review the affected row IDs and resolve collisions without repointing owned
 definitions. On the approved rollout, ordinary `loadrpgcontent` upserts new
 families and transactionally reconciles stale offers. The explicit idempotent

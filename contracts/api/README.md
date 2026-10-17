@@ -28,7 +28,9 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `challenges-completed.json` | Completed occurrences retain reward previews and actual paid receipts; reopening the list awards nothing |
 | `challenges-boosted.json` | Daily Lucky Coin payout is distinct from its base preview; parent goal Coins retain the existing unboosted policy |
 | `challenges-items-delivered.json` | Actual frame delivery is recorded in the awarded receipt and persists without duplicate grants |
-| `challenges-items-skipped.json` | An egg becomes unavailable after the preview; completion records no item delivery |
+| `challenges-items-skipped.json` | An egg unavailable before acceptance is excluded from the new snapshot and receives no item delivery |
+| `challenges-items-promised-retired.json` | An accepted frozen item remains visible and delivers once after catalog retirement |
+| `challenges-legacy-promised-item.json`, `quest-promised-item-active.json`, `quest-promised-item-history.json` | Accepted legacy quest items remain visible and fulfill once after retirement; new starts omit unavailable items |
 | `challenges-items-converted.json` | An egg for an already-owned mount is converted to Coins; the receipt distinguishes conversion from delivery |
 | `challenge-goal-invalid.json` | Invalid nonpositive target rejected with HTTP 400; no goal or reward persists |
 | `character-avatar-default.json` | `GET /api/character/`; existing account with no saved Archer appearance receives the complete default options |

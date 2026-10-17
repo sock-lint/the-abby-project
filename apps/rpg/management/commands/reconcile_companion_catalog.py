@@ -1,4 +1,4 @@
-"""Retire stale companion offers without touching saved content or promises."""
+"""Preserve accepted promises while retiring stale companion offers."""
 import json
 
 from django.core.management.base import BaseCommand, CommandError
@@ -7,7 +7,7 @@ from apps.rpg.companion_catalog import CompanionCatalogCollision, reconcile_comp
 
 
 class Command(BaseCommand):
-    help = "Remove unsupported egg/potion drop configuration and deactivate digital shop offers."
+    help = "Freeze accepted quest item promises, retire unsupported drops and deactivate digital shop offers."
 
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true", help="Inventory affected rows without writing.")
@@ -25,5 +25,6 @@ class Command(BaseCommand):
             self.stdout.write(
                 f"{mode}: {report['drops_removed']} drop rows, "
                 f"{report['rewards_deactivated']} digital offers; "
-                f"{report['retained_quest_reward_links']} quest reward links retained"
+                f"{report['retained_quest_reward_links']} quest reward links retained; "
+                f"{report['quests_snapshotted']} accepted quest promises frozen"
             )

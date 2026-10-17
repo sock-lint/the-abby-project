@@ -103,6 +103,10 @@ class ContentPack:
         # whatever's left after this savepoint is rolled back or released.
         sid = transaction.savepoint()
         try:
+            # Freeze accepted pre-cutover item links before authored quest
+            # upserts can change quantities; the dry-run savepoint rolls back.
+            from apps.quests.reward_items import freeze_legacy_quest_promises
+            freeze_legacy_quest_promises()
             self._load_skill_tree(parsed.get("skill_tree"), write)
             self._load_badges(parsed.get("badges"), write)
             self._load_potion_types(parsed.get("potion_types"), write)

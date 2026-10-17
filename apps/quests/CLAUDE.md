@@ -4,12 +4,21 @@ Automatic challenges track every relevant goal independently of its pin. The leg
 
 ## Supported rewards and reachable prerequisites (October 2026)
 
-Quest definition reads filter `reward_items` through
-`apps/rpg/catalog_support.py`, and completion applies the same filter before
-new inventory grants or egg salvage. Unavailable eggs, potion variants and
-pet accessories are skipped without replacement Coins; the definition's
-ordinary XP/coin payout and completion progress are unchanged. Definitions,
-active quests and saved ownership are retained.
+New quest definition reads and accepted starts filter `reward_items` through
+`apps/rpg/catalog_support.py`. New automatic occurrences freeze only eligible
+items in their server-owned snapshot; new legacy solo/co-op starts freeze
+`Quest.reward_items_snapshot`. Accepted snapshots remain visible and fulfill
+their original item IDs and quantities once after catalog retirement,
+including existing egg-salvage rules. Unavailable new offers receive no
+replacement Coins. Ordinary XP/coin payouts and progress remain unchanged.
+
+Pre-cutover legacy quests have a null item snapshot and retain their current
+`QuestRewardItem` links. Reconciliation freezes active null snapshots once,
+without rewards or timestamp/progress changes; its dry-run reports affected
+quest IDs without writes. Content loading freezes these links before authored
+quest updates. Earlier edits cannot be reconstructed because old quests had no
+historical item snapshot. `reward_items.py` owns this boundary; the nullable
+field is server-only and is distinct from an accepted empty list.
 
 Read-only `catalog_available` reports whether the required badge is still a
 reachable goal, or was already earned by the account. React omits unavailable
@@ -79,7 +88,7 @@ in `tests/test_reward_integrity.py`.
 
 ## Models
 - `QuestDefinition` (boss/collection, `trigger_filter` JSON, `required_badge` gating, `xp_reward`/`coin_reward`/`QuestRewardItem`).
-- `Quest` (active quest row per user — `status`, `current_progress`, `rage_shield`, `end_date`).
+- `Quest` (active quest row per user — `status`, `current_progress`, `rage_shield`, `end_date`; server-owned nullable `reward_items_snapshot` retains accepted item IDs/quantities).
 - `QuestParticipant` (multi-player-ready, wired today for parent-authored co-op quests).
 - `QuestRewardItem` (per-quest reward bundle).
 - `QuestSkillTag` (XP fan-out — same shape as `ProjectSkillTag`).

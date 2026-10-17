@@ -7,6 +7,7 @@ import partialGoals from '../../../contracts/api/fixtures/challenges-partial.jso
 import completedGoals from '../../../contracts/api/fixtures/challenges-completed.json';
 import boostedGoals from '../../../contracts/api/fixtures/challenges-boosted.json';
 import deliveredItems from '../../../contracts/api/fixtures/challenges-items-delivered.json';
+import retiredPromisedItems from '../../../contracts/api/fixtures/challenges-items-promised-retired.json';
 import skippedItems from '../../../contracts/api/fixtures/challenges-items-skipped.json';
 import convertedItems from '../../../contracts/api/fixtures/challenges-items-converted.json';
 import pinnedGoal from '../../../contracts/api/fixtures/challenge-pinned.json';
@@ -14,9 +15,12 @@ import unpinnedGoal from '../../../contracts/api/fixtures/challenge-unpinned.jso
 import firstRun from '../../../contracts/api/fixtures/challenge-run-first.json';
 import completedRun from '../../../contracts/api/fixtures/challenge-run-completed.json';
 import invalidGoal from '../../../contracts/api/fixtures/challenge-goal-invalid.json';
+import promisedQuest from '../../../contracts/api/fixtures/quest-promised-item-active.json';
+import promisedQuestHistory from '../../../contracts/api/fixtures/quest-promised-item-history.json';
+import legacyPromisedItems from '../../../contracts/api/fixtures/challenges-legacy-promised-item.json';
 import { server } from '../test/server';
 import {
-  createChallengeGoal, getChallenges, logMovementSession, pinChallenge, unpinChallenge,
+  createChallengeGoal, getActiveQuest, getChallenges, getQuestHistory, logMovementSession, pinChallenge, unpinChallenge,
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
@@ -96,7 +100,8 @@ describe('automatic challenge responses through the shared React API client', ()
 
   it.each([
     ['delivered', deliveredItems, [{ item_name: 'Fixture frame', item_catalog_icon: null, quantity: 1 }], 5],
-    ['skipped', skippedItems, [], 5],
+    ['promised before retirement', retiredPromisedItems, [{ item_name: 'Fixture Wolf Egg', item_catalog_icon: null, quantity: 1 }], 5],
+    ['unavailable before acceptance', skippedItems, [], 5],
     ['converted', convertedItems, [{ item_name: 'Fixture Wolf Egg', item_catalog_icon: null, quantity: 1, salvaged_to_coins: 25 }], 30],
   ])('preserves recorded %s item outcomes independently of reward previews', async (_label, body, items, coins) => {
     server.use(http.get('*/api/challenges/', () => HttpResponse.json(body)));
@@ -104,6 +109,25 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(saved).toEqual(body);
     expect(saved.results[0].reward_receipt).toMatchObject({ status: 'awarded', items, coins_awarded: coins });
     expect(saved.recent_receipts[0].reward_receipt.items).toEqual(items);
+  });
+
+  it('keeps an accepted legacy item promise visible through active quest, challenge and completed history reads', async () => {
+    server.use(
+      http.get('*/api/quests/active/', () => HttpResponse.json(promisedQuest)),
+      http.get('*/api/quests/history/', () => HttpResponse.json(promisedQuestHistory)),
+      http.get('*/api/challenges/', () => HttpResponse.json(legacyPromisedItems)),
+    );
+    const active = await getActiveQuest();
+    expect(active).toEqual(promisedQuest);
+    expect(active.definition.reward_items).toMatchObject([{ item: 63, item_name: 'Fixture Wolf Egg', quantity: 2 }]);
+    const goals = await getChallenges();
+    expect(goals).toEqual(legacyPromisedItems);
+    const legacy = goals.results.find((goal) => goal.origin === 'legacy');
+    expect(legacy.rewards.items).toEqual(active.definition.reward_items);
+    const history = await getQuestHistory();
+    expect(history).toEqual(promisedQuestHistory);
+    expect(history[0]).toMatchObject({ id: active.id, status: 'completed' });
+    expect(history[0].definition.reward_items).toEqual(active.definition.reward_items);
   });
 
   it('pins and unpins presentation with one POST or DELETE and the server pin receipt', async () => {

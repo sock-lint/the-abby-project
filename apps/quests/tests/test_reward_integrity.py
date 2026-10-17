@@ -140,7 +140,8 @@ class QuestRewardIntegrityTests(TestCase):
         potion = PotionType.objects.create(slug="base", name="Base")
         UserMount.objects.create(user=self.first, species=species, potion=potion)
         egg = ItemDefinition.objects.create(
-            slug="team-chick-egg", name="Chick egg", item_type="egg", pet_species=species, coin_value=3,
+            slug="chick-egg", name="Chick egg", item_type="egg", pet_species=species, coin_value=3,
+            metadata={"species": "chick"},
         )
         QuestRewardItem.objects.create(quest_definition=self.definition, item=egg, quantity=2)
         QuestService.start_co_op_quest(self.definition.pk, [self.second, self.first])

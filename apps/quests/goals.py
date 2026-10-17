@@ -259,7 +259,6 @@ def _award(occurrence, user):
         return occurrence.reward_receipt
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
-    from apps.rpg.catalog_support import item_is_available
     from apps.rpg.models import ItemDefinition
     from apps.rpg.inventory import grant_item
     from apps.pets.models import UserMount
@@ -283,7 +282,8 @@ def _award(occurrence, user):
     coins, items = snapshot["coins"], []
     for row in snapshot.get("items", []):
         item = ItemDefinition.objects.filter(pk=row["item_id"]).first()
-        if not item or not item_is_available(item):
+        # This server-owned snapshot was validated when the window opened.
+        if not item:
             continue
         quantity = row["quantity"]
         if item.item_type == "egg" and item.pet_species_id and UserMount.objects.filter(user=user, species_id=item.pet_species_id).exists() and item.coin_value > 0:
@@ -469,8 +469,7 @@ def _what_counts(snapshot, *, catalog=False):
 
 
 def _reward_preview(snapshot):
-    """Current acquisition policy controls previews without rewriting saved IDs."""
-    from apps.rpg.catalog_support import item_is_available
+    """Show the accepted promise; new snapshots apply acquisition policy."""
     from apps.rpg.models import ItemDefinition
     rows = snapshot.get("items", [])
     catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
@@ -479,7 +478,7 @@ def _reward_preview(snapshot):
     available = []
     for row in rows:
         item = catalog.get(row["item_id"])
-        if item is not None and item_is_available(item):
+        if item is not None:
             available.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return available
 
@@ -531,8 +530,8 @@ def _legacy_payload(quest, pin_id):
     definition = quest.definition
     key = f"legacy:{quest.pk}"
     from .serializers import QuestRewardItemSerializer
-    from apps.rpg.catalog_support import item_is_available
-    items = QuestRewardItemSerializer([row for row in definition.reward_items.select_related("item") if item_is_available(row.item)], many=True).data
+    from .reward_items import accepted_reward_items
+    items = QuestRewardItemSerializer(accepted_reward_items(quest), many=True).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
         "origin": "legacy",
