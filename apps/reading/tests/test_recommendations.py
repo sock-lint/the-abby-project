@@ -167,7 +167,7 @@ class ReadingRecommendationsTests(TestCase):
         session = self.session(book, "liked", reflection="Private words about fantasy and science.")
         with CaptureQueriesContext(connection) as queries:
             expected = recommend_books(self.reader)
-        self.assertEqual(len(queries), 2)
+        self.assertEqual(len(queries), 3)
         self.assertTrue(all("reflection" not in query["sql"].lower() for query in queries))
         session.reflection = "A completely different private thought about history."
         session.save(update_fields=["reflection"])

@@ -3,16 +3,14 @@ import { render, screen } from '@testing-library/react';
 import ParchmentCard from './ParchmentCard.jsx';
 
 describe('ParchmentCard', () => {
-  it.each([true, 'storybook'])('uses the same decorative corners without changing the content layout for flourish=%s', (flourish) => {
-    const { container } = render(<ParchmentCard flourish={flourish} className="space-y-4"><h2>A long project title</h2><button>Continue</button></ParchmentCard>);
+  it.each([{ flourish: true }, { flourish: 'storybook' }, { seal: true }, { seal: 'bottom-left' }, { flourish: true, seal: true }])('accepts legacy decoration props without adding ornaments: %j', (legacyProps) => {
+    const { container } = render(<ParchmentCard {...legacyProps} className="space-y-4"><h2>A long project title</h2><button>Continue</button></ParchmentCard>);
     const card = container.firstChild;
     expect(screen.getByRole('heading').parentElement).toBe(card);
     expect(screen.getByRole('button', { name: 'Continue' }).parentElement).toBe(card);
-    const corners = container.querySelectorAll('[data-storybook-corner]');
-    expect(corners).toHaveLength(2);
-    for (const corner of corners) {
-      expect(corner).toHaveAttribute('aria-hidden', 'true');
-    }
+    expect(card.children).toHaveLength(2);
+    expect(card).not.toHaveAttribute('flourish');
+    expect(card).not.toHaveAttribute('seal');
   });
 
   it('renders children', () => {
@@ -44,27 +42,6 @@ describe('ParchmentCard', () => {
   it('applies deep tone class', () => {
     const { container } = render(<ParchmentCard tone="deep">x</ParchmentCard>);
     expect(container.firstChild.className).toContain('bg-ink-page-shadow/80');
-  });
-
-  it('keeps card accents decorative when flourish=true', () => {
-    const { container } = render(<ParchmentCard flourish>x</ParchmentCard>);
-    expect(container.querySelectorAll('[data-storybook-corner]')).toHaveLength(2);
-  });
-
-  it('keeps the optional corner accent decorative when seal=true', () => {
-    const { container } = render(<ParchmentCard seal>x</ParchmentCard>);
-    const seals = container.querySelectorAll('[aria-hidden="true"]');
-    expect(seals.length).toBeGreaterThan(0);
-  });
-
-  it('accepts seal position as a string', () => {
-    const { container } = render(<ParchmentCard seal="bottom-left">x</ParchmentCard>);
-    expect(container.innerHTML).toContain('bottom-2 left-2');
-  });
-
-  it('falls back to top-right when seal position is unknown', () => {
-    const { container } = render(<ParchmentCard seal="nowhere">x</ParchmentCard>);
-    expect(container.innerHTML).toContain('top-2 right-2');
   });
 
   it('renders a custom tag via as= prop', () => {

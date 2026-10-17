@@ -205,6 +205,35 @@ describe('AuthProvider + useAuth', () => {
   describe('offline boot hydration', () => {
     const cached = buildUser({ first_name: 'Cached' });
 
+    it('recovers the live profile after an HTML proxy response instead of hydrating the offline snapshot', async () => {
+      const token = 'proxy-recovery-session';
+      const liveUser = buildUser({ id: 27, first_name: 'Live' });
+      setToken(token);
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token, user: cached }));
+      const requests = [];
+      server.use(http.get('*/api/auth/me/', ({ request }) => {
+        requests.push(request.headers.get('authorization'));
+        if (requests.length === 1) {
+          return new HttpResponse('<!DOCTYPE html><title>Oops — Something Broke</title>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        }
+        return HttpResponse.json(liveUser);
+      }));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(requests).toEqual([`Token ${token}`, `Token ${token}`]);
+      expect(result.current.user).toEqual(liveUser);
+      expect(result.current.offline).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe(token);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual({
+        version: 2, token, user: liveUser,
+      });
+    });
+
     it('hydrates from the cached user + flags offline when getMe network-errors and a token is present', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');
       localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'tok-123', user: cached }));

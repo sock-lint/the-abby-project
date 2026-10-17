@@ -7,8 +7,8 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Exact `chick` / `cute-chick` /
-`base` is the only new pet pair. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and fourteen prepared
+namespaced families accept Base only. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Authored YAML and database rows remain intact; artwork filenames and generic
 icons do not establish supported acquisition.
@@ -43,6 +43,37 @@ the asset preparation/license boundary is
 - `ItemDefinition` (10 item types incl. consumable, 5 rarities). Typed cross-entity FKs: `pet_species`, `potion_type`, `food_species`. `metadata` JSONField for free-form per-type fields.
 - `ItemDefinition.display_name` projects current color-theme labels from `shared/catalog/theme-presentation.json`, including seasonal aliases. API item/character/drop/reward names and new reward snapshots use this presentation value; stored catalog names, ownership, palette keys and exact artwork bindings stay intact. Unknown themes and other item names retain their saved labels. Historical frozen receipts are not rewritten. The existing storybook sync command copies the same label registry into React.
 - `UserInventory`, `DropTable`, `DropLog`
+
+## Rarity, effects and collection paths
+
+`rarity.py` separates successful-draw tier budgets from authored within-tier
+item weights. Ordinary drops use Common/Uncommon/Rare/Epic/Legendary weights
+60/25/10/4/1; milestone, project, badge, quest, Perfect Day and savings-goal
+completions use 40/30/20/8/2. Missing eligible tiers renormalize over those
+remaining; these are conditional draw budgets, not per-activity drop rates.
+Streak/Drop Charm only affect whether a drop occurs. Macro rarity maps now
+assign omitted tiers zero weight, including previously materialized rows.
+Mystery Box uses 70/30 Common/Uncommon; Lucky Dip uses 60/30/10
+Uncommon/Rare/Epic (an explicitly allowed Legendary pool has weight 1).
+Supported egg category normalization happens before tier balancing.
+
+Within each tier, unowned cosmetics receive the tier's cosmetic weight before
+duplicates. Fully owned tiers retain salvage; new `DropLog.salvage_coins`
+records the exact payout, while old null values remain unknown. Expedition
+pre-rolls also avoid repeating a newly selected cosmetic within one trip.
+Saved loot/receipts are never rerolled or backfilled from current prices.
+
+`item_effects.py` supplies authoritative food growth and human-readable item
+effects. `acquisition.py` batches per-request hints: accepted personal challenge
+promises take precedence over later definition edits, new public system
+challenges honor badge/completion gates, shop names stay family-scoped, and
+drop paths honor level/positive-weight eligibility. Reading hints awards
+nothing. No source is advertised for an unavailable item.
+
+Species acquisition rarity is authored with `egg_rarity`; supported families
+span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
+Companion Trails guarantee supported Rare+ eggs plus a Base potion through
+the existing factual Challenge engine, with no extra Coins or XP.
 - `SpriteAsset` (runtime-authored sprite catalog — slug + ImageField + animation metadata + authoring inputs `prompt / original_intent / motion / style_hint / tile_size / reference_image_url` — persisted so reroll can replay them).
 
 ## Services (`apps/rpg/services.py`)

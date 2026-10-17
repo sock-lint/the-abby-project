@@ -546,6 +546,7 @@ class ContentPack:
                 "sprite_key": entry.get("sprite_key", ""),
                 "description": entry.get("description", ""),
                 "food_preference": entry.get("food_preference", ""),
+                "rarity": entry.get("egg_rarity", "common"),
             }
             species, created = self._upsert(PetSpecies, entry=entry,
                 slug=slug, defaults=defaults,
@@ -720,7 +721,7 @@ class ContentPack:
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
                         continue
                     w = int(
-                        weight_by_rarity.get(item.rarity, flat_weight or 1)
+                        weight_by_rarity.get(item.rarity, 0) if weight_by_rarity else (flat_weight or 1)
                     )
                     _, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,

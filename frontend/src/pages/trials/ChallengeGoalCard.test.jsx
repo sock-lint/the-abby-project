@@ -8,6 +8,15 @@ vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn()
 beforeEach(() => resolvePedestalImage.mockReturnValue(null));
 
 describe('Challenge goal cards', () => {
+  it.each(['card', 'detail'])('identifies the promised reward rarity in the %s without implying delivery', (surface) => {
+    const goal = buildChallengeGoal({ rewards: { coins: 10, xp: 20, items: [{ item_name: 'Canvas frame', item_rarity: 'epic', item_icon: '🖼️', quantity: 1 }] } });
+    renderWithProviders(surface === 'card' ? <ChallengeGoalCard goal={goal} onSelect={() => {}} /> : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('epic')).toBeInTheDocument();
+    expect(screen.getByText('Canvas frame ×1')).toBeInTheDocument();
+    expect(screen.getByText('Completion bonus · 10 coins · 20 XP')).toBeInTheDocument();
+    expect(screen.queryByText(/earned automatically/i)).toBeNull();
+  });
+
   it.each([false, true])('uses decorative card art only in the child view (parent: %s)', (isParent) => {
     resolvePedestalImage.mockReturnValue({ url: '/synthetic/light-card.png', width: 512, height: 512, assetId: 'card-front-light', variantId: 'web' });
     const goal = buildChallengeGoal({ rewards: { coins: 10, xp: 20, items: [] } });
@@ -52,7 +61,8 @@ describe('Challenge goal cards', () => {
     renderWithProviders(surface === 'card'
       ? <ChallengeGoalCard goal={goal} onSelect={() => {}} />
       : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
-    expect(screen.getByText('Bonus earned automatically · 10 coins · 20 XP · Canvas frame ×2')).toBeInTheDocument();
+    expect(screen.getByText('Bonus earned automatically · 10 coins · 20 XP')).toBeInTheDocument();
+    expect(screen.getByText('Canvas frame ×2')).toBeInTheDocument();
     expect(screen.queryByText(/Egg/)).not.toBeInTheDocument();
   });
 
@@ -95,7 +105,8 @@ describe('Challenge goal cards', () => {
       reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0 },
     });
     renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={() => {}} />, { withAuth: false });
-    expect(screen.getByText(`${status === 'active' ? 'Completion bonus' : 'Bonus pending'} · 10 coins · 20 XP · Egg ×1`)).toBeInTheDocument();
+    expect(screen.getByText(`${status === 'active' ? 'Completion bonus' : 'Bonus pending'} · 10 coins · 20 XP`)).toBeInTheDocument();
+    expect(screen.getByText('Egg ×1')).toBeInTheDocument();
     expect(screen.queryByText(/Bonus earned automatically/)).not.toBeInTheDocument();
   });
 

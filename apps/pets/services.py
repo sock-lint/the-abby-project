@@ -382,7 +382,8 @@ class PetService:
             food_type = str(food_item.metadata.get("food_type", "")).strip()
             if food_type and food_type == pet.species.food_preference:
                 is_preferred = True
-        growth = GROWTH_PREFERRED_FOOD if is_preferred else GROWTH_NEUTRAL_FOOD
+        from apps.rpg.item_effects import PREFERRED_FOOD_BONUS, food_base_growth
+        growth = food_base_growth(food_item) + (PREFERRED_FOOD_BONUS if is_preferred else 0)
         if profile.pet_growth_boost_remaining > 0:
             growth *= 2
             profile.pet_growth_boost_remaining -= 1
@@ -585,6 +586,7 @@ class PetService:
             "potion_item_name": potion_item.name,
             "potion_item_icon": potion_item.icon,
             "potion_item_sprite_key": potion_item.sprite_key,
+            "potion_item_catalog_icon": item_catalog_icon(potion_item),
             "picked_species": picked_species.name,
             "picked_species_slug": picked_species.slug,
             "picked_potion": picked_potion.name,

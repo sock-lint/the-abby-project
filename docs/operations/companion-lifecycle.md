@@ -44,6 +44,20 @@ REST, MCP item/pet shapes, inventory, Hatching, collection details, owned pet
 previews, Today and ceremonies must preserve this distinction. Shared raw API
 fixtures exercise the actual producer and React consumer together.
 
+Hatching's growth guide names the selected egg's supplied family forms using
+its exact egg slug, typed `pet_species_slug` and canonical `metadata.species`,
+plus the selected potion's `metadata.variant` slug. Base Chick shows
+Chick/Fledgling/Bird; the registered Bat family shows Bat/Vampire Bat/Bat Lord.
+Unknown or conflicting identities keep the generic stage labels. The egg
+stage remains highlighted until the explicit hatch succeeds; viewing later
+forms grants no ownership or growth.
+
+Breeding receipts expose `potion_item_catalog_icon` for the actual awarded
+potion item, alongside the existing egg icon binding. The ceremony uses
+`CatalogIcon` for both rewards, retaining the original sprite/emoji and potion
+filter fallback when a binding or private image is unavailable. Artwork never
+changes the awarded item, inventory quantity or breeding result.
+
 ## Prepared roster adoption
 
 The active roster is 15 Base-only families: retained Chick plus the 14 exact

@@ -315,13 +315,13 @@ controls in accessible DOM and derive game state and outcomes from server-confir
 responses.
 
 [Hatching](../pages/bestiary/hatchery/Hatchery.jsx) uses the neutral
-Normal Egg/pedestal and `card-front-egg-star`. Every decorated
-`ParchmentCard` uses the same 20px corners inset 8px, with a 40px top/bottom
-content inset retaining at least an 8px gap from rendered text, including
-enlarged headings. `flourish` and `flourish="storybook"`
-both request two corners; legacy `seal` requests one at its existing position.
-Combined props never add extra ornaments. Children stay direct so caller
-layout and `space-y-*` rhythm continue to apply. Plain cards remain quiet.
+Normal Egg/pedestal and `card-front-egg-star`. Storybook is an artwork direction
+within the Meadow design system: illustrations follow its typography, cover
+colors, rounded surfaces, spacing and accessible controls. `ParchmentCard`
+keeps a simple border and normal content padding, with no corner ornaments
+or reserved decoration gutters. Legacy `flourish` and `seal` props remain
+accepted without drawing decorations. Children stay direct so caller layout,
+padding overrides and `space-y-*` rhythm continue to apply.
 The daily bonus lights a star only after `awarded`;
 `StarRating` retains the existing difficulty scale and accessible numeric label.
 Featured earned badges on Profile and in badge details share `BadgeArtwork`
@@ -350,6 +350,12 @@ A11y: static `<img>` gets `alt`; animated and fallback `<span>` elements get `ro
 Do not call `fetchSpriteCatalog` or access `localStorage` directly in pages; go through `useSpriteCatalog().getSpriteUrl` / `.getSpriteMeta` for consistent cache behavior.
 
 ### CatalogIcon
+
+`rpg/RewardItem` composes CatalogIcon and BadgeRarity for challenge item promises,
+settled receipts and expedition loot. It accepts their existing flattened item
+fields, retains the sprite/glyph fallback and omits rarity when an older receipt
+did not record it. Supplied effect summaries and zero-valued duplicate conversion
+receipts remain readable; presentation never grants an item or computes a payout.
 
 `<CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={40} alt={item.name} />`
 

@@ -6,6 +6,10 @@ import { renderWithProviders } from '../../test/render';
 import PetCeremonyModal from './PetCeremonyModal';
 import presentation from '../../storybook/presentation.json';
 import { getLicensedRpgSprite, resolveLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
+import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
+import rosterBreed from '../../../../contracts/api/fixtures/mount-breed-roster.json';
+
+vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn(() => null) }));
 
 vi.mock('../../storybook/licensedRpgSprites', async () => {
   const actual = await vi.importActual('../../storybook/licensedRpgSprites');
@@ -14,6 +18,7 @@ vi.mock('../../storybook/licensedRpgSprites', async () => {
 
 beforeEach(() => {
   getLicensedRpgSprite.mockReset().mockReturnValue(null);
+  resolveCatalogIcon.mockReset().mockReturnValue(null);
 });
 
 const pet = {
@@ -45,6 +50,19 @@ const breedResult = {
 };
 
 describe('PetCeremonyModal', () => {
+  it('reveals the exact catalog potion artwork returned by breeding alongside the awarded egg', () => {
+    resolveCatalogIcon.mockImplementation((id) => id === 'item-base-potion' ? { url: '/synthetic/base-potion.png' } : null);
+    renderWithProviders(<PetCeremonyModal mode="breed" parents={breedParents} result={rosterBreed} reducedMotion onDismiss={() => {}} />);
+    expect(screen.getByRole('img', { name: 'Base Potion' })).toHaveAttribute('src', '/synthetic/base-potion.png');
+    expect(screen.getByRole('img', { name: 'Bat Egg' })).toBeInTheDocument();
+  });
+
+  it.each([undefined, null, 'unknown-potion-art'])('retains the legacy potion fallback when its catalog artwork is %s', (assetId) => {
+    renderWithProviders(<PetCeremonyModal mode="breed" parents={breedParents}
+      result={{ ...breedResult, potion_item_catalog_icon: assetId }} reducedMotion onDismiss={() => {}} />);
+    expect(screen.getByRole('img', { name: 'Fire Potion' })).toHaveTextContent('🧪');
+  });
+
   it('renders hatch headline + dismiss button (mode=hatch)', () => {
     renderWithProviders(
       <PetCeremonyModal mode="hatch" pet={pet} onDismiss={() => {}} />,
@@ -213,6 +231,8 @@ describe('PetCeremonyModal — phased sequence', () => {
     expect(screen.getByText(/\+42/)).toBeInTheDocument();
     expect(screen.getByText('Training Snack')).toBeInTheDocument();
     expect(screen.getByText(/duplicate exchanged for 25 coins/i)).toBeInTheDocument();
+    expect(screen.getByText('common')).toBeInTheDocument();
+    expect(screen.getByText('rare')).toBeInTheDocument();
   });
 });
 

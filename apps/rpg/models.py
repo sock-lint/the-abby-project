@@ -275,6 +275,10 @@ class DropLog(CreatedAtModel):
     trigger_type = models.CharField(max_length=30)
     quantity = models.PositiveIntegerField(default=1)
     was_salvaged = models.BooleanField(default=False)
+    salvage_coins = models.PositiveIntegerField(
+        null=True, blank=True, editable=False,
+        help_text="Exact Coins awarded for this drop; null means an older receipt did not record the amount.",
+    )
 
     class Meta:
         ordering = ["-created_at"]

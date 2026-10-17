@@ -5,13 +5,27 @@ server-confirmed companions using the recorded owned art. Django remains the
 authority for accounts, permissions, contributions, rewards and progression.
 This document defines the baseline art scope and its acceptance gates.
 
+Current code pins six shared runtime families in
+[`frontend/assets.lock.json`](../../frontend/assets.lock.json): Archer 1.0.2,
+Bird Evolution 1.0.0, catalog icons 1.0.0, pedestal/card UI 1.0.1,
+companion roster 1.0.0 and Training Dummy 1.0.0. The
+[shared-asset intake](../../docs/operations/shared-avatar-assets.md) and
+[companion adoption](../../docs/operations/companion-lifecycle.md) runbooks
+describe their verified imports and application bindings. A pin records the
+selected runtime artifact; it does not establish production delivery or
+physical-device acceptance. Dummy remains unbound future training art.
+
 The [earlier Unity coverage review](unity-assets.md),
 [asset notes](../../unity/AbbyCamp/AssetNotes.md) and
 [third-party notices](../../unity/AbbyCamp/THIRD_PARTY_NOTICES.md) retain source
 provenance and historical validation. Unity is a retained reference, not a
 dependency of the new companion renderer.
 
-## Recorded owned packs
+## Earlier owned-pack baseline
+
+This table retains the original conversion baseline. The current roster and
+six shared releases above extend that inventory; use their exact bindings
+and current acquisition policy below when implementing app presentation.
 
 | Pack | Baseline capability | Scope limit |
 | --- | --- | --- |
@@ -91,12 +105,15 @@ workflows and administration remain ordinary React screens.
 
 ### Owned sources versus accepted runtime capabilities
 
-The following is the historical October 12 source inventory. The prepared
-14-family roster supersedes its unprepared-creature rows; it does not change
-the Archer, Bird, pedestal/UI or catalog pins. Its exact intake and current
+The following retains earlier source inventory and conversion notes, including
+later Bird adoption references. Its statuses describe those earlier sources;
+they do not define current app availability. The prepared 14-family roster
+supersedes the unprepared-creature rows for its exact namespaced identities,
+while the 17 legacy species and saved ownership remain intact. It does not
+change the Archer, Bird, pedestal/UI or catalog pins. Exact current intake and
 application validation are recorded separately in the adoption runbook:
 
-| Art | Source evidence | Active capability |
+| Art | Earlier source evidence | Earlier conversion status |
 | --- | --- | --- |
 | Chick / Bird | Prepared private models and matching Bird01/Bird03 portraits | Exact Base Chick pet and confirmed evolved/mount forms |
 | Fledgling | Published Bird Evolution 1.0.0 private runtime and retained Bird02 portrait | Intermediate stage from 50 server-confirmed growth; all native motions in the shared release |

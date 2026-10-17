@@ -17,6 +17,8 @@ export const handlers = [
   http.get('*/api/reading-sessions/', empty),
   http.get('*/api/reading/summary/', () => HttpResponse.json({ books_total: 0, books_finished: 0, sessions_total: 0, total_minutes: 0, total_pages: 0, today: '2026-10-16', timezone: 'America/Phoenix' })),
   http.get('*/api/reading/recommendations/', () => HttpResponse.json({ results: [], basis: 'Explore a topic for your next book.' })),
+  http.get('*/api/reading/discovery-feedback/', () => HttpResponse.json({ results: [] })),
+  http.get('*/api/reading-family-suggestions/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
   http.post('*/api/reading-books/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, ...await request.json() }, { status: 201 })),
   http.post('*/api/reading-sessions/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, book_title: 'A book', ...await request.json() }, { status: 201 })),
   http.patch(/\/api\/reading-books\/\d+\/$/, ok),
