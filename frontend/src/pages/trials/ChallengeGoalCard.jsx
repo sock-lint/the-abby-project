@@ -6,6 +6,7 @@ import Button from '../../components/Button';
 import BottomSheet from '../../components/BottomSheet';
 import AddToCalendar from '../../components/AddToCalendar';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
+import StorybookFeature from '../../pedestal/StorybookFeature';
 import { goalActionPath, goalDate, goalDeadline, goalNumber, goalProgress, goalUnit } from './goalDisplay';
 
 function GoalBody({ goal, timezone, showWhatCounts = true, showDeadline = true }) {
@@ -37,24 +38,28 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showDeadline = true }
 
 export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, busy = false, showDeadline = true, isParent = false }) {
   return (
-    <ParchmentCard as="article" aria-label={goal.name} className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex items-start gap-3">
-          {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
-          <div className="min-w-0 space-y-1">
-            <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
-            <h4 className="font-body font-bold text-lede text-ink-primary break-words">{goal.name}</h4>
+    <ParchmentCard as="article" aria-label={goal.name}>
+      <StorybookFeature assetId={isParent ? undefined : 'card-front-light'}>
+        <div className="space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex items-start gap-3">
+              {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
+              <div className="min-w-0 space-y-1">
+                <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
+                <h4 className="font-body font-bold text-lede text-ink-primary break-words">{goal.name}</h4>
+              </div>
+            </div>
+            {goal.pinned && <span className="inline-flex shrink-0 items-center gap-1 text-caption text-sheikah-teal-deep"><Pin size={14} aria-hidden="true" /> Pinned</span>}
+          </div>
+          <GoalBody goal={goal} timezone={timezone} showDeadline={showDeadline} />
+          <div className="flex flex-wrap gap-2">
+            <Button data-challenge-view={goal.id} variant="secondary" size="sm" onClick={() => onSelect(goal)}>View {goal.name}</Button>
+            {onPin && goal.status === 'active' && <Button variant="ghost" size="sm" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>
+              {goal.pinned ? 'Unpin' : 'Pin to Today'}
+            </Button>}
           </div>
         </div>
-        {goal.pinned && <span className="inline-flex shrink-0 items-center gap-1 text-caption text-sheikah-teal-deep"><Pin size={14} aria-hidden="true" /> Pinned</span>}
-      </div>
-      <GoalBody goal={goal} timezone={timezone} showDeadline={showDeadline} />
-      <div className="flex flex-wrap gap-2">
-        <Button data-challenge-view={goal.id} variant="secondary" size="sm" onClick={() => onSelect(goal)}>View {goal.name}</Button>
-        {onPin && goal.status === 'active' && <Button variant="ghost" size="sm" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>
-          {goal.pinned ? 'Unpin' : 'Pin to Today'}
-        </Button>}
-      </div>
+      </StorybookFeature>
     </ParchmentCard>
   );
 }

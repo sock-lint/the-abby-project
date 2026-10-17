@@ -2,6 +2,8 @@ import { Gift } from 'lucide-react';
 import RewardCard from './RewardCard';
 import EmptyState from '../../components/EmptyState';
 import FilteredEmptyState from '../../components/FilteredEmptyState';
+import ParchmentCard from '../../components/journal/ParchmentCard';
+import StorybookFeature from '../../pedestal/StorybookFeature';
 
 export default function RewardShop({
   rewards, isParent, coinBalance, pendingId,
@@ -32,20 +34,28 @@ export default function RewardShop({
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-      {rewards.map((r) => (
-        <RewardCard
-          key={r.id}
-          reward={r}
-          isParent={isParent}
-          coinBalance={coinBalance}
-          pending={pendingId === r.id}
-          onRedeem={onRedeem}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggleWishlist={onToggleWishlist}
-        />
-      ))}
+    <div className="space-y-4">
+      {!isParent && <ParchmentCard tone="bright">
+        <StorybookFeature assetId="card-front-treasure">
+          <h3 className="font-body font-bold text-lede text-ink-primary">Choose something to work toward</h3>
+          <p className="mt-2 font-body text-body text-ink-secondary">Use your coins to request rewards. Check each reward&apos;s cost and availability below.</p>
+        </StorybookFeature>
+      </ParchmentCard>}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {rewards.map((r) => (
+          <RewardCard
+            key={r.id}
+            reward={r}
+            isParent={isParent}
+            coinBalance={coinBalance}
+            pending={pendingId === r.id}
+            onRedeem={onRedeem}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            onToggleWishlist={onToggleWishlist}
+          />
+        ))}
+      </div>
     </div>
   );
 }

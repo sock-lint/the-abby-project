@@ -8,6 +8,8 @@ import ParchmentCard from '../journal/ParchmentCard';
 import ProgressBar from '../ProgressBar';
 import Button from '../Button';
 import { goalDeadline } from '../../pages/trials/goalDisplay';
+import PedestalImage from '../../pedestal/PedestalImage';
+import '../../pedestal/storybook-accents.css';
 
 export default function DailyChallengeCard({ refreshKey, challenge }) {
   const { isChild, user } = useRole();
@@ -23,7 +25,12 @@ export default function DailyChallengeCard({ refreshKey, challenge }) {
   if (!bonus?.date) return null;
   return (
     <ParchmentCard tone="bright" className="space-y-2">
-      <h2 className="font-body font-bold text-lede text-ink-primary">Today&apos;s bonus</h2>
+      <div className="flex items-center gap-3">
+        <span className="shrink-0" data-bonus-star={bonus.awarded ? 'awarded' : 'pending'} aria-hidden="true">
+          <PedestalImage assetId={bonus.awarded ? 'star-lit' : 'star-unlit'} fallback={bonus.awarded ? '★' : '☆'} className="storybook-star storybook-bonus-star text-gold-leaf" />
+        </span>
+        <h2 className="min-w-0 break-words font-body font-bold text-lede text-ink-primary">Today&apos;s bonus</h2>
+      </div>
       <p className="font-body text-body text-ink-primary">{bonus.goal}</p>
       <p className="font-body text-caption text-ink-secondary">Complete an approved task, or accumulate 10 minutes of project work or movement. Short sessions add together.</p>
       <ProgressBar value={bonus.completed ? 10 : Number(bonus.progress_minutes || 0)} max={10} aria-label="Today's bonus progress" />

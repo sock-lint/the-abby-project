@@ -45,9 +45,18 @@ describe('Today’s automatic bonus', () => {
   });
 
   it('does not claim that a completed but unsettled bonus paid', async () => {
-    renderWithProviders(<DailyChallengeCard challenge={buildDailyBonus({ completed: true, awarded: false })} />);
+    const { container } = renderWithProviders(<DailyChallengeCard challenge={buildDailyBonus({ completed: true, awarded: false })} />);
     expect(await screen.findByText('Goal complete · Your bonus is being processed.')).toBeInTheDocument();
     expect(screen.queryByText(/Bonus earned/)).not.toBeInTheDocument();
+    expect(container.querySelector('[data-bonus-star]')).toHaveAttribute('data-bonus-star', 'pending');
+    expect(container.querySelector('[data-pedestal-image="star-lit"]')).not.toBeInTheDocument();
+  });
+
+  it('lights the decorative star only for the confirmed server award', async () => {
+    const { container } = renderWithProviders(<DailyChallengeCard challenge={buildDailyBonus({ completed: true, awarded: true, receipt_id: 'daily:42' })} />);
+    expect(await screen.findByRole('status')).toHaveTextContent('Bonus earned');
+    expect(container.querySelector('[data-bonus-star]')).toHaveAttribute('data-bonus-star', 'awarded');
+    expect(container.querySelector('[data-pedestal-image="star-lit"]')).toBeInTheDocument();
   });
 
   it('shows the server family deadline and timezone without using client midnight', async () => {

@@ -274,7 +274,8 @@ device acceptance.
 
 | Component | Props and use |
 | --- | --- |
-| [`PedestalImage`](../pedestal/PedestalImage.jsx) | `assetId`, `variantId="web"`, `alt=""`, `className`. Renders one complete PNG canvas with lazy loading and loading/error fallbacks. Use a nonempty `alt` for meaningful artwork; the default is decorative. |
+| [`PedestalImage`](../pedestal/PedestalImage.jsx) | `assetId`, `variantId="web"`, `alt=""`, `className`, optional `fallback`. Renders one complete PNG canvas with lazy loading and loading/error fallbacks. Use a nonempty `alt` for meaningful artwork; the default is decorative. `fallback=""` silences decorative placeholders; stars supply their original glyph. |
+| [`StorybookFeature`](../pedestal/StorybookFeature.jsx) | `assetId`, `children`. Complete decorative art sits beside content only when the card has room for a 16rem text column; narrower cards stack it above content, including nested desktop grids. Missing/failed art collapses its column; content retains the real identity, progress and actions. |
 | [`PedestalFrame`](../pedestal/PedestalFrame.jsx) | `children`, `label="Framed content"`, `className`. Places independent app content inside the gold frame's measured opening, with padding and keyboard-accessible scrolling. Content remains readable when frame artwork is unavailable. |
 | [`PedestalPreview`](../pedestal/PedestalPreview.jsx) | `eggAssetId="normal-egg"`, `animate={true}`, `className`, `stageClassName="h-80"`. Shows a decorative native pedestal/egg scene; `eggAssetId={null}` selects the pedestal alone. Includes local off/retry controls and DOM fallbacks. |
 
@@ -313,9 +314,22 @@ Playback respects reduced motion, visibility and background state.
 controls in accessible DOM and derive game state and outcomes from server-confirmed
 responses.
 
-[Hatching](../pages/bestiary/hatchery/Hatchery.jsx) currently uses the neutral
-Normal Egg/pedestal and `card-front-egg-star`. The other artwork is available
-for design review without catalog, ownership, rarity or progression bindings.
+[Hatching](../pages/bestiary/hatchery/Hatchery.jsx) uses the neutral
+Normal Egg/pedestal and `card-front-egg-star`. Every decorated
+`ParchmentCard` uses the same 20px corners inset 8px, with a 40px top/bottom
+content inset retaining at least an 8px gap from rendered text, including
+enlarged headings. `flourish` and `flourish="storybook"`
+both request two corners; legacy `seal` requests one at its existing position.
+Combined props never add extra ornaments. Children stay direct so caller
+layout and `space-y-*` rhythm continue to apply. Plain cards remain quiet.
+The daily bonus lights a star only after `awarded`;
+`StarRating` retains the existing difficulty scale and accessible numeric label.
+Featured earned badges on Profile and in badge details share `BadgeArtwork`
+and its measured frame opening. Badge tiles use the same icon fallback in a
+quiet well; all badge views share `BadgeRarity` labels. Equipped profile
+cosmetics remain independent.
+Challenges use Light card art and the child Shop uses Treasure as decoration,
+without catalog, ownership, rarity or progression bindings.
 Keep paid PNGs, GLBs and derived previews in the private asset workflow outside
 Git and public preview hosting.
 

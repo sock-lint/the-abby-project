@@ -177,6 +177,7 @@ describe('ChildDashboard', () => {
       ),
     ]);
     await waitFor(() => expect(screen.getByText(/recent items/i)).toBeInTheDocument());
+    expect(screen.getByRole('img', { name: 'Difficulty: 2 out of 5' })).toBeInTheDocument();
     // Savings peek renders the first goal title even while collapsed.
     expect(screen.getByText(/bike/i)).toBeInTheDocument();
     // Pet growth % visible in the vital pip.

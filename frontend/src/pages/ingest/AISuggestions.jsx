@@ -70,7 +70,7 @@ export default function AISuggestions({
         )}
         {suggestions.difficulty && (
           <button type="button" onClick={applyDifficulty} className={chipInteractive}>
-            Difficulty: <StarRating value={suggestions.difficulty} />
+            <span aria-hidden="true">Difficulty:</span> <StarRating value={suggestions.difficulty} />
           </button>
         )}
         {(suggestions.skill_tags || []).map((tag, i) => (

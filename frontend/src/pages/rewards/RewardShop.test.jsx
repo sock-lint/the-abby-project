@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RewardShop from './RewardShop.jsx';
+import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
+
+vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
+beforeEach(() => resolvePedestalImage.mockReturnValue(null));
 
 const reward = {
   id: 1, name: 'Ice Cream', icon: '🍦', cost_coins: 50,
@@ -9,6 +13,29 @@ const reward = {
 };
 
 describe('RewardShop', () => {
+  it('adds a decorative treasure introduction without replacing the real offer or its request', async () => {
+    resolvePedestalImage.mockReturnValue({ url: '/synthetic/treasure-card.png', width: 512, height: 512, assetId: 'card-front-treasure', variantId: 'web' });
+    const onRedeem = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(<RewardShop rewards={[reward]} isParent={false} coinBalance={60} onRedeem={onRedeem} />);
+    expect(container.querySelector('img')).toHaveAttribute('alt', '');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Choose something to work toward' })).toBeInTheDocument();
+    expect(screen.getByText('🍦')).toBeInTheDocument();
+    expect(screen.getByText('50')).toBeInTheDocument();
+    expect(screen.getByText('3 left')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Request reward' }));
+    expect(onRedeem).toHaveBeenCalledWith(reward);
+  });
+
+  it('keeps the parent shop focused on managing real offers', () => {
+    resolvePedestalImage.mockReturnValue({ url: '/synthetic/treasure-card.png', width: 512, height: 512, assetId: 'card-front-treasure', variantId: 'web' });
+    const { container } = render(<RewardShop rewards={[reward]} isParent coinBalance={0} onEdit={vi.fn()} onDelete={vi.fn()} />);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Choose something to work toward' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit reward' })).toBeEnabled();
+  });
+
   it('renders reward cards', () => {
     render(
       <RewardShop

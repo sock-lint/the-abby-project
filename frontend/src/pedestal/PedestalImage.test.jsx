@@ -11,6 +11,17 @@ const image = { url: '/private/synthetic-card.png', width: 512, height: 512, ass
 beforeEach(() => resolvePedestalImage.mockReturnValue(image));
 
 describe('Private proportional PNG presentation', () => {
+  it('preserves a supplied glyph while star art loads or fails and when private files are absent', () => {
+    const { container, rerender } = render(<PedestalImage assetId="star-unlit" fallback="☆" />);
+    expect(container).toHaveTextContent('☆');
+    fireEvent.error(container.querySelector('img'));
+    expect(container).toHaveTextContent('☆');
+    resolvePedestalImage.mockReturnValue(null);
+    rerender(<PedestalImage assetId="star-unlit" fallback="☆" />);
+    expect(container).toHaveTextContent('☆');
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
   it('keeps the full canvas dimensions and loads lazily before showing the PNG', () => {
     const { container } = render(<PedestalImage assetId="card-front-nature" alt="Nature card artwork" />);
     const canvas = container.querySelector('img');

@@ -7,7 +7,8 @@
 .mt-frame { position: relative; width: 100%; aspect-ratio: 1; isolation: isolate; }
 /* Normalized intersection of the web/native alpha<=2/255 rectangles in the
  * release UI-ADOPTION.md. The source alpha is retained, including faint noise. */
-.mt-frame__content { position: absolute; left: 16.60156250%; top: 18.16406250%; width: 66.60156250%; height: 63.86718750%; overflow: auto; overflow-wrap: anywhere; padding: .75rem; }
+.mt-frame__content, .mt-frame__opening { position: absolute; left: 16.60156250%; top: 18.16406250%; width: 66.60156250%; height: 63.86718750%; }
+.mt-frame__content { overflow: auto; overflow-wrap: anywhere; padding: .75rem; }
 .mt-frame__content:focus-visible { outline: 2px solid var(--color-sheikah-teal-deep); outline-offset: -2px; }
 .mt-frame__art { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .mt-frame__art[data-image-state="unavailable"] { visibility: hidden; }
