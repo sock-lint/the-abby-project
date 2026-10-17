@@ -315,13 +315,13 @@ controls in accessible DOM and derive game state and outcomes from server-confir
 responses.
 
 [Hatching](../pages/bestiary/hatchery/Hatchery.jsx) uses the neutral
-Normal Egg/pedestal and `card-front-egg-star`. Every decorated
-`ParchmentCard` uses the same 20px corners inset 8px, with a 40px top/bottom
-content inset retaining at least an 8px gap from rendered text, including
-enlarged headings. `flourish` and `flourish="storybook"`
-both request two corners; legacy `seal` requests one at its existing position.
-Combined props never add extra ornaments. Children stay direct so caller
-layout and `space-y-*` rhythm continue to apply. Plain cards remain quiet.
+Normal Egg/pedestal and `card-front-egg-star`. Storybook is an artwork direction
+within the Meadow design system: illustrations follow its typography, cover
+colors, rounded surfaces, spacing and accessible controls. `ParchmentCard`
+keeps a simple border and normal content padding, with no corner ornaments
+or reserved decoration gutters. Legacy `flourish` and `seal` props remain
+accepted without drawing decorations. Children stay direct so caller layout,
+padding overrides and `space-y-*` rhythm continue to apply.
 The daily bonus lights a star only after `awarded`;
 `StarRating` retains the existing difficulty scale and accessible numeric label.
 Featured earned badges on Profile and in badge details share `BadgeArtwork`

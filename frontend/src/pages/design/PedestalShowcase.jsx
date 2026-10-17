@@ -31,7 +31,7 @@ export default function PedestalShowcase() {
     <p className="text-body text-ink-secondary">Local artwork choices. These previews do not change ownership, pet appearances, rarity or hatch outcomes.</p>
     <ParchmentCard flourish className="space-y-3">
       <h3 className="font-bold text-lede">Storybook accents</h3>
-      <p className="text-body text-ink-secondary">Decorated panels share small inset corners. Larger illustrations stack when the card has limited room, keeping text and controls clear.</p>
+      <p className="text-body text-ink-secondary">Simple rounded panels keep the focus on content. Larger illustrations stack when the card has limited room, keeping text and controls clear.</p>
       <StorybookFeature assetId="card-front-light">
         <h4 className="font-bold text-body">{longContent ? 'Make a paper kite with a decorated tail and a sturdy frame for the whole family to try outdoors' : 'Make a paper kite'}</h4>
         <div className="mt-2 flex flex-wrap items-center gap-1 text-caption text-ink-secondary"><span aria-hidden="true">Difficulty:</span><StarRating value={3} /></div>
