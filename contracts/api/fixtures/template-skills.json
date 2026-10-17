@@ -1,0 +1,66 @@
+{
+  "id": 1,
+  "title": "Measure a birdhouse",
+  "description": "",
+  "instructables_url": null,
+  "difficulty": 1,
+  "category": {
+    "id": 21,
+    "name": "Making",
+    "icon": "",
+    "color": "#D97706",
+    "description": ""
+  },
+  "bonus_amount": "0.00",
+  "materials_budget": "0.00",
+  "source_project": 401,
+  "created_by": {
+    "id": 6,
+    "username": "template-fixture-parent",
+    "display_name": "",
+    "role": "parent",
+    "hourly_rate": "8.00",
+    "avatar": null,
+    "theme": "summer",
+    "lorebook_flags": {},
+    "google_linked": false,
+    "date_of_birth": null,
+    "grade_entry_year": null,
+    "age_years": null,
+    "current_grade": null,
+    "school_year_label": null,
+    "family": {
+      "id": 41,
+      "name": "Template Fixture Family",
+      "slug": "template-fixture-family",
+      "timezone": "America/Phoenix",
+      "default_theme": "hyrule"
+    }
+  },
+  "is_public": false,
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "milestones": [
+    {
+      "id": 1,
+      "title": "Measure the boards",
+      "description": "",
+      "order": 0,
+      "bonus_amount": null,
+      "skill_tags": [
+        {
+          "skill_id": 22,
+          "xp_amount": 27
+        }
+      ]
+    }
+  ],
+  "materials": [],
+  "steps": [],
+  "resources": [],
+  "skill_tags": [
+    {
+      "skill_id": 22,
+      "xp_weight": 3
+    }
+  ]
+}

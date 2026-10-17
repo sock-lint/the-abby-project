@@ -11,11 +11,13 @@ from typing import Any
 
 from django.db.models import Sum
 
+from config.viewsets import filter_projects_accessible_to, filter_resources_under_accessible_projects
+
 from apps.portfolio.models import ProjectPhoto
 from apps.projects.models import Project
 from apps.timecards.models import TimeEntry
 
-from ..context import get_current_user, resolve_child_in_family, resolve_target_user
+from ..context import get_current_user, get_in_family, resolve_child_in_family, resolve_target_user
 from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     DeleteHomeworkProofIn,
@@ -34,19 +36,11 @@ from ..shapes import project_photo_to_dict
 def list_project_photos(params: ListProjectPhotosIn) -> dict[str, Any]:
     """List ProjectPhoto rows attached to a project (read-only)."""
     user = get_current_user()
-    qs = ProjectPhoto.objects.select_related("project").filter(
-        project_id=params.project_id,
-    )
-    if user.role != "parent":
-        qs = qs.filter(project__assigned_to=user)
-
-    photos = list(qs.order_by("-uploaded_at"))
-    if not photos:
-        # Check whether the project exists at all — raises if not visible.
-        try:
-            Project.objects.get(pk=params.project_id)
-        except Project.DoesNotExist:
-            raise MCPNotFoundError(f"Project {params.project_id} not found.")
+    try:
+        project = filter_projects_accessible_to(user, Project.objects.all()).get(pk=params.project_id)
+    except Project.DoesNotExist:
+        raise MCPNotFoundError(f"Project {params.project_id} not found.")
+    photos = list(ProjectPhoto.objects.filter(project=project).order_by("-uploaded_at"))
 
     return {"photos": [project_photo_to_dict(p) for p in photos]}
 
@@ -137,7 +131,7 @@ def delete_project_photo(params: DeleteProjectPhotoIn) -> dict[str, Any]:
     """Delete a project photo (owner or parent). Blob-first."""
     user = get_current_user()
     try:
-        photo = ProjectPhoto.objects.select_related("project").get(pk=params.photo_id)
+        photo = filter_resources_under_accessible_projects(user, ProjectPhoto.objects.all()).get(pk=params.photo_id)
     except ProjectPhoto.DoesNotExist:
         raise MCPNotFoundError(f"ProjectPhoto {params.photo_id} not found.")
     if user.role != "parent" and photo.user_id != user.id:
@@ -159,10 +153,7 @@ def delete_homework_proof(params: DeleteHomeworkProofIn) -> dict[str, Any]:
     from apps.homework.models import HomeworkProof
 
     user = get_current_user()
-    try:
-        proof = HomeworkProof.objects.select_related("submission").get(pk=params.proof_id)
-    except HomeworkProof.DoesNotExist:
-        raise MCPNotFoundError(f"HomeworkProof {params.proof_id} not found.")
+    proof = get_in_family(HomeworkProof, params.proof_id, actor=user, family_path="submission__user__family")
     if user.role != "parent" and proof.submission.user_id != user.id:
         raise MCPPermissionDenied("You can only delete your own proofs.")
     if proof.image:

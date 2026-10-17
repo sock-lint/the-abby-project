@@ -66,13 +66,16 @@ def accepted_reward_items(quest, *, item_catalog=None):
 
 
 @transaction.atomic
-def freeze_legacy_quest_promises(*, dry_run=False):
+def freeze_legacy_quest_promises(*, dry_run=False, definition_ids=None):
     """Capture retained links once before catalog config can update them."""
     from .models import Quest
 
-    quests = list(Quest.objects.select_for_update(of=("self",)).filter(
+    queryset = Quest.objects.select_for_update(of=("self",)).filter(
         status=Quest.Status.ACTIVE, reward_items_snapshot__isnull=True,
-    ).select_related("definition").order_by("pk"))
+    )
+    if definition_ids is not None:
+        queryset = queryset.filter(definition_id__in=definition_ids)
+    quests = list(queryset.select_related("definition").order_by("pk"))
     if not dry_run:
         for quest in quests:
             # Deliberately preserve updated_at and every progression field.
