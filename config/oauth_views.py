@@ -177,7 +177,11 @@ class OAuthLoginThrottle(SimpleRateThrottle):
     scope = "oauth_login"
 
     def get_cache_key(self, request, view):
-        return self.cache_format % {"scope": self.scope, "ident": self.get_ident(request)}
+        # Forwarded headers are client-controlled unless a separately trusted
+        # proxy contract validates them. Bound attempts by the transport peer;
+        # clients behind the same proxy intentionally share this conservative cap.
+        peer = request.META.get("REMOTE_ADDR") or "unknown-peer"
+        return self.cache_format % {"scope": self.scope, "ident": peer}
 
 
 class OAuthLoginView(View):

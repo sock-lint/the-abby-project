@@ -589,6 +589,40 @@ class ScopedOAuthGrantTests(TestCase):
 
 
 class OAuthLoginThrottleTests(TestCase):
+    def test_forwarded_headers_cannot_reset_the_transport_peer_limit(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from config.oauth_views import OAuthLoginThrottle
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with patch.object(OAuthLoginThrottle, "get_rate", return_value="1/min"), patch("config.oauth_views.authenticate", return_value=None) as authenticate:
+            responses = [
+                self.client.post(
+                    "/oauth/login/", {"username": "unknown", "password": "synthetic"},
+                    REMOTE_ADDR="192.0.2.10", HTTP_X_FORWARDED_FOR=forwarded,
+                )
+                for forwarded in ("1.1.1.1", "2.2.2.2", "3.3.3.3")
+            ]
+        self.assertEqual([response.status_code for response in responses], [401, 429, 429])
+        self.assertEqual(authenticate.call_count, 1)
+
+    def test_different_transport_peers_have_separate_limits(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from config.oauth_views import OAuthLoginThrottle
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with patch.object(OAuthLoginThrottle, "get_rate", return_value="1/min"), patch("config.oauth_views.authenticate", return_value=None) as authenticate:
+            responses = [
+                self.client.post(
+                    "/oauth/login/", {"username": "unknown", "password": "synthetic"},
+                    REMOTE_ADDR=peer, HTTP_X_FORWARDED_FOR="1.1.1.1",
+                )
+                for peer in ("192.0.2.10", "192.0.2.11")
+            ]
+        self.assertEqual([response.status_code for response in responses], [401, 401])
+        self.assertEqual(authenticate.call_count, 2)
+
     def test_login_attempts_are_bounded_before_authentication(self):
         from unittest.mock import patch
         from django.core.cache import cache
