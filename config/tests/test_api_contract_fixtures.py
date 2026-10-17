@@ -683,6 +683,8 @@ class SharedApiResponseFixtureTests(APITestCase):
             response = self.client.post("/api/mounts/breed/", {
                 "mount_a_id": 61, "mount_b_id": 62, "user_id": self.outsider.pk,
             }, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertIsNone(response.json()["potion_item_catalog_icon"])
         body = self.assert_response_fixture(response, fixture, status=201)
         self.assertEqual(body["egg_item_id"], 73)
         self.assertEqual(body["egg_lifecycle_stage"], "egg")

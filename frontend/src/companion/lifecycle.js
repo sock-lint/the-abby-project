@@ -1,5 +1,6 @@
 import lifecycle from '../../../shared/catalog/companion-lifecycle.json';
 import { birdStage } from './birdEvolution';
+import { rosterEggFamily } from './sharedRosterRelease';
 
 export const COMPANION_STAGES = lifecycle.stages;
 
@@ -47,5 +48,9 @@ export function companionLifecycle(species, potion) {
 // An egg's declared family is metadata, never a model or acquisition grant.
 export function eggSpecies(item) {
   if (item?.item_type !== 'egg' || !item.pet_species_slug) return null;
-  return { slug: item.pet_species_slug, name: item.pet_species_name || item.pet_species_slug };
+  const family = rosterEggFamily(item);
+  const chick = item.slug === 'chick-egg' && item.pet_species_slug === 'chick' && item.metadata?.species === 'chick';
+  const spriteKey = family?.sprite_key || (chick ? 'cute-chick' : null);
+  return { slug: item.pet_species_slug, name: item.pet_species_name || item.pet_species_slug,
+    ...(spriteKey ? { sprite_key: spriteKey } : {}) };
 }
