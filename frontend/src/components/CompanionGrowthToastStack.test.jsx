@@ -32,6 +32,13 @@ describe('CompanionGrowthToastStack', () => {
     vi.useRealTimers();
   });
 
+  it('announces the generic stage confirmed by passive growth for any family', async () => {
+    renderWithProviders(<CompanionGrowthToastStack />, {
+      pulse: emptyPulse({ companion_growth: { events: [{ ...tickEvent, lifecycle_stage: 'middle' }] } }),
+    });
+    expect(await screen.findByText('+2 · 42/100 · Middle stage')).toBeInTheDocument();
+  });
+
   it('renders a tick event as a toast', async () => {
     renderWithProviders(<CompanionGrowthToastStack />, {
       pulse: emptyPulse({ companion_growth: { events: [tickEvent] } }),

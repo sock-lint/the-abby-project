@@ -17,6 +17,8 @@ import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants
 import PetCeremonyModal from '../PetCeremonyModal';
 import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
+import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
+import { eggSpecies } from '../../../companion/lifecycle';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -51,6 +53,7 @@ export default function Hatchery() {
   const inventory = normalizeList(inventoryData);
   const eggs = inventory.filter((e) => e.item.item_type === 'egg' && e.quantity > 0 && isCatalogAvailable(e.item));
   const potions = inventory.filter((e) => e.item.item_type === 'potion' && e.quantity > 0 && isCatalogAvailable(e.item));
+  const selectedEggSpecies = eggSpecies(eggs.find((entry) => String(entry.item.id) === hatchEgg)?.item);
   const breedingAvailable = stableData?.breeding_available !== false && mounts.some((mount) => mount.can_breed !== false);
 
   const refresh = () => { reloadStable(); reloadInventory(); };
@@ -221,6 +224,12 @@ export default function Hatchery() {
             </div>
           </div>
         )}
+
+        {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
+          <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>
+          <p className="text-caption text-ink-secondary">Hatches into a baby {selectedEggSpecies.name}.</p>
+          <PetEvolutionGuide species={selectedEggSpecies} currentStage="egg" />
+        </section>}
 
         {hatchSuccess && (
           <div role="status" className="mt-3 font-body text-body text-moss">

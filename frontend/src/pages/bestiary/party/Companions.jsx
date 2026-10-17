@@ -114,7 +114,8 @@ export default function Companions() {
       if (result?.evolved && !(currentPresentation?.sharedBirdReady && currentPresentation.evolutionMotionEnabled)) {
         setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
       }
-      const changedStage = result?.evolution_stage && result.evolution_stage !== pet.evolution_stage;
+      const changedStage = (result?.lifecycle_stage && result.lifecycle_stage !== pet.lifecycle_stage)
+        || (result?.evolution_stage && result.evolution_stage !== pet.evolution_stage);
       if (changedStage) setReaction(null);
       else if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
       refresh();
@@ -194,7 +195,7 @@ export default function Companions() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Feed companions to help them grow. Chick becomes Fledgling at 50 growth, then Bird at 100 growth, ready to explore.
+        Every companion starts as an egg. Hatch a baby, help it reach its middle stage at 50 growth, then its grown form at 100 growth, ready to explore.
       </p>
 
       {/* Covers the partial case too: stable loaded but the satchel fetch

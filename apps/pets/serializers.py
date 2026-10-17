@@ -5,12 +5,16 @@ from django.utils import timezone
 from django.utils.functional import cached_property
 from rest_framework import serializers
 from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
+from .lifecycle import LIFECYCLE_STAGES, companion_lifecycle_stage
 from .services import MOUNT_BREEDING_COOLDOWN_DAYS, bird_evolution_stage
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 from apps.rpg.catalog_icons import species_catalog_icon
 
 
 class CatalogPortraitFields:
+    def get_lifecycle_stages(self, obj):
+        return list(LIFECYCLE_STAGES)
+
     def get_catalog_icon(self, obj):
         return species_catalog_icon(obj)
 
@@ -19,12 +23,13 @@ class CatalogPortraitFields:
 
 
 class PetSpeciesSerializer(CatalogPortraitFields, serializers.ModelSerializer):
+    lifecycle_stages = serializers.SerializerMethodField()
     catalog_icon = serializers.SerializerMethodField()
     grown_catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     class Meta:
         model = PetSpecies
-        fields = ["id", "slug", "name", "icon", "sprite_key", "description", "food_preference", "catalog_available", "catalog_icon", "grown_catalog_icon"]
+        fields = ["id", "slug", "name", "icon", "sprite_key", "description", "food_preference", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages"]
         read_only_fields = fields
 
     def get_catalog_available(self, obj):
@@ -53,6 +58,7 @@ class PotionTypeMiniSerializer(serializers.ModelSerializer):
 class PetSpeciesCatalogSerializer(CatalogPortraitFields, serializers.ModelSerializer):
     """Parent-only catalog view — includes compatible potion list."""
     available_potions = serializers.SerializerMethodField()
+    lifecycle_stages = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     catalog_icon = serializers.SerializerMethodField()
     grown_catalog_icon = serializers.SerializerMethodField()
@@ -61,7 +67,7 @@ class PetSpeciesCatalogSerializer(CatalogPortraitFields, serializers.ModelSerial
         model = PetSpecies
         fields = [
             "id", "name", "icon", "sprite_key", "description", "food_preference",
-            "available_potions", "catalog_available", "catalog_icon", "grown_catalog_icon",
+            "available_potions", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages",
         ]
         read_only_fields = fields
 
@@ -80,6 +86,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
     lets the frontend illuminate the right tile in the 6-potion evolution row.
     """
     slug = serializers.CharField(read_only=True)
+    lifecycle_stages = serializers.SerializerMethodField()
     available_potions = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     catalog_icon = serializers.SerializerMethodField()
@@ -97,7 +104,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
         fields = [
             "id", "slug", "name", "icon", "sprite_key", "description",
             "food_preference", "available_potions",
-            "discovered", "owned_pet_ids", "owned_mount_potion_ids", "catalog_available", "catalog_icon", "grown_catalog_icon",
+            "discovered", "owned_pet_ids", "owned_mount_potion_ids", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages",
         ]
         read_only_fields = fields
 
@@ -111,6 +118,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
 class UserPetSerializer(serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
     evolution_stage = serializers.SerializerMethodField()
+    lifecycle_stage = serializers.SerializerMethodField()
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     is_fully_grown = serializers.BooleanField(read_only=True)
@@ -122,7 +130,7 @@ class UserPetSerializer(serializers.ModelSerializer):
             "id", "species", "potion", "name", "growth_points",
             "is_active", "evolved_to_mount", "is_fully_grown",
             "happiness_level", "last_fed_at",
-            "created_at", "updated_at", "catalog_available", "evolution_stage",
+            "created_at", "updated_at", "catalog_available", "evolution_stage", "lifecycle_stage",
         ]
         read_only_fields = fields
 
@@ -132,10 +140,14 @@ class UserPetSerializer(serializers.ModelSerializer):
     def get_evolution_stage(self, obj):
         return bird_evolution_stage(obj)
 
+    def get_lifecycle_stage(self, obj):
+        return companion_lifecycle_stage(obj)
+
 
 class UserMountSerializer(serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
     evolution_stage = serializers.SerializerMethodField()
+    lifecycle_stage = serializers.SerializerMethodField()
     species = PetSpeciesSerializer(read_only=True)
     potion = PotionTypeSerializer(read_only=True)
     active_expedition = serializers.SerializerMethodField()
@@ -151,7 +163,7 @@ class UserMountSerializer(serializers.ModelSerializer):
             "id", "species", "potion", "is_active",
             "last_bred_at", "active_expedition", "can_breed", "breeding_cooldown_seconds",
             "expedition_available", "expedition_available_at", "expedition_available_in_seconds",
-            "created_at", "updated_at", "catalog_available", "evolution_stage",
+            "created_at", "updated_at", "catalog_available", "evolution_stage", "lifecycle_stage",
         ]
         read_only_fields = fields
 
@@ -160,6 +172,9 @@ class UserMountSerializer(serializers.ModelSerializer):
 
     def get_evolution_stage(self, obj):
         return bird_evolution_stage(obj, is_mount=True)
+
+    def get_lifecycle_stage(self, obj):
+        return companion_lifecycle_stage(obj, is_mount=True)
 
     @cached_property
     def breeding_as_of(self):

@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "middle_growth": 50,
+  "grown_growth": 100,
+  "stages": [
+    {"id": "egg", "label": "Egg"},
+    {"id": "baby", "label": "Baby"},
+    {"id": "middle", "label": "Middle"},
+    {"id": "grown", "label": "Grown"}
+  ],
+  "family_forms": [
+    {
+      "species_slug": "chick",
+      "sprite_key": "cute-chick",
+      "potion_slugs": ["base"],
+      "names": {"egg": "Egg", "baby": "Chick", "middle": "Fledgling", "grown": "Bird"}
+    }
+  ]
+}

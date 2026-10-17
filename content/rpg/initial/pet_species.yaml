@@ -1,6 +1,8 @@
 # Pet species — each entry auto-materializes both a PetSpecies row AND an
 # egg ItemDefinition (type=egg) with typed FK back to the species. Authoring
-# a new pet is one entry here; the loader handles the fan-out.
+# a new pet is one entry here; the loader handles the fan-out. Every family
+# uses Egg → Baby → Middle → Grown (shared/catalog/companion-lifecycle.json).
+# Stage-specific assets and new acquisition still require reviewed art bindings.
 #
 # Schema per entry:
 #   slug               (required, unique)
@@ -185,8 +187,8 @@ species:
     egg_rarity: common
     egg_coin_value: 3
 
-  # Owned Cute Series woodland bird. The three licensed model forms are
-  # presentation stages of this species; recolored variants are not authored.
+  # Owned Cute Series woodland bird. The three licensed post-hatch forms are
+  # Baby/Middle/Grown of this species; its egg is the inventory stage; recolored variants are not authored.
   - slug: chick
     name: Chick
     icon: "🐤"

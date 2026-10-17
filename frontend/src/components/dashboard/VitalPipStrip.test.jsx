@@ -99,5 +99,6 @@ describe('VitalPipStrip', () => {
     const icon = screen.getByText('🐢');
     expect(icon).not.toHaveAttribute('data-dim');
     expect(screen.getByRole('button', { name: 'Tortle growth' })).toHaveTextContent('100%');
+    expect(screen.getByRole('button', { name: 'Tortle growth' })).toHaveTextContent('Grown companion');
   });
 });

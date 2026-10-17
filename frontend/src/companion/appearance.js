@@ -1,6 +1,6 @@
 import { isCatalogAvailable } from '../utils/catalogAvailability';
 import { resolveSharedBirdAppearance } from './sharedBirdRelease';
-import { birdStage, birdFormName } from './birdEvolution';
+import { companionFormName, companionStage } from './lifecycle';
 
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
@@ -16,7 +16,7 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
     return { ...prepared, woodland: woodland?.file && urls[`./licensed/${woodland.file}`]
       ? { url: urls[`./licensed/${woodland.file}`], scale: woodland.scale || 1 } : null };
   }
-  if (creature?.evolution_stage === 'fledgling') return null;
+  if (creature?.lifecycle_stage === 'middle' || creature?.evolution_stage === 'fledgling') return null;
   if (!creature?.id || source?.schema_version !== 1) return null;
   const binding = source.bindings?.find((entry) =>
     entry.species_slug && entry.species_slug === creature.species?.slug
@@ -46,7 +46,7 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
 }
 
 export function creatureLabel(creature, kind = 'pet') {
-  const form = birdFormName(creature?.species, creature?.potion, birdStage(creature, kind));
+  const form = companionFormName(creature?.species, creature?.potion, companionStage(creature, kind));
   return [creature?.potion?.name, form].filter(Boolean).join(' ');
 }
 

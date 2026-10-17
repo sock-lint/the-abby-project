@@ -141,7 +141,7 @@ export default function Mounts() {
       />
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
-        Chick becomes Fledgling at 50 growth, then Bird at 100 growth. Send them exploring and collect their finds when they return.
+        Each family grows from egg to baby, middle, and grown. Grown pets can explore once they reach 100 growth. Collect their finds when they return.
       </p>
 
       <ErrorAlert message={error || stableError} />

@@ -517,6 +517,7 @@ def mark_daily_challenge_ready(user) -> dict[str, Any]:
 def set_pet_growth(user, *, pet_id: int, growth: int = 99) -> dict[str, Any]:
     """Direct-assign ``UserPet.growth_points`` (bypasses the consumable cap)."""
     from apps.pets.models import UserPet
+    from apps.pets.lifecycle import companion_lifecycle_stage
 
     if not 0 <= growth <= 99:
         raise OperationError(
@@ -539,6 +540,7 @@ def set_pet_growth(user, *, pet_id: int, growth: int = 99) -> dict[str, Any]:
         "pet_id": pet.pk,
         "species_name": pet.species.name,
         "growth_points": growth,
+        "lifecycle_stage": companion_lifecycle_stage(pet),
     }
 
 

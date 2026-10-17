@@ -6,6 +6,7 @@ import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
+import { lifecycleStageLabel } from '../companion/lifecycle';
 
 /**
  * Surfaces silent companion auto-growth events as a slide-in toast strip
@@ -42,7 +43,7 @@ function GrowthToast({ event, onDismiss }) {
           {event.potion_name} {event.species_name} grew
         </div>
         <div className="text-caption text-current">
-          +{event.growth_added} · {event.new_growth}/100
+          +{event.growth_added} · {event.new_growth}/100{lifecycleStageLabel(event.lifecycle_stage) ? ` · ${lifecycleStageLabel(event.lifecycle_stage)} stage` : ''}
         </div>
       </div>
     </NotificationToast>

@@ -17,6 +17,12 @@
     ],
     "catalog_available": true,
     "catalog_icon": "portrait-chick",
-    "grown_catalog_icon": "portrait-chick-grown"
+    "grown_catalog_icon": "portrait-chick-grown",
+    "lifecycle_stages": [
+      "egg",
+      "baby",
+      "middle",
+      "grown"
+    ]
   }
 ]

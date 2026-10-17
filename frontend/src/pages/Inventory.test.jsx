@@ -28,6 +28,15 @@ function renderInventory() {
 }
 
 describe('Inventory', () => {
+  it('identifies stored eggs as the first stage of their declared family', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 1, quantity: 2, item: { id: 1, name: 'Fox Egg', pet_species_name: 'Fox', lifecycle_stage: 'egg', item_type: 'egg', rarity: 'common', icon: '🥚' } },
+    ])));
+    renderInventory();
+    expect(await screen.findByText('Egg stage · Fox family')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Feed' })).toBeNull();
+  });
+
   it('uses the same theme name as Settings and routes its action to Appearance', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([
       { id: 9, quantity: 1, item: { id: 9, name: 'Hyrule Day', item_type: 'cosmetic_theme', rarity: 'common', icon: '📖', metadata: { theme: 'hyrule' } }, available_actions: [{ id: 'equip', label: 'Change color theme', to: '/settings#appearance' }] },

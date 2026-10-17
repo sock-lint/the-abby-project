@@ -34,6 +34,8 @@ import fledglingFeed from '../../../contracts/api/fixtures/pet-feed-fledgling.js
 import birdFeed from '../../../contracts/api/fixtures/pet-feed-bird.json';
 import fledglingStable from '../../../contracts/api/fixtures/pets-stable-fledgling.json';
 import birdStable from '../../../contracts/api/fixtures/pets-stable-bird.json';
+import lifecycleStable from '../../../contracts/api/fixtures/pets-lifecycle-boundaries.json';
+import lifecycleInventory from '../../../contracts/api/fixtures/inventory-lifecycle-identities.json';
 import activatedPet from '../../../contracts/api/fixtures/pet-activate.json';
 import activatedMount from '../../../contracts/api/fixtures/mount-activate.json';
 import missingFood from '../../../contracts/api/fixtures/pet-feed-missing-food.json';
@@ -109,9 +111,9 @@ describe('shared Django response fixtures through the React API client', () => {
   });
 
   it.each([
-    ['fledgling', fledglingFeed, fledglingStable, 50, false],
-    ['bird', birdFeed, birdStable, 100, true],
-  ])('retains the server-confirmed %s stage through feed, refresh and a later stable read', async (stage, feed, stable, growth, evolved) => {
+    ['fledgling', 'middle', fledglingFeed, fledglingStable, 50, false],
+    ['bird', 'grown', birdFeed, birdStable, 100, true],
+  ])('retains the server-confirmed %s stage through feed, refresh and a later stable read', async (stage, lifecycleStage, feed, stable, growth, evolved) => {
     const calls = [];
     server.use(
       http.post('*/api/pets/61/feed/', async ({ request }) => {
@@ -120,15 +122,39 @@ describe('shared Django response fixtures through the React API client', () => {
       }),
       http.get('*/api/pets/stable/', () => HttpResponse.json(stable)),
     );
-    expect(await feedPet(61, 74)).toMatchObject({ evolution_stage: stage, new_growth: growth, evolved });
+    expect(await feedPet(61, 74)).toMatchObject({ evolution_stage: stage, lifecycle_stage: lifecycleStage, new_growth: growth, evolved });
     for (let read = 0; read < 2; read += 1) {
       const confirmed = await getStable();
-      expect(confirmed.pets.find((pet) => pet.id === 61)).toMatchObject({ evolution_stage: stage, growth_points: growth, evolved_to_mount: evolved });
+      expect(confirmed.pets.find((pet) => pet.id === 61)).toMatchObject({ evolution_stage: stage, lifecycle_stage: lifecycleStage, growth_points: growth, evolved_to_mount: evolved });
       expect(confirmed.pets.find((pet) => pet.species.slug === 'cat').evolution_stage).toBeNull();
       expect(confirmed.mounts.find((mount) => mount.species.slug === 'cat').evolution_stage).toBeNull();
       if (evolved) expect(confirmed.mounts.find((mount) => mount.species.slug === 'chick').evolution_stage).toBe('bird');
     }
     expect(calls).toEqual([{ method: 'POST', body: { food_item_id: 74 } }]);
+  });
+
+  it('retains generic lifecycle stages and confirmed mount ownership independently of legacy appearance stages', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(lifecycleStable)));
+    const stable = await getStable();
+    expect(stable).toEqual(lifecycleStable);
+    expect(Object.fromEntries(stable.pets.map((pet) => [pet.id, [pet.growth_points, pet.lifecycle_stage]]))).toEqual({
+      51: [49, 'baby'], 52: [50, 'middle'], 53: [100, 'grown'], 54: [100, 'middle'],
+    });
+    for (const companion of [...stable.pets, ...stable.mounts]) {
+      expect(companion.species.lifecycle_stages).toEqual(['egg', 'baby', 'middle', 'grown']);
+      expect(companion.evolution_stage).toBeNull();
+    }
+    expect(stable.mounts.every((mount) => mount.lifecycle_stage === 'grown')).toBe(true);
+  });
+
+  it('preserves typed and legacy egg families, unresolved eggs and non-egg items', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(lifecycleInventory)));
+    const inventory = await getInventory();
+    expect(inventory).toEqual(lifecycleInventory);
+    expect(Object.fromEntries(inventory.map(({ item }) => [item.id, [item.lifecycle_stage, item.pet_species_slug]]))).toEqual({
+      73: ['egg', 'fixture-fox'], 75: ['egg', 'fixture-wolf'],
+      76: ['egg', null], 71: [null, null],
+    });
   });
 
   it('preserves the confirmed zero-dollar timecard closure and later detail read', async () => {
@@ -429,18 +455,18 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(inventory).toEqual(inventoryResponse);
     expect(stable.pets[0]).toMatchObject({
       id: 51, name: 'Sprout {a} "friend"', growth_points: 20, is_active: true,
-      evolved_to_mount: false, happiness_level: 'happy', last_fed_at: null,
-      species: { id: 41, name: 'Fox', sprite_key: 'fox' },
+      evolved_to_mount: false, happiness_level: 'happy', last_fed_at: null, lifecycle_stage: 'baby',
+      species: { id: 41, name: 'Fox', sprite_key: 'fox', lifecycle_stages: ['egg', 'baby', 'middle', 'grown'] },
       potion: { id: 43, slug: 'fire', rarity: 'uncommon' },
     });
     expect(stable.pets.find((pet) => pet.id === 52)).toMatchObject({
-      happiness_level: 'stale', last_fed_at: '2026-10-01T12:00:00-07:00',
+      happiness_level: 'stale', last_fed_at: '2026-10-01T12:00:00-07:00', lifecycle_stage: 'middle',
     });
     expect(stable.pets.find((pet) => pet.id === 53)).toMatchObject({
-      growth_points: 100, evolved_to_mount: true, is_fully_grown: true,
+      growth_points: 100, evolved_to_mount: true, is_fully_grown: true, lifecycle_stage: 'grown',
     });
     expect(stable.mounts[0]).toMatchObject({
-      id: 61, is_active: true, active_expedition: null, can_breed: false, breeding_cooldown_seconds: 0,
+      id: 61, is_active: true, active_expedition: null, can_breed: false, breeding_cooldown_seconds: 0, lifecycle_stage: 'grown',
     });
     expect(stable.mounts.find((mount) => mount.id === 62)).toMatchObject({
       can_breed: false, breeding_cooldown_seconds: 432000,
@@ -480,12 +506,12 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(eggs).toHaveLength(1);
     expect(eggs[0]).toMatchObject({
       id: 83, quantity: 2,
-      item: { id: 73, pet_species_name: 'Fox', potion_type_name: null },
+      item: { id: 73, pet_species_name: 'Fox', pet_species_slug: 'fox', potion_type_name: null, lifecycle_stage: 'egg' },
     });
     expect(potions.map((entry) => entry.item.id)).toEqual([76, 75]);
     expect(potions.find((entry) => entry.item.id === 75)).toMatchObject({
       id: 85, quantity: 1,
-      item: { id: 75, potion_type_name: 'Ice', pet_species_name: null },
+      item: { id: 75, potion_type_name: 'Ice', pet_species_name: null, lifecycle_stage: null },
     });
   });
 
@@ -503,7 +529,7 @@ describe('shared Django response fixtures through the React API client', () => {
     const pet = await hatchPet(73, 75);
     expect(pet).toEqual(hatchedPet);
     expect(pet).toMatchObject({
-      id: 83, name: '', growth_points: 0, is_active: false,
+      id: 83, name: '', growth_points: 0, is_active: false, lifecycle_stage: 'baby',
       evolved_to_mount: false, is_fully_grown: false, happiness_level: 'happy', last_fed_at: null,
       species: { id: 41, name: 'Fox', sprite_key: 'fox' },
       potion: { id: 44, name: 'Ice', slug: 'ice', sprite_key: 'ice-potion', rarity: 'rare' },
@@ -731,7 +757,7 @@ describe('shared Django response fixtures through the React API client', () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json(bredInventory)));
     const inventory = normalizeList(await getInventory());
     expect(inventory).toEqual(bredInventory);
-    expect(inventory.find((entry) => entry.item.id === 73)).toMatchObject({ quantity: 2, item: { item_type: 'egg', pet_species_name: 'Fox' } });
+    expect(inventory.find((entry) => entry.item.id === 73)).toMatchObject({ quantity: 2, item: { item_type: 'egg', pet_species_name: 'Fox', pet_species_slug: 'fixture-fox', lifecycle_stage: 'egg' } });
     expect(inventory.find((entry) => entry.item.id === 77)).toMatchObject({ quantity: 4, item: { item_type: 'potion', potion_type_name: 'Ice' } });
     expect(inventory.find((entry) => entry.item.id === 71).quantity).toBe(2);
   });
@@ -750,7 +776,7 @@ describe('shared Django response fixtures through the React API client', () => {
     const result = await breedMounts(61, 62);
     expect(result).toEqual(response);
     expect(result).toMatchObject({
-      egg_item_id: 73, potion_item_id: potionId, picked_species: 'Fox', picked_species_slug: 'fixture-fox',
+      egg_item_id: 73, egg_lifecycle_stage: 'egg', potion_item_id: potionId, picked_species: 'Fox', picked_species_slug: 'fixture-fox',
       picked_potion: potionName, chromatic, cooldown_days: 7,
     });
     expect(result).not.toHaveProperty('coins_awarded');

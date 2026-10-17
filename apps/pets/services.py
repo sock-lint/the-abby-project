@@ -5,13 +5,14 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils import timezone
 from apps.rpg.catalog_support import available_items, available_pet_variants, item_is_available, pet_is_available
+from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage
 
 logger = logging.getLogger(__name__)
 
 GROWTH_PREFERRED_FOOD = 15
 GROWTH_NEUTRAL_FOOD = 5
-EVOLUTION_THRESHOLD = 100
-BIRD_FLEDGLING_THRESHOLD = 50
+EVOLUTION_THRESHOLD = GROWN_GROWTH
+BIRD_FLEDGLING_THRESHOLD = MIDDLE_GROWTH
 
 # Daily cap on direct-grant growth from consumables (growth_surge,
 # feast_platter). Tonic-doubled feeds are NOT capped here — those still
@@ -318,6 +319,7 @@ class PetService:
                 evolved += 1
                 event["evolved"] = True
                 event["mount_id"] = mount.pk
+            event["lifecycle_stage"] = companion_lifecycle_stage(pet)
             events.append(event)
 
         if events:
@@ -406,6 +408,7 @@ class PetService:
             "evolved": mount is not None,
             "mount_id": mount.pk if mount else None,
             "evolution_stage": bird_evolution_stage(pet),
+            "lifecycle_stage": companion_lifecycle_stage(pet),
         }
 
     @staticmethod
@@ -575,6 +578,7 @@ class PetService:
             "egg_item_name": egg_item.name,
             "egg_item_icon": egg_item.icon,
             "egg_item_sprite_key": egg_item.sprite_key,
+            "egg_lifecycle_stage": "egg",
             "potion_item_id": potion_item.pk,
             "potion_item_name": potion_item.name,
             "potion_item_icon": potion_item.icon,

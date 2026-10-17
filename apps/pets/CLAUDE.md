@@ -1,13 +1,13 @@
 # apps/pets/
 
-Collectible pets + mount evolution + breeding + offline expeditions. Lifecycle: **Egg + Potion → Pet → Mount → Breeding**, plus the Finch-inspired Mount Expeditions loop.
+Collectible pets + mount evolution + breeding + offline expeditions. Every species has the lifecycle **Egg → Baby → Middle → Grown**. Eggs are existing inventory ingredients; egg + potion hatches a baby, 50 saved growth reaches middle, and confirmed evolution at 100 reaches grown (the existing mount). See [companion lifecycle](../../docs/operations/companion-lifecycle.md). Breeding returns new egg ingredients.
 
 ## Active asset policy (October 2026)
 
 New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 through `apps/rpg/catalog_support.py`. Production supports exact species slug
 `chick`, sprite key `cute-chick`, and potion slug `base`. Chick is the pet;
-The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null. See [Bird adoption](../../docs/operations/bird-evolution.md).
+The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
 The authored catalog remains in the database as generic engine/reference
 content; owning a portrait or authoring a YAML row does not enable another
 species, potion variant or 3D appearance.

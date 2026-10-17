@@ -58,7 +58,7 @@ python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dra
 Active owned-art scope is recorded in
 [`react-three-fiber-assets.md`](react-three-fiber-assets.md), with new offers
 restricted by [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json).
-The accepted pet path is exact Base Chick to confirmed Bird; Birdseed remains
+Every authored species automatically has an egg and the shared Egg → Baby → Middle → Grown lifecycle; see [companion lifecycle](../../docs/operations/companion-lifecycle.md) for API and future artwork integration. The accepted new-acquisition art remains exact Base Chick through Fledgling to confirmed Bird; Birdseed remains
 its preferred food. Earlier saved identities stay intact, but a YAML entry or
 sprite alone does not establish available 3D art or a new acquisition goal.
 [`unity-assets.md`](unity-assets.md) retains the historical coverage review.

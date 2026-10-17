@@ -3,5 +3,6 @@
   "new_growth": 100,
   "evolved": true,
   "mount_id": 62,
-  "evolution_stage": "bird"
+  "evolution_stage": "bird",
+  "lifecycle_stage": "grown"
 }

@@ -9,6 +9,7 @@ import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 import { birdStage } from '../../companion/birdEvolution';
 import PetEvolutionGuide from './PetEvolutionGuide';
+import { companionStageLabel } from '../../companion/lifecycle';
 
 class SceneBoundary extends Component {
   state = { failed: false };
@@ -113,7 +114,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         <div>
           <p className="text-caption font-semibold text-sheikah-teal-deep">{kicker}</p>
           <h2 id={headingId} className={`${primary ? 'companion-primary-name text-2xl sm:text-3xl' : 'text-lede'} font-bold text-ink-primary`}>{(primary ? name : label) || 'Choose a companion'}</h2>
-          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{stage && !(primary && name !== label) ? `${stage[0].toUpperCase()}${stage.slice(1)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
+          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{companionStageLabel(creature, kind) ? `${companionStageLabel(creature, kind)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
           {primary && summary && <p className="companion-primary-summary">{summary}</p>}
         </div>
         {appearance && (primary ? <details className="companion-view-settings">

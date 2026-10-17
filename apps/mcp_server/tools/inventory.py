@@ -11,11 +11,11 @@ from __future__ import annotations
 from typing import Any
 
 from apps.achievements.models import Badge, UserBadge
-from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
+from apps.rpg.models import CharacterProfile, UserInventory
 from apps.rpg.services import ConsumableService, CosmeticService
 
 from ..context import get_current_user, resolve_target_user
-from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..errors import MCPNotFoundError, MCPPermissionDenied, safe_tool
 from ..schemas import (
     EquipCosmeticIn,
     ListCosmeticsIn,
@@ -39,7 +39,7 @@ def list_inventory(params: ListInventoryIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    qs = UserInventory.objects.select_related("item").filter(user=target)
+    qs = UserInventory.objects.select_related("item", "item__pet_species").filter(user=target)
     if params.item_type:
         qs = qs.filter(item__item_type=params.item_type)
     qs = qs.order_by("item__item_type", "item__rarity", "item__name")

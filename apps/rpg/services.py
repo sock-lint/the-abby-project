@@ -997,6 +997,7 @@ class ConsumableService:
             # mechanic (so it stacks with a feed on the same day). Honors
             # the per-pet daily cap — see CONSUMABLE_GROWTH_DAILY_CAP.
             from apps.pets.models import UserPet
+            from apps.pets.lifecycle import companion_lifecycle_stage
             from apps.pets.services import PetService
             amount = int(meta.get("growth", 30))
             pet = UserPet.objects.select_for_update().filter(
@@ -1015,6 +1016,7 @@ class ConsumableService:
                 "growth_capped": applied < amount,
                 "new_growth": pet.growth_points,
                 "evolved_to_mount": mount is not None,
+                "lifecycle_stage": companion_lifecycle_stage(pet),
             }
         if effect == "feast_platter":
             # Sweeping small growth boost to every unevolved pet in the user's

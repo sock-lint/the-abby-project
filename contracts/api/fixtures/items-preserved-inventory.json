@@ -19,7 +19,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -49,7 +51,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": false
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -73,7 +77,9 @@
       "pet_species_name": "Cat",
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": false
+      "catalog_available": false,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "cat"
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",
@@ -97,7 +103,9 @@
       "pet_species_name": null,
       "potion_type_name": "Base",
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "quantity": 1,
     "updated_at": "2026-10-10T12:00:00-07:00",

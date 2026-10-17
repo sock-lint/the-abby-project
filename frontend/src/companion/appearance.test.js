@@ -34,6 +34,10 @@ describe('Owned companion appearance bindings', () => {
     expect(resolveAppearance(chick, 'pet', manifest, {})).toBeNull();
   });
 
+  it('does not reuse a baby model when a family has no prepared middle-stage binding', () => {
+    expect(resolveAppearance({ ...chick, lifecycle_stage: 'middle' }, 'pet', manifest, urls)).toBeNull();
+  });
+
   it('only previews server-selected active ownership and does not choose the first collection entry', () => {
     expect(activeCompanion({ pets: [chick], mounts: [] })).toBeNull();
     expect(activeCompanion({ pets: [chick, { ...chick, id: 8, is_active: true }] })?.creature.id).toBe(8);

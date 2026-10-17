@@ -1,6 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 from apps.rpg.catalog_icons import item_catalog_icon
+from apps.pets.lifecycle import egg_species_slug, item_lifecycle_stage
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
 from .avatar import (
@@ -206,6 +207,8 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
     pet_species_name = serializers.CharField(source="pet_species.name", read_only=True, default=None)
     potion_type_name = serializers.CharField(source="potion_type.name", read_only=True, default=None)
     food_species_name = serializers.CharField(source="food_species.name", read_only=True, default=None)
+    lifecycle_stage = serializers.SerializerMethodField()
+    pet_species_slug = serializers.SerializerMethodField()
 
     class Meta:
         model = ItemDefinition
@@ -213,6 +216,7 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
             "id", "name", "description", "icon", "sprite_key", "catalog_icon", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
             "pet_species_name", "potion_type_name", "food_species_name", "catalog_available",
+            "lifecycle_stage", "pet_species_slug",
         ]
         read_only_fields = fields
 
@@ -221,6 +225,12 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_icon(self, obj):
         return item_catalog_icon(obj)
+
+    def get_lifecycle_stage(self, obj):
+        return item_lifecycle_stage(obj)
+
+    def get_pet_species_slug(self, obj):
+        return egg_species_slug(obj)
 
     def get_type_display(self, obj):
         if obj.item_type == ItemDefinition.ItemType.COSMETIC_THEME:

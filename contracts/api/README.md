@@ -689,7 +689,16 @@ second report card or individual result that day receives a zero-XP
 daily counter after replay, history reads and corrections; rejected nested
 fields consume no eligibility.
 
-Pet and mount responses include read-only `evolution_stage`: `chick`,
+All creature families share ordered `lifecycle_stages: ["egg", "baby", "middle", "grown"]`
+on species/catalog/codex responses. Pet and mount `lifecycle_stage` is read-only:
+Baby below 50 saved growth, Middle from 50 until confirmed evolution, and Grown
+after confirmed evolution or for an owned mount. Egg items remain inventory
+with `lifecycle_stage: "egg"` and `pet_species_slug` (typed FK first, legacy
+metadata fallback); other items return null for both. Hatching consumes the
+existing egg+potion pair into a Baby at zero growth. No stage read grants
+ownership, growth or currency. See [companion lifecycle](../../docs/operations/companion-lifecycle.md).
+
+Pet and mount responses also retain compatible read-only `evolution_stage`: `chick`,
 `fledgling`, `bird`, or null for other identities. Only exact
 `chick` / `cute-chick` / `base` uses these stages. Persisted growth below 50
 selects Chick, 50 or higher selects Fledgling until confirmed mount evolution;

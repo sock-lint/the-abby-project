@@ -32,7 +32,9 @@
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
-      "catalog_available": true
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
     },
     "on_my_wishlist": false,
     "catalog_available": true

@@ -31,6 +31,16 @@ Additional species, biomes and gameplay need their own deliberate decisions.
 Use existing 2D art for unsupported content; never substitute the bird for an
 unrelated earned creature or recolor it into an unprepared potion variant.
 
+## Four-stage families
+
+All species have the shared Egg → Baby → Middle → Grown lifecycle described in
+[companion lifecycle](../../docs/operations/companion-lifecycle.md). Egg is the
+existing species-linked inventory ingredient, not a new owned pet or model.
+The current private Bird release still supplies only Chick/Fledgling/Bird.
+Future egg and creature assets require exact reviewed family/stage bindings,
+private release pins and actual renderer acceptance before acquisition expands.
+Missing stage art retains the same family's sprite/icon fallback.
+
 ## Exact content bindings
 
 The catalog in [initial/pet_species.yaml](initial/pet_species.yaml) continues

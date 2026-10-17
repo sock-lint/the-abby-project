@@ -303,6 +303,7 @@ export default function Inventory() {
                     <div className="font-body text-caption font-medium truncate">
                       {itemDisplayName(entry.item)}
                     </div>
+                    {entry.item.item_type === 'egg' && <p className="mt-1 text-caption text-ink-secondary">Egg stage{entry.item.pet_species_name ? ` · ${entry.item.pet_species_name} family` : ''}</p>}
                     <div className="flex items-center justify-center mt-1.5">
                       <span
                         className={`text-micro px-1.5 py-0.5 rounded-full font-script uppercase tracking-wider ${

@@ -353,6 +353,8 @@ def chronicle_entry_to_dict(entry) -> dict[str, Any]:
 
 
 def item_definition_to_dict(item) -> dict[str, Any]:
+    from apps.pets.lifecycle import egg_species_slug, item_lifecycle_stage
+
     return {
         "id": item.id,
         "slug": item.slug,
@@ -364,6 +366,8 @@ def item_definition_to_dict(item) -> dict[str, Any]:
         "rarity": item.rarity,
         "coin_value": item.coin_value,
         "metadata": item.metadata or {},
+        "lifecycle_stage": item_lifecycle_stage(item),
+        "pet_species_slug": egg_species_slug(item),
     }
 
 

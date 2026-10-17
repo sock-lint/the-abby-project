@@ -455,14 +455,16 @@ entries:
     icon: "🐾"
     audience_title: "Hatching and caring for pets"
     chapter: rpg_layer
-    summary: "Egg + potion companions that grow through care."
+    summary: "Every pet family grows from egg through baby, middle, and grown."
     kid_voice: |
-      Hatch a Chick with a Chick egg and a Base potion. Feed it to help
-      it grow through Fledgling into Bird, and choose an active pet to keep
-      you company.
+      Every pet family starts with an egg in Hatching. Combine an egg and a
+      compatible potion to hatch a baby, then care for it through its middle
+      and grown stages. For Chick, these forms are Chick, Fledgling and Bird.
+      Choose an active pet to keep you company.
       Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
-      - "Hatching consumes one egg item and one potion item and creates a unique species/potion pet."
+      - "Every species follows Egg → Baby → Middle → Grown. Eggs stay in inventory until hatching; babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
+      - "Hatching consumes one egg item and one potion item and creates a unique species/potion baby pet."
       - "New hatching supports Chick with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
       - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
       - "Earlier saved pets can still be fed, activated and evolved; another species is never displayed as Chick or Bird."
@@ -488,7 +490,7 @@ entries:
     trial_template: sequence
     trial:
       prompt: "Hatch a pet, feed it, and help it grow into a mount."
-      payoff: "Egg → Chick → Fledgling → Bird"
+      payoff: "Egg → Baby → Middle → Grown (Chick → Fledgling → Bird after hatching)"
       steps:
         - "Combine a Chick egg and Base potion to hatch Chick."
         - "Feed preferred food to grow; at 50 growth Chick becomes Fledgling."

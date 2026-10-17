@@ -212,6 +212,7 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
         {headline}
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">has joined your companions.</p>
+      <p className="mt-1 text-caption text-ink-secondary">Baby companion</p>
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →
