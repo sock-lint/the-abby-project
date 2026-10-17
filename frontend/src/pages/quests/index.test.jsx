@@ -68,9 +68,19 @@ describe('QuestsHub', () => {
     expect(screen.getByRole('tab', { name: /homework/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /habits/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /movement/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /reading/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /challenges/i })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: /3d print/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole('tab')).toHaveLength(6);
+    expect(screen.getAllByRole('tab')).toHaveLength(7);
+  });
+
+  it('opens the bookshelf from the Reading tab', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
+    render(<MemoryRouter><AuthProvider><QuestsHub /></AuthProvider></MemoryRouter>);
+    await user.click(await screen.findByRole('tab', { name: 'Reading', exact: true }));
+    expect(await screen.findByRole('heading', { name: 'Your bookshelf', exact: true })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Reading', exact: true })).toHaveAttribute('aria-selected', 'true');
   });
 
   it.each([

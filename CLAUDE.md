@@ -23,6 +23,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`apps/timecards/CLAUDE.md`](apps/timecards/CLAUDE.md) | Clock-in/out · weekly timecards · auto clock-out · CSV export |
 | [`apps/payments/CLAUDE.md`](apps/payments/CLAUDE.md) | Money owed · Greenlight transfer confirmations · statement reconciliation · reported balances |
 | [`apps/habits/CLAUDE.md`](apps/habits/CLAUDE.md) | Rituals · positive/negative taps · strength decay |
+| [`apps/reading/CLAUDE.md`](apps/reading/CLAUDE.md) | Personal bookshelf · reading sessions · family reflections · curated next reads |
 | [`apps/movement/CLAUDE.md`](apps/movement/CLAUDE.md) | Physical activity sessions · intensity scaling · daily reward cap |
 | [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md) | 3D print requests · Bambu MQTT listener · HMS decoding · filament budget |
 | [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md) | MCP OAuth 2.1 surface ladder · context helpers |
@@ -178,6 +179,7 @@ apps/
   pets/              → apps/pets/CLAUDE.md
   quests/            → apps/quests/CLAUDE.md
   mcp_server/        → apps/mcp_server/CLAUDE.md
+  reading/           → apps/reading/CLAUDE.md
   movement/          → apps/movement/CLAUDE.md
   printing/          → apps/printing/CLAUDE.md
   activity/          ActivityEvent — append-only audit log of discrete
