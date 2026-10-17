@@ -119,6 +119,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # These public browser settings must reach Vite while the bundle builds.
+      # The source-map upload token remains a separate BuildKit secret.
+      args:
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+        VITE_SENTRY_ENVIRONMENT: ${VITE_SENTRY_ENVIRONMENT:-production}
+        VITE_SENTRY_TRACES_SAMPLE_RATE: ${VITE_SENTRY_TRACES_SAMPLE_RATE:-0.2}
+        VITE_SENTRY_RELEASE: ${VITE_SENTRY_RELEASE:-}
     command: sh -c "python manage.py backfill_accounts_history && python manage.py migrate --noinput && python manage.py loadrpgcontent && gunicorn config.asgi:application --bind 0.0.0.0:8000 --workers 3 --worker-class uvicorn.workers.UvicornWorker --timeout 120"
     volumes:
       # LLM-authored RPG content packs. The MCP ``write_pack_file`` tool
