@@ -44,12 +44,13 @@ describe('Chores', () => {
     renderPage(account, [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       create.handler,
     ]);
     await user.click(await screen.findByRole('button', { name: openLabel }));
     await user.type(screen.getByLabelText('Title'), 'Tidy room');
+    if (account.role === 'parent') await user.click(screen.getByRole('button', { name: 'Advanced options' }));
     await user.click(screen.getByRole('button', { name: 'Choose icon' }));
     await user.click(screen.getByRole('button', { name: 'Broom' }));
     expect(screen.getByLabelText('Icon')).toHaveValue('🧹');
@@ -73,7 +74,7 @@ describe('Chores', () => {
         new URL(request.url).searchParams.get('pending') === 'true' ? [] : [chore],
       )),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       update.handler,
     ]);
@@ -91,14 +92,14 @@ describe('Chores', () => {
 
   it('saves a selected icon when approving a chore proposal', async () => {
     const user = userEvent.setup();
-    const proposal = buildChore({ id: 7, title: 'Tidy room', icon: 'custom', pending_parent_review: true, created_by_name: 'Abby' });
+    const proposal = buildChore({ id: 7, title: 'Tidy room', icon: 'custom', pending_parent_review: true, assigned_to: 1, created_by_name: 'Abby' });
     const approve = spyHandler('post', /\/api\/chores\/7\/approve\/$/, proposal);
     renderPage(buildParent(), [
       http.get('*/api/chores/', ({ request }) => HttpResponse.json(
         new URL(request.url).searchParams.get('pending') === 'true' ? [proposal] : [],
       )),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       approve.handler,
     ]);
@@ -168,7 +169,7 @@ describe('Chores', () => {
         ],
       )),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
 
     expect(await screen.findByRole('button', { name: 'Add Chore reminder: Daily dishes to calendar' })).toBeInTheDocument();
@@ -208,7 +209,7 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     await waitFor(() =>
       expect(screen.getByText(/no chores yet/i)).toBeInTheDocument(),
@@ -234,7 +235,7 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
     await waitFor(() =>
@@ -249,7 +250,7 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([
         { id: 1, name: 'Persistence', icon: '💪', category_name: 'Life Skills' },
       ])),
@@ -258,6 +259,7 @@ describe('Chores', () => {
       expect(screen.getByRole('button', { name: /new chore/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('button', { name: /new chore/i }));
+    await user.click(screen.getByRole('button', { name: 'Advanced options' }));
     // Empty-state copy comes from SkillTagEditor — prove the component is mounted.
     expect(
       await screen.findByText(/no skills tagged/i, {}, { timeout: 2000 }),
@@ -273,11 +275,12 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
     await user.click(await screen.findByRole('button', { name: /new chore/i }));
 
+    await user.click(screen.getByRole('button', { name: 'Advanced options' }));
     const active = await screen.findByLabelText('Active');
     expect(active).toHaveAttribute('type', 'checkbox');
     expect(active).toBeChecked();
@@ -291,7 +294,7 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([
         { id: 7, name: 'Persistence', icon: '💪', category_name: 'Life Skills' },
       ])),
@@ -302,6 +305,7 @@ describe('Chores', () => {
       expect(screen.getByRole('button', { name: /new chore/i })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('button', { name: /new chore/i }));
+    await user.click(screen.getByRole('button', { name: 'Advanced options' }));
     await screen.findByText(/no skills tagged/i);
 
     await user.type(screen.getByLabelText('Title'), 'Dishes');
@@ -319,10 +323,10 @@ describe('Chores', () => {
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () =>
         HttpResponse.json([
-          { id: 1, chore_title: 'Dishes', chore_icon: '🍽️', user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
+          { id: 1, chore_title: 'Dishes', chore_icon: '🍽️', user: 1, user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
         ]),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: /awaiting approval/i })).toBeInTheDocument(),
@@ -377,7 +381,7 @@ describe('Chores', () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       // Never resolves — holds the form in its saving state.
       http.post('*/api/chores/', () => new Promise(() => {})),
     ]);
@@ -399,10 +403,10 @@ describe('Chores', () => {
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () =>
         HttpResponse.json([
-          { id: 22, chore_title: 'Dishes', chore_icon: '🍽️', user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
+          { id: 22, chore_title: 'Dishes', chore_icon: '🍽️', user: 1, user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
         ]),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       approve.handler,
     ]);
 
@@ -472,7 +476,8 @@ describe('Chores', () => {
       week_schedule: 'every_week',
       is_active: true,
       pending_parent_review: true,
-      created_by: 2,
+      created_by: 1,
+      assigned_to: 1,
       created_by_name: 'Abby',
       skill_tags: [],
     };
@@ -484,7 +489,7 @@ describe('Chores', () => {
         return HttpResponse.json(url.searchParams.get('pending') === 'true' ? [proposal] : []);
       }),
       http.get('*/api/chore-completions/', () => HttpResponse.json([])),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
       approve.handler,
     ]);
@@ -512,10 +517,10 @@ describe('Chores', () => {
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () =>
         HttpResponse.json([
-          { id: 22, chore_title: 'Dishes', chore_icon: '🍽️', user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
+          { id: 22, chore_title: 'Dishes', chore_icon: '🍽️', user: 1, user_name: 'Abby', status: 'pending', completed_date: '2026-04-16', reward_amount_snapshot: '1.00', coin_reward_snapshot: 5 },
         ]),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       reject.handler,
     ]);
 

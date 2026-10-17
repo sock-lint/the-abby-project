@@ -45,6 +45,7 @@ describe('Rewards', () => {
       if (!url.searchParams.has('status')) {
         return { count: 41, next: `http://localhost${path}?page=2`, results: Array.from({ length: 20 }, (_, i) => row(i + 101, 'fulfilled')) };
       }
+      if (url.searchParams.get('status') === 'approved') return [];
       expect(url.searchParams.get('status')).toBe('pending');
       return url.searchParams.get('page') === '2'
         ? { count: 21, next: null, results: [row(21)] }
@@ -59,7 +60,7 @@ describe('Rewards', () => {
     ]);
 
     await waitFor(() => expect(screen.getAllByRole('button', { name: /^approve$/i })).toHaveLength(21));
-    expect(reads.calls).toHaveLength(3);
+    expect(reads.calls).toHaveLength(path === '/api/redemptions/' ? 4 : 3);
     expect(reads.calls.some(({ url }) => new URL(url).searchParams.get('page') === '2')).toBe(true);
     expect(reads.calls.filter(({ url }) => new URL(url).searchParams.has('page')).every(({ url }) => new URL(url).searchParams.get('status') === 'pending')).toBe(true);
     await user.click(screen.getAllByRole('button', { name: /^approve$/i })[20]);
@@ -76,7 +77,7 @@ describe('Rewards', () => {
     let failSecondPage = true;
     const reads = spyHandler('get', '*/api/redemptions/', ({ request }) => {
       const url = new URL(request.url);
-      if (!url.searchParams.has('status')) return [];
+      if (url.searchParams.get('status') !== 'pending') return [];
       const row = { id: 22, user_name: 'Abby', status: 'pending', reward: { name: 'Recovered toy', icon: '🎁' }, coin_cost_snapshot: 80 };
       if (url.searchParams.has('page')) {
         if (failSecondPage) {
@@ -217,7 +218,7 @@ describe('Rewards', () => {
     const user = userEvent.setup();
     const redeem = spyHandler('post', '*/api/rewards/13/redeem/', {
       id: 92, status: 'fulfilled', coin_cost_snapshot: 45,
-      reward: { id: 13, name: 'Ice Cream', icon: '🍨' },
+      reward: { id: 13, name: 'Ice Cream', icon: '🍨', fulfillment_kind: 'digital_item' },
       requested_at: '2026-10-14T12:00:00Z',
     });
     renderPage(buildUser(), redeemHandlers(redeem));
@@ -231,6 +232,25 @@ describe('Rewards', () => {
     expect(receipt).not.toHaveTextContent('awaiting parent approval');
     expect(redeem.calls).toHaveLength(1);
     expect(redeem.calls[0].body).toEqual({});
+  });
+
+  it('shows an approved real-world request as awaiting handover rather than received', async () => {
+    const user = userEvent.setup();
+    const redeem = spyHandler('post', '*/api/rewards/13/redeem/', {
+      id: 94, status: 'approved', coin_cost_snapshot: 50,
+      reward: { id: 13, name: 'Ice Cream', icon: '🍨', fulfillment_kind: 'real_world' },
+      requested_at: '2026-10-17T12:00:00Z', delivered_at: null, delivered_by: null,
+    });
+    renderPage(buildUser(), redeemHandlers(redeem));
+    await user.click(await screen.findByRole('button', { name: /request reward/i }));
+    const confirm = within(await screen.findByRole('dialog', { name: /ice cream/i }));
+    await user.click(confirm.getByRole('button', { name: /request reward/i }));
+    const receipt = await screen.findByRole('status', { name: 'Reward request update' });
+    expect(receipt).toHaveTextContent('Approved — awaiting real-world delivery');
+    expect(receipt).not.toHaveTextContent('Reward received');
+    expect(redeem.calls).toHaveLength(1);
+    expect(redeem.calls[0].body).toEqual({});
+    expect(redeem.calls[0].url).toMatch(/\/api\/rewards\/13\/redeem\/$/);
   });
 
   it('keeps the saved receipt when refresh fails and retries reads without repeating the request', async () => {

@@ -23,7 +23,7 @@ function renderList(items = [], onDone = () => {}, extraProps = {}) {
 
 const chore = {
   id: 11, kind: 'chore', kidId: 1, kidName: 'Abby',
-  title: 'Dishes', subtitle: 'Daily', reward: 1.0,
+  title: 'Dishes', subtitle: 'Daily', reward: '1.00',
 };
 const homework = {
   id: 22, kind: 'homework', kidId: 1, kidName: 'Abby',
@@ -35,6 +35,35 @@ const redemption = {
 };
 
 describe('ApprovalQueueList', () => {
+  it('approves only selected work after an explicit consequence confirmation', async () => {
+    const user = userEvent.setup();
+    const choreSpy = spyHandler('post', /\/api\/chore-completions\/11\/approve\/$/, {});
+    const homeworkSpy = spyHandler('post', /\/api\/homework-submissions\/22\/approve\/$/, {});
+    server.use(choreSpy.handler, homeworkSpy.handler);
+    renderList([chore, homework]);
+    await user.click(screen.getByRole('checkbox', { name: /select dishes from abby/i }));
+    await user.click(screen.getByRole('button', { name: /approve selected 1 from abby/i }));
+    expect(choreSpy.calls).toHaveLength(0);
+    const dialog = screen.getByRole('alertdialog');
+    expect(dialog).toHaveTextContent('Completed work receives its configured rewards.');
+    await user.click(within(dialog).getByRole('button', { name: /^approve selected$/i }));
+    await waitFor(() => expect(choreSpy.calls).toHaveLength(1));
+    expect(choreSpy.calls[0].body).toBeNull();
+    expect(homeworkSpy.calls).toHaveLength(0);
+    expect(screen.getByText('Math p.14')).toBeInTheDocument();
+  });
+
+  it('shows waiting age and reviews the oldest dated submission first', () => {
+    renderList([
+      { ...chore, submittedAt: '2026-10-16T10:00:00Z' },
+      { ...homework, submittedAt: '2026-10-14T10:00:00Z' },
+    ]);
+    const rows = screen.getAllByRole('listitem');
+    expect(rows[0]).toHaveTextContent('Math p.14');
+    expect(rows[1]).toHaveTextContent('Dishes');
+    expect(rows[0]).toHaveTextContent(/Waiting/);
+  });
+
   it('renders empty state when no pending items', () => {
     renderList([]);
     expect(screen.getByText(/no pending approvals/i)).toBeInTheDocument();
@@ -66,6 +95,7 @@ describe('ApprovalQueueList', () => {
     expect(screen.getByText('Dishes')).toBeInTheDocument();
     expect(screen.getByText('Math p.14')).toBeInTheDocument();
     expect(screen.getByText('Ice cream')).toBeInTheDocument();
+    expect(screen.getByText('$1.00')).toBeInTheDocument();
   });
 
   it('approving a chore POSTs to /chore-completions/{id}/approve/', async () => {
@@ -242,7 +272,13 @@ describe('ApprovalQueueList', () => {
       const view = renderList([chore, homework], onDone);
 
       await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: /approve all 2 from abby/i }));
+        fireEvent.click(screen.getByRole('button', { name: /select all from abby/i }));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /approve selected 2 from abby/i }));
+      });
+      await act(async () => {
+        fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /^approve selected$/i }));
       });
       view.unmount();
       await act(async () => { resolveDecision({ ok: true }); await pending; });
@@ -255,11 +291,11 @@ describe('ApprovalQueueList', () => {
     renderList([chore, homework, redemption]);
     // Abby has 2 pending → bulk button rendered.
     expect(
-      screen.getByRole('button', { name: /approve all 2 from abby/i }),
+      screen.getByRole('button', { name: /select all from abby/i }),
     ).toBeInTheDocument();
     // Beck has 1 pending → no bulk button.
     expect(
-      screen.queryByRole('button', { name: /approve all 1 from beck/i }),
+      screen.queryByRole('button', { name: /approve selected 1 from beck/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -271,7 +307,9 @@ describe('ApprovalQueueList', () => {
     const onDone = vi.fn();
     renderList([chore, homework], onDone);
 
-    await user.click(screen.getByRole('button', { name: /approve all 2 from abby/i }));
+    await user.click(screen.getByRole('button', { name: /select all from abby/i }));
+    await user.click(screen.getByRole('button', { name: /approve selected 2 from abby/i }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /^approve selected$/i }));
 
     await waitFor(() => {
       expect(choreSpy.calls).toHaveLength(1);
@@ -299,7 +337,9 @@ describe('ApprovalQueueList', () => {
     );
     renderList([chore, homework]);
 
-    await user.click(screen.getByRole('button', { name: /approve all 2 from abby/i }));
+    await user.click(screen.getByRole('button', { name: /select all from abby/i }));
+    await user.click(screen.getByRole('button', { name: /approve selected 2 from abby/i }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /^approve selected$/i }));
 
     await waitFor(() =>
       expect(screen.queryByText('Dishes')).not.toBeInTheDocument(),

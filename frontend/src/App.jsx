@@ -9,6 +9,7 @@ import BirthdayCelebrationModal from './components/BirthdayCelebrationModal';
 import CelebrationModal from './components/CelebrationModal';
 import { SpriteCatalogProvider } from './providers/SpriteCatalogProvider';
 import { PulseProvider } from './providers/PulseProvider';
+import ParentReviewProvider from './providers/ParentReviewProvider';
 import SuccessToastProvider from './components/SuccessToast';
 import JournalShell from './components/layout/JournalShell';
 import { PwaStatusProvider } from './pwa/PwaStatusProvider';
@@ -206,6 +207,7 @@ function AppContent() {
             Mounted inside the authed branch so it never polls a logged-out
             shell. */}
         <PulseProvider>
+        <ParentReviewProvider>
           <BrowserRouter>
             <RouteAnnouncer />
             <ScrollToTop />
@@ -293,6 +295,7 @@ function AppContent() {
             </Routes>
           </BrowserRouter>
           <OfflineReadyToast />
+        </ParentReviewProvider>
         </PulseProvider>
         </SpriteCatalogProvider>
         </SuccessToastProvider>

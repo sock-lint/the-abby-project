@@ -80,7 +80,7 @@ export default function HeaderStatusPips({ user }) {
   // Parent-only pending counts. Shared with ``useParentDashboard`` via the
   // ``useParentPendingCounts`` hook so the two callers don't fork the
   // Promise.all of the same three endpoints.
-  const { total: pending } = useParentPendingCounts({ enabled: isParent });
+  const { total: pending, ready: attentionReady, incomplete: attentionIncomplete } = useParentPendingCounts({ enabled: isParent });
 
   const activeTimer = pulse?.header?.active_timer ?? dashboard?.active_timer ?? null;
   const coins = pulse?.header?.coin_balance ?? dashboard?.coin_balance ?? 0;
@@ -107,9 +107,9 @@ export default function HeaderStatusPips({ user }) {
       out.push({
         key: 'approvals',
         icon: <Stamp size={14} />,
-        label: String(pending),
+        label: !attentionReady ? '…' : attentionIncomplete ? `${pending || '?'}${pending ? '+' : ''}` : String(pending),
         tone: pending > 0 ? 'ember' : 'ink',
-        ariaLabel: `${pending} pending approvals`,
+        ariaLabel: !attentionReady ? 'Checking items needing attention' : attentionIncomplete ? 'Some review queues are unavailable' : `${pending} items needing attention`,
         onClick: () => {
           // Best-effort in-page anchor; falls back to dashboard.
           const el = typeof document !== 'undefined'
@@ -149,7 +149,7 @@ export default function HeaderStatusPips({ user }) {
       });
     }
     return out;
-  }, [activeTimer, isParent, pending, streak, coins, weekEarnings, navigate]);
+  }, [activeTimer, isParent, pending, attentionReady, attentionIncomplete, streak, coins, weekEarnings, navigate]);
 
   // A larger count can change scrollWidth without resizing the rail itself.
   // Refresh the cues after each new set of labels as well as on scroll/resize.
