@@ -9,7 +9,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from django.conf import settings
 from django.test import TestCase, override_settings
 from pydantic import ValidationError as PydanticValidationError
 
@@ -22,7 +21,6 @@ from apps.mcp_server.errors import (
 )
 
 
-_VALIDATION_ERRORS = (MCPValidationError, PydanticValidationError)
 from apps.mcp_server.schemas import (
     DeleteContentPackIn,
     DeletePackFileIn,
@@ -38,6 +36,8 @@ from apps.mcp_server.schemas import (
 from apps.mcp_server.tools import content_packs as cp
 from apps.accounts.models import User
 from apps.rpg.models import ItemDefinition
+
+_VALIDATION_ERRORS = (MCPValidationError, PydanticValidationError)
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class _PacksMixin(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.parent = User.objects.create_user(
-            username="p", password="pw", role="parent",
+            username="p", password="pw", role="parent", is_staff=True,
         )
         self.child = User.objects.create_user(
             username="c", password="pw", role="child",

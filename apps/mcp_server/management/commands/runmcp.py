@@ -54,6 +54,8 @@ class Command(BaseCommand):
         from apps.mcp_server import server as mcp_server
 
         if as_user:
+            if transport != "stdio":
+                raise CommandError("--as-user is only allowed with the local stdio transport.")
             if not getattr(settings, "MCP_DEV_ALLOW_USER_PIN", False):
                 raise CommandError(
                     "--as-user is only allowed when DEBUG is true.",
@@ -64,9 +66,7 @@ class Command(BaseCommand):
                 user = User.objects.get(username=as_user)
             except User.DoesNotExist as exc:
                 raise CommandError(f"User '{as_user}' not found.") from exc
-            from apps.mcp_server.context import set_current_user
-
-            set_current_user(user)
+            # Local identity/scopes are scoped around run_stdio below; HTTP always authenticates tokens.
             self.stdout.write(self.style.WARNING(
                 f"[dev] Pinned MCP context to user {user.username} "
                 f"(role={user.role})",
@@ -76,7 +76,12 @@ class Command(BaseCommand):
             self.stdout.write(self.style.NOTICE(
                 "Starting MCP server on stdio transport...",
             ))
-            mcp_server.run_stdio()
+            if as_user:
+                from apps.mcp_server.context import override_user
+                with override_user(user):
+                    mcp_server.run_stdio()
+            else:
+                mcp_server.run_stdio()
             return
 
         host = options["host"]

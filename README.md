@@ -22,7 +22,7 @@ and [retirement record](docs/operations/unity-retirement.md).
 | Task Queue | Celery 5.4 (with django-celery-beat) |
 | MCP Server | FastMCP (Streamable HTTP, mounted inside Django ASGI at `/mcp`) |
 | Observability | Sentry (self-hosted) — error tracking, performance, release automation |
-| Image generation | Google Gemini 3 Pro Image ("Nano Banana Pro") for runtime sprite authoring |
+| Artwork | Prepared models, portraits and registered sprite images; no in-app image generation |
 | Containerization | Docker Compose |
 
 ## Quick Start
@@ -138,7 +138,6 @@ the-abby-project/
 │   │                        #   DropLog, SpriteAsset (runtime-authored sprites);
 │   │                        #   StreakService, DropService, CosmeticService,
 │   │                        #   ConsumableService, GameLoopService (orchestrator),
-│   │                        #   sprite_generation.py (Gemini-backed sprite-sheet maker)
 │   ├── pets/                # PetSpecies, PotionType, UserPet, UserMount, PetService
 │   │                        #   (hatch, feed, evolve, breed mounts, happiness)
 │   ├── quests/              # QuestDefinition, Quest, QuestParticipant, QuestRewardItem,
@@ -157,7 +156,7 @@ the-abby-project/
 │   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 27 tool modules / ~207 tools
+│   └── mcp_server/          # FastMCP server with 26 tool modules / 203 tools
 │                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
@@ -270,7 +269,7 @@ Homework pays **no money and no coins** — it's positioned as school duty, not 
 - **ChronicleEntry** (`apps/chronicle/`) — Lifelong timeline rendered on the Yearbook page. Kinds: `birthday`, `chapter_start`, `chapter_end`, `first_ever`, `milestone`, `recap`, `manual`, `journal` (child-authored, one per local day, `is_private=True`), `creation` (auto-emitted from Creations).
 - **Creation** (`apps/creations/`) — Child-authored "I made a thing" entries — required photo + optional audio + caption + child-picked primary/secondary creative skill. Anti-farm: `CreationDailyCounter` caps XP rewards to the first 2 logs per local day and survives hard deletes. Parent bonus track via `CreationBonusSkillTag`.
 - **DailyChallenge** (`apps/quests/`) — Lightweight once-per-day micro-quest separate from the regular `Quest` slot. Five challenge types (`clock_hour`, `chores`, `habits`, `homework`, `milestone`); rotated nightly by `rotate_daily_challenges_task` Celery beat.
-- **SpriteAsset** (`apps/rpg/`) — Runtime-authored pixel-art sprites with slug, ImageField, animation metadata (`frame_count`, `fps`, layout) and authoring inputs (`prompt`, `motion`, `style_hint`, `tile_size`, `reference_image_url`) persisted for one-click reroll. Served from a dedicated `abby-sprites` Ceph bucket (public-read, content-hash filenames, immutable cache headers). Generation backed by Google Gemini 3 Pro Image via `apps/rpg/sprite_generation.py`.
+- **SpriteAsset** (`apps/rpg/`) — Registered prepared PNG/WebP artwork with slug, image and animation metadata. Existing images and historical authoring inputs remain readable. Served from the separate public `abby-sprites` bucket using content-hash filenames. AI sprite generation and rerolling were retired on October 17, 2026.
 
 ### RPG: Quests (`apps/quests/`)
 
@@ -600,10 +599,9 @@ header sent) are exempt — they surface the 401 as a normal error.
 |--------|----------|-------------|
 | GET | `/api/sprites/catalog/` | Public, ETag-cached sprite catalog (the only `/api/` endpoint that opts out of `Cache-Control: no-store`) |
 | GET | `/api/sprites/admin/` | Parent-only full catalog with authoring inputs |
-| POST | `/api/sprites/admin/generate/` | Parent-only — generate a sprite sheet via Gemini 3 Pro Image (requires `GEMINI_API_KEY`) |
-| POST | `/api/sprites/admin/{slug}/reroll/` | Replay stored authoring inputs with `overwrite=True` |
-| PATCH | `/api/sprites/admin/{slug}/` | Edit `fps` / `pack` only — no image regeneration |
-| DELETE | `/api/sprites/admin/{slug}/` | Blob-first delete |
+| POST | Former generation/reroll URLs | Authenticated staff parents receive JSON 410 Gone; no provider is called |
+| PATCH | `/api/sprites/admin/{slug}/` | Staff-parent-only edit of `fps` / `pack` |
+| DELETE | `/api/sprites/admin/{slug}/` | Staff-parent-only deletion of registered artwork |
 
 ## Business Logic
 
@@ -648,7 +646,7 @@ balance = sum(all ledger entries)  # positive = owed, negative = paid out
 - On approval: XP from skill tags, badges re-evaluated (incl. `HOMEWORK_ON_TIME_COUNT`), `homework_complete` trigger fires with `on_time` context for quest filtering.
 - Proof image uploads required — ordered gallery with captions.
 - Scholar track content lives in YAML: Planner / Punctual badges, Scholar-themed cosmetics, Scholar's Week / On-Time Streak / Midnight Oil quests.
-- AI-planned long-form homework: `POST /api/homework/{id}/plan/` generates a linked Project via Claude + MCP.
+- AI-planned long-form homework: `POST /api/homework/{id}/plan/` generates a linked homework plan through the family’s saved OpenAI or Claude connection.
 
 ### Skill Tree & XP
 - Hierarchy: SkillCategory → Subject → Skill
@@ -684,18 +682,22 @@ Four-stage Scrapy-style pipeline for importing projects from external sources:
 
 Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets parents edit milestones and steps before committing. Instructables scrapes cached in Redis 24h.
 
+### AI disclosure and Google verification
+
+The [AI and Google data disclosure inventory](docs/operations/google-ai-disclosure.md) maps remaining LLM calls, Google-selected PDF inference, external MCP clients, browser dictation, retention, consent limits and reviewer evidence. It does not claim Google approval. In-app AI image/sprite generation is retired; existing prepared artwork remains available.
+
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp`. **27 tool modules / ~207 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
+FastMCP server mounted inside Django ASGI at `/mcp`. **26 tool modules / 203 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
 Grouped by domain:
 
 - **Productivity surface** — `projects` (28), `homework` (17), `chores` (9), `habits` (7), `creations` (8), `chronicle` (10), `templates` (7), `ingestion` (4), `movement` (6), `dashboard` (1)
 - **Economy + recognition** — `payments` (4), `rewards` (9), `exchange` (5), `savings` (4), `achievements` (19), `portfolio` (6), `notifications` (4)
 - **RPG layer** — `inventory` (6), `pets` (8), `quests` (9), `daily_challenges` (2)
-- **Authoring + content** — `content_packs` (11), `sprite_authoring` (9), `sprite_assets` (1), `sprite_prompting_playbook` (1)
+- **Authoring + content** — `content_packs` (11), `sprite_authoring` (6), `sprite_assets` (1)
 - **Family ops** — `users` (3), `timecards` (9)
 
-Uses OAuth 2.1 Bearer tokens (PKCE, RFC 8707 resource binding) for `/mcp/*`, DNS rebinding protection, stateless HTTP transport for horizontal scaling, and `sync_to_async` for Django ORM access. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
+Uses resource-bound OAuth Bearer tokens with PKCE and an active staff-parent check for `/mcp/*`. Independent `mcp:read`, `mcp:write` and `mcp:author` permissions govern discovery and execution; consent defaults to read only. Tools advertise operation hints, and destructive operations require explicit client confirmation. Existing broad/unbound connections must reconnect. DNS rebinding protection, stateless HTTP transport and `sync_to_async` remain in place. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
 
 ### The Forge — 3D Print Requests
 
@@ -888,13 +890,11 @@ docker compose down -v
 | `LLM_BACKEND` | `auto` | Deployment AI for project suggestions and ingestion: `auto`, `anthropic`, or `none`; unsupported values disable it |
 | `ANTHROPIC_API_KEY` | (empty) | Enables deployment Claude for project suggestions and ingestion enrichment |
 | `CLAUDE_MODEL` | `claude-haiku-4-5-20251001` | Deployment Claude model for project suggestions and ingestion |
-| `GEMINI_API_KEY` | (empty) | Enables the `generate_sprite_sheet` MCP tool / `/api/sprites/admin/generate/` endpoint |
-| `GEMINI_IMAGE_MODEL` | `gemini-3-pro-image-preview` | Gemini image model for sprite generation ("Nano Banana Pro") |
 | `GOOGLE_CLIENT_ID` | (empty) | Google OAuth2 client ID |
 | `GOOGLE_CLIENT_SECRET` | (empty) | Google OAuth2 client secret |
 | `GOOGLE_REDIRECT_URI` | (empty) | Google OAuth2 redirect URI |
 | `USE_S3_STORAGE` | `false` | When true, route `STORAGES["default"]` (user media) through Ceph RGW |
-| `SPRITE_S3_BUCKET` | `abby-sprites` | Public-read Ceph bucket for runtime-authored sprite PNGs |
+| `SPRITE_S3_BUCKET` | `abby-sprites` | Public-read Ceph bucket for prepared registered sprite PNGs |
 | `SPRITE_S3_ENDPOINT` | (= `AWS_S3_ENDPOINT_URL`) | Ceph RGW endpoint for the sprite bucket |
 | `SPRITE_S3_CUSTOM_DOMAIN` | (empty) | Optional CDN hostname for sprites; empty → raw Ceph URL |
 
@@ -946,7 +946,6 @@ draft before those additions can be saved.
 | `HOMEWORK_LATE_CUTOFF_DAYS` | `3` | Past this many days late, submissions flip from `late` to `beyond_cutoff` (label-only — homework pays no money or coins) |
 | `HOMEWORK_SELF_PLAN_LEAD_DAYS` | `3` | Children can self-trigger AI planning only when due_date is at least N days out; parents bypass |
 | `BIRTHDAY_COINS_PER_YEAR` | `100` | Coins granted on birthday, multiplied by `age_years` |
-| `SPRITE_GENERATION_MAX_FRAMES` | `8` | Hard cap on `frame_count` for the `generate_sprite_sheet` tool — bounds worst-case Gemini spend per call |
 
 ### RPG Game-Design Constants
 

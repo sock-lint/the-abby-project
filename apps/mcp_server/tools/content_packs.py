@@ -40,7 +40,7 @@ from typing import Any
 import yaml
 from django.conf import settings
 
-from ..context import require_parent
+from ..context import require_parent, require_staff_parent
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteContentPackIn,
@@ -87,7 +87,6 @@ _MANIFEST_FILENAME = ".manifest.json"
 def _packs_root() -> Path:
     """Absolute path to ``content/rpg/packs/`` under BASE_DIR."""
     root = Path(settings.BASE_DIR) / "content" / "rpg" / "packs"
-    root.mkdir(parents=True, exist_ok=True)
     return root
 
 
@@ -182,7 +181,7 @@ def list_content_packs(params: ListContentPacksIn) -> dict[str, Any]:
     require_parent()
     root = _packs_root()
     packs = []
-    for child in sorted(root.iterdir()):
+    for child in sorted(root.iterdir()) if root.exists() else []:
         if not child.is_dir() or child.name.startswith("."):
             continue
         packs.append(_pack_summary(child))
@@ -233,7 +232,7 @@ def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
 
     Does NOT trigger a load — call ``load_content_pack`` when ready.
     """
-    require_parent()
+    require_staff_parent()
     if len(params.yaml_content.encode("utf-8")) > _MAX_YAML_BYTES:
         raise MCPValidationError(
             f"yaml_content exceeds 200 KB (actual: "
@@ -292,7 +291,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     Does NOT trigger a load. Call ``validate_content_pack`` then
     ``load_content_pack`` to commit the rows to the database.
     """
-    require_parent()
+    require_staff_parent()
     schema = _PACK_FILE_SCHEMA.get(params.filename)
     if schema is None:
         raise MCPValidationError(
@@ -394,7 +393,7 @@ def delete_pack_file(params: DeletePackFileIn) -> dict[str, Any]:
     no prune step. Use this to stop shipping a section from a pack on
     subsequent loads.
     """
-    require_parent()
+    require_staff_parent()
     path = _resolve_pack_file(params.pack, params.filename)
     if not path.exists():
         raise MCPNotFoundError(
@@ -417,7 +416,7 @@ def delete_content_pack(params: DeleteContentPackIn) -> dict[str, Any]:
     the database — those stay. Delete the pack from the filesystem only
     when you're sure future loads should not include its YAML.
     """
-    require_parent()
+    require_staff_parent()
     if not params.confirm:
         raise MCPValidationError(
             "delete_content_pack requires confirm=True for safety.",
@@ -487,7 +486,7 @@ def validate_content_pack(params: ValidateContentPackIn) -> dict[str, Any]:
     malformed YAML or reference to a missing item/badge/species surfaces
     as ``MCPValidationError``.
     """
-    require_parent()
+    require_staff_parent()
     return _invoke_loader(params.pack, dry_run=True)
 
 
@@ -504,7 +503,7 @@ def load_content_pack(params: LoadContentPackIn) -> dict[str, Any]:
     Pass ``dry_run=true`` to get the same result as ``validate_content_pack``
     in one call. Use that for "what would this do?" before committing.
     """
-    require_parent()
+    require_staff_parent()
     result = _invoke_loader(params.pack, dry_run=params.dry_run)
     if not params.dry_run:
         pack_dir = _resolve_pack_path(params.pack)
@@ -536,10 +535,10 @@ def prune_pack_content(params: PrunePackContentIn) -> dict[str, Any]:
     QuestDefinitions/RewardItems (owned by quests and re-upserted), or
     Badges (name-keyed, not slug-keyed — edit via admin if needed).
 
-    Parent-only. Pass ``dry_run=true`` to get counts without deleting.
+    Staff-parent-only. Pass ``dry_run=true`` to get counts without deleting.
     Returns ``{"pack": ..., "dry_run": bool, "drops_deleted": int, "rewards_deleted": int}``.
     """
-    require_parent()
+    require_staff_parent()
     # Validate pack name format via the same check used for writes, but
     # don't require the pack dir to exist — operator may be pruning a
     # pack whose YAML was already deleted.
@@ -576,7 +575,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
     require_parent()
     from apps.achievements.models import Badge
     from apps.pets.models import PetSpecies, PotionType
-    from apps.quests.models import QuestDefinition, QuestRewardItem
+    from apps.quests.models import QuestDefinition
     from apps.rpg.models import DropTable, ItemDefinition
 
     limit = params.limit_per_section

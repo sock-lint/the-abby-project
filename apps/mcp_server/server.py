@@ -12,12 +12,18 @@ from __future__ import annotations
 import functools
 import inspect
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator, Callable
+from typing import Annotated, Any, AsyncIterator, Callable
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from mcp.types import ToolAnnotations
+from pydantic import Field, StrictBool
+
+from .context import get_current_scopes, require_scope, require_staff_parent
+from .errors import MCPValidationError
+from .tool_policy import AUTHOR_SCOPE, policy_for
 
 
 def _build_transport_security() -> TransportSecuritySettings:
@@ -54,7 +60,14 @@ def _build_transport_security() -> TransportSecuritySettings:
 # ``transport_security`` is computed from Django settings so the MCP SDK's
 # DNS rebinding middleware whitelists the public hostname this service runs
 # behind. Without it the SDK auto-enables a loopback-only allow-list.
-mcp = FastMCP(
+class ScopedFastMCP(FastMCP):
+    async def list_tools(self):
+        tools = await super().list_tools()
+        scopes = get_current_scopes()
+        return [tool for tool in tools if policy_for(tool.name).scope in scopes]
+
+
+mcp = ScopedFastMCP(
     name=getattr(settings, "MCP_SERVER_NAME", "abby"),
     stateless_http=True,
     transport_security=_build_transport_security(),
@@ -103,16 +116,46 @@ def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], 
     """
 
     def decorator(fn: Callable[..., Any]) -> Callable[..., Any]:
-        if inspect.iscoroutinefunction(fn):
-            adapted: Callable[..., Any] = fn
-        else:
-            sync_runner = sync_to_async(fn, thread_sensitive=True)
+        name = tool_kwargs.get("name") or fn.__name__
+        policy = policy_for(name)  # Unreviewed tool names fail at registration.
+        runner = fn if inspect.iscoroutinefunction(fn) else sync_to_async(fn, thread_sensitive=True)
 
-            @functools.wraps(fn)
-            async def adapted(**kwargs: Any) -> Any:  # type: ignore[no-redef]
-                return await sync_runner(**kwargs)
+        @functools.wraps(fn)
+        async def adapted(**kwargs: Any) -> Any:
+            require_scope(policy.scope)
+            if policy.scope == AUTHOR_SCOPE:
+                require_staff_parent()
+            if policy.destructive:
+                confirmation = kwargs.pop("confirmation", False)
+                if confirmation is not True:
+                    raise MCPValidationError(
+                        "This operation changes or removes saved data. Obtain the user's "
+                        "confirmation, then call again with confirmation=true."
+                    )
+            return await runner(**kwargs)
 
-        mcp.tool(*tool_args, **tool_kwargs)(adapted)
+        if policy.destructive:
+            # Advertise the acknowledgement as part of the real input schema,
+            # alongside params, while preserving each handler's existing model.
+            signature = inspect.signature(fn, eval_str=True)
+            confirmation = inspect.Parameter(
+                "confirmation", kind=inspect.Parameter.KEYWORD_ONLY, default=False,
+                annotation=Annotated[StrictBool, Field(description=(
+                    "Set true only after the user confirms this operation and its targets. "
+                    "This acknowledgement is required before the tool changes or removes saved data."
+                ))],
+            )
+            adapted.__signature__ = signature.replace(  # type: ignore[attr-defined]
+                parameters=[*signature.parameters.values(), confirmation],
+            )
+        registration = dict(tool_kwargs)
+        registration["annotations"] = ToolAnnotations(
+            readOnlyHint=policy.read_only,
+            destructiveHint=policy.destructive,
+            idempotentHint=policy.idempotent,
+            openWorldHint=policy.open_world,
+        )
+        mcp.tool(*tool_args, **registration)(adapted)
         return fn
 
     return decorator
@@ -145,7 +188,6 @@ def _load_tool_modules() -> None:
         savings,
         sprite_assets,
         sprite_authoring,
-        sprite_prompting_playbook,
         templates,
         timecards,
         users,
@@ -213,7 +255,7 @@ def build_http_app() -> Any:
     The returned app:
       * mounts FastMCP's streamable-HTTP handler at the configured path,
       * wraps it in ``TokenAuthMiddleware`` so every request is authenticated
-        against DRF tokens,
+        against OAuth Bearer tokens,
       * exposes an unauthenticated ``/health`` endpoint for Docker healthchecks.
 
     Used by ``python manage.py runmcp --transport http`` when running MCP

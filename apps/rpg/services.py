@@ -17,8 +17,8 @@ the documented curve stays in sync. See also:
 Tunables that DO belong in settings (deploy-toggleable):
 ``COINS_PER_HOUR``, ``COINS_PER_DOLLAR``, ``COINS_PER_BADGE_RARITY``,
 ``BIRTHDAY_COINS_PER_YEAR``, ``HOMEWORK_LATE_CUTOFF_DAYS``,
-``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``,
-``SPRITE_GENERATION_MAX_FRAMES``. Those live in ``config/settings.py``.
+``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``.
+Those live in ``config/settings.py``.
 
 The ``apps/rpg/tests/test_trigger_parity.py`` gate enforces that every
 ``TriggerType`` member appears in ``BASE_DROP_RATES`` (or is in the
