@@ -2,6 +2,7 @@
 import json
 from pathlib import Path
 from unittest.mock import patch
+import yaml
 
 from django.conf import settings
 from django.test import override_settings
@@ -33,11 +34,13 @@ class CatalogApiResponseFixtureTests(APITestCase):
         # The production codex contains 15 species identities, independently of
         # their 45 post-hatch artwork forms. All new pairs use global Base.
         roster = json.loads((Path(settings.BASE_DIR) / "shared/catalog/companion-roster.json").read_text())
+        species_content = yaml.safe_load((Path(settings.BASE_DIR) / "content/rpg/initial/pet_species.yaml").read_text())
+        rarities = {entry["slug"]: entry.get("egg_rarity", "common") for entry in species_content["species"]}
         self.roster_species = []
         for index, family in enumerate(roster["families"]):
             species = PetSpecies.objects.create(
                 id=142 + index, slug=family["species_slug"], name=family["name"],
-                icon="🐾", sprite_key=family["sprite_key"],
+                icon="🐾", sprite_key=family["sprite_key"], rarity=rarities[family["species_slug"]],
             )
             species.available_potions.add(self.base)
             self.roster_species.append(species)
@@ -59,6 +62,9 @@ class CatalogApiResponseFixtureTests(APITestCase):
         for species in catalog["species"]:
             self.assertEqual(species["lifecycle_stages"], ["egg", "baby", "middle", "grown"])
             self.assertEqual([potion["slug"] for potion in species["available_potions"]], ["base"])
+        self.assertEqual({rarity: sum(species["rarity"] == rarity for species in catalog["species"])
+                          for rarity in ("common", "uncommon", "rare", "epic", "legendary")},
+                         {"common": 5, "uncommon": 5, "rare": 3, "epic": 1, "legendary": 1})
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-preserved-collection.json")
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")
@@ -67,7 +73,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
         species = next(species for species in self.roster_species if species.slug == "meshtint-bat")
         egg = ItemDefinition.objects.create(
             id=91, slug="meshtint-bat-egg", name="Bat Egg", icon="🥚", item_type="egg",
-            pet_species=species, metadata={"species": species.slug},
+            pet_species=species, rarity=species.rarity, metadata={"species": species.slug},
         )
         UserInventory.objects.create(id=91, user=self.child, item=egg, quantity=2)
         inventory = self.client.get("/api/inventory/")
@@ -84,6 +90,8 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assertEqual(body["species"]["slug"], "meshtint-bat")
         self.assertEqual(body["species"]["catalog_icon"], "bat-baby-portrait")
         self.assertEqual(body["potion"]["slug"], "base")
+        self.assertEqual((body["rarity"], body["species"]["rarity"], body["potion"]["rarity"]),
+                         ("uncommon", "uncommon", "common"))
         self.assertEqual((body["lifecycle_stage"], body["growth_points"], body["evolved_to_mount"]), ("baby", 0, False))
         self.assertTrue(body["catalog_available"])
         self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
@@ -129,7 +137,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
         bee = next(species for species in self.roster_species if species.slug == "meshtint-bee")
         egg = ItemDefinition.objects.create(
             id=91, slug="meshtint-bat-egg", name="Bat Egg", icon="🥚", item_type="egg",
-            pet_species=bat, metadata={"species": bat.slug},
+            pet_species=bat, rarity=bat.rarity, metadata={"species": bat.slug},
         )
         parents = [UserMount.objects.create(id=81 + index, user=self.child, species=species, potion=self.base)
                    for index, species in enumerate((bat, bee))]

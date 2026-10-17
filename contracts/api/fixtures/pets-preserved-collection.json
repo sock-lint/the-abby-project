@@ -9,6 +9,7 @@
         "icon": "C",
         "sprite_key": "cute-chick",
         "description": "",
+        "rarity": "common",
         "food_preference": "",
         "catalog_available": true,
         "catalog_icon": "portrait-chick",
@@ -30,6 +31,7 @@
         "description": "",
         "catalog_available": true
       },
+      "rarity": "common",
       "name": "Peep",
       "growth_points": 0,
       "is_active": true,
@@ -52,6 +54,7 @@
         "icon": "K",
         "sprite_key": "cat",
         "description": "",
+        "rarity": "common",
         "food_preference": "",
         "catalog_available": false,
         "catalog_icon": null,
@@ -73,6 +76,7 @@
         "description": "",
         "catalog_available": true
       },
+      "rarity": "common",
       "name": "Kit",
       "growth_points": 30,
       "is_active": false,

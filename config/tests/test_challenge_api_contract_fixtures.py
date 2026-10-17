@@ -433,7 +433,13 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         completed = response.json()
         goal = next(row for row in completed["results"] if row["id"] == preview["id"])
         self.assertEqual(goal["reward_receipt"]["coins_awarded"], 5)
-        self.assertEqual(goal["reward_receipt"]["items"], [{"item_name": frame.name, "item_catalog_icon": None, "quantity": 1}])
+        items = goal["reward_receipt"]["items"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual({key: items[0][key] for key in (
+            "item_id", "item_name", "item_catalog_icon", "quantity", "item_rarity", "item_type", "item_catalog_available",
+        )}, {"item_id": frame.pk, "item_name": frame.name, "item_catalog_icon": None, "quantity": 1,
+             "item_rarity": "common", "item_type": "cosmetic_frame", "item_catalog_available": True})
+        self.assertEqual(items[0]["item_effect_summary"], "Equip this collectible from your Profile.")
         self.assert_response_fixture(response, "challenges-items-delivered.json")
         paid = self.state()
         self.assertEqual(self.log_run("1.25").status_code, 201)
@@ -468,9 +474,12 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.log_run("1.25").status_code, 201)
         response = self.client.get("/api/challenges/")
         completed = response.json()
-        self.assertEqual(completed["results"][0]["reward_receipt"]["items"], [{
-            "item_name": egg.name, "item_catalog_icon": None, "quantity": 1,
-        }])
+        items = completed["results"][0]["reward_receipt"]["items"]
+        self.assertEqual(len(items), 1)
+        self.assertEqual({key: items[0][key] for key in (
+            "item_id", "item_name", "item_catalog_icon", "quantity", "item_rarity", "item_type", "item_catalog_available",
+        )}, {"item_id": egg.pk, "item_name": egg.name, "item_catalog_icon": None, "quantity": 1,
+             "item_rarity": "common", "item_type": "egg", "item_catalog_available": False})
         self.assert_response_fixture(response, "challenges-items-promised-retired.json")
         self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
         paid = self.state()
@@ -508,6 +517,9 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(active.status_code, 200)
         promised = active.json()["definition"]["reward_items"]
         self.assertEqual([(row["item"], row["quantity"]) for row in promised], [(egg.pk, 2)])
+        # The accepted identity and promised details stay fixed. Availability
+        # remains current so the saved item cannot advertise a retired action.
+        accepted["definition"]["reward_items"][0]["item_catalog_available"] = False
         self.assertEqual(active.json(), accepted)
         self.assert_response_fixture(active, "quest-promised-item-active.json")
         goals_response = self.client.get("/api/challenges/")
@@ -540,7 +552,11 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             response = self.client.get("/api/challenges/")
             receipt = response.json()["results"][0]["reward_receipt"]
             self.assertEqual(receipt["coins_awarded"], 30)
-            self.assertEqual(receipt["items"], [{"item_name": egg.name, "item_catalog_icon": None, "quantity": 1, "salvaged_to_coins": 25}])
+            self.assertEqual(len(receipt["items"]), 1)
+            self.assertEqual({key: receipt["items"][0][key] for key in (
+                "item_id", "item_name", "item_catalog_icon", "quantity", "salvaged_to_coins", "item_rarity", "item_type",
+            )}, {"item_id": egg.pk, "item_name": egg.name, "item_catalog_icon": None, "quantity": 1,
+                 "salvaged_to_coins": 25, "item_rarity": "common", "item_type": "egg"})
             completed = self.assert_response_fixture(response, "challenges-items-converted.json")
             self.assertFalse(UserInventory.objects.filter(user=self.child, item=egg).exists())
             paid = self.state()

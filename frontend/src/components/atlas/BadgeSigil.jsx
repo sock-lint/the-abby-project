@@ -81,6 +81,7 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
             +{xp} XP
           </div>
         )}
+        {badge.coin_bonus > 0 && <div className="font-body text-caption font-semibold text-gold-leaf">+{badge.coin_bonus} coins base</div>}
         {selected !== undefined && <span data-sigil-selection={selected ? 'true' : 'false'}
           className="min-h-6 max-w-full break-words [overflow-wrap:anywhere] font-body text-caption font-semibold text-sheikah-teal-deep">
           {selected ? selectionLabel : null}

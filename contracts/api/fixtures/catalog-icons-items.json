@@ -16,6 +16,8 @@
       "effect": "xp_boost",
       "duration_hours": 48
     },
+    "effect_summary": "",
+    "acquisition_sources": [],
     "pet_species_name": null,
     "potion_type_name": null,
     "food_species_name": null,
@@ -37,6 +39,8 @@
     "rarity_display": "Common",
     "coin_value": 0,
     "metadata": {},
+    "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+    "acquisition_sources": [],
     "pet_species_name": null,
     "potion_type_name": null,
     "food_species_name": null,
@@ -58,6 +62,14 @@
     "rarity_display": "Common",
     "coin_value": 0,
     "metadata": {},
+    "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+    "acquisition_sources": [
+      {
+        "kind": "challenge",
+        "name": "Feather Collector",
+        "path": "/quests?tab=trials"
+      }
+    ],
     "pet_species_name": null,
     "potion_type_name": null,
     "food_species_name": null,
@@ -79,6 +91,8 @@
     "rarity_display": "Common",
     "coin_value": 0,
     "metadata": {},
+    "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+    "acquisition_sources": [],
     "pet_species_name": null,
     "potion_type_name": null,
     "food_species_name": null,

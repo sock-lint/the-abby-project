@@ -14,6 +14,7 @@ import { companionFormName } from '../../companion/lifecycle';
 import { petSpriteKeys } from '../../components/rpg/petSpriteKeys';
 import roster from '../../../../shared/catalog/companion-roster.json';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
+import RewardItem from '../../components/rpg/RewardItem';
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -97,7 +98,7 @@ export default function PetCeremonyModal({ mode, pet, species, potion, fromStage
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0 }}
         transition={reduced ? { duration: 0.15 } : { duration: 0.5, ease: 'easeOut' }}
-        className="relative parchment-bg-aged p-8 text-center max-w-sm w-[90%] rounded-2xl overflow-hidden"
+        className="relative parchment-bg-aged p-8 text-center max-w-sm w-[90%] max-h-[90dvh] rounded-2xl overflow-x-hidden overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {isHatch && (
@@ -552,15 +553,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
                   </span>
                 )}
                 {items.slice(0, 4).map((item, idx) => (
-                  <span key={`${item.name}-${idx}`} className="inline-flex items-center gap-1 font-body text-tiny text-ink-secondary">
-                    <CatalogIcon assetId={item.catalog_icon} icon={item.icon || '🎁'} size={24} alt="" />
-                    <span>{item.name}</span>
-                    {item.salvaged_to_coins ? (
-                      <span className="text-gold-leaf">· duplicate exchanged for {item.salvaged_to_coins} coins</span>
-                    ) : item.quantity > 1 ? (
-                      <span className="text-ink-whisper">×{item.quantity}</span>
-                    ) : null}
-                  </span>
+                  <RewardItem key={`${item.name}-${idx}`} item={item} showQuantity={false} />
                 ))}
               </div>
             </motion.div>

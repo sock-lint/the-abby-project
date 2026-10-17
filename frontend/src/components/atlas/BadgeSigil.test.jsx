@@ -4,6 +4,11 @@ import BadgeSigil from './BadgeSigil';
 import { buildBadge } from '../../test/factories';
 
 describe('BadgeSigil', () => {
+  it('shows future goals with their configured base coin reward', () => {
+    renderWithProviders(<BadgeSigil badge={buildBadge({ coin_bonus: 35 })} earned={false} />);
+    expect(screen.getByText('+35 coins base')).toBeInTheDocument();
+  });
+
   it('renders the badge icon and name when earned', () => {
     const badge = buildBadge({ name: 'Perfect Joinery', icon: '🏆', rarity: 'rare' });
     renderWithProviders(

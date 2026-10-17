@@ -336,6 +336,7 @@ entries:
     mechanics:
       - "Badge criteria are evaluated across time, projects, skills, economy, homework, creations, RPG progress, and saved milestones."
       - "Earning a badge can grant an XP bonus and rarity-scaled Coins."
+      - "Badge previews show base Coin bonuses: Common 5, Uncommon 15, Rare 35, Epic 75 and Legendary 150 when enabled. Lucky Coin can boost the actual award."
       - "Some challenge-completion badges opt out of extra Coins when the challenge already paid its reward."
       - "The badge catalog is view-only for children and parent-managed from the Skills admin surface."
       - "Collection goals are shown only when their original requirement can still be reached with available items and your saved progress. Earned badges stay yours; requirements and payouts are not lowered."
@@ -465,10 +466,13 @@ entries:
     mechanics:
       - "Every species follows Egg → Baby → Middle → Grown. Eggs stay in inventory until hatching; babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
       - "Hatching consumes one egg item and one potion item and creates a unique species/potion baby pet."
-      - "New hatching supports Chick with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
+      - "New hatching supports 15 prepared families with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
+      - "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Higher-rarity saved potion variants retain their rarity."
       - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
       - "Earlier saved pets can still be fed, activated and evolved; another species is never displayed as Chick or Bird."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
+      - "Food gives at least 5/8/10/12/15 base growth from Common through Legendary, plus 10 for a preferred food. Valid authored growth can raise the base; Growth Tonic doubles the total. Check the food's effect before feeding."
+      - "Ghost, Wolf, Bomb, Shadow and Dragon Trails guarantee their named companion egg and one Base potion through eligible everyday activities; the challenge card shows the exact reward and progress."
       - "At 100 growth the pet evolves into a mount while the original pet remains in your collection."
       - "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress."
       - "Direct growth consumables are capped per pet per local day, while tonic-boosted feeding is limited by food items."
@@ -509,9 +513,10 @@ entries:
     mechanics:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
-      - "Breeding requires two distinct available grown pets and available output ingredients. The current Base Chick collection provides no breeding pair, so breeding is unavailable."
+      - "Breeding requires two distinct available grown pets and available output ingredients, with a seven-day cooldown per parent. Current prepared families use Base; breeding does not unlock unsupported potion artwork."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
       - "Each mount can start one expedition per local day, lasting 2, 4, or 8 hours. Collect a returned trip before starting another; the Pets screen shows when the mount can explore again."
+      - "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw."
       - "Base loot is fixed when the trip starts. New trips choose available items; earlier saved loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
     parent_knobs:
       settings: []
@@ -545,8 +550,9 @@ entries:
     mechanics:
       - "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds."
       - "Eligible drop-table rows are weighted and can require a minimum level."
+      - "A successful ordinary drop uses tier weights 60/25/10/4/1 from Common to Legendary. Major accomplishments use 40/30/20/8/2. Empty tiers redistribute across those available; item weights choose within a tier. Streak bonuses increase drop frequency, not the rarity mix."
       - "New drops, mystery boxes and lucky dips draw from available items, excluding unprepared pet species, potion variants and pet accessories. An empty mystery pool consumes nothing."
-      - "Duplicate cosmetics automatically salvage to Coins instead of stacking useless copies."
+      - "Unowned cosmetics are preferred over duplicates in the same tier without changing that tier's chance. Fully collected cosmetic tiers salvage duplicates to Coins; new drop receipts show the exact amount."
       - "Some triggers are daily-capped at their source so drops cannot be farmed by delete/recreate loops."
     parent_knobs:
       settings: []

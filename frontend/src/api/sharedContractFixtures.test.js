@@ -458,6 +458,7 @@ describe('shared Django response fixtures through the React API client', () => {
       evolved_to_mount: false, happiness_level: 'happy', last_fed_at: null, lifecycle_stage: 'baby',
       species: { id: 41, name: 'Fox', sprite_key: 'fox', lifecycle_stages: ['egg', 'baby', 'middle', 'grown'] },
       potion: { id: 43, slug: 'fire', rarity: 'uncommon' },
+      rarity: 'uncommon',
     });
     expect(stable.pets.find((pet) => pet.id === 52)).toMatchObject({
       happiness_level: 'stale', last_fed_at: '2026-10-01T12:00:00-07:00', lifecycle_stage: 'middle',

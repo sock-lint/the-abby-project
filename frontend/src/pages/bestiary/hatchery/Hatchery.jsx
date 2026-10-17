@@ -20,6 +20,7 @@ import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
+import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -198,7 +199,7 @@ export default function Hatchery() {
                 <option value="">Select an egg…</option>
                 {eggs.map((e) => (
                   <option key={e.item.id} value={e.item.id}>
-                    {e.item.icon} {e.item.name} (×{e.quantity})
+                    {e.item.icon} {e.item.name}{e.item.rarity ? ` · ${e.item.rarity}` : ''} (×{e.quantity})
                   </option>
                 ))}
               </SelectField>
@@ -229,6 +230,9 @@ export default function Hatchery() {
 
         {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
           <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>
+          {selectedEggItem.rarity && <p className={`text-caption ${RARITY_TEXT_COLORS[selectedEggItem.rarity] || ''}`}>
+            {selectedEggItem.rarity} companion · rarity stays the same as it grows
+          </p>}
           <p className="text-caption text-ink-secondary">Hatches into a baby {selectedEggSpecies.name}.</p>
           <PetEvolutionGuide species={selectedEggSpecies} currentStage="egg" />
         </section>}
