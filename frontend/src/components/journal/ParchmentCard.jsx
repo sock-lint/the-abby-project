@@ -1,5 +1,7 @@
 import { forwardRef } from 'react';
 import { Flower2, Sparkles } from 'lucide-react';
+import PedestalImage from '../../pedestal/PedestalImage';
+import '../../pedestal/storybook-accents.css';
 
 /**
  * Shared storybook panel. Legacy variant/decoration props remain compatible
@@ -36,15 +38,27 @@ const ParchmentCard = forwardRef(function ParchmentCard(
   return (
     <Tag
       ref={ref}
-      className={`${base} ${toneClasses} ${variantClasses} ${className}`}
+      className={`${base} ${toneClasses} ${variantClasses} ${flourish === 'storybook' ? 'storybook-panel' : ''} ${className}`}
       {...props}
     >
-      {flourish && <CornerFlourishes />}
+      {flourish === 'storybook' ? <StorybookCorners /> : flourish && <CornerFlourishes />}
       {seal && <WaxSeal position={seal === true ? 'top-right' : seal} />}
-      {children}
+      {flourish === 'storybook'
+        ? <div className="storybook-panel__content" data-storybook-content>{children}</div>
+        : children}
     </Tag>
   );
 });
+
+function StorybookCorners() {
+  return <>
+    {['', 'storybook-corner--end'].map((position) => (
+      <span key={position} className={`storybook-corner ${position}`} aria-hidden="true" data-storybook-corner>
+        <PedestalImage assetId="corner-decor-01" fallback="" />
+      </span>
+    ))}
+  </>;
+}
 
 function CornerFlourishes() {
   return (

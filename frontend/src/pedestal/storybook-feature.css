@@ -1,0 +1,11 @@
+.storybook-feature { display: flex; flex-direction: column; gap: 1rem; }
+.storybook-feature__art { width: 8rem; max-width: 100%; flex: 0 0 auto; align-self: center; pointer-events: none; }
+.storybook-feature__art:has([data-image-state="unavailable"]),
+.storybook-feature__art:has([data-image-state="error"]) { display: none; }
+.storybook-feature__art .mt-image-placeholder { display: none; }
+.storybook-feature__content { min-width: 0; overflow-wrap: anywhere; }
+@media (min-width: 40rem) {
+  .storybook-feature { flex-direction: row; align-items: center; }
+  .storybook-feature__art { width: 10rem; }
+  .storybook-feature__content { flex: 1; }
+}

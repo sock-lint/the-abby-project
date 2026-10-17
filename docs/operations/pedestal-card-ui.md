@@ -50,6 +50,24 @@ the portable verification workspace is not an editable source backup.
 
 ## Application choices
 
+Storybook accents extend the 2D presentation to child Today and Profile:
+the hero reserves separate top/bottom gutters for small corner ornaments,
+the daily bonus star follows the server's award state, and the featured
+earned badge uses the measured gold-frame opening. Existing difficulty
+stars use lit/unlit art with their original glyph fallback and a numeric
+accessible label. Equipped profile cosmetics stay independent.
+
+Child challenge cards use the Light illustration; the child Shop uses one
+Treasure introduction while individual offers retain their actual art,
+prices, stock and controls. Complete image canvases sit above content on
+phones or in a separate column on wider screens. Missing/failed decorative
+art collapses its column. These choices create no new gameplay mappings.
+
+The `storybook-accents.pw.js` fixture checks actual components at phone and
+desktop widths with long/enlarged text, both light and dark covers, and
+failed artwork. Private PNG acceptance requires the imported release;
+screenshots stay outside Git and hosted artifacts.
+
 The existing Hatching screen uses a neutral Normal Egg on the Trunk Pedestal
 as decorative artwork when available ingredients exist. It does not depict an
 owned species or promise a rarity. Real ingredient names, quantities, eligibility

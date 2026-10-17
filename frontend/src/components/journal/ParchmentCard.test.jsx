@@ -3,6 +3,19 @@ import { render, screen } from '@testing-library/react';
 import ParchmentCard from './ParchmentCard.jsx';
 
 describe('ParchmentCard', () => {
+  it('reserves a separate content region for the two decorative storybook corners', () => {
+    const { container } = render(<ParchmentCard flourish="storybook"><h2>A long project title</h2><button>Continue</button></ParchmentCard>);
+    const content = container.querySelector('[data-storybook-content]');
+    expect(content).toContainElement(screen.getByRole('heading'));
+    expect(content).toContainElement(screen.getByRole('button', { name: 'Continue' }));
+    const corners = container.querySelectorAll('[data-storybook-corner]');
+    expect(corners).toHaveLength(2);
+    for (const corner of corners) {
+      expect(corner).toHaveAttribute('aria-hidden', 'true');
+      expect(content).not.toContainElement(corner);
+    }
+  });
+
   it('renders children', () => {
     render(<ParchmentCard>hi</ParchmentCard>);
     expect(screen.getByText('hi')).toBeInTheDocument();

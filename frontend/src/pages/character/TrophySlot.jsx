@@ -1,11 +1,21 @@
 import { Award } from 'lucide-react';
 import { RARITY_PILL_COLORS } from '../../constants/colors';
 import { RARITY_HALO } from '../../components/atlas/mastery.constants';
+import PedestalImage from '../../pedestal/PedestalImage';
+
+// The shared frame's measured transparent opening. The badge remains ordinary
+// DOM content so failed or missing decorative artwork never hides its identity.
+const FRAME_OPENING = {
+  left: '16.60156250%',
+  top: '18.16406250%',
+  width: '66.60156250%',
+  height: '63.86718750%',
+};
 
 /**
  * TrophySlot — the featured badge on the Frontispiece.
  *
- *   • With a trophy set: a soft icon well, rarity ring and badge name.
+ *   • With a trophy set: a gold-framed icon, rarity ring and badge name.
  *     Click opens the picker (to change or clear).
  *   • Without a trophy: a dashed well with a readable hint inviting
  *     the user to choose one. Click opens the picker.
@@ -28,28 +38,30 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
       aria-label={accessibleName}
       data-trophy-slot="true"
       data-filled={badge ? 'true' : 'false'}
-      className={`group relative flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex-col text-center'}`}
+      className={`group relative flex min-w-0 max-w-full items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex-col text-center'}`}
     >
-      <div
-        className={`relative shrink-0 border border-ink-page-shadow flex items-center justify-center ${compact ? 'w-11 h-11 rounded-xl' : 'w-20 h-20 rounded-3xl'} ${
-          badge
-            ? `bg-ink-page-aged ${RARITY_HALO[rarity] || RARITY_HALO.common}`
-            : 'border-dashed bg-ink-page/70'
-        }`}
-      >
-        {badge ? (
-          <span aria-hidden="true" className={`${compact ? 'text-2xl' : 'text-4xl'} leading-none`}>
-            {badge.icon || '\ud83c\udfc5'}
+      {badge ? (
+        <span aria-hidden="true" className={`relative isolate block shrink-0 ${compact ? 'size-16' : 'size-24'}`}>
+          <span
+            className={`absolute flex items-center justify-center rounded-xl border border-ink-page-shadow bg-ink-page-aged ${RARITY_HALO[rarity] || RARITY_HALO.common}`}
+            style={FRAME_OPENING}
+          >
+            <span className={`${compact ? 'text-2xl' : 'text-4xl'} leading-none`}>
+              {badge.icon || '\ud83c\udfc5'}
+            </span>
           </span>
-        ) : (
+          <PedestalImage assetId="frame-gold" className="mt-frame__art" />
+        </span>
+      ) : (
+        <span className={`relative shrink-0 border border-dashed border-ink-page-shadow bg-ink-page/70 flex items-center justify-center ${compact ? 'size-11 rounded-xl' : 'size-20 rounded-3xl'}`}>
           <Award size={compact ? 24 : 32} aria-hidden="true" className="text-ink-whisper" />
-        )}
-      </div>
+        </span>
+      )}
 
       {compact ? (
         <span className="min-w-0 flex-1">
           <span className="block font-body text-caption text-ink-secondary">Your trophy badge</span>
-          <span className="block font-body font-bold text-body text-ink-primary break-words">
+          <span className="block font-body font-bold text-body text-ink-primary break-words [overflow-wrap:anywhere]">
             {badge?.name || 'Choose an earned badge'}
           </span>
           {badge && <span className="block font-body text-tiny text-ink-secondary">{rarity}</span>}
@@ -63,7 +75,7 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
           >
             {rarity}
           </div>
-          <div className="font-body font-bold text-body text-ink-primary leading-tight max-w-[10rem] line-clamp-2">
+          <div className="min-w-0 font-body font-bold text-body text-ink-primary leading-tight max-w-[10rem] break-words [overflow-wrap:anywhere] line-clamp-2">
             {badge.name}
           </div>
           <div className="font-body text-caption text-ink-whisper leading-tight">
@@ -80,7 +92,7 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
           </div>
         </>
       )}
-      {compact && <span aria-hidden="true" className="font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>}
+      {compact && <span aria-hidden="true" className="shrink-0 font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>}
     </button>
   );
 }
