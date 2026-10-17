@@ -194,6 +194,14 @@ def _assert_object_family(obj, family_id, checked):
             # If a departing user owns the client itself, Collector includes
             # it and all affected grants; their user ownership is still checked.
             continue
+        # FK descriptors cache only on each individual row. Consult the
+        # traversal's validated identities before fetching a repeated parent,
+        # so years of ledger/history rows do not each SELECT the same user.
+        # A non-PK to_field cannot be compared to our primary-key identities.
+        if field.target_field.primary_key and (
+            field.related_model, getattr(obj, field.attname),
+        ) in checked:
+            continue
         related = getattr(obj, field.name)
         _assert_object_family(related, family_id, checked)
 
@@ -239,11 +247,20 @@ def delete_related_activity(collector, users):
     # Work in per-model batches rather than a giant OR expression/parameter list.
     groups = [(model, model.objects.filter(pk__in=[obj.pk for obj in rows])) for model, rows in collector.data.items()]
     groups.extend((query.model, query) for query in collector.fast_deletes)
+    # Deletion must not create metadata for models that have never had a
+    # generic activity target. Resolve existing types in one read, without
+    # warming Django's process cache with rows a rollback could discard.
+    content_types = {
+        (app_label, model): pk for app_label, model, pk
+        in ContentType.objects.values_list("app_label", "model", "pk")
+    }
     for model, query in groups:
         if not isinstance(model._meta.pk, models.IntegerField):
             continue
-        ct = ContentType.objects.get_for_model(model)
-        events.append(ActivityEvent.objects.filter(target_ct=ct, target_id__in=query.values("pk")))
+        concrete = model._meta.concrete_model._meta
+        ct_id = content_types.get((concrete.app_label, concrete.model_name))
+        if ct_id is not None:
+            events.append(ActivityEvent.objects.filter(target_ct_id=ct_id, target_id__in=query.values("pk")))
     with _dependent_deletion_work(collector.using) as nowait:
         for query in events:
             for event in query.select_for_update(of=("self",), nowait=nowait).select_related("actor", "subject").order_by("pk"):

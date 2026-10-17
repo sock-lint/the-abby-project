@@ -1,13 +1,16 @@
 """Lifecycle endpoints exercise real cascades; only external/failure seams mock."""
+import logging
 import tempfile
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.db import DatabaseError
+from django.db import DatabaseError, connection, transaction
 from django.test import TestCase, TransactionTestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from oauth2_provider.models import AccessToken, Application
 from rest_framework.authtoken.models import Token
@@ -430,6 +433,61 @@ class AccountLifecycleTests(LifecycleSetup, TestCase):
             self.assertEqual(self.delete(password="wrong").status_code, 400)
         self.assertEqual(self.delete(password="wrong").status_code, 429)
         self.assertEqual(self.client.get(BASE).status_code, 200)
+
+    def test_closure_queries_do_not_grow_per_ledger_entry(self):
+        self.deactivate_successor()
+        self.addCleanup(ContentType.objects.clear_cache)
+        counts = []
+        user_reads = []
+        batch_queries = []
+        for history_size in (2000, 4000):
+            previous_size = CoinLedger.objects.filter(user=self.child).count()
+            CoinLedger.objects.bulk_create([
+                CoinLedger(user=self.child, reason="adjustment", amount=1)
+                for _ in range(history_size - previous_size)
+            ])
+            # Reuse the same household after each real successful closure,
+            # keeping fixture setup out of the query comparison.
+            # A closure can create ContentTypes for auto-created through
+            # models. Its rollback must not leave stale cached row IDs, and
+            # both measurements should start with the same cold cache.
+            ContentType.objects.clear_cache()
+            with transaction.atomic():
+                with CaptureQueriesContext(connection) as queries:
+                    response = self.close()
+                self.assertEqual(response.status_code, 204)
+                counts.append(len(queries))
+                user_reads.append(sum(
+                    query["sql"].lstrip().upper().startswith("SELECT")
+                    and 'FROM "projects_user"' in query["sql"]
+                    for query in queries
+                ))
+                # Django chunks ledger DELETEs and the reverse nullable
+                # PrintRequest receipt lookups according to DB parameter
+                # limits. Those batches may grow; ownership reads must not.
+                batch_queries.append(sum(
+                    (query["sql"].lstrip().upper().startswith("DELETE") and 'FROM "rewards_coinledger"' in query["sql"])
+                    or (query["sql"].lstrip().upper().startswith("SELECT") and 'FROM "printing_printrequest"' in query["sql"])
+                    for query in queries
+                ))
+                transaction.set_rollback(True)
+        fixed_queries = [count - batches for count, batches in zip(counts, batch_queries)]
+        summary = f"Closure queries for 2000/4000 ledger entries: total={counts}, user_selects={user_reads}, orm_batches={batch_queries}, fixed={fixed_queries}"
+        logging.getLogger(__name__).info(summary)
+        self.assertLessEqual(user_reads[1], 10, summary)
+        self.assertLessEqual(user_reads[1], user_reads[0] + 2, summary)
+        self.assertLessEqual(fixed_queries[1], fixed_queries[0] + 2, summary)
+        self.assertLessEqual(counts[1], counts[0] + 50, summary)
+
+    def test_closure_does_not_create_generic_activity_content_types(self):
+        self.deactivate_successor()
+        through_model = User.groups.through._meta
+        ContentType.objects.filter(app_label=through_model.app_label, model=through_model.model_name).delete()
+        ContentType.objects.clear_cache()
+        self.addCleanup(ContentType.objects.clear_cache)
+        before = set(ContentType.objects.values_list("app_label", "model"))
+        self.assertEqual(self.close().status_code, 204)
+        self.assertEqual(set(ContentType.objects.values_list("app_label", "model")), before)
 
 
 class FamilyClosureCleanupTests(LifecycleSetup, TransactionTestCase):
