@@ -447,7 +447,7 @@ def _reward_redeemed(user, c):
     from apps.rewards.models import RewardRedemption
     return RewardRedemption.objects.filter(
         user=user,
-        status=RewardRedemption.Status.FULFILLED,
+        status__in=(RewardRedemption.Status.APPROVED, RewardRedemption.Status.FULFILLED),
     ).count() >= int(c.get("count", 1))
 
 

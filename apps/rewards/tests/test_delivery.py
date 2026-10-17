@@ -31,6 +31,32 @@ class DeliveryFixture:
 
 
 class RewardDeliveryTests(DeliveryFixture, TestCase):
+    def test_approved_reward_counts_for_badges_before_delivery_without_double_credit(self):
+        from apps.achievements.models import Badge, UserBadge
+        from apps.achievements.services import BadgeService
+
+        badge = Badge.objects.create(
+            name="First earned reward", criteria_type="reward_redeemed",
+            criteria_value={"count": 1},
+        )
+        second = Badge.objects.create(
+            name="Two earned rewards", criteria_type="reward_redeemed",
+            criteria_value={"count": 2},
+        )
+        row = self.redeem()
+        BadgeService.evaluate_badges(self.child, scopes={"rewards"})
+        self.assertFalse(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+
+        RewardService.approve(row, self.parent)
+        BadgeService.evaluate_badges(self.child, scopes={"rewards"})
+        self.assertTrue(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+        balance_after_badge = CoinService.get_balance(self.child)
+        RewardService.deliver(row, self.parent)
+        BadgeService.evaluate_badges(self.child, scopes={"rewards"})
+        self.assertEqual(UserBadge.objects.filter(user=self.child, badge=badge).count(), 1)
+        self.assertFalse(UserBadge.objects.filter(user=self.child, badge=second).exists())
+        self.assertEqual(CoinService.get_balance(self.child), balance_after_badge)
+
     def test_approval_waits_for_parent_delivery_preserving_approval_audit(self):
         row = self.redeem()
         response = self.client.post(f"/api/redemptions/{row.pk}/approve/", {"notes": "Saturday after lunch."})
