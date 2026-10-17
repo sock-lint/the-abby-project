@@ -8,13 +8,13 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.db.models import Q, Sum
+from django.db.models import F, Prefetch, Q, Sum, prefetch_related_objects
 from django.utils import timezone
 from apps.rpg.catalog_icons import challenge_catalog_icon, item_catalog_icon
 
 from .models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
-    ChallengeOccurrence, ChallengePin, Quest, QuestDefinition,
+    ChallengeOccurrence, ChallengePin, Quest, QuestDefinition, QuestParticipant, QuestRewardItem,
 )
 
 DISTANCE_FACTORS = {"mi": Decimal("1609.344"), "km": Decimal("1000")}
@@ -156,27 +156,37 @@ def _catalog_goals(user):
     if user.role != "child":
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
-    definitions = QuestDefinition.objects.filter(is_system=True).prefetch_related(
+    definitions = list(QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids).prefetch_related(
         "skill_tags__skill", "reward_items__item",
-    )
+    ))
     from apps.achievements.models import UserBadge
-    earned = set(UserBadge.objects.filter(user=user).values_list("badge_id", flat=True))
+    earned = dict(UserBadge.objects.filter(user=user).values_list("badge_id", "earned_at"))
+    # Legacy catalog promises can suppress enrollment on every read. Resolve
+    # their status and latest active deadline once for all pending definitions.
+    legacy_statuses, active_deadlines = set(), {}
+    for definition_id, status, end_date in Quest.objects.filter(
+        participants__user=user, definition_id__in=[definition.pk for definition in definitions],
+    ).values_list("definition_id", "status", "end_date"):
+        legacy_statuses.add((definition_id, status))
+        if status == "active":
+            active_deadlines.setdefault(definition_id, end_date)
     for definition in definitions:
-        if definition.pk in existing_ids or (definition.required_badge_id and definition.required_badge_id not in earned):
+        if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
         if allowed and not any(trigger in FACT_TRIGGERS for trigger in allowed):
             continue
-        legacy = Quest.objects.filter(definition=definition, participants__user=user)
-        if not definition.is_repeatable and legacy.filter(status__in=["active", "completed"]).exists():
+        if not definition.is_repeatable and any(
+            (definition.pk, status) in legacy_statuses for status in ("active", "completed")
+        ):
             continue
-        active = legacy.filter(status="active").first()
+        active_deadline = active_deadlines.get(definition.pk)
         cutoff = max(enrollment.starts_at, definition.created_at)
-        if active:
-            cutoff = max(cutoff, active.end_date)
+        if active_deadline:
+            cutoff = max(cutoff, active_deadline)
         if definition.required_badge_id:
             # Unlocking never retroactively counts facts from before the badge was earned.
-            cutoff = max(cutoff, UserBadge.objects.get(user=user, badge_id=definition.required_badge_id).earned_at)
+            cutoff = max(cutoff, earned[definition.required_badge_id])
         first_fact = _first_pending_catalog_fact(user, definition, cutoff, offered_at)
         starts_at = max(cutoff, first_fact or offered_at)
         ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
@@ -192,16 +202,7 @@ def _catalog_goals(user):
         })
 
 
-def _occurrence(goal, at):
-    retired = goal.is_catalog and (
-        goal.catalog_definition_id is None
-        or not ChallengeGoal.objects.filter(pk=goal.pk, catalog_definition__isnull=False).exists()
-    )
-    if retired:
-        # Retirement retains saved promises and history, without new cycles.
-        return goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first()
-    if at < goal.starts_at:
-        return None
+def _occurrence_window(goal, at):
     start, end = goal.starts_at, goal.ends_at
     if goal.repeat_weekly:
         zone = ZoneInfo(goal.timezone_name)
@@ -216,8 +217,34 @@ def _occurrence(goal, at):
         cycle = int(elapsed // (goal.repeat_days * 86400))
         start = local_start + timedelta(days=cycle * goal.repeat_days)
         end = start + timedelta(days=goal.repeat_days)
+    return start, end
+
+
+def _occurrence(goal, at):
+    # Only list_goals supplies these freshly read windows. Other callers still
+    # recheck retirement, including goals loaded before catalog maintenance.
+    saved = getattr(goal, "_listed_occurrences", None)
+    if saved is not None:
+        if goal.is_catalog and goal.catalog_definition_id is None:
+            return next((row for row in saved if row.starts_at <= at < row.ends_at), None)
+        if at < goal.starts_at:
+            return None
+        start, _ = _occurrence_window(goal, at)
+        existing = next((row for row in saved if row.starts_at == start), None)
+        if existing is not None:
+            return existing
+    retired = goal.is_catalog and (
+        goal.catalog_definition_id is None
+        or not ChallengeGoal.objects.filter(pk=goal.pk, catalog_definition__isnull=False).exists()
+    )
+    if retired:
+        # Retirement retains saved promises and history, without new cycles.
+        return goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first()
+    if at < goal.starts_at:
+        return None
+    start, end = _occurrence_window(goal, at)
     occurrence, _ = ChallengeOccurrence.objects.get_or_create(
-        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": _snapshot(goal)},
+        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": lambda: _snapshot(goal)},
     )
     return occurrence
 
@@ -468,22 +495,23 @@ def _what_counts(snapshot, *, catalog=False):
     return text
 
 
-def _reward_preview(snapshot):
+def _reward_preview(snapshot, item_catalog=None):
     """Show the accepted promise; new snapshots apply acquisition policy."""
     from apps.rpg.models import ItemDefinition
     rows = snapshot.get("items", [])
-    catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
-        [row["item_id"] for row in rows],
-    )
+    if item_catalog is None:
+        item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+            [row["item_id"] for row in rows],
+        )
     available = []
     for row in rows:
-        item = catalog.get(row["item_id"])
+        item = item_catalog.get(row["item_id"])
         if item is not None:
             available.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return available
 
 
-def occurrence_payload(occurrence, pin_id=None):
+def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None):
     snapshot = occurrence.snapshot
     allowed = snapshot.get("filter", {}).get("allowed_triggers") or []
     action = None
@@ -509,7 +537,7 @@ def occurrence_payload(occurrence, pin_id=None):
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
         "timezone": occurrence.goal.timezone_name,
-        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot)},
+        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot, item_catalog)},
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),
@@ -526,12 +554,12 @@ def _pin_id(pin):
     return None
 
 
-def _legacy_payload(quest, pin_id):
+def _legacy_payload(quest, pin_id, *, item_catalog=None):
     definition = quest.definition
     key = f"legacy:{quest.pk}"
     from .serializers import QuestRewardItemSerializer
     from .reward_items import accepted_reward_items
-    items = QuestRewardItemSerializer(accepted_reward_items(quest), many=True).data
+    items = QuestRewardItemSerializer(accepted_reward_items(quest, item_catalog=item_catalog), many=True).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
         "origin": "legacy",
@@ -545,7 +573,7 @@ def _legacy_payload(quest, pin_id):
         "action": None, "pinned": pin_id == key, "repeat_weekly": False, "legacy": True,
         "rage_shield": quest.rage_shield, "participants": [
             {"user": participant.user_id, "user_name": participant.user.display_label, "contribution": participant.contribution}
-            for participant in quest.participants.select_related("user")
+            for participant in quest.participants.all()
         ],
         "reward_receipt": {"id": key, "status": "legacy", "coins_awarded": 0, "xp_awarded": 0, "awarded_at": None},
     }
@@ -557,7 +585,17 @@ def list_goals(user):
     _catalog_goals(user)
     now = timezone.now()
     current = {}
-    for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition"):
+    goals = ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related(
+        "movement_type", "catalog_definition",
+    ).prefetch_related(Prefetch(
+        "occurrences",
+        queryset=ChallengeOccurrence.objects.filter(
+            Q(starts_at__lte=now, ends_at__gt=now)
+            | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at")),
+        ),
+        to_attr="_listed_occurrences",
+    ))
+    for goal in goals:
         occurrence = _occurrence(goal, now)
         if occurrence is not None:
             current[goal.pk] = occurrence
@@ -582,11 +620,24 @@ def list_goals(user):
         if pinned:
             unique[pinned.pk] = pinned
     legacy = Quest.objects.filter(participants__user=user).select_related("definition")
-    rows = [occurrence_payload(row, pin_id) for row in unique.values()]
-    rows += [_legacy_payload(row, pin_id) for row in legacy.filter(status="active")]
-    rows += [_legacy_payload(row, pin_id) for row in legacy.exclude(status="active")[:20]]
+    legacy_rows = list(legacy.filter(status="active")) + list(legacy.exclude(status="active")[:20])
+    prefetch_related_objects(
+        legacy_rows,
+        Prefetch("participants", queryset=QuestParticipant.objects.select_related("user")),
+        Prefetch("definition__reward_items", queryset=QuestRewardItem.objects.select_related(
+            "item__pet_species", "item__potion_type",
+        )),
+    )
+    # One catalog read covers accepted promises in results and recent receipts,
+    # including legacy snapshots. An empty accepted promise stays empty.
+    from apps.rpg.models import ItemDefinition
+    item_ids = {item["item_id"] for row in unique.values() for item in row.snapshot.get("items", [])}
+    item_ids.update(item["item_id"] for row in legacy_rows for item in (row.reward_items_snapshot or []))
+    item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(item_ids)
+    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog) for row in unique.values()]
+    rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog) for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
-    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id) for row in recent],
+    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts]}
 
 
