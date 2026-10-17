@@ -1,8 +1,14 @@
 from django.urls import path
 
-from . import sprite_admin_views, views
+from . import progression_views, sprite_admin_views, views
 
 urlpatterns = [
+    path("rpg/progression-lab/", progression_views.ProgressionLabView.as_view(), name="progression-lab"),
+    path(
+        "rpg/progression-lab/simulate/",
+        progression_views.ProgressionSimulationView.as_view(),
+        name="progression-lab-simulate",
+    ),
     path("character/", views.CharacterView.as_view(), name="character"),
     path("character/avatar/", views.AvatarPreferencesView.as_view(), name="character-avatar"),
     path("character/avatar/catalog/", views.AvatarCatalogView.as_view(), name="avatar-catalog"),

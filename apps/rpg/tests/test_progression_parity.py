@@ -1,0 +1,315 @@
+"""Independent checks against the live reward services and persisted catalog.
+
+Forecast tests should catch a second, internally consistent reward engine that
+quietly disagrees with the application. These comparisons therefore capture
+real drop selections and exercise real pet/goal services on disposable records.
+"""
+from io import StringIO
+from dataclasses import replace
+from datetime import timedelta
+from decimal import Decimal
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from django.db import connection
+from django.test import TestCase, override_settings
+from django.utils import timezone
+
+from apps.achievements.models import Badge, Skill, SkillProgress
+from apps.achievements.services import BadgeService
+from apps.pets.expeditions import ExpeditionService
+from apps.movement.services import MovementSessionService
+from apps.pets.models import PetSpecies, PotionType, UserPet
+from apps.pets.services import PetService
+from apps.quests.goals import ingest_activity
+from apps.quests.models import ChallengeOccurrence, QuestDefinition, QuestSkillTag
+from apps.rewards.services import CoinService
+from apps.rpg.catalog_support import item_is_available
+from apps.rpg.content.loader import ContentPack
+from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition, UserInventory
+from apps.rpg.progression.catalog import load_catalog
+from apps.rpg.progression.engine import SimPet, Trial, run_trial
+from apps.rpg.services import DropService
+from config.tests.factories import make_family
+
+
+CONFIG = {
+    "horizon_days": 30,
+    "trials": 2,
+    "seed": 42,
+    "active_days_per_week": 5,
+    "reading_minutes": 10,
+    "project_minutes": 0,
+    "chores_per_day": 2,
+    "chore_coins": 10,
+    "chore_xp": 10,
+    "habits_per_day": 1,
+    "habit_xp": 5,
+    "movement_sessions_per_day": 0,
+    "movement_minutes": 20,
+    "movement_intensity": "medium",
+    "creations_per_day": 0,
+    "journal_per_day": True,
+    "feed_strategy": "feed_all",
+    "expeditions_per_day": 1,
+    "expedition_tier": "long",
+}
+
+
+@override_settings(
+    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
+    RPG_ASSET_SUPPORT_POLICY=None,
+)
+class ProgressionCatalogParityTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        ContentPack("content/rpg/initial").load(stdout=StringIO())
+
+    def test_snapshot_respects_real_acquisition_policy(self):
+        catalog = load_catalog()
+        expected = {
+            item.pk for item in ItemDefinition.objects.select_related(
+                "pet_species", "potion_type", "food_species",
+            ) if item_is_available(item)
+        }
+        self.assertEqual(set(catalog.items), expected)
+        self.assertEqual(len(catalog.pairs), 15)
+        self.assertTrue(all(potion.slug == "base" for _species, potion in catalog.pairs.values()))
+        self.assertFalse(any(item.item_type == "cosmetic_pet_accessory" for item in catalog.items.values()))
+        self.assertTrue(all(entry.item_id in expected for pool in catalog.pools.values() for entry in pool))
+
+    def test_drop_changes_invalidate_saved_forecast_fingerprint(self):
+        before = load_catalog().fingerprint
+        entry = DropTable.objects.filter(item__item_type="food").first()
+        DropTable.objects.filter(pk=entry.pk).update(weight=entry.weight + 7, min_level=3)
+        after = load_catalog()
+        self.assertNotEqual(before, after.fingerprint)
+        saved = next(row for row in after.pools[entry.trigger_type] if row.pk == entry.pk)
+        self.assertEqual((saved.weight, saved.min_level), (entry.weight + 7, 3))
+
+    def test_simulation_reads_only_global_catalog_and_cannot_write(self):
+        from apps.rpg.progression import simulate_progression
+
+        private_tables = (
+            "projects_user", "accounts_user", "rpg_characterprofile",
+            "rpg_userinventory", "pets_userpet", "pets_usermount",
+            "achievements_skillprogress", "achievements_userbadge",
+            "rewards_coinledger", "activity_activityevent",
+            "quests_challengeactivity", "quests_challengeoccurrence",
+        )
+        statements = []
+
+        def only_global_reads(execute, sql, params, many, context):
+            normalized = sql.lstrip().lower()
+            self.assertTrue(normalized.startswith("select"), sql)
+            for table in private_tables:
+                self.assertNotIn(f'"{table}"', normalized)
+            statements.append(sql)
+            return execute(sql, params, many, context)
+
+        with connection.execute_wrapper(only_global_reads):
+            result = simulate_progression(dict(CONFIG))
+        self.assertTrue(statements, "The real global catalog must be read.")
+        self.assertEqual(result["schema_version"], 1)
+
+    def test_same_seed_reproduces_forecast_without_using_global_random(self):
+        from apps.rpg.progression import simulate_progression
+
+        with patch("random.random", side_effect=AssertionError("Use a local seeded generator")):
+            first = simulate_progression(dict(CONFIG))
+            second = simulate_progression(dict(CONFIG))
+        for key in ("milestones", "trace", "summary", "flows"):
+            self.assertEqual(first[key], second[key], key)
+
+    def test_loaded_trial_executes_without_database_queries(self):
+        catalog = load_catalog()
+        with self.assertNumQueries(0):
+            report = run_trial(CONFIG, catalog, 42)
+        self.assertEqual(len(report["trace"]), CONFIG["horizon_days"])
+
+    def test_project_and_expedition_pools_match_real_service_weights(self):
+        child = make_family(children=[{"username": "parity-drop-child"}]).children[0]
+        food = ItemDefinition.objects.filter(item_type="food").first()
+        gated = ItemDefinition.objects.create(slug="parity-high-level-food", name="Later food", item_type="food")
+        DropTable.objects.create(trigger_type="clock_out", item=gated, weight=111, min_level=6)
+        unsupported = ItemDefinition.objects.filter(item_type="cosmetic_pet_accessory").first()
+        DropTable.objects.create(trigger_type="clock_out", item=unsupported, weight=999999)
+        catalog = load_catalog()
+        trial = Trial(CONFIG, catalog, 1)
+        captured = []
+
+        def select(entries, *, weights, k):
+            captured.append({(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)})
+            return [next(row for row in entries if row.item_id == food.pk)]
+
+        for level, total_xp in ((0, 0), (6, 2500)):
+            with self.subTest(level=level):
+                CharacterProfile.objects.filter(user=child).update(level=level)
+                trial.total_xp = total_xp
+                with patch("apps.rpg.services.random.random", return_value=0), patch(
+                    "apps.rpg.services.random.choices", side_effect=select,
+                ):
+                    DropService.process_drops(child, "clock_out")
+                entries, weights = trial.eligible_pool("clock_out")
+                self.assertEqual(
+                    {(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)},
+                    captured[-1],
+                )
+                self.assertEqual(gated.pk in {row.item_id for row in entries}, level == 6)
+                self.assertNotIn(unsupported.pk, {row.item_id for row in entries})
+                for tier in ("short", "standard", "long"):
+                    with patch("apps.pets.expeditions.random.choices", side_effect=select):
+                        ExpeditionService._roll_loot(child, tier)
+                    entries, weights = trial.eligible_pool("expedition_returned", expedition_tier=tier)
+                    self.assertEqual(
+                        {(row.trigger_type, row.item_id): weight for row, weight in zip(entries, weights)},
+                        captured[-1],
+                    )
+
+    def test_feeding_evolution_matches_actual_saved_growth(self):
+        base = PotionType.objects.get(slug="base")
+        cases = (("chick", "food-birdseed", 7), ("meshtint-bat", "food-meat", 20),
+                 ("meshtint-bat", "food-stardust", 3))
+        for index, (species_slug, food_slug, quantity) in enumerate(cases):
+            with self.subTest(species=species_slug):
+                child = make_family(children=[{"username": f"parity-feed-{index}"}]).children[0]
+                species = PetSpecies.objects.get(slug=species_slug)
+                food = ItemDefinition.objects.get(slug=food_slug)
+                pet = UserPet.objects.create(user=child, species=species, potion=base)
+                UserInventory.objects.create(user=child, item=food, quantity=quantity)
+                trial = Trial(CONFIG, load_catalog(), 1)
+                trial.day = 1
+                pair = (species.pk, base.pk)
+                trial.pets[pair] = SimPet(species, base)
+                trial.inventory[food.pk] = quantity
+                trial.feed_and_hatch()
+                for _ in range(quantity):
+                    PetService.feed_pet(child, pet.pk, food.pk)
+                pet.refresh_from_db()
+                projected = trial.pets[pair]
+                self.assertEqual((projected.growth_points, projected.evolved_to_mount),
+                                 (pet.growth_points, pet.evolved_to_mount))
+                if quantity >= 7:
+                    self.assertEqual((pet.growth_points, pet.evolved_to_mount), (100, True))
+                self.assertEqual(trial.inventory[food.pk], 0)
+                self.assertFalse(UserInventory.objects.filter(user=child, item=food).exists())
+
+    def test_one_source_advances_multiple_catalog_challenges(self):
+        child = make_family(children=[{"username": "parity-goal-child"}]).children[0]
+        now = timezone.now()
+        definitions = [QuestDefinition.objects.create(
+            name=f"Parity concurrent {index}", description="Same factual action",
+            quest_type="collection", target_value=1, duration_days=7,
+            coin_reward=0, xp_reward=0, is_system=True,
+            trigger_filter={"allowed_triggers": ["habit_log"]},
+        ) for index in range(2)]
+        trial = Trial(CONFIG, load_catalog(), 1)
+        trial.day = 1
+        trial.event("habit_log", drops=False)
+        # The trusted ingestion seam accepts a durable source identity and
+        # measures every eligible goal independently of Today pin state.
+        with patch("django.utils.timezone.now", return_value=now + timedelta(seconds=1)):
+            ingest_activity(child, "habit_log", "parity-source", "habit_log", occurred_at=now + timedelta(seconds=1))
+        for definition in definitions:
+            occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition, goal__user=child)
+            self.assertEqual((occurrence.progress, occurrence.status), (Decimal(1), "completed"))
+            self.assertIn(definition.pk, trial.completed_quests)
+            self.assertEqual(trial.quest_windows[definition.pk]["progress"], occurrence.progress)
+
+    def test_from_zero_without_rewarded_sources_never_invents_a_pet_or_balance(self):
+        config = {**CONFIG, "trials": 1, "reading_minutes": 0, "project_minutes": 0,
+                  "chores_per_day": 0, "habits_per_day": 0,
+                  "movement_sessions_per_day": 0, "creations_per_day": 0,
+                  "journal_per_day": False}
+        report = run_trial(config, load_catalog(), 42)
+        self.assertNotIn("first_pet", report["milestones"])
+        self.assertFalse(report["sources"])
+        for row in report["trace"]:
+            self.assertEqual((row["coins"], row["total_xp"], row["pets"], row["mounts"]), (0, 0, 0, 0))
+
+    def test_reading_only_cannot_bootstrap_mounts_from_expedition_loot(self):
+        config = {**CONFIG, "trials": 1, "chores_per_day": 0, "habits_per_day": 0,
+                  "journal_per_day": False}
+        catalog = load_catalog()
+        trial = Trial(config, catalog, 42)
+        self.assertFalse(any(key.startswith(("pet:", "middle:", "mount:")) for key in trial.finite_keys))
+        report = run_trial(config, catalog, 42)
+        self.assertGreater(report["trace"][-1]["coins"], 0)
+        self.assertNotIn("first_pet", report["milestones"])
+        self.assertEqual(report["trace"][-1]["pets"], 0)
+
+    def test_expedition_duplicate_cosmetic_outcomes_match_real_materialization(self):
+        species = PetSpecies.objects.get(slug="chick")
+        potion = PotionType.objects.get(slug="base")
+        for index, value in enumerate((30, 0)):
+            with self.subTest(coin_value=value):
+                child = make_family(children=[{"username": f"parity-salvage-{index}"}]).children[0]
+                title = ItemDefinition.objects.create(
+                    slug=f"parity-duplicate-title-{index}", name=f"Duplicate title {index}",
+                    item_type="cosmetic_title", coin_value=value,
+                )
+                UserInventory.objects.create(user=child, item=title, quantity=1)
+                locked = SimpleNamespace(
+                    loot={"coins": 0, "items": [{"item_id": title.pk, "quantity": 1}]},
+                    tier="short", mount=SimpleNamespace(species=species),
+                )
+                before = CoinService.get_balance(child)
+                ExpeditionService._materialize_loot(child, locked)
+                actual_salvage = CoinService.get_balance(child) - before
+                trial = Trial(CONFIG, load_catalog(), 42)
+                trial.day = 1
+                pair = (species.pk, potion.pk)
+                trial.pets[pair] = SimPet(species, potion, 100, True)
+                trial.inventory[title.pk] = 1
+                trial.pending_expeditions = [{"pair": pair, "returns": 0, "coins": 0, "items": [title.pk]}]
+                trial.claim_expeditions()
+                self.assertEqual(trial.source_totals["expeditions_salvage"]["coins"], actual_salvage)
+                self.assertEqual(trial.inventory[title.pk], UserInventory.objects.get(user=child, item=title).quantity)
+
+    def test_busy_day_caps_rewards_while_retaining_saved_activity_counts(self):
+        trial = Trial({**CONFIG, "movement_sessions_per_day": 6,
+                       "movement_minutes": 240, "movement_intensity": "high",
+                       "creations_per_day": 4}, load_catalog(), 42)
+        trial.daily(1)
+        self.assertEqual(trial.counters["movement_sessions"], 6)
+        self.assertEqual(trial.counters["movement_minutes"], 6 * 240)
+        self.assertEqual(trial.counters["creations"], 4)
+        self.assertEqual(trial.source_totals["movement"]["xp"],
+                         MovementSessionService.DAILY_REWARD_LIMIT * MovementSessionService.compute_xp_pool(240, "high"))
+        self.assertEqual(trial.source_totals["creations"]["xp"], 20)
+        # 2 chores + 1 habit + 1 reading + 3 rewarded movement +
+        # 2 rewarded creations + 1 journal; later saves get no fresh roll.
+        self.assertEqual(trial.counters["drop_opportunities"], 10)
+
+    def test_maximum_horizon_keeps_trace_and_journey_bounded(self):
+        config = {**CONFIG, "horizon_days": 365, "trials": 1,
+                  "active_days_per_week": 7, "project_minutes": 60,
+                  "movement_sessions_per_day": 1, "creations_per_day": 1,
+                  "expeditions_per_day": 15}
+        report = run_trial(config, load_catalog(), 42)
+        self.assertEqual(len(report["trace"]), 365)
+        self.assertLessEqual(len(report["events"]), 1000)
+        self.assertGreater(report["event_count"], len(report["events"]))
+        self.assertTrue(all(row["finite_remaining"] >= 0 for row in report["trace"]))
+
+    def test_quest_xp_adds_reachable_badge_targets_after_direct_skill_xp(self):
+        first = Skill.objects.get(name="Mindfulness", category__name="Physical")
+        second = Skill.objects.create(name="Parity quest skill", category=first.category)
+        quest = QuestDefinition.objects.create(
+            name="Parity alternate skill", description="One factual habit",
+            quest_type="collection", target_value=1, duration_days=7,
+            xp_reward=100, is_system=True,
+            trigger_filter={"allowed_triggers": ["habit_log"]},
+        )
+        QuestSkillTag.objects.create(quest_definition=quest, skill=second)
+        badge = Badge.objects.create(name="Parity two leveled skills", icon="B",
+                                     criteria_type="skill_level_reached",
+                                     criteria_value={"count": 2, "level": 1}, xp_bonus=0)
+        catalog = replace(load_catalog(), badges=[badge], quests=[quest])
+        trial = Trial({**CONFIG, "reading_minutes": 0, "chores_per_day": 0,
+                       "journal_per_day": False}, catalog, 42)
+        child = make_family(children=[{"username": "parity-skill-child"}]).children[0]
+        for skill in (first, second):
+            SkillProgress.objects.create(user=child, skill=skill, xp_points=100, level=1)
+        self.assertTrue(BadgeService._check_criteria(child, badge))
+        self.assertIn(f"badge:{badge.pk}", trial.finite_keys)

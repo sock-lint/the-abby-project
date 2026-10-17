@@ -7,6 +7,20 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Progression lab
+
+`/manage/progression-lab` is the staff-parent designer workspace, linked from
+Manage → Admin. The metadata endpoint is the authority for staff access;
+regular parents recover from its 403 without seeing simulations. All forecasts
+come from the server's anonymous, bounded simulator. React keeps editable
+assumptions, a current report and an optional comparison in account-scoped
+component state. Local JSON imports restore validated routines only and never
+run automatically or present old imported results as current forecasts.
+Unreached milestones, conditional percentile dates, expired one-time windows
+and the model's finite-content subset stay explicit. See
+[`Progression Lab`](../../../docs/operations/progression-lab.md) and the shared
+producer/consumer checks before changing its response or presentation.
+
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
 `/__design` documents reusable page recipes and interactive recovery states.
