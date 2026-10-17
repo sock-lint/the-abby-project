@@ -28,6 +28,7 @@ import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StarRating from '../components/StarRating';
+import ArtworkImage from '../components/rpg/ArtworkImage';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
@@ -650,7 +651,7 @@ function TemplatesSection() {
             <div>
               <div className="font-semibold text-ink-primary">{t.title}</div>
               <div className="flex items-center gap-3 text-caption text-ink-whisper mt-1">
-                {t.category && <span>{t.category.icon} {t.category.name}</span>}
+                {t.category && <span><ArtworkImage assetId={t.category.catalog_icon} fallback={t.category.icon || null} size={20} /> {t.category.name}</span>}
                 <StarRating value={t.difficulty} />
                 {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
                 {t.steps?.length > 0 && <span>{t.steps.length} steps</span>}

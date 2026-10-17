@@ -108,12 +108,15 @@ def _common_dashboard(user, today) -> dict[str, Any]:
 
 def _recent_badges(user) -> list[dict[str, Any]]:
     from apps.achievements.models import UserBadge
-    return list(
-        UserBadge.objects.filter(user=user)
+    from apps.rpg.catalog_icons import badge_catalog_icon
+    return [
+        {"badge__id": award.badge_id, "badge__name": award.badge.name,
+         "badge__icon": award.badge.icon, "badge__catalog_icon": badge_catalog_icon(award.badge),
+         "earned_at": award.earned_at}
+        for award in UserBadge.objects.filter(user=user)
         .select_related("badge")
         .order_by("-earned_at")[:5]
-        .values("badge__id", "badge__name", "badge__icon", "earned_at")
-    )
+    ]
 
 
 # ---------------------------------------------------------------------------
