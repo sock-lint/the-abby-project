@@ -1,17 +1,19 @@
 """Deploy verified current main through Coolify without changing app configuration."""
 
 import ipaddress
+import hashlib
 import json
 import os
 import re
 import signal
 import sys
 import time
+import zlib
 from dataclasses import dataclass
 from http.client import HTTPException
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.parse import urlsplit, urlunsplit
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 
 SHA = re.compile(r"[0-9a-f]{40}")
@@ -19,6 +21,9 @@ UUID = re.compile(r"[A-Za-z0-9_-]+")
 TRANSIENT_HTTP = frozenset((408, 429, 500, 502, 503, 504))
 ACTIVE = frozenset(("queued", "in_progress"))
 TERMINAL = frozenset(("finished", "failed", "cancelled-by-user"))
+PWA_SCRIPTS = ("/sw.js", "/push-sw.js", "/privacy-sw.js")
+MAX_SCRIPT_BYTES = 2 * 1024 * 1024
+SCRIPT_MIME_TYPES = frozenset(("application/javascript", "text/javascript", "application/ecmascript", "text/ecmascript"))
 
 
 class DeploymentError(Exception):
@@ -85,6 +90,134 @@ class JsonApi:
             raise ConnectionFailure("API request failed; check runner connectivity and API availability.") from None
         except (ValueError, UnicodeError):
             raise InvalidResponse("API returned invalid JSON; check endpoint configuration.") from None
+
+
+@dataclass(frozen=True)
+class PublicScript:
+    body: bytes
+    headers: dict
+
+
+class ScriptClient:
+    """Read only fixed worker URLs; this client never accepts an API token."""
+
+    def __init__(self, health_url):
+        parsed = urlsplit(health_url)
+        if (parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password
+                or parsed.query or parsed.fragment):
+            raise DeploymentError("Public worker verification requires an HTTPS origin without credentials or query parameters.")
+        self.origin = urlunsplit((parsed.scheme, parsed.netloc, "", "", ""))
+        self.opener = build_opener(ProxyHandler({}), NoRedirect())
+
+    def request(self, path, *, timeout=30):
+        if path not in PWA_SCRIPTS:
+            raise DeploymentError("Public worker verification only permits the canonical PWA script paths.")
+        url = self.origin + path
+        request = Request(url, headers={
+            "Accept": "application/javascript, text/javascript", "Accept-Encoding": "identity",
+            "User-Agent": "abby-deploy-platform",
+        }, method="GET")
+        try:
+            with self.opener.open(request, timeout=timeout) as response:
+                if response.status != 200 or response.geturl() != url:
+                    raise InvalidResponse("Canonical PWA script did not return HTTP 200 at its original URL.")
+                values = {}
+                for key, value in response.headers.items():
+                    values.setdefault(key.lower(), []).append(value)
+                # HTTPMessage.items() preserves repeated fields. Combine all
+                # cache policies, and refuse ambiguous singleton delivery
+                # metadata instead of letting its last field hide an earlier
+                # unsafe policy, MIME type, encoding or edge-cache status.
+                for name in ("content-type", "content-encoding", "age", "cf-cache-status"):
+                    if len(values.get(name, [])) > 1:
+                        raise InvalidResponse("Canonical PWA script has ambiguous delivery headers.")
+                headers = {key: ", ".join(items) for key, items in values.items()}
+                body = response.read(MAX_SCRIPT_BYTES + 1)
+                if len(body) > MAX_SCRIPT_BYTES:
+                    raise InvalidResponse("Canonical PWA script exceeded the delivery size limit.")
+                encoding = headers.get("content-encoding", "identity").strip().lower()
+                if encoding in ("gzip", "deflate"):
+                    decoder = zlib.decompressobj(16 + zlib.MAX_WBITS if encoding == "gzip" else zlib.MAX_WBITS)
+                    body = decoder.decompress(body, MAX_SCRIPT_BYTES + 1)
+                    if len(body) > MAX_SCRIPT_BYTES or not decoder.eof or decoder.unused_data or decoder.unconsumed_tail:
+                        raise InvalidResponse("Canonical PWA script has invalid or oversized encoded content.")
+                elif encoding != "identity":
+                    raise InvalidResponse("Canonical PWA script used an unsupported content encoding.")
+                return PublicScript(body, headers)
+        except HTTPError:
+            # In particular, do not follow redirects, fetch an HTML error body,
+            # or expose a response that might contain private infrastructure data.
+            raise InvalidResponse("Canonical PWA script returned an unsuccessful HTTP status or redirect.") from None
+        except (URLError, TimeoutError, ConnectionError, HTTPException):
+            raise ConnectionFailure("Canonical PWA script could not be read; check public delivery.") from None
+        except (ValueError, UnicodeError, zlib.error):
+            raise InvalidResponse("Canonical PWA script returned invalid encoded content.") from None
+
+
+def cache_directives(value):
+    """Parse the small cache-policy surface conservatively, including quoted ages."""
+    if not isinstance(value, str) or not value:
+        raise InvalidResponse("Canonical PWA script has no usable cache policy.")
+    parsed = {}
+    for part in value.split(","):
+        name, equal, argument = part.strip().partition("=")
+        name, argument = name.strip().lower(), argument.strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_-]*", name) or name in parsed:
+            raise InvalidResponse("Canonical PWA script has an ambiguous cache policy.")
+        if equal:
+            if argument.startswith('"') and argument.endswith('"') and len(argument) >= 2:
+                argument = argument[1:-1]
+            if not argument or not re.fullmatch(r"[A-Za-z0-9_-]+", argument):
+                raise InvalidResponse("Canonical PWA script has an invalid cache policy.")
+        parsed[name] = argument if equal else None
+    return parsed
+
+
+def pwa_manifest(result, config):
+    if not (isinstance(result, dict) and result.get("status") == "ok" and result.get("db") == "up"
+            and result.get("commit") == config.sha and result.get("resourceUuid") == config.application_uuid):
+        return None
+    manifest = result.get("pwaScripts")
+    if not isinstance(manifest, dict) or set(manifest) != set(PWA_SCRIPTS):
+        return None
+    for row in manifest.values():
+        if (not isinstance(row, dict) or set(row) != {"sha256", "bytes"}
+                or not isinstance(row["sha256"], str) or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
+                or type(row["bytes"]) is not int or not 0 < row["bytes"] <= MAX_SCRIPT_BYTES):
+            return None
+    return {path: dict(manifest[path]) for path in PWA_SCRIPTS}
+
+
+def verify_script(script, expected):
+    headers = script.headers
+    mime = headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if (mime not in SCRIPT_MIME_TYPES or not script.body or script.body.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
+            or len(script.body) != expected["bytes"] or hashlib.sha256(script.body).hexdigest() != expected["sha256"]):
+        raise InvalidResponse("Canonical PWA script is not the JavaScript bytes advertised by this deployment.")
+    policy = cache_directives(headers.get("cache-control"))
+    for directive in ("max-age", "s-maxage"):
+        if directive in policy and policy[directive] != "0":
+            raise InvalidResponse("Canonical PWA script advertises a positive or invalid cache lifetime.")
+    no_store = policy.get("no-store", False) is None
+    revalidate = (all(policy.get(name, False) is None for name in ("no-cache", "must-revalidate"))
+                  and policy.get("max-age") == "0")
+    if "immutable" in policy or not (no_store or revalidate):
+        raise InvalidResponse("Canonical PWA script does not require fresh delivery.")
+    for header in ("cloudflare-cdn-cache-control", "cdn-cache-control"):
+        if header in headers:
+            cdn_policy = cache_directives(headers[header])
+            if (cdn_policy.get("no-store", False) is not None or "immutable" in cdn_policy
+                    or any(name in cdn_policy and cdn_policy[name] != "0" for name in ("max-age", "s-maxage"))):
+                raise InvalidResponse("Canonical PWA script permits CDN storage.")
+    age = headers.get("age")
+    if age is not None and (not re.fullmatch(r"0+", age.strip())):
+        raise InvalidResponse("Canonical PWA script was served with a positive or invalid cache age.")
+    # A consumed Cloudflare-CDN-Cache-Control header need not be exposed to the
+    # browser. Its effective bypass must still be visible, rather than an edge
+    # hit, stale response or revalidated stored object.
+    status = headers.get("cf-cache-status", "").strip().upper()
+    if status and status not in ("DYNAMIC", "BYPASS"):
+        raise InvalidResponse("Canonical PWA script is being served from an edge cache.")
 
 
 @dataclass(frozen=True)
@@ -209,7 +342,7 @@ def reconcile_deployment(get, config, baseline, deadline, clock, sleep):
     raise DeploymentError("Deployment request outcome could not be confirmed; inspect this application's queue. No replacement request was sent.")
 
 
-def deploy(config, coolify, latest_main, health, clock=time.monotonic, sleep=time.sleep):
+def deploy(config, coolify, latest_main, health, clock=time.monotonic, sleep=time.sleep, *, scripts=None):
     deadline = clock() + config.timeout
     read = lambda operation, until=deadline, guard=None: read_with_retry(operation, until, clock, sleep, guard)
     current = lambda: read(latest_main)
@@ -315,24 +448,54 @@ def deploy(config, coolify, latest_main, health, clock=time.monotonic, sleep=tim
         if cancel_eligible and deployment_uuid and not finished:
             cancel_deployment(coolify, deployment_uuid)
 
+    scripts = scripts or ScriptClient(health.base_url)
     health_deadline = min(deadline, clock() + 120)
+
+    def ensure_public_current():
+        check_deadline(health_deadline, clock)
+        if read(latest_main, health_deadline) != config.sha:
+            raise DeploymentError("This deployment was superseded on main; a new workflow must deploy the latest commit.")
+
     while clock() < health_deadline:
-        ensure_current()
+        ensure_public_current()
         try:
-            result = read(lambda: health.request("GET"), health_deadline, ensure_current)
+            result = read(lambda: health.request("GET"), health_deadline, ensure_public_current)
         except InvalidResponse:
             # A proxy/container can briefly return plaintext `ok` during
             # rollout. It proves no identity; only this health wait tolerates
             # invalid JSON, within the same bounded verification window.
             result = None
-        ensure_current()
+        ensure_public_current()
         check_deadline(health_deadline, clock)
-        if (isinstance(result, dict) and result.get("status") == "ok" and result.get("db") == "up"
-                and result.get("commit") == config.sha and result.get("resourceUuid") == config.application_uuid):
-            print(f"Coolify finished commit {config.sha}; public serving identity, application and database are healthy.", flush=True)
-            return True
+        manifest = pwa_manifest(result, config)
+        if manifest:
+            delivered = True
+            for path in PWA_SCRIPTS:
+                ensure_public_current()
+                check_deadline(health_deadline, clock)
+                try:
+                    script = scripts.request(path, timeout=min(30, max(0.001, health_deadline - clock())))
+                    verify_script(script, manifest[path])
+                except (InvalidResponse, ConnectionFailure):
+                    delivered = False
+                ensure_public_current()
+                check_deadline(health_deadline, clock)
+                if not delivered:
+                    break
+            if delivered:
+                # Bind all canonical bytes to one healthy serving deployment,
+                # and reject a container/asset change during verification.
+                try:
+                    final_health = read(lambda: health.request("GET"), health_deadline, ensure_public_current)
+                except InvalidResponse:
+                    final_health = None
+                ensure_public_current()
+                check_deadline(health_deadline, clock)
+                if pwa_manifest(final_health, config) == manifest:
+                    print(f"Coolify finished commit {config.sha}; public serving identity, database and canonical PWA scripts are healthy.", flush=True)
+                    return True
         sleep(min(config.poll_interval, max(0, health_deadline - clock())))
-    raise DeploymentError("Deployment finished, but public /health did not confirm the exact serving commit, application and database within its deadline.")
+    raise DeploymentError("Deployment finished, but public /health and canonical PWA scripts did not confirm the exact serving commit, application, database and fresh worker delivery within its deadline.")
 
 
 def main():

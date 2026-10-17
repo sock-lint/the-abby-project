@@ -169,7 +169,19 @@ reconciliation, retries, native deployment and public verification. After Coolif
 finishes, up to two minutes of that remaining budget allow
 `https://abby.bos.lol/health` to confirm `status: ok`, `db: up`, the exact workflow
 `commit`, and the configured application `resourceUuid`. Current main is checked
-again after the health read before success. The Actions deployment job has a
+again after the health read before success. That same verification window also
+checks the three canonical unqueried worker URLs (`/sw.js`, `/push-sw.js`,
+`/privacy-sw.js`) anonymously, with redirects and ambient proxies disabled.
+`/health.pwaScripts` describes the SHA-256 and byte length of those files in the
+actual serving production image; the public validation image cannot supply this
+proof because its build inputs differ. JavaScript MIME, exact bytes, zero cache
+age, browser revalidation and an edge bypass (`DYNAMIC` or `BYPASS` when
+Cloudflare reports a status) are required. HTML, stale bytes, positive cache TTLs,
+missing fingerprints, and edge hits fail release verification. A final health
+read must retain the same commit and fingerprints. No cache-busting URL is used.
+The helper never cancels an already finished deployment for a worker-delivery
+failure; the deployment job fails with the release still unverified. See
+[PWA delivery policy](pwa-edge-cache.md). The Actions deployment job has a
 30-minute limit. Signals, deadline, exhausted read retries and mismatches attempt
 cancellation of the known monitored deployment UUID. A forced runner exit, an
 interruption before an uncertain POST can be reconciled, or an already finished
