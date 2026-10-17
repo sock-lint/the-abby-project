@@ -82,11 +82,11 @@ export default function SigilFrontispiece({ profile, profilePicture, onOpenTroph
         </div>
       </div>
 
-      {children}
-
       <div className="mt-4">
-        <TrophySlot badge={profile.active_trophy_badge} onOpen={onOpenTrophyPicker} compact />
+        <TrophySlot badge={profile.active_trophy_badge} frame={profile.active_frame} onOpen={onOpenTrophyPicker} compact />
       </div>
+
+      {children}
 
       <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-page-shadow pt-3 font-body">
         <div>

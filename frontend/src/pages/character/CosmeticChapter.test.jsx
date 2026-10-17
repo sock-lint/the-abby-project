@@ -11,6 +11,13 @@ vi.mock('framer-motion', async () => {
 const frameChapter = COSMETIC_CHAPTERS_BY_SLOT.active_frame;
 
 describe('CosmeticChapter', () => {
+  it('disables every owned frame choice while a change is pending', () => {
+    const frames = [{ id: 1, name: 'Bronze Frame' }, { id: 2, name: 'Silver Frame' }];
+    renderWithProviders(<CosmeticChapter chapter={frameChapter} owned={frames} catalog={frames}
+      activeId={1} busy={1} onEquip={() => {}} onUnequip={() => {}} />);
+    expect(screen.getByRole('button', { name: /Bronze Frame/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Silver Frame/ })).toBeDisabled();
+  });
   it('renders the rubric, drop-cap, name, kicker, and owned-count chip', () => {
     const { container } = renderWithProviders(
       <CosmeticChapter
@@ -27,7 +34,7 @@ describe('CosmeticChapter', () => {
     );
     expect(screen.getByRole('region', { name: frameChapter.name })).toBeInTheDocument();
     expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
-    expect(screen.getByText('A colorful frame for your profile picture or initial')).toBeInTheDocument();
+    expect(screen.getByText('Your equipped frame outlines your profile picture and styles your featured badge when a card style is available.')).toBeInTheDocument();
     expect(screen.getByText(/1 of 2/)).toBeInTheDocument();
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Character from './Character.jsx';
 import { server } from '../test/server.js';
@@ -177,13 +177,13 @@ describe('Character (/sigil)', () => {
     expect(screen.queryByRole('tab', { name: /Journal Covers/i })).toBeNull();
 
     // Frames is the first chapter, so its folio opens by default.
-    expect(screen.getByRole('region', { name: 'Frames' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: /^Frames/ })).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Titles' })).toBeNull();
 
     // Switching spines swaps the rendered chapter.
     await user.click(screen.getByRole('tab', { name: /Titles/i }));
     expect(screen.getByRole('region', { name: 'Titles' })).toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: 'Frames' })).toBeNull();
+    expect(screen.queryByRole('region', { name: /^Frames/ })).toBeNull();
   });
 
   it('equips an owned cosmetic', async () => {
@@ -209,6 +209,81 @@ describe('Character (/sigil)', () => {
     await waitFor(() => expect(screen.getByText(/gold frame/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Gold Frame.*click to equip/i }));
     await waitFor(() => expect(equipSpy).toHaveBeenCalled());
+  });
+
+  it.each([200, 400])('keeps the saved card style while an equip request is pending (HTTP %s)', async (status) => {
+    const user = userEvent.setup();
+    const nature = { id: 401, name: 'Ranger’s Cap Frame', icon: '🖼️', rarity: 'rare', metadata: { border_color: '#3A8B3A', card_asset_id: 'card-front-nature' } };
+    const light = { id: 402, name: 'Scholar Frame', icon: '🖼️', rarity: 'rare', metadata: { border_color: '#8B5A2B', card_asset_id: 'card-front-light' } };
+    let saved = { display_name: 'Abby', level: 3, active_frame: nature, active_trophy_badge: { id: 51, name: 'First Project', icon: '🏅', rarity: 'legendary' } };
+    stubRoutes({ profile: saved, cosmetics: { active_frame: [nature, light] }, catalog: { active_frame: [nature, light] } });
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const equip = vi.fn(async ({ request }) => {
+      expect(await request.json()).toEqual({ item_id: light.id });
+      await pending;
+      if (status === 400) return HttpResponse.json({ error: 'This style is no longer available.' }, { status });
+      saved = { ...saved, active_frame: light };
+      return HttpResponse.json({ slot: 'active_frame', item_id: light.id, item_name: light.name });
+    });
+    server.use(
+      http.get('*/api/character/', () => HttpResponse.json(saved)),
+      http.post('*/api/character/equip/', equip),
+    );
+    const { container } = renderPage();
+    await screen.findByRole('button', { name: /Scholar Frame.*click to equip/i });
+    const trophy = () => container.querySelector('[data-trophy-slot]');
+    expect(trophy()).toHaveTextContent('Nature card');
+    try {
+      await user.click(screen.getByRole('button', { name: /Scholar Frame.*click to equip/i }));
+      await waitFor(() => expect(equip).toHaveBeenCalledOnce());
+      expect(trophy()).toHaveTextContent('Nature card');
+      expect(trophy()).not.toHaveTextContent('Light card');
+      expect(screen.getByRole('button', { name: /Ranger.*currently equipped/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Scholar Frame.*click to equip/i })).toBeDisabled();
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+    if (status === 200) {
+      await waitFor(() => expect(trophy()).toHaveTextContent('Light card'));
+      expect(screen.getByRole('button', { name: /Scholar Frame.*currently equipped/i })).toHaveAttribute('aria-pressed', 'true');
+    } else {
+      expect(await screen.findByText('This style is no longer available.')).toBeInTheDocument();
+      expect(trophy()).toHaveTextContent('Nature card');
+    }
+    expect(trophy()).toHaveTextContent('First Project');
+    expect(trophy()).toHaveTextContent('legendary');
+  });
+
+  it('keeps the equipped card style during a pending or rejected removal', async () => {
+    const user = userEvent.setup();
+    const nature = { id: 401, name: "Ranger's Cap Frame", rarity: 'rare', metadata: { card_asset_id: 'card-front-nature' } };
+    stubRoutes({
+      profile: { display_name: 'Abby', active_frame: nature, active_trophy_badge: { id: 51, name: 'First Project', rarity: 'rare', icon: '🏅' } },
+      cosmetics: { active_frame: [nature] }, catalog: { active_frame: [nature] },
+    });
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const remove = vi.fn(async ({ request }) => {
+      expect(await request.json()).toEqual({ slot: 'active_frame' });
+      await pending;
+      return HttpResponse.json({ error: 'Could not save this change.' }, { status: 400 });
+    });
+    server.use(http.post('*/api/character/unequip/', remove));
+    const { container } = renderPage();
+    const button = await screen.findByRole('button', { name: /Ranger.*currently equipped/i });
+    try {
+      await user.click(button);
+      await waitFor(() => expect(remove).toHaveBeenCalledOnce());
+      expect(button).toBeDisabled();
+      expect(container.querySelector('[data-trophy-slot]')).toHaveTextContent('Nature card style');
+    } finally {
+      await act(async () => { release(); await pending; });
+    }
+    expect(await screen.findByText('Could not save this change.')).toBeInTheDocument();
+    expect(container.querySelector('[data-trophy-slot]')).toHaveTextContent('Nature card style');
+    expect(button).toBeEnabled();
+    expect(button).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('summarizes the saved color theme and links to the single Settings picker', async () => {

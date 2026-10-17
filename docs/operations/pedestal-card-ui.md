@@ -57,11 +57,19 @@ reserved gutters are removed; legacy flourish/seal props remain compatible
 without rendering decoration. Direct content children retain the caller's
 layout and spacing rhythm. The corner asset remains available in the design
 library's complete source gallery for reference.
-The daily bonus star follows the server's award state, and the featured
-earned badge and earned badge detail use one measured gold-frame component.
-Badge tiles retain quiet artwork; rarity labels and icon fallbacks are shared.
+The daily bonus star follows the server's award state. Profile's compact featured
+achievement uses a complete Nature or Light canvas from its equipped frame,
+with the real badge icon, name and rarity beside it. Ranger’s Cap Frame maps to
+Nature and Scholar Frame maps to Light through the code-owned registry in
+`apps/rpg/card_styles.py`, projected as read-only `metadata.card_asset_id`.
+Existing inventory, drops, challenge rewards and equip checks own these styles;
+opening a preview grants nothing. Other frames retain their existing presentation.
+Badge details use the measured gold frame. Badge tiles retain quiet artwork;
+rarity labels and icon fallbacks are shared.
 Existing difficulty stars use lit/unlit art with their original glyph fallback and a numeric
-accessible label. Equipped profile cosmetics stay independent.
+accessible label. Badge rarity and identity remain independent of the equipped
+frame and its card style. Frame selection still outlines the profile picture or
+initial, and updates only after the server confirms the save.
 
 Child challenge cards use the Light illustration; the child Shop uses one
 Treasure introduction while individual offers retain their actual art,
@@ -76,6 +84,12 @@ desktop widths with long/enlarged text, both light and dark covers, and
 failed artwork. Private PNG acceptance requires the imported release;
 screenshots stay outside Git and hosted artifacts.
 
+`profile-card-styles.pw.js` composes the real Profile and collection components
+with synthetic shared API fixtures. It checks full card proportions and alpha,
+long/enlarged text, locked and owned keyboard actions, independent trophy
+selection, and collapsed missing/failed artwork at phone and desktop widths.
+Only the original-PNG acceptance scenario requires the private pedestal release.
+
 The existing Hatching screen uses a neutral Normal Egg on the Trunk Pedestal
 as decorative artwork when available ingredients exist. It does not depict an
 owned species or promise a rarity. Real ingredient names, quantities, eligibility
@@ -84,8 +98,9 @@ server hatch response starts the existing completed-hatch ceremony.
 
 The design library's pedestal/card example allows temporary inspection of all
 five egg exports, the pedestal alone, the native loops and all 19 UI images.
-These are artwork choices, with no inventory, progression, unlock or rarity
-mapping. In particular, `HatchingSoon` repeats as anticipation; it cannot
+The design library choices do not create inventory, progression, unlock or rarity
+claims. The two Profile card styles above use only their explicit frame bindings.
+In particular, `HatchingSoon` repeats as anticipation; it cannot
 complete a hatch or grant anything. Legendary-looking art is not an entitlement.
 
 Each GLB is independently loaded and hash-checked through the unchanged runtime.

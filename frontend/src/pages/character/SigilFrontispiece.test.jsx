@@ -3,6 +3,20 @@ import { renderWithProviders, screen, userEvent } from '../../test/render';
 import SigilFrontispiece from './SigilFrontispiece';
 
 describe('SigilFrontispiece', () => {
+  it('shows the equipped card style before avatar content while retaining its profile-picture outline', () => {
+    renderWithProviders(<SigilFrontispiece profile={{ display_name: 'Abby',
+      active_frame: { metadata: { border_color: '#486b55', card_asset_id: 'card-front-nature' } },
+      active_trophy_badge: { id: 7, name: 'Night Owl', icon: '🦉', rarity: 'rare' } }}
+      profilePicture="/media/abby.png" onOpenTrophyPicker={() => {}}>
+      <section aria-label="Your avatar">Saved avatar controls</section>
+    </SigilFrontispiece>);
+    expect(screen.getByText('Nature card style')).toBeInTheDocument();
+    const trophy = screen.getByRole('button', { name: /Trophy badge: Night Owl/ });
+    expect(trophy.compareDocumentPosition(screen.getByRole('region', { name: 'Your avatar' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Your profile picture' }).parentElement).toHaveStyle({
+      boxShadow: '0 0 0 3px var(--color-ink-page-aged), 0 0 0 4px #486b55, 0 0 0 6px var(--color-ink-page-shadow)',
+    });
+  });
   it('recognizes a server-confirmed terminal level without an empty next-level promise', () => {
     renderWithProviders(<SigilFrontispiece
       profile={{ display_name: 'Abby', level: 6, total_xp: 2500, xp_in_level: 0, xp_needed_for_level: 0 }}

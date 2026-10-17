@@ -324,10 +324,16 @@ accepted without drawing decorations. Children stay direct so caller layout,
 padding overrides and `space-y-*` rhythm continue to apply.
 The daily bonus lights a star only after `awarded`;
 `StarRating` retains the existing difficulty scale and accessible numeric label.
-Featured earned badges on Profile and in badge details share `BadgeArtwork`
-and its measured frame opening. Badge tiles use the same icon fallback in a
-quiet well; all badge views share `BadgeRarity` labels. Equipped profile
-cosmetics remain independent.
+Profile's compact featured achievement keeps the real `BadgeArtwork` and
+`BadgeRarity` beside a complete card canvas when its equipped frame supplies a
+server-verified `metadata.card_asset_id`. The earned frame collection previews
+these same whole canvases; locked styles remain noninteractive. Ranger’s Cap
+Frame supplies Nature and Scholar Frame supplies Light. The existing frame
+continues outlining the profile picture or initial. These styles share the
+frame's existing ownership and equip checks; badge identity, rarity and earning
+remain separate. Missing or failed decorative images collapse without hiding
+the badge or controls. Badge details retain the measured gold-frame treatment,
+and quiet badge tiles retain their icon fallback.
 Challenges use Light card art and the child Shop uses Treasure as decoration,
 without catalog, ownership, rarity or progression bindings.
 Keep paid PNGs, GLBs and derived previews in the private asset workflow outside

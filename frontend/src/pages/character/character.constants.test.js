@@ -20,7 +20,7 @@ describe('character.constants', () => {
     });
 
     it('exports a slot \u2192 chapter lookup', () => {
-      expect(COSMETIC_CHAPTERS_BY_SLOT.active_frame.name).toBe('Frames');
+      expect(COSMETIC_CHAPTERS_BY_SLOT.active_frame.name).toBe('Frames & card styles');
       expect(COSMETIC_CHAPTERS_BY_SLOT.active_pet_accessory).toBeUndefined();
     });
   });

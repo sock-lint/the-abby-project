@@ -13,8 +13,8 @@ export const COSMETIC_CHAPTERS = [
     slot: 'active_frame',
     rubric: chapterMark(0),
     letter: 'F',
-    name: 'Frames',
-    kicker: 'A colorful frame for your profile picture or initial',
+    name: 'Frames & card styles',
+    kicker: 'Your equipped frame outlines your profile picture and styles your featured badge when a card style is available.',
   },
   {
     slot: 'active_title',

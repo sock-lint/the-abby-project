@@ -81,10 +81,11 @@ export default function CosmeticChapter({
           no cosmetics authored yet
         </p>
       ) : (
-        <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 list-none p-0 m-0">
+        <ul className={`mt-4 ${chapter.slot === 'active_frame' ? 'profile-card-collection' : 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'} gap-3 md:gap-4 list-none p-0 m-0`}>
           {entries.map((entry, i) => (
             <motion.li
               key={entry.item.id}
+              className="min-w-0"
               initial={{ scale: 0.92, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{
@@ -97,7 +98,7 @@ export default function CosmeticChapter({
                 entry={entry}
                 slot={chapter.slot}
                 currentThemeName={currentThemeName}
-                busy={busy === entry.item.id || busy === chapter.slot}
+                busy={busy != null}
                 onEquip={onEquip}
                 onUnequip={onUnequip}
               />

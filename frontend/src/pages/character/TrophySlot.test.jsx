@@ -8,6 +8,15 @@ vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn()
 beforeEach(() => resolvePedestalImage.mockReturnValue(null));
 
 describe('TrophySlot', () => {
+  it('uses the equipped frame’s whole Nature card beside the real earned badge', () => {
+    const frame = { id: 14, name: "Ranger's Cap Frame", metadata: { card_asset_id: 'card-front-nature' } };
+    const { container } = renderWithProviders(<TrophySlot compact frame={frame}
+      badge={{ id: 7, name: 'Night Owl', rarity: 'rare', icon: '🦉' }} onOpen={() => {}} />);
+    expect(container.querySelector('[data-pedestal-image="card-front-nature"]')).not.toBeNull();
+    expect(screen.getByText('Night Owl')).toBeInTheDocument();
+    expect(screen.getByText('🦉')).toBeInTheDocument();
+    expect(screen.getByText('Nature card style')).toBeInTheDocument();
+  });
   it('renders the empty-state with an accessible prompt', () => {
     renderWithProviders(<TrophySlot badge={null} onOpen={() => {}} />);
     const btn = screen.getByRole('button');
@@ -52,16 +61,16 @@ describe('TrophySlot', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('frames the actual earned badge as decoration without adding a focus target', async () => {
+  it('shows the equipped whole Light card without adding a focus target or replacing badge identity', async () => {
     resolvePedestalImage.mockReturnValue({
-      assetId: 'frame-gold', variantId: 'web', url: '/private/synthetic-frame.png', width: 512, height: 512,
+      assetId: 'card-front-light', variantId: 'web', url: '/private/synthetic-card.png', width: 512, height: 512,
     });
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const { container } = renderWithProviders(
-      <TrophySlot compact badge={{ id: 7, name: 'Night Owl', icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
+      <TrophySlot compact frame={{ metadata: { card_asset_id: 'card-front-light' } }} badge={{ id: 7, name: 'Night Owl', icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
     );
-    const frame = container.querySelector('[data-pedestal-image="frame-gold"]');
+    const frame = container.querySelector('[data-pedestal-image="card-front-light"]');
     expect(frame.querySelector('img')).toHaveAttribute('alt', '');
     expect(frame.querySelector('img')).toHaveAttribute('width', '512');
     expect(frame.querySelector('img')).toHaveAttribute('height', '512');
@@ -75,22 +84,23 @@ describe('TrophySlot', () => {
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the earned name, icon, rarity and change action readable when frame loading fails', async () => {
+  it('keeps the earned name, icon, rarity and change action readable when card artwork fails', async () => {
     resolvePedestalImage.mockReturnValue({
-      assetId: 'frame-gold', variantId: 'web', url: '/private/synthetic-frame.png', width: 512, height: 512,
+      assetId: 'card-front-nature', variantId: 'web', url: '/private/synthetic-card.png', width: 512, height: 512,
     });
     const user = userEvent.setup();
     const onOpen = vi.fn();
     const name = 'A very long earned badge name that stays beside its artwork';
     const { container } = renderWithProviders(
-      <TrophySlot compact badge={{ id: 7, name, icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
+      <TrophySlot compact frame={{ metadata: { card_asset_id: 'card-front-nature' } }} badge={{ id: 7, name, icon: '🦉', rarity: 'rare' }} onOpen={onOpen} />,
     );
     fireEvent.error(container.querySelector('img'));
-    expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toHaveAttribute('data-image-state', 'error');
+    expect(container.querySelector('[data-pedestal-image="card-front-nature"]')).toHaveAttribute('data-image-state', 'error');
     expect(screen.getByText(name)).toBeInTheDocument();
     expect(screen.getByText('🦉')).toBeInTheDocument();
     expect(screen.getByText('rare')).toBeInTheDocument();
     expect(screen.getByText('Change')).toBeInTheDocument();
+    expect(screen.getByText('Nature card style')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: `Trophy badge: ${name}. Click to change or clear.` }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });
@@ -102,6 +112,25 @@ describe('TrophySlot', () => {
     expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toBeNull();
     expect(screen.getByText('Choose an earned badge')).toBeInTheDocument();
     expect(screen.getByText('Choose')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /No trophy badge chosen/ }));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps an unbound equipped frame quiet without inventing a gold surround', () => {
+    const { container } = renderWithProviders(<TrophySlot compact
+      frame={{ name: 'Gold Frame', metadata: { border_color: '#866329' } }}
+      badge={{ id: 1, name: 'First Project', icon: '⭐', rarity: 'common' }} onOpen={() => {}} />);
+    expect(container.querySelector('[data-pedestal-image]')).toBeNull();
+    expect(screen.getByText('First Project')).toBeInTheDocument();
+    expect(screen.getByText('⭐')).toBeInTheDocument();
+  });
+
+  it('keeps choosing an earned badge available even with a card style and no trophy', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    renderWithProviders(<TrophySlot compact frame={{ metadata: { card_asset_id: 'card-front-light' } }} badge={null} onOpen={onOpen} />);
+    expect(screen.getByText('Light card style')).toBeInTheDocument();
+    expect(screen.queryByText('rare')).toBeNull();
     await user.click(screen.getByRole('button', { name: /No trophy badge chosen/ }));
     expect(onOpen).toHaveBeenCalledTimes(1);
   });

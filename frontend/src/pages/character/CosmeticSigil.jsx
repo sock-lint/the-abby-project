@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
-import { RARITY_TEXT_COLORS } from '../../constants/colors';
 import { RARITY_HALO } from '../../components/atlas/mastery.constants';
+import BadgeRarity from '../../components/atlas/BadgeRarity';
 import { applyTheme } from '../../themes';
 import { cosmeticLockHint } from './character.constants';
+import CardStyleArtwork from './CardStyleArtwork';
+import { cardStyleForFrame } from './cardStylePresentation';
 
 /**
  * CosmeticSigil — a single cosmetic tile inside a CosmeticChapter.
@@ -37,6 +39,7 @@ export default function CosmeticSigil({
 }) {
   const { item, owned, equipped } = entry;
   const rarity = item.rarity || 'common';
+  const cardStyle = slot === 'active_frame' ? cardStyleForFrame(item) : null;
 
   const isThemeSlot = slot === 'active_theme';
   const themeName = isThemeSlot
@@ -89,12 +92,19 @@ export default function CosmeticSigil({
       data-owned={owned ? 'true' : 'false'}
       data-equipped={equipped ? 'true' : 'false'}
       data-rarity={rarity}
+      data-frame-card-style={cardStyle?.assetId}
       className={`${shellBase} ${owned ? shellEarned : shellLocked} ${
         owned ? 'active:scale-[0.98]' : ''
       }`}
     >
-      <div
-        className={`relative w-14 h-14 rounded-2xl flex items-center justify-center ${
+      {cardStyle && <div className={`profile-card-style-preview ${owned ? '' : 'grayscale opacity-50'}`}>
+        <CardStyleArtwork frame={item} />
+        <span aria-hidden="true" className="profile-card-style-fallback size-14 items-center justify-center rounded-2xl bg-ink-page-shadow/20">
+          <CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={32} alt="" />
+        </span>
+      </div>}
+      {!cardStyle && <div
+        className={`relative size-14 shrink-0 rounded-2xl flex items-center justify-center ${
           owned
             ? 'bg-ink-page-aged'
             : 'bg-ink-page-shadow/20'
@@ -109,28 +119,23 @@ export default function CosmeticSigil({
             alt={item.name}
           />
         </div>
-      </div>
+      </div>}
 
       <div
-        className={`w-full break-words [overflow-wrap:anywhere] text-body text-center font-bold leading-tight line-clamp-2 ${
+        className={`w-full break-words [overflow-wrap:anywhere] text-body text-center font-bold leading-tight ${
           owned ? 'text-ink-primary' : 'text-ink-whisper'
         }`}
       >
         {item.name}
       </div>
-      <div
-        className={`text-caption font-body ${
-          owned ? (RARITY_TEXT_COLORS[rarity] || 'text-ink-secondary') : 'text-ink-whisper'
-        }`}
-      >
-        {rarity}
-      </div>
+      <BadgeRarity rarity={rarity} quiet={!owned} />
+      {cardStyle && <span className="font-body text-caption text-ink-secondary">{cardStyle.label}</span>}
 
       {/* Keep future goals as readable as the adjacent badge collection. */}
       {!owned && (
         <div
           data-cosmetic-hint="true"
-          className="mt-0.5 w-full break-words text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
+          className="mt-0.5 w-full break-words [overflow-wrap:anywhere] text-caption font-body text-center leading-snug text-ink-secondary px-1"
         >
           {cosmeticLockHint(item)}
         </div>
@@ -152,7 +157,7 @@ export default function CosmeticSigil({
       <div
         aria-label={accessibleName}
         role="img"
-        className="w-full"
+        className="min-w-0 w-full"
       >
         {body}
       </div>
@@ -170,7 +175,7 @@ export default function CosmeticSigil({
       disabled={busy}
       aria-label={accessibleName}
       aria-pressed={equipped}
-      className="w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl disabled:opacity-70"
+      className="min-w-0 w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl disabled:opacity-70"
     >
       {body}
     </button>

@@ -156,9 +156,8 @@ export default function Character() {
     reloadCosmetics();
   };
 
-  // Resolve the cosmetic record we're about to equip from owned or catalog,
-  // so the optimistic profile-state update has a real {id, name, ...} object
-  // to slot in rather than a bare id.
+  // Keep the saved presentation until the server confirms the ownership check.
+  // The known record supplies its read-only artwork metadata after that save.
   const findCosmetic = (slot, itemId) => {
     const owned = cosmetics?.[slot] || [];
     const fromOwned = owned.find((c) => c.id === itemId);
@@ -168,15 +167,13 @@ export default function Character() {
   };
 
   const handleEquip = async (itemId, slot) => {
+    if (working !== null) return;
     setWorking(itemId);
     setError('');
-    const previous = profile[slot] || null;
     const next = findCosmetic(slot, itemId);
-    // Optimistic: reflect the new equip immediately so the tile flips
-    // states without waiting for the round-trip + refetch.
-    setProfileData({ ...profile, [slot]: next });
     try {
       await equipCosmetic(itemId);
+      setProfileData((saved) => ({ ...saved, [slot]: next }));
       const name = next?.name || cosmeticName(slot, itemId);
       setEquipToast({
         msg: name ? `${name} selected` : 'Cosmetic selected',
@@ -184,23 +181,20 @@ export default function Character() {
       });
       refresh();
     } catch (e) {
-      // Rollback to whatever was equipped (or null) before the click.
-      setProfileData({ ...profile, [slot]: previous });
       setError(e.message);
     } finally { setWorking(null); }
   };
 
   const handleUnequip = async (slot) => {
+    if (working !== null) return;
     setWorking(slot);
     setError('');
-    const previous = profile[slot] || null;
-    setProfileData({ ...profile, [slot]: null });
     try {
       await unequipCosmetic(slot);
+      setProfileData((saved) => ({ ...saved, [slot]: null }));
       setEquipToast({ msg: 'Cosmetic unequipped', key: Date.now() });
       refresh();
     } catch (e) {
-      setProfileData({ ...profile, [slot]: previous });
       setError(e.message);
     } finally { setWorking(null); }
   };
@@ -278,7 +272,7 @@ export default function Character() {
       <div className="space-y-1">
         <h2 className="font-body font-bold text-2xl text-ink-primary">Your look</h2>
         <p className="font-body text-body text-ink-secondary">
-          Choose your frame and title from your collection.
+          Choose your frame, card style and title from your collection.
         </p>
       </div>
 

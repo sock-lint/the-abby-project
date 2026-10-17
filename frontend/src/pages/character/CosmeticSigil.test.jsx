@@ -21,6 +21,29 @@ beforeEach(() => {
 });
 
 describe('CosmeticSigil', () => {
+  it('presents the actual earned frame and its card style while preserving equip behavior', async () => {
+    const user = userEvent.setup();
+    const onEquip = vi.fn();
+    const item = { ...baseItem, id: 12, name: "Ranger's Cap Frame", rarity: 'rare', metadata: { card_asset_id: 'card-front-nature' } };
+    const { container } = renderWithProviders(<CosmeticSigil entry={{ item, owned: true, equipped: false }} slot="active_frame" onEquip={onEquip} />);
+    expect(container.querySelector('[data-pedestal-image="card-front-nature"]')).not.toBeNull();
+    expect(screen.getByText("Ranger's Cap Frame")).toBeInTheDocument();
+    expect(screen.getByText('rare')).toBeInTheDocument();
+    expect(screen.getByText('Nature card style')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Ranger's Cap Frame/ }));
+    expect(onEquip).toHaveBeenCalledWith(12);
+  });
+
+  it('keeps a locked card style noninteractive with its real frame name and earning hint', () => {
+    const onEquip = vi.fn();
+    const item = { ...baseItem, name: 'Scholar Frame', rarity: 'rare', description: 'Earn this through the Scholar challenge.', metadata: { card_asset_id: 'card-front-light' } };
+    const { container } = renderWithProviders(<CosmeticSigil entry={{ item, owned: false, equipped: false }} slot="active_frame" onEquip={onEquip} />);
+    expect(container.querySelector('button')).toBeNull();
+    expect(screen.getByRole('img', { name: /Scholar Frame.*not yet owned/ })).toBeInTheDocument();
+    expect(screen.getByText('Light card style')).toBeInTheDocument();
+    expect(screen.getByText('Earn this through the Scholar challenge.')).toBeInTheDocument();
+    expect(onEquip).not.toHaveBeenCalled();
+  });
   it('renders an owned-but-not-equipped tile as a clickable button', () => {
     renderWithProviders(
       <CosmeticSigil

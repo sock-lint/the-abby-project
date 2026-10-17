@@ -49,6 +49,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises 15 exact Base-only families |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
+| `profile-card-styles-catalog.json`, `profile-card-styles-owned.json`, `profile-card-style-character.json` | Real cosmetic catalog, owned collection and character reads share optional server-bound `metadata.card_asset_id`; an unowned style remains visible without granting ownership |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
 | `items-preserved-inventory.json` | `GET /api/inventory/`; unavailable saved egg/accessory entries remain owned without blocked actions |
 | `pet-hatch-unavailable.json` | Unsupported saved egg rejected with HTTP 400 without consuming either ingredient |
@@ -783,3 +784,22 @@ catalog artwork. Unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+## Profile card styles
+
+`config.tests.test_profile_card_style_api_contract_fixtures` produces the raw
+cosmetic catalog, owned collection and selected-character fixtures above.
+`metadata.card_asset_id` is optional presentation data: exact
+`frame-robin-hood` / Ranger's Cap Frame and `frame-scholar` / Scholar Frame
+identities project `card-front-nature` and `card-front-light`, respectively.
+Both must remain `cosmetic_frame` items. Other stored card IDs are removed
+from object metadata; existing border colors and unrelated metadata remain.
+Legacy nonobject JSON is retained without supplying a card binding.
+
+Catalog visibility and the presence of an asset ID do not establish ownership.
+The owned endpoint and existing equip service remain authoritative; these
+reads grant no items or rewards and write no catalog metadata. Older responses
+without the optional key keep the ordinary frame/icon presentation.
+The React consumer `src/api/profileCardStyleContractFixtures.test.jsx` reads the
+same responses and renders their owned/locked collection states. This producer
+and consumer pair runs in the hosted API fixture gate.

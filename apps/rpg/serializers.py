@@ -9,6 +9,7 @@ from .avatar import (
     normalize_avatar_configuration, saved_avatar_configuration,
 )
 from .catalog_support import item_is_available
+from .card_styles import card_style_metadata
 
 
 class AvatarPreferencesUpdateSerializer(serializers.Serializer):
@@ -170,7 +171,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "icon": item.icon,
             "sprite_key": item.sprite_key,
             "rarity": item.rarity,
-            "metadata": item.metadata,
+            "metadata": card_style_metadata(item),
         }
 
     def get_active_frame(self, obj):
@@ -199,6 +200,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):
+    metadata = serializers.SerializerMethodField()
     name = serializers.CharField(source="display_name", read_only=True)
     catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
@@ -222,6 +224,9 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_available(self, obj):
         return item_is_available(obj)
+
+    def get_metadata(self, obj):
+        return card_style_metadata(obj)
 
     def get_catalog_icon(self, obj):
         return item_catalog_icon(obj)

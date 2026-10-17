@@ -1,0 +1,19 @@
+.profile-card-style-art { display: block; width: 160px; max-width: 100%; aspect-ratio: 1; pointer-events: none; }
+.profile-card-style-art:has([data-image-state="unavailable"]),
+.profile-card-style-art:has([data-image-state="error"]) { display: none; }
+.profile-card-style-art .mt-image-placeholder { display: none; }
+.profile-trophy { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+.profile-trophy__art { flex: none; width: 154px; }
+.profile-trophy__copy { flex: 1 1 12rem; min-width: min(100%, 12rem); overflow-wrap: anywhere; }
+.profile-trophy__identity { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .75rem; }
+.profile-trophy__identity-copy { flex: 1 1 9em; min-width: min(100%, 9em); font-size: var(--text-body); }
+.profile-trophy--full { flex-direction: column; }
+.profile-trophy--full .profile-trophy__copy { flex-basis: auto; }
+.profile-card-style-preview { display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; width: 100%; min-width: 0; }
+.profile-card-style-fallback { display: none; }
+.profile-card-style-preview:has([data-image-state="unavailable"]) .profile-card-style-fallback,
+.profile-card-style-preview:has([data-image-state="error"]) .profile-card-style-fallback { display: flex; }
+.profile-card-collection { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 30rem) {
+  .profile-trophy__art { width: 170px; }
+}

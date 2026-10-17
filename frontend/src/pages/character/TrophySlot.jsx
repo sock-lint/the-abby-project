@@ -1,72 +1,41 @@
 import { Award } from 'lucide-react';
 import BadgeArtwork from '../../components/atlas/BadgeArtwork';
 import BadgeRarity from '../../components/atlas/BadgeRarity';
+import CardStyleArtwork from './CardStyleArtwork';
+import { cardStyleForFrame } from './cardStylePresentation';
 
-/**
- * TrophySlot — the featured badge on the Frontispiece.
- *
- *   • With a trophy set: a gold-framed icon, rarity ring and badge name.
- *     Click opens the picker (to change or clear).
- *   • Without a trophy: a dashed well with a readable hint inviting
- *     the user to choose one. Click opens the picker.
- *
- * The slot is the page's signature moment — it turns an otherwise-static
- * dashboard into an act of self-expression. Click handler delegated to
- * the parent so the picker (a BottomSheet) lives at page scope and can
- * re-fetch on select without needing to hoist that state here.
- */
-export default function TrophySlot({ badge, onOpen, compact = false }) {
+/** The equipped frame supplies decoration; the saved earned badge supplies
+ * identity. The original button opens the trophy chooser in every state. */
+export default function TrophySlot({ badge, frame, onOpen, compact = false }) {
   const rarity = badge?.rarity || 'common';
+  const cardStyle = cardStyleForFrame(frame);
   const accessibleName = badge
     ? `Trophy badge: ${badge.name}. Click to change or clear.`
     : 'No trophy badge chosen — choose an earned badge.';
 
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={accessibleName}
-      data-trophy-slot="true"
-      data-filled={badge ? 'true' : 'false'}
-      className={`group relative min-w-0 max-w-full gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'grid grid-cols-[auto_minmax(0,1fr)] items-start w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex flex-col items-center text-center'}`}
-    >
-      {badge ? (
-        <BadgeArtwork badge={badge} earned variant="featured" size={compact ? 'md' : 'lg'} />
-      ) : (
-        <span className={`relative shrink-0 border border-dashed border-ink-page-shadow bg-ink-page/70 flex items-center justify-center ${compact ? 'size-11 rounded-xl' : 'size-20 rounded-3xl'}`}>
-          <Award size={compact ? 24 : 32} aria-hidden="true" className="text-ink-whisper" />
-        </span>
-      )}
-
-      {compact ? (
-        <span data-trophy-copy="true" className="min-w-0">
+  return <button type="button" onClick={onOpen} aria-label={accessibleName}
+    data-trophy-slot="true" data-filled={badge ? 'true' : 'false'}
+    data-frame-card-style={cardStyle?.assetId}
+    className={`profile-trophy group relative min-w-0 max-w-full rounded-2xl border border-ink-page-shadow bg-ink-page-aged p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep ${compact ? 'w-full' : 'profile-trophy--full'}`}>
+    <CardStyleArtwork frame={frame} className="profile-trophy__art" />
+    <span data-trophy-copy="true" className="profile-trophy__copy">
+      <span className="profile-trophy__identity">
+        {badge ? <BadgeArtwork badge={badge} earned /> : <span aria-hidden="true"
+          className="flex size-14 shrink-0 items-center justify-center rounded-2xl border border-dashed border-ink-page-shadow bg-ink-page/70">
+          <Award size={28} className="text-ink-whisper" />
+        </span>}
+        <span className="profile-trophy__identity-copy">
           <span className="block font-body text-caption text-ink-secondary">Your trophy badge</span>
-          <span className="block font-body font-bold text-body text-ink-primary break-words [overflow-wrap:anywhere]">
+          <span className="mt-1 block break-words [overflow-wrap:anywhere] font-body text-lede font-bold leading-snug text-ink-primary">
             {badge?.name || 'Choose an earned badge'}
           </span>
-          {badge && <span className="mt-1 block"><BadgeRarity rarity={rarity} /></span>}
-          <span aria-hidden="true" className="mt-2 block font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>
+          {badge && <span className="mt-2 block"><BadgeRarity rarity={rarity} /></span>}
         </span>
-      ) : badge ? (
-        <>
-          <BadgeRarity rarity={rarity} />
-          <div className="min-w-0 font-body font-bold text-body text-ink-primary leading-tight max-w-[10rem] break-words [overflow-wrap:anywhere] line-clamp-2">
-            {badge.name}
-          </div>
-          <div className="font-body text-caption text-ink-whisper leading-tight">
-            Your trophy badge
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="font-body text-caption text-ink-whisper leading-tight">
-            No trophy badge chosen
-          </div>
-          <div className="font-body text-caption text-sheikah-teal-deep underline decoration-dotted underline-offset-2 group-hover:decoration-solid">
-            Choose an earned badge
-          </div>
-        </>
-      )}
-    </button>
-  );
+      </span>
+      {cardStyle && <span data-profile-card-label="true" className="mt-3 block font-body text-caption text-ink-secondary">
+        {cardStyle.label}
+      </span>}
+      <span aria-hidden="true" className="mt-3 block font-body text-caption font-semibold text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>
+    </span>
+  </button>;
 }
