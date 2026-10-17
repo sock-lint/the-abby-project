@@ -4,10 +4,30 @@ Previously lived at ``apps/projects/notifications.py``. Imports now point
 here: ``from apps.notifications.services import notify, notify_parents``.
 """
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
+
+from django.db import transaction
 
 from .models import Notification
 
 logger = logging.getLogger(__name__)
+_defer_push = ContextVar("defer_notification_push", default=False)
+
+
+@contextmanager
+def defer_push_until_commit():
+    """Opt into transactional pushes for an all-or-nothing reward flow.
+
+    Notification rows still write immediately in the caller's transaction.
+    Only their external push delivery waits for a successful commit; a
+    rolled-back savepoint discards its pending callbacks automatically.
+    """
+    token = _defer_push.set(True)
+    try:
+        yield
+    finally:
+        _defer_push.reset(token)
 
 
 def get_display_name(user):
@@ -39,6 +59,14 @@ def notify(user, title, message="", notification_type="timecard_ready", link="")
 
 def _push(notification):
     """Hand the notification to the push task. Never raises."""
+    if _defer_push.get():
+        transaction.on_commit(lambda: _push_now(notification))
+        return
+    _push_now(notification)
+
+
+def _push_now(notification):
+    """Deliver directly, including callbacks whose deferral scope has ended."""
     from .push import push_enabled
 
     # Cheap local check first so an unconfigured deployment doesn't queue a

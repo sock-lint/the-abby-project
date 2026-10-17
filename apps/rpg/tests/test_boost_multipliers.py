@@ -145,6 +145,14 @@ class CoinBoostIntegrationTests(TestCase):
         )
         self.assertEqual(entry.amount, 50)
 
+    def test_reading_reward_honors_lucky_coin(self):
+        entry = CoinService.award_coins(self.user, 5, "reading")
+        self.assertEqual(entry.amount, 5)
+        self._activate_coin_boost()
+        boosted = CoinService.award_coins(self.user, 5, "reading", description="Reading Adventure")
+        self.assertEqual(boosted.amount, 10)
+        self.assertIn("Lucky Coin", boosted.description)
+
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
 class XpBoostIntegrationTests(TestCase):

@@ -26,5 +26,6 @@ class TriggerType(models.TextChoices):
     SAVINGS_GOAL_COMPLETE = "savings_goal_complete", "Savings Goal Complete"
     JOURNAL_ENTRY = "journal_entry", "Journal Entry"
     CREATION_LOGGED = "creation_logged", "Creation Logged"
+    READING_LOGGED = "reading_logged", "Reading Logged"
     MOVEMENT_SESSION = "movement_session", "Movement Session"
     EXPEDITION_RETURNED = "expedition_returned", "Expedition Returned"

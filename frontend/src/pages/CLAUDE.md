@@ -96,6 +96,15 @@ be deleted. Totals come from `/reading/summary/`; local curated recommendations
 use book topics/age and publisher sources, without sending notes externally or
 granting rewards.
 
+The daily reading card uses the summary's server-owned `reading_adventure`
+progress. New logs dated today contribute minutes toward one daily reward;
+audiobooks count and reflections remain optional. Show base XP/Coins before
+earning and actual boosted amounts from the persisted `reading_reward` after
+earning. Edits and historical logs never promise new credit. Confirmed saves
+refresh the shared Pulse for balances and existing notification/drop toasts;
+clients never add a receipt's amount to a local balance. Pulse also refreshes
+the summary's household day so an open page can show the next day's reward.
+
 The Tasks page consolidates activities under one hub. Seven top-level `ChapterHub` tabs:
 
 | Tab | Slug | Backing page |

@@ -1,0 +1,21 @@
+{
+  "books_total": 1,
+  "books_finished": 0,
+  "sessions_total": 2,
+  "total_minutes": 10,
+  "total_pages": 12,
+  "today": "2026-10-10",
+  "timezone": "America/Phoenix",
+  "reading_adventure": {
+    "day": "2026-10-10",
+    "target_minutes": 10,
+    "minutes_credited": 10,
+    "remaining_minutes": 0,
+    "earned": true,
+    "base_xp": 15,
+    "base_coins": 5,
+    "xp_awarded": 30,
+    "coins_awarded": 10,
+    "skill_name": "Reading Comprehension"
+  }
+}

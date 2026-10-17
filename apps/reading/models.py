@@ -61,3 +61,38 @@ class ReadingSession(TimestampedModel):
             models.CheckConstraint(condition=models.Q(duration_minutes__lte=600), name="reading_minutes_at_most_600"),
             models.CheckConstraint(condition=models.Q(pages_read__lte=2000), name="reading_pages_at_most_2000"),
         ]
+
+
+class ReadingDailyReward(TimestampedModel):
+    """Durable daily credit; deleting or correcting a log cannot rearm it."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reading_daily_rewards")
+    day = models.DateField()
+    minutes_credited = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(10)])
+    awarded_at = models.DateTimeField(null=True, blank=True)
+    xp_awarded = models.PositiveIntegerField(default=0)
+    coins_awarded = models.PositiveIntegerField(default=0)
+    source_session = models.OneToOneField(
+        ReadingSession, null=True, blank=True, on_delete=models.SET_NULL, related_name="reading_daily_reward",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "day"], name="reading_daily_reward_user_day"),
+            models.CheckConstraint(condition=models.Q(minutes_credited__lte=10), name="reading_daily_minutes_at_most_10"),
+        ]
+
+
+class ReadingRewardCredit(models.Model):
+    """Keep request eligibility fixed after the original log is deleted."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    client_request_id = models.UUIDField(editable=False)
+    day = models.DateField()
+    minutes = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["user", "client_request_id"], name="reading_credit_user_request_once"),
+            models.CheckConstraint(condition=models.Q(minutes__lte=10), name="reading_credit_minutes_at_most_10"),
+        ]

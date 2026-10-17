@@ -8,7 +8,7 @@ import { TextField, SelectField, TextAreaField } from '../../components/form';
 import { REACTIONS, REFLECTION_PROMPTS } from './reading.constants';
 import useReadingSave from './useReadingSave';
 
-export default function SessionForm({ session, books, selectedBook, today, userId, credential, onClose, onSaved }) {
+export default function SessionForm({ session, books, selectedBook, today, adventure, userId, credential, onClose, onSaved }) {
   const initial = {
     book: String(session?.book ?? selectedBook?.id ?? ''), occurred_on: session?.occurred_on ?? today,
     duration_minutes: String(session?.duration_minutes ?? ''), pages_read: String(session?.pages_read ?? ''),
@@ -58,6 +58,7 @@ export default function SessionForm({ session, books, selectedBook, today, userI
         </SelectField>
       </fieldset>
       <p className="text-caption text-ink-secondary">Add minutes, pages, a chapter, or a reading note. Listening counts too.</p>
+      {session ? <p className="text-caption text-ink-secondary">Editing a log does not add reward minutes or earn another reading reward.</p> : adventure && <p className="text-caption text-ink-secondary">{form.occurred_on !== today ? 'Earlier reading belongs in your history. Only new logs dated today count toward today’s reading reward.' : adventure.earned ? 'Today’s reading reward is already earned. You can keep logging without earning another reading reward today.' : `Log ${adventure.remaining_minutes} more ${adventure.remaining_minutes === 1 ? 'minute' : 'minutes'} today toward your reading reward. Audiobook minutes count too. Pages, chapters and notes can still be saved without minutes.`}</p>}
       <ModalActions onClose={onClose} saving={saving} submitLabel={uncertain ? 'Retry save' : session ? 'Save changes' : 'Save reading'} submitDisabled={!form.book || !hasReading} fullWidth />
     </form>
   </BottomSheet>;

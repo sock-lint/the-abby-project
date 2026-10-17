@@ -733,7 +733,19 @@ deleted until their sessions are explicitly removed.
 
 Children access only their own reading; parents can select only a child in
 their family using `user_id`. Summary dates use the household timezone. These
-records are separate from private journal entries and grant no currency or XP.
+records are separate from private journal entries. New minutes logged for the
+current household day advance a once-daily ten-minute reading reward. Print,
+ebook and audiobook minutes count equally; reflections remain optional.
+The summary's `reading_adventure` reports the target, credited/remaining minutes,
+earned state, base 15 Reading Comprehension XP and 5 Coins, and actual payouts.
+`reading-adventure-progress.json`, `reading-session-rewarded.json` and
+`reading-summary-rewarded.json` show partial progress and a real boosted award
+of 30 XP and 10 Coins. A session's nullable `reading_reward` identifies the
+saved award on the log that crossed the threshold. Clients display this receipt
+without adding it to balances locally. Replays, corrections, deletion and
+historical logging never rearm the reward; retained daily progress and request
+identities survive deleted logs. The producer checks the real XP and Coins
+ledger after retries, corrections, deletion and a replacement log.
 Recommendations use a bundled publisher-sourced catalog, optional topic,
 birthday age guidance when available and saved book interests/reactions. The
 ranking reads no reflection text and makes no runtime external requests.
