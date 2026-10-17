@@ -7,6 +7,11 @@ vi.mock('../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() })
 beforeEach(() => resolvePedestalImage.mockReturnValue(null));
 
 describe('StarRating', () => {
+  it('uses a supplied effort label once without repeating its numeric value', () => {
+    render(<StarRating value={3} title="Effort: 3/5" />);
+    expect(screen.getByRole('img', { name: 'Effort: 3/5' })).toBeInTheDocument();
+  });
+
   it('keeps the numeric difficulty accessible when its art loads or fails', () => {
     resolvePedestalImage.mockImplementation((assetId) => ({
       assetId, url: `/synthetic/${assetId}.png`, variantId: 'web', width: 512, height: 512,
