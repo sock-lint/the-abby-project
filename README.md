@@ -156,7 +156,7 @@ the-abby-project/
 │   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 26 tool modules / 203 tools
+│   └── mcp_server/          # FastMCP server with 30 tool modules / 223 tools
 │                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
@@ -687,17 +687,21 @@ Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets
 The [AI and Google data disclosure inventory](docs/operations/google-ai-disclosure.md) maps remaining LLM calls, Google-selected PDF inference, external MCP clients, browser dictation, retention, consent limits and reviewer evidence. It does not claim Google approval. In-app AI image/sprite generation is retired; existing prepared artwork remains available.
 
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp`. **26 tool modules / 203 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
+FastMCP server mounted inside Django ASGI at `/mcp`. **30 tool modules / 223 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
 Grouped by domain:
 
 - **Productivity surface** — `projects` (28), `homework` (17), `chores` (9), `habits` (7), `creations` (8), `chronicle` (10), `templates` (7), `ingestion` (4), `movement` (6), `dashboard` (1)
-- **Economy + recognition** — `payments` (4), `rewards` (9), `exchange` (5), `savings` (4), `achievements` (19), `portfolio` (6), `notifications` (4)
-- **RPG layer** — `inventory` (6), `pets` (8), `quests` (9), `daily_challenges` (2)
-- **Authoring + content** — `content_packs` (11), `sprite_authoring` (6), `sprite_assets` (1)
+- **Economy + recognition** — `economy` (4), `payments` (4), `rewards` (9), `exchange` (5), `savings` (4), `achievements` (19), `portfolio` (6), `notifications` (4)
+- **RPG layer** — `challenges` (5), `inventory` (6), `pets` (8), `quests` (9), `daily_challenges` (2)
+- **Authoring + content** — `catalog` (2), `content_packs` (13), `asset_proposals` (7), `sprite_authoring` (6), `sprite_assets` (1)
 - **Family ops** — `users` (3), `timecards` (9)
 
-Uses resource-bound OAuth Bearer tokens with PKCE and an active staff-parent check for `/mcp/*`. Independent `mcp:read`, `mcp:write` and `mcp:author` permissions govern discovery and execution; consent defaults to read only. Tools advertise operation hints, and destructive operations require explicit client confirmation. Existing broad/unbound connections must reconnect. DNS rebinding protection, stateless HTTP transport and `sync_to_async` remain in place. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
+Uses resource-bound OAuth Bearer tokens with PKCE and an active staff-parent check for `/mcp/*`. Independent `mcp:catalog`, `mcp:author`, `mcp:publish`, `mcp:read` and `mcp:write` permissions govern discovery and execution; consent defaults to catalog access without household data. Tools advertise operation hints, and destructive operations require explicit client confirmation. Existing broad/unbound connections must reconnect. DNS rebinding protection, stateless HTTP transport and `sync_to_async` remain in place. See the **MCP OAuth 2.1** gotcha in [`CLAUDE.md`](CLAUDE.md) for the auth surface.
+
+The [MCP authoring guide](docs/operations/mcp-authoring.md) covers current
+challenges, exact reviewed pack publication, reward audits/scenarios, reusable
+project learning tags and proposal-only JSON handoffs to an external asset pipeline.
 
 ### The Forge — 3D Print Requests
 

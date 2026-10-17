@@ -502,12 +502,14 @@ class ScopedOAuthGrantTests(TestCase):
         }
         response = self.client.get("/oauth/authorize/?" + urlencode(params))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.context["form"].initial["scope"], "mcp:read")
-        self.assertContains(response, "Read permitted family data")
-        params["scope"] = "mcp:read mcp:write mcp:author"
+        self.assertEqual(response.context["form"].initial["scope"], "mcp:catalog")
+        self.assertContains(response, "Read content references and economy rules")
+        self.assertNotContains(response, "Read permitted family data")
+        params["scope"] = "mcp:read mcp:write mcp:catalog mcp:author mcp:publish"
         response = self.client.get("/oauth/authorize/?" + urlencode(params))
         self.assertContains(response, "Create and change permitted family records")
-        self.assertContains(response, "Author and publish global content")
+        self.assertContains(response, "Draft and review content packs")
+        self.assertContains(response, "Publish global content")
 
     def test_binding_survives_cache_loss_and_refresh_rotation(self):
         from django.core.cache import cache
@@ -585,7 +587,9 @@ class ScopedOAuthGrantTests(TestCase):
         for url in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"):
             with self.subTest(url=url):
                 response = self.client.get(url)
-                self.assertEqual(set(response.json()["scopes_supported"]), {"mcp:read", "mcp:write", "mcp:author"})
+                self.assertEqual(set(response.json()["scopes_supported"]), {
+                    "mcp:read", "mcp:write", "mcp:catalog", "mcp:author", "mcp:publish",
+                })
 
 
 class OAuthLoginThrottleTests(TestCase):

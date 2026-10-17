@@ -126,7 +126,7 @@ class ReadOnlyFilesystemTests(TestCase):
         from apps.mcp_server.errors import MCPNotFoundError
         from apps.mcp_server.schemas import GetContentPackIn, ListContentPacksIn, ReadPackFileIn
         from apps.mcp_server.tools.content_packs import get_content_pack, list_content_packs, read_pack_file
-        parent = User.objects.create_user(username="reader", role="parent", password="pw")
+        parent = User.objects.create_user(username="reader", role="parent", password="pw", is_staff=True)
         with TemporaryDirectory() as directory, override_settings(BASE_DIR=directory), override_user(parent):
             self.assertEqual(list_content_packs(ListContentPacksIn()), {"packs": [], "count": 0})
             for function, params in (

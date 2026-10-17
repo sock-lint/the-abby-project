@@ -8,7 +8,8 @@ from apps.mcp_server.context import (
 )
 from apps.mcp_server.server import mcp, tool
 from apps.mcp_server.tool_policy import (
-    AUTHOR_SCOPE, AUTHOR_TOOLS, DESTRUCTIVE_TOOLS, MCP_SCOPES,
+    AUTHOR_SCOPE, AUTHOR_TOOLS, CATALOG_SCOPE, CATALOG_TOOLS, DESTRUCTIVE_TOOLS, MCP_SCOPES,
+    PUBLISH_SCOPE, PUBLISH_TOOLS,
     READ_SCOPE, READ_TOOLS, WRITE_SCOPE, WRITE_TOOLS, policy_for,
 )
 from config.tests.factories import make_family
@@ -24,24 +25,31 @@ class ToolPermissionTests(TransactionTestCase):
         self.child = family.children[0]
 
     def invoke(self, name, params=None, *, scopes=MCP_SCOPES, **arguments):
+        from asgiref.sync import sync_to_async
+        from django.db import connections
+
         async def run():
             with override_user(self.parent, scopes=frozenset(scopes)):
-                return await mcp._tool_manager.get_tool(name).run({"params": params or {}, **arguments})
+                try:
+                    return await mcp._tool_manager.get_tool(name).run({"params": params or {}, **arguments})
+                finally:
+                    await sync_to_async(connections.close_all, thread_sensitive=True)()
         return async_to_sync(run)()
 
     def test_only_exact_granted_scope_tools_are_discoverable(self):
         async def names(scopes):
             with override_user(self.parent, scopes=frozenset(scopes)):
                 return {tool.name for tool in await mcp.list_tools()}
-        for scope, expected in ((READ_SCOPE, READ_TOOLS), (WRITE_SCOPE, WRITE_TOOLS), (AUTHOR_SCOPE, AUTHOR_TOOLS)):
+        for scope, expected in ((READ_SCOPE, READ_TOOLS), (WRITE_SCOPE, WRITE_TOOLS), (CATALOG_SCOPE, CATALOG_TOOLS), (AUTHOR_SCOPE, AUTHOR_TOOLS), (PUBLISH_SCOPE, PUBLISH_TOOLS)):
             with self.subTest(scope=scope):
                 self.assertEqual(async_to_sync(names)({scope}), expected)
         self.assertEqual(async_to_sync(names)(set()), set())
 
     def test_every_registered_tool_has_exact_reviewed_annotations(self):
         registered = mcp._tool_manager.list_tools()
-        self.assertEqual({t.name for t in registered}, READ_TOOLS | WRITE_TOOLS | AUTHOR_TOOLS)
-        self.assertFalse(READ_TOOLS & WRITE_TOOLS or READ_TOOLS & AUTHOR_TOOLS or WRITE_TOOLS & AUTHOR_TOOLS)
+        self.assertEqual({t.name for t in registered}, READ_TOOLS | WRITE_TOOLS | AUTHOR_TOOLS | CATALOG_TOOLS | PUBLISH_TOOLS)
+        groups = [READ_TOOLS, WRITE_TOOLS, AUTHOR_TOOLS, CATALOG_TOOLS, PUBLISH_TOOLS]
+        self.assertEqual(sum(len(group) for group in groups), len(set().union(*groups)))
         for entry in registered:
             with self.subTest(tool=entry.name):
                 policy = policy_for(entry.name)
@@ -60,6 +68,30 @@ class ToolPermissionTests(TransactionTestCase):
             def unreviewed_operation():
                 pass
 
+    def test_catalog_grant_does_not_disclose_family_records_or_allow_drafts_or_publication(self):
+        self.assertIn("categories", self.invoke("list_skill_categories", scopes={CATALOG_SCOPE}))
+        for name, params in [
+            ("get_skill_tree", {"category_id": 1, "user_id": self.child.pk}),
+            ("list_children", {}), ("list_coin_ledger", {}), ("list_challenges", {}),
+            ("get_today_journal", {}), ("list_asset_proposals", {}),
+            ("create_category", {"name": "No"}),
+        ]:
+            with self.subTest(name=name), self.assertRaisesRegex(ToolError, "permission"):
+                self.invoke(name, params, scopes={CATALOG_SCOPE})
+        self.assertEqual(policy_for("get_skill_tree").scope, READ_SCOPE)
+        self.assertEqual(policy_for("write_pack_file").scope, AUTHOR_SCOPE)
+        self.assertEqual(policy_for("publish_content_pack").scope, PUBLISH_SCOPE)
+
+    def test_draft_and_publish_grants_are_independent(self):
+        for name, params, granted in [
+            ("create_category", {"name": "No"}, AUTHOR_SCOPE),
+            ("list_asset_proposals", {}, PUBLISH_SCOPE),
+            ("list_children", {}, AUTHOR_SCOPE),
+            ("list_children", {}, PUBLISH_SCOPE),
+        ]:
+            with self.subTest(name=name, granted=granted), self.assertRaisesRegex(ToolError, "permission"):
+                self.invoke(name, params, scopes={granted})
+
     def test_grant_is_enforced_on_invocation_even_for_known_hidden_tools(self):
         self.assertIn("children", self.invoke("list_children", scopes={READ_SCOPE}))
         for scope, name, params in [
@@ -71,7 +103,7 @@ class ToolPermissionTests(TransactionTestCase):
             with self.subTest(scope=scope, tool=name), self.assertRaisesRegex(ToolError, "permission"):
                 self.invoke(name, params, scopes={scope})
         self.assertEqual(self.invoke("mark_all_notifications_read", scopes={WRITE_SCOPE})["marked_read"], 0)
-        created = self.invoke("create_category", {"name": "Authorized"}, scopes={AUTHOR_SCOPE})
+        created = self.invoke("create_category", {"name": "Authorized"}, scopes={PUBLISH_SCOPE})
         self.assertEqual(created["name"], "Authorized")
 
     def test_user_context_alone_never_grants_permissions(self):
@@ -84,10 +116,10 @@ class ToolPermissionTests(TransactionTestCase):
         with self.assertRaisesRegex(ToolError, "permission"):
             async_to_sync(run)()
 
-    def test_author_scope_still_requires_staff(self):
+    def test_publish_scope_still_requires_staff(self):
         self.parent.is_staff = False
         with self.assertRaisesRegex(ToolError, "staff parents"):
-            self.invoke("create_category", {"name": "Unauthorized"}, scopes={AUTHOR_SCOPE})
+            self.invoke("create_category", {"name": "Unauthorized"}, scopes={PUBLISH_SCOPE})
 
     def test_destructive_action_requires_explicit_strict_boolean_confirmation(self):
         from apps.projects.models import Project
@@ -135,8 +167,11 @@ class HttpScopeBoundaryTests(TransactionTestCase):
                 return json.loads(next(line[6:] for line in response.text.splitlines() if line.startswith("data: ")))
             return response.json()
 
-        try:
-            with TestClient(build_mounted_mcp_app()) as client:
+        async def close_worker_connections():
+            await sync_to_async(connections.close_all, thread_sensitive=True)()
+
+        with TestClient(build_mounted_mcp_app()) as client:
+            try:
                 listed = request(client, read_header, "tools/list")["result"]["tools"]
                 self.assertEqual({entry["name"] for entry in listed}, READ_TOOLS)
                 denied = request(client, read_header, "tools/call", {
@@ -154,7 +189,7 @@ class HttpScopeBoundaryTests(TransactionTestCase):
                 })
                 self.assertFalse(allowed["result"].get("isError"))
                 self.assertFalse(Project.objects.filter(pk=project.pk).exists())
-        finally:
-            async def close_worker_connections():
-                await sync_to_async(connections.close_all, thread_sensitive=True)()
-            async_to_sync(close_worker_connections)()
+            finally:
+                # Close the actual transport's worker before its portal exits;
+                # a new async_to_sync call would close a different connection.
+                client.portal.call(close_worker_connections)

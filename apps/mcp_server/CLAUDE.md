@@ -11,7 +11,7 @@ MCP (Model Context Protocol) server with OAuth 2.1 + PKCE auth. The `/mcp/*` end
 - **Authorize** — `GET/POST /oauth/authorize/` is [`AbbyAuthorizationView`](/config/oauth_views.py), DOT's `AuthorizationView` with a **staff-parent-only gate** at dispatch (`is_staff=True` + `role='parent'`). Unauthenticated callers bounce to `/oauth/login/` (a tiny username/password form). Non-staff users render the [`forbidden.html`](/templates/oauth2_provider/forbidden.html) page. Consent screen is the project-level template at [`templates/oauth2_provider/authorize.html`](/templates/oauth2_provider/authorize.html) — `TEMPLATES['DIRS']` includes `BASE_DIR / 'templates'` so it wins over DOT's app-shipped default.
 - **Token + revoke + introspect** — `POST /oauth/token/`, `POST /oauth/revoke_token/`, etc., from the `oauth2_provider.urls` include. PKCE S256 is required (`PKCE_REQUIRED=True` in `OAUTH2_PROVIDER` settings); refresh tokens rotate.
 - **Resource binding (RFC 8707)** — authorization requests must specify exactly `settings.MCP_RESOURCE_URL`. `MCPAuthorizationResource` durably binds the authorization code to that resource; `MCPTokenResource` binds the issued token. Issuance is transactional: binding failure cannot produce an accepted unbound token. Code exchange and refresh preserve the approved resource and recheck current staff-parent privileges. Missing, empty and wrong resource bindings are rejected; there is no legacy fallback.
-- **Scopes and consent** — `mcp:read`, `mcp:write` and `mcp:author` are independent grants. New consent defaults to read only and always shows the requested permissions. Discovery and invocation enforce `tool_policy.py`; unknown tool names fail registration. All tools publish read-only/destructive/idempotency/open-world annotations. Destructive operations additionally require top-level `arguments.confirmation: true` after the client obtains user confirmation; annotations and flags do not establish human or Google-data consent by themselves.
+- **Scopes and consent** — `mcp:catalog`, `mcp:author`, `mcp:publish`, `mcp:read` and `mcp:write` are independent grants. New consent defaults to global catalog reads without household data and always shows the requested permissions. Discovery and invocation enforce `tool_policy.py`; unknown tool names fail registration. All tools publish read-only/destructive/idempotency/open-world annotations. Destructive operations additionally require top-level `arguments.confirmation: true` after the client obtains user confirmation; annotations and flags do not establish human or Google-data consent by themselves.
 - **Existing connections** — broad `mcp` tokens and unbound tokens must reconnect. Do not upgrade old grants or infer write permission. Losing staff status, being deactivated or changing away from parent also blocks existing access and refresh. Migrate the new grant-binding table before serving the changed OAuth endpoints.
 - **Login throttle** — `/oauth/login/` has a transport-peer `oauth_login` throttle (10/minute by default), sharing the configured Django cache. It ignores client-supplied forwarded-IP headers; clients behind one proxy share this conservative limit. Rejected attempts receive HTTP 429 before password authentication once the configured limit is reached.
 - **Admin surface** — `/manage → Admin → OAuth clients` (the [`OAuthClientsCard`](/frontend/src/pages/Manage.jsx) sub-section) lists registered Applications + active AccessTokens and offers revoke buttons; gated by the existing `adminPing()` probe (no second ping needed). Backed by `/api/admin/oauth/applications/` + `/api/admin/oauth/tokens/` (and matching DELETE endpoints), all on `IsStaffParent` semantics.
@@ -38,9 +38,28 @@ also apply to this history filter.
 
 `record_payout` confirms a transfer already completed in Greenlight; it never sends money. It requires `transferred_on` and a stable `idempotency_key` alongside child `user_id` and positive cent-precision `amount`. Retry with identical details and the same key. Optional `reference`, `description` (memo), and `timecard_id` use the same family-scoped, approved-payable, duplicate-safe service as the REST workflow. A timecard must be approved and paid in full. Payment balances describe money still owed, separately from externally observed Greenlight balance snapshots; see [payments guidance](/apps/payments/CLAUDE.md).
 
-Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:author`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
+Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 203 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 223 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+
+## Content workflows
+
+See [RPG MCP authoring](../../docs/operations/mcp-authoring.md) for the full
+workflow. `mcp:catalog` reads global references/rules without player state;
+`mcp:author` owns drafts and review plans; `mcp:publish` changes the runtime
+catalog. Pack publication requires the same actor/family, expiring preview ID,
+source digest and exact reviewed catalog diff. Unowned legacy drafts require
+reconciliation. Author/proposal audit actor FKs preserve evidence with SET_NULL
+when accounts are deleted; do not block existing account deletion with PROTECT.
+
+`challenges.py` uses the current goal serializer/service, required UUID creation,
+saved-state-only audit and self/family pins. Reads never call materializing
+`list_goals`. `economy.py` separates actual ledger accounting from anonymous
+projections; receipt totals overlap ledger amounts. `catalog.py` paginates
+global content and audits runtime eligibility without private player records.
+`asset_proposals.py` saves family briefs and paginated history, exports reviewed
+JSON and records unverified external delivery claims. These tools generate,
+download, approve and publish no artwork.
 
 MCP transfers permitted results to an external client. See the [Google/AI disclosure inventory](../../docs/operations/google-ai-disclosure.md) for Google-derived data, external-provider controls and evidence required before any compliance claim.
 

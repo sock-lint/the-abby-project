@@ -58,6 +58,18 @@ External development assistants and the station's code-review tooling are not
 user-facing runtime model calls; their use is not evidence that they receive
 production Google or family data.
 
+MCP content authoring now separates global catalog reads (`mcp:catalog`),
+private drafts/asset briefs (`mcp:author`), runtime publication (`mcp:publish`)
+and household reads/writes. Catalog-only access excludes household records.
+Challenge, reward-audit and scenario tools execute deterministic application
+code; the connected external assistant may receive their permitted results.
+Asset proposals can be exported as reviewed JSON for an external creation
+pipeline. Abby records a brief or delivery reference without making a new
+LLM/image-provider call, uploading artwork or asserting publication approval.
+See [the MCP authoring/data workflow](mcp-authoring.md). These permissions do not
+establish consent for subsequent use of Google-derived content in an external
+conversation or asset pipeline.
+
 ## Provider configuration and request behavior
 
 All four direct text-generation paths use `config/llm.py::complete_json`:

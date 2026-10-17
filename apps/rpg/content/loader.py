@@ -72,12 +72,16 @@ class ContentPack:
     ``namespace`` prefixes every slug (useful for third-party packs).
     """
 
-    def __init__(self, path: Path | str, namespace: str = ""):
+    def __init__(self, path: Path | str, namespace: str = "", *, pack_key=None, family=None, parsed_content=None):
         self.path = Path(path)
         if not self.path.is_dir():
             raise ContentPackError(f"Pack directory not found: {self.path}")
         self.namespace = namespace
         self.stats = LoadStats()
+        self.parsed_content = parsed_content
+        self.pack_key = pack_key
+        self.family = family
+        self.seen_entries = set()
 
     # ---- public API ----------------------------------------------------
 
@@ -92,7 +96,9 @@ class ContentPack:
         silently leak writes — ``transaction.savepoint()`` is a no-op
         outside of an atomic block.
         """
-        parsed = self._parse_all()
+        parsed = self.parsed_content if self.parsed_content is not None else self._parse_all()
+        from .validation import validate_content
+        validate_content(parsed, strict=self.pack_key is not None)
 
         write = _writer(stdout)
         if dry_run:
@@ -106,7 +112,14 @@ class ContentPack:
             # Freeze accepted pre-cutover item links before authored quest
             # upserts can change quantities; the dry-run savepoint rolls back.
             from apps.quests.reward_items import freeze_legacy_quest_promises
-            freeze_legacy_quest_promises()
+            if self.pack_key:
+                from apps.rpg.models import ContentPackEntry
+                definition_ids = ContentPackEntry.objects.filter(pack=self.pack_key,
+                    model_label="quests.questdefinition").values_list("object_id", flat=True)
+                frozen = freeze_legacy_quest_promises(definition_ids=definition_ids)
+                self.stats.bump("skipped", "accepted_promises_preserved", len(frozen))
+            else:
+                freeze_legacy_quest_promises()
             self._load_skill_tree(parsed.get("skill_tree"), write)
             self._load_badges(parsed.get("badges"), write)
             self._load_potion_types(parsed.get("potion_types"), write)
@@ -115,10 +128,13 @@ class ContentPack:
             self._load_drops(parsed.get("drops"), write)
             self._load_quests(parsed.get("quests"), write)
             self._load_rewards(parsed.get("rewards"), write)
-            from apps.rpg.companion_catalog import reconcile_companion_offers
-            reconciled = reconcile_companion_offers()
-            self.stats.bump("retired", "companion_drop", reconciled["drops_removed"])
-            self.stats.bump("retired", "companion_shop_offer", reconciled["rewards_deactivated"])
+            if self.pack_key:
+                self._reconcile_owned_offers()
+            else:
+                from apps.rpg.companion_catalog import reconcile_companion_offers
+                reconciled = reconcile_companion_offers()
+                self.stats.bump("retired", "companion_drop", reconciled["drops_removed"])
+                self.stats.bump("retired", "companion_shop_offer", reconciled["rewards_deactivated"])
 
             if dry_run:
                 transaction.savepoint_rollback(sid)
@@ -132,6 +148,138 @@ class ContentPack:
         for line in self.stats.as_lines():
             write(line)
         return self.stats
+
+    def _reconcile_owned_offers(self):
+        from django.apps import apps
+        from apps.rpg.models import ContentPackEntry
+        for claim in ContentPackEntry.objects.filter(pack=self.pack_key):
+            if (claim.kind, claim.key) in self.seen_entries:
+                continue
+            model = apps.get_model(claim.model_label)
+            if claim.kind == "reward":
+                obj = model.objects.filter(pk=claim.object_id, family=self.family).first()
+                if obj and obj.is_active:
+                    obj.is_active = False
+                    obj.save(update_fields=["is_active"])
+                    self.stats.bump("retired", "shop_offer")
+            elif claim.kind == "droptable":
+                model.objects.filter(pk=claim.object_id).delete()
+                claim.delete()
+                self.stats.bump("retired", "drop")
+            else:
+                # Definitions can own saved inventory, achievements or promises.
+                # Retaining is explicit in the reviewed plan; never cascade-delete them.
+                self.stats.bump("skipped", f"retained_{claim.kind}")
+
+    def _resolved_quest_skill_tags(self, entry):
+        from apps.achievements.models import Skill
+        resolved = []
+        seen = set()
+        for tag in entry.get("skill_tags") or []:
+            reference = tag if isinstance(tag, str) else tag["skill"]
+            weight = 1 if isinstance(tag, str) else int(tag.get("weight", 1))
+            if not isinstance(reference, str) or not reference:
+                raise ContentPackError("Quest skill references must be nonempty names.")
+            if "::" in reference:
+                category, name = reference.split("::", 1)
+                matches = list(Skill.objects.filter(category__name=category, name=name))
+            else:
+                matches = list(Skill.objects.filter(name=reference))
+            if len(matches) != 1:
+                raise ContentPackError(f"quest {entry['name']!r} skill_tag references unknown or ambiguous skill {reference!r}; use Category::Skill Name.")
+            skill = matches[0]
+            if skill.pk in seen:
+                raise ContentPackError("Quest skill tags must reference different skills.")
+            seen.add(skill.pk)
+            resolved.append((skill, weight))
+        return resolved
+
+    def _protect_active_quest(self, quest, defaults, entry):
+        from apps.quests.models import Quest
+        active = list(Quest.objects.select_for_update(of=("self",)).filter(
+            definition=quest, status=Quest.Status.ACTIVE).values_list("pk", flat=True))
+        if not active:
+            return
+        fields = ("quest_type", "target_value", "duration_days", "trigger_filter",
+                  "coin_reward", "xp_reward", "is_repeatable", "required_badge")
+        changed = []
+        for field_name in fields:
+            if field_name not in defaults:
+                continue
+            old, proposed = getattr(quest, field_name), defaults[field_name]
+            if getattr(old, "pk", old) != getattr(proposed, "pk", proposed):
+                changed.append(field_name)
+        if entry.get("skill_tags") is not None:
+            current_tags = sorted(quest.skill_tags.values_list("skill_id", "xp_weight"))
+            proposed_tags = sorted((skill.pk, weight) for skill, weight in self._resolved_quest_skill_tags(entry))
+            if current_tags != proposed_tags:
+                changed.append("skill_tags")
+        if changed:
+            raise ContentPackError(f"Cannot change {', '.join(changed)} while {len(active)} active legacy quest(s) retain these rules and rewards. Author a new stable entry/version with a distinct name for future content.")
+        self.stats.bump("skipped", "protected_active_legacy_quests", len(active))
+
+    def _upsert(self, model, *, defaults, entry=None, **lookup):
+        """Only a pack's previously claimed stable IDs can update existing rows."""
+        if not self.pack_key:
+            return model.objects.update_or_create(defaults=defaults, **lookup)
+        import json
+        from django.core.exceptions import ValidationError
+        from apps.rpg.models import ContentPackEntry
+        kind = model._meta.model_name
+        def stable_value(value):
+            if not hasattr(value, "_meta"):
+                return value
+            owner = ContentPackEntry.objects.filter(model_label=value._meta.label_lower, object_id=value.pk).first()
+            return f"{owner.pack}/{owner.kind}/{owner.key}" if owner else value.pk
+        identity = {key: stable_value(value) for key, value in lookup.items()}
+        stable_id = (entry or {}).get("id") if kind in {"badge", "questdefinition", "reward"} else None
+        key = str(stable_id) if stable_id else json.dumps(identity, sort_keys=True, separators=(",", ":"))
+        if kind == "reward":
+            key = f"family:{self.family.pk}:{key}"
+        if len(key) > 200:
+            raise ContentPackError("Entry identity exceeds 200 characters; supply a short stable id.")
+        self.seen_entries.add((kind, key))
+        claim = ContentPackEntry.objects.filter(pack=self.pack_key, kind=kind, key=key).first()
+        if claim:
+            if claim.model_label != model._meta.label_lower:
+                raise ContentPackError("Pack identity changed model type.")
+            try:
+                obj = model.objects.select_for_update(no_key=True).get(pk=claim.object_id)
+            except model.DoesNotExist:
+                raise ContentPackError(f"Owned {kind} {key} is missing; reconcile its publication history.") from None
+            # Prevent a stable ID rename from colliding with someone else's natural key.
+            if model.objects.filter(**lookup).exclude(pk=obj.pk).exists():
+                raise ContentPackError(f"{kind} display/natural key collides with existing content.")
+            if kind == "questdefinition":
+                self._protect_active_quest(obj, defaults, entry or {})
+            for field_name, value in {**lookup, **defaults}.items():
+                setattr(obj, field_name, value)
+            created = False
+        else:
+            if model.objects.filter(**lookup).exists():
+                raise ContentPackError(f"Unowned {kind} collision: existing content must be explicitly migrated, never adopted by name.")
+            obj = model(**lookup, **defaults)
+            created = True
+        if kind == "reward":
+            from apps.rewards.availability import reward_is_available
+            if obj.fulfillment_kind != "real_world" and obj.item_definition_id is None:
+                raise ContentPackError("Digital shop rewards require an item_definition.")
+            if obj.is_active and not reward_is_available(obj):
+                raise ContentPackError("Shop item is unavailable for new acquisition; retain it as an inactive offer.")
+        # Icons are optional presentation in pack schemas; provide a generic fallback.
+        if hasattr(obj, "icon") and not obj.icon:
+            obj.icon = "🎁"
+        try:
+            # Empty parameter objects are valid for parameterless badge criteria;
+            # their schema was checked before loading (JSONField.blank is False).
+            obj.full_clean(exclude=["criteria_value"] if kind == "badge" else None)
+        except ValidationError as error:
+            raise ContentPackError(f"{kind}: {'; '.join(error.messages)}") from error
+        obj.save()
+        if not claim:
+            ContentPackEntry.objects.create(pack=self.pack_key, family=self.family, kind=kind, key=key,
+                model_label=model._meta.label_lower, object_id=obj.pk)
+        return obj, created
 
     # ---- parsing -------------------------------------------------------
 
@@ -181,7 +329,7 @@ class ContentPack:
                 "color": entry.get("color", "#888888"),
                 "description": entry.get("description", ""),
             }
-            obj, created = SkillCategory.objects.update_or_create(
+            obj, created = self._upsert(SkillCategory, entry=entry,
                 name=name, defaults=defaults,
             )
             cat_by_name[name] = obj
@@ -200,7 +348,7 @@ class ContentPack:
                 "order": entry.get("order", 0),
                 "description": entry.get("description", ""),
             }
-            obj, created = Subject.objects.update_or_create(
+            obj, created = self._upsert(Subject, entry=entry,
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
@@ -233,7 +381,7 @@ class ContentPack:
                         f"{subject_name!r} in category {cat_name!r}"
                     )
                 defaults["subject"] = subject
-            obj, created = Skill.objects.update_or_create(
+            obj, created = self._upsert(Skill, entry=entry,
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
@@ -289,7 +437,7 @@ class ContentPack:
                 "rarity": entry.get("rarity", "common"),
                 "award_coins": bool(entry.get("award_coins", True)),
             }
-            _, created = Badge.objects.update_or_create(
+            _, created = self._upsert(Badge, entry=entry,
                 name=entry["name"], defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", "badge")
@@ -313,7 +461,7 @@ class ContentPack:
                 "rarity": entry.get("rarity", "common"),
                 "description": entry.get("description", ""),
             }
-            potion, created = PotionType.objects.update_or_create(
+            potion, created = self._upsert(PotionType, entry=entry,
                 slug=slug, defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", "potion_type")
@@ -334,7 +482,7 @@ class ContentPack:
                 "potion_type": potion,
                 "description": entry.get("description", ""),
             }
-            _, item_created = ItemDefinition.objects.update_or_create(
+            _, item_created = self._upsert(ItemDefinition, entry=entry,
                 slug=item_slug, defaults=item_defaults,
             )
             self.stats.bump("created" if item_created else "updated", "potion_item")
@@ -399,7 +547,7 @@ class ContentPack:
                 "description": entry.get("description", ""),
                 "food_preference": entry.get("food_preference", ""),
             }
-            species, created = PetSpecies.objects.update_or_create(
+            species, created = self._upsert(PetSpecies, entry=entry,
                 slug=slug, defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", "pet_species")
@@ -438,7 +586,7 @@ class ContentPack:
                 "pet_species": species,
                 "description": entry.get("description", ""),
             }
-            _, egg_created = ItemDefinition.objects.update_or_create(
+            _, egg_created = self._upsert(ItemDefinition, entry=entry,
                 slug=egg_slug, defaults=egg_defaults,
             )
             self.stats.bump("created" if egg_created else "updated", "egg_item")
@@ -486,7 +634,7 @@ class ContentPack:
             # Optional typed FKs
             if "food_species" in entry and entry["food_species"]:
                 defaults["food_species"] = resolve_species(entry["food_species"])
-            _, created = ItemDefinition.objects.update_or_create(
+            _, created = self._upsert(ItemDefinition, entry=entry,
                 slug=slug, defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", f"item_{item_type}")
@@ -536,7 +684,7 @@ class ContentPack:
                         ) from exc
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
                         continue
-                    _, created = DropTable.objects.update_or_create(
+                    _, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": weight, "min_level": min_level},
                     )
@@ -574,7 +722,7 @@ class ContentPack:
                     w = int(
                         weight_by_rarity.get(item.rarity, flat_weight or 1)
                     )
-                    _, created = DropTable.objects.update_or_create(
+                    _, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": w, "min_level": min_level},
                     )
@@ -585,7 +733,7 @@ class ContentPack:
     def _load_quests(self, data: dict | None, write: Callable[[str], None]) -> None:
         if not data:
             return
-        from apps.achievements.models import Badge, Skill
+        from apps.achievements.models import Badge
         from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
         from apps.rpg.models import ItemDefinition
 
@@ -613,12 +761,13 @@ class ContentPack:
                         f"quest {entry['name']!r} references unknown badge "
                         f"{entry['required_badge']!r}"
                     ) from exc
-            quest, created = QuestDefinition.objects.update_or_create(
+            quest, created = self._upsert(QuestDefinition, entry=entry,
                 name=entry["name"], defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", "quest")
 
-            # Reward items (upsert, preserve existing rows)
+            # Reconcile future links after freezing accepted promises above.
+            desired_reward_ids = []
             for reward in entry.get("reward_items", []) or []:
                 item_slug = self._ns(reward["slug"])
                 try:
@@ -632,59 +781,25 @@ class ContentPack:
                             f"quest {entry['name']!r} reward references "
                             f"unknown item {reward['slug']!r}"
                         ) from exc
+                desired_reward_ids.append(item.pk)
                 _, r_created = QuestRewardItem.objects.update_or_create(
                     quest_definition=quest, item=item,
                     defaults={"quantity": int(reward.get("quantity", 1))},
                 )
                 self.stats.bump("created" if r_created else "updated", "quest_reward")
 
-            # Skill tags. Each entry is either "Category::Skill Name"
-            # (disambiguated) or "Skill Name" (unique across categories).
-            # Weight defaults to 1. Authored tags REPLACE existing rows so
-            # a rename in YAML doesn't leave orphan tags pointing at the
-            # old skill.
-            skill_tags = entry.get("skill_tags")
-            if skill_tags is not None:
+            if self.pack_key:
+                removed, _ = QuestRewardItem.objects.filter(quest_definition=quest).exclude(item_id__in=desired_reward_ids).delete()
+                self.stats.bump("retired", "quest_reward", removed)
+
+            # Resolve once using the same identities checked by the active-promise guard.
+            if entry.get("skill_tags") is not None:
+                tags = self._resolved_quest_skill_tags(entry)
                 QuestSkillTag.objects.filter(quest_definition=quest).delete()
-                for tag_entry in skill_tags or []:
-                    if isinstance(tag_entry, str):
-                        skill_ref = tag_entry
-                        weight = 1
-                    else:
-                        skill_ref = tag_entry["skill"]
-                        weight = int(tag_entry.get("weight", 1))
-                    if "::" in skill_ref:
-                        cat_name, skill_name = skill_ref.split("::", 1)
-                        try:
-                            skill = Skill.objects.get(
-                                category__name=cat_name, name=skill_name,
-                            )
-                        except Skill.DoesNotExist as exc:
-                            raise ContentPackError(
-                                f"quest {entry['name']!r} skill_tag references "
-                                f"unknown skill {skill_ref!r}"
-                            ) from exc
-                    else:
-                        matches = list(Skill.objects.filter(name=skill_ref))
-                        if not matches:
-                            raise ContentPackError(
-                                f"quest {entry['name']!r} skill_tag references "
-                                f"unknown skill {skill_ref!r}"
-                            )
-                        if len(matches) > 1:
-                            raise ContentPackError(
-                                f"quest {entry['name']!r} skill_tag {skill_ref!r} "
-                                f"matches {len(matches)} skills across categories — "
-                                f"use 'Category::Skill Name' form"
-                            )
-                        skill = matches[0]
-                    _, t_created = QuestSkillTag.objects.get_or_create(
-                        quest_definition=quest, skill=skill,
-                        defaults={"xp_weight": weight},
-                    )
-                    self.stats.bump(
-                        "created" if t_created else "updated", "quest_skill_tag",
-                    )
+                for skill, weight in tags:
+                    _, created = QuestSkillTag.objects.get_or_create(
+                        quest_definition=quest, skill=skill, defaults={"xp_weight": weight})
+                    self.stats.bump("created" if created else "updated", "quest_skill_tag")
 
     # ---- rewards -------------------------------------------------------
 
@@ -734,8 +849,11 @@ class ContentPack:
                             f"item_definition slug {raw_item_slug!r}"
                         ) from exc
 
-            _, created = Reward.objects.update_or_create(
-                name=entry["name"], defaults=defaults,
+            if self.pack_key and self.family is None:
+                raise ContentPackError("Shop rewards require an explicit destination family.")
+            reward_scope = {"family": self.family} if self.family is not None else {}
+            _, created = self._upsert(Reward, entry=entry,
+                name=entry["name"], **reward_scope, defaults=defaults,
             )
             self.stats.bump("created" if created else "updated", "reward")
 

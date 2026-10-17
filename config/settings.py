@@ -548,9 +548,11 @@ OAUTH2_PROVIDER = {
     "SCOPES": {
         "mcp:read": "Read permitted family data, including child records and non-private journals",
         "mcp:write": "Create and change permitted family records, rewards, payments and progress",
-        "mcp:author": "Author and publish global content packs, skills, badges and existing artwork",
+        "mcp:catalog": "Read content references and economy rules without household records",
+        "mcp:author": "Draft and review content packs and asset proposals without publishing",
+        "mcp:publish": "Publish global content, skills, badges, drop rules and prepared artwork",
     },
-    "DEFAULT_SCOPES": ["mcp:read"],
+    "DEFAULT_SCOPES": ["mcp:catalog"],
     "REQUEST_APPROVAL_PROMPT": "force",  # show the requested permissions on every consent
     "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http"],  # http for localhost only
     "OIDC_ENABLED": False,

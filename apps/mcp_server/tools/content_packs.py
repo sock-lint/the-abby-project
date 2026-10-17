@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,11 +48,13 @@ from ..schemas import (
     GetContentPackIn,
     ListContentPacksIn,
     ListRpgCatalogIn,
-    LoadContentPackIn,
     PrunePackContentIn,
     ReadPackFileIn,
     ValidateContentPackIn,
     WritePackFileIn,
+)
+from ..content_pack_schemas import (
+    LoadContentPackIn, PreviewContentPackIn, PublishContentPackIn,
 )
 from ..server import tool
 
@@ -125,7 +126,10 @@ def _resolve_pack_file(pack: str, filename: str) -> Path:
             f"filename {filename!r} is not an allowed pack file. "
             f"Allowed: {sorted(_ALLOWED_FILENAMES)}",
         )
-    return _resolve_pack_path(pack) / filename
+    path = _resolve_pack_path(pack) / filename
+    if path.is_symlink():
+        raise MCPValidationError("Pack content files cannot be symlinks.")
+    return path
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +152,21 @@ def _write_manifest(pack_dir: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def _owned_pack(pack: str, *, create=False) -> Path:
+    actor = require_staff_parent()
+    path = _resolve_pack_path(pack)
+    manifest = _read_manifest(path)
+    if path.exists():
+        if manifest.get("family_id") != actor.family_id:
+            raise MCPNotFoundError(f"Content pack {pack!r} not found for this family; legacy unowned packs require a reviewed ownership migration.")
+    elif create:
+        path.mkdir(parents=True, exist_ok=False)
+        _write_manifest(path, {"family_id": actor.family_id, "created_by": actor.pk})
+    else:
+        raise MCPNotFoundError(f"Content pack {pack!r} not found.")
+    return path
+
+
 def _pack_summary(pack_dir: Path) -> dict[str, Any]:
     """Return a dict describing a pack directory's current state."""
     files_present = sorted(
@@ -155,12 +174,15 @@ def _pack_summary(pack_dir: Path) -> dict[str, Any]:
         if p.is_file() and p.name in _ALLOWED_FILENAMES
     )
     manifest = _read_manifest(pack_dir)
+    from apps.rpg.models import ContentPackPublication
+    latest = ContentPackPublication.objects.filter(pack=pack_dir.name,
+        family_id=manifest.get("family_id"), published_at__isnull=False).order_by("-published_at").first()
     return {
         "name": pack_dir.name,
         "namespace_prefix": f"{pack_dir.name}-",
         "files_present": files_present,
-        "last_loaded_at": manifest.get("last_loaded_at"),
-        "last_load_stats": manifest.get("last_load_stats"),
+        "last_loaded_at": latest.published_at.isoformat() if latest else None,
+        "last_load_stats": latest.stats if latest else None,
     }
 
 
@@ -178,13 +200,14 @@ def list_content_packs(params: ListContentPacksIn) -> dict[str, Any]:
     slug collisions with ``content/rpg/initial/``), which YAML files are
     currently present, and when (if ever) it was last loaded.
     """
-    require_parent()
+    actor = require_staff_parent()
     root = _packs_root()
     packs = []
     for child in sorted(root.iterdir()) if root.exists() else []:
         if not child.is_dir() or child.name.startswith("."):
             continue
-        packs.append(_pack_summary(child))
+        if _read_manifest(child).get("family_id") == actor.family_id:
+            packs.append(_pack_summary(child))
     return {"packs": packs, "count": len(packs)}
 
 
@@ -193,7 +216,7 @@ def list_content_packs(params: ListContentPacksIn) -> dict[str, Any]:
 def get_content_pack(params: GetContentPackIn) -> dict[str, Any]:
     """Return a single pack's summary — files present + last-load metadata."""
     require_parent()
-    pack_dir = _resolve_pack_path(params.pack)
+    pack_dir = _owned_pack(params.pack)
     if not pack_dir.exists():
         raise MCPNotFoundError(f"Content pack {params.pack!r} does not exist.")
     return _pack_summary(pack_dir)
@@ -207,6 +230,7 @@ def read_pack_file(params: ReadPackFileIn) -> dict[str, Any]:
     Useful for incremental edits — read, modify in memory, write back.
     """
     require_parent()
+    _owned_pack(params.pack)
     path = _resolve_pack_file(params.pack, params.filename)
     if not path.exists():
         raise MCPNotFoundError(
@@ -248,6 +272,7 @@ def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
             f"Got {type(parsed).__name__}.",
         )
 
+    _owned_pack(params.pack, create=True)
     path = _resolve_pack_file(params.pack, params.filename)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(params.yaml_content, encoding="utf-8")
@@ -314,6 +339,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
                 f"{params.filename}).",
             )
 
+    _owned_pack(params.pack, create=True)
     path = _resolve_pack_file(params.pack, params.filename)
 
     existing: list[dict] = []
@@ -394,6 +420,7 @@ def delete_pack_file(params: DeletePackFileIn) -> dict[str, Any]:
     subsequent loads.
     """
     require_staff_parent()
+    _owned_pack(params.pack)
     path = _resolve_pack_file(params.pack, params.filename)
     if not path.exists():
         raise MCPNotFoundError(
@@ -421,7 +448,7 @@ def delete_content_pack(params: DeleteContentPackIn) -> dict[str, Any]:
         raise MCPValidationError(
             "delete_content_pack requires confirm=True for safety.",
         )
-    pack_dir = _resolve_pack_path(params.pack)
+    pack_dir = _owned_pack(params.pack)
     if not pack_dir.exists():
         raise MCPNotFoundError(f"Pack {params.pack!r} does not exist.")
 
@@ -447,112 +474,72 @@ def delete_content_pack(params: DeleteContentPackIn) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _invoke_loader(pack: str, dry_run: bool) -> dict[str, Any]:
-    """Call the loader directly and normalize the result into a dict."""
-    from apps.rpg.content.loader import ContentPack, ContentPackError
-
-    pack_dir = _resolve_pack_path(pack)
-    if not pack_dir.exists():
-        raise MCPNotFoundError(f"Pack {pack!r} does not exist.")
-    # Skip packs with no YAML at all — loader tolerates it, but the user
-    # probably made a mistake and we can flag it early.
-    if not any(
-        (pack_dir / name).exists() for name in _ALLOWED_FILENAMES
-    ):
-        raise MCPValidationError(
-            f"Pack {pack!r} contains no recognizable YAML files yet.",
-        )
+def _publication_call(function, params, **kwargs):
+    from apps.rpg.content.loader import ContentPackError
+    actor = require_staff_parent()
+    path = _owned_pack(params.pack)
     try:
-        result = ContentPack(pack_dir, namespace=f"{pack}-").load(
-            stdout=None, dry_run=dry_run,
-        )
-    except ContentPackError as exc:
-        raise MCPValidationError(str(exc))
-    return {
-        "pack": pack,
-        "dry_run": dry_run,
-        "created": dict(result.created),
-        "updated": dict(result.updated),
-        "skipped": dict(result.skipped),
-    }
+        return function(path, params.pack, actor, **kwargs)
+    except ContentPackError as error:
+        raise MCPValidationError(str(error)) from error
+
+
+@tool()
+@safe_tool
+def preview_content_pack(params: PreviewContentPackIn) -> dict[str, Any]:
+    """Review exact field changes, removals, retained definitions and family shop destination.
+
+    Executes the real loader in a rollback and saves an expiring plan. Nothing
+    is published. Pass its preview_id and content_digest to publish_content_pack.
+    Stable entry ids preserve identity across renames; collisions with content
+    owned by another pack or unclaimed legacy content are refused.
+    """
+    from apps.rpg.content.publication import preview_content_pack as preview
+    return _publication_call(preview, params)
+
+
+@tool()
+@safe_tool
+def publish_content_pack(params: PublishContentPackIn) -> dict[str, Any]:
+    """Atomically apply one reviewed revision and retain its durable audit receipt.
+
+    Requires unchanged content, catalog state, actor and explicit actor-family
+    destination. Repeating an already published preview returns its same receipt.
+    Existing inventory and accepted quest reward promises are preserved.
+    """
+    from apps.rpg.content.publication import publish_content_pack as publish
+    return _publication_call(publish, params, preview_id=params.preview_id,
+                             content_digest=params.content_digest)
 
 
 @tool()
 @safe_tool
 def validate_content_pack(params: ValidateContentPackIn) -> dict[str, Any]:
-    """Dry-run load a pack. Returns what WOULD be created/updated.
-
-    Uses the loader's savepoint rollback so nothing persists. Any
-    malformed YAML or reference to a missing item/badge/species surfaces
-    as ``MCPValidationError``.
-    """
-    require_staff_parent()
-    return _invoke_loader(params.pack, dry_run=True)
+    """Compatibility alias for preview_content_pack; returns an exact expiring plan."""
+    return preview_content_pack(PreviewContentPackIn(pack=params.pack))
 
 
 @tool()
 @safe_tool
 def load_content_pack(params: LoadContentPackIn) -> dict[str, Any]:
-    """Load a content pack into the database.
-
-    Upserts every row defined in the pack's YAML files using the namespace
-    ``<pack>-`` so slugs can't collide with ``content/rpg/initial/``.
-    Re-loads are idempotent. On success, updates the pack's manifest with
-    ``last_loaded_at`` and a copy of the load stats.
-
-    Pass ``dry_run=true`` to get the same result as ``validate_content_pack``
-    in one call. Use that for "what would this do?" before committing.
-    """
+    """Compatibility publication route: dry_run previews, writes require the reviewed plan."""
     require_staff_parent()
-    result = _invoke_loader(params.pack, dry_run=params.dry_run)
-    if not params.dry_run:
-        pack_dir = _resolve_pack_path(params.pack)
-        manifest = _read_manifest(pack_dir)
-        manifest["last_loaded_at"] = datetime.now(timezone.utc).isoformat()
-        manifest["last_load_stats"] = {
-            "created": result["created"],
-            "updated": result["updated"],
-            "skipped": result["skipped"],
-        }
-        _write_manifest(pack_dir, manifest)
-    return result
+    if params.dry_run:
+        return preview_content_pack(PreviewContentPackIn(pack=params.pack))
+    if not params.preview_id or not params.content_digest:
+        raise MCPValidationError("Run preview_content_pack first, then supply its preview_id and content_digest.")
+    return publish_content_pack(PublishContentPackIn(pack=params.pack, preview_id=params.preview_id,
+                                                    content_digest=params.content_digest))
 
 
 @tool()
 @safe_tool
 def prune_pack_content(params: PrunePackContentIn) -> dict[str, Any]:
-    """Delete pack-scoped DropTable + Reward rows before a re-load.
-
-    ``load_content_pack`` is upsert-only — removing a drop rule or shop
-    reward from a pack's YAML and re-loading does NOT delete the stale
-    row. Call this first to wipe the pack's drop + reward surface so the
-    next load re-materializes exactly what the current YAML declares.
-
-    Matches rows by ``ItemDefinition.slug.startswith("<pack>-")`` — so it
-    only touches rows owned by this pack, never core content or other packs.
-
-    Does NOT prune: ItemDefinitions (would cascade to UserInventory),
-    QuestDefinitions/RewardItems (owned by quests and re-upserted), or
-    Badges (name-keyed, not slug-keyed — edit via admin if needed).
-
-    Staff-parent-only. Pass ``dry_run=true`` to get counts without deleting.
-    Returns ``{"pack": ..., "dry_run": bool, "drops_deleted": int, "rewards_deleted": int}``.
-    """
+    """Retired direct pruning. Review removals through the atomic pack publication plan."""
     require_staff_parent()
-    # Validate pack name format via the same check used for writes, but
-    # don't require the pack dir to exist — operator may be pruning a
-    # pack whose YAML was already deleted.
-    _validate_pack_name(params.pack)
-
-    from apps.rpg.management.commands.prune_pack_content import prune_pack
-
-    counts = prune_pack(params.pack, dry_run=params.dry_run)
-    return {
-        "pack": params.pack,
-        "dry_run": params.dry_run,
-        "drops_deleted": counts["drops"],
-        "rewards_deleted": counts["rewards"],
-    }
+    if params.dry_run:
+        return preview_content_pack(PreviewContentPackIn(pack=params.pack))
+    raise MCPValidationError("Direct pruning is unavailable. Edit the pack, preview_content_pack, then publish_content_pack; saved promises and ownership remain.")
 
 
 # ---------------------------------------------------------------------------
@@ -643,7 +630,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "min_level": d.min_level,
         })
 
-    quests_qs = QuestDefinition.objects.prefetch_related(
+    quests_qs = QuestDefinition.objects.filter(is_system=True).prefetch_related(
         "reward_items__item",
     ).all()[:limit]
     quests = [
@@ -683,6 +670,14 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
         "drops_by_trigger": drops_by_trigger,
         "quests": quests,
         "badges": badges,
+        "totals": {
+            "items": items_qs.count(),
+            "pet_species": PetSpecies.objects.count(),
+            "potion_types": PotionType.objects.count(),
+            "quests": QuestDefinition.objects.filter(is_system=True).count(),
+            "badges": Badge.objects.count(),
+        },
+        "pagination": "This legacy summary is bounded. Use read_rpg_catalog with section/after for complete details and runtime availability.",
         "counts": {
             "items": len(items),
             "pet_species": len(species),

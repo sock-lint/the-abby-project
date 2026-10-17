@@ -23,7 +23,7 @@ from pydantic import Field, StrictBool
 
 from .context import get_current_scopes, require_scope, require_staff_parent
 from .errors import MCPValidationError
-from .tool_policy import AUTHOR_SCOPE, policy_for
+from .tool_policy import AUTHOR_SCOPE, CATALOG_SCOPE, PUBLISH_SCOPE, policy_for
 
 
 def _build_transport_security() -> TransportSecuritySettings:
@@ -123,7 +123,7 @@ def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], 
         @functools.wraps(fn)
         async def adapted(**kwargs: Any) -> Any:
             require_scope(policy.scope)
-            if policy.scope == AUTHOR_SCOPE:
+            if policy.scope in {AUTHOR_SCOPE, CATALOG_SCOPE, PUBLISH_SCOPE}:
                 require_staff_parent()
             if policy.destructive:
                 confirmation = kwargs.pop("confirmation", False)
@@ -166,12 +166,16 @@ def _load_tool_modules() -> None:
     # noqa: F401 - imports-for-side-effects
     from .tools import (  # noqa: F401
         achievements,
+        asset_proposals,
+        catalog,
+        challenges,
         chores,
         chronicle,
         content_packs,
         creations,
         daily_challenges,
         dashboard,
+        economy,
         exchange,
         habits,
         homework,

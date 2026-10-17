@@ -9,9 +9,15 @@ from dataclasses import dataclass
 READ_SCOPE = "mcp:read"
 WRITE_SCOPE = "mcp:write"
 AUTHOR_SCOPE = "mcp:author"
-MCP_SCOPES = frozenset({READ_SCOPE, WRITE_SCOPE, AUTHOR_SCOPE})
+CATALOG_SCOPE = "mcp:catalog"
+PUBLISH_SCOPE = "mcp:publish"
+MCP_SCOPES = frozenset({READ_SCOPE, WRITE_SCOPE, CATALOG_SCOPE, AUTHOR_SCOPE, PUBLISH_SCOPE})
 
 READ_TOOLS = frozenset({
+    "list_challenges",
+    "preview_challenge_goal",
+    "list_coin_ledger",
+    "get_economy_audit",
     "get_active_entry",
     "get_chore",
     "get_chronicle_summary",
@@ -78,6 +84,9 @@ READ_TOOLS = frozenset({
 })
 
 WRITE_TOOLS = frozenset({
+    "create_challenge_goal",
+    "pin_challenge",
+    "unpin_challenge",
     "activate_mount",
     "activate_pet",
     "activate_project",
@@ -223,7 +232,33 @@ AUTHOR_TOOLS = frozenset({
     "write_pack_file",
 })
 
+# Reference content is independent of household data. Authoring a draft does
+# not grant permission to publish it or inspect a child's records.
+CATALOG_TOOLS = frozenset({
+    "get_sprite", "list_badges", "list_movement_types", "list_rpg_catalog",
+    "list_skill_categories", "list_skills", "list_sprites",
+    "get_economy_rules", "preview_economy_scenario", "read_rpg_catalog",
+    "audit_rpg_catalog",
+})
+READ_TOOLS = READ_TOOLS - CATALOG_TOOLS
+_DRAFT_TOOLS = frozenset({
+    "delete_content_pack", "delete_pack_file", "draft_pack_entries",
+    "get_content_pack", "list_content_packs", "read_pack_file",
+    "validate_content_pack", "write_pack_file", "preview_content_pack",
+    "propose_asset", "list_asset_proposals", "get_asset_proposal",
+    "update_asset_proposal", "review_asset_proposal", "export_asset_proposal",
+    "record_asset_delivery",
+})
+PUBLISH_TOOLS = (AUTHOR_TOOLS - _DRAFT_TOOLS) | {"publish_content_pack"}
+AUTHOR_TOOLS = _DRAFT_TOOLS
+READ_TOOLS = READ_TOOLS - AUTHOR_TOOLS
+
 DESTRUCTIVE_TOOLS = frozenset({
+    "create_challenge_goal",
+    "publish_content_pack",
+    "update_asset_proposal",
+    "review_asset_proposal",
+    "record_asset_delivery",
     "adjust_coins",
     "adjust_payment",
     "approve_chore_completion",
@@ -315,6 +350,11 @@ DESTRUCTIVE_TOOLS = frozenset({
 })
 
 IDEMPOTENT_WRITES = frozenset({
+    "create_challenge_goal",
+    "pin_challenge",
+    "unpin_challenge",
+    "propose_asset",
+    "publish_content_pack",
     "mark_all_notifications_read",
     "mark_chronicle_viewed",
     "mark_notification_read",
@@ -345,12 +385,20 @@ def policy_for(name: str) -> ToolPolicy:
         scope = WRITE_SCOPE
     elif name in AUTHOR_TOOLS:
         scope = AUTHOR_SCOPE
+    elif name in CATALOG_TOOLS:
+        scope = CATALOG_SCOPE
+    elif name in PUBLISH_TOOLS:
+        scope = PUBLISH_SCOPE
     else:
         raise ValueError(f"MCP tool {name!r} has no reviewed permission policy.")
+    read_only = name in READ_TOOLS | CATALOG_TOOLS | {
+        "list_asset_proposals", "get_asset_proposal", "export_asset_proposal",
+        "get_content_pack", "list_content_packs", "read_pack_file",
+    }
     return ToolPolicy(
         scope=scope,
-        read_only=name in READ_TOOLS,
+        read_only=read_only,
         destructive=name in DESTRUCTIVE_TOOLS,
-        idempotent=name in READ_TOOLS or name in IDEMPOTENT_WRITES,
+        idempotent=read_only or name in IDEMPOTENT_WRITES,
         open_world=name in OPEN_WORLD_TOOLS,
     )

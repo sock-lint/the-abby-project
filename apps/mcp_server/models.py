@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 from django.db import models
+from django.conf import settings
+
+from config.base_models import CreatedAtModel, TimestampedModel
 
 
 class MCPTokenResource(models.Model):
@@ -40,3 +43,36 @@ class MCPAuthorizationResource(models.Model):
         related_name="mcp_resource",
     )
     resource = models.CharField(max_length=512)
+
+
+class AssetProposal(TimestampedModel):
+    """A private production brief, never an artwork publication or grant."""
+
+    class Status(models.TextChoices):
+        PROPOSED = "proposed", "Proposed"
+        READY = "ready", "Ready for external production"
+        DELIVERED = "delivered", "External delivery recorded"
+        CANCELLED = "cancelled", "Cancelled"
+
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="asset_proposals")
+    request_id = models.UUIDField()
+    request_digest = models.CharField(max_length=64)
+    revision = models.PositiveIntegerField(default=1)
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PROPOSED)
+    brief = models.JSONField()
+    brief_digest = models.CharField(max_length=64)
+    delivery = models.JSONField(default=dict)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["family", "request_id"], name="asset_proposal_family_request")]
+
+
+class AssetProposalEvent(CreatedAtModel):
+    """Append-only audit of briefs, reviews and claimed external deliveries."""
+
+    proposal = models.ForeignKey(AssetProposal, on_delete=models.CASCADE, related_name="events")
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    revision = models.PositiveIntegerField()
+    action = models.CharField(max_length=24)
+    details = models.JSONField(default=dict)

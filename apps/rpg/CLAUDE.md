@@ -139,7 +139,10 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `constants.py` — `TriggerType` TextChoices (the canonical enum).
 - `sprite_authoring.py` — `register_sprite` + sibling write paths.
 - `sprite_admin_views.py` — parent-only admin CRUD endpoints.
-- `content/loader.py` — RPG content YAML loader (idempotent upsert).
+- `content/loader.py` — RPG YAML loader, with strict pack-owned authoring and retained legacy CLI behavior.
+- `content/publication.py` — expiring exact-source/state plans, PostgreSQL catalog serialization and atomic audited publication. Shop destinations are explicit families; stable provenance protects cross-pack collisions. Retain accepted quest snapshots before reconciling reward links. See [MCP authoring](../../docs/operations/mcp-authoring.md).
+- `content/validation.py` — shared strict authoring shape, trigger, range and badge-condition validation.
+- `ConsumableService.SUPPORTED_EFFECTS` in `services.py` — canonical effect names shared by runtime dispatch and catalog audits; handler tests keep them aligned.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus retained Chick,
