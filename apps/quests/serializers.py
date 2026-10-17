@@ -33,7 +33,7 @@ class DailyChallengeSerializer(serializers.ModelSerializer):
 
 class QuestRewardItemSerializer(serializers.ModelSerializer):
     item_catalog_icon = serializers.SerializerMethodField()
-    item_name = serializers.CharField(source="item.name", read_only=True)
+    item_name = serializers.CharField(source="item.display_name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
     item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
 

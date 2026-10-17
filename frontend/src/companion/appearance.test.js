@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeCompanion, resolveAppearance } from './appearance';
+import { activeCompanion, creatureLabel, resolveAppearance } from './appearance';
 
 const manifest = {
   schema_version: 1,
@@ -10,6 +10,15 @@ const urls = { './licensed/chick.glb': '/chick.glb', './licensed/bird.glb': '/bi
 const chick = { id: 7, species: { slug: 'chick', sprite_key: 'cute-chick' }, potion: { slug: 'base' }, growth_points: 100, evolved_to_mount: false };
 
 describe('Owned companion appearance bindings', () => {
+  it('names the confirmed bird form without renaming the underlying species or another potion', () => {
+    const owned = { ...chick, species: { ...chick.species, name: 'Chick' }, potion: { slug: 'base', name: 'Base' } };
+    expect(creatureLabel({ ...owned, evolution_stage: 'fledgling' })).toBe('Base Fledgling');
+    expect(creatureLabel({ ...owned, evolved_to_mount: true, evolution_stage: 'bird' })).toBe('Base Bird');
+    expect(creatureLabel(owned, 'mount')).toBe('Base Bird');
+    expect(creatureLabel({ ...owned, evolution_stage: 'bird' })).toBe('Base Chick');
+    expect(creatureLabel({ ...owned, evolution_stage: 'fledgling', potion: { slug: 'fire', name: 'Fire' } })).toBe('Fire Chick');
+  });
+
   it('requires confirmed evolution, independent of growth, and uses Bird for an actual mount', () => {
     expect(resolveAppearance(chick, 'pet', manifest, urls)?.key).toBe('chick');
     expect(resolveAppearance({ ...chick, evolved_to_mount: true }, 'pet', manifest, urls)?.key).toBe('bird');

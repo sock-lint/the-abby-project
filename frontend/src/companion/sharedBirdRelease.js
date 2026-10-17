@@ -1,11 +1,12 @@
 import { validateAssetPackManifest } from '@abby-assets/contracts';
 import assetLock from '../../assets.lock.json';
+import { birdStage } from './birdEvolution';
+export { birdStage, BIRD_STAGES } from './birdEvolution';
 
 const manifests = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, import: 'default' });
 const manifestUrls = import.meta.glob('../avatar/shared/**/manifest.json', { eager: true, query: '?url', import: 'default' });
 const files = import.meta.glob('../avatar/shared/**/*.{glb,png}', { eager: true, query: '?url', import: 'default' });
 export const BIRD_FAMILY = 'meshtint-bird-evolution';
-export const BIRD_STAGES = ['chick', 'fledgling', 'bird'];
 
 /** Stable refetches replace response objects, not the immutable runtime pack.
  * Include resolved payload URLs so a real transport/release change still loads
@@ -29,18 +30,6 @@ export function stagedBirdRelease(available = manifests, urls = files, lock = as
   const resolveUrl = (file) => urls[`${prefix}${file}`];
   if (release.files.some((file) => !resolveUrl(file.path))) return null;
   return { release, resolveUrl, manifestUrl, manifestSha256: pin.manifest_sha256 };
-}
-
-export function birdStage(creature, kind = 'pet') {
-  if (!creature?.id || creature.species?.slug !== 'chick'
-    || creature.species?.sprite_key !== 'cute-chick' || creature.potion?.slug !== 'base') return null;
-  if (kind === 'mount' || creature.evolved_to_mount === true) return 'bird';
-  // The server derives the intermediate stage from persisted growth. A stale
-  // client never invents it from a local growth counter or preview choice.
-  if (creature.evolution_stage !== undefined && creature.evolution_stage !== null) {
-    return ['chick', 'fledgling'].includes(creature.evolution_stage) ? creature.evolution_stage : null;
-  }
-  return 'chick';
 }
 
 export function birdMotions(release, stage, resolveUrl) {

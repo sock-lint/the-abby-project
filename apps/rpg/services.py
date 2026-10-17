@@ -384,7 +384,7 @@ class DropService:
                     from apps.rewards.services import CoinService
                     CoinService.award_coins(
                         user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
-                        description=f"Salvaged duplicate: {item.name}",
+                        description=f"Salvaged duplicate: {item.display_name}",
                     )
 
         if not was_salvaged:
@@ -409,8 +409,8 @@ class DropService:
         ActivityLogService.record(
             category="rpg",
             event_type="rpg.drop_rolled",
-            summary=(f"Salvaged duplicate: {item.name}" if was_salvaged
-                     else f"Dropped: {item.name} ({item.rarity})"),
+            summary=(f"Salvaged duplicate: {item.display_name}" if was_salvaged
+                     else f"Dropped: {item.display_name} ({item.rarity})"),
             subject=user,
             target=drop_log,
             breakdown=[
@@ -419,7 +419,7 @@ class DropService:
                 {"label": "drop boost", "value": round(boost_bonus, 3), "op": "="},
                 {"label": "effective", "value": round(effective_rate, 3), "op": "note"},
                 {"label": "rolled", "value": round(roll, 3), "op": "note"},
-                {"label": "item", "value": f"{item.name} ({item.rarity})", "op": "note"},
+                {"label": "item", "value": f"{item.display_name} ({item.rarity})", "op": "note"},
             ],
             extras={
                 "trigger_type": str(trigger_type),
@@ -427,7 +427,7 @@ class DropService:
                 "effective_rate": round(effective_rate, 4),
                 "dropped": True,
                 "item_id": item.pk,
-                "item_name": item.name,
+                "item_name": item.display_name,
                 "item_rarity": item.rarity,
                 "was_salvaged": was_salvaged,
             },
@@ -435,7 +435,7 @@ class DropService:
 
         return [{
             "item_id": item.pk,
-            "item_name": item.name,
+            "item_name": item.display_name,
             "item_catalog_icon": item_catalog_icon(item),
             "item_icon": item.icon,
             "item_type": item.item_type,
@@ -694,13 +694,13 @@ def _step_quest_progress(user, trigger_type, context, result):
     result["quest"] = quest_result
     if quest_result and quest_result.get("completed"):
         result["notifications"].append(
-            f"Quest complete: {quest_result['quest_name']}",
+            f"Challenge complete: {quest_result['quest_name']}",
         )
         from apps.notifications.services import notify
         notify(
             user,
-            title=f"Quest complete: {quest_result['quest_name']}",
-            message="The trial is finished — claim your spoils.",
+            title=f"Challenge complete: {quest_result['quest_name']}",
+            message="Your challenge is complete.",
             notification_type="quest_completed",
             link="/quests",
         )
@@ -881,7 +881,7 @@ class ConsumableService:
 
         return {
             "item_id": item.pk,
-            "item_name": item.name,
+            "item_name": item.display_name,
             "effect": effect,
             "quantity_used": quantity,
             # Single-use call sites still get ``detail`` for back-compat;
@@ -1019,7 +1019,7 @@ class ConsumableService:
             )
             return {
                 "granted_item_id": granted.pk,
-                "granted_item_name": granted.name,
+                "granted_item_name": granted.display_name,
                 "granted_rarity": granted.rarity,
             }
         if effect == "lucky_dip":
@@ -1049,7 +1049,7 @@ class ConsumableService:
                 if granted.coin_value > 0:
                     CoinService.award_coins(
                         profile.user, granted.coin_value, CoinLedger.Reason.ADJUSTMENT,
-                        description=f"Lucky Dip salvage: {granted.name}",
+                        description=f"Lucky Dip salvage: {granted.display_name}",
                     )
             else:
                 UserInventory.objects.create(
@@ -1057,7 +1057,7 @@ class ConsumableService:
                 )
             return {
                 "granted_item_id": granted.pk,
-                "granted_item_name": granted.name,
+                "granted_item_name": granted.display_name,
                 "granted_rarity": granted.rarity,
                 "salvaged": salvaged,
             }
@@ -1114,7 +1114,7 @@ class ConsumableService:
             award = AwardService.grant(
                 profile.user, xp=amount,
                 xp_tags=[SimpleNamespace(skill=progress.skill, xp_weight=1)],
-                xp_source_label=f"Consumable: {item.name}",
+                xp_source_label=f"Consumable: {item.display_name}",
                 badge_scopes={"skill_xp", "badges"},
             )
             # Badge bonuses may have added more XP after the direct tonic
@@ -1146,7 +1146,7 @@ class ConsumableService:
                 UserInventory.objects.filter(pk=inv.pk).update(
                     quantity=F("quantity") + 1,
                 )
-                granted.append({"item_id": item.pk, "item_name": item.name})
+                granted.append({"item_id": item.pk, "item_name": item.display_name})
             return {"granted": granted, "count": count}
         raise ValueError(f"Unknown consumable effect: {effect!r}")
 
@@ -1191,11 +1191,11 @@ class InventoryItemService:
             user,
             amount,
             CoinLedger.Reason.ADJUSTMENT,
-            description=f"Opened coin pouch: {item.name}",
+            description=f"Opened coin pouch: {item.display_name}",
         )
         return {
             "item_id": item.pk,
-            "item_name": item.name,
+            "item_name": item.display_name,
             "coins_awarded": amount,
         }
 
@@ -1325,7 +1325,7 @@ class CosmeticService:
         except Exception:
             logger.exception("Badge evaluation after cosmetic equip failed")
 
-        return {"slot": slot, "item_id": item.pk, "item_name": item.name}
+        return {"slot": slot, "item_id": item.pk, "item_name": item.display_name}
 
     @staticmethod
     @transaction.atomic

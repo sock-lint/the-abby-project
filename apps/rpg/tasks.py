@@ -143,7 +143,7 @@ def streak_at_risk_warning_task():
             title="Your streak is at risk!",
             message=(
                 f"Your {profile.login_streak}-day streak ends tonight unless "
-                "you log something — a duty, a ritual tap, or a quick study "
+                "you log something — a chore, a habit tap, or homework "
                 "counts."
             ),
             notification_type=NotificationType.STREAK_AT_RISK,

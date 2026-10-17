@@ -114,7 +114,7 @@ describe('PetCeremonyModal', () => {
       <PetCeremonyModal mode="expedition_return" expedition={expedition} onDismiss={() => {}} />,
     );
     expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    expect(screen.getByText(/your mount has returned/i)).toBeInTheDocument();
+    expect(screen.getByText(/your grown pet has returned/i)).toBeInTheDocument();
     expect(screen.getByText(/Griffon is back/i)).toBeInTheDocument();
     expect(screen.getByText(/from a standard expedition/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^continue$/i })).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('PetCeremonyModal — licensed Chick portraits', () => {
         portrait: 'chick.png',
       },
     };
-    const art = (name) => ({ 'chick.png': chickPortrait, 'bird.png': birdPortrait })[name];
+    const art = (name) => ({ 'chick.png': chickPortrait, 'fledgling.png': '/assets/synthetic-fledgling.png', 'bird.png': birdPortrait })[name];
     getLicensedRpgSprite.mockImplementation((key) => resolveLicensedRpgSprite(key, manifest, art));
   });
 
@@ -262,6 +262,14 @@ describe('PetCeremonyModal — licensed Chick portraits', () => {
     });
     expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', chickPortrait);
     expect(document.querySelector(`img[src="${birdPortrait}"]`)).toBeNull();
+  });
+
+  it('celebrates the confirmed Fledgling-to-Bird form with matching names and portraits', async () => {
+    renderWithProviders(<PetCeremonyModal mode="evolve" species={{ ...chickPet.species, slug: 'chick' }} potion={chickPet.potion} fromStage="fledgling" onDismiss={() => {}} />, { withAuth: false });
+    expect(screen.getByRole('img', { name: 'Fledgling' })).toHaveAttribute('src', '/assets/synthetic-fledgling.png');
+    await act(async () => { await vi.advanceTimersByTimeAsync(1700); });
+    expect(screen.getByRole('img', { name: 'Bird' })).toHaveAttribute('src', birdPortrait);
+    expect(screen.getByRole('alertdialog', { name: 'Base Bird' })).toBeInTheDocument();
   });
 
   it('swaps the Chick base portrait for the Bird mount after confirmed evolution', async () => {

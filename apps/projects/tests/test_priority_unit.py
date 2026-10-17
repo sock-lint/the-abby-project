@@ -90,6 +90,7 @@ class ChoreScoringTests(TestCase):
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0].score, 34)
         self.assertEqual(actions[0].kind, "chore")
+        self.assertEqual(actions[0].subtitle, "chore · $1.00 · 2 coins")
         self.assertEqual(actions[0].title, "Clean Room")
         self.assertEqual(actions[0].reward, {"money": "1.00", "coins": 2})
 

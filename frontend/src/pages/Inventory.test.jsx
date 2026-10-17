@@ -130,6 +130,22 @@ describe('Inventory', () => {
     expect(use.calls[0].method).toBe('POST');
   });
 
+  it.each([
+    ['mystery_box', 'A surprise item was added to your Inventory.'],
+    ['food_basket', 'Food was added to your Inventory.'],
+  ])('names Inventory in the %s receipt', async (effect, message) => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 42, quantity: 1, item: { id: 7, name: 'Gift', item_type: 'consumable', rarity: 'common', icon: '🎁' }, available_actions: [{ id: 'use', label: 'Use' }] },
+    ])));
+    const use = spyHandler('post', /\/api\/inventory\/7\/use\/$/, { item_id: 7, item_name: 'Gift', effect });
+    server.use(use.handler);
+    const user = userEvent.setup();
+    renderInventory();
+    await user.click(await screen.findByRole('button', { name: 'Use' }));
+    expect(await screen.findByText(`Used Gift. ${message}`)).toBeInTheDocument();
+    expect(use.calls).toHaveLength(1);
+  });
+
   it('does not show a Use button on non-consumable items', async () => {
     server.use(
       http.get('*/api/inventory/', () =>

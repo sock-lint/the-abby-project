@@ -118,12 +118,12 @@ def _chore_reward(chore):
 
 def _chore_subtitle(chore):
     if chore.reward_amount and chore.coin_reward:
-        return f"duty · ${chore.reward_amount} · {chore.coin_reward} coins"
+        return f"chore · ${chore.reward_amount} · {chore.coin_reward} coins"
     if chore.reward_amount:
-        return f"duty · ${chore.reward_amount}"
+        return f"chore · ${chore.reward_amount}"
     if chore.coin_reward:
-        return f"duty · {chore.coin_reward} coins"
-    return "duty"
+        return f"chore · {chore.coin_reward} coins"
+    return "chore"
 
 
 def _chore_score(chore, target_date):

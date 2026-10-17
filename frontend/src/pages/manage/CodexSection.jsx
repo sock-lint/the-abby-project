@@ -18,6 +18,7 @@ import {
   RARITY_TEXT_COLORS, RARITY_PILL_COLORS,
 } from '../../constants/colors';
 import { normalizeList } from '../../utils/api';
+import { itemDisplayName } from '../../utils/itemDisplayName';
 import CatalogCard from './CatalogCard';
 import MountsBlock from './MountsBlock';
 import SpritesBlock from './SpritesBlock';
@@ -42,7 +43,7 @@ const ITEM_TYPE_LABELS = {
   food: 'Pet Food',
   cosmetic_frame: 'Avatar Frames',
   cosmetic_title: 'Titles',
-  cosmetic_theme: 'App themes',
+  cosmetic_theme: 'Color themes',
   cosmetic_pet_accessory: 'Pet Accessories',
   quest_scroll: 'Quest Scrolls',
   coin_pouch: 'Coin Pouches',
@@ -66,7 +67,7 @@ function groupBy(list, keyFn) {
 function sortByRarityName(a, b) {
   return (
     (RARITY_ORDER[a.rarity] ?? 99) - (RARITY_ORDER[b.rarity] ?? 99)
-    || a.name.localeCompare(b.name)
+    || itemDisplayName(a).localeCompare(itemDisplayName(b))
   );
 }
 
@@ -108,7 +109,7 @@ function ItemsBlock({ items, onSelect }) {
                   icon={item.icon}
                   assetId={item.catalog_icon}
                   spriteKey={item.sprite_key}
-                  name={item.name}
+                  name={itemDisplayName(item)}
                   subtitle={item.rarity_display}
                   onClick={() => onSelect(item)}
                 />
@@ -125,10 +126,10 @@ function ItemDetail({ item }) {
   return (
     <div className="text-center">
       <div className="flex items-center justify-center h-16 mb-3">
-        <CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={64} alt={item.name} />
+        <CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={64} alt={itemDisplayName(item)} />
       </div>
       <div className={`text-sm capitalize font-medium mb-1 ${RARITY_TEXT_COLORS[item.rarity]}`}>
-        {item.rarity_display} · {item.type_display}
+        {item.rarity_display} · {item.item_type === 'cosmetic_theme' ? 'Color theme' : item.type_display}
       </div>
       {item.catalog_available === false && <p className="text-caption text-ink-secondary mb-3">Stored catalog item · unavailable for new unlocks.</p>}
       {item.description && (
@@ -485,7 +486,7 @@ export default function CodexSection() {
       )}
 
       {selectedItem && (
-        <BottomSheet title={selectedItem.name} onClose={() => setSelectedItem(null)}>
+        <BottomSheet title={itemDisplayName(selectedItem)} onClose={() => setSelectedItem(null)}>
           <ItemDetail item={selectedItem} />
         </BottomSheet>
       )}

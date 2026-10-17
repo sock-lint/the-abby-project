@@ -183,7 +183,9 @@ class UpdateJournalTests(TestCase):
         # Fast-forward the entry by one day to simulate midnight crossing.
         self.entry.occurred_on = timezone.localdate() - timedelta(days=1)
         self.entry.save(update_fields=["occurred_on"])
-        with self.assertRaises(PermissionDenied):
+        with self.assertRaisesRegex(
+            PermissionDenied, "Journal text can only be edited on the day it is written",
+        ):
             ChronicleService.update_journal(
                 self.user, self.entry, title="x", summary="y",
             )

@@ -47,6 +47,10 @@ describe('current owned-art API contracts', () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json(appearanceInventory)));
     const rows = await getInventory();
     expect(rows).toEqual(appearanceInventory);
+    expect(rows.find((entry) => entry.item.item_type === 'cosmetic_theme').item).toMatchObject({
+      name: 'Twilight Meadow', type_display: 'Color theme', metadata: { theme: 'vigil' },
+      catalog_icon: 'item-cover-vigil',
+    });
     expect(rows.find((entry) => entry.item.item_type === 'cosmetic_theme').available_actions).toEqual([
       { id: 'equip', label: 'Change color theme', to: '/settings#appearance' },
     ]);

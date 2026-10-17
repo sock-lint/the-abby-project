@@ -28,6 +28,7 @@ def destinations() -> list[tuple[Path, Path]]:
     pairs = [
         (manifest, ROOT / "frontend/src/storybook/presentation.json"),
         (manifest, ROOT / "unity/AbbyCamp/Assets/AbbyCamp/Resources/StorybookPresentation.json"),
+        (ROOT / "shared/catalog/theme-presentation.json", ROOT / "frontend/src/storybook/theme-presentation.json"),
     ]
     font_name = presentation["typography"]["font"]
     if Path(font_name).name != font_name or not font_name.endswith(".ttf"):

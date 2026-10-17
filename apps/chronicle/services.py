@@ -430,7 +430,7 @@ class ChronicleService:
         text_changed = title is not None or summary is not None
         if text_changed and entry.occurred_on != timezone.localdate():
             raise PermissionDenied(
-                "Journal entries lock after the day ends — this one is part of the chronicle now."
+                "Journal text can only be edited on the day it is written."
             )
         fields = []
         if text_changed:

@@ -80,7 +80,7 @@ describe('Evolution feedback with real companion display preferences', () => {
       expect(screen.queryByRole('alertdialog')).toBeNull();
       expect(scene.props.evolution).toMatchObject({ from: 'fledgling', to: 'bird' });
     } else {
-      const ceremony = await screen.findByRole('alertdialog', { name: 'Base Chick' });
+      const ceremony = await screen.findByRole('alertdialog', { name: 'Base Bird' });
       expect(within(ceremony).getByText('evolution complete')).toBeInTheDocument();
       expect(within(ceremony).getByText('is ready to explore.')).toBeInTheDocument();
       expect(ceremony.querySelector('.animate-gilded-glint, .animate-cosmic-burst')).toBeNull();

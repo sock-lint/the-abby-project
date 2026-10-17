@@ -84,6 +84,10 @@ class CatalogApiResponseFixtureTests(APITestCase):
         UserInventory.objects.create(id=75, user=self.child, item=cover, quantity=1)
         body = self.assert_response_fixture(self.client.get("/api/inventory/"), "inventory-appearance.json")
         by_type = {row["item"]["item_type"]: row for row in body}
+        self.assertEqual(by_type["cosmetic_theme"]["item"]["name"], "Twilight Meadow")
+        self.assertEqual(by_type["cosmetic_theme"]["item"]["type_display"], "Color theme")
+        cover.refresh_from_db()
+        self.assertEqual(cover.name, "Night Vigil")
         self.assertEqual(by_type["cosmetic_frame"]["available_actions"][0]["to"], "/sigil")
         self.assertEqual(by_type["cosmetic_theme"]["available_actions"], [{
             "id": "equip", "label": "Change color theme", "to": "/settings#appearance",

@@ -49,6 +49,14 @@ describe('ExpeditionToastStack', () => {
     await waitFor(() => expect(screen.queryByText(/Griffon is back/i)).not.toBeInTheDocument());
   });
 
+  it('names the grown bird and the current Grown pets destination', async () => {
+    renderWithProviders(<ExpeditionToastStack />, {
+      pulse: emptyPulse({ expeditions_ready: [{ ...readyExpedition, species_name: 'Chick', species_slug: 'chick', species_sprite_key: 'cute-chick', potion_slug: 'base' }] }),
+    });
+    expect(await screen.findByRole('button', { name: 'Bird returned — claim rewards on Grown pets' })).toBeInTheDocument();
+    expect(screen.getByText('Bird is back')).toBeInTheDocument();
+  });
+
   it('renders a soft slide-in nudge for a ready-to-claim expedition', async () => {
     renderWithProviders(<ExpeditionToastStack />, {
       pulse: emptyPulse({ expeditions_ready: [readyExpedition] }),

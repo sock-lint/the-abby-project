@@ -165,7 +165,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
         return {
             "id": item.pk,
             "catalog_icon": item_catalog_icon(item),
-            "name": item.name,
+            "name": item.display_name,
             "icon": item.icon,
             "sprite_key": item.sprite_key,
             "rarity": item.rarity,
@@ -198,10 +198,11 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
 
 
 class ItemDefinitionSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="display_name", read_only=True)
     catalog_icon = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     rarity_display = serializers.CharField(source="get_rarity_display", read_only=True)
-    type_display = serializers.CharField(source="get_item_type_display", read_only=True)
+    type_display = serializers.SerializerMethodField()
     pet_species_name = serializers.CharField(source="pet_species.name", read_only=True, default=None)
     potion_type_name = serializers.CharField(source="potion_type.name", read_only=True, default=None)
     food_species_name = serializers.CharField(source="food_species.name", read_only=True, default=None)
@@ -220,6 +221,11 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
 
     def get_catalog_icon(self, obj):
         return item_catalog_icon(obj)
+
+    def get_type_display(self, obj):
+        if obj.item_type == ItemDefinition.ItemType.COSMETIC_THEME:
+            return "Color theme"
+        return obj.get_item_type_display()
 
 
 class UserInventorySerializer(serializers.ModelSerializer):
@@ -291,7 +297,7 @@ class UserInventorySerializer(serializers.ModelSerializer):
 
 class DropLogSerializer(serializers.ModelSerializer):
     item_catalog_icon = serializers.SerializerMethodField()
-    item_name = serializers.CharField(source="item.name", read_only=True)
+    item_name = serializers.CharField(source="item.display_name", read_only=True)
     item_icon = serializers.CharField(source="item.icon", read_only=True)
     item_sprite_key = serializers.CharField(source="item.sprite_key", read_only=True)
     item_rarity = serializers.CharField(source="item.rarity", read_only=True)

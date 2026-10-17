@@ -423,11 +423,11 @@ function effectMessage(effect) {
     rage_breaker: 'A boss rage shield was cleared.',
     growth_surge: 'Your active pet gained growth.',
     feast_platter: 'Your pets shared the feast.',
-    mystery_box: 'A surprise item was added to your Satchel.',
+    mystery_box: 'A surprise item was added to your Inventory.',
     lucky_dip: 'A cosmetic prize was drawn.',
     quest_reroll: 'A new challenge has started.',
     skill_tonic: 'One of your skills gained XP.',
-    food_basket: 'Food was added to your Satchel.',
+    food_basket: 'Food was added to your Inventory.',
   };
   return messages[effect] || 'Its effect has been applied.';
 }

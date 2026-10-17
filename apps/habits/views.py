@@ -157,8 +157,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import get_display_name, notify_parents
             display = get_display_name(user)
             notify_parents(
-                title=f"New ritual proposed: {habit.name}",
-                message=f'{display} proposed a new ritual "{habit.name}". Set XP and approve to publish.',
+                title=f"New habit proposed: {habit.name}",
+                message=f'{display} proposed a new habit "{habit.name}". Set XP and approve to publish.',
                 notification_type=NotificationType.HABIT_PROPOSED,
                 link="/manage",
                 about_user=user,
@@ -185,8 +185,8 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import notify
             notify(
                 proposer,
-                title=f"Ritual proposal declined: {name}",
-                message=f'Your proposed ritual "{name}" was declined.',
+                title=f"Habit proposal declined: {name}",
+                message=f'Your proposed habit "{name}" was declined.',
                 notification_type=NotificationType.HABIT_PROPOSAL_REJECTED,
                 link="/habits",
             )
@@ -198,7 +198,7 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         habit = self.get_object()
         if not habit.pending_parent_review:
             return Response(
-                {"error": "This ritual is already published."},
+                {"error": "This habit is already published."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -217,10 +217,10 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import notify
             notify(
                 proposer,
-                title=f"Ritual published: {habit.name}",
+                title=f"Habit published: {habit.name}",
                 message=(
-                    f'Your proposed ritual "{habit.name}" was approved '
-                    f'and is now in your ritual list.'
+                    f'Your proposed habit "{habit.name}" was approved '
+                    f'and is now in your habit list.'
                 ),
                 notification_type=NotificationType.HABIT_PROPOSAL_APPROVED,
                 link="/habits",

@@ -396,11 +396,11 @@ class QuestService:
                 salvage = item.coin_value * reward_item.quantity
                 CoinService.award_coins(
                     user, salvage, CoinLedger.Reason.ADJUSTMENT,
-                    description=f"Quest egg salvage: {item.name}",
+                    description=f"Quest egg salvage: {item.display_name}",
                 )
                 rewards["coins"] += salvage
                 rewards["items"].append({
-                    "item_name": item.name,
+                    "item_name": item.display_name,
                     "item_catalog_icon": item_catalog_icon(item),
                     "item_icon": item.icon,
                     "quantity": reward_item.quantity,
@@ -415,7 +415,7 @@ class QuestService:
                 inv.quantity += reward_item.quantity
                 inv.save(update_fields=["quantity", "updated_at"])
             rewards["items"].append({
-                "item_name": item.name,
+                "item_name": item.display_name,
                 "item_catalog_icon": item_catalog_icon(item),
                 "item_icon": item.icon,
                 "quantity": reward_item.quantity,
@@ -423,7 +423,7 @@ class QuestService:
 
         notify(
             user,
-            title=f"Quest complete: {definition.name}!",
+            title=f"Challenge complete: {definition.name}!",
             message=f"Earned {rewards['coins']} coins and {rewards['xp']} XP!",
             notification_type="badge_earned",
             link="/quests",
@@ -433,7 +433,7 @@ class QuestService:
         ActivityLogService.record(
             category="quest",
             event_type="quest.complete",
-            summary=f"Quest complete: {definition.name}",
+            summary=f"Challenge complete: {definition.name}",
             subject=user,
             target=quest,
             coins_delta=int(rewards["coins"]) or None,
