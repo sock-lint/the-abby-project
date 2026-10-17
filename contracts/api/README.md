@@ -319,6 +319,16 @@ copy of `unity/AbbyCamp`.
 
 ## Check for drift
 
+`config.tests.test_progression_api_contract_fixtures` produces
+`progression-lab-metadata.json` and `progression-lab-report.json` through the
+real staff-parent endpoints, using fixed synthetic global skill, item, drop,
+companion, badge and challenge definitions. The report starts from zero and
+contains no household progress. The React consumer
+`src/api/progressionLabContractFixtures.test.js` checks the exact metadata and
+anonymous simulation request/response shapes. Both run in the API fixtures
+gate. See [Progression Lab](../../docs/operations/progression-lab.md) for the
+model boundary, conditional milestone percentiles and finite-content subset.
+
 `config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
 settings through real parent-only reads, saves and resets. The exact response
 contains only `provider`, `model` and `has_api_key`; API keys are write-only and

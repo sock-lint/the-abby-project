@@ -635,6 +635,7 @@ describe('Manage — Admin tab', () => {
       expect(screen.getByRole('tab', { name: /^Admin$/ })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('tab', { name: /^Admin$/ }));
+    expect(screen.getByRole('link', { name: 'Open progression lab' })).toHaveAttribute('href', '/manage/progression-lab');
     await user.type(await screen.findByLabelText(/family name/i), 'New House');
     await user.type(screen.getByLabelText(/sign-in name/i), 'founder');
     await user.type(screen.getByLabelText(/^password$/i), 'ApbBy1!Strong');

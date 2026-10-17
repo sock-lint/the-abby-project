@@ -80,6 +80,13 @@ synchronous. Deferred failures follow the pipeline's existing logged,
 best-effort policy and leave the quest retryable.
 
 ## Endpoints
+- Staff-parent design workbench: `GET /api/rpg/progression-lab/` and
+  `POST /api/rpg/progression-lab/simulate/`. `progression/` snapshots only
+  global supported content and runs bounded seeded scenarios in memory, with
+  no real user selector or award writers. Reports explicitly describe their
+  activity assumptions and omitted mechanics; finite-content projections are
+  a modeled subset, not full-app exhaustion. See
+  [`docs/operations/progression-lab.md`](../../docs/operations/progression-lab.md).
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.
