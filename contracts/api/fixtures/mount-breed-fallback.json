@@ -9,6 +9,7 @@
   "potion_item_name": "Synthetic Base Potion",
   "potion_item_icon": "🧪",
   "potion_item_sprite_key": "",
+  "potion_item_catalog_icon": null,
   "picked_species": "Fox",
   "picked_species_slug": "fixture-fox",
   "picked_potion": "Base",

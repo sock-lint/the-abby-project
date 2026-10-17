@@ -56,6 +56,8 @@ export default function Hatchery() {
   const potions = inventory.filter((e) => e.item.item_type === 'potion' && e.quantity > 0 && isCatalogAvailable(e.item));
   const selectedEggItem = eggs.find((entry) => String(entry.item.id) === hatchEgg)?.item;
   const selectedEggSpecies = eggSpecies(selectedEggItem);
+  const selectedPotionItem = potions.find((entry) => String(entry.item.id) === hatchPotion)?.item;
+  const selectedPotion = { slug: selectedPotionItem?.metadata?.variant };
   const breedingAvailable = stableData?.breeding_available !== false && mounts.some((mount) => mount.can_breed !== false);
 
   const refresh = () => { reloadStable(); reloadInventory(); };
@@ -230,7 +232,7 @@ export default function Hatchery() {
         {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
           <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>
           <p className="text-caption text-ink-secondary">Hatches into a baby {selectedEggSpecies.name}.</p>
-          <PetEvolutionGuide species={selectedEggSpecies} currentStage="egg" />
+          <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" />
         </section>}
 
         {hatchSuccess && (

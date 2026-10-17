@@ -129,28 +129,12 @@ function DesignShowcaseContent() {
 
       <DeckleDivider glyph="dragon-crest" label="Cards" />
 
-      <section className="grid md:grid-cols-3 gap-4">
+      <section className="grid md:grid-cols-2 gap-4">
         <ParchmentCard variant="plain">
           <div className="font-script text-ink-whisper text-xs">variant: plain</div>
           <h3 className="font-display text-lg mt-1">Standard panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
             Rounded Meadow panel with a quiet border.
-          </p>
-        </ParchmentCard>
-
-        <ParchmentCard variant="plain" flourish>
-          <div className="font-script text-ink-whisper text-xs">flourish</div>
-          <h3 className="font-display text-lg mt-1">Decorated panel</h3>
-          <p className="font-body text-sm text-ink-secondary mt-1">
-            Small Storybook corners with reserved space around the content.
-          </p>
-        </ParchmentCard>
-
-        <ParchmentCard variant="plain" seal>
-          <div className="font-script text-ink-whisper text-xs">seal</div>
-          <h3 className="font-display text-lg mt-1">Flower accent</h3>
-          <p className="font-body text-sm text-ink-secondary mt-1">
-            Optional decorative flower in the corner.
           </p>
         </ParchmentCard>
 

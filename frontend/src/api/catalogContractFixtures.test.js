@@ -139,6 +139,7 @@ describe('current owned-art API contracts', () => {
     expect(receipt).toMatchObject({
       picked_species_slug: 'meshtint-bat', picked_potion_slug: 'base', chromatic: false,
       egg_item_id: 91, egg_lifecycle_stage: 'egg', egg_item_catalog_icon: 'bat-egg-portrait',
+      potion_item_catalog_icon: 'item-base-potion',
     });
     expect(calls).toEqual([{ mount_a_id: 81, mount_b_id: 82 }]);
   });

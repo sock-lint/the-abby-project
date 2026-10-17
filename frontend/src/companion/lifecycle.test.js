@@ -27,6 +27,17 @@ describe('Companion family lifecycle', () => {
     expect(eggSpecies({ item_type: 'egg', name: 'Chick-looking Egg' })).toBeNull();
   });
 
+  it.each([
+    ['chick', 'cute-chick'],
+    ['meshtint-bat', 'meshtint-bat'],
+  ])('preserves the exact registered sprite identity of the %s egg for its form names', (slug, spriteKey) => {
+    const egg = { item_type: 'egg', slug: `${slug}-egg`, pet_species_slug: slug, metadata: { species: slug } };
+    expect(eggSpecies(egg)).toEqual({ slug, name: slug, sprite_key: spriteKey });
+    for (const conflicting of [{ ...egg, slug: 'renamed-egg' }, { ...egg, metadata: { species: 'another-family' } }, { ...egg, pet_species_slug: 'another-family' }]) {
+      expect(eggSpecies(conflicting)).not.toHaveProperty('sprite_key');
+    }
+  });
+
   it('limits prepared form names to the registry’s complete species and potion identity', () => {
     const species = { slug: 'chick', sprite_key: 'cute-chick' };
     expect(companionLifecycle(species, { slug: 'base' }).map(({ form }) => form)).toEqual([null, 'Chick', 'Fledgling', 'Bird']);
