@@ -6,6 +6,7 @@
       "description": "",
       "icon": "G",
       "sprite_key": "",
+      "catalog_icon": "item-frame-gold",
       "item_type": "cosmetic_frame",
       "type_display": "Avatar Frame",
       "rarity": "common",

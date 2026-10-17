@@ -10,6 +10,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Q, Sum
 from django.utils import timezone
+from apps.rpg.catalog_icons import challenge_catalog_icon, item_catalog_icon
 
 from .models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
@@ -98,7 +99,7 @@ def _snapshot(goal):
     for row in goal.reward_items:
         item = ItemDefinition.objects.filter(pk=row["item_id"]).first()
         if item and item_is_available(item):
-            items.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key})
+            items.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return {
         "name": goal.name, "description": goal.description, "metric": goal.metric,
         "target": str(goal.target), "unit": goal.unit, "filter": goal.trigger_filter,
@@ -288,12 +289,12 @@ def _award(occurrence, user):
             salvage = item.coin_value * quantity
             CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.name}")
             coins += salvage
-            items.append({"item_name": item.name, "quantity": quantity, "salvaged_to_coins": salvage})
+            items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity, "salvaged_to_coins": salvage})
         else:
             inv, _ = UserInventory.objects.get_or_create(user=user, item=item, defaults={"quantity": 0})
             inv.quantity += quantity
             inv.save(update_fields=["quantity", "updated_at"])
-            items.append({"item_name": item.name, "quantity": quantity})
+            items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity})
     receipt = {"coins": coins, "xp": actual_xp, "items": items}
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt
@@ -477,7 +478,7 @@ def _reward_preview(snapshot):
     for row in rows:
         item = catalog.get(row["item_id"])
         if item is not None and item_is_available(item):
-            available.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key})
+            available.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return available
 
 
@@ -502,6 +503,7 @@ def occurrence_payload(occurrence, pin_id=None):
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
         "origin": "catalog" if occurrence.goal.is_catalog else "parent",
+        "catalog_icon": challenge_catalog_icon(occurrence.goal.catalog_definition) if occurrence.goal.is_catalog else None,
         "metric": snapshot["metric"], "target": number(snapshot["target"]), "progress": number(occurrence.progress),
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
@@ -532,6 +534,7 @@ def _legacy_payload(quest, pin_id):
     return {
         "id": key, "name": definition.name, "description": definition.description,
         "origin": "legacy",
+        "catalog_icon": challenge_catalog_icon(definition),
         "metric": "damage" if definition.quest_type == "boss" else "count", "target": str(quest.effective_target),
         "progress": str(quest.current_progress), "unit": "damage" if definition.quest_type == "boss" else "actions",
         "status": "expired" if quest.is_expired else quest.status,
@@ -567,7 +570,7 @@ def list_goals(user):
                 pin.occurrence = successor
                 pin.save(update_fields=["occurrence", "updated_at"])
     pin_id = _pin_id(pin)
-    occurrences = ChallengeOccurrence.objects.filter(goal__user=user, goal__family_id=user.family_id).select_related("goal")
+    occurrences = ChallengeOccurrence.objects.filter(goal__user=user, goal__family_id=user.family_id).select_related("goal", "goal__catalog_definition")
     active = list(occurrences.filter(starts_at__lte=now, ends_at__gt=now))
     recent = list(occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at", "-pk")[:20])
     terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at", "-pk")[:20])

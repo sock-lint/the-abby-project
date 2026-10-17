@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
@@ -12,6 +13,10 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
+vi.mock('../../../pedestal/PedestalPreview', () => ({
+  default: ({ eggAssetId = 'normal-egg' }) => <div role="img" aria-label="Decorative model preview" data-egg={eggAssetId} />,
+}));
+
 function renderHatchery() {
   return render(
     <MemoryRouter>
@@ -22,6 +27,7 @@ function renderHatchery() {
 
 describe('Hatchery', () => {
   it('offers only approved ingredients and explains unavailable breeding without suggesting a hybrid', async () => {
+    const user = userEvent.setup();
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [{ id: 1, can_breed: false }, { id: 2, can_breed: false }], total_possible: 1, breeding_available: false })),
       http.get('*/api/inventory/', () => HttpResponse.json([
@@ -33,12 +39,15 @@ describe('Hatchery', () => {
     );
     renderHatchery();
     expect(await screen.findByRole('combobox', { name: 'Egg' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Chick Egg/ })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: /Earlier Wolf Egg/ })).toBeNull();
-    expect(screen.queryByRole('option', { name: /Fire Potion/ })).toBeNull();
+    const eggs = await openDropdown(user, screen.getByRole('combobox', { name: 'Egg' }));
+    expect(eggs.getByRole('option', { name: /Chick Egg/ })).toBeInTheDocument();
+    expect(eggs.queryByRole('option', { name: /Earlier Wolf Egg/ })).toBeNull();
+    const potions = await openDropdown(user, screen.getByRole('combobox', { name: 'Potion' }));
+    expect(potions.queryByRole('option', { name: /Fire Potion/ })).toBeNull();
     expect(screen.getByText(/Breeding is not available with the current pet collection/)).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: /grown pet/ })).toBeNull();
     expect(screen.queryByText(/hybrid/i)).toBeNull();
+    expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
   });
   it('renders an empty state when there are no eggs or potions', async () => {
     server.use(
@@ -51,6 +60,7 @@ describe('Hatchery', () => {
     await waitFor(() =>
       expect(screen.getByText(/no eggs or potions/i)).toBeInTheDocument(),
     );
+    expect(screen.queryByRole('img', { name: 'Decorative model preview' })).toBeNull();
   });
 
   // "No eggs or potions in your Satchel yet…" used to render on a failed
@@ -106,13 +116,43 @@ describe('Hatchery', () => {
     renderHatchery();
     const user = userEvent.setup();
 
-    await user.selectOptions(await screen.findByRole('combobox', { name: /^egg$/i }), '11');
-    await user.selectOptions(screen.getByRole('combobox', { name: /^potion$/i }), '22');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: /^egg$/i }), '11');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /^potion$/i }), '22');
     await user.click(screen.getByRole('button', { name: /hatch pet/i }));
 
     await waitFor(() => expect(hatch.calls).toHaveLength(1));
     expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
     expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
+  });
+
+  it('keeps artwork neutral and preserves the hatch form without a ceremony after a rejected hatch', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { id: 1, quantity: 1, item: { id: 11, name: 'A very long saved egg name including Legendary artwork words', item_type: 'egg', catalog_available: true } },
+        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', item_type: 'potion', catalog_available: true } },
+      ])),
+    );
+    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, HttpResponse.json({ detail: 'This pair cannot be hatched.' }, { status: 400 }));
+    server.use(hatch.handler);
+    renderHatchery();
+    const user = userEvent.setup();
+    const egg = await screen.findByRole('combobox', { name: /^egg$/i });
+    const potion = screen.getByRole('combobox', { name: /^potion$/i });
+    await selectDropdown(user, egg, '11');
+    await selectDropdown(user, potion, '22');
+    expect(hatch.calls).toHaveLength(0);
+    expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /hatch pet/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This pair cannot be hatched.');
+    expect(hatch.calls).toHaveLength(1);
+    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
+    expect(egg).toHaveTextContent('A very long saved egg name including Legendary artwork words');
+    expect(potion).toHaveTextContent('Base Potion');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(screen.queryByText(/You hatched a/)).toBeNull();
   });
 
   it('disables resting mounts in the breed picker and breeds two ready mounts', async () => {
@@ -143,12 +183,13 @@ describe('Hatchery', () => {
     const user = userEvent.setup();
 
     const firstPicker = await screen.findByRole('combobox', { name: /first grown pet/i });
-    const restingOption = Array.from(firstPicker.options).find((o) => /lion/i.test(o.textContent || ''));
-    expect(restingOption?.disabled).toBe(true);
+    const grownPets = await openDropdown(user, firstPicker);
+    const restingOption = grownPets.getByRole('option', { name: /lion/i });
+    expect(restingOption).toHaveAttribute('aria-disabled', 'true');
     expect(restingOption?.textContent).toMatch(/resting \d+d/);
 
-    await user.selectOptions(firstPicker, '9');
-    await user.selectOptions(screen.getByRole('combobox', { name: /second grown pet/i }), '10');
+    await selectDropdown(user, firstPicker, '9');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /second grown pet/i }), '10');
     await user.click(screen.getByRole('button', { name: /breed pets/i }));
 
     await waitFor(() => expect(breed.calls).toHaveLength(1));
@@ -192,8 +233,8 @@ describe('Hatchery', () => {
     renderHatchery();
     const user = userEvent.setup();
 
-    await user.selectOptions(await screen.findByRole('combobox', { name: /first grown pet/i }), '9');
-    await user.selectOptions(screen.getByRole('combobox', { name: /second grown pet/i }), '10');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: /first grown pet/i }), '9');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /second grown pet/i }), '10');
     await user.click(screen.getByRole('button', { name: /breed pets/i }));
 
     // The celebration modal mounts and renders the result egg headline +

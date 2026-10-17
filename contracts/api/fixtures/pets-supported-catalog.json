@@ -22,7 +22,9 @@
         61
       ],
       "owned_mount_potion_ids": [],
-      "catalog_available": true
+      "catalog_available": true,
+      "catalog_icon": "portrait-chick",
+      "grown_catalog_icon": "portrait-chick-grown"
     }
   ],
   "potions": [

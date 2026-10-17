@@ -107,6 +107,7 @@ export default function HomeworkFormModal({
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <SelectField
+              aria-label="Subject"
               value={form.subject}
               onChange={(e) => set({ subject: e.target.value })}
             >

@@ -1,6 +1,7 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders, screen, waitFor, within } from '../test/render';
+import { renderWithProviders, screen, waitFor } from '../test/render';
 import { server } from '../test/server';
 import CreationLogModal from './CreationLogModal';
 
@@ -27,14 +28,14 @@ function stubSkills() {
 describe('CreationLogModal', () => {
   it('renders only creative-subset skills in the primary picker', async () => {
     stubSkills();
-    renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
+    const { user } = renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);
 
     await waitFor(() => {
       expect(screen.getByRole('combobox', { name: /primary skill/i })).toBeInTheDocument();
     });
 
     const primary = screen.getByRole('combobox', { name: /primary skill/i });
-    const options = within(primary).getAllByRole('option').map((o) => o.textContent);
+    const options = (await openDropdown(user, primary)).getAllByRole('option').map((o) => o.textContent);
     expect(options).toEqual(expect.arrayContaining(['Drawing', 'Painting', 'Baking']));
     expect(options).not.toContain('Algebra');
   });
@@ -91,7 +92,7 @@ describe('CreationLogModal', () => {
 
     // Pick primary skill.
     const primary = screen.getByRole('combobox', { name: /primary skill/i });
-    await user.selectOptions(primary, '11');
+    await selectDropdown(user, primary, '11');
 
     const submitBtn = screen.getByRole('button', { name: /log creation/i });
     await waitFor(() => expect(submitBtn).not.toBeDisabled());

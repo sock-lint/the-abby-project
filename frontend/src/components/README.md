@@ -135,6 +135,31 @@ When a page-area has constants used by both a parent and an extracted card (e.g.
 
 Examples: [`pages/achievements/skillTree.constants.js`](../pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve used by Skills domain components); [`components/atlas/mastery.constants.js`](./atlas/mastery.constants.js) holds the Illuminated Atlas shared vocabulary — see [Atlas cohort](#atlas-cohort) for the full export list; [`pages/achievements/collections.constants.js`](../pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy — `COLLECTIONS` (seven chapters keyed by criterion family), `collectionForCriterion` / `collectionForBadge`, `groupBadgesByCollection`, `rarityCounts`, `unlockHint` (plain-English template for every known `criterion_type` — passed to `<BadgeSigil hint={...}>` by `CollectionFolio`), and `ladderSiblings` (tier progressions for the detail sheet); [`pages/character/character.constants.js`](../pages/character/character.constants.js) holds the Frontispiece taxonomy — `COSMETIC_CHAPTERS` (four cosmetic slots keyed to rubric numerals + drop-cap letters), `STREAK_TIERS` + `streakTier(days)` (flame-size ladder aligned with backend streak milestones), `mergeSlotCosmetics` (dedupe + sort owned against catalog), `slotRarityCounts`, and `cosmeticLockHint`. The Reliquary chapter taxonomy and the cosmetic chapter taxonomy are deliberately page-scoped — only the rarity / progress / chapter-numeral vocabulary is shared.
 
+### Dropdowns
+
+Use `SelectField` from `components/form` for a choice from a list, including
+compact toolbar filters (`variant="filter"`). Its shared `Dropdown` control
+styles both the trigger and the open list with Meadow tokens across all six
+covers. Keep passing `<option>` and `<optgroup>` children and reading
+`event.target.value`; option values and saved API payloads stay the same.
+The design library's [Dropdowns](/__design#design-dropdowns) section includes
+grouped, long, disabled, error and modal examples.
+Menu choices wrap; the closed field keeps one line with ellipsis and a full
+text tooltip, preserving compact form and filter layouts.
+
+Every dropdown needs a visible `label`, an external label linked by `id`, or
+an `aria-label`. Error and help text remain associated with the trigger.
+Arrow keys, Home/End and typing move through enabled options; Enter/Space
+confirms, Escape cancels, and Tab continues through the form. Opening and
+browsing a list does not submit the form or change its saved selection.
+Use the existing action-menu components for commands rather than putting
+actions in a choice list.
+
+Consumer tests use `selectDropdown(user, control, value)` from
+`src/test/selectDropdown.js` to open the real menu and choose an enabled
+option. Browser fixtures use `e2e/dropdown-helpers.js` for the same interaction.
+Do not change a hidden form control directly in interaction tests.
+
 ### Accessibility roles
 
 `AddToCalendar` opens a shared `BottomSheet` with a [Google event template](https://developers.google.com/workspace/calendar/api/concepts/inviting-attendees-to-events) and an [Apple Calendar `.ics` import](https://support.apple.com/guide/calendar/import-or-export-calendars-icl1023/mac). It accepts a saved event via `event`, and optionally `dateEditable`, `dateHelp`, and `validateDate` for choosing a duty reminder day. Invalid or missing dates render no trigger. Keep the trigger outside navigation links/buttons. Exports follow [RFC 5545](https://www.rfc-editor.org/rfc/rfc5545) and never read browser credentials or the current page's query/fragment. Show one-time-copy behavior; later source changes do not update the calendar event.
@@ -148,6 +173,7 @@ Shared primitives carry consistent ARIA roles. Match these when building new one
 | `ErrorAlert` | `alert` | Errors interrupt — assertive politeness |
 | `ProgressBar` / `QuillProgress` | `progressbar` + `aria-valuenow/min/max` | Widget with measurable state |
 | `BottomSheet` | `dialog` + `aria-modal="true"` + `aria-labelledby` | Modal surface |
+| `SelectField` / `Dropdown` | `combobox` + controlled `listbox` / `option` | One tab stop, virtual option focus, selected and disabled states, grouped choices |
 | `ConfirmDialog` | `alertdialog` + `aria-modal="true"` + `aria-labelledby` + `aria-describedby` | Destructive-action modal |
 | `TomeShelf` / `TomeSpine` | `tablist` + `tab` + `aria-selected` + one tab stop | Wrapping collection cards or compact filter pills; Left/Right wrap, Home/End select first/last, keyboard focus stays with selection |
 | `TabList` | `tablist` + `tab` + `aria-selected` + one tab stop | Left/Right wrap and select; Home/End select first/last; horizontal rail scrolling respects reduced motion |
@@ -236,6 +262,63 @@ Per-page tier concepts map onto the Atlas rarity vocabulary via [`pages/quests/q
 
 Test attributes mirror the rest of the cohort: `data-folio-verso="true"`, `data-tier={locked|nascent|rising|cresting|gilded}`, `data-progress={pct}` on the verso aside; `data-folio-recto="true"` on the recto. Within the recto, working-list sections lead with `<ChapterRubric index name>` so the §I/§II/§III numeral progression reads as the chapter's table of contents.
 
+### Pedestal and card artwork
+
+The private Meshtint pedestal/card family lives in [`../pedestal/`](../pedestal/).
+`/__design#design-pedestal` includes all 19 UI assets, a 512px/1024px selector
+covering all 35 PNG variants, a measured frame example, and the six native GLBs
+with their four supplied loops. The [showcase](../pages/design/PedestalShowcase.jsx)
+includes imports and consumer links; the [adoption guide](../../../docs/operations/pedestal-card-ui.md)
+documents release pins, private import/build verification, scene placement and
+device acceptance.
+
+| Component | Props and use |
+| --- | --- |
+| [`PedestalImage`](../pedestal/PedestalImage.jsx) | `assetId`, `variantId="web"`, `alt=""`, `className`. Renders one complete PNG canvas with lazy loading and loading/error fallbacks. Use a nonempty `alt` for meaningful artwork; the default is decorative. |
+| [`PedestalFrame`](../pedestal/PedestalFrame.jsx) | `children`, `label="Framed content"`, `className`. Places independent app content inside the gold frame's measured opening, with padding and keyboard-accessible scrolling. Content remains readable when frame artwork is unavailable. |
+| [`PedestalPreview`](../pedestal/PedestalPreview.jsx) | `eggAssetId="normal-egg"`, `animate={true}`, `className`, `stageClassName="h-80"`. Shows a decorative native pedestal/egg scene; `eggAssetId={null}` selects the pedestal alone. Includes local off/retry controls and DOM fallbacks. |
+
+Choose asset IDs from [`PEDESTAL_IMAGE_IDS` and `PEDESTAL_EGG_IDS`](../pedestal/pedestalRelease.js).
+Normal callers use the pinned private release automatically; the optional
+`staged` prop supplies a release fixture for isolated previews/tests.
+
+```jsx
+// Imports from a module directly under src/pages/.
+import PedestalImage from '../pedestal/PedestalImage';
+import PedestalFrame from '../pedestal/PedestalFrame';
+import PedestalPreview from '../pedestal/PedestalPreview';
+
+function ArtworkExample() {
+  return <>
+    <div className="max-w-xs">
+      <PedestalImage assetId="card-front-egg-star" alt="Egg artwork" />
+    </div>
+    <PedestalFrame label="Artwork example" className="max-w-sm">
+      <p>Independent application content.</p>
+    </PedestalFrame>
+    <PedestalPreview animate={false} />
+  </>;
+}
+```
+
+Images default to the 512px web variant. Request `variantId="native"`
+explicitly for the 16 available 1024px variants; the three web-only originals
+retain their 512px image. Preserve full proportions, transparent margins and
+alpha. Card faces already contain their emblems; keep live content beside
+them. There are no supplied blank card slots or authored nine-slice borders.
+
+Each native animation take keeps its own complete mesh, rig and common root.
+Playback respects reduced motion, visibility and background state.
+`HatchingSoon` is repeating anticipation, not a completed hatch. Keep application
+controls in accessible DOM and derive game state and outcomes from server-confirmed
+responses.
+
+[Hatching](../pages/bestiary/hatchery/Hatchery.jsx) currently uses the neutral
+Normal Egg/pedestal and `card-front-egg-star`. The other artwork is available
+for design review without catalog, ownership, rarity or progression bindings.
+Keep paid PNGs, GLBs and derived previews in the private asset workflow outside
+Git and public preview hosting.
+
 ### RpgSprite
 
 `<RpgSprite spriteKey="slug" icon="🐉" size={32} alt="..." className="..." />`
@@ -251,3 +334,17 @@ Props: `spriteKey`, `fallbackSpriteKey` (optional base-species fallback), `icon`
 A11y: static `<img>` gets `alt`; animated and fallback `<span>` elements get `role="img"` + `aria-label`. The fallback glyph and animated strip's load probe are hidden from assistive technology, so the entity name is announced once. Potion and happiness filters apply to every render mode. Animations respect `prefers-reduced-motion` via a freeze rule in `index.css` — no per-instance motion logic needed.
 
 Do not call `fetchSpriteCatalog` or access `localStorage` directly in pages; go through `useSpriteCatalog().getSpriteUrl` / `.getSpriteMeta` for consistent cache behavior.
+
+### CatalogIcon
+
+`<CatalogIcon assetId={item.catalog_icon} spriteKey={item.sprite_key} icon={item.icon} size={40} alt={item.name} />`
+
+Use the server-confirmed `catalog_icon` identity on item/challenge/catalog image
+surfaces; flattened item responses use `item_catalog_icon`. The private shared
+family resolves static PNG URLs beneath its pinned manifest directory. Images
+use smooth interpolation and contain sizing at the requested CSS size. A missing
+identity/install or failed PNG retains the existing `RpgSprite` fallback chain.
+Use empty `alt` for a decorative image whose adjacent label already describes it.
+Keep creature/gameplay presentation on its existing renderer and equipped frames
+on their existing overlays. Never infer catalog image identity from a shared
+legacy sprite key or a parent-authored challenge name.

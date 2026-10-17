@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../test/selectDropdown';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
@@ -282,7 +283,7 @@ describe('Yearbook archive identity and delayed requests', () => {
     await user.type(await screen.findByLabelText('Your family response'), 'A reply for Abby')
     expect(screen.getByRole('dialog', { name: "Abby's journal" })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByRole('combobox', { name: /viewing/i }), { target: { value: '8' } })
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '8')
     expect(screen.getByRole('combobox', { name: /viewing/i })).toHaveValue('8')
     expect(screen.queryByRole('region', { name: "Abby's chapter" })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Abby's journal/ })).not.toBeInTheDocument()
@@ -310,7 +311,7 @@ describe('Yearbook archive identity and delayed requests', () => {
     await user.click(screen.getByRole('button', { name: /add memory/i }))
     await user.type(screen.getByLabelText('Title'), 'Abby draft')
 
-    fireEvent.change(screen.getByRole('combobox', { name: /viewing/i }), { target: { value: '8' } })
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '8')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByDisplayValue('Abby draft')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /add memory/i }))
@@ -345,7 +346,7 @@ describe('Yearbook archive identity and delayed requests', () => {
     await user.click(screen.getByRole('button', { name: /^save$/i }))
     await waitFor(() => expect(summary).toHaveBeenCalledTimes(2))
 
-    await user.selectOptions(screen.getByRole('combobox', { name: /viewing/i }), '8')
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '8')
     await screen.findByRole('button', { name: /Ben's journal/ })
     await act(async () => {
       if (outcome === 'success') refresh.resolve(summaryFor('Old Abby response'))
@@ -374,7 +375,7 @@ describe('Yearbook archive identity and delayed requests', () => {
     await user.click(screen.getByRole('button', { name: /^save$/i }))
     expect(create).toHaveBeenCalledWith({ user_id: 7, title: 'Abby memory', summary: '', occurred_on: '2026-04-21' })
 
-    fireEvent.change(screen.getByRole('combobox', { name: /viewing/i }), { target: { value: '8' } })
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '8')
     await screen.findByRole('button', { name: /Ben's journal/ })
     await user.click(screen.getByRole('button', { name: /add memory/i }))
     await user.type(screen.getByLabelText('Title'), 'Ben draft')
@@ -398,9 +399,9 @@ describe('Yearbook archive identity and delayed requests', () => {
     const user = userEvent.setup()
     renderWithProviders(<Yearbook />)
     await waitFor(() => expect(summary).toHaveBeenCalledWith(7))
-    await user.selectOptions(screen.getByRole('combobox', { name: /viewing/i }), '8')
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '8')
     await screen.findByRole('button', { name: /Ben's journal/ })
-    await user.selectOptions(screen.getByRole('combobox', { name: /viewing/i }), '7')
+    await selectDropdown(user, screen.getByRole('combobox', { name: /viewing/i }), '7')
     expect(screen.queryByRole('button', { name: /Ben's journal/ })).not.toBeInTheDocument()
     await act(async () => oldAbby.resolve(summaryFor('Stale Abby')))
     expect(screen.queryByRole('button', { name: /Stale Abby/ })).not.toBeInTheDocument()
@@ -459,7 +460,8 @@ describe('Yearbook archive identity and delayed requests', () => {
     await act(async () => newChildren.resolve([buildUser({ id: 9, first_name: 'Cara' })]))
     expect(await screen.findByRole('button', { name: /Cara's journal/ })).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: /viewing/i })).toHaveValue('9')
-    expect(screen.queryByRole('option', { name: 'Abby' })).not.toBeInTheDocument()
+    const children = await openDropdown(user, screen.getByRole('combobox', { name: /viewing/i }))
+    expect(children.queryByRole('option', { name: 'Abby' })).not.toBeInTheDocument()
     expect(summary.mock.calls).toEqual([[7], [9]])
   })
 
@@ -478,7 +480,8 @@ describe('Yearbook archive identity and delayed requests', () => {
     await act(async () => oldChildren.resolve(childOptions))
 
     expect(screen.getByRole('combobox', { name: /viewing/i })).toHaveValue('9')
-    expect(screen.queryByRole('option', { name: 'Abby' })).not.toBeInTheDocument()
+    const childChoices = await openDropdown(user, screen.getByRole('combobox', { name: /viewing/i }))
+    expect(childChoices.queryByRole('option', { name: 'Abby' })).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: "Cara's chapter" })).toBeInTheDocument()
     expect(summary.mock.calls).toEqual([[9]])
   })

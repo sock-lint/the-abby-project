@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { useLayoutEffect, useMemo } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
@@ -77,7 +78,7 @@ describe('avatar editor app-update protection', () => {
     const user = userEvent.setup();
     const save = spyHandler('post', /\/api\/character\/avatar\/configuration\/$/, {});server.use(save.handler);
     await openEditor();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await blockedUpdate(user);
     expect(screen.getByRole('combobox', { name: 'Weapon' })).toHaveValue('bow-greenhorn');
     expect(save.calls).toHaveLength(0);
@@ -104,7 +105,7 @@ describe('avatar editor app-update protection', () => {
       await pending;return HttpResponse.json({ avatar_configuration: configuration });
     }));
     await openEditor();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     try {
       await waitFor(() => expect(requests).toHaveLength(1));
@@ -120,7 +121,7 @@ describe('avatar editor app-update protection', () => {
     const user = userEvent.setup();
     server.use(http.post('*/api/character/avatar/configuration/', () => HttpResponse.json({ error: 'Synthetic save unavailable.' }, { status: 503 })));
     await openEditor();
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Weapon' }), 'bow-greenhorn');
     await user.click(screen.getByRole('button', { name: 'Save avatar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Synthetic save unavailable.');
     await blockedUpdate(user);

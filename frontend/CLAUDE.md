@@ -93,6 +93,7 @@ frontend/src/
     form/            TextField, SelectField, TextAreaField (labeled form
                      primitives with useId-driven htmlFor + aria-invalid /
                      aria-describedby wiring), useFieldIds (shared hook),
+                     Dropdown (themed combobox/listbox used by SelectField),
                      index.js barrel.
     layout/          JournalShell (outer layout — sidebar + header + rune
                      progress band + bottom nav + FAB), ChapterNav,

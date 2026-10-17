@@ -17,7 +17,7 @@ import ErrorAlert from '../components/ErrorAlert';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import { EggIcon } from '../components/icons/JournalIcons';
-import RpgSprite from '../components/rpg/RpgSprite';
+import CatalogIcon from '../components/rpg/CatalogIcon';
 import BoostStrip from '../components/rpg/BoostStrip';
 import CatalogSearch from '../components/CatalogSearch';
 import PageShell from '../components/layout/PageShell';
@@ -292,7 +292,8 @@ export default function Inventory() {
                     className={`text-center p-3 relative ring-2 ring-offset-2 ring-offset-ink-page ${RARITY_RING_COLORS[entry.item.rarity] || 'ring-transparent'}`}
                   >
                     <div className="flex items-center justify-center h-12 mb-1">
-                      <RpgSprite
+                      <CatalogIcon
+                        assetId={entry.item.catalog_icon}
                         spriteKey={entry.item.sprite_key}
                         icon={entry.item.icon}
                         size={48}

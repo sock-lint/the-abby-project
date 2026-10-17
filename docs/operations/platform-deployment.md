@@ -69,6 +69,57 @@ The request/response behavior was also checked against the installed 4.1.2
 controller. This integration does not print deployment logs, application
 configuration, or error response bodies, which may contain private values.
 
+## Sentry configuration and verification
+
+Backend and browser error reporting use separate settings. Select the existing
+Abby projects in the self-hosted Sentry instance at `https://logs.neato.digital`
+and copy each project's DSN from its client-key settings. Do not substitute an
+authentication token for a DSN or assume both clients use the same project.
+
+In the existing production Coolify application's **Environment Variables**, set:
+
+| Setting | Value | Required scope |
+| --- | --- | --- |
+| `SENTRY_DSN` | Backend project's DSN | Runtime |
+| `SENTRY_ENVIRONMENT` | `production` | Runtime |
+| `VITE_SENTRY_DSN` | Browser project's DSN | Build time |
+| `VITE_SENTRY_ENVIRONMENT` | `production` | Build time |
+
+Optional `SENTRY_RELEASE` and `VITE_SENTRY_RELEASE` can identify the same deployed
+commit. The independent `*_TRACES_SAMPLE_RATE` settings control performance
+tracing, not whether errors are captured. Empty DSNs intentionally disable
+reporting for that client.
+
+The production Compose build forwards the public `VITE_SENTRY_*` settings as
+build arguments. Existing scoped BuildKit mounts take precedence when Coolify
+supplies those settings as build secrets. Changing browser settings requires a
+new image build and deployment; restarting an old image preserves its old
+configuration. GitHub's optional Sentry secrets configure only its public
+validation image, not Coolify's separate production build.
+
+The optional source-map upload token belongs in the existing BuildKit secret
+`SENTRY_AUTH_TOKEN`, never a build argument or `VITE_*` value. Keep a verification
+API token outside Git and application configuration. For readback, use
+`project:read` and `event:read` permissions and authenticated requests to the
+self-hosted instance.
+
+After the gated deployment, verify both sending clients and receiver ingestion:
+
+1. Confirm `/health` identifies the expected served commit. Open the deployed
+   website in a fresh browser context so an old PWA bundle cannot mask the new
+   browser configuration.
+2. Produce one clearly named synthetic browser exception and one synthetic
+   exception in the deployed Django process. Backend verification must use its
+   initialized SDK and runtime settings, not a separately configured local SDK.
+   Use synthetic messages with no family, journal or authentication data.
+3. Record each event ID and retrieve it from
+   `/api/0/projects/<organization>/<project>/events/<event-id>/`. Check the
+   expected project, message, platform and environment before recording success.
+
+An SDK event ID, an accepted envelope, passing mocked unit tests, a healthy
+Sentry endpoint or successful source-map upload alone does not prove an event
+was processed and stored. Missing receiver access leaves delivery unverified.
+
 ## Release verification and limits
 
 Only pushes/manual dispatches on `main` can deploy. Per-ref workflow concurrency

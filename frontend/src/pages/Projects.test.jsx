@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -119,7 +120,7 @@ describe('Projects', () => {
     ]);
     await waitFor(() => expect(screen.getByText('LivingP')).toBeInTheDocument());
     const [statusSelect] = screen.getAllByRole('combobox');
-    await user.selectOptions(statusSelect, 'completed');
+    await selectDropdown(user, statusSelect, 'completed');
     expect(screen.queryByText('LivingP')).toBeNull();
     expect(screen.getByText('FinishedP')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /clear filters/i }));
@@ -138,7 +139,7 @@ describe('Projects', () => {
     ]);
     await waitFor(() => expect(screen.getByText('ReqP')).toBeInTheDocument());
     const [, typeSelect] = screen.getAllByRole('combobox');
-    await user.selectOptions(typeSelect, 'bounty');
+    await selectDropdown(user, typeSelect, 'bounty');
     expect(screen.queryByText('ReqP')).toBeNull();
     expect(screen.getByText('BountyP')).toBeInTheDocument();
   });
@@ -158,10 +159,10 @@ describe('Projects', () => {
     ]);
     await waitFor(() => expect(screen.getByText('Abby P')).toBeInTheDocument());
     const [, , childSelect] = screen.getAllByRole('combobox');
-    await user.selectOptions(childSelect, 'unassigned');
+    await selectDropdown(user, childSelect, 'unassigned');
     expect(screen.queryByText('Abby P')).toBeNull();
     expect(screen.getByText('Open')).toBeInTheDocument();
-    await user.selectOptions(childSelect, '3');
+    await selectDropdown(user, childSelect, '3');
     expect(screen.getByText('Abby P')).toBeInTheDocument();
   });
 

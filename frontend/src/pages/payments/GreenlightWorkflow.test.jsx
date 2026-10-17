@@ -1,3 +1,4 @@
+import { selectDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
@@ -116,7 +117,7 @@ describe('Greenlight payout workflow', () => {
     const payout = spyHandler('post', /\/api\/payments\/greenlight\/payout\/$/, { created: true, payout: { id: 56 } });
     const { user } = renderWorkflow({ extra: [payout.handler] });
     const dialog = await openTransfer(user);
-    await user.selectOptions(dialog.getByLabelText(/approved timecard/i), '12');
+    await selectDropdown(user, dialog.getByLabelText(/approved timecard/i), '12');
     expect(dialog.getByLabelText('Transfer amount')).toHaveValue(20);
     expect(dialog.getByLabelText('Transfer amount')).toHaveAttribute('readonly');
     await user.click(dialog.getByRole('checkbox', { name: /already completed/i }));
@@ -253,8 +254,8 @@ describe('Greenlight payout workflow', () => {
     expect(first).toHaveValue('ignore');
     expect(screen.getByRole('button', { name: /reconcile 0 selected/i })).toBeDisabled();
     expect(screen.queryByLabelText('Action for row 3')).not.toBeInTheDocument();
-    await user.selectOptions(first, '55');
-    await user.selectOptions(screen.getByLabelText('Action for row 4'), 'record');
+    await selectDropdown(user, first, '55');
+    await selectDropdown(user, screen.getByLabelText('Action for row 4'), 'record');
     const confirm = screen.getByRole('checkbox', { name: /these 2 selected transfers paid abby/i });
     await user.click(confirm);
     await user.click(screen.getByRole('button', { name: /reconcile 2 selected/i }));
@@ -295,8 +296,8 @@ describe('Greenlight payout workflow', () => {
     await user.click(await screen.findByLabelText('Or paste transfer CSV'));
     await user.paste(csv);
     await user.click(screen.getByRole('button', { name: /^preview csv$/i }));
-    await user.selectOptions(await screen.findByLabelText('Action for row 2'), 'record');
-    await user.selectOptions(screen.getByLabelText('Timecard for row 2 (optional)'), '12');
+    await selectDropdown(user, await screen.findByLabelText('Action for row 2'), 'record');
+    await selectDropdown(user, screen.getByLabelText('Timecard for row 2 (optional)'), '12');
     await user.click(screen.getByRole('checkbox', { name: /these 1 selected transfers paid abby/i }));
     await user.click(screen.getByRole('button', { name: /reconcile 1 selected/i }));
     await waitFor(() => expect(reconcile.calls).toHaveLength(1));
@@ -339,7 +340,7 @@ describe('Greenlight payout workflow', () => {
     const user = renderPage({ initial: '/payments' });
     await screen.findByText('$25.00');
     expect(screen.queryByRole('button', { name: /record completed transfer/i })).not.toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Kid for payments and Greenlight'), '7');
+    await selectDropdown(user, screen.getByLabelText('Kid for payments and Greenlight'), '7');
     expect(await screen.findByRole('region', { name: /greenlight for abby/i })).toBeInTheDocument();
   });
 
@@ -359,7 +360,7 @@ describe('Greenlight payout workflow', () => {
       }),
     ] });
     await waitFor(() => expect(started).toBe(true), { timeout: 3000 });
-    await user.selectOptions(screen.getByLabelText('Kid for payments and Greenlight'), '8');
+    await selectDropdown(user, screen.getByLabelText('Kid for payments and Greenlight'), '8');
     expect(await screen.findByText('$8.00')).toBeInTheDocument();
     await screen.findByRole('region', { name: /greenlight for beck/i });
     await act(async () => { release(); await delayed; });
@@ -380,7 +381,7 @@ describe('Greenlight payout workflow', () => {
     await user.paste(csv);
     await user.click(screen.getByRole('button', { name: /^preview csv$/i }));
     await waitFor(() => expect(previewCalls).toHaveLength(1));
-    await user.selectOptions(screen.getByLabelText('Kid for payments and Greenlight'), '8');
+    await selectDropdown(user, screen.getByLabelText('Kid for payments and Greenlight'), '8');
     expect(await screen.findByLabelText('Or paste transfer CSV')).toHaveValue('');
     await act(async () => { release(); await delayed; });
     expect(screen.queryByLabelText('Action for row 2')).not.toBeInTheDocument();

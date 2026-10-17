@@ -1,3 +1,4 @@
+import { selectDropdown } from '../test/selectDropdown';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import Portfolio from './Portfolio.jsx';
@@ -468,7 +469,7 @@ describe('Portfolio', () => {
     await waitFor(() => expect(screen.getByText(/add photo/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /add photo/i }));
 
-    await user.selectOptions(screen.getByLabelText(/^project$/i), '7');
+    await selectDropdown(user, screen.getByLabelText(/^project$/i), '7');
     await user.upload(
       document.querySelector('input[type="file"]'),
       new File(['x'], 'shot.png', { type: 'image/png' }),
@@ -553,7 +554,7 @@ it('retains the photo and caption after server image validation and only retries
   server.use(uploads.handler);
   const { user } = renderWithProviders(<Portfolio />);
   await user.click(await screen.findByRole('button', { name: 'Add photo' }));
-  await user.selectOptions(screen.getByLabelText('Project'), '7');
+  await selectDropdown(user, screen.getByLabelText('Project'), '7');
   await user.upload(screen.getByLabelText('Photo', { selector: 'input' }), new File(['pixels'], 'memory.png', { type: 'image/png' }));
   await user.type(screen.getByLabelText('Caption (optional)'), 'My first attempt');
   await user.click(screen.getByRole('button', { name: 'Upload Photo' }));

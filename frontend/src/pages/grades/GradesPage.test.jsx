@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { screen, waitFor, within } from '@testing-library/react';
@@ -189,7 +190,7 @@ describe('GradesPage', () => {
     );
     const { user } = mount(buildParent());
     await screen.findByText('8 / 10 points');
-    expect(screen.getByRole('option', { name: 'Abby Rose' })).toBeInTheDocument();
+    expect((await openDropdown(user, screen.getByRole('combobox', { name: 'Viewing' }))).getByRole('option', { name: 'Abby Rose' })).toBeInTheDocument();
     expect(screen.queryByText('Private reflection')).toBeNull();
     expect(screen.queryByText('Another child')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Log a grade' })).toBeNull();
@@ -216,7 +217,7 @@ describe('GradesPage', () => {
     const { user } = mount(buildParent());
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await screen.findByRole('textbox', { name: 'Your family response' });
-    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
+    await selectDropdown(user, screen.getByLabelText('Viewing'), '8');
     expect(screen.queryByText('Abby reflection')).toBeNull();
     expect(screen.queryByRole('textbox', { name: 'Your family response' })).toBeNull();
     finishSecond();
@@ -280,7 +281,7 @@ describe('GradesPage', () => {
     );
     const { user } = mount(buildParent(), <OutsideSaveHarness />);
     await screen.findByText('7 reflection');
-    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
+    await selectDropdown(user, screen.getByLabelText('Viewing'), '8');
     await screen.findByText('8 reflection');
     await user.click(screen.getByRole('button', { name: 'Acknowledge grade saved elsewhere' }));
     expect(screen.getByLabelText('Viewing')).toHaveValue('8');
@@ -301,7 +302,7 @@ describe('GradesPage', () => {
     );
     const { user } = mount(buildParent(), <OtherChildSaveHarness />);
     await screen.findByText('7 reflection');
-    await user.selectOptions(screen.getByLabelText('Viewing'), '8');
+    await selectDropdown(user, screen.getByLabelText('Viewing'), '8');
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     await user.type(await screen.findByLabelText('Your family response'), 'Keep this encouragement.');
     await user.click(screen.getByRole('button', { name: "Another child's grade saved" }));
@@ -331,13 +332,17 @@ describe('GradesPage', () => {
     const { user } = mount(buildParent(), <SwitchAccountHarness nextUser={buildParent({ id: 100 })} />);
     await screen.findByText('7 family reflection');
     await user.click(screen.getByRole('button', { name: 'Switch account' }));
-    expect(screen.queryByRole('option', { name: 'Abby' })).toBeNull();
+    expect(screen.queryByText('Abby')).toBeNull();
     expect(screen.queryByText('7 family reflection')).toBeNull();
     await waitFor(() => expect(requests).toBe(2));
     finishChildren();
-    if (outcome === 'success') expect(await screen.findByRole('option', { name: 'Jamie' })).toBeInTheDocument();
+    if (outcome === 'success') {
+      const children = await openDropdown(user, await screen.findByRole('combobox', { name: 'Viewing' }));
+      expect(await children.findByRole('option', { name: 'Jamie' })).toBeInTheDocument();
+      expect(children.queryByRole('option', { name: 'Abby' })).toBeNull();
+    }
     else expect(await screen.findByRole('alert')).toHaveTextContent('New family list unavailable.');
-    expect(screen.queryByRole('option', { name: 'Abby' })).toBeNull();
+    expect(screen.queryByText('Abby')).toBeNull();
   });
 
   it('distinguishes a failed history request from an empty history and offers retry', async () => {

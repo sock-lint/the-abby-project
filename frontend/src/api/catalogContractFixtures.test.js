@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { equipCosmetic, getCosmeticCatalog, getInventory, getPetCodex, getStable, hatchPet } from './index';
+import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
@@ -10,8 +10,39 @@ import inventory from '../../../contracts/api/fixtures/items-preserved-inventory
 import appearanceInventory from '../../../contracts/api/fixtures/inventory-appearance.json';
 import hatchUnavailable from '../../../contracts/api/fixtures/pet-hatch-unavailable.json';
 import equipUnavailable from '../../../contracts/api/fixtures/cosmetic-equip-unavailable.json';
+import imageItems from '../../../contracts/api/fixtures/catalog-icons-items.json';
+import imageChallenges from '../../../contracts/api/fixtures/catalog-icons-challenges.json';
+import imageSpecies from '../../../contracts/api/fixtures/catalog-icons-species.json';
+import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json';
+import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
 
 describe('current owned-art API contracts', () => {
+  it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json(imageItems)),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json(imageChallenges)),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json(imageSpecies)),
+      http.get('*/api/drops/recent/', () => HttpResponse.json(imageDrops)),
+      http.get('*/api/challenges/', () => HttpResponse.json(imageGoals)),
+    );
+    const items = await getItemCatalog();
+    expect(items).toEqual(imageItems);
+    const fish = items.filter((item) => item.sprite_key === 'fish');
+    expect(fish.map((item) => item.catalog_icon)).toEqual(['item-fish-cooked', 'item-fish', null]);
+    expect(items.find((item) => item.name === "Scholar's Draught II").catalog_icon).toBe('item-scholar-draught-ii');
+    const challenges = await getQuestCatalog();
+    expect(challenges).toEqual(imageChallenges);
+    expect(challenges.map((challenge) => challenge.catalog_icon)).toEqual(['challenge-feather-collector', null]);
+    expect(challenges[0].reward_items[0].item_catalog_icon).toBe('item-fish');
+    expect(await getPetSpeciesCatalog()).toEqual(imageSpecies);
+    expect(imageSpecies[0]).toMatchObject({ catalog_icon: 'portrait-chick', grown_catalog_icon: 'portrait-chick-grown' });
+    expect(await getRecentDrops()).toEqual(imageDrops);
+    expect(imageDrops[0].item_catalog_icon).toBe('item-fish-cooked');
+    const goals = await getChallenges();
+    expect(goals).toEqual(imageGoals);
+    expect(goals.results.filter((goal) => goal.origin === 'catalog').map((goal) => goal.catalog_icon)).toEqual(['challenge-feather-collector']);
+    expect(goals.results.filter((goal) => goal.origin === 'parent').map((goal) => goal.catalog_icon)).toEqual([null]);
+  });
   it('routes owned color themes to Settings and profile frames to Profile', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json(appearanceInventory)));
     const rows = await getInventory();

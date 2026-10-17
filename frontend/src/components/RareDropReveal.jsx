@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 
 import Button from './Button';
-import RpgSprite from './rpg/RpgSprite';
+import CatalogIcon from './rpg/CatalogIcon';
 import { hapticSuccess } from '../utils/haptics';
 import { RARE_TIERS } from './rareDropTiers';
 import {
@@ -102,7 +102,8 @@ export default function RareDropReveal({ drop, onDismiss }) {
             className="mt-5 mx-auto flex items-center justify-center"
             style={{ minHeight: 96 }}
           >
-            <RpgSprite
+            <CatalogIcon
+              assetId={drop.item_catalog_icon}
               spriteKey={drop.item_sprite_key}
               icon={drop.item_icon}
               size={96}

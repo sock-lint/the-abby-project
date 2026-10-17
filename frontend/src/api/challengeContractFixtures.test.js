@@ -36,7 +36,7 @@ describe('automatic challenge responses through the shared React API client', ()
     const goal = await createChallengeGoal(payload);
     expect(goal).toEqual(createdGoal);
     expect(goal).toMatchObject({
-      origin: 'parent',
+      origin: 'parent', catalog_icon: null,
       metric: 'distance', target: '2', progress: '0', unit: 'mi', repeat_weekly: true,
       action: { label: 'Log movement', movement_type_id: 31 },
       reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0, awarded_at: null },
@@ -95,9 +95,9 @@ describe('automatic challenge responses through the shared React API client', ()
   });
 
   it.each([
-    ['delivered', deliveredItems, [{ item_name: 'Fixture frame', quantity: 1 }], 5],
+    ['delivered', deliveredItems, [{ item_name: 'Fixture frame', item_catalog_icon: null, quantity: 1 }], 5],
     ['skipped', skippedItems, [], 5],
-    ['converted', convertedItems, [{ item_name: 'Fixture Wolf Egg', quantity: 1, salvaged_to_coins: 25 }], 30],
+    ['converted', convertedItems, [{ item_name: 'Fixture Wolf Egg', item_catalog_icon: null, quantity: 1, salvaged_to_coins: 25 }], 30],
   ])('preserves recorded %s item outcomes independently of reward previews', async (_label, body, items, coins) => {
     server.use(http.get('*/api/challenges/', () => HttpResponse.json(body)));
     const saved = await getChallenges();

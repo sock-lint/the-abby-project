@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import RpgSprite from '../../components/rpg/RpgSprite';
+import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { RARITY_TEXT_COLORS } from '../../constants/colors';
 import { RARITY_HALO } from '../../components/atlas/mastery.constants';
 import { applyTheme } from '../../themes';
@@ -101,7 +101,8 @@ export default function CosmeticSigil({
         }`}
       >
         <div className={owned ? '' : 'grayscale opacity-45'}>
-          <RpgSprite
+          <CatalogIcon
+            assetId={item.catalog_icon}
             spriteKey={item.sprite_key}
             icon={item.icon}
             size={32}

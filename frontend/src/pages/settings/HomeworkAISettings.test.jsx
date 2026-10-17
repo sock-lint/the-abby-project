@@ -1,3 +1,4 @@
+import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { act, screen, waitFor, within } from '@testing-library/react';
@@ -31,7 +32,7 @@ function renderSettings(settings = DISCONNECTED, role = 'parent', handlers = [],
 }
 
 async function chooseOpenAI(user) {
-  await user.selectOptions(await screen.findByLabelText('AI provider'), 'openai');
+  await selectDropdown(user, await screen.findByLabelText('AI provider'), 'openai');
   await user.type(screen.getByLabelText('API key'), 'synthetic-openai-key');
 }
 
@@ -66,7 +67,7 @@ describe('Planning AI settings', () => {
   it('keeps a saved provider key when only the model changes and supports a custom model ID', async () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, { ...OPENAI, model: 'custom-model-v1' });
     const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
-    await user.selectOptions(await screen.findByLabelText('Model'), 'custom');
+    await selectDropdown(user, await screen.findByLabelText('Model'), 'custom');
     await user.type(screen.getByLabelText('Custom model ID'), 'custom-model-v1');
     await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     await waitFor(() => expect(spy.calls).toHaveLength(1));
@@ -80,15 +81,16 @@ describe('Planning AI settings', () => {
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     const provider = await screen.findByLabelText('AI provider');
     expect(provider).toHaveValue('');
-    expect(within(provider).getByRole('option', { name: 'Choose a provider' })).toBeDisabled();
-    expect(within(provider).getAllByRole('option').filter((option) => !option.disabled)
-      .map((option) => option.value)).toEqual(['openai', 'anthropic']);
+    const choices = await openDropdown(user, provider);
+    expect(choices.getByRole('option', { name: 'Choose a provider' })).toHaveAttribute('aria-disabled', 'true');
+    expect(choices.getAllByRole('option').filter((option) => option.getAttribute('aria-disabled') !== 'true')
+      .map((option) => option.getAttribute('data-value'))).toEqual(['openai', 'anthropic']);
     expect(screen.getByText('AI planning is off until a parent connects OpenAI or Claude.')).toBeInTheDocument();
     expect(screen.queryByText(/default planner/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Model')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save planning AI' })).toBeDisabled();
-    await user.selectOptions(provider, 'openai');
+    await selectDropdown(user, provider, 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
     await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     expect(await screen.findByText('Enter an API key for the selected provider.')).toBeInTheDocument();
@@ -100,7 +102,7 @@ describe('Planning AI settings', () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, anthropic);
     const { user } = renderSettings(OPENAI, 'parent', [spy.handler]);
     await user.type(await screen.findByLabelText('API key'), 'discard-this-key');
-    await user.selectOptions(screen.getByLabelText('AI provider'), 'anthropic');
+    await selectDropdown(user, screen.getByLabelText('AI provider'), 'anthropic');
     expect(screen.getByLabelText('API key')).toHaveValue('');
     await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
     expect(await screen.findByText('Enter an API key for the selected provider.')).toBeInTheDocument();
@@ -209,7 +211,7 @@ describe('Planning AI settings', () => {
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Switch account' }));
     expect(await screen.findByLabelText('AI provider')).toHaveValue('');
-    await user.selectOptions(screen.getByLabelText('AI provider'), 'openai');
+    await selectDropdown(user, screen.getByLabelText('AI provider'), 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
   });
 
@@ -225,7 +227,7 @@ describe('Planning AI settings', () => {
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Replace credential' }));
     expect(await screen.findByLabelText('AI provider')).toHaveValue('');
-    await user.selectOptions(screen.getByLabelText('AI provider'), 'openai');
+    await selectDropdown(user, screen.getByLabelText('AI provider'), 'openai');
     expect(screen.getByLabelText('API key')).toHaveValue('');
   });
 });
