@@ -70,11 +70,11 @@ export default function DeleteMemberAccountAction({ member, remove, onRemoved })
       <div className="space-y-3" aria-busy={busy}>
         <p className="text-body text-ink-secondary">
           This permanently deletes <strong>{label}</strong>’s account, private journal,
-          personal history and saved connections. Projects and homework they created or were assigned
+          related account records and saved connections. Projects and homework they created or were assigned
           are also deleted, including contributions from other people. This cannot be undone.
         </p>
         <p className="text-body text-ink-secondary">
-          Other family members’ activity may still contain their name or shared text.
+          Activity summaries and other family members’ records may still contain their name or shared text.
           Stored files are queued for deletion with retries if cleanup fails.
           Backups, versioned storage copies and copies held by connected providers may remain.
         </p>
