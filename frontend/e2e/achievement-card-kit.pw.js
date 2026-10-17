@@ -206,7 +206,7 @@ test('matching native PNG pairs preserve 64px corner slices and scaled 96px safe
         const bounds = element.getBoundingClientRect();
         const content = element.querySelector('.achievement-card__content');
         const style = getComputedStyle(content);
-        return { width: bounds.width, height: bounds.height, insets: [style.paddingLeft, style.paddingTop, style.paddingRight, style.paddingBottom].map(value => parseFloat(value)),
+        return { width: bounds.width, height: bounds.height, pixelRatio: devicePixelRatio, insets: [style.paddingLeft, style.paddingTop, style.paddingRight, style.paddingBottom].map(value => parseFloat(value)),
           images: [...element.querySelectorAll('img')].map(image => ({ width: image.naturalWidth, height: image.naturalHeight, src: image.currentSrc })),
           layers: [...element.querySelectorAll('[data-achievement-card-layer]')].map(layer => ({ slice: getComputedStyle(layer).borderImageSlice, width: getComputedStyle(layer).borderTopWidth, source: getComputedStyle(layer).borderImageSource, repeat: getComputedStyle(layer).borderImageRepeat })),
         };
@@ -216,9 +216,12 @@ test('matching native PNG pairs preserve 64px corner slices and scaled 96px safe
       expect(new Set(geometry.images.map(image => image.src)).size).toBe(2);
       for (const inset of geometry.insets) expect(inset).toBeCloseTo(geometry.width * 96 / 1024, 0);
       expect(geometry.layers).toHaveLength(2);
+      expect(new Set(geometry.layers.map(layer => layer.width)).size, 'Matching layers use identical rendered corner widths.').toBe(1);
       for (const layer of geometry.layers) {
         expect(layer.slice).toMatch(/^64(?: fill)?$/);
-        expect(Number.parseFloat(layer.width)).toBeCloseTo(geometry.width * 64 / 1024, 0);
+        // Engines snap border widths to device pixels; WebKit floors a
+        // 17.5px declaration to 17px at DPR 1. Keep one physical pixel only.
+        expect(Math.abs(Number.parseFloat(layer.width) - geometry.width * 64 / 1024)).toBeLessThanOrEqual(1 / geometry.pixelRatio);
         expect(layer.repeat).toBe('stretch');
       }
       // Sample original alpha in-browser, before compositing over page colors.
@@ -291,6 +294,10 @@ test('loaded light parchment retains readable live text and action colors in bot
     await open(page, { theme });
     const cards = page.locator('[data-achievement-card]');
     await expect.poll(() => cards.evaluateAll(elements => elements.every(element => element.dataset.achievementCardArt === 'ready'))).toBe(true);
+    // Loaded art swaps in a fixed light palette. Existing transition-colors
+    // controls can briefly interpolate from the cover palette; measure their
+    // settled, rendered state after the real transitions finish.
+    await cards.evaluateAll(elements => Promise.all(elements.flatMap(element => element.getAnimations({ subtree: true })).map(animation => animation.finished.catch(() => undefined))));
     const results = await cards.evaluateAll(elements => {
       const canvas = document.createElement('canvas');
       canvas.width = canvas.height = 1;

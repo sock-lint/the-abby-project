@@ -62,7 +62,7 @@ describe('SigilFrontispiece', () => {
       />,
     );
     for (const [label, value] of [['Streak', '7 days'], ['Perfect days', '4'], ['Best streak', '12 days']]) {
-      const term = screen.getAllByRole('term').find(element => element.textContent === label);
+      const term = screen.getAllByRole('term').find(element => element.textContent.trim() === label);
       expect(term).toBeInTheDocument();
       expect(within(term.parentElement).getByRole('definition')).toHaveTextContent(value);
     }

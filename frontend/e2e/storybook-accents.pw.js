@@ -419,7 +419,7 @@ test('private release PNGs render completely and failed art collapses without hi
     await card.scrollIntoViewIfNeeded();
     await expect(card).toHaveAttribute('data-achievement-card-art', 'ready');
     const shape = await card.getAttribute('data-achievement-card');
-    const dimensions = await card.locator('img').evaluateAll(images => images.map(image => [image.naturalWidth, image.naturalHeight]));
+    const dimensions = await card.locator(':scope > img[hidden]').evaluateAll(images => images.map(image => [image.naturalWidth, image.naturalHeight]));
     expect(dimensions).toEqual([[1024, shape === 'wide' ? 512 : 1280], [1024, shape === 'wide' ? 512 : 1280]]);
     await expect(card.locator('[data-achievement-card-layer]')).toHaveCount(2);
   }
