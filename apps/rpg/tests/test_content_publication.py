@@ -86,7 +86,10 @@ class ContentPublicationTests(TestCase):
         self.assertIsNone(accepted.reward_items_snapshot)
         self.publish(plan)
         accepted.refresh_from_db()
-        self.assertEqual(accepted.reward_items_snapshot, [{"id": promised_row.pk, "item_id": item.pk, "quantity": 2}])
+        snapshot = accepted.reward_items_snapshot
+        self.assertEqual([{key: row[key] for key in ("id", "item_id", "quantity")} for row in snapshot],
+                         [{"id": promised_row.pk, "item_id": item.pk, "quantity": 2}])
+        self.assertEqual(snapshot[0]["item_name"], item.display_name)
         self.assertEqual(QuestDefinition.objects.get(name="Renamed").pk, original.pk)
         self.assertFalse(QuestRewardItem.objects.filter(quest_definition=original).exists())
         self.assertEqual(UserInventory.objects.get(user=self.actor, item=item).quantity, 2)
