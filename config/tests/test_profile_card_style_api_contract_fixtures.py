@@ -17,6 +17,9 @@ class ProfileCardStyleApiResponseFixtureTests(APITestCase):
         clock = patch("django.utils.timezone.now", return_value=shared.FIXED_NOW)
         clock.start()
         self.addCleanup(clock.stop)
+        # Prior account history must not determine the fixture's profile ID.
+        previous = make_family("Prior profile", children=[{"username": "prior-card-style-child"}]).children[0]
+        previous.delete()
         self.child = make_family(
             "Profile card fixture family", family_id=81,
             children=[{"id": 7, "username": "card-style-fixture-child"}],
@@ -37,7 +40,7 @@ class ProfileCardStyleApiResponseFixtureTests(APITestCase):
             metadata={"border_color": "#FFD700", "card_asset_id": "card-front-fire"},
         )
         UserInventory.objects.create(id=501, user=self.child, item=self.nature, quantity=1)
-        CharacterProfile.objects.filter(user=self.child).update(active_frame=self.nature)
+        CharacterProfile.objects.filter(user=self.child).update(id=1, active_frame=self.nature)
         self.client.force_authenticate(self.child)
 
     def test_catalog_owned_and_selected_card_styles_are_real_read_only_responses(self):
