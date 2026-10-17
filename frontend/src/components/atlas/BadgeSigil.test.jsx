@@ -115,4 +115,18 @@ describe('BadgeSigil', () => {
     const sigil = container.querySelector('[data-sigil="true"]');
     expect(sigil.className).toContain('animate-gilded-glint');
   });
+
+  it('keeps a long badge name identified and selectable without a featured gold frame', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    const badge = buildBadge({ name: 'AnExtraordinarilyLongUnbrokenAchievementNameThatMustRemainReadable', icon: '🦉', rarity: 'rare' });
+    const { container } = renderWithProviders(<BadgeSigil badge={badge} earned onSelect={onSelect} />);
+    expect(screen.getByText(badge.name)).toBeInTheDocument();
+    expect(screen.getByText('🦉')).toBeInTheDocument();
+    expect(container.querySelector('[data-pedestal-image="frame-gold"]')).toBeNull();
+    expect(screen.getByRole('button', { name: `${badge.name} · rare` })).not.toHaveAttribute('aria-pressed');
+    await user.tab();
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledWith({ badge, earned: true, earnedAt: null });
+  });
 });

@@ -1,16 +1,6 @@
 import { Award } from 'lucide-react';
-import { RARITY_PILL_COLORS } from '../../constants/colors';
-import { RARITY_HALO } from '../../components/atlas/mastery.constants';
-import PedestalImage from '../../pedestal/PedestalImage';
-
-// The shared frame's measured transparent opening. The badge remains ordinary
-// DOM content so failed or missing decorative artwork never hides its identity.
-const FRAME_OPENING = {
-  left: '16.60156250%',
-  top: '18.16406250%',
-  width: '66.60156250%',
-  height: '63.86718750%',
-};
+import BadgeArtwork from '../../components/atlas/BadgeArtwork';
+import BadgeRarity from '../../components/atlas/BadgeRarity';
 
 /**
  * TrophySlot — the featured badge on the Frontispiece.
@@ -41,17 +31,7 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
       className={`group relative flex min-w-0 max-w-full items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex-col text-center'}`}
     >
       {badge ? (
-        <span aria-hidden="true" className={`relative isolate block shrink-0 ${compact ? 'size-16' : 'size-24'}`}>
-          <span
-            className={`absolute flex items-center justify-center rounded-xl border border-ink-page-shadow bg-ink-page-aged ${RARITY_HALO[rarity] || RARITY_HALO.common}`}
-            style={FRAME_OPENING}
-          >
-            <span className={`${compact ? 'text-2xl' : 'text-4xl'} leading-none`}>
-              {badge.icon || '\ud83c\udfc5'}
-            </span>
-          </span>
-          <PedestalImage assetId="frame-gold" className="mt-frame__art" />
-        </span>
+        <BadgeArtwork badge={badge} earned variant="featured" size={compact ? 'md' : 'lg'} />
       ) : (
         <span className={`relative shrink-0 border border-dashed border-ink-page-shadow bg-ink-page/70 flex items-center justify-center ${compact ? 'size-11 rounded-xl' : 'size-20 rounded-3xl'}`}>
           <Award size={compact ? 24 : 32} aria-hidden="true" className="text-ink-whisper" />
@@ -64,17 +44,11 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
           <span className="block font-body font-bold text-body text-ink-primary break-words [overflow-wrap:anywhere]">
             {badge?.name || 'Choose an earned badge'}
           </span>
-          {badge && <span className="block font-body text-tiny text-ink-secondary">{rarity}</span>}
+          {badge && <span className="mt-1 block"><BadgeRarity rarity={rarity} /></span>}
         </span>
       ) : badge ? (
         <>
-          <div
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-caption font-body font-semibold ${
-              RARITY_PILL_COLORS[rarity] || RARITY_PILL_COLORS.common
-            }`}
-          >
-            {rarity}
-          </div>
+          <BadgeRarity rarity={rarity} />
           <div className="min-w-0 font-body font-bold text-body text-ink-primary leading-tight max-w-[10rem] break-words [overflow-wrap:anywhere] line-clamp-2">
             {badge.name}
           </div>

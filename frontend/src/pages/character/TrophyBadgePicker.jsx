@@ -52,36 +52,29 @@ export default function TrophyBadgePicker({
                   aria-labelledby={`trophy-chapter-${chapter.collection.id}`}
                   className="space-y-2"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <ChapterMarker>{chapter.collection.rubric}</ChapterMarker>
                     <h3
                       id={`trophy-chapter-${chapter.collection.id}`}
-                      className="font-display italic text-body text-ink-primary leading-tight"
+                      className="min-w-0 flex-1 break-words [overflow-wrap:anywhere] font-body font-bold text-body text-ink-primary leading-tight"
                     >
                       {chapter.collection.name}
                     </h3>
-                    <span className="font-script text-micro text-ink-whisper ml-auto">
+                    <span className="font-body text-caption text-ink-secondary">
                       {earnedInChapter.length} earned
                     </span>
                   </div>
-                  <ul className="grid grid-cols-3 sm:grid-cols-4 gap-2 list-none p-0 m-0">
+                  <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3 list-none p-0 m-0">
                     {earnedInChapter.map((entry) => {
                       const isCurrent = entry.badge.id === currentTrophyId;
                       return (
-                        <li key={entry.badge.id} className="relative">
-                          {isCurrent && (
-                            <div
-                              aria-hidden="true"
-                              data-trophy-current-marker="true"
-                              className="absolute -top-1 left-1/2 -translate-x-1/2 z-10 rounded-full bg-sheikah-teal-deep px-2 py-0.5 text-micro font-rune uppercase tracking-wider text-ink-page-rune-glow shadow-md"
-                            >
-                              current
-                            </div>
-                          )}
+                        <li key={entry.badge.id} className="min-w-0">
                           <BadgeSigil
                             badge={entry.badge}
                             earned
                             earnedAt={entry.earnedAt}
+                            selected={isCurrent}
+                            selectionLabel={<span data-trophy-current-marker="true">Current trophy</span>}
                             onSelect={({ badge }) =>
                               onSelect?.(isCurrent ? null : badge.id)
                             }

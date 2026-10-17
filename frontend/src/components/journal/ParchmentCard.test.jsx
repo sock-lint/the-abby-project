@@ -3,16 +3,15 @@ import { render, screen } from '@testing-library/react';
 import ParchmentCard from './ParchmentCard.jsx';
 
 describe('ParchmentCard', () => {
-  it('reserves a separate content region for the two decorative storybook corners', () => {
-    const { container } = render(<ParchmentCard flourish="storybook"><h2>A long project title</h2><button>Continue</button></ParchmentCard>);
-    const content = container.querySelector('[data-storybook-content]');
-    expect(content).toContainElement(screen.getByRole('heading'));
-    expect(content).toContainElement(screen.getByRole('button', { name: 'Continue' }));
+  it.each([true, 'storybook'])('uses the same decorative corners without changing the content layout for flourish=%s', (flourish) => {
+    const { container } = render(<ParchmentCard flourish={flourish} className="space-y-4"><h2>A long project title</h2><button>Continue</button></ParchmentCard>);
+    const card = container.firstChild;
+    expect(screen.getByRole('heading').parentElement).toBe(card);
+    expect(screen.getByRole('button', { name: 'Continue' }).parentElement).toBe(card);
     const corners = container.querySelectorAll('[data-storybook-corner]');
     expect(corners).toHaveLength(2);
     for (const corner of corners) {
       expect(corner).toHaveAttribute('aria-hidden', 'true');
-      expect(content).not.toContainElement(corner);
     }
   });
 
@@ -49,7 +48,7 @@ describe('ParchmentCard', () => {
 
   it('keeps card accents decorative when flourish=true', () => {
     const { container } = render(<ParchmentCard flourish>x</ParchmentCard>);
-    expect(container.querySelectorAll('[aria-hidden="true"]').length).toBeGreaterThanOrEqual(4);
+    expect(container.querySelectorAll('[data-storybook-corner]')).toHaveLength(2);
   });
 
   it('keeps the optional corner accent decorative when seal=true', () => {

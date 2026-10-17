@@ -41,7 +41,7 @@ test.afterAll(async () => {
   if (server?.exitCode === null) { const stopped = once(server, 'exit'); server.kill(); await stopped; }
 });
 
-async function open(page, { theme = 'hyrule', large = false, long = true, failImages = false, starState = 'missing' } = {}) {
+async function open(page, { theme = 'hyrule', large = false, long = true, failImages = false, starState = 'missing', view = 'components' } = {}) {
   const errors = [];
   const apiRequests = [];
   const pendingStars = [];
@@ -58,9 +58,10 @@ async function open(page, { theme = 'hyrule', large = false, long = true, failIm
     if (failImages && route.request().resourceType() === 'image' && url.pathname.endsWith('.png')) return route.abort();
     return route.continue();
   });
-  await page.goto(`${origin}/e2e/storybook-accents-fixture.html?theme=${theme}&long=${long ? 1 : 0}&large=${large ? 1 : 0}&star-state=${starState}`, { waitUntil: starState === 'loading' ? 'domcontentloaded' : 'load' });
+  await page.goto(`${origin}/e2e/storybook-accents-fixture.html?theme=${theme}&long=${long ? 1 : 0}&large=${large ? 1 : 0}&star-state=${starState}&view=${view}`, { waitUntil: starState === 'loading' ? 'domcontentloaded' : 'load' });
   await page.evaluate(() => document.fonts.ready);
-  await expect(page.locator('[data-bonus-star]')).toHaveCount(2);
+  if (view === 'composition') await expect(page.locator('[data-composed-ready]')).toHaveCount(1);
+  else await expect(page.locator('[data-bonus-star]')).toHaveCount(2);
   return { errors, apiRequests, releasePendingStars: () => Promise.all(pendingStars.map(route => route.abort())) };
 }
 
@@ -84,14 +85,13 @@ async function layoutProblems(page) {
       }
       return result;
     };
-    for (const panel of document.querySelectorAll('[data-hero-variant] [data-storybook-content]')) {
-      const card = panel.parentElement;
+    for (const card of document.querySelectorAll('[data-storybook-panel]')) {
       const art = [...card.querySelectorAll('[data-storybook-corner]')].map(rect);
-      for (const { bounds, text } of textRects(panel)) for (const corner of art) {
-        if (overlaps(bounds, corner, 4)) problems.push(`Today text within four pixels of corner: ${text}`);
+      for (const { bounds, text } of textRects(card)) for (const corner of art) {
+        if (overlaps(bounds, corner, 8)) problems.push(`Panel text within eight pixels of corner: ${text}`);
       }
-      for (const button of panel.querySelectorAll('button')) for (const corner of art) {
-        if (overlaps(rect(button), corner, 4)) problems.push(`Today control within four pixels of corner: ${button.textContent.trim()}`);
+      for (const button of card.querySelectorAll('button')) for (const corner of art) {
+        if (overlaps(rect(button), corner, 8)) problems.push(`Panel control within eight pixels of corner: ${button.textContent.trim()}`);
       }
       for (const corner of art) {
         const cardBounds = rect(card);
@@ -165,6 +165,150 @@ function fallbackStarProblems(records) {
   });
 }
 
+async function badgeGlyphProblems(page) {
+  return page.locator('[data-badge-artwork]').evaluateAll(elements => elements.flatMap(element => {
+    const well = element.querySelector('.mt-frame__opening') || element;
+    const glyph = well.querySelector(':scope > span');
+    if (!glyph || !glyph.firstChild) return [{ problem: 'Missing badge glyph' }];
+    const range = document.createRange();
+    range.selectNodeContents(glyph);
+    const canvas = well.getBoundingClientRect();
+    const bounds = range.getBoundingClientRect();
+    if (bounds.left >= canvas.left - 0.5 && bounds.right <= canvas.right + 0.5 && bounds.top >= canvas.top - 0.5 && bounds.bottom <= canvas.bottom + 0.5) return [];
+    return [{ variant: element.dataset.badgeArtwork, icon: glyph.textContent, canvas: { width: canvas.width, height: canvas.height }, glyph: { x: bounds.x - canvas.x, y: bounds.y - canvas.y, width: bounds.width, height: bounds.height }, problem: 'Badge glyph extends beyond its own artwork well' }];
+  }));
+}
+
+test('shared decorated panels preserve corners, content clearance and direct-child spacing', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const [width, large] of [[320, false], [375, true], [1280, false]]) {
+    await page.setViewportSize({ width, height: 900 });
+    const result = await open(page, { view: 'composition', large, theme: width === 375 ? 'vigil' : 'hyrule' });
+    await expect(page.getByRole('region', { name: 'Parent Today', exact: true }).locator('[data-storybook-corner]')).toHaveCount(2);
+    await expect(page.locator('[data-decor-kind="seal"] [data-storybook-corner]')).toHaveCount(1);
+    await expect(page.locator('[data-decor-kind="combined"] [data-storybook-corner]')).toHaveCount(2);
+    const spacing = await page.locator('[data-rhythm-panel]').evaluate(element => {
+      const children = [...element.querySelectorAll(':scope > [data-rhythm-child]')].map(child => child.getBoundingClientRect());
+      const box = element.getBoundingClientRect();
+      return {
+        gaps: children.slice(1).map((child, index) => child.top - children[index].bottom),
+        corners: [...element.querySelectorAll('[data-storybook-corner]')].map(corner => {
+          const bounds = corner.getBoundingClientRect();
+          return { width: bounds.width, height: bounds.height, insetX: Math.min(bounds.left - box.left, box.right - bounds.right), insetY: Math.min(bounds.top - box.top, box.bottom - bounds.bottom) };
+        }),
+        paddingTop: getComputedStyle(element).paddingTop, paddingBottom: getComputedStyle(element).paddingBottom,
+      };
+    });
+    expect(spacing.gaps).toEqual([16, 16]);
+    expect(spacing.paddingTop).toBe('36px');
+    expect(spacing.paddingBottom).toBe('36px');
+    for (const corner of spacing.corners) {
+      expect(corner.width).toBe(20);
+      expect(corner.height).toBe(20);
+      expect(corner.insetX).toBeCloseTo(9, 0);
+      expect(corner.insetY).toBeCloseTo(9, 0);
+    }
+    expect(await layoutProblems(page)).toEqual([]);
+    expect(result.errors).toEqual([]);
+    expect(result.apiRequests).toEqual([]);
+    await privateCapture(page, `storybook-consistency-${width}-${large ? 'large' : 'normal'}`);
+    await page.unroute('**/*');
+  }
+});
+
+test('shared badge glyphs stay inside their artwork at enlarged text sizes', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const problems = [];
+  for (const [width, large] of [[375, false], [320, true], [375, true]]) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, { view: 'composition', large });
+    problems.push(...(await badgeGlyphProblems(page)).map(problem => ({ ...problem, width, large })));
+    await page.unroute('**/*');
+  }
+  expect(problems).toEqual([]);
+});
+
+test('badge collection, earned detail and trophy picker share artwork while preserving selection', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 320, height: 900 });
+  const result = await open(page, { view: 'composition', large: true, failImages: true });
+  const collection = page.getByRole('region', { name: 'Badge collection', exact: true });
+  await expect(collection.locator('[data-badge-artwork="tile"]')).toHaveCount(3);
+  await expect(collection.locator('[data-pedestal-image="frame-gold"]')).toHaveCount(0);
+  await collection.getByRole('button').first().click();
+  let dialog = page.getByRole('dialog');
+  await expect(dialog.locator('[data-badge-artwork="featured"]')).toHaveCount(1);
+  const frame = dialog.locator('[data-pedestal-image="frame-gold"]');
+  await dialog.locator('[data-badge-artwork="featured"]').scrollIntoViewIfNeeded();
+  await expect(frame).toHaveAttribute('data-image-state', privatePayloadPresent ? 'error' : 'unavailable');
+  expect(await badgeGlyphProblems(page)).toEqual([]);
+  await privateCapture(page, 'storybook-earned-badge-detail-fallback');
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await collection.getByRole('button').last().click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.locator('[data-pedestal-image="frame-gold"]')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  const profile = page.getByRole('region', { name: 'Composed profile', exact: true });
+  await profile.locator('[data-trophy-slot]').click();
+  dialog = page.getByRole('dialog', { name: 'Choose your trophy badge', exact: true });
+  const current = dialog.getByRole('button', { pressed: true });
+  await expect(current).toHaveCount(1);
+  await expect(dialog.locator('li button')).toHaveCount(2);
+  await expect(dialog.locator('li button[aria-pressed="false"]')).toHaveCount(1);
+  const marker = current.locator('[data-trophy-current-marker]');
+  await expect(marker).toBeVisible();
+  const badgeButtons = dialog.locator('li button');
+  const bounds = await badgeButtons.evaluateAll(buttons => buttons.map(button => {
+    const box = button.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, right: box.right };
+  }));
+  expect(bounds[0].y).toBeCloseTo(bounds[1].y, 0);
+  expect(bounds[0].right).toBeLessThan(bounds[1].x);
+  expect(bounds.every(box => box.x >= 0 && box.right <= 320)).toBe(true);
+  expect(await badgeGlyphProblems(page)).toEqual([]);
+  await privateCapture(page, 'storybook-trophy-picker-large');
+  await current.focus();
+  await current.press('Space');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('[data-fixture-event]')).toHaveText('Clear synthetic trophy');
+  await profile.locator('[data-trophy-slot]').click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('button', { pressed: true })).toHaveCount(0);
+  const other = dialog.getByRole('button', { name: /^ExtraordinarilyHelpful/ });
+  await other.focus();
+  await other.press('Enter');
+  await expect(page.locator('[data-fixture-event]')).toHaveText('Choose synthetic trophy 82');
+  await profile.locator('[data-trophy-slot]').click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /^ExtraordinarilyHelpful/, pressed: true })).toHaveCount(1);
+  expect(result.errors).toEqual([]);
+  expect(result.apiRequests).toEqual([]);
+});
+
+test('composed Challenges keeps readable content beside its artwork at desktop grid boundaries', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const records = [];
+  for (const width of [320, 375, 1279, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await open(page, { view: 'composition', long: true, large: width <= 375 });
+    const cards = page.getByRole('region', { name: 'Parent goals', exact: true }).locator('article');
+    await expect(cards).toHaveCount(2);
+    for (const card of await cards.all()) {
+      const image = card.locator('[data-pedestal-image]');
+      await card.evaluate(element => element.scrollIntoView({ block: 'start' }));
+      if (privatePayloadPresent) await expect(image).toHaveAttribute('data-image-state', 'ready');
+      records.push(await card.evaluate((element, viewport) => {
+        const art = element.querySelector('[data-storybook-card-art]').getBoundingClientRect();
+        const content = element.querySelector('[data-storybook-card-content]').getBoundingClientRect();
+        return { viewport, cardWidth: element.getBoundingClientRect().width, artWidth: art.width, contentWidth: content.width, sideBySide: art.right <= content.left + 1 && art.top < content.bottom && art.bottom > content.top };
+      }, width));
+    }
+    await privateCapture(page, `storybook-composed-challenges-${width}`);
+    await page.unroute('**/*');
+  }
+  expect(records.filter(record => record.sideBySide && record.contentWidth < 256), JSON.stringify(records)).toEqual([]);
+});
+
 for (const starState of ['missing', 'loading', 'error']) {
   test(`${starState} private star fallbacks stay silent and inside their canvas with normal and enlarged text`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 812 });
@@ -197,7 +341,7 @@ for (const failImages of [false, true]) {
           const heroes = page.locator('[data-hero-variant]');
           await expect(heroes).toHaveCount(4);
           await expect(heroes.locator('[data-storybook-corner]')).toHaveCount(8);
-          await expect(heroes.locator('[data-storybook-content]')).toHaveCount(4);
+          await expect(heroes.locator('[data-storybook-panel]')).toHaveCount(4);
           await expect.poll(() => layoutProblems(page), { message: `${theme}, ${width}px, ${large ? '200%' : 'normal'} text, ${failImages ? 'failed' : 'available'} artwork` }).toEqual([]);
           expect(result.errors).toEqual([]);
           expect(result.apiRequests).toEqual([]);

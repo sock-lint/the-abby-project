@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { renderWithProviders, userEvent } from '../../test/render';
+import { renderWithProviders, screen, userEvent } from '../../test/render';
 import TrophyBadgePicker from './TrophyBadgePicker';
 
 vi.mock('framer-motion', async () => {
@@ -106,11 +106,26 @@ describe('TrophyBadgePicker', () => {
         onClose={() => {}}
       />,
     );
-    // A "current" chip should have rendered above the selected sigil.
+    // The current badge has a readable in-flow status as well as pressed state.
     expect(document.body.querySelector('[data-trophy-current-marker="true"]'))
       .not.toBeNull();
     const target = document.body.querySelector('button[aria-label^="Night Owl"]');
     await user.click(target);
     expect(spy).toHaveBeenCalledWith(null);
+  });
+
+  it('identifies the current trophy to keyboard users and clears it with Space', async () => {
+    const user = userEvent.setup();
+    const onSelect = vi.fn();
+    renderWithProviders(
+      <TrophyBadgePicker allBadges={allBadges} earnedBadges={earnedBadges}
+        currentTrophyId={3} onSelect={onSelect} onClose={() => {}} />,
+    );
+    const current = screen.getByRole('button', { name: /^Night Owl/, pressed: true });
+    expect(screen.getByRole('button', { name: /^First Project/, pressed: false })).toBeInTheDocument();
+    expect(screen.getByText('Current trophy')).toBeInTheDocument();
+    current.focus();
+    await user.keyboard(' ');
+    expect(onSelect).toHaveBeenCalledWith(null);
   });
 });

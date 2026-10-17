@@ -5,6 +5,8 @@ import { CheckboxField, SelectField } from '../../components/form';
 import PedestalImage from '../../pedestal/PedestalImage';
 import PedestalFrame from '../../pedestal/PedestalFrame';
 import PedestalPreview from '../../pedestal/PedestalPreview';
+import StorybookFeature from '../../pedestal/StorybookFeature';
+import StarRating from '../../components/StarRating';
 import { PEDESTAL_EGG_IDS, PEDESTAL_IMAGE_IDS } from '../../pedestal/pedestalRelease';
 import { DesignPreviewContext } from './preview.context';
 
@@ -27,6 +29,15 @@ export default function PedestalShowcase() {
   return <section id="design-pedestal" aria-label="Pedestal and card artwork" className="space-y-3 scroll-mt-4">
     <SectionHeader title="Pedestal and card artwork" kicker="Private release preview" />
     <p className="text-body text-ink-secondary">Local artwork choices. These previews do not change ownership, pet appearances, rarity or hatch outcomes.</p>
+    <ParchmentCard flourish className="space-y-3">
+      <h3 className="font-bold text-lede">Storybook accents</h3>
+      <p className="text-body text-ink-secondary">Decorated panels share small inset corners. Larger illustrations stack when the card has limited room, keeping text and controls clear.</p>
+      <StorybookFeature assetId="card-front-light">
+        <h4 className="font-bold text-body">{longContent ? 'Make a paper kite with a decorated tail and a sturdy frame for the whole family to try outdoors' : 'Make a paper kite'}</h4>
+        <div className="mt-2 flex flex-wrap items-center gap-1 text-caption text-ink-secondary"><span aria-hidden="true">Difficulty:</span><StarRating value={3} /></div>
+        <p className="mt-2 text-body text-ink-secondary">Real activity details stay separate from decorative card faces.</p>
+      </StorybookFeature>
+    </ParchmentCard>
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <ParchmentCard className="space-y-3 min-w-0">
         <h3 className="font-bold text-lede">Native model takes</h3>

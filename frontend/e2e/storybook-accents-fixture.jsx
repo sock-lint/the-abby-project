@@ -8,8 +8,19 @@ import PinnedChallengeCard from '../src/components/dashboard/PinnedChallengeCard
 import StarRating from '../src/components/StarRating';
 import TrophySlot from '../src/pages/character/TrophySlot';
 import ChallengeGoalCard from '../src/pages/trials/ChallengeGoalCard';
+import ChallengesFolio from '../src/pages/trials/ChallengesFolio';
+import PageShell from '../src/components/layout/PageShell';
 import RewardShop from '../src/pages/rewards/RewardShop';
 import PedestalImage from '../src/pedestal/PedestalImage';
+import ParchmentCard from '../src/components/journal/ParchmentCard';
+import EmptyState from '../src/components/EmptyState';
+import FilteredEmptyState from '../src/components/FilteredEmptyState';
+import Button from '../src/components/Button';
+import BadgeSigil from '../src/components/atlas/BadgeSigil';
+import BadgeDetailSheet from '../src/pages/achievements/BadgeDetailSheet';
+import TrophyBadgePicker from '../src/pages/character/TrophyBadgePicker';
+import SigilFrontispiece from '../src/pages/character/SigilFrontispiece';
+import CoinBalanceCard from '../src/pages/rewards/CoinBalanceCard';
 import { SpriteCatalogContext } from '../src/providers/spriteCatalog.context';
 import { applyTheme } from '../src/themes';
 import { AuthProvider } from '../src/hooks/useApi';
@@ -56,6 +67,54 @@ const syntheticStars = {
   resolveUrl: file => `/synthetic/storybook-star-${file}`,
 };
 
+export function ComposedAccentsFixture() {
+  const [event, setEvent] = useState('No action taken');
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [currentTrophyId, setCurrentTrophyId] = useState(81);
+  const [detail, setDetail] = useState(null);
+  const badges = [
+    { ...badge, criterion_type: 'projects_completed', criterion_value: 1, description, xp_bonus: 20 },
+    { id: 82, name: long ? 'ExtraordinarilyHelpfulProjectPlannerAndThoughtfulMaker' : 'Helpful planner', rarity: 'rare', icon: '🦉', criterion_type: 'projects_completed', criterion_value: 5, description, xp_bonus: 40 },
+    { id: 83, name: long ? 'FutureWoodlandMasterpieceMakerAndThoughtfulGardenDesigner' : 'Future creator', rarity: 'epic', icon: '🌿', criterion_type: 'projects_completed', criterion_value: 10, description, xp_bonus: 80 },
+  ];
+  const earnedBadges = badges.slice(0, 2).map(item => ({ badge: item, earned_at: '2026-10-01T12:00:00Z' }));
+  const goals = [
+    { ...syntheticGoal, id: 'synthetic-parent-a', origin: 'parent', pinned: false },
+    { ...syntheticGoal, id: 'synthetic-parent-b', name: `Plan and share ${title.toLowerCase()}`, origin: 'parent', pinned: false },
+  ];
+  return <div className="min-h-screen bg-ink-page text-ink-primary" data-composed-ready>
+    {/* The real shell reserves 240px for desktop navigation and 16/24px
+        horizontal page padding. Keep its width contract around the real folio. */}
+    <main className="ml-0 lg:ml-60 px-4 lg:px-6 pt-3">
+      <PageShell animate={false}>
+        <ChallengesFolio goals={goals} timezone="UTC" onSelect={() => {}} onPin={() => {}} />
+        <output data-fixture-event className="block break-words text-caption" aria-live="polite">{event}</output>
+        <section aria-label="Composed profile">
+          <SigilFrontispiece profile={{ display_name: long ? 'A thoughtful woodland maker and family helper' : 'Synthetic maker', level: 5, xp_in_level: 35, xp_needed_for_level: 100, active_trophy_badge: badges.find(item => item.id === currentTrophyId) || null }} onOpenTrophyPicker={() => setPickerOpen(true)} />
+        </section>
+        <section aria-label="Badge collection" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          {badges.map((item, index) => <BadgeSigil key={item.id} badge={item} earned={index < 2} earnedAt={index < 2 ? '2026-10-01T12:00:00Z' : null} hint={description} onSelect={setDetail} />)}
+        </section>
+        <section aria-label="Shared empty states" className="space-y-4">
+          <EmptyState>Nothing saved yet. {description}</EmptyState>
+          <FilteredEmptyState query={title} onClear={() => setEvent('Clear synthetic filter')} />
+        </section>
+        <ParchmentCard flourish className="space-y-4" data-rhythm-panel>
+          <h2 data-rhythm-child className="font-body font-bold text-lede">A decorated panel with ordinary content flow</h2>
+          <p data-rhythm-child className="font-body text-body">{description}</p>
+          <Button data-rhythm-child className="block" onClick={() => setEvent('Continue synthetic panel')}>Continue</Button>
+        </ParchmentCard>
+        <ParchmentCard seal="top-right" data-decor-kind="seal"><h2 className="text-lede">A single corner accent</h2><p className="text-body">{description}</p></ParchmentCard>
+        <ParchmentCard flourish seal="bottom-left" data-decor-kind="combined"><h2 className="text-lede">One shared decoration treatment</h2><p className="text-body">{description}</p></ParchmentCard>
+        <section aria-label="Parent Today"><HeroPrimaryCard role="parent" ctx={{ pendingCount: 3, hideDate: true }} /></section>
+        <section aria-label="Composed rewards" className="space-y-4"><CoinBalanceCard coinBalance={50} isParent={false} onOpenExchange={() => setEvent('Open synthetic exchange')} /><RewardShop rewards={rewards} isParent={false} coinBalance={50} onRedeem={() => setEvent('Request synthetic reward')} /></section>
+      </PageShell>
+    </main>
+    {pickerOpen && <TrophyBadgePicker allBadges={badges} earnedBadges={earnedBadges} currentTrophyId={currentTrophyId} onClose={() => setPickerOpen(false)} onSelect={(id) => { setCurrentTrophyId(id); setPickerOpen(false); setEvent(id === null ? 'Clear synthetic trophy' : `Choose synthetic trophy ${id}`); }} />}
+    {detail && <BadgeDetailSheet entry={detail} allBadges={badges} earnedIds={new Set([81, 82])} onClose={() => setDetail(null)} />}
+  </div>;
+}
+
 export function StorybookAccentsFixture() {
   const [event, setEvent] = useState('No action taken');
   const [goal, setGoal] = useState(syntheticGoal);
@@ -97,4 +156,4 @@ export function StorybookAccentsFixture() {
   </main>;
 }
 
-createRoot(document.getElementById('root')).render(<MemoryRouter><MotionConfig reducedMotion="always"><AuthProvider><SpriteCatalogContext.Provider value={sprites}><StorybookAccentsFixture /></SpriteCatalogContext.Provider></AuthProvider></MotionConfig></MemoryRouter>);
+createRoot(document.getElementById('root')).render(<MemoryRouter><MotionConfig reducedMotion="always"><AuthProvider><SpriteCatalogContext.Provider value={sprites}>{params.get('view') === 'composition' ? <ComposedAccentsFixture /> : <StorybookAccentsFixture />}</SpriteCatalogContext.Provider></AuthProvider></MotionConfig></MemoryRouter>);
