@@ -78,7 +78,7 @@ def force_drop(
 
             CoinService.award_coins(
                 user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
-                description=f"[dev_tools] Salvaged duplicate: {item.name}",
+                description=f"[dev_tools] Salvaged duplicate: {item.display_name}",
             )
 
         DropLog.objects.create(
@@ -91,7 +91,7 @@ def force_drop(
         "item": {
             "id": item.pk,
             "slug": item.slug,
-            "name": item.name,
+            "name": item.display_name,
             "rarity": item.rarity,
         },
         "count": count,
@@ -395,8 +395,8 @@ APPROVAL_TITLES = {
     "homework": ("Homework approved", "Homework returned"),
     "creation": ("Creation approved", "Creation returned"),
     "exchange": ("Exchange approved", "Exchange denied"),
-    "chore_proposal": ("Duty proposal approved", "Duty proposal returned"),
-    "habit_proposal": ("Ritual proposal approved", "Ritual proposal returned"),
+    "chore_proposal": ("Chore proposal approved", "Chore proposal returned"),
+    "habit_proposal": ("Habit proposal approved", "Habit proposal returned"),
 }
 
 

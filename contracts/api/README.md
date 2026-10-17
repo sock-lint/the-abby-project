@@ -447,6 +447,17 @@ verbs, paths, payloads, decimal strings and rejection propagation. Run both
 modules with the standard backend and frontend test commands above; regenerate
 the fixture producer only for an intentional API change.
 
+## Color-theme display names
+
+Item `name` and flattened `item_name` fields project the current Meadow color-theme
+label for known `cosmetic_theme` metadata, including legacy seasonal palette keys.
+The canonical labels and aliases live in `shared/catalog/theme-presentation.json`.
+Stored names, IDs, palette keys and verified artwork bindings remain unchanged;
+unknown themes and other catalog names retain their saved labels. New reward
+snapshots use the current label, while already frozen outcomes remain intact.
+Theme `type_display` is “Color theme”. The inventory appearance fixture covers
+the current label and original artwork identity together.
+
 ## Saved Archer appearance
 
 Character responses also contain `avatar_configuration`:

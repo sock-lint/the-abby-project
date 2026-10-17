@@ -193,7 +193,7 @@ class ItemSelectView(APIView):
         if rarity:
             qs = qs.filter(rarity=rarity)
         items = [
-            {"slug": i.slug, "name": i.name, "rarity": i.rarity, "icon": i.icon}
+            {"slug": i.slug, "name": i.display_name, "rarity": i.rarity, "icon": i.icon}
             for i in qs.order_by("rarity", "name")
             if i.slug  # skip slug-less legacy rows
         ]

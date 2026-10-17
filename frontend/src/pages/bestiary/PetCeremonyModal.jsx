@@ -9,6 +9,7 @@ import RpgSprite from '../../components/rpg/RpgSprite';
 import usePhasedSequence from './celebration/usePhasedSequence';
 import SparkleBurst from './celebration/SparkleBurst';
 import PotionAura from './celebration/PotionAura';
+import { BIRD_EVOLUTION_STAGES, birdFormName, isBirdIdentity } from '../../companion/birdEvolution';
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -57,7 +58,7 @@ const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loo
  * The component is presentational — no API calls. Callers handle
  * success bookkeeping (refetch, refresh, etc.) before mounting it.
  */
-export default function PetCeremonyModal({ mode, pet, species, potion, parents, result, expedition, reducedMotion = false, onDismiss }) {
+export default function PetCeremonyModal({ mode, pet, species, potion, fromStage, parents, result, expedition, reducedMotion = false, onDismiss }) {
   const titleId = useId();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduced = reducedMotion || prefersReducedMotion;
@@ -108,6 +109,7 @@ export default function PetCeremonyModal({ mode, pet, species, potion, parents, 
           <EvolveSequence
             species={species}
             potion={potion}
+            fromStage={fromStage}
             phase={phase}
             reduced={reduced}
             titleId={titleId}
@@ -221,8 +223,10 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
 
 // ─── Evolve ──────────────────────────────────────────────────────────────
 
-function EvolveSequence({ species, potion, phase, reduced, titleId, onDismiss }) {
-  const speciesName = species?.name;
+function EvolveSequence({ species, potion, fromStage, phase, reduced, titleId, onDismiss }) {
+  const speciesName = birdFormName(species, potion, 'bird');
+  const source = isBirdIdentity(species, potion) && ['chick', 'fledgling'].includes(fromStage)
+    ? BIRD_EVOLUTION_STAGES.find(({ id }) => id === fromStage) : null;
   const potionName = potion?.name;
   const potionSlug = potion?.slug;
   const headline = `${potionName} ${speciesName}`;
@@ -264,10 +268,11 @@ function EvolveSequence({ species, potion, phase, reduced, titleId, onDismiss })
             className="relative"
           >
             <RpgSprite
-              spriteKey={species?.sprite_key}
+              spriteKey={source?.spriteKey || species?.sprite_key}
+              fallbackSpriteKey={source ? species?.sprite_key : null}
               icon={species?.icon}
               size={96}
-              alt={speciesName || 'pet'}
+              alt={source?.name || species?.name || 'pet'}
               potionSlug={potionSlug}
             />
           </div>
@@ -467,7 +472,9 @@ function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) 
  */
 function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismiss }) {
   const mount = expedition?.mount || {};
-  const speciesName = mount.species_name;
+  const speciesName = birdFormName(
+    { slug: mount.species_slug, sprite_key: mount.species_sprite_key, name: mount.species_name },
+    { slug: mount.potion_slug }, 'bird');
   const speciesSpriteKey = mount.species_sprite_key;
   const speciesIcon = mount.species_icon;
   const potionSlug = mount.potion_slug;
@@ -483,7 +490,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
     <>
       <div className="flex items-center justify-center gap-2 text-sheikah-teal-deep">
         <MapIcon size={18} aria-hidden="true" />
-        <div className="font-script text-base">your mount has returned</div>
+        <div className="font-script text-base">your grown pet has returned</div>
       </div>
       <div className="relative mt-4 flex items-center justify-center" style={{ minHeight: 140 }}>
         {showFlash && (
@@ -559,7 +566,7 @@ function ExpeditionReturnSequence({ expedition, phase, reduced, titleId, onDismi
         id={titleId}
         className="mt-3 font-display italic text-2xl text-ink-primary leading-tight"
       >
-        {speciesName ? `${speciesName} is back` : 'Your mount returned'}
+        {speciesName ? `${speciesName} is back` : 'Your grown pet returned'}
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">
         {tier ? `from a ${tier} expedition` : 'with coins and items from the expedition'}

@@ -20,7 +20,7 @@ export default function ScribeTrial({ entry, onReady }) {
       <p className="text-sm text-ink-secondary leading-relaxed text-center">{trial.prompt}</p>
 
       <label className="block">
-        <span className="sr-only">Inscribe a few words</span>
+        <span className="sr-only">Write a few words</span>
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
@@ -35,7 +35,7 @@ export default function ScribeTrial({ entry, onReady }) {
       <div className="flex items-center justify-between text-caption text-ink-whisper">
         <span aria-live="polite">
           {committed
-            ? 'Inscribed.'
+            ? 'Writing complete.'
             : enough
             ? 'Looks good.'
             : `Write at least ${minLength} characters.`}
@@ -46,7 +46,7 @@ export default function ScribeTrial({ entry, onReady }) {
           disabled={!enough || committed}
           className="font-rune text-tiny uppercase tracking-wider text-sheikah-teal-deep hover:text-sheikah-teal disabled:text-ink-whisper/40 disabled:cursor-not-allowed"
         >
-          {committed ? 'committed' : 'commit to the page'}
+          {committed ? 'Done' : 'Done writing'}
         </button>
       </div>
 

@@ -4,6 +4,7 @@ import { Map as MapIcon } from 'lucide-react';
 import NotificationToast from './NotificationToast';
 import RpgSprite from './rpg/RpgSprite';
 import { useExpeditionToasts } from '../hooks/useExpeditionToasts';
+import { birdFormName } from '../companion/birdEvolution';
 
 /**
  * ExpeditionToastStack — soft slide-in nudge when one or more mounts
@@ -19,7 +20,11 @@ export default function ExpeditionToastStack({ inline = false }) {
 
   const items = (
     <AnimatePresence>
-      {ready.map((expedition) => (
+      {ready.map((expedition) => {
+        const name = birdFormName(
+          { name: expedition.species_name, slug: expedition.species_slug, sprite_key: expedition.species_sprite_key },
+          { slug: expedition.potion_slug }, 'bird');
+        return (
         <NotificationToast
             key={expedition.id}
             tone="treasure"
@@ -36,7 +41,7 @@ export default function ExpeditionToastStack({ inline = false }) {
                 navigate('/bestiary?tab=mounts');
               }
             }}
-            aria-label={`${expedition.species_name} returned — claim rewards on Mounts`}
+            aria-label={`${name} returned — claim rewards on Grown pets`}
           >
             <MapIcon size={18} className="text-current shrink-0" aria-hidden="true" />
             <RpgSprite
@@ -44,19 +49,19 @@ export default function ExpeditionToastStack({ inline = false }) {
               fallbackSpriteKey={expedition.species_sprite_key}
               icon={expedition.species_icon || '🐾'}
               size={32}
-              alt={expedition.species_name}
+              alt={name}
               potionSlug={expedition.potion_slug}
             />
             <div className="flex-1 min-w-0">
               <div className="text-caption font-medium text-current">
-                {expedition.species_name} is back
+                {name} is back
               </div>
               <div className="text-caption text-current">
                 tap to claim · {expedition.tier} expedition
               </div>
             </div>
           </NotificationToast>
-        ))}
+        ); })}
       </AnimatePresence>
   );
 

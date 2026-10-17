@@ -23,19 +23,20 @@ vi.mock('framer-motion', async () => {
 });
 
 const CHICK_PORTRAIT = '/assets/synthetic-owned-chick.png';
+const FLEDGLING_PORTRAIT = '/assets/synthetic-owned-fledgling.png';
 const BIRD_PORTRAIT = '/assets/synthetic-owned-bird.png';
 const SPECIES = { id: 31, slug: 'chick', name: 'Chick', sprite_key: 'cute-chick', icon: '🐥', catalog_available: true };
 const BASE = { id: 41, slug: 'base', name: 'Base', rarity: 'common', catalog_available: true };
 const chick = (overrides = {}) => ({
   id: 51, species: SPECIES, potion: BASE, growth_points: 95,
-  evolved_to_mount: false, is_active: true, happiness_level: 'happy', ...overrides,
+  evolution_stage: 'fledgling', evolved_to_mount: false, is_active: true, happiness_level: 'happy', ...overrides,
 });
 const stable = (pets = [], mounts = []) => ({ pets, mounts, total_pets: pets.length, total_mounts: mounts.length, total_possible: 1 });
 const manifest = {
   schema_version: presentation.schema_version,
   companion: { id: presentation.companion.id, art_key: 'chick', temporary: false, portrait: 'chick.png' },
 };
-const art = (name) => ({ 'chick.png': CHICK_PORTRAIT, 'bird.png': BIRD_PORTRAIT })[name];
+const art = (name) => ({ 'chick.png': CHICK_PORTRAIT, 'fledgling.png': FLEDGLING_PORTRAIT, 'bird.png': BIRD_PORTRAIT })[name];
 
 function renderSurface(ui, catalog = {}) {
   return renderWithProviders(
@@ -58,15 +59,15 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('server-confirmed creatures across React surfaces', () => {
   it.each([
-    [false, CHICK_PORTRAIT],
-    [true, BIRD_PORTRAIT],
-  ])('Today shows the confirmed form at full growth (evolved=%s)', async (evolved, portrait) => {
+    [false, FLEDGLING_PORTRAIT, 'Fledgling'],
+    [true, BIRD_PORTRAIT, 'Bird'],
+  ])('Today shows the confirmed form at full growth (evolved=%s)', async (evolved, portrait, form) => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(stable([
-      chick({ growth_points: 100, evolved_to_mount: evolved }),
+      chick({ growth_points: 100, evolved_to_mount: evolved, evolution_stage: evolved ? 'bird' : 'fledgling' }),
     ]))));
     renderSurface(<ChildDashboard data={{ next_actions: [] }} reload={vi.fn()} />);
-    expect(await screen.findByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', portrait);
-    expect(screen.getByRole('button', { name: 'Chick growth' })).toHaveTextContent('100%');
+    expect(await screen.findByRole('img', { name: `Base ${form}` })).toHaveAttribute('src', portrait);
+    expect(screen.getByRole('button', { name: `${form} growth` })).toHaveTextContent('100%');
   });
 
   it('Today never creates an owned companion from staged preview art', async () => {
@@ -78,20 +79,20 @@ describe('server-confirmed creatures across React surfaces', () => {
 
   it('an evolved Today portrait recovers to its own base art without changing confirmed growth', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(stable([
-      chick({ growth_points: 100, evolved_to_mount: true }),
+      chick({ growth_points: 100, evolved_to_mount: true, evolution_stage: 'bird' }),
     ]))));
     renderSurface(<ChildDashboard data={{ next_actions: [] }} reload={vi.fn()} />);
-    const portrait = await screen.findByRole('img', { name: 'Base Chick' });
+    const portrait = await screen.findByRole('img', { name: 'Base Bird' });
     expect(portrait).toHaveAttribute('src', BIRD_PORTRAIT);
     fireEvent.error(portrait);
-    expect(screen.getByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
-    expect(screen.getByRole('button', { name: 'Chick growth' })).toHaveTextContent('100%');
+    expect(screen.getByRole('img', { name: 'Base Bird' })).toHaveAttribute('src', CHICK_PORTRAIT);
+    expect(screen.getByRole('button', { name: 'Bird growth' })).toHaveTextContent('100%');
   });
 
   it('Companions switches to Bird after a confirmed feed and stable refresh', async () => {
     let pet = chick();
     const feed = spyHandler('post', /\/api\/pets\/51\/feed\/$/, () => {
-      pet = chick({ growth_points: 100, evolved_to_mount: true });
+      pet = chick({ growth_points: 100, evolved_to_mount: true, evolution_stage: 'bird' });
       return { growth_points: 100, evolved: true, mount_id: 61 };
     });
     server.use(
@@ -102,17 +103,17 @@ describe('server-confirmed creatures across React surfaces', () => {
       feed.handler,
     );
     const { user } = renderSurface(<Companions />);
-    expect(await screen.findByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
-    await user.click(screen.getByRole('button', { name: 'Care for Base Chick' }));
+    expect(await screen.findByRole('img', { name: 'Base Fledgling' })).toHaveAttribute('src', FLEDGLING_PORTRAIT);
+    await user.click(screen.getByRole('button', { name: 'Care for Base Fledgling' }));
     await user.click(screen.getByRole('button', { name: /Birdseed/ }));
     await waitFor(() => expect(feed.calls).toHaveLength(1));
     expect(feed.calls[0]).toMatchObject({ method: 'POST', body: { food_item_id: 81 } });
     expect(feed.calls[0].url).toMatch(/\/pets\/51\/feed\/$/);
-    const ceremony = await screen.findByRole('alertdialog', { name: 'Base Chick' });
-    expect(within(ceremony).getByRole('img', { name: 'Chick' })).toHaveAttribute('src', BIRD_PORTRAIT);
+    const ceremony = await screen.findByRole('alertdialog', { name: 'Base Bird' });
+    expect(within(ceremony).getByRole('img', { name: 'Bird' })).toHaveAttribute('src', BIRD_PORTRAIT);
     await user.click(within(ceremony).getByRole('button', { name: /Continue/ }));
-    expect(screen.getByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', BIRD_PORTRAIT);
-    expect(screen.getByRole('button', { name: 'Care for Base Chick' })).toHaveTextContent('evolved');
+    expect(screen.getByRole('img', { name: 'Base Bird' })).toHaveAttribute('src', BIRD_PORTRAIT);
+    expect(screen.getByRole('button', { name: 'Care for Base Bird' })).toHaveTextContent('evolved');
   });
 
   it('Mounts uses Bird for Chick while an existing species keeps its own artwork', async () => {
@@ -121,7 +122,7 @@ describe('server-confirmed creatures across React surfaces', () => {
       { id: 62, species: { id: 32, name: 'Fox', sprite_key: 'fox', icon: '🦊', catalog_available: false }, potion: BASE, is_active: false, last_bred_at: null, catalog_available: false, can_breed: false },
     ]))));
     renderSurface(<Mounts />, { 'fox-mount': { url: '/sprites/owned-fox-mount.png', frames: 1 } });
-    expect(await screen.findByRole('img', { name: 'Base Chick' })).toHaveAttribute('src', BIRD_PORTRAIT);
+    expect(await screen.findByRole('img', { name: 'Base Bird' })).toHaveAttribute('src', BIRD_PORTRAIT);
     expect(screen.getByRole('img', { name: 'Base Fox' })).toHaveAttribute('src', '/sprites/owned-fox-mount.png');
   });
 
@@ -135,7 +136,7 @@ describe('server-confirmed creatures across React surfaces', () => {
     await user.click(screen.getByRole('button', { name: `Chick — ${owned ? 1 : 0} of 1 grown pets collected` }));
     const detail = screen.getByRole('dialog', { name: 'Chick' });
     expect(within(detail).getByRole('img', { name: 'Chick' })).toHaveAttribute('src', CHICK_PORTRAIT);
-    const variant = within(detail).getByRole('img', { name: `Base Chick — ${owned ? 'owned' : 'not yet evolved'}` });
+    const variant = within(detail).getByRole('img', { name: `Base Bird — ${owned ? 'owned' : 'not yet evolved'}` });
     expect(within(variant).getByRole('img', { name: 'cute-chick-mount' })).toHaveAttribute('src', BIRD_PORTRAIT);
     if (!owned) expect(variant).toHaveTextContent('locked');
   });

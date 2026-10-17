@@ -1,5 +1,6 @@
 import { isCatalogAvailable } from '../utils/catalogAvailability';
 import { resolveSharedBirdAppearance } from './sharedBirdRelease';
+import { birdStage, birdFormName } from './birdEvolution';
 
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
@@ -44,8 +45,9 @@ export function resolveAppearance(creature, kind = 'pet', source = manifest, url
   };
 }
 
-export function creatureLabel(creature) {
-  return [creature?.potion?.name, creature?.species?.name].filter(Boolean).join(' ');
+export function creatureLabel(creature, kind = 'pet') {
+  const form = birdFormName(creature?.species, creature?.potion, birdStage(creature, kind));
+  return [creature?.potion?.name, form].filter(Boolean).join(' ');
 }
 
 export function preferredCompanion(stable) {

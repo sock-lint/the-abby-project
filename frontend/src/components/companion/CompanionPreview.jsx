@@ -7,6 +7,8 @@ import { creatureLabel, resolveAppearance } from '../../companion/appearance';
 import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
+import { birdStage } from '../../companion/birdEvolution';
+import PetEvolutionGuide from './PetEvolutionGuide';
 
 class SceneBoundary extends Component {
   state = { failed: false };
@@ -27,8 +29,7 @@ function OwnedPreview({ creature, kind, variant, ...props }) {
   const [enabled, setEnabled] = useState(variant === 'primary');
   const [animate, setAnimate] = useState(variant === 'primary');
   const [attempt, setAttempt] = useState(0);
-  const bird = creature?.species?.slug === 'chick' && creature?.species?.sprite_key === 'cute-chick' && creature?.potion?.slug === 'base';
-  const stage = bird && ['chick', 'fledgling', 'bird'].includes(creature?.evolution_stage) ? creature.evolution_stage : null;
+  const stage = birdStage(creature, kind);
   const [observed, setObserved] = useState({ stage, count: 0, evolution: null });
   if (observed.stage !== stage) {
     const forward = (observed.stage === 'chick' && (stage === 'fledgling' || stage === 'bird')) || (observed.stage === 'fledgling' && stage === 'bird');
@@ -68,7 +69,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
   const onAssetFailure = useCallback((error) => setFailed({
     urls: [appearance?.url, appearance?.woodland?.url, ...Object.values(appearance?.interactions || {}).map((take) => take.url)].filter((url) => url && error?.message?.includes(url)),
   }), [appearance]);
-  const label = creatureLabel(creature);
+  const label = creatureLabel(creature, kind);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
   const reducedMotion = usePrefersReducedMotion();
@@ -112,7 +113,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         <div>
           <p className="text-caption font-semibold text-sheikah-teal-deep">{kicker}</p>
           <h2 id={headingId} className={`${primary ? 'companion-primary-name text-2xl sm:text-3xl' : 'text-lede'} font-bold text-ink-primary`}>{(primary ? name : label) || 'Choose a companion'}</h2>
-          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{stage ? `${stage[0].toUpperCase()}${stage.slice(1)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
+          {creature && <p className="text-caption text-ink-secondary">{primary && name !== label ? `${label} · ` : ''}{stage && !(primary && name !== label) ? `${stage[0].toUpperCase()}${stage.slice(1)} · ` : ''}{mount ? 'Evolved companion' : `${creature.growth_points ?? 0}/100 growth`}{!primary && (creature.is_active ? ' · Active' : ' · Preview')}</p>}
           {primary && summary && <p className="companion-primary-summary">{summary}</p>}
         </div>
         {appearance && (primary ? <details className="companion-view-settings">
@@ -173,6 +174,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
             : playback?.status === 'playing' ? `Playing ${appearance.motions.find((motion) => motion.id === playback.variantId)?.label || 'companion motion'}.`
               : 'Loading companion motion…'}
       </p>}
+      <PetEvolutionGuide creature={creature} kind={kind} />
       {children}
     </section>
   );

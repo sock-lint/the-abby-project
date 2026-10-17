@@ -1,4 +1,5 @@
 import presentation from './storybook/presentation.json';
+import themePresentation from './storybook/theme-presentation.json';
 
 // Keep persisted cover keys and cosmetic ownership intact. Every cover now
 // belongs to Meadow's storybook family; the default uses its shared palette.
@@ -35,9 +36,9 @@ function cover(overrides) {
 }
 
 export const themes = {
-  hyrule: cover({ name: 'Memory Meadow', icon: '🌼' }),
+  hyrule: cover({ name: themePresentation.names.hyrule, icon: '🌼' }),
   vigil: cover({
-    name: 'Twilight Meadow', icon: '🌙',
+    name: themePresentation.names.vigil, icon: '🌙',
     page: '#292538', pageAged: '#332C45', pageShadow: '#514560',
     pageGlow: '#3D3450', ink: palette.paper,
     inkSecondary: '#DDD1EB', inkWhisper: '#D3C5E1',
@@ -50,34 +51,32 @@ export const themes = {
     },
   }),
   sunlit: cover({
-    name: 'Honey Meadow', icon: '☀️',
+    name: themePresentation.names.sunlit, icon: '☀️',
     page: '#FFF9EE', pageAged: '#F9F3E5', pageShadow: '#EBDCC2',
     pageGlow: '#FFF9EE', accent: '#866329', accentBright: '#785320',
     accentGlow: palette.gold,
   }),
   snowquill: cover({
-    name: 'Cloud Meadow', icon: '☁️',
+    name: themePresentation.names.snowquill, icon: '☁️',
     page: '#F4FAFC', pageAged: '#EEF6FB', pageShadow: '#D4E6EE',
     pageGlow: '#F4FAFC', accent: '#486780', accentBright: '#3C586F',
     accentGlow: palette.sky,
   }),
   verdant: cover({
-    name: 'Clover Meadow', icon: '🍀',
+    name: themePresentation.names.verdant, icon: '🍀',
     page: '#F7FBF3', pageAged: '#F1F8F2', pageShadow: '#D6E6D8',
     pageGlow: '#F7FBF3', accent: '#486B55', accentBright: '#3C5C48',
     accentGlow: palette.mint,
   }),
   harvest: cover({
-    name: 'Peach Meadow', icon: '🍑',
+    name: themePresentation.names.harvest, icon: '🍑',
     page: '#FFF7F0', pageAged: '#FFF1E8', pageShadow: '#EED8D1',
     pageGlow: '#FFF7F0', accent: '#A24F6F', accentBright: '#8B405D',
     accentGlow: palette.accent,
   }),
 };
 
-export const LEGACY_THEME_ALIASES = {
-  summer: 'sunlit', winter: 'snowquill', spring: 'verdant', autumn: 'harvest',
-};
+export const LEGACY_THEME_ALIASES = themePresentation.aliases;
 
 export function applyTheme(themeName) {
   const resolved = LEGACY_THEME_ALIASES[themeName] || themeName;

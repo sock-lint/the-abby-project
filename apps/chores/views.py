@@ -123,8 +123,8 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import get_display_name, notify_parents
             display = get_display_name(user)
             notify_parents(
-                title=f"New duty proposed: {chore.title}",
-                message=f'{display} proposed a new duty "{chore.title}". Set rewards and approve to publish.',
+                title=f"New chore proposed: {chore.title}",
+                message=f'{display} proposed a new chore "{chore.title}". Set rewards and approve to publish.',
                 notification_type=NotificationType.CHORE_PROPOSED,
                 link="/manage",
                 about_user=user,
@@ -155,8 +155,8 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import notify
             notify(
                 proposer,
-                title=f"Duty proposal declined: {title}",
-                message=f'Your proposed duty "{title}" was declined.',
+                title=f"Chore proposal declined: {title}",
+                message=f'Your proposed chore "{title}" was declined.',
                 notification_type=NotificationType.CHORE_PROPOSAL_REJECTED,
                 link="/chores",
             )
@@ -194,7 +194,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             # for the current period (and the constraint excludes rejected
             # rows). Surface as 400, not 500.
             return Response(
-                {"error": "You've already submitted this duty for today."},
+                {"error": "You've already submitted this chore for today."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(
@@ -216,7 +216,7 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         chore = self.get_object()
         if not chore.pending_parent_review:
             return Response(
-                {"error": "This duty is already published."},
+                {"error": "This chore is already published."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -235,10 +235,10 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             from apps.notifications.services import notify
             notify(
                 proposer,
-                title=f"Duty published: {chore.title}",
+                title=f"Chore published: {chore.title}",
                 message=(
-                    f'Your proposed duty "{chore.title}" was approved '
-                    f'and is now in your duty list.'
+                    f'Your proposed chore "{chore.title}" was approved '
+                    f'and is now in your chore list.'
                 ),
                 notification_type=NotificationType.CHORE_PROPOSAL_APPROVED,
                 link="/chores",
@@ -283,7 +283,7 @@ class ChoreCompletionViewSet(
         )
         if completion.user_id != request.user.id:
             return Response(
-                {"error": "Only the submitter can withdraw a duty submission."},
+                {"error": "Only the submitter can withdraw a chore submission."},
                 status=status.HTTP_403_FORBIDDEN,
             )
         if completion.status != ChoreCompletion.Status.PENDING:

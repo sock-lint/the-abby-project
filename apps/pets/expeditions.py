@@ -346,7 +346,7 @@ class ExpeditionService:
                     "quantity": 1,
                     # Snapshot display fields so the loot row reads
                     # the same even if the item is renamed later.
-                    "name": item.name,
+                    "name": item.display_name,
                     "icon": item.icon,
                     "rarity": item.rarity,
                     "item_type": item.item_type,
@@ -414,7 +414,7 @@ class ExpeditionService:
                 # Salvage to coins.
                 CoinService.award_coins(
                     user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
-                    description=f"Salvaged duplicate from expedition: {item.name}",
+                    description=f"Salvaged duplicate from expedition: {item.display_name}",
                 )
                 slot["salvaged_to_coins"] = item.coin_value
                 loot_changed = True

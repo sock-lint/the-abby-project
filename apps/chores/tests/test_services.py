@@ -157,7 +157,8 @@ class ApprovalTests(_Fixture):
             notification_type=NotificationType.CHORE_REJECTED,
         ).first()
         self.assertIsNotNone(notif)
-        self.assertIn(self.chore.title, notif.title)
+        self.assertEqual(notif.title, f"Chore rejected: {self.chore.title}")
+        self.assertIn(f'Your chore "{self.chore.title}"', notif.message)
         self.assertIn("add a photo of the bin", notif.message)
 
     def test_reject_without_note_still_emits_notification(self):

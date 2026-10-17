@@ -3,6 +3,8 @@ import { Flame } from 'lucide-react';
 import { CoinIcon, EggIcon } from '../icons/JournalIcons';
 import RpgSprite from '../rpg/RpgSprite';
 import { petSpriteKeys } from '../rpg/petSpriteKeys';
+import { creatureLabel } from '../../companion/appearance';
+import { birdFormName, birdStage } from '../../companion/birdEvolution';
 
 function VitalPip({ label, value, icon, tone = 'ink', onClick, ariaLabel }) {
   const toneText = {
@@ -52,7 +54,7 @@ export default function VitalPipStrip({
       icon={activePet.species?.icon || '🐾'}
       potionSlug={activePet.potion?.slug}
       dim={activePet.evolved_to_mount || activePet.happiness_level === 'happy' ? null : activePet.happiness_level}
-      alt={[activePet.potion?.name, activePet.species?.name || 'Companion'].filter(Boolean).join(' ')}
+      alt={creatureLabel(activePet) || 'Companion'}
       size={24}
     />
   ) : (
@@ -90,7 +92,7 @@ export default function VitalPipStrip({
         value={activePet ? (activePet.growth_points != null ? `${activePet.growth_points}%` : '•') : '—'}
         label={activePet ? 'companion' : 'no pet'}
         tone="royal"
-        ariaLabel={activePet ? `${activePet.species?.name || 'pet'} growth` : 'Find a pet'}
+        ariaLabel={activePet ? `${birdFormName(activePet.species, activePet.potion, birdStage(activePet)) || 'pet'} growth` : 'Find a pet'}
         onClick={() => navigate(activePet ? '/bestiary?tab=companions' : '/treasury?tab=satchel')}
       />
     </div>

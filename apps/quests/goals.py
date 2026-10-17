@@ -43,7 +43,7 @@ TRIGGER_LABELS = {
     "clock_out": "tracked project work", "chore_complete": "approved chores",
     "homework_complete": "approved homework", "homework_created": "planned homework",
     "milestone_complete": "completed milestones", "project_complete": "completed projects",
-    "habit_log": "positive ritual taps", "movement_session": "movement sessions",
+    "habit_log": "positive habit taps", "movement_session": "movement sessions",
     "journal_entry": "journal entries", "creation_logged": "logged creations",
     "savings_goal_complete": "completed savings goals", "badge_earned": "earned badges",
     "perfect_day": "Perfect Days", "expedition_returned": "returned expeditions",
@@ -99,7 +99,7 @@ def _snapshot(goal):
     for row in goal.reward_items:
         item = ItemDefinition.objects.filter(pk=row["item_id"]).first()
         if item and item_is_available(item):
-            items.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
+            items.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return {
         "name": goal.name, "description": goal.description, "metric": goal.metric,
         "target": str(goal.target), "unit": goal.unit, "filter": goal.trigger_filter,
@@ -288,12 +288,12 @@ def _award(occurrence, user):
         quantity = row["quantity"]
         if item.item_type == "egg" and item.pet_species_id and UserMount.objects.filter(user=user, species_id=item.pet_species_id).exists() and item.coin_value > 0:
             salvage = item.coin_value * quantity
-            CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.name}")
+            CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}")
             coins += salvage
-            items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity, "salvaged_to_coins": salvage})
+            items.append({"item_name": item.display_name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity, "salvaged_to_coins": salvage})
         else:
             grant_item(user, item, quantity)
-            items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity})
+            items.append({"item_name": item.display_name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity})
     receipt = {"coins": coins, "xp": actual_xp, "items": items}
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt
@@ -480,7 +480,7 @@ def _reward_preview(snapshot):
     for row in rows:
         item = catalog.get(row["item_id"])
         if item is not None and item_is_available(item):
-            available.append({**row, "item_name": item.name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
+            available.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
     return available
 
 

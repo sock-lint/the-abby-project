@@ -514,7 +514,7 @@ test('owned mounts open their expedition choices without starting a run on entry
   await page.getByRole('button', { name: 'Say hello to Peep' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: 'Choose an expedition' }).click();
-  await expect(page.getByRole('dialog', { name: 'Send Chick on an expedition' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Send Bird on an expedition' })).toBeVisible();
   expect(mutations).toEqual([]);
 });
 

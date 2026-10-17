@@ -444,7 +444,7 @@ export default function SettingsPage() {
         <SectionHeader index={user?.role === 'parent' ? 4 : 3} title="Google account" kicker="connect a calendar" className="mb-4" />
         <p className="font-body text-body text-ink-secondary mb-3">
           Use Add to calendar beside a saved deadline or scheduled return to open Google Calendar
-          or download an Apple Calendar (.ics) file. Duties let you choose a reminder date.
+          or download an Apple Calendar (.ics) file. Chores let you choose a reminder date.
           These are one-time copies; later date changes need to be updated in your calendar.
           You can use them without connecting a Google account.
         </p>

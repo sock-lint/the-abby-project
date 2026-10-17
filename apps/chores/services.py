@@ -129,7 +129,7 @@ class ChoreService:
 
         if chore.pending_parent_review:
             raise ChoreNotAvailableError(
-                "This duty is waiting for parent approval before it can be completed.",
+                "This chore is waiting for parent approval before it can be completed.",
             )
 
         if user.role != "child":
@@ -315,9 +315,9 @@ class ChoreService:
             },
         )
 
-        title = f"Duty rejected: {completion.chore.title}"
+        title = f"Chore rejected: {completion.chore.title}"
         body = (
-            f'Your duty "{completion.chore.title}" was not approved. '
+            f'Your chore "{completion.chore.title}" was not approved. '
             f"You can complete it again."
         )
         if notes:

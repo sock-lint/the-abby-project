@@ -6,6 +6,7 @@ import Button from '../../../components/Button';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { startExpedition } from '../../../api';
 import usePetMutationGuard from './usePetMutationGuard';
+import { birdFormName } from '../../../companion/birdEvolution';
 
 // Tier metadata mirrors apps/pets/expeditions.py::TIER_CONFIG so the UI
 // reads truthful copy without an extra round-trip. If the backend table
@@ -71,7 +72,7 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
 
   return (
     <BottomSheet
-      title={`Send ${mount.species?.name} on an expedition`}
+      title={`Send ${birdFormName(mount.species, mount.potion, 'bird')} on an expedition`}
       onClose={onDismiss}
       disabled={working}
     >
@@ -80,7 +81,7 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
           <MapIcon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             Choose a duration. Your rewards are saved when the expedition
-            starts, so you can collect them any time after it ends. Each mount
+            starts, so you can collect them any time after it ends. Each grown pet
             can start one expedition per day.
           </span>
         </p>
