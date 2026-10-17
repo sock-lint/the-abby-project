@@ -3,6 +3,7 @@
     "id": 83,
     "item": {
       "id": 73,
+      "slug": "fixture-fox-egg",
       "name": "Synthetic Egg",
       "description": "",
       "icon": "🥚",
@@ -35,6 +36,7 @@
     "id": 81,
     "item": {
       "id": 71,
+      "slug": "fixture-berry-bowl",
       "name": "Berry Bowl",
       "description": "A synthetic favorite for foxes.",
       "icon": "🫐",
@@ -67,6 +69,7 @@
     "id": 82,
     "item": {
       "id": 72,
+      "slug": "fixture-trail-mix",
       "name": "Trail Mix",
       "description": "A synthetic neutral snack.",
       "icon": "🥜",
@@ -99,6 +102,7 @@
     "id": 84,
     "item": {
       "id": 74,
+      "slug": "fixture-wolf-meal",
       "name": "Wolf Meal",
       "description": "",
       "icon": "🍖",

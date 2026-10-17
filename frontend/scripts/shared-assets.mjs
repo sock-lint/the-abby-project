@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { importReleases, verifyImport } from '@abby-assets/release-tools';
+import { stageSupplementals, verifySupplementals, supplementalDestination } from './companion-supplementals.mjs';
 import { SHARED_ASSET_SECRET_NAMES, sharedAssetsEnvironment, sharedAssetsRequired } from './shared-assets-config.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -31,13 +32,17 @@ try {
   const configured = Boolean(process.env.ABBY_ASSETS_RELEASE_ROOT || process.env.ABBY_ASSETS_S3_BUCKET);
   if (mode === 'import' || (mode === 'stage' && configured)) {
     const result = await importReleases({ lock, destination });
-    process.stdout.write(`Shared assets verified: ${result.releases} pinned release(s), ${result.files} files.\n`);
+    await stageSupplementals({ destination: supplementalDestination });
+    process.stdout.write(`Shared assets verified: ${result.releases} pinned release(s), ${result.files} files; seven supplemental portraits verified.\n`);
   } else if (installed) {
     await verifyImport({ lock, destination });
+    await verifySupplementals(supplementalDestination);
     process.stdout.write('Shared assets match assets.lock.json.\n');
   } else if (required) {
     throw new Error('Shared assets are required. Run npm run assets:import with a private release source.');
   } else {
+    try { await access(supplementalDestination); await verifySupplementals(supplementalDestination); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
     process.stdout.write('Shared releases are absent; existing licensed art or labelled fallbacks are used.\n');
   }
 } catch (error) {

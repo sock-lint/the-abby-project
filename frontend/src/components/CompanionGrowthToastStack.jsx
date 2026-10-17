@@ -5,6 +5,7 @@ import { useCompanionGrowthToasts } from '../hooks/useCompanionGrowthToasts';
 import NotificationToast from './NotificationToast';
 import { TOAST_DURATION_STANDARD } from '../constants/timing';
 import RpgSprite from './rpg/RpgSprite';
+import { petSpriteKeys } from './rpg/petSpriteKeys';
 import PetCeremonyModal from '../pages/bestiary/PetCeremonyModal';
 import { companionFormName, lifecycleStageLabel } from '../companion/lifecycle';
 
@@ -35,7 +36,7 @@ function GrowthToast({ event, onDismiss }) {
     >
       <Sprout size={18} className="text-current shrink-0" aria-hidden="true" />
       <RpgSprite
-        spriteKey={event.species_sprite_key}
+        {...petSpriteKeys({ species: { slug: event.species_slug, sprite_key: event.species_sprite_key }, potion: { slug: event.potion_slug }, lifecycle_stage: event.lifecycle_stage, evolved_to_mount: event.evolved })}
         icon={event.species_icon || '🐾'}
         size={32}
         alt={form}

@@ -3,6 +3,7 @@
     "id": 192,
     "item": {
       "id": 75,
+      "slug": "fixture-legacy-egg",
       "name": "Legacy Egg",
       "description": "",
       "icon": "",
@@ -37,6 +38,7 @@
     "id": 191,
     "item": {
       "id": 73,
+      "slug": "fixture-fox-egg",
       "name": "Synthetic Egg",
       "description": "",
       "icon": "🥚",
@@ -71,6 +73,7 @@
     "id": 193,
     "item": {
       "id": 76,
+      "slug": "fixture-unknown-egg",
       "name": "Unknown Egg",
       "description": "",
       "icon": "",
@@ -97,6 +100,7 @@
     "id": 194,
     "item": {
       "id": 71,
+      "slug": "fixture-berry-bowl",
       "name": "Berry Bowl",
       "description": "A synthetic favorite for foxes.",
       "icon": "🫐",

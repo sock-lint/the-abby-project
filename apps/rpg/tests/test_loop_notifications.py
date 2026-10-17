@@ -38,11 +38,13 @@ class DropReceivedNotificationTests(TestCase):
             slug="chick", name="Chick", sprite_key="cute-chick", icon="🐤",
         )
         self.item = ItemDefinition.objects.create(
+            slug="chick-egg",
             name="Chick Egg",
             icon="🥚",
             item_type=ItemDefinition.ItemType.EGG,
             rarity=ItemDefinition.Rarity.COMMON,
             pet_species=chick,
+            metadata={"species": "chick"},
         )
         DropTable.objects.create(
             trigger_type=DropTable.TriggerType.CLOCK_OUT,

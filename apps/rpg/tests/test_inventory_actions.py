@@ -118,7 +118,7 @@ class AvailableActionsByItemTypeTests(TestCase):
     def test_egg_routes_to_hatchery(self):
         from apps.pets.models import PetSpecies
         species = PetSpecies.objects.create(slug="chick", sprite_key="cute-chick", name="Chick", icon="C")
-        item = self._entry_for(ItemDefinition.ItemType.EGG, pet_species=species)
+        item = self._entry_for(ItemDefinition.ItemType.EGG, slug="chick-egg", pet_species=species, metadata={"species": "chick"})
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")
@@ -128,7 +128,7 @@ class AvailableActionsByItemTypeTests(TestCase):
     def test_potion_routes_to_hatchery(self):
         from apps.pets.models import PotionType
         potion = PotionType.objects.create(slug="base", name="Base")
-        item = self._entry_for(ItemDefinition.ItemType.POTION, potion_type=potion)
+        item = self._entry_for(ItemDefinition.ItemType.POTION, slug="base-potion", potion_type=potion, metadata={"variant": "base"})
         actions = self._actions_for(item)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0]["id"], "hatch")

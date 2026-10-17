@@ -213,7 +213,7 @@ class ItemDefinitionSerializer(serializers.ModelSerializer):
     class Meta:
         model = ItemDefinition
         fields = [
-            "id", "name", "description", "icon", "sprite_key", "catalog_icon", "item_type", "type_display",
+            "id", "slug", "name", "description", "icon", "sprite_key", "catalog_icon", "item_type", "type_display",
             "rarity", "rarity_display", "coin_value", "metadata",
             "pet_species_name", "potion_type_name", "food_species_name", "catalog_available",
             "lifecycle_stage", "pet_species_slug",

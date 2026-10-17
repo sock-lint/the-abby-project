@@ -103,6 +103,18 @@ describe('Optional companion preview', () => {
 });
 
 describe('Primary companion home', () => {
+  it('disables native play controls while animation is explicitly off', async () => {
+    const user = userEvent.setup();
+    render(<CompanionPreview variant="primary" creature={pet} />);
+    await screen.findByTestId('optional-scene');
+    act(() => scene.props.onReady());
+    await user.click(screen.getByText('View'));
+    await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+    expect(screen.getByRole('button', { name: 'Hop together' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Look around' })).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: 'Animate companion' }));
+    expect(screen.getByRole('button', { name: 'Hop together' })).toBeEnabled();
+  });
   it('opens the exact owned 3D companion with idle motion and a direct accessible care action', async () => {
     const user = userEvent.setup();
     const openCare = vi.fn();

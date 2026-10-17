@@ -18,6 +18,7 @@
     "item_definition": 601,
     "item_definition_detail": {
       "id": 601,
+      "slug": null,
       "name": "Fixture promised frame",
       "description": "",
       "icon": "frame",

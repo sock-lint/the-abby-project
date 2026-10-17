@@ -4,6 +4,16 @@ import { petSpriteKeys } from './petSpriteKeys';
 describe('pet portrait state', () => {
   const chick = { id: 1, species: { slug: 'chick', sprite_key: 'cute-chick' }, potion: { slug: 'base' }, evolution_stage: 'fledgling', growth_points: 50, evolved_to_mount: false };
 
+  it('uses exact roster stage portrait keys and never falls back to a different family or baby for an unknown stage', () => {
+    const pet = { ...chick, species: { slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf' }, lifecycle_stage: 'middle' };
+    expect(petSpriteKeys(pet)).toEqual({ spriteKey: 'meshtint-wolf-middle', fallbackSpriteKey: null });
+    expect(petSpriteKeys({ ...pet, lifecycle_stage: 'future-stage' })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    expect(petSpriteKeys({ ...pet, lifecycle_stage: 'grown', evolved_to_mount: false })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    expect(petSpriteKeys({ ...pet, potion: { slug: 'fire' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    expect(petSpriteKeys({ ...pet, species: { slug: 'wolf', sprite_key: 'meshtint-wolf' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    expect(petSpriteKeys(pet, 'mount')).toEqual({ spriteKey: 'meshtint-wolf-mount', fallbackSpriteKey: null });
+  });
+
   it('uses the intermediate portrait only for the exact server-confirmed Fledgling', () => {
     expect(petSpriteKeys(chick)).toEqual({ spriteKey: 'cute-chick-fledgling', fallbackSpriteKey: 'cute-chick' });
     expect(petSpriteKeys({ ...chick, evolution_stage: null })).toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });

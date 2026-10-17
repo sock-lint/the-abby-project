@@ -1,0 +1,161 @@
+[
+  {
+    "id": 74,
+    "item": {
+      "id": 54,
+      "slug": "frame-gold",
+      "name": "Gold Frame",
+      "description": "",
+      "icon": "G",
+      "sprite_key": "",
+      "catalog_icon": "item-frame-gold",
+      "item_type": "cosmetic_frame",
+      "type_display": "Avatar Frame",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "border_color": "#abcdef"
+      },
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "equip",
+        "label": "Equip in Profile",
+        "to": "/sigil"
+      }
+    ]
+  },
+  {
+    "id": 73,
+    "item": {
+      "id": 53,
+      "slug": "accessory-crown",
+      "name": "Crown",
+      "description": "",
+      "icon": "A",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "cosmetic_pet_accessory",
+      "type_display": "Pet Accessory",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": null,
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 91,
+    "item": {
+      "id": 91,
+      "slug": "meshtint-bat-egg",
+      "name": "Bat Egg",
+      "description": "",
+      "icon": "🥚",
+      "sprite_key": "",
+      "catalog_icon": "bat-egg-portrait",
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "species": "meshtint-bat"
+      },
+      "pet_species_name": "Bat",
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": true,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "meshtint-bat"
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  },
+  {
+    "id": 71,
+    "item": {
+      "id": 51,
+      "slug": "cat-egg",
+      "name": "Cat Egg",
+      "description": "",
+      "icon": "E",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "egg",
+      "type_display": "Pet Egg",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {},
+      "pet_species_name": "Cat",
+      "potion_type_name": null,
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": "egg",
+      "pet_species_slug": "cat"
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 72,
+    "item": {
+      "id": 52,
+      "slug": "base-potion",
+      "name": "Base Potion",
+      "description": "",
+      "icon": "P",
+      "sprite_key": "",
+      "catalog_icon": "item-base-potion",
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "common",
+      "rarity_display": "Common",
+      "coin_value": 0,
+      "metadata": {
+        "variant": "base"
+      },
+      "pet_species_name": null,
+      "potion_type_name": "Base",
+      "food_species_name": null,
+      "catalog_available": true,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 1,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
+  }
+]

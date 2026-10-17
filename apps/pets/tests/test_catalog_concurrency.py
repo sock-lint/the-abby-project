@@ -20,8 +20,8 @@ class SupportedPetConcurrencyTests(TransactionTestCase):
         self.chick = PetSpecies.objects.create(slug="chick", sprite_key="cute-chick", name="Chick", icon="C")
         self.base = PotionType.objects.create(slug="base", name="Base")
         self.chick.available_potions.add(self.base)
-        self.egg = ItemDefinition.objects.create(name="Chick egg", item_type="egg", pet_species=self.chick)
-        self.potion = ItemDefinition.objects.create(name="Base potion", item_type="potion", potion_type=self.base)
+        self.egg = ItemDefinition.objects.create(slug="chick-egg", name="Chick egg", item_type="egg", pet_species=self.chick, metadata={"species": "chick"})
+        self.potion = ItemDefinition.objects.create(slug="base-potion", name="Base potion", item_type="potion", potion_type=self.base, metadata={"variant": "base"})
         self.food = ItemDefinition.objects.create(name="Birdseed", item_type="food", food_species=self.chick)
 
     def post(self, path, body, start):

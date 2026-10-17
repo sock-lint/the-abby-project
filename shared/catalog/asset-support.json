@@ -1,13 +1,132 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-baseline-2026-10-12",
+  "policy_id": "owned-r3f-companion-roster-2026-10-17",
   "pets": [
     {
       "species_slug": "chick",
       "sprite_key": "cute-chick",
-      "potion_slugs": ["base"],
-      "stages": {"pet": "chick", "intermediate": "fledgling", "evolved": "bird", "mount": "bird"},
+      "potion_slugs": [
+        "base"
+      ],
+      "stages": {
+        "pet": "chick",
+        "intermediate": "fledgling",
+        "evolved": "bird",
+        "mount": "bird"
+      },
       "source": "meshtint-bird-family"
+    },
+    {
+      "species_slug": "meshtint-bat",
+      "sprite_key": "meshtint-bat",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-bee",
+      "sprite_key": "meshtint-bee",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-shadow",
+      "sprite_key": "meshtint-shadow",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-mushroom",
+      "sprite_key": "meshtint-mushroom",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-spider",
+      "sprite_key": "meshtint-spider",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-wolf",
+      "sprite_key": "meshtint-wolf",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-dragon",
+      "sprite_key": "meshtint-dragon",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-snake",
+      "sprite_key": "meshtint-snake",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-hermit-crab",
+      "sprite_key": "meshtint-hermit-crab",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-blossom",
+      "sprite_key": "meshtint-blossom",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-sunflower",
+      "sprite_key": "meshtint-sunflower",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
+    },
+    {
+      "species_slug": "meshtint-bomb",
+      "sprite_key": "meshtint-bomb",
+      "potion_slugs": [
+        "base"
+      ],
+      "source": "meshtint-companion-roster"
     }
   ],
   "potion_slugs": ["base"],

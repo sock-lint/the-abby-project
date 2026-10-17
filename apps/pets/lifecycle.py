@@ -6,6 +6,7 @@ These read-only projections never create ownership or change growth.
 """
 import json
 from pathlib import Path
+from .roster import prepared_family
 
 
 LIFECYCLE_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/companion-lifecycle.json"
@@ -19,7 +20,15 @@ def companion_lifecycle_stage(companion, *, is_mount=False):
     """Derive a stage from saved state, including legacy/unsupported families."""
     if is_mount or getattr(companion, "evolved_to_mount", False):
         return "grown"
-    return "middle" if companion.growth_points >= MIDDLE_GROWTH else "baby"
+    middle, _grown = growth_thresholds(companion)
+    return "middle" if companion.growth_points >= middle else "baby"
+
+
+def growth_thresholds(companion):
+    family = prepared_family(getattr(companion, "species", None))
+    if family and getattr(getattr(companion, "potion", None), "slug", None) == "base":
+        return family["middle_growth"], family["grown_growth"]
+    return MIDDLE_GROWTH, GROWN_GROWTH
 
 
 def item_lifecycle_stage(item):
@@ -33,16 +42,7 @@ def egg_species_slug(item):
     may store a display name or canonical slug, as in the acquisition policy.
     Unknown eggs remain readable without inventing a species identity.
     """
-    if item.item_type != "egg":
-        return None
-    if item.pet_species_id:
-        return item.pet_species.slug
-    metadata = item.metadata if isinstance(item.metadata, dict) else {}
-    key = metadata.get("species")
-    if not isinstance(key, str) or not key.strip():
-        return None
-    from apps.pets.models import PetSpecies
+    from apps.rpg.catalog_support import egg_species
 
-    key = key.strip()
-    species = PetSpecies.objects.filter(name__iexact=key).first() or PetSpecies.objects.filter(slug=key).first()
+    species = egg_species(item)
     return species.slug if species else None

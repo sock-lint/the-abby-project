@@ -602,6 +602,7 @@ describe('shared Django response fixtures through the React API client', () => {
     expect(expedition.loot.coins).toBe(plannedCoins);
     expect(expedition.loot.items).toHaveLength(slots);
     expect(expedition.loot.items.map((slot) => slot.item_id)).toEqual(Array(slots).fill(71));
+    expect(expedition.loot.items.map((slot) => slot.catalog_icon)).toEqual(Array(slots).fill(null));
     expect(expedition).not.toHaveProperty('coins_awarded');
     expect(calls).toEqual([{
       body: { tier }, authorization: `Token ${loginResponse.token}`,
@@ -776,7 +777,7 @@ describe('shared Django response fixtures through the React API client', () => {
     const result = await breedMounts(61, 62);
     expect(result).toEqual(response);
     expect(result).toMatchObject({
-      egg_item_id: 73, egg_lifecycle_stage: 'egg', potion_item_id: potionId, picked_species: 'Fox', picked_species_slug: 'fixture-fox',
+      egg_item_id: 73, egg_lifecycle_stage: 'egg', egg_item_catalog_icon: null, potion_item_id: potionId, picked_species: 'Fox', picked_species_slug: 'fixture-fox',
       picked_potion: potionName, chromatic, cooldown_days: 7,
     });
     expect(result).not.toHaveProperty('coins_awarded');

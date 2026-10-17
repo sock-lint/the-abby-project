@@ -1,6 +1,7 @@
 [
   {
     "id": 83,
+    "slug": "scholar-draught-ii",
     "name": "Scholar's Draught II",
     "description": "",
     "icon": "S",
@@ -24,6 +25,7 @@
   },
   {
     "id": 82,
+    "slug": "food-fish-cooked",
     "name": "Cooked Fish",
     "description": "",
     "icon": "C",
@@ -44,6 +46,7 @@
   },
   {
     "id": 81,
+    "slug": "food-fish",
     "name": "Fish",
     "description": "",
     "icon": "F",
@@ -64,6 +67,7 @@
   },
   {
     "id": 84,
+    "slug": "custom-fish",
     "name": "Fish",
     "description": "",
     "icon": "U",

@@ -26,7 +26,8 @@
             "icon": "🖼️",
             "rarity": "rare",
             "item_type": "cosmetic_frame",
-            "sprite_key": "fixture-frame"
+            "sprite_key": "fixture-frame",
+            "catalog_icon": null
           }
         ]
       }

@@ -1,6 +1,9 @@
 """Real current-policy responses, including preserved unsupported ownership."""
+import json
+from pathlib import Path
 from unittest.mock import patch
 
+from django.conf import settings
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
@@ -14,6 +17,7 @@ from config.tests import test_api_contract_fixtures as shared
 class CatalogApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared.SharedApiResponseFixtureTests.assert_response_fixture
     pin_next_mount_identity = shared.SharedApiResponseFixtureTests.pin_next_mount_identity
+    pin_next_hatched_pet_identity = shared.SharedApiResponseFixtureTests.pin_next_hatched_pet_identity
 
     def setUp(self):
         clock = patch("django.utils.timezone.now", return_value=shared.FIXED_NOW)
@@ -26,8 +30,19 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.chick.available_potions.add(self.base)
         self.cat = PetSpecies.objects.create(id=43, slug="cat", name="Cat", icon="K", sprite_key="cat")
         self.cat.available_potions.add(self.base)
+        # The production codex contains 15 species identities, independently of
+        # their 45 post-hatch artwork forms. All new pairs use global Base.
+        roster = json.loads((Path(settings.BASE_DIR) / "shared/catalog/companion-roster.json").read_text())
+        self.roster_species = []
+        for index, family in enumerate(roster["families"]):
+            species = PetSpecies.objects.create(
+                id=142 + index, slug=family["species_slug"], name=family["name"],
+                icon="🐾", sprite_key=family["sprite_key"],
+            )
+            species.available_potions.add(self.base)
+            self.roster_species.append(species)
         self.egg = ItemDefinition.objects.create(id=51, slug="cat-egg", name="Cat Egg", icon="E", item_type="egg", pet_species=self.cat)
-        self.potion = ItemDefinition.objects.create(id=52, slug="base-potion", name="Base Potion", icon="P", item_type="potion", potion_type=self.base)
+        self.potion = ItemDefinition.objects.create(id=52, slug="base-potion", name="Base Potion", icon="P", item_type="potion", potion_type=self.base, metadata={"variant": "base"})
         self.accessory = ItemDefinition.objects.create(id=53, slug="accessory-crown", name="Crown", icon="A", item_type="cosmetic_pet_accessory")
         self.frame = ItemDefinition.objects.create(id=54, slug="frame-gold", name="Gold Frame", icon="G", item_type="cosmetic_frame", metadata={"border_color": "#abcdef"})
         UserPet.objects.create(id=61, user=self.child, species=self.chick, potion=self.base, name="Peep", is_active=True)
@@ -36,10 +51,44 @@ class CatalogApiResponseFixtureTests(APITestCase):
             UserInventory.objects.create(id=pk, user=self.child, item=item, quantity=1)
 
     def test_current_catalog_and_preserved_collection_responses(self):
-        self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-supported-catalog.json")
+        catalog = self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-supported-catalog.json")
+        self.assertEqual(len(catalog["species"]), 15)
+        self.assertEqual({species["slug"] for species in catalog["species"]},
+                         {"chick", *(species.slug for species in self.roster_species)})
+        self.assertEqual([potion["slug"] for potion in catalog["potions"]], ["base"])
+        for species in catalog["species"]:
+            self.assertEqual(species["lifecycle_stages"], ["egg", "baby", "middle", "grown"])
+            self.assertEqual([potion["slug"] for potion in species["available_potions"]], ["base"])
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-preserved-collection.json")
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")
+
+    def test_namespaced_roster_egg_hatches_one_base_baby_with_exact_family_identity(self):
+        species = next(species for species in self.roster_species if species.slug == "meshtint-bat")
+        egg = ItemDefinition.objects.create(
+            id=91, slug="meshtint-bat-egg", name="Bat Egg", icon="🥚", item_type="egg",
+            pet_species=species, metadata={"species": species.slug},
+        )
+        UserInventory.objects.create(id=91, user=self.child, item=egg, quantity=2)
+        inventory = self.client.get("/api/inventory/")
+        self.assertEqual(inventory.status_code, 200)
+        owned_egg = next(entry["item"] for entry in inventory.json() if entry["item"]["id"] == egg.pk)
+        self.assertTrue(owned_egg["catalog_available"])
+        self.assertEqual(owned_egg["pet_species_slug"], species.slug)
+        self.assertEqual(owned_egg["catalog_icon"], "bat-egg-portrait")
+        self.assert_response_fixture(inventory, "inventory-roster-hatching.json")
+        self.pin_next_hatched_pet_identity()
+        body = self.assert_response_fixture(self.client.post(
+            "/api/pets/hatch/", {"egg_item_id": egg.pk, "potion_item_id": self.potion.pk}, format="json",
+        ), "pet-hatch-roster.json", status=201)
+        self.assertEqual(body["species"]["slug"], "meshtint-bat")
+        self.assertEqual(body["species"]["catalog_icon"], "bat-baby-portrait")
+        self.assertEqual(body["potion"]["slug"], "base")
+        self.assertEqual((body["lifecycle_stage"], body["growth_points"], body["evolved_to_mount"]), ("baby", 0, False))
+        self.assertTrue(body["catalog_available"])
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.potion).exists())
+        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 3)
 
     def test_bird_stages_retain_saved_species_inventory_and_legacy_collection(self):
         UserPet.objects.filter(pk=61).update(growth_points=35)
@@ -74,6 +123,34 @@ class CatalogApiResponseFixtureTests(APITestCase):
         before = list(UserPet.objects.filter(user=self.child).values())
         self.assertEqual(self.client.get("/api/pets/stable/").json(), stable)
         self.assertEqual(list(UserPet.objects.filter(user=self.child).values()), before)
+
+    def test_namespaced_roster_breeding_returns_the_registered_parent_egg_and_base_potion(self):
+        bat = next(species for species in self.roster_species if species.slug == "meshtint-bat")
+        bee = next(species for species in self.roster_species if species.slug == "meshtint-bee")
+        egg = ItemDefinition.objects.create(
+            id=91, slug="meshtint-bat-egg", name="Bat Egg", icon="🥚", item_type="egg",
+            pet_species=bat, metadata={"species": bat.slug},
+        )
+        parents = [UserMount.objects.create(id=81 + index, user=self.child, species=species, potion=self.base)
+                   for index, species in enumerate((bat, bee))]
+        with patch("apps.pets.services.random.choice", side_effect=lambda options: options[0]), patch("apps.pets.services.random.random", return_value=0):
+            response = self.client.post("/api/mounts/breed/", {
+                "mount_a_id": parents[0].pk, "mount_b_id": parents[1].pk,
+            }, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["egg_item_catalog_icon"], "bat-egg-portrait")
+        body = self.assert_response_fixture(response, "mount-breed-roster.json", status=201)
+        self.assertEqual(body["picked_species_slug"], bat.slug)
+        self.assertEqual(body["picked_potion_slug"], "base")
+        self.assertFalse(body["chromatic"])
+        self.assertEqual((body["egg_item_id"], body["egg_lifecycle_stage"], body["egg_item_catalog_icon"]),
+                         (egg.pk, "egg", "bat-egg-portrait"))
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.potion).quantity, 2)
+        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
+        for parent in parents:
+            parent.refresh_from_db()
+            self.assertEqual(parent.last_bred_at, shared.FIXED_NOW)
 
     def test_owned_appearance_inventory_routes_to_each_features_editor(self):
         cover = ItemDefinition.objects.create(

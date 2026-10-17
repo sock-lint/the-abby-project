@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
+import { breedMounts, equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
@@ -15,6 +15,10 @@ import imageChallenges from '../../../contracts/api/fixtures/catalog-icons-chall
 import imageSpecies from '../../../contracts/api/fixtures/catalog-icons-species.json';
 import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json';
 import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
+import roster from '../../../shared/catalog/companion-roster.json';
+import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
+import rosterHatch from '../../../contracts/api/fixtures/pet-hatch-roster.json';
+import rosterBreed from '../../../contracts/api/fixtures/mount-breed-roster.json';
 
 describe('current owned-art API contracts', () => {
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
@@ -66,7 +70,13 @@ describe('current owned-art API contracts', () => {
       http.get('*/api/inventory/', () => HttpResponse.json(inventory)),
     );
     expect(await getPetCodex()).toEqual(catalog);
-    expect(catalog.species.map((species) => species.slug)).toEqual(['chick']);
+    expect(catalog.species).toHaveLength(15);
+    expect(new Set(catalog.species.map((species) => species.slug))).toEqual(new Set(['chick', ...roster.families.map((family) => family.species_slug)]));
+    expect(catalog.potions.map((potion) => potion.slug)).toEqual(['base']);
+    expect(catalog.species.every((species) => species.available_potions.length === 1 && species.available_potions[0].slug === 'base')).toBe(true);
+    expect(catalog.species.find((species) => species.slug === 'meshtint-bat')).toMatchObject({
+      catalog_icon: 'bat-baby-portrait', grown_catalog_icon: 'bat-grown-portrait',
+    });
     expect(catalog.species[0].lifecycle_stages).toEqual(['egg', 'baby', 'middle', 'grown']);
     expect(await getStable()).toEqual(stable);
     expect(stable.pets.map((pet) => [pet.name, pet.catalog_available])).toEqual([['Peep', true], ['Kit', false]]);
@@ -84,6 +94,30 @@ describe('current owned-art API contracts', () => {
     expect(savedEgg.available_actions).toEqual([]);
   });
 
+  it('preserves a roster egg’s exact namespaced family and its confirmed Base baby after hatching', async () => {
+    const calls = [];
+    server.use(
+      http.get('*/api/inventory/', () => HttpResponse.json(rosterInventory)),
+      http.post('*/api/pets/hatch/', async ({ request }) => {
+        calls.push(await request.json());
+        return HttpResponse.json(rosterHatch, { status: 201 });
+      }),
+    );
+    const inventory = await getInventory();
+    const egg = inventory.find((entry) => entry.item.id === 91);
+    expect(egg).toMatchObject({ quantity: 2, item: {
+      lifecycle_stage: 'egg', pet_species_slug: 'meshtint-bat',
+      metadata: { species: 'meshtint-bat' }, catalog_available: true, catalog_icon: 'bat-egg-portrait',
+    } });
+    const pet = await hatchPet(91, 52);
+    expect(pet).toEqual(rosterHatch);
+    expect(pet).toMatchObject({
+      species: { slug: 'meshtint-bat', catalog_icon: 'bat-baby-portrait' }, potion: { slug: 'base' },
+      lifecycle_stage: 'baby', growth_points: 0, evolved_to_mount: false, catalog_available: true,
+    });
+    expect(calls).toEqual([{ egg_item_id: 91, potion_item_id: 52 }]);
+  });
+
   it('retains server rejection details for unsupported hatch and accessory requests', async () => {
     const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, HttpResponse.json(hatchUnavailable, { status: 400 }));
     const equip = spyHandler('post', /\/api\/character\/equip\/$/, HttpResponse.json(equipUnavailable, { status: 400 }));
@@ -92,5 +126,20 @@ describe('current owned-art API contracts', () => {
     await expect(equipCosmetic(53)).rejects.toMatchObject({ status: 400, response: equipUnavailable });
     expect(hatch.calls[0].body).toEqual({ egg_item_id: 51, potion_item_id: 52 });
     expect(equip.calls[0].body).toEqual({ item_id: 53 });
+  });
+
+  it('preserves the registered parent family’s exact egg portrait and global Base breeding output', async () => {
+    const calls = [];
+    server.use(http.post('*/api/mounts/breed/', async ({ request }) => {
+      calls.push(await request.json());
+      return HttpResponse.json(rosterBreed, { status: 201 });
+    }));
+    const receipt = await breedMounts(81, 82);
+    expect(receipt).toEqual(rosterBreed);
+    expect(receipt).toMatchObject({
+      picked_species_slug: 'meshtint-bat', picked_potion_slug: 'base', chromatic: false,
+      egg_item_id: 91, egg_lifecycle_stage: 'egg', egg_item_catalog_icon: 'bat-egg-portrait',
+    });
+    expect(calls).toEqual([{ mount_a_id: 81, mount_b_id: 82 }]);
   });
 });

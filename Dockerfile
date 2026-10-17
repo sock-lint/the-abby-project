@@ -12,7 +12,7 @@ RUN --mount=type=secret,id=COOLIFY_BUILD_SECRETS_HASH npm ci
 
 COPY frontend/ ./
 # Shared stage vocabulary is imported by React as well as Django.
-COPY shared/catalog/companion-lifecycle.json /app/shared/catalog/companion-lifecycle.json
+COPY shared/catalog/ /app/shared/catalog/
 
 # Sentry DSN is baked into the React bundle at build time.
 ARG VITE_SENTRY_DSN=""

@@ -113,7 +113,7 @@ export default function Companions() {
       setSelectedPet(null);
       const currentPresentation = presentation.current?.creatureId === pet.id ? presentation.current : null;
       if (result?.evolved && !(currentPresentation?.sharedBirdReady && currentPresentation.evolutionMotionEnabled)) {
-        setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
+        setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet) || companionStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
       }
       const changedStage = (result?.lifecycle_stage && result.lifecycle_stage !== pet.lifecycle_stage)
         || (result?.evolution_stage && result.evolution_stage !== pet.evolution_stage);

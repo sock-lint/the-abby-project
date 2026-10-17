@@ -465,6 +465,7 @@ class SharedApiResponseFixtureTests(APITestCase):
                 self.assertEqual(body["loot"]["coins"], coins)
                 self.assertEqual(len(body["loot"]["items"]), slots)
                 self.assertEqual([slot["item_id"] for slot in body["loot"]["items"]], [71] * slots)
+                self.assertEqual([slot["catalog_icon"] for slot in body["loot"]["items"]], [None] * slots)
                 self.assertEqual(expedition.loot, body["loot"])
         self.assertEqual(self.expedition_reward_state(), before)
         rows = self.assert_response_fixture(self.client.get("/api/expeditions/?user_id=99"), "expeditions.json")["expeditions"]
@@ -685,6 +686,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         body = self.assert_response_fixture(response, fixture, status=201)
         self.assertEqual(body["egg_item_id"], 73)
         self.assertEqual(body["egg_lifecycle_stage"], "egg")
+        self.assertIsNone(body["egg_item_catalog_icon"])
         self.assertEqual(body["potion_item_id"], potion_item_id)
         self.assertEqual((body["picked_species"], body["picked_species_slug"]), ("Fox", "fixture-fox"))
         self.assertEqual(body["chromatic"], chromatic)
@@ -798,8 +800,14 @@ class SharedApiResponseFixtureTests(APITestCase):
         UserPet.objects.filter(pk=self.pet.pk).update(growth_points=49)
         UserPet.objects.filter(pk=self.ready_pet.pk).update(growth_points=50)
         # Old saved growth does not itself establish the confirmed mount state.
+        # Give this saved family its own sort key so raw response order does not
+        # depend on how PostgreSQL/SQLite order matching species/potion rows.
+        older_wolf = PetSpecies.objects.create(
+            id=45, slug="fixture-older-wolf", name="Older Wolf", icon="🐺",
+            sprite_key="older-wolf", description="A synthetic saved family.",
+        )
         UserPet.objects.create(
-            id=54, user=self.child, species=self.ready_pet.species,
+            id=54, user=self.child, species=older_wolf,
             potion=self.mount.potion, growth_points=100,
         )
         before = list(UserPet.objects.order_by("pk").values())

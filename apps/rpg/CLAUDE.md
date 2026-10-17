@@ -167,3 +167,12 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `sprite_admin_views.py` — parent-only admin CRUD endpoints.
 - `content/loader.py` — RPG content YAML loader (idempotent upsert).
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
+
+Prepared roster adoption registers 14 namespaced families plus retained Chick,
+all Base-only. The content loader rejects existing identity collisions before
+upserts, applies the namespace once and preserves legacy definitions.
+`companion_catalog.py` reconciles stale egg/potion drop configuration and digital
+shop offers idempotently; it never deletes item/species definitions, quest reward
+links or frozen promises. Use `reconcile_companion_catalog --dry-run --json`
+before rollout. Egg-category weights remain unchanged in live selection. See
+[the adoption runbook](../../docs/operations/companion-lifecycle.md).

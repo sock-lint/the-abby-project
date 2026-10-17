@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';
 import { createSharedBirdPlayback } from './sharedBirdPlayback';
+import { createSharedRosterPlayback } from './sharedRosterPlayback';
 import { birdPlaybackIdentity } from './sharedBirdRelease';
 import WoodlandScene, { WoodlandCamera } from './WoodlandScene';
 import { WOODLAND_BACKGROUND, WOODLAND_CAMERA } from './prepareWoodland';
@@ -79,7 +80,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
   const resourceIdentity = birdPlaybackIdentity(appearance);
   const notifyReady = useEffectEvent(() => onReady());
   const notifyPlayback = useEffectEvent((state) => onPlaybackState?.(state));
-  const createPlayback = useEffectEvent(() => createSharedBirdPlayback(appearance, {
+  const createPlayback = useEffectEvent(() => (appearance.pipeline === 'abby-assets-roster' ? createSharedRosterPlayback : createSharedBirdPlayback)(appearance, {
     onReady: () => notifyReady(), onPlaybackState: (state) => notifyPlayback(state), onError: setError, invalidate,
   }));
   useEffect(() => {
@@ -129,7 +130,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
     if (interaction.action === 'hello') greetingTime.current = 0.8;
     else playback.current?.play(interaction.action);
     invalidate();
-  }, [interaction, motionAllowed, animate, reducedMotion, invalidate]);
+  }, [interaction, resourceIdentity, motionAllowed, animate, reducedMotion, invalidate]);
   useEffect(() => {
     if (!reaction?.id || lastReaction.current === reaction.id) return;
     lastReaction.current = reaction.id;
@@ -181,7 +182,7 @@ export default function CompanionScene({ appearance, greeting, interaction, reac
       <ContextGuard onUnavailable={onUnavailable} />
       <Suspense fallback={null}>
         {appearance.woodland && <WoodlandScene appearance={appearance.woodland} />}
-        {appearance.pipeline === 'abby-assets-bird'
+        {['abby-assets-bird', 'abby-assets-roster'].includes(appearance.pipeline)
           ? <SharedCreature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} evolution={evolution} animate={animate} motionAllowed={motionAllowed} onReady={onReady} onPlaybackState={onPlaybackState} />
           : <Creature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} motionAllowed={motionAllowed} onReady={onReady} />}
       </Suspense>

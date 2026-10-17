@@ -286,6 +286,7 @@ class ExpeditionService:
         from apps.rpg.constants import TriggerType
         from apps.rpg.models import CharacterProfile, DropTable
         from apps.rpg.catalog_support import item_is_available
+        from apps.rpg.catalog_icons import item_catalog_icon
 
         config = TIER_CONFIG[tier]
 
@@ -338,6 +339,9 @@ class ExpeditionService:
                 rarity_factor = rarity_w.get(entry.item.rarity, 1)
                 biased_weights.append(max(1, entry.weight * rarity_factor))
 
+            from apps.rpg.companion_catalog import companion_drop_weights
+            biased_weights = companion_drop_weights(entries, biased_weights)
+
             for _ in range(config["item_slots"]):
                 selected = random.choices(entries, weights=biased_weights, k=1)[0]
                 item = selected.item
@@ -351,6 +355,7 @@ class ExpeditionService:
                     "rarity": item.rarity,
                     "item_type": item.item_type,
                     "sprite_key": item.sprite_key,
+                    "catalog_icon": item_catalog_icon(item),
                 })
 
         return {"coins": coins, "items": items}

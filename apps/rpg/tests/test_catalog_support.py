@@ -54,8 +54,8 @@ class OwnedArtCatalogPolicyTests(TestCase):
         self.assertQuerySetEqual(available_pet_variants(self.chick), [])
 
     def test_typed_item_identity_precedes_conflicting_legacy_metadata(self):
-        egg = ItemDefinition.objects.create(name="Legacy conflicting egg", item_type="egg", pet_species=self.fox, metadata={"species": "Chick"})
-        potion = ItemDefinition.objects.create(name="Legacy conflicting potion", item_type="potion", potion_type=self.fire, metadata={"variant": "Base"})
+        egg = ItemDefinition.objects.create(slug="chick-egg", name="Conflicting Chick egg", item_type="egg", pet_species=self.fox, metadata={"species": "chick"})
+        potion = ItemDefinition.objects.create(slug="base-potion", name="Conflicting Base potion", item_type="potion", potion_type=self.fire, metadata={"variant": "base"})
         self.assertFalse(item_is_available(egg))
         self.assertFalse(item_is_available(potion))
         egg.pet_species = self.chick
@@ -65,9 +65,18 @@ class OwnedArtCatalogPolicyTests(TestCase):
 
     def test_legitimate_legacy_names_and_slugs_resolve_real_supported_rows(self):
         for name in ("Chick", "chick"):
-            self.assertTrue(item_is_available(SimpleNamespace(item_type="egg", metadata={"species": name})))
+            self.assertFalse(item_is_available(SimpleNamespace(item_type="egg", metadata={"species": name})))
+            with override_settings(RPG_ASSET_SUPPORT_POLICY={
+                "schema_version": 1, "pets": [{"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["base"]}],
+                "potion_slugs": ["base"],
+            }):
+                self.assertTrue(item_is_available(SimpleNamespace(item_type="egg", metadata={"species": name})))
         for name in ("Base", "base"):
-            self.assertTrue(item_is_available(SimpleNamespace(item_type="potion", metadata={"variant": name})))
+            # Retain old metadata-only ingredients, without advertising them
+            # as the canonical global Base offer for the prepared roster.
+            self.assertFalse(item_is_available(SimpleNamespace(item_type="potion", metadata={"variant": name})))
+            with override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_POLICY):
+                self.assertTrue(item_is_available(SimpleNamespace(item_type="potion", metadata={"variant": name})))
 
     def test_missing_or_unrecognized_legacy_identity_cannot_unlock_art(self):
         for metadata in ({}, {"species": "wolf"}, {"species": ["chick"]}):
@@ -85,7 +94,7 @@ class OwnedArtCatalogPolicyTests(TestCase):
             self.assertIsNone(item_unavailable_reason(item))
 
     def test_filtered_items_preserve_order_and_all_saved_catalog_rows(self):
-        keep = ItemDefinition.objects.create(name="Supported egg", item_type="egg", pet_species=self.chick)
+        keep = ItemDefinition.objects.create(slug="chick-egg", name="Supported egg", item_type="egg", pet_species=self.chick, metadata={"species": "chick"})
         reject = ItemDefinition.objects.create(name="Unsupported egg", item_type="egg", pet_species=self.fox)
         frame = ItemDefinition.objects.create(name="DOM frame", item_type="cosmetic_frame")
         rows = ItemDefinition.objects.filter(pk__in=[keep.pk, reject.pk, frame.pk]).order_by("-pk")

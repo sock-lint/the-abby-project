@@ -366,3 +366,16 @@ credentials.
 - `src/themes.js` — `applyTheme`, `LEGACY_THEME_ALIASES`.
 - `src/components/README.md` — canonical design-system doc.
 - For page-level architecture see [`src/pages/CLAUDE.md`](src/pages/CLAUDE.md).
+
+Prepared companion roster: `companion/sharedRosterRelease.js` resolves the exact
+14 namespaced family identities, server stages and global Base potion from
+`shared/catalog/companion-roster.json`. `sharedRosterPlayback.js` loads each
+native take with its own rig on demand and disposes replaced takes.
+`FamilyStagePreview` previews Egg/Baby/Middle/Grown locally; no preview creates
+ownership or progression. The existing Chick/Bird and pedestal pins remain
+intact; seven retained portraits use the inventory-pinned private supplemental
+import. Dummy is separate future training art with no product binding. Read
+[the adoption runbook](../docs/operations/companion-lifecycle.md) for intake,
+non-destructive reconciliation, rollback pins and remaining phone acceptance.
+Run `ABBY_ROSTER_FULL_MOTIONS=1 npx playwright test e2e/roster.pw.js` with private
+assets to exercise the actual current renderer; absent payloads explicitly skip.

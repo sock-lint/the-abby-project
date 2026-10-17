@@ -3,6 +3,7 @@
     "id": 83,
     "item": {
       "id": 73,
+      "slug": "fixture-fox-egg",
       "name": "Synthetic Egg",
       "description": "",
       "icon": "🥚",
@@ -35,6 +36,7 @@
     "id": 81,
     "item": {
       "id": 71,
+      "slug": "fixture-berry-bowl",
       "name": "Berry Bowl",
       "description": "",
       "icon": "🫐",
@@ -67,6 +69,7 @@
     "id": 86,
     "item": {
       "id": 76,
+      "slug": "fixture-fire-potion",
       "name": "Synthetic Fire Potion",
       "description": "",
       "icon": "🧪",
@@ -99,6 +102,7 @@
     "id": 85,
     "item": {
       "id": 75,
+      "slug": "fixture-ice-potion",
       "name": "Synthetic Ice Potion",
       "description": "",
       "icon": "🧪",

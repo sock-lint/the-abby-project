@@ -19,6 +19,7 @@ import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
+import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -53,7 +54,8 @@ export default function Hatchery() {
   const inventory = normalizeList(inventoryData);
   const eggs = inventory.filter((e) => e.item.item_type === 'egg' && e.quantity > 0 && isCatalogAvailable(e.item));
   const potions = inventory.filter((e) => e.item.item_type === 'potion' && e.quantity > 0 && isCatalogAvailable(e.item));
-  const selectedEggSpecies = eggSpecies(eggs.find((entry) => String(entry.item.id) === hatchEgg)?.item);
+  const selectedEggItem = eggs.find((entry) => String(entry.item.id) === hatchEgg)?.item;
+  const selectedEggSpecies = eggSpecies(selectedEggItem);
   const breedingAvailable = stableData?.breeding_available !== false && mounts.some((mount) => mount.can_breed !== false);
 
   const refresh = () => { reloadStable(); reloadInventory(); };
@@ -179,7 +181,7 @@ export default function Hatchery() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <figure className="min-w-0">
-              <PedestalPreview />
+              {selectedEggItem?.slug ? <FamilyStagePreview key={selectedEggItem.id} item={selectedEggItem} /> : <PedestalPreview />}
               <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
                 <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
                 Egg artwork preview

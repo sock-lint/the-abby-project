@@ -4,8 +4,12 @@ from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
-from apps.rpg.catalog_support import available_items, available_pet_variants, item_is_available, pet_is_available
-from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage
+from apps.rpg.catalog_support import (
+    available_items, available_pet_variants, egg_species, item_is_available,
+    pet_is_available, potion_type_for_item,
+)
+from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage, growth_thresholds
+from .roster import prepared_base_potion, prepared_family
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +113,8 @@ class PetService:
         """
         from apps.pets.models import UserMount
 
-        evolving = pet.growth_points >= EVOLUTION_THRESHOLD and not pet.evolved_to_mount
+        _middle, grown = growth_thresholds(pet)
+        evolving = pet.growth_points >= grown and not pet.evolved_to_mount
         if evolving:
             pet.evolved_to_mount = True
         pet.save(update_fields=[*update_fields, "evolved_to_mount", "updated_at"])
@@ -161,7 +166,7 @@ class PetService:
         Returns the new UserPet, or raises ValueError on invalid input.
         """
         from apps.rpg.models import ItemDefinition, UserInventory
-        from apps.pets.models import PetSpecies, PotionType, UserPet
+        from apps.pets.models import UserPet
 
         # Validate egg
         try:
@@ -189,21 +194,14 @@ class PetService:
 
         # Prefer the typed FK; fall back to the legacy metadata slug for
         # any item rows that haven't been backfilled (e.g. during migration).
-        species = egg_item.pet_species
+        species = egg_species(egg_item)
         if species is None:
-            species_key = str(egg_item.metadata.get("species", "")).strip()
-            try:
-                species = PetSpecies.objects.get(name__iexact=species_key)
-            except PetSpecies.DoesNotExist:
-                raise ValueError(f"Unknown species: {species_key}")
-
-        potion_type = potion_item.potion_type
+            raise ValueError("Unknown or invalid companion egg binding")
+        potion_type = potion_type_for_item(potion_item)
         if potion_type is None:
-            variant_key = str(potion_item.metadata.get("variant", "")).strip()
-            try:
-                potion_type = PotionType.objects.get(name__iexact=variant_key)
-            except PotionType.DoesNotExist:
-                raise ValueError(f"Unknown potion variant: {variant_key}")
+            raise ValueError("Unknown potion variant")
+        if prepared_family(species) and not prepared_base_potion(potion_item):
+            raise ValueError("This companion requires the registered global Base potion")
 
         # Authored species can restrict their supported variants. An empty
         # relation preserves unrestricted hatching for legacy species that
@@ -461,6 +459,7 @@ class PetService:
         from apps.pets.models import UserMount
         from apps.rpg.models import ItemDefinition
         from apps.rpg.inventory import grant_item
+        from apps.rpg.catalog_icons import item_catalog_icon
 
         if mount_a_id == mount_b_id:
             raise ValueError("A mount can't breed with itself — pick two different mounts")
@@ -495,6 +494,8 @@ class PetService:
         registered_items = available_items(ItemDefinition.objects.filter(
             item_type=ItemDefinition.ItemType.POTION, potion_type__in=supported_potions,
         ).select_related("potion_type"))
+        if prepared_family(picked_species):
+            registered_items = [item for item in registered_items if prepared_base_potion(item)]
         registered_ids = {item.potion_type_id for item in registered_items}
         potion_options = [
             mount.potion for mount in mounts
@@ -578,6 +579,7 @@ class PetService:
             "egg_item_name": egg_item.name,
             "egg_item_icon": egg_item.icon,
             "egg_item_sprite_key": egg_item.sprite_key,
+            "egg_item_catalog_icon": item_catalog_icon(egg_item),
             "egg_lifecycle_stage": "egg",
             "potion_item_id": potion_item.pk,
             "potion_item_name": potion_item.name,

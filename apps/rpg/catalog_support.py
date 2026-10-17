@@ -13,6 +13,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
+from apps.pets.roster import prepared_base_potion, prepared_family
 
 
 POLICY_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/asset-support.json"
@@ -85,6 +86,9 @@ def pet_is_available(species, potion=None):
     rule = _pet_rule(species, _policy())
     if rule is None:
         return False
+    if str(_value(species, "slug", "")).startswith("meshtint-"):
+        if prepared_family(species) is None or (potion is not None and _value(potion, "slug") != "base"):
+            return False
     return potion is None or _value(potion, "slug") in rule.potion_slugs
 
 
@@ -119,24 +123,63 @@ def _legacy_reference(model, value):
     return model.objects.filter(name__iexact=key).first() or model.objects.filter(slug=key).first()
 
 
-def item_is_available(item):
-    from apps.pets.models import PetSpecies, PotionType
+def egg_species(item):
+    """Resolve saved legacy eggs, but require exact typed prepared bindings."""
+    from apps.pets.models import PetSpecies
 
+    if _value(item, "item_type") != "egg":
+        return None
+    metadata = _value(item, "metadata")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    species = _value(item, "pet_species")
+    item_slug = _value(item, "slug", "") or ""
+    species_slug = _value(species, "slug", "") or ""
+    metadata_slug = metadata.get("species")
+    production = getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None
+    if production and (species_slug == "chick" or item_slug == "chick-egg"):
+        if (species_slug != "chick" or _value(species, "sprite_key") != "cute-chick"
+                or item_slug != "chick-egg" or metadata_slug != "chick"):
+            return None
+        return species
+    reserved = any(isinstance(slug, str) and slug.startswith("meshtint-")
+                   for slug in (item_slug, species_slug, metadata_slug))
+    if reserved:
+        family = prepared_family(species)
+        if (family is None or item_slug != family["egg"]["item_slug"]
+                or metadata_slug != family["species_slug"]):
+            return None
+        return species
+    legacy = species or _legacy_reference(PetSpecies, metadata_slug)
+    # Display-name fallback is exclusively for genuine legacy identities.
+    # It must never resolve an untyped alias into a prepared family.
+    legacy_slug = str(_value(legacy, "slug", ""))
+    if legacy_slug.startswith("meshtint-") or (production and legacy_slug == "chick"):
+        return None
+    return legacy
+
+
+def potion_type_for_item(item):
+    from apps.pets.models import PotionType
+
+    metadata = _value(item, "metadata")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    return _value(item, "potion_type") or _legacy_reference(PotionType, metadata.get("variant"))
+
+
+def item_is_available(item):
     kind = _value(item, "item_type")
     if kind in _policy().disabled_item_types:
         return False
     metadata = _value(item, "metadata")
     metadata = metadata if isinstance(metadata, Mapping) else {}
     if kind == "egg":
-        species = _value(item, "pet_species")
-        if species is None:
-            species = _legacy_reference(PetSpecies, metadata.get("species"))
-        return pet_is_available(species)
+        return pet_is_available(egg_species(item))
     if kind == "potion":
-        potion = _value(item, "potion_type")
-        if potion is None:
-            potion = _legacy_reference(PotionType, metadata.get("variant"))
-        return potion_is_available(potion)
+        if getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None:
+            return prepared_base_potion(item)
+        if str(_value(item, "slug", "")).startswith("meshtint-"):
+            return False
+        return potion_is_available(potion_type_for_item(item))
     # DOM frames/titles/covers, food, coins and utility items need no fitted
     # creature art. Their existing service still validates actual metadata.
     return item is not None

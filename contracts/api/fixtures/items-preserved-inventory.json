@@ -3,6 +3,7 @@
     "id": 74,
     "item": {
       "id": 54,
+      "slug": "frame-gold",
       "name": "Gold Frame",
       "description": "",
       "icon": "G",
@@ -37,6 +38,7 @@
     "id": 73,
     "item": {
       "id": 53,
+      "slug": "accessory-crown",
       "name": "Crown",
       "description": "",
       "icon": "A",
@@ -63,6 +65,7 @@
     "id": 71,
     "item": {
       "id": 51,
+      "slug": "cat-egg",
       "name": "Cat Egg",
       "description": "",
       "icon": "E",
@@ -89,6 +92,7 @@
     "id": 72,
     "item": {
       "id": 52,
+      "slug": "base-potion",
       "name": "Base Potion",
       "description": "",
       "icon": "P",
@@ -99,7 +103,9 @@
       "rarity": "common",
       "rarity_display": "Common",
       "coin_value": 0,
-      "metadata": {},
+      "metadata": {
+        "variant": "base"
+      },
       "pet_species_name": null,
       "potion_type_name": "Base",
       "food_species_name": null,

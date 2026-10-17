@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "pin": {
+    "directory": "meshtint-companion-roster/1.0.0/2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+    "family_id": "meshtint-companion-roster",
+    "manifest_sha256": "2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+    "release_version": "1.0.0"
+  },
+  "index_key": "deliveries/meshtint-companion-roster/1.0.0/2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9/index.json",
+  "index_sha256": "41a067248c117d233c862beb8be555bad6b6ffcc25f5c2110d5df496be45b328",
+  "inventory_sha256": "8a362028fa8a1143351a6a874b2a8a7ddd3e78f8f80f657419486edb62bd1ea8",
+  "files": [
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/chick.png",
+      "filename": "chick.png",
+      "sha256": "2e49e9d5139e524f95b0054deba0764ccf7ecd67f7d2f2d7f75c0dc5139459b9",
+      "bytes": 65394
+    },
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/chick-native.png",
+      "filename": "chick-native.png",
+      "sha256": "33053bbeb648683de8a5eb69f4ce3f641c5eb4576251616016b66ecc8ab22a4d",
+      "bytes": 303467
+    },
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/fledgling.png",
+      "filename": "fledgling.png",
+      "sha256": "7da7b8bf19e2e2ee084a37bf310736948cb0f061d293615d8447766ce906addc",
+      "bytes": 66884
+    },
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/fledgling-native.png",
+      "filename": "fledgling-native.png",
+      "sha256": "f486b3d2f6b34d82df67332276acf3afa028b0f99315056891ff05a26171fa7b",
+      "bytes": 235905
+    },
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/bird.png",
+      "filename": "bird.png",
+      "sha256": "e037fcac98415c8dbcb6509cdc1340ccb6ef2ea118420a099775315f3078e3a9",
+      "bytes": 83489
+    },
+    {
+      "path": "assets/meshtint-retained-bird-portraits/exports/bird-native.png",
+      "filename": "bird-native.png",
+      "sha256": "14a2badbf2f04befc6b853cb1e0b6919254af580772e677eb5b578a4b92ec9c9",
+      "bytes": 306138
+    },
+    {
+      "path": "assets/normal-egg-portrait-01/exports/normal-egg.png",
+      "filename": "normal-egg.png",
+      "sha256": "a13f1b32615dc4ce8316dc4648e5eab4600015f4a56437027e18c4335574874c",
+      "bytes": 66827
+    }
+  ]
+}

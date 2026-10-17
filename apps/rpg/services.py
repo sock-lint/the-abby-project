@@ -366,7 +366,8 @@ class DropService:
 
         # Weighted random selection
         items = list(entries)
-        weights = [e.weight for e in items]
+        from .companion_catalog import companion_drop_weights
+        weights = companion_drop_weights(items)
         selected = random.choices(items, weights=weights, k=1)[0]
         item = selected.item
 
@@ -1061,6 +1062,8 @@ class ConsumableService:
             if not eligible:
                 raise ValueError("Mystery box has no eligible items to grant")
             weights = [5 if i.rarity == "common" else 2 for i in eligible]
+            from .companion_catalog import companion_item_weights
+            weights = companion_item_weights(eligible, weights)
             granted = random.choices(eligible, weights=weights, k=1)[0]
             grant_item(profile.user, granted)
             return {

@@ -3,6 +3,7 @@
     "id": 74,
     "item": {
       "id": 54,
+      "slug": "frame-gold",
       "name": "Gold Frame",
       "description": "",
       "icon": "G",
@@ -37,6 +38,7 @@
     "id": 75,
     "item": {
       "id": 55,
+      "slug": "cover-vigil",
       "name": "Twilight Meadow",
       "description": "",
       "icon": "T",

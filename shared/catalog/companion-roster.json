@@ -1,0 +1,718 @@
+{
+  "schema_version": 1,
+  "release": {
+    "directory": "meshtint-companion-roster/1.0.0/2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+    "family_id": "meshtint-companion-roster",
+    "manifest_sha256": "2945dfc7ce31d31ef4a4aee867680b821f93046c829b09867f675b50b0af0fe9",
+    "release_version": "1.0.0"
+  },
+  "families": [
+    {
+      "lineage_id": "bat",
+      "species_slug": "meshtint-bat",
+      "sprite_key": "meshtint-bat",
+      "name": "Bat",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-bat-egg",
+        "asset_id": "bat-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "bat-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Bat",
+          "asset_id": "bat-baby",
+          "portrait_asset_id": "bat-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Vampire Bat",
+          "asset_id": "bat-middle",
+          "portrait_asset_id": "bat-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Bat Lord",
+          "asset_id": "bat-grown",
+          "portrait_asset_id": "bat-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "bee",
+      "species_slug": "meshtint-bee",
+      "sprite_key": "meshtint-bee",
+      "name": "Bee",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-bee-egg",
+        "asset_id": "bee-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "bee-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Bee",
+          "asset_id": "bee-baby",
+          "portrait_asset_id": "bee-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Bumble",
+          "asset_id": "bee-middle",
+          "portrait_asset_id": "bee-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Sting",
+          "asset_id": "bee-grown",
+          "portrait_asset_id": "bee-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "shadow",
+      "species_slug": "meshtint-shadow",
+      "sprite_key": "meshtint-shadow",
+      "name": "Egglet",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-shadow-egg",
+        "asset_id": "shadow-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "shadow-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Egglet",
+          "asset_id": "shadow-baby",
+          "portrait_asset_id": "shadow-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Shade",
+          "asset_id": "shadow-middle",
+          "portrait_asset_id": "shadow-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Shadow",
+          "asset_id": "shadow-grown",
+          "portrait_asset_id": "shadow-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "ghost",
+      "species_slug": "meshtint-ghost",
+      "sprite_key": "meshtint-ghost",
+      "name": "Ghost",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-ghost-egg",
+        "asset_id": "ghost-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "ghost-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Ghost",
+          "asset_id": "ghost-baby",
+          "portrait_asset_id": "ghost-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Spook",
+          "asset_id": "ghost-middle",
+          "portrait_asset_id": "ghost-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Phantom",
+          "asset_id": "ghost-grown",
+          "portrait_asset_id": "ghost-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "mushroom",
+      "species_slug": "meshtint-mushroom",
+      "sprite_key": "meshtint-mushroom",
+      "name": "Mushroom",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-mushroom-egg",
+        "asset_id": "mushroom-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "mushroom-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Mushroom",
+          "asset_id": "mushroom-baby",
+          "portrait_asset_id": "mushroom-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Fungi",
+          "asset_id": "mushroom-middle",
+          "portrait_asset_id": "mushroom-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Toadstool",
+          "asset_id": "mushroom-grown",
+          "portrait_asset_id": "mushroom-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "potted-plant",
+      "species_slug": "meshtint-potted-plant",
+      "sprite_key": "meshtint-potted-plant",
+      "name": "Seed",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-potted-plant-egg",
+        "asset_id": "potted-plant-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "potted-plant-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Seed",
+          "asset_id": "potted-plant-baby",
+          "portrait_asset_id": "potted-plant-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Sprout",
+          "asset_id": "potted-plant-middle",
+          "portrait_asset_id": "potted-plant-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Flower Pot Monster",
+          "asset_id": "potted-plant-grown",
+          "portrait_asset_id": "potted-plant-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "spider",
+      "species_slug": "meshtint-spider",
+      "sprite_key": "meshtint-spider",
+      "name": "Spider",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-spider-egg",
+        "asset_id": "spider-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "spider-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Spider",
+          "asset_id": "spider-baby",
+          "portrait_asset_id": "spider-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Spider Toxin",
+          "asset_id": "spider-middle",
+          "portrait_asset_id": "spider-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Spider King",
+          "asset_id": "spider-grown",
+          "portrait_asset_id": "spider-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "wolf",
+      "species_slug": "meshtint-wolf",
+      "sprite_key": "meshtint-wolf",
+      "name": "Wolf Pup",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-wolf-egg",
+        "asset_id": "wolf-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "wolf-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Wolf Pup",
+          "asset_id": "wolf-baby",
+          "portrait_asset_id": "wolf-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Wolf",
+          "asset_id": "wolf-middle",
+          "portrait_asset_id": "wolf-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Werewolf",
+          "asset_id": "wolf-grown",
+          "portrait_asset_id": "wolf-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "dragon",
+      "species_slug": "meshtint-dragon",
+      "sprite_key": "meshtint-dragon",
+      "name": "Dragon Spark",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-dragon-egg",
+        "asset_id": "dragon-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "dragon-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Dragon Spark",
+          "asset_id": "dragon-baby",
+          "portrait_asset_id": "dragon-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Dragon Fire",
+          "asset_id": "dragon-middle",
+          "portrait_asset_id": "dragon-middle-portrait",
+          "default_variant_id": "source-fly-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Dragon Inferno",
+          "asset_id": "dragon-grown",
+          "portrait_asset_id": "dragon-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "snake",
+      "species_slug": "meshtint-snake",
+      "sprite_key": "meshtint-snake",
+      "name": "Snakelet",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-snake-egg",
+        "asset_id": "snake-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "snake-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Snakelet",
+          "asset_id": "snake-baby",
+          "portrait_asset_id": "snake-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Snake",
+          "asset_id": "snake-middle",
+          "portrait_asset_id": "snake-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Snake Naga",
+          "asset_id": "snake-grown",
+          "portrait_asset_id": "snake-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "hermit-crab",
+      "species_slug": "meshtint-hermit-crab",
+      "sprite_key": "meshtint-hermit-crab",
+      "name": "Shell",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-hermit-crab-egg",
+        "asset_id": "hermit-crab-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "hermit-crab-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Shell",
+          "asset_id": "hermit-crab-baby",
+          "portrait_asset_id": "hermit-crab-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Spike",
+          "asset_id": "hermit-crab-middle",
+          "portrait_asset_id": "hermit-crab-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Hermit King",
+          "asset_id": "hermit-crab-grown",
+          "portrait_asset_id": "hermit-crab-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "blossom",
+      "species_slug": "meshtint-blossom",
+      "sprite_key": "meshtint-blossom",
+      "name": "Bud",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-blossom-egg",
+        "asset_id": "blossom-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "blossom-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Bud",
+          "asset_id": "blossom-baby",
+          "portrait_asset_id": "blossom-baby-portrait",
+          "default_variant_id": "source-fly-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Bloom",
+          "asset_id": "blossom-middle",
+          "portrait_asset_id": "blossom-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Blossom",
+          "asset_id": "blossom-grown",
+          "portrait_asset_id": "blossom-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "sunflower",
+      "species_slug": "meshtint-sunflower",
+      "sprite_key": "meshtint-sunflower",
+      "name": "Sun Blossom",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-sunflower-egg",
+        "asset_id": "sunflower-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "sunflower-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Sun Blossom",
+          "asset_id": "sunflower-baby",
+          "portrait_asset_id": "sunflower-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Sunflower Fairy",
+          "asset_id": "sunflower-middle",
+          "portrait_asset_id": "sunflower-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Sunflora Pixie",
+          "asset_id": "sunflower-grown",
+          "portrait_asset_id": "sunflower-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    },
+    {
+      "lineage_id": "bomb",
+      "species_slug": "meshtint-bomb",
+      "sprite_key": "meshtint-bomb",
+      "name": "Bomb",
+      "potion_slugs": [
+        "base"
+      ],
+      "middle_growth": 50,
+      "grown_growth": 100,
+      "release_family_id": "meshtint-companion-roster",
+      "egg": {
+        "item_slug": "meshtint-bomb-egg",
+        "asset_id": "bomb-egg",
+        "variant_id": "native",
+        "portrait_asset_id": "bomb-egg-portrait",
+        "portrait_variant_id": "icon",
+        "root_travel": {
+          "Roll Forward W Root": [
+            0.0,
+            0.0,
+            2.9884159564971924
+          ]
+        }
+      },
+      "stages": {
+        "baby": {
+          "name": "Bomb",
+          "asset_id": "bomb-baby",
+          "portrait_asset_id": "bomb-baby-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "middle": {
+          "name": "Poison Bomb",
+          "asset_id": "bomb-middle",
+          "portrait_asset_id": "bomb-middle-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        },
+        "grown": {
+          "name": "Snow Bomb",
+          "asset_id": "bomb-grown",
+          "portrait_asset_id": "bomb-grown-portrait",
+          "default_variant_id": "source-idle",
+          "default_action": "idle"
+        }
+      }
+    }
+  ],
+  "retained_species_slug": "chick",
+  "retired_species_slugs": [
+    "wolf",
+    "dragon",
+    "fox",
+    "owl",
+    "cat",
+    "bear",
+    "phoenix",
+    "unicorn",
+    "clownling",
+    "pondshell",
+    "seafang",
+    "ripplecoil",
+    "drift-jelly",
+    "deepkraken",
+    "stallion",
+    "archdragon",
+    "companion"
+  ],
+  "training_dummy_companion": false
+}

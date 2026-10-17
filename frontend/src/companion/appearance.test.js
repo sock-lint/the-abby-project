@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { activeCompanion, creatureLabel, resolveAppearance } from './appearance';
+import { rosterFixture, rosterPet } from '../test/rosterReleaseFixture';
 
 const manifest = {
   schema_version: 1,
@@ -10,6 +11,9 @@ const urls = { './licensed/chick.glb': '/chick.glb', './licensed/bird.glb': '/bi
 const chick = { id: 7, species: { slug: 'chick', sprite_key: 'cute-chick' }, potion: { slug: 'base' }, growth_points: 100, evolved_to_mount: false };
 
 describe('Owned companion appearance bindings', () => {
+  it('presents an exact new roster family from its persisted middle stage', () => {
+    expect(resolveAppearance(rosterPet(), 'pet', undefined, undefined, undefined, rosterFixture())?.assetId).toBe('wolf-middle');
+  });
   it('names the confirmed bird form without renaming the underlying species or another potion', () => {
     const owned = { ...chick, species: { ...chick.species, name: 'Chick' }, potion: { slug: 'base', name: 'Base' } };
     expect(creatureLabel({ ...owned, evolution_stage: 'fledgling' })).toBe('Base Fledgling');

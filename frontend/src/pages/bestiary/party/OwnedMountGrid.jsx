@@ -4,6 +4,7 @@ import Button from '../../../components/Button';
 import AddToCalendar from '../../../components/AddToCalendar';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RpgSprite from '../../../components/rpg/RpgSprite';
+import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { creatureLabel } from '../../../companion/appearance';
@@ -37,8 +38,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                       }`}
                     >
                       <RpgSprite
-                        spriteKey={`${mount.species.sprite_key}-mount`}
-                        fallbackSpriteKey={mount.species.sprite_key}
+                        {...petSpriteKeys(mount, 'mount')}
                         icon={mount.species.icon}
                         size={64}
                         className="rounded-full"
