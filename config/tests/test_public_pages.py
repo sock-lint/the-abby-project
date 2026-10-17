@@ -45,7 +45,7 @@ class PublicInformationPagesTests(SimpleTestCase):
     def test_privacy_discloses_permission_storage_and_disconnect_limits(self):
         response = self.client.get(reverse("public-privacy"))
         for disclosure in (
-            "October 13, 2026",
+            "October 17, 2026",
             "https://www.googleapis.com/auth/calendar.events.owned",
             "encrypted credentials",
             "does not revoke Google's authorization grant",
@@ -54,6 +54,10 @@ class PublicInformationPagesTests(SimpleTestCase):
             "https://myaccount.google.com/connections",
             "private by default",
             "copies in deployment backups",
+            "scheduled for storage cleanup",
+            "Failed cleanup is recorded and retried",
+            "not comprehensive anonymization",
+            "device drafts may also remain",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)
