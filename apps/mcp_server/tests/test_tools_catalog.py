@@ -102,7 +102,8 @@ class CatalogInspectionTests(TestCase):
         self.assertEqual(SkillProgress.objects.count(), 0)
 
     def test_sparse_primary_key_cursor_keeps_total_and_never_repeats_rows(self):
-        extra = [SkillCategory.objects.create(pk=offset, name=f"Catalog category {offset}") for offset in (20, 70, 900)]
+        extra = [SkillCategory.objects.create(pk=self.category.pk + offset, name=f"Catalog category {offset}")
+                 for offset in (1000, 2070, 3900)]
         expected = sorted([self.category.pk, *(row.pk for row in extra)])
         first = self.read("categories", limit=2)
         self.assertEqual(first["total"], 4)
@@ -113,10 +114,10 @@ class CatalogInspectionTests(TestCase):
         self.assertEqual(second["total"], 4)
         self.assertEqual([row["id"] for row in second["results"]], expected[2:])
         self.assertIsNone(second["next_after"])
-        empty = self.read("categories", after=900, limit=2)
+        empty = self.read("categories", after=expected[-1], limit=2)
         self.assertEqual((empty["total"], empty["results"], empty["next_after"]), (4, [], None))
-        audited = self.audit("categories", after=20, limit=1)
-        self.assertEqual((audited["total"], audited["checked"], audited["next_after"]), (4, 1, 70))
+        audited = self.audit("categories", after=expected[0], limit=1)
+        self.assertEqual((audited["total"], audited["checked"], audited["next_after"]), (4, 1, expected[1]))
 
     def test_catalog_quests_exclude_both_same_family_and_foreign_custom_content(self):
         page = self.read("quests")
