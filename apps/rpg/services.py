@@ -525,6 +525,11 @@ class GameLoopService:
         if context is None:
             context = {}
 
+        # Source services may already hold this child's award lock. A co-op
+        # completion needs every participant's lock in a stable order, after
+        # those source locks have been released.
+        defer_legacy_coop = transaction.get_connection().in_atomic_block
+
         from apps.activity.services import activity_scope, current_correlation_id
 
         # Re-enter the same scope if one is already open (chore approval
@@ -537,7 +542,10 @@ class GameLoopService:
         )
 
         with scope_cm:
-            return _GameLoopPipeline.run(user, trigger_type, context, strict=strict)
+            return _GameLoopPipeline.run(
+                user, trigger_type, context,
+                strict=strict, defer_legacy_coop=defer_legacy_coop,
+            )
 
 
     @staticmethod
@@ -697,10 +705,36 @@ def _step_drops(user, trigger_type, context, result):
         )
 
 
-def _step_quest_progress(user, trigger_type, context, result):
+def _step_quest_progress(user, trigger_type, context, result, *, defer_coop=False, expected_quest_id=None):
     """Step 5: advance the user's active quest if any matches the trigger."""
+    if defer_coop:
+        from apps.quests.models import QuestParticipant
+        coop_quest_id = QuestParticipant.objects.filter(
+            quest__status="active", quest__participants__user=user,
+        ).exclude(user=user).values_list("quest_id", flat=True).first()
+        if coop_quest_id is not None:
+            committed_context = dict(context)
+
+            def advance_after_commit():
+                # Keep progress, all participant payouts and the completion
+                # notice atomic, as they are in the synchronous pipeline step.
+                pending_result = {"quest": None, "notifications": []}
+                with transaction.atomic():
+                    _step_quest_progress(
+                        user, trigger_type, committed_context, pending_result,
+                        expected_quest_id=coop_quest_id,
+                    )
+                result["quest"] = pending_result["quest"]
+                result["notifications"].extend(pending_result["notifications"])
+
+            transaction.on_commit(advance_after_commit, robust=True)
+            return
+
     from apps.quests.services import QuestService
-    quest_result = QuestService.record_progress(user, trigger_type, context)
+    if expected_quest_id is None:
+        quest_result = QuestService.record_progress(user, trigger_type, context)
+    else:
+        quest_result = QuestService.record_progress(user, trigger_type, context, quest_id=expected_quest_id)
     result["quest"] = quest_result
     if quest_result and quest_result.get("completed"):
         result["notifications"].append(
@@ -768,7 +802,7 @@ class _GameLoopPipeline:
     )
 
     @classmethod
-    def run(cls, user, trigger_type, context, *, strict=False):
+    def run(cls, user, trigger_type, context, *, strict=False, defer_legacy_coop=False):
         result = {
             "trigger_type": trigger_type,
             "streak": None,
@@ -781,7 +815,10 @@ class _GameLoopPipeline:
         for step in cls.STEPS:
             try:
                 with transaction.atomic():
-                    step(user, trigger_type, context, result)
+                    if step is _step_quest_progress:
+                        step(user, trigger_type, context, result, defer_coop=defer_legacy_coop)
+                    else:
+                        step(user, trigger_type, context, result)
             except Exception:
                 # The default isolates secondary reward failures. Strict
                 # callers propagate after this savepoint rolls back so their
@@ -1010,7 +1047,8 @@ class ConsumableService:
             # Grants a single random item from a weighted pool of common +
             # uncommon non-cosmetic items. Simpler than trying to re-roll a
             # previous drop; "open the box and see what you got" reads well.
-            from apps.rpg.models import ItemDefinition, UserInventory
+            from apps.rpg.models import ItemDefinition
+            from apps.rpg.inventory import grant_item
             eligible = available_items(
                 ItemDefinition.objects.filter(
                     rarity__in=meta.get("rarities", ["common", "uncommon"]),
@@ -1022,13 +1060,7 @@ class ConsumableService:
                 raise ValueError("Mystery box has no eligible items to grant")
             weights = [5 if i.rarity == "common" else 2 for i in eligible]
             granted = random.choices(eligible, weights=weights, k=1)[0]
-            inv, _ = UserInventory.objects.get_or_create(
-                user=profile.user, item=granted,
-                defaults={"quantity": 0},
-            )
-            UserInventory.objects.filter(pk=inv.pk).update(
-                quantity=F("quantity") + 1,
-            )
+            grant_item(profile.user, granted)
             return {
                 "granted_item_id": granted.pk,
                 "granted_item_name": granted.display_name,

@@ -140,13 +140,31 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     if getattr(instance, "_was_completed", False):
         return
 
-    logger.info("Milestone completed: '%s' on project %s", instance.title, instance.project_id)
-    sender.objects.filter(pk=instance.pk).update(completed_at=timezone.now())
-
-    if instance.project.is_homework:
-        return
-
     user = instance.project.assigned_to
+    is_homework = instance.project.is_homework
+    receipt = None
+    if user and not is_homework:
+        from .models import MilestoneCompletionRewardReceipt
+
+        receipt, first_completion = MilestoneCompletionRewardReceipt.objects.get_or_create(
+            milestone=instance, defaults={"user_id": user.pk},
+        )
+        if not first_completion:
+            # A stale full save may have overwritten the first completion's
+            # timestamp with None. Keep completion progress without replaying
+            # XP, money, notifications, badges or a drop opportunity.
+            if instance.completed_at is None:
+                instance.completed_at = receipt.created_at
+                sender.objects.filter(pk=instance.pk).update(completed_at=instance.completed_at)
+            return
+        instance._completion_reward_claimed = True
+
+    logger.info("Milestone completed: '%s' on project %s", instance.title, instance.project_id)
+    instance.completed_at = instance.completed_at or (receipt.created_at if receipt else timezone.now())
+    sender.objects.filter(pk=instance.pk).update(completed_at=instance.completed_at)
+
+    if is_homework:
+        return
 
     if user:
         from apps.activity.services import ActivityLogService
@@ -178,15 +196,23 @@ def handle_milestone_completed(sender, instance, created, **kwargs):
     if not user:
         return
 
-    from apps.achievements.services import SkillService, BadgeService
-    from apps.achievements.models import MilestoneSkillTag
+    from django.db.models import Sum
+    from apps.achievements.services import SkillService, BadgeService, _lock_award_user
+    from apps.achievements.models import MilestoneSkillTag, SkillProgress
 
+    # Take the shared award gate before the XP snapshots. MCP reports this
+    # single signal-owned award rather than distributing tagged XP a second time.
+    _lock_award_user(user)
+    progress = SkillProgress.objects.filter(user=user)
+    xp_before = progress.aggregate(total=Sum("xp_points"))["total"] or 0
     milestone_tags = MilestoneSkillTag.objects.filter(milestone=instance)
     if milestone_tags.exists():
         for tag in milestone_tags.select_related("skill"):
             SkillService.award_xp(user, tag.skill, tag.xp_amount)
     else:
         SkillService.distribute_project_xp(user, instance.project, 15)
+    xp_after = progress.aggregate(total=Sum("xp_points"))["total"] or 0
+    instance._completion_reward_xp = xp_after - xp_before
 
     if instance.bonus_amount:
         from apps.payments.services import PaymentService
