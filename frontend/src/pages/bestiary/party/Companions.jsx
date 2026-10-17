@@ -17,7 +17,8 @@ import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
 import { creatureLabel } from '../../../companion/appearance';
-import { birdFormName, birdStage } from '../../../companion/birdEvolution';
+import { birdStage } from '../../../companion/birdEvolution';
+import { companionFormName, companionStage } from '../../../companion/lifecycle';
 import OwnedPetGrid from './OwnedPetGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import DailyExpeditionCard from './DailyExpeditionCard';
@@ -175,7 +176,7 @@ export default function Companions() {
           {homePet.evolved_to_mount && !homeMount && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to={explorePath}>Visit grown pets →</Link>}
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/bestiary?tab=hatchery">Hatch a pet →</Link>
         </div>
-        {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || birdFormName(homePet.species, homePet.potion, birdStage(homePet))} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
+        {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || companionFormName(homePet.species, homePet.potion, companionStage(homePet))} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
       </CompanionPreview>}
 
       {launchMount && <ExpeditionLaunchSheet mount={launchMount} onDismiss={() => setLaunchMount(null)} onLaunched={refresh} />}
@@ -242,7 +243,7 @@ export default function Companions() {
       {carePet && (
         <BottomSheet title={`Care for ${carePet.name?.trim() || creatureLabel(carePet)}`} onClose={() => setSelectedPet(null)} disabled={working}>
           <ErrorAlert message={error || inventoryError} onRetry={inventoryError ? reloadInventory : undefined} />
-          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${birdStage(carePet) ? `${birdFormName(carePet.species, carePet.potion, birdStage(carePet))} · ` : ''}${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
+          <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${companionStage(carePet) ? `${companionFormName(carePet.species, carePet.potion, companionStage(carePet))} · ` : ''}${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
           {!carePet.is_active && (
             // <Button> for the 44px floor — this was a ~30px
             // text-xs button inside a 2-col phone tile.

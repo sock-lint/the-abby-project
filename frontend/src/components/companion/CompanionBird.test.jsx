@@ -90,7 +90,7 @@ describe('Bird Evolution companion controls', () => {
     const view = render(<CompanionPreview variant="primary" creature={{ ...pet, evolution_stage: 'fledgling', growth_points: 65 }} />);
     await screen.findByTestId('bird-scene');
     expect(scene.props.evolution).toBeNull();
-    expect(screen.getByText('Fledgling · 65/100 growth')).toBeInTheDocument();
+    expect(screen.getByText('Middle · 65/100 growth')).toBeInTheDocument();
     view.rerender(<CompanionPreview variant="primary" creature={{ ...pet, evolution_stage: 'bird', evolved_to_mount: true }} />);
     await screen.findByTestId('bird-scene');
     expect(scene.props.evolution).toMatchObject({ from: 'fledgling', to: 'bird' });

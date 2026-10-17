@@ -16,7 +16,7 @@ import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
-import { birdFormName } from '../../../companion/birdEvolution';
+import { companionFormName } from '../../../companion/lifecycle';
 import OwnedMountGrid from './OwnedMountGrid';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import DailyExpeditionCard from './DailyExpeditionCard';
@@ -125,7 +125,7 @@ export default function Mounts() {
         summary="Play together, then choose a little adventure for today."
         reaction={reaction?.creatureId === homeMount.id ? reaction : null}
       >
-        <DailyExpeditionCard mount={homeMount} name={companionName || birdFormName(homeMount.species, homeMount.potion, 'bird')} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reload} />
+        <DailyExpeditionCard mount={homeMount} name={companionName || companionFormName(homeMount.species, homeMount.potion, 'grown')} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reload} />
       </CompanionPreview>}
       <IncipitBand
         letter="M"

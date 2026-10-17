@@ -18,7 +18,7 @@ import PetCeremonyModal from '../PetCeremonyModal';
 import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
-import { eggSpecies } from '../../../companion/lifecycle';
+import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 
 const CHROMATIC_UPGRADE_RATE = '1 in 50';
 
@@ -89,7 +89,7 @@ export default function Hatchery() {
     try {
       const pet = await hatchPet(hatchEgg, hatchPotion);
       setHatchSuccess({
-        speciesName: pet?.species?.name,
+        speciesName: companionFormName(pet?.species, pet?.potion, 'baby'),
         potionName: pet?.potion?.name,
       });
       setHatchCeremony(pet);
@@ -279,7 +279,7 @@ export default function Hatchery() {
                     value={mount.id}
                     disabled={cooldownDaysLeft !== null}
                   >
-                    {mount.species.icon} {mount.potion.name} {mount.species.name}
+                    {mount.species.icon} {mount.potion.name} {companionFormName(mount.species, mount.potion, 'grown')}
                     {cooldownDaysLeft !== null
                       ? ` · resting ${cooldownDaysLeft}d`
                       : ' · ready'}
@@ -301,7 +301,7 @@ export default function Hatchery() {
                       value={mount.id}
                       disabled={cooldownDaysLeft !== null}
                     >
-                      {mount.species.icon} {mount.potion.name} {mount.species.name}
+                    {mount.species.icon} {mount.potion.name} {companionFormName(mount.species, mount.potion, 'grown')}
                       {cooldownDaysLeft !== null
                         ? ` · resting ${cooldownDaysLeft}d`
                         : ' · ready'}
