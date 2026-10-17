@@ -1081,6 +1081,8 @@ quests:
         quantity: 1
       - slug: base-potion
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Wolf Trail
     description: "Welcome a rare Wolf Pup companion: finish 20 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and a compatible Base potion."
@@ -1099,6 +1101,8 @@ quests:
         quantity: 1
       - slug: base-potion
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Bomb Trail
     description: "Welcome a rare Bomb companion: finish 30 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Bomb Egg and a compatible Base potion."
@@ -1117,6 +1121,8 @@ quests:
         quantity: 1
       - slug: base-potion
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Shadow Trail
     description: "Welcome an epic Egglet companion and help it grow into Shadow: finish 25 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Egglet Egg and a compatible Base potion."
@@ -1135,6 +1141,8 @@ quests:
         quantity: 1
       - slug: base-potion
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Dragon Trail
     description: "Welcome a legendary Dragon Spark companion: finish 50 approved chores or homework assignments, project milestones, whole projects, or logged creations within 365 days. The first two creations each day count. Earn one Dragon Spark Egg and a compatible Base potion."
@@ -1153,3 +1161,5 @@ quests:
         quantity: 1
       - slug: base-potion
         quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
