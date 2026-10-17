@@ -89,7 +89,7 @@ class QuestRewardIntegrityTests(TestCase):
             self.assertEqual(SkillProgress.objects.get(user=child, skill=self.skill).xp_points, 24)
             self.assertEqual(UserInventory.objects.get(user=child, item=self.item).quantity, 2)
             self.assertEqual(ActivityEvent.objects.filter(subject=child, event_type="quest.complete").count(), 1)
-            self.assertEqual(Notification.objects.filter(user=child, title="Quest complete: Team effort!").count(), 1)
+            self.assertEqual(Notification.objects.filter(user=child, title="Challenge complete: Team effort!").count(), 1)
         self.assertFalse(CoinLedger.objects.filter(user=self.other).exists())
         self.assertFalse(SkillProgress.objects.filter(user=self.other).exists())
         self.assertFalse(UserInventory.objects.filter(user=self.other).exists())

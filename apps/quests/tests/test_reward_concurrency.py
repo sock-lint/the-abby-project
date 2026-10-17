@@ -59,7 +59,7 @@ class QuestRewardConcurrencyTests(TransactionTestCase):
             ).values_list("amount", flat=True)), [13])
             self.assertEqual(SkillProgress.objects.get(user=user, skill=self.skill).xp_points, 24 + source_xp)
             self.assertEqual(UserInventory.objects.get(user=user, item=self.item).quantity, 2)
-            self.assertEqual(Notification.objects.filter(user=user, title="Quest complete: Shared campaign!").count(), 1)
+            self.assertEqual(Notification.objects.filter(user=user, title="Challenge complete: Shared campaign!").count(), 1)
 
     def test_overlapping_participant_hits_commit_one_full_payout_each(self):
         reached, release = Event(), Event()
@@ -188,7 +188,7 @@ class QuestRewardConcurrencyTests(TransactionTestCase):
         self.assertFalse(CoinLedger.objects.filter(description="Quest complete: Shared campaign").exists())
         self.assertFalse(UserInventory.objects.exists())
         self.assertIsNone(result["quest"])
-        self.assertNotIn("Quest complete: Shared campaign", result["notifications"])
+        self.assertNotIn("Challenge complete: Shared campaign", result["notifications"])
 
     def test_deferred_source_does_not_credit_a_replacement_campaign(self):
         callbacks = []
