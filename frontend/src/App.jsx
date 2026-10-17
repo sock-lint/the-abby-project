@@ -268,6 +268,7 @@ function AppContent() {
               <Route path="/chores" element={<LegacyRedirect to="/quests?tab=duties" />} />
               <Route path="/homework" element={<LegacyRedirect to="/quests?tab=study" />} />
               <Route path="/habits" element={<LegacyRedirect to="/quests?tab=rituals" />} />
+              <Route path="/reading" element={<LegacyRedirect to="/quests?tab=reading" />} />
               <Route path="/quests/trials" element={<LegacyRedirect to="/quests?tab=trials" />} />
               <Route path="/inventory" element={<LegacyRedirect to="/treasury?tab=satchel" />} />
               <Route path="/stable" element={<LegacyRedirect to="/bestiary?tab=companions" />} />
