@@ -1,0 +1,42 @@
+{
+  "direction": 1,
+  "xp_reward": 0,
+  "new_strength": 1,
+  "game_event": {
+    "trigger_type": "habit_log",
+    "streak": {
+      "is_first_today": false,
+      "check_in_bonus_coins": 0,
+      "streak": 1
+    },
+    "notifications": [
+      "Quest complete: Fixture team effort"
+    ],
+    "drops": [],
+    "quest": {
+      "quest_id": 1,
+      "quest_name": "Fixture team effort",
+      "damage_dealt": 1,
+      "new_progress": 1,
+      "target": 1,
+      "completed": true,
+      "rewards": {
+        "coins": 13,
+        "xp": 24,
+        "items": [
+          {
+            "item_name": "Fixture team food",
+            "item_catalog_icon": null,
+            "item_icon": "food",
+            "quantity": 2
+          }
+        ]
+      }
+    },
+    "daily_challenge": null,
+    "chronicle": null,
+    "challenge_goals": [],
+    "daily_bonus": null,
+    "challenge_receipts": []
+  }
+}

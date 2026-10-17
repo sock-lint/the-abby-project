@@ -260,7 +260,8 @@ def _award(occurrence, user):
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
     from apps.rpg.catalog_support import item_is_available
-    from apps.rpg.models import ItemDefinition, UserInventory
+    from apps.rpg.models import ItemDefinition
+    from apps.rpg.inventory import grant_item
     from apps.pets.models import UserMount
     from apps.rewards.services import CoinService
     snapshot = occurrence.snapshot
@@ -291,9 +292,7 @@ def _award(occurrence, user):
             coins += salvage
             items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity, "salvaged_to_coins": salvage})
         else:
-            inv, _ = UserInventory.objects.get_or_create(user=user, item=item, defaults={"quantity": 0})
-            inv.quantity += quantity
-            inv.save(update_fields=["quantity", "updated_at"])
+            grant_item(user, item, quantity)
             items.append({"item_name": item.name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity})
     receipt = {"coins": coins, "xp": actual_xp, "items": items}
     occurrence.awarded_at = timezone.now()
@@ -367,7 +366,10 @@ def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None
         )
     with transaction.atomic():
         lock_user(user)
-        activity = ChallengeActivity.objects.select_related("user__family").select_for_update().get(pk=activity.pk)
+        # Keep related user/family reads out of this row lock. The user gate
+        # above is NO KEY UPDATE so concurrent inventory grants can still
+        # finish their foreign-key checks while we wait for their stack.
+        activity = ChallengeActivity.objects.select_related("user__family").select_for_update(of=("self",)).get(pk=activity.pk)
         if activity.processed_at or activity.voided:
             return {"activity": activity, "goals": []}
         return {"activity": activity, "goals": _process(activity)}

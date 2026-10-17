@@ -47,6 +47,30 @@ See [automatic challenge operations](../../docs/operations/automatic-challenges.
 
 The following model/service notes describe the existing `Quest` and `DailyChallenge` promises. Do not apply their one-active-slot or claim requirements to automatic goals and the daily bonus.
 
+Legacy nonrepeatable definitions cannot start again after a participant has
+completed that definition, through child starts, parent assignments or co-op
+assignments. Failed and expired attempts remain retryable; repeatable
+definitions retain their existing restart behavior. These checks share the
+user locks used by campaign creation and completion.
+
+Co-op completion pays the full quest XP, coins and available item promise to
+every assigned participant, including a member with no contribution. Each
+recipient keeps their own XP boosts, badge eligibility and egg-salvage rules.
+The campaign's completed status and all participant awards, inventory and
+notifications commit together; a failed payout rolls back the finishing hit
+and remains retryable. Responses retain the finishing child's reward shape.
+Progress locks all participant users in ascending primary-key order before
+the quest and contribution rows. When the game loop is invoked inside a source
+transaction that already owns an acting-child award lock, only legacy co-op
+progress waits for that source's commit, then runs in its own atomic block.
+That callback remains bound to the originally observed campaign and cannot
+credit a replacement assigned after another participant finishes it.
+Source rollback discards this callback; callback failure is logged without
+rolling back committed source work. Solo progress and top-level habit calls
+remain synchronous. PostgreSQL regressions live in
+`tests/test_reward_concurrency.py`; replay, recipient and rollback checks are
+in `tests/test_reward_integrity.py`.
+
 ## Models
 - `QuestDefinition` (boss/collection, `trigger_filter` JSON, `required_badge` gating, `xp_reward`/`coin_reward`/`QuestRewardItem`).
 - `Quest` (active quest row per user — `status`, `current_progress`, `rage_shield`, `end_date`).

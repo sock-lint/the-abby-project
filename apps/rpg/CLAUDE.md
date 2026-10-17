@@ -60,6 +60,24 @@ drop reads first, consumption waits and preserves the newly granted unit.
 `tests/test_drop_inventory_concurrency.py` checks both orders on PostgreSQL,
 including the habit response, saved drop receipt, effect and remaining item.
 
+`inventory.py::grant_item` coordinates mystery-box, expedition, breeding and
+challenge item grants with those same stack locks and database increments.
+The caller keeps catalog eligibility, salvage and its reward receipt; the
+grant commits or rolls back with the surrounding domain transaction.
+`tests/test_inventory_grant_concurrency.py` exercises both last-item orders,
+competing grants, automatic-goal lock order, retries and late failures on
+PostgreSQL. Automatic goals lock only their activity row when joining user
+and family data, preserving the existing user `NO KEY UPDATE` gate.
+
+Legacy co-op quest advancement waits for an enclosing source transaction to
+commit before taking all participant award locks in user ID order. This
+avoids two source transactions holding opposing child locks while completing
+the shared campaign. The callback keeps progress, every participant's payout
+and completion notice atomic, and publishes its response only after success.
+Source rollback discards it; solo quests and top-level game-loop calls remain
+synchronous. Deferred failures follow the pipeline's existing logged,
+best-effort policy and leave the quest retryable.
+
 ## Endpoints
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.

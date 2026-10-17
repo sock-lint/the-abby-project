@@ -4,10 +4,12 @@ import earned from '../../../contracts/api/fixtures/character-progression-earned
 import maximum from '../../../contracts/api/fixtures/character-progression-max.json';
 import pending from '../../../contracts/api/fixtures/redemption-frozen-promise-pending.json';
 import fulfilled from '../../../contracts/api/fixtures/redemption-frozen-promise-fulfilled.json';
+import coopCompleted from '../../../contracts/api/fixtures/habit-coop-completed.json';
+import nonrepeatableRestart from '../../../contracts/api/fixtures/quest-nonrepeatable-restart.json';
 import { renderWithProviders, screen } from '../test/render';
 import { server } from '../test/server';
 import SigilFrontispiece from '../pages/character/SigilFrontispiece';
-import { approveRedemption, getCharacterProfile, getRedemptions, redeemReward } from './index';
+import { approveRedemption, getCharacterProfile, getRedemptions, logHabitTap, redeemReward, startQuest } from './index';
 
 describe('server-confirmed RPG progression and purchased promises', () => {
   it('shows progress from the actual earned character response', async () => {
@@ -54,5 +56,40 @@ describe('server-confirmed RPG progression and purchased promises', () => {
       { method: 'POST', path: '/api/rewards/701/redeem/', body: {} },
       { method: 'POST', path: '/api/redemptions/1/approve/', body: { notes: '' } },
     ]);
+  });
+
+  it('retains the finishing child’s confirmed co-op reward receipt after a saved habit', async () => {
+    const requests = [];
+    server.use(http.post('*/api/habits/9/log/', async ({ request }) => {
+      requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+      return HttpResponse.json(coopCompleted);
+    }));
+
+    const receipt = await logHabitTap(9, 1);
+    expect(receipt).toEqual(coopCompleted);
+    expect(receipt).toMatchObject({ direction: 1, xp_reward: 0, new_strength: 1 });
+    expect(receipt.game_event.quest).toMatchObject({
+      quest_id: 1, completed: true, new_progress: 1, target: 1,
+      rewards: {
+        coins: 13, xp: 24,
+        items: [{ item_name: 'Fixture team food', item_icon: 'food', item_catalog_icon: null, quantity: 2 }],
+      },
+    });
+    expect(requests).toEqual([{ method: 'POST', path: '/api/habits/9/log/', body: { direction: 1 } }]);
+  });
+
+  it('preserves the server’s completed nonrepeatable quest rejection', async () => {
+    const requests = [];
+    server.use(http.post('*/api/quests/start/', async ({ request }) => {
+      requests.push({ method: request.method, path: new URL(request.url).pathname, body: await request.json() });
+      return HttpResponse.json(nonrepeatableRestart, { status: 400 });
+    }));
+
+    await expect(startQuest(701, null)).rejects.toMatchObject({
+      status: 400, message: nonrepeatableRestart.error, response: nonrepeatableRestart,
+    });
+    expect(requests).toEqual([{
+      method: 'POST', path: '/api/quests/start/', body: { definition_id: 701, scroll_item_id: null },
+    }]);
   });
 });

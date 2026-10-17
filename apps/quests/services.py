@@ -61,6 +61,23 @@ class QuestService:
     """Manages quest lifecycle: start, progress, completion, expiration."""
 
     @staticmethod
+    def _lock_participants(quest_id):
+        """Lock all award users in one stable order before campaign rows.
+
+        Co-op progress from source transactions waits until their commit in
+        the game loop, so no acting-child award lock precedes this ordering.
+        Participants are fixed when a campaign is created.
+        """
+        from django.contrib.auth import get_user_model
+        from apps.quests.models import QuestParticipant
+
+        user_ids = QuestParticipant.objects.filter(quest_id=quest_id).values_list("user_id", flat=True)
+        return list(
+            get_user_model().objects.select_for_update(no_key=True)
+            .filter(pk__in=user_ids).order_by("pk")
+        )
+
+    @staticmethod
     @transaction.atomic
     def start_quest(user, definition_id, use_scroll_item_id=None):
         """Start a quest for a user. Optionally consumes a quest scroll from inventory.
@@ -85,6 +102,11 @@ class QuestService:
             definition = QuestDefinition.objects.get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
+
+        if not definition.is_repeatable and Quest.objects.filter(
+            definition=definition, participants__user=user, status=Quest.Status.COMPLETED,
+        ).exists():
+            raise ValueError("You have already completed this quest")
 
         # Check badge requirement
         if definition.required_badge:
@@ -163,6 +185,11 @@ class QuestService:
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
 
+        if not definition.is_repeatable and Quest.objects.filter(
+            definition=definition, participants__user__in=users, status=Quest.Status.COMPLETED,
+        ).exists():
+            raise ValueError("A participant has already completed this quest")
+
         # Badge gate applies to every participant — don't start if any
         # participant can't satisfy it.
         if definition.required_badge:
@@ -196,7 +223,7 @@ class QuestService:
 
     @staticmethod
     @transaction.atomic
-    def record_progress(user, trigger_type, context=None):
+    def record_progress(user, trigger_type, context=None, *, quest_id=None):
         """Record quest progress from a completed task.
 
         Returns dict with: quest_id, quest_name, damage_dealt, new_progress, completed (bool), rewards (if completed).
@@ -207,15 +234,28 @@ class QuestService:
         if context is None:
             context = {}
 
-        # Find user's active quest
+        # Discover membership without campaign locks, then establish the same
+        # user-first ordering used by every award path. Re-read the campaign
+        # under its lock: another participant may have finished while waiting.
+        membership = QuestParticipant.objects.filter(
+            user=user, quest__status=Quest.Status.ACTIVE,
+        )
+        if quest_id is not None:
+            # Deferred source work belongs to the campaign observed before
+            # commit, even if a new campaign has since been assigned.
+            membership = membership.filter(quest_id=quest_id)
+        quest_id = membership.values_list("quest_id", flat=True).first()
+        if quest_id is None:
+            return None
+        QuestService._lock_participants(quest_id)
+        quest = Quest.objects.select_for_update(of=("self",)).select_related("definition").get(pk=quest_id)
+        if quest.status != Quest.Status.ACTIVE:
+            return None
         try:
-            participant = QuestParticipant.objects.select_for_update().select_related(
-                "quest", "quest__definition",
-            ).get(user=user, quest__status=Quest.Status.ACTIVE)
+            participant = QuestParticipant.objects.select_for_update().get(user=user, quest=quest)
         except QuestParticipant.DoesNotExist:
             return None
 
-        quest = participant.quest
         definition = quest.definition
 
         # Check if quest is expired
@@ -318,15 +358,36 @@ class QuestService:
     @staticmethod
     @transaction.atomic
     def _complete_quest(quest, user):
-        """Mark quest as completed and award rewards."""
-        from apps.quests.models import Quest
-        from apps.rewards.models import CoinLedger
-        from apps.rewards.services import CoinService
-        from apps.rpg.models import UserInventory
-        from apps.notifications.services import notify
+        """Complete once and atomically pay the full promise to every member.
 
+        The response retains the finishing child's reward shape. Persisted
+        completion, awards, items and recipient notifications commit together;
+        a late failure leaves the campaign active and fully retryable.
+        """
+        from apps.quests.models import Quest
+
+        users = QuestService._lock_participants(quest.pk)
+        quest = Quest.objects.select_for_update(of=("self",)).select_related("definition").get(pk=quest.pk)
+        if quest.status != Quest.Status.ACTIVE:
+            return None
+        if not any(member.pk == user.pk for member in users):
+            raise ValueError("You are not a participant in this quest")
         quest.status = Quest.Status.COMPLETED
         quest.save(update_fields=["status", "updated_at"])
+        finishing_rewards = None
+        for member in users:
+            rewards = QuestService._award_quest_rewards(quest, member)
+            if member.pk == user.pk:
+                finishing_rewards = rewards
+        return finishing_rewards
+
+    @staticmethod
+    def _award_quest_rewards(quest, user):
+        """Pay one participant while the campaign and user locks are held."""
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        from apps.rpg.inventory import grant_item
+        from apps.notifications.services import notify
 
         rewards = {"coins": 0, "xp": 0, "items": []}
         definition = quest.definition
@@ -407,13 +468,7 @@ class QuestService:
                     "salvaged_to_coins": salvage,
                 })
                 continue
-            inv, created = UserInventory.objects.get_or_create(
-                user=user, item=item,
-                defaults={"quantity": reward_item.quantity},
-            )
-            if not created:
-                inv.quantity += reward_item.quantity
-                inv.save(update_fields=["quantity", "updated_at"])
+            grant_item(user, item, reward_item.quantity)
             rewards["items"].append({
                 "item_name": item.name,
                 "item_catalog_icon": item_catalog_icon(item),
