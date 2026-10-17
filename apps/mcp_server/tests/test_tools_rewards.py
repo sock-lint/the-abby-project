@@ -94,12 +94,12 @@ class ApproveRejectRedemptionTests(TestCase):
                 DecideRedemptionIn(redemption_id=self.redemption_id),
             )
 
-    def test_parent_approve_fulfills(self) -> None:
+    def test_parent_approve_awaits_physical_delivery(self) -> None:
         with override_user(self.parent):
             result = reward_tools.approve_redemption(
                 DecideRedemptionIn(redemption_id=self.redemption_id, notes="yes"),
             )
-        self.assertEqual(result["status"], "fulfilled")
+        self.assertEqual(result["status"], "approved")
         self.assertEqual(CoinService.get_balance(self.child), 40)
 
     def test_parent_reject_refunds(self) -> None:
