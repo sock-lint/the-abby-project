@@ -43,7 +43,7 @@
       "description": "",
       "icon": "A",
       "sprite_key": "",
-      "catalog_icon": null,
+      "catalog_icon": "item-accessory-crown",
       "item_type": "cosmetic_pet_accessory",
       "type_display": "Pet Accessory",
       "rarity": "common",

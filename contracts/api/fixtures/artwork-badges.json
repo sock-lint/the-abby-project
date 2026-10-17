@@ -1,0 +1,37 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 501,
+      "name": "10-Hour Club",
+      "description": "Synthetic ten-hour badge",
+      "icon": "TEN",
+      "catalog_icon": "badge-10-hour-club",
+      "subject": null,
+      "criteria_type": "hours_worked",
+      "criteria_value": {
+        "hours": 10
+      },
+      "xp_bonus": 25,
+      "rarity": "common",
+      "catalog_available": true
+    },
+    {
+      "id": 502,
+      "name": "25-Hour Club",
+      "description": "Synthetic changed criterion",
+      "icon": "CUSTOM BADGE",
+      "catalog_icon": null,
+      "subject": null,
+      "criteria_type": "hours_worked",
+      "criteria_value": {
+        "hours": 999
+      },
+      "xp_bonus": 0,
+      "rarity": "rare",
+      "catalog_available": true
+    }
+  ]
+}

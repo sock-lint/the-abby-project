@@ -6,10 +6,13 @@ from django.db import connection
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
+from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.goals import create_goal
 from apps.quests.models import ChallengeEnrollment, ChallengeGoal, ChallengeOccurrence, QuestDefinition, QuestRewardItem
 from apps.rpg.models import DropLog, ItemDefinition
+from apps.rpg.models import CharacterProfile, UserInventory
+from apps.rewards.models import CoinLedger
 from config.tests import test_api_contract_fixtures as shared
 from config.tests.factories import make_family
 
@@ -63,3 +66,69 @@ class CatalogIconApiResponseFixtureTests(APITestCase):
         self.assertEqual({row["origin"]: row["catalog_icon"] for row in goals["results"]}, {
             "catalog": "challenge-feather-collector", "parent": None,
         })
+
+
+@override_settings(ALLOWED_HOSTS=["testserver"], PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class ArtworkApiResponseFixtureTests(APITestCase):
+    """Real artwork projections preserve progress, rewards and custom content."""
+    assert_response_fixture = shared.SharedApiResponseFixtureTests.assert_response_fixture
+
+    def setUp(self):
+        clock = patch("django.utils.timezone.now", return_value=shared.FIXED_NOW)
+        clock.start()
+        self.addCleanup(clock.stop)
+        family = make_family("Artwork fixtures", family_id=72, children=[{
+            "id": 7, "username": "artwork-fixture-child", "display_name": "Artwork Child",
+        }])
+        self.child = family.children[0]
+        self.client.force_authenticate(self.child)
+        self.category = SkillCategory.objects.create(id=101, name="Coding", icon="CODE", color="#123456")
+        other = SkillCategory.objects.create(id=102, name="Custom Coding", icon="CUSTOM")
+        self.subject = Subject.objects.create(id=201, category=self.category, name="Languages & Apps", icon="APPS")
+        custom_subject = Subject.objects.create(id=202, category=other, name=self.subject.name, icon="ALT")
+        self.skill = Skill.objects.create(id=301, category=self.category, subject=self.subject, name="Python", icon="PYTHON")
+        Skill.objects.create(id=302, category=other, subject=custom_subject, name="Python", icon="OTHER", is_locked_by_default=True)
+        SkillProgress.objects.create(id=401, user=self.child, skill=self.skill, xp_points=150, level=1)
+        self.badge = Badge.objects.create(id=501, name="10-Hour Club", icon="TEN", description="Synthetic ten-hour badge",
+                                          criteria_type="hours_worked", criteria_value={"hours": 10}, xp_bonus=25)
+        Badge.objects.create(id=502, name="25-Hour Club", icon="CUSTOM BADGE", description="Synthetic changed criterion",
+                             criteria_type="hours_worked", criteria_value={"hours": 999}, rarity="rare")
+        UserBadge.objects.create(id=601, user=self.child, badge=self.badge)
+        # Update in place so the wire identity is stable even after other tests.
+        CharacterProfile.objects.filter(user=self.child).update(id=701, active_trophy_badge=self.badge)
+
+    @staticmethod
+    def saved_gameplay():
+        return {model._meta.label: list(model.objects.order_by("pk").values())
+                for model in (Badge, SkillCategory, Subject, Skill, SkillProgress, UserBadge,
+                              CharacterProfile, CoinLedger, UserInventory)}
+
+    def test_catalog_tree_progress_summary_trophy_and_dashboard_preserve_artwork_identity(self):
+        before = self.saved_gameplay()
+        categories = self.assert_response_fixture(self.client.get("/api/categories/"), "artwork-categories.json")
+        self.assertEqual({row["name"]: row["catalog_icon"] for row in categories["results"]},
+                         {"Coding": "category-coding", "Custom Coding": None})
+        subjects = self.assert_response_fixture(self.client.get("/api/subjects/"), "artwork-subjects.json")
+        self.assertEqual({row["id"]: row["catalog_icon"] for row in subjects["results"]},
+                         {201: "subject-coding-languages-apps", 202: None})
+        self.assertEqual(subjects["results"][0]["category_name"], "Coding")
+        skills = self.assert_response_fixture(self.client.get("/api/skills/"), "artwork-skills.json")
+        self.assertEqual({row["id"]: row["catalog_icon"] for row in skills["results"]}, {301: "skill-coding-python", 302: None})
+        self.assertTrue(skills["results"][1]["is_locked_by_default"])
+        tree = self.assert_response_fixture(self.client.get("/api/skills/tree/101/"), "artwork-tree.json")
+        self.assertEqual(tree["category"]["catalog_icon"], "category-coding")
+        self.assertEqual(tree["subjects"][0]["catalog_icon"], "subject-coding-languages-apps")
+        self.assertEqual(tree["subjects"][0]["skills"][0]["catalog_icon"], "skill-coding-python")
+        self.assertEqual(tree["subjects"][0]["skills"][0]["xp_points"], 150)
+        progress = self.assert_response_fixture(self.client.get("/api/skill-progress/"), "artwork-progress.json")
+        self.assertEqual(progress["results"][0]["skill_catalog_icon"], "skill-coding-python")
+        badges = self.assert_response_fixture(self.client.get("/api/badges/"), "artwork-badges.json")
+        self.assertEqual({row["id"]: row["catalog_icon"] for row in badges["results"]}, {501: "badge-10-hour-club", 502: None})
+        summary = self.assert_response_fixture(self.client.get("/api/achievements/summary/"), "artwork-summary.json")
+        self.assertEqual(summary["badges_earned"][0]["badge"]["catalog_icon"], "badge-10-hour-club")
+        self.assertEqual(summary["skill_categories"]["Coding"]["catalog_icon"], "category-coding")
+        character = self.assert_response_fixture(self.client.get("/api/character/"), "artwork-character.json")
+        self.assertEqual(character["active_trophy_badge"]["catalog_icon"], "badge-10-hour-club")
+        dashboard = self.assert_response_fixture(self.client.get("/api/dashboard/"), "artwork-dashboard.json")
+        self.assertEqual(dashboard["recent_badges"][0]["badge__catalog_icon"], "badge-10-hour-club")
+        self.assertEqual(self.saved_gameplay(), before)

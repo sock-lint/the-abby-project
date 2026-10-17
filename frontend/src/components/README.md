@@ -362,3 +362,22 @@ Use empty `alt` for a decorative image whose adjacent label already describes it
 Keep creature/gameplay presentation on its existing renderer and equipped frames
 on their existing overlays. Never infer catalog image identity from a shared
 legacy sprite key or a parent-authored challenge name.
+
+### ArtworkImage
+
+`<ArtworkImage assetId={record.catalog_icon} fallback={record.icon} size={32} />`
+
+Use this decorative image primitive for badge and skill artwork. Django checks
+the semantic identity; `catalog/sharedArtwork.js` resolves its exact release,
+variant and PNG digest. The image has empty alt text and is hidden from assistive
+technology; retain the adjacent readable name. Missing or failed URLs return
+the full caller-supplied glyph or placeholder. `BadgeArtwork` keeps its rarity,
+locked state and featured frame around the illustration. The birthday caller
+uses the explicit candle slot and its existing 64px placeholder.
+
+Catalog items and challenges continue to use `CatalogIcon`, which also resolves
+the new family. The synthetic `/__design` artwork gallery shows every new
+identity and the five supported inspection sizes. Artwork never enables packs,
+rewards or equipment; the separate Crown fitting pilot remains evaluation-only
+and is excluded from application imports and web/native bundles.
+See [the adoption runbook](../../../docs/operations/artwork-completion.md).

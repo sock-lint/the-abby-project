@@ -36,6 +36,7 @@ import { RARITY_COLORS } from '../constants/colors';
 import { staggerChildren, staggerItem, inkBleed } from '../motion/variants';
 import { formatWeekdayDate, mapProjectTone } from './_dashboardShared';
 import CatalogIcon from '../components/rpg/CatalogIcon';
+import BadgeArtwork from '../components/atlas/BadgeArtwork';
 import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
@@ -470,7 +471,9 @@ export default function ChildDashboard({ data, reload }) {
                 aria-label={`${b.badge__name} — view earned badges`}
                 className="shrink-0 w-28 text-center p-3 rounded-xl bg-ink-page-aged border border-ink-page-shadow hover:border-gold-leaf/60 transition-colors"
               >
-                <div className="text-4xl mb-1" aria-hidden="true">{b.badge__icon || '🏅'}</div>
+                <div className="flex justify-center mb-1"><BadgeArtwork earned badge={{
+                  name: b.badge__name, icon: b.badge__icon, catalog_icon: b.badge__catalog_icon,
+                }} /></div>
                 <div className="font-body text-caption font-semibold break-words leading-snug">{b.badge__name}</div>
               </motion.button>
             ))}

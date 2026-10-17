@@ -1,5 +1,6 @@
 import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
+import ArtworkImage from '../../components/rpg/ArtworkImage';
 import './WayfinderMap.css';
 
 function countLabel(count, name) {
@@ -11,10 +12,10 @@ function belongsToCategory(item, category) {
 }
 
 /** The icon can be a catalog emoji or a shared chapter/utility icon. */
-export function WayfinderHeading({ title, icon, description, meta }) {
+export function WayfinderHeading({ title, icon, assetId, description, meta }) {
   return (
     <header className="wayfinder-heading">
-      <span className="wayfinder-heading-icon" aria-hidden="true">{icon || '✦'}</span>
+      <span className="wayfinder-heading-icon" aria-hidden="true"><ArtworkImage assetId={assetId} fallback={icon || '✦'} size={40} /></span>
       <div className="wayfinder-heading-copy">
         <h2>{title}</h2>
         {description && <p>{description}</p>}
@@ -49,7 +50,7 @@ export function WayfinderCategoryMap({ categories = [], catalog, onSelectCategor
                 aria-label={meta ? `${category.name}, ${meta}` : category.name}
                 onClick={() => onSelectCategory(category.id)}
               >
-                <span className="wayfinder-marker" aria-hidden="true">{category.icon || '✦'}</span>
+                <span className="wayfinder-marker" aria-hidden="true"><ArtworkImage assetId={category.catalog_icon} fallback={category.icon || '✦'} size={32} /></span>
                 <span className="wayfinder-node-copy">
                   <strong>{category.name}</strong>
                   {meta && <small>{meta}</small>}
@@ -88,7 +89,7 @@ export function WayfinderSubjectMap({ category, subjects = [], onSelectSubject }
                 aria-label={`${name}, ${countLabel(skills.length, 'skill')}`}
                 onClick={() => onSelectSubject(subject)}
               >
-                <span className="wayfinder-marker" aria-hidden="true">{subject.icon || category?.icon || '✦'}</span>
+                <span className="wayfinder-marker" aria-hidden="true"><ArtworkImage assetId={subject.catalog_icon} fallback={subject.icon || category?.icon || '✦'} size={32} /></span>
                 <span className="wayfinder-node-copy">
                   <strong>{name}</strong>
                   <small>{countLabel(skills.length, 'skill')}</small>

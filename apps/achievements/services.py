@@ -2,6 +2,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
+from apps.rpg.catalog_icons import skill_catalog_icon, subject_catalog_icon
 
 from . import criteria
 from .models import (
@@ -173,6 +174,9 @@ class SkillService:
             "id": skill.id,
             "name": skill.name,
             "icon": skill.icon,
+            "catalog_icon": skill_catalog_icon(skill),
+            "category_name": skill.category.name,
+            "subject_name": skill.subject.name if skill.subject_id else None,
             "description": skill.description,
             "is_locked_by_default": skill.is_locked_by_default,
             "level_names": skill.level_names,
@@ -205,8 +209,8 @@ class SkillService:
         """Return subjects nested with skills + user progress for a category."""
         from .models import Subject
 
-        subjects = Subject.objects.filter(category=category).order_by("order", "name")
-        skills = Skill.objects.filter(category=category).prefetch_related(
+        subjects = Subject.objects.filter(category=category).select_related("category").order_by("order", "name")
+        skills = Skill.objects.filter(category=category).select_related("category", "subject").prefetch_related(
             "prerequisites__required_skill",
         )
         progress_map = {
@@ -229,6 +233,8 @@ class SkillService:
                 "id": subject.id,
                 "name": subject.name,
                 "icon": subject.icon,
+                "catalog_icon": subject_catalog_icon(subject),
+                "category_name": category.name,
                 "description": subject.description,
                 "order": subject.order,
                 "summary": cls.get_subject_summary(user, subject),
@@ -239,6 +245,8 @@ class SkillService:
                 "id": None,
                 "name": "Other",
                 "icon": "",
+                "catalog_icon": None,
+                "category_name": category.name,
                 "description": "",
                 "order": 9999,
                 "summary": {"level": 0, "total_xp": 0},
