@@ -4,6 +4,8 @@ from django.conf import settings
 from django.db import connection
 from django.http import JsonResponse
 
+from config.pwa_delivery import pwa_script_manifest
+
 
 ABBY_COOLIFY_RESOURCE_UUID = "lr5dn6lhga31vyk6u5qvhm4c"
 
@@ -16,6 +18,11 @@ def _health_response(body, *, status=200):
     resource_uuid = getattr(settings, "COOLIFY_RESOURCE_UUID", "")
     if resource_uuid == ABBY_COOLIFY_RESOURCE_UUID:
         body["resourceUuid"] = resource_uuid
+    if (body.get("status") == "ok" and body.get("db") == "up" and
+            "commit" in body and "resourceUuid" in body):
+        scripts = pwa_script_manifest(settings.BASE_DIR)
+        if scripts is not None:
+            body["pwaScripts"] = scripts
     response = JsonResponse(body, status=status)
     response["Cache-Control"] = "no-store"
     return response

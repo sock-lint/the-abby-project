@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - config/urls.py
+      - config/middleware.py
+      - config/pwa_delivery.py
+      - config/tests/test_pwa_delivery.py
+      - config/tests/test_middleware.py
       - config/tests/test_pwa_urls.py
       - infra/cloudflare/pwa-*.rule.json
       - docs/operations/pwa-edge-cache.md
@@ -29,4 +33,4 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Check PWA origin headers and routing
-        run: python manage.py test config.tests.test_pwa_urls --noinput --verbosity=2
+        run: python manage.py test config.tests.test_pwa_urls config.tests.test_pwa_delivery config.tests.test_middleware --noinput --verbosity=2
