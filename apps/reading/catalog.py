@@ -1,15 +1,17 @@
-"""Small, publisher-sourced discovery shelf; no external requests at runtime.
+"""Bounded, publisher-sourced discovery shelf; no metadata requests at runtime.
 
 The initial shelf was checked on 2026-10-16; the teen fantasy additions on
 2026-10-17. Titles, authors and age guidance come from the linked publishers.
-Descriptions and topic tags are our own editorial summaries. A null upper age
+The enriched editions and additions were checked on 2026-10-17. Descriptions
+and discovery tags are our own editorial summaries. A null upper age
 means the publisher's open-ended "and up", not a reading-ability assessment.
 """
 
 from .constants import INTERESTS as INTERESTS  # Re-exported for catalog consumers.
+from .catalog_data import ADDITIONAL_BOOKS, CATALOG_DETAILS
 
 
-BOOK_CATALOG = (
+_INITIAL_CATALOG = (
     {
         "id": "the-princess-in-black",
         "title": "The Princess in Black",
@@ -263,4 +265,20 @@ BOOK_CATALOG = (
         "description": "A village girl with hidden magic crosses paths with a swordsman who has lost his memories, drawing them into a conflict between realms.",
         "source_url": "https://us.macmillan.com/books/9781250853080/thefloatingworld/",
     },
+)
+
+
+# Stable IDs, original descriptions and original publisher age bounds survive
+# enrichment. Covers load directly in the client using Open Library's documented
+# Covers API; a missing image returns 404 so the client can show its fallback.
+# https://openlibrary.org/dev/docs/api/covers
+BOOK_CATALOG = tuple(
+    {
+        **book,
+        **CATALOG_DETAILS[book["id"]],
+        "source_urls": list(dict.fromkeys([
+            book["source_url"], *CATALOG_DETAILS[book["id"]]["source_urls"],
+        ])),
+    }
+    for book in (*_INITIAL_CATALOG, *ADDITIONAL_BOOKS)
 )

@@ -3,14 +3,23 @@ from rest_framework import serializers
 
 from apps.quests.activity import household_timezone
 
-from .constants import INTERESTS
-from .models import ReadingBook, ReadingSession
+from .constants import (
+    DISCOVERY_FEEDBACK_CHOICES, DISCOVERY_FORMATS, DISCOVERY_LENGTHS,
+    DISCOVERY_MOODS, DISCOVERY_STYLES, DISCOVERY_THEMES, INTERESTS,
+)
+from .models import ReadingBook, ReadingFamilySuggestion, ReadingSession
+from .recommendations import catalog_entry_for_book
 
 
 class ReadingBookSerializer(serializers.ModelSerializer):
+    catalog_entry = serializers.SerializerMethodField()
+
+    def get_catalog_entry(self, book):
+        return catalog_entry_for_book(book)
+
     class Meta:
         model = ReadingBook
-        fields = ["id", "user", "title", "author", "status", "interests", "client_request_id", "created_at", "updated_at"]
+        fields = ["id", "user", "title", "author", "status", "interests", "client_request_id", "created_at", "updated_at", "catalog_entry"]
         read_only_fields = fields
 
 
@@ -94,3 +103,80 @@ class ReadingSessionCreateSerializer(ReadingSessionWriteSerializer):
     book = serializers.IntegerField(min_value=1)
     user_id = serializers.IntegerField(min_value=1, required=False)
     client_request_id = serializers.UUIDField()
+
+
+def catalog_entry_by_id(catalog_id):
+    from .catalog import BOOK_CATALOG
+
+    entry = next((book for book in BOOK_CATALOG if book["id"] == catalog_id), None)
+    return catalog_entry_for_book(entry) if entry else None
+
+
+class CatalogIdField(serializers.CharField):
+    def __init__(self, **kwargs):
+        super().__init__(max_length=80, **kwargs)
+
+    def to_internal_value(self, data):
+        value = super().to_internal_value(data)
+        if catalog_entry_by_id(value) is None:
+            raise serializers.ValidationError("Choose a book from the discovery catalog.")
+        return value
+
+
+class DiscoveryFilterSerializer(serializers.Serializer):
+    interest = serializers.ChoiceField(choices=INTERESTS, required=False)
+    mood = serializers.ChoiceField(choices=DISCOVERY_MOODS, required=False)
+    style = serializers.ChoiceField(choices=DISCOVERY_STYLES, required=False)
+    book_format = serializers.ChoiceField(choices=DISCOVERY_FORMATS, required=False)
+    length = serializers.ChoiceField(choices=DISCOVERY_LENGTHS, required=False)
+    theme = serializers.ChoiceField(choices=DISCOVERY_THEMES, required=False)
+    q = serializers.CharField(max_length=160, allow_blank=True, default="")
+    similar_to = CatalogIdField(required=False)
+    rotation = serializers.IntegerField(min_value=0, max_value=1000, default=0)
+
+
+class DiscoveryFeedbackWriteSerializer(StrictWriteSerializer):
+    user_id = serializers.IntegerField(min_value=1, required=False)
+    catalog_id = CatalogIdField()
+    choice = serializers.ChoiceField(choices=["", *DISCOVERY_FEEDBACK_CHOICES])
+
+
+class FamilySuggestionCreateSerializer(StrictWriteSerializer):
+    user_id = serializers.IntegerField(min_value=1)
+    catalog_id = CatalogIdField()
+    message = serializers.CharField(max_length=500, allow_blank=True, default="")
+    client_request_id = serializers.UUIDField()
+
+
+class FamilySuggestionWriteSerializer(StrictWriteSerializer):
+    status = serializers.ChoiceField(choices=[ReadingFamilySuggestion.Status.DISMISSED])
+
+
+class ReadingFamilySuggestionSerializer(serializers.ModelSerializer):
+    suggested_by = serializers.SerializerMethodField()
+    catalog_entry = serializers.SerializerMethodField()
+    on_shelf = serializers.SerializerMethodField()
+
+    def get_suggested_by(self, suggestion):
+        return {"id": suggestion.suggested_by_id, "display_name": suggestion.author_name or "A parent"}
+
+    def get_catalog_entry(self, suggestion):
+        return catalog_entry_by_id(suggestion.catalog_id)
+
+    def get_on_shelf(self, suggestion):
+        # A list is scoped to one reader; share one shelf query across its rows.
+        owned = self.context.setdefault("_owned_catalog_ids", {})
+        if suggestion.user_id not in owned:
+            owned[suggestion.user_id] = {
+                entry["id"] for book in ReadingBook.objects.filter(user_id=suggestion.user_id).values("title", "author")
+                if (entry := catalog_entry_for_book(book)) is not None
+            }
+        return suggestion.catalog_id in owned[suggestion.user_id]
+
+    class Meta:
+        model = ReadingFamilySuggestion
+        fields = [
+            "id", "user", "suggested_by", "catalog_id", "catalog_entry", "message", "status",
+            "client_request_id", "created_at", "updated_at", "on_shelf",
+        ]
+        read_only_fields = fields
