@@ -22,6 +22,37 @@ CREATE_ITEM_TYPES = set(ItemDefinition.ItemType.values) - {"egg", "potion"}
 MODELS = {"items": ItemDefinition, "quests": QuestDefinition}
 
 
+def supported_challenge_triggers(quest_type="collection"):
+    from apps.quests.goals import FACT_TRIGGERS
+    from apps.quests.services import TRIGGER_DAMAGE
+    return sorted(trigger for trigger in FACT_TRIGGERS
+                  if quest_type != "boss" or TRIGGER_DAMAGE.get(trigger, 0) > 0)
+
+
+def challenge_trigger_status(quest_type, filters):
+    """Explain actual automatic tracking independently of legacy trigger names."""
+    from apps.quests.goals import EFFORT_TRIGGERS
+    supported = set(supported_challenge_triggers(quest_type))
+    if not isinstance(filters, dict):
+        return {"available": False, "unsupported": []}
+    allowed = filters.get("allowed_triggers")
+    if allowed is not None and (not isinstance(allowed, list) or any(not isinstance(trigger, str) for trigger in allowed)):
+        return {"available": False, "unsupported": []}
+    effective = set(allowed or EFFORT_TRIGGERS)
+    return {"available": bool(effective & supported), "unsupported": sorted(set(allowed or ()) - supported)}
+
+
+def challenge_trigger_findings(rows):
+    findings = []
+    for row in rows:
+        status = challenge_trigger_status(row.quest_type, row.trigger_filter)
+        if status["unsupported"]:
+            findings.append({"code": "unsupported_challenge_trigger", "section": "quests", "id": row.pk,
+                "severity": "warning", "detail": "These activities cannot advance this automatic challenge: "
+                + ", ".join(status["unsupported"]) + ". Choose supported activities before republishing."})
+    return findings
+
+
 def require_actor(actor):
     if actor.role != "parent" or not actor.is_staff or not actor.is_active or actor.family_id is None:
         raise ContentPackError("Content authoring requires an active staff parent with an explicit family.")
@@ -188,6 +219,15 @@ def validate_changes(actor, changes):
             elif section == "items":
                 new_items.add(key)
             _validate_values(section, change["values"], new=object_id is None)
+            if section == "quests":
+                quest_type = change["values"].get("quest_type", obj.quest_type if object_id else "collection")
+                filters = change["values"].get("trigger_filter", obj.trigger_filter if object_id else {})
+                status = challenge_trigger_status(quest_type, filters)
+                if status["unsupported"]:
+                    raise ContentPackError("These activities cannot advance this automatic challenge: "
+                        + ", ".join(status["unsupported"]) + ". Choose supported activities.")
+                if not status["available"]:
+                    raise ContentPackError("Choose valid supported activities for this automatic challenge.")
         for change in changes:
             for row in change["values"].get("reward_items", []):
                 if "item_key" in row and row["item_key"] not in new_items:

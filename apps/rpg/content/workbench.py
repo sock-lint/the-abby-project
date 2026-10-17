@@ -19,7 +19,8 @@ from apps.rpg.models import ContentPackEntry, ContentPackPublication, ItemDefini
 from .loader import ContentPack, ContentPackError, LoadStats
 from .publication import _catalog_lock, _diff, _digest, _snapshot, _state_digest, receipt_payload
 from .workbench_validation import (
-    CREATE_ITEM_TYPES, ITEM_BEHAVIOR_FIELDS, ITEM_FIELDS, MODELS, QUEST_FIELDS, editable_object, require_actor,
+    CREATE_ITEM_TYPES, ITEM_BEHAVIOR_FIELDS, ITEM_FIELDS, MODELS, QUEST_FIELDS, challenge_trigger_findings,
+    challenge_trigger_status, editable_object, require_actor, supported_challenge_triggers,
     validate_changes, validate_item_runtime,
 )
 
@@ -215,6 +216,8 @@ def _apply(draft, *, publication=None):
         ids = [pk for selected, pk, _ in result if selected == section]
         rows = list(catalog_queryset(section).filter(pk__in=ids).order_by("pk"))
         found, _ = audit_catalog_rows(section, rows)
+        if section == "quests":
+            found.extend(challenge_trigger_findings(rows))
         keys = {pk: key for selected, pk, key in result if selected == section}
         for finding in found:
             finding["draft_key"] = keys[finding["id"]]
@@ -365,7 +368,11 @@ def preserved_loader_entry(model_label, lookup, *, pack_key=None, entry=None):
         if matched:
             from django.apps import apps
             if not apps.get_model(model_label).objects.filter(pk=override.object_id).exists():
-                raise ContentPackError("Database-authored catalog entry is missing; reconcile its publication history before reloading.")
+                # An intentionally deleted baseline row must not prevent app
+                # startup. Retain this exact orphan as historical evidence;
+                # never apply it to the replacement or silently move its claim.
+                # Pack-owned missing identities still fail in _upsert's guard.
+                continue
             return override
     return None
 
@@ -381,7 +388,6 @@ def _bounded_rows(section, limit):
 
 
 def describe_workbench(actor):
-    from apps.rpg.constants import TriggerType
     from apps.rpg.progression import describe_progression
     from apps.rewards.models import Reward
     require_actor(actor)
@@ -416,10 +422,17 @@ def describe_workbench(actor):
                 if section == "items":
                     data["used_by"] = {"quests": quest_uses.get(obj.pk, []), "drops": drop_uses.get(obj.pk, []),
                                        "shop_offers": shop_uses.get(obj.pk, [])}
+                else:
+                    status = challenge_trigger_status(obj.quest_type, obj.trigger_filter)
+                    data["automatic_tracking_available"] = status["available"]
+                    data["unsupported_triggers"] = status["unsupported"]
+                    data["available_for_new_user"] = data["available_for_new_user"] and status["available"]
             if section == "skills":
                 data["category_name"] = obj.category.name
             catalog[section].append(data)
         found, incomplete = audit_catalog_rows(section, objects)
+        if section == "quests":
+            found.extend(challenge_trigger_findings(objects))
         findings.extend(found)
         any_incomplete = any_incomplete or incomplete
     drafts = RPGContentDraft.objects.filter(actor=actor, family=actor.family).only(
@@ -428,7 +441,8 @@ def describe_workbench(actor):
                       *drafts.filter(published_at__isnull=False).order_by("-updated_at")[:70]]
     return {"catalog": catalog,
             "rules": {"item_types": sorted(CREATE_ITEM_TYPES), "rarities": list(ItemDefinition.Rarity.values),
-                "triggers": list(TriggerType.values), "editable_item_fields": sorted(ITEM_FIELDS),
+                "triggers": supported_challenge_triggers(), "boss_triggers": supported_challenge_triggers("boss"),
+                "editable_item_fields": sorted(ITEM_FIELDS),
                 "existing_item_behavior_fields": sorted(ITEM_BEHAVIOR_FIELDS),
                 "editable_quest_fields": sorted(QUEST_FIELDS), "max_changes": 100,
                 "publication_scope": "Published catalog changes are global; drafts are private to their author and family.",

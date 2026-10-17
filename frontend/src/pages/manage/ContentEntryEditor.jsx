@@ -21,6 +21,10 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
   const set = (field, value) => onChange({ ...editor, values: { ...values, [field]: value } });
   const numeric = (field, label, min = 0) => <TextField label={label} type="number" min={min} max={field === 'duration_days' ? 365 : 1000000} step="1" required value={values[field] ?? 0} onChange={(event) => set(field, event.target.value === '' ? '' : Number(event.target.value))} />;
   const editable = source?.editable !== false;
+  const availableTriggers = values.quest_type === 'boss' ? rules.boss_triggers ?? rules.triggers : rules.triggers;
+  const supportedTriggers = new Map((availableTriggers ?? []).map((choice) => [choiceValue(choice), choice]));
+  const selectedTriggers = Array.isArray(values.trigger_filter?.allowed_triggers) ? values.trigger_filter.allowed_triggers : [];
+  const triggerChoices = [...new Set([...supportedTriggers.keys(), ...selectedTriggers])];
   const rewardItems = values.reward_items ?? [];
   const itemIdentity = (item) => item.id ? `id:${item.id}` : `new:${item.key}`;
   const rewardIdentity = (reward) => reward.item_id ? `id:${reward.item_id}` : `new:${reward.item_key}`;
@@ -59,10 +63,9 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
         </div>
         <CheckboxField label="Repeatable challenge" checked={values.is_repeatable ?? false} onChange={(event) => set('is_repeatable', event.target.checked)} />
         <SelectField label="Required badge" value={values.required_badge ?? ''} onChange={(event) => set('required_badge', event.target.value ? Number(event.target.value) : null)}><option value="">No badge required</option>{catalog.badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}</SelectField>
-        <fieldset className="space-y-2"><legend className="font-semibold text-ink-primary">Qualifying activities</legend><p className="text-caption text-ink-secondary">Leave all unchecked to use every supported activity.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{(rules.triggers ?? []).map((choice) => {
-          const trigger = choiceValue(choice);
-          const selected = values.trigger_filter?.allowed_triggers ?? [];
-          return <CheckboxField key={trigger} label={choiceLabel(choice)} checked={selected.includes(trigger)} onChange={(event) => set('trigger_filter', { ...values.trigger_filter, allowed_triggers: event.target.checked ? [...selected, trigger] : selected.filter((entry) => entry !== trigger) })} />;
+        <fieldset className="space-y-2"><legend className="font-semibold text-ink-primary">Qualifying activities</legend><p className="text-caption text-ink-secondary">Leave all unchecked to use the default everyday activities.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{triggerChoices.map((trigger) => {
+          const label = supportedTriggers.has(trigger) ? choiceLabel(supportedTriggers.get(trigger)) : `${title(trigger)} · not tracked by current challenges`;
+          return <CheckboxField key={trigger} label={label} checked={selectedTriggers.includes(trigger)} onChange={(event) => set('trigger_filter', { ...values.trigger_filter, allowed_triggers: event.target.checked ? [...selectedTriggers, trigger] : selectedTriggers.filter((entry) => entry !== trigger) })} />;
         })}</div></fieldset>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{numeric('coin_reward', 'Coin reward')}{numeric('xp_reward', 'XP reward')}</div>
         <div className="[&_li]:flex-wrap [&_li>div:first-child]:min-w-0 [&_li>div:first-child]:basis-full sm:[&_li>div:first-child]:basis-auto"><SkillTagEditor skills={catalog.skills} value={values.skill_tags ?? []} onChange={(tags) => set('skill_tags', tags)} /></div>

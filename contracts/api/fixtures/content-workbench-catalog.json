@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "coin_value": 2,
+          "icon": "🍎",
+          "name": "Practice snack",
+          "sprite_key": "",
+          "description": "",
           "rarity": "common",
           "metadata": {
             "growth": 5
-          },
-          "sprite_key": "",
-          "name": "Practice snack",
-          "coin_value": 2,
-          "icon": "🍎",
-          "description": ""
+          }
         },
         "has_database_override": false,
         "used_by": {
@@ -95,20 +95,20 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "name": "Practice challenge",
-          "target_value": 2,
-          "duration_days": 7,
-          "quest_type": "collection",
-          "icon": "⚔️",
           "is_repeatable": false,
-          "xp_reward": 15,
+          "coin_reward": 10,
+          "quest_type": "collection",
+          "name": "Practice challenge",
           "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "coin_reward": 10,
+          "duration_days": 7,
+          "xp_reward": 15,
+          "icon": "⚔️",
+          "target_value": 2,
           "description": "Complete two approved chores.",
           "required_badge": null,
           "reward_items": [
@@ -124,7 +124,9 @@
             }
           ]
         },
-        "has_database_override": false
+        "has_database_override": false,
+        "automatic_tracking_available": true,
+        "unsupported_triggers": []
       }
     ],
     "skills": [
@@ -163,23 +165,31 @@
       "legendary"
     ],
     "triggers": [
-      "clock_out",
       "chore_complete",
+      "clock_out",
+      "creation_logged",
+      "expedition_returned",
+      "habit_log",
       "homework_complete",
       "homework_created",
-      "milestone_complete",
-      "project_complete",
-      "badge_earned",
-      "quest_complete",
-      "perfect_day",
-      "habit_log",
-      "daily_check_in",
-      "savings_goal_complete",
       "journal_entry",
-      "creation_logged",
-      "reading_logged",
+      "milestone_complete",
       "movement_session",
-      "expedition_returned"
+      "project_complete",
+      "savings_goal_complete"
+    ],
+    "boss_triggers": [
+      "chore_complete",
+      "clock_out",
+      "expedition_returned",
+      "habit_log",
+      "homework_complete",
+      "homework_created",
+      "journal_entry",
+      "milestone_complete",
+      "movement_session",
+      "project_complete",
+      "savings_goal_complete"
     ],
     "editable_item_fields": [
       "coin_value",

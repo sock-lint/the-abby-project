@@ -12,7 +12,7 @@ from apps.achievements.models import Skill, SkillCategory
 from apps.quests.models import Quest, QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.content.loader import ContentPack, ContentPackError
 from apps.rpg.content.workbench import create_draft, describe_workbench, save_draft, preview_draft, publish_draft, get_draft, simulate_draft
-from apps.rpg.models import ContentPackEntry, ItemDefinition, UserInventory
+from apps.rpg.models import ContentPackEntry, ItemDefinition, RPGContentOverride, UserInventory
 from config.tests.factories import make_family
 
 
@@ -253,3 +253,100 @@ class ContentWorkbenchTests(TestCase):
         private_link.save()
         simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], {"horizon_days": 30, "trials": 1})
         self.assertTrue(publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])["published_at"])
+
+    def test_authored_challenge_filters_only_offer_current_trackable_sources(self):
+        for quest_type, triggers in (
+            ("collection", ["reading_logged"]), ("collection", ["badge_earned"]),
+            ("collection", ["quest_complete", "chore_complete"]),
+            ("boss", ["creation_logged"]), ("boss", ["creation_logged", "chore_complete"]),
+        ):
+            with self.subTest(quest_type=quest_type, triggers=triggers), self.assertRaisesMessage(ContentPackError, "automatic challenge"):
+                self.draft([{"section": "quests", "object_id": None, "key": "untrackable", "values": {
+                    "name": "Untrackable challenge", "description": "Synthetic", "quest_type": quest_type,
+                    "target_value": 1, "trigger_filter": {"allowed_triggers": triggers}}}])
+
+    def test_retained_unsupported_filter_is_audited_and_can_be_corrected(self):
+        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["reading_logged"]})
+        metadata = describe_workbench(self.actor)
+        challenge = metadata["catalog"]["quests"][0]
+        self.assertFalse(challenge["available_for_new_user"])
+        self.assertFalse(challenge["automatic_tracking_available"])
+        warning = next(finding for finding in metadata["audits"]["findings"] if finding["code"] == "unsupported_challenge_trigger")
+        self.assertIn("reading_logged", warning["detail"])
+        with self.assertRaisesMessage(ContentPackError, "automatic challenge"):
+            self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {"name": "Still untrackable"}}])
+        self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {
+            "trigger_filter": {"allowed_triggers": ["chore_complete"]}}}]))
+        challenge = describe_workbench(self.actor)["catalog"]["quests"][0]
+        self.assertTrue(challenge["automatic_tracking_available"])
+
+    def test_trigger_metadata_and_partial_type_edit_use_live_automatic_rules(self):
+        from apps.quests.goals import FACT_TRIGGERS
+        from apps.quests.services import TRIGGER_DAMAGE
+        metadata = describe_workbench(self.actor)
+        self.assertEqual(set(metadata["rules"]["triggers"]), FACT_TRIGGERS)
+        self.assertEqual(set(metadata["rules"]["boss_triggers"]), {
+            trigger for trigger in FACT_TRIGGERS if TRIGGER_DAMAGE.get(trigger, 0) > 0})
+        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["creation_logged"]})
+        with self.assertRaisesMessage(ContentPackError, "automatic challenge"):
+            self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {"quest_type": "boss"}}])
+        # Creating a collection through saved creations remains supported.
+        self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {
+            "trigger_filter": {"allowed_triggers": ["creation_logged"]}}}]))
+
+    def test_deleted_baseline_item_override_is_retained_without_blocking_reload_or_rebinding(self):
+        self.publish(self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Bright Apple"}}]))
+        original_id = self.item.pk
+        override = RPGContentOverride.objects.get(model_label="rpg.itemdefinition", object_id=original_id)
+        self.item.delete()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path / "items.yaml").write_text("items:\n- slug: test-food\n  name: Apple\n  icon: x\n  item_type: food\n")
+            ContentPack(path).load()
+            ContentPack(path).load()
+        restored = ItemDefinition.objects.get(slug="test-food")
+        self.assertNotEqual(restored.pk, original_id)
+        self.assertEqual(restored.name, "Apple")
+        override.refresh_from_db()
+        self.assertEqual(override.object_id, original_id)
+        self.assertEqual(override.values["name"], "Bright Apple")
+        self.assertEqual(RPGContentOverride.objects.count(), 1)
+
+    def test_deleted_baseline_quest_override_does_not_block_original_bundle_recreation(self):
+        self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {"name": "Renamed"}}]))
+        original_id = self.quest.pk
+        self.quest.delete()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path / "quests.yaml").write_text("quests:\n- name: Practice twice\n  description: Synthetic challenge\n  quest_type: collection\n  target_value: 2\n")
+            ContentPack(path).load()
+        restored = QuestDefinition.objects.get(name="Practice twice")
+        self.assertNotEqual(restored.pk, original_id)
+        self.assertTrue(RPGContentOverride.objects.filter(model_label="quests.questdefinition", object_id=original_id).exists())
+
+    def test_deleted_generated_egg_override_does_not_block_species_reload(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path / "pet_species.yaml").write_text("species:\n- slug: test-animal\n  name: Test animal\n  icon: x\n")
+            ContentPack(path).load()
+            egg = ItemDefinition.objects.get(slug="test-animal-egg")
+            original_id = egg.pk
+            self.publish(self.draft([{"section": "items", "object_id": original_id, "key": "egg", "values": {"name": "Special egg"}}]))
+            egg.delete()
+            ContentPack(path).load()
+        restored = ItemDefinition.objects.get(slug="test-animal-egg")
+        self.assertNotEqual(restored.pk, original_id)
+        self.assertEqual(restored.name, "Test animal Egg")
+        self.assertTrue(RPGContentOverride.objects.filter(model_label="rpg.itemdefinition", object_id=original_id).exists())
+
+    def test_deleted_pack_owned_item_still_requires_ownership_reconciliation(self):
+        ContentPackEntry.objects.create(pack="owned", family=self.family, kind="itemdefinition", key='{"slug":"test-food"}',
+            model_label="rpg.itemdefinition", object_id=self.item.pk)
+        self.publish(self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Bright Apple"}}]))
+        self.item.delete()
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)
+            (path / "items.yaml").write_text("items:\n- slug: test-food\n  name: Apple\n  icon: x\n  item_type: food\n")
+            with self.assertRaisesMessage(ContentPackError, "Owned itemdefinition"):
+                ContentPack(path, pack_key="owned", family=self.family).load()
+        self.assertFalse(ItemDefinition.objects.filter(slug="test-food").exists())

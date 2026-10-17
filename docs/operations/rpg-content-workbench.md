@@ -29,6 +29,11 @@ sequence of random draws. A difference between two reports is conditional on
 the modeled mechanics; it is not a retention prediction or a complete economy
 audit. Read [Progression Lab's model boundary](progression-lab.md#model-boundary).
 
+Challenge activity choices follow the current factual Challenges engine. Boss
+challenges require activities that actually deal boss damage. Older unsupported
+filters remain visible for correction; a valid historical RPG event name alone
+does not make it a supported automatic challenge source.
+
 ## YAML and durable editing
 
 Bundled YAML in `content/rpg/initial/` remains the initial catalog. It is editable

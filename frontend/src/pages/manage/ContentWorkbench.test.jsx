@@ -101,6 +101,38 @@ describe('RPG content workbench', () => {
     expect(screen.getByRole('button', { name: 'Preview changes and audit rewards' })).toBeEnabled();
   });
 
+  it('lets an author remove legacy activity filters without offering them for new challenges', async () => {
+    setup({ ...metadata, rules: { ...metadata.rules, triggers: ['chore_complete'] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    server.use(patch.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    const retained = screen.getByRole('checkbox', { name: 'reading logged · not tracked by current challenges' });
+    expect(retained).toBeChecked();
+    await user.click(retained);
+    await user.click(screen.getByRole('checkbox', { name: 'chore complete' }));
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls).toHaveLength(1);
+    expect(patch.calls[0].body).toEqual({ revision: 1, changes: [{ ...change, values: { ...metadata.catalog.quests[0].values, trigger_filter: { allowed_triggers: ['chore_complete'] } } }] });
+    await user.click(screen.getByRole('button', { name: 'New challenge', exact: true }));
+    expect(screen.queryByRole('checkbox', { name: /reading logged/ })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'chore complete' })).not.toBeChecked();
+  });
+
+  it('limits boss activities to the server damage-producing choices and exposes a retained incompatible filter', async () => {
+    const quest = metadata.catalog.quests[0];
+    const trigger_filter = { allowed_triggers: ['creation_logged'] };
+    setup({ ...metadata, rules: { ...metadata.rules, triggers: ['chore_complete', 'creation_logged'], boss_triggers: ['chore_complete'] }, catalog: { ...metadata.catalog, quests: [{ ...quest, trigger_filter, values: { ...quest.values, trigger_filter } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'creation logged' })).toBeChecked();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Challenge type' }), 'boss');
+    await user.click(screen.getByRole('checkbox', { name: 'creation logged · not tracked by current challenges' }));
+    expect(screen.queryByRole('checkbox', { name: /creation logged/ })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'chore complete' })).not.toBeChecked();
+  });
+
   it('creates an item in the draft and keeps its type-specific properties outside the main editing flow', async () => {
     setup();
     const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
