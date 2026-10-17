@@ -1,12 +1,12 @@
 import logging
-import secrets
+from urllib.parse import urlencode
 
-from django.core.cache import cache
+from django.db import OperationalError
 from django.http import HttpResponseRedirect
 from rest_framework import permissions, status
-from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import ScopedRateThrottle
 
 from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
@@ -18,6 +18,7 @@ from .drive_uploads import (
 )
 from .models import GoogleAccount
 from .services import GoogleAuthService
+from . import oauth_exchange
 
 logger = logging.getLogger(__name__)
 
@@ -74,10 +75,6 @@ class GoogleDriveUploadView(APIView):
 
 # ── helpers ──────────────────────────────────────────────────────────────
 
-def _cache_key(state):
-    return f"google_oauth_state:{state}"
-
-
 def _target_user(request):
     """Resolve the target user from ?for_user=<id>.
 
@@ -99,159 +96,108 @@ def _target_user(request):
     return child, None
 
 
-# ── OAuth initiation (authenticated — linking) ──────────────────────────
+# OAuth returns carry only an opaque, browser-bound, one-use ticket.
+class GoogleOAuthConfigView(APIView):
+    permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        return Response({"configured": GoogleAuthService.is_configured()})
+
+
+def _exchange_error(exc):
+    return Response({"error": str(exc), "code": exc.code}, status=400)
+
 
 class GoogleAuthInitView(APIView):
-    """GET /api/auth/google/ — start OAuth for account linking.
-
-    Optional query param: ?for_user=<child_id> (parent only).
-    """
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "google_oauth"
 
     def get(self, request):
         if not GoogleAuthService.is_configured():
-            return Response(
-                {"error": "Google OAuth is not configured."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
-
+            return Response({"error": "Google OAuth is not configured."}, status=503)
         target, err = _target_user(request)
         if err:
             return err
+        try:
+            return Response(oauth_exchange.start(request, mode="link", target=target))
+        except oauth_exchange.ExchangeError as exc:
+            return _exchange_error(exc)
 
-        state = secrets.token_urlsafe(32)
-        authorization_url, _, code_verifier = GoogleAuthService.get_authorization_url(state=state)
-        cache.set(
-            _cache_key(state),
-            {
-                "mode": "link",
-                "target_user_id": target.id,
-                "linked_by_id": request.user.id if target != request.user else None,
-                "code_verifier": code_verifier,
-            },
-            timeout=600,  # 10 minutes
-        )
-        return Response({"authorization_url": authorization_url})
-
-
-# ── OAuth initiation (unauthenticated — login) ──────────────────────────
 
 class GoogleLoginView(APIView):
-    """GET /api/auth/google/login/ — start OAuth for login."""
-
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "google_oauth"
 
     def get(self, request):
         if not GoogleAuthService.is_configured():
-            return Response(
-                {"error": "Google OAuth is not configured."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
+            return Response({"error": "Google OAuth is not configured."}, status=503)
+        try:
+            return Response(oauth_exchange.start(request, mode="login"))
+        except oauth_exchange.ExchangeError as exc:
+            return _exchange_error(exc)
 
-        state = secrets.token_urlsafe(32)
-        authorization_url, _, code_verifier = GoogleAuthService.get_authorization_url(state=state)
-        cache.set(
-            _cache_key(state),
-            {"mode": "login", "code_verifier": code_verifier},
-            timeout=600,
-        )
-        return Response({"authorization_url": authorization_url})
-
-
-# ── OAuth callback (AllowAny — Google redirects here) ────────────────────
 
 class GoogleCallbackView(APIView):
-    """GET /api/auth/google/callback/ — handles the Google redirect."""
-
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
+
+    @staticmethod
+    def redirect(*, state=None, ticket=None, error=None):
+        params = {"google_exchange": ticket} if ticket else {"google_error": error}
+        if state:
+            params["google_state"] = state
+        response = HttpResponseRedirect("/#" + urlencode(params))
+        response["Cache-Control"] = "no-store"
+        response["Referrer-Policy"] = "no-referrer"
+        return response
 
     def get(self, request):
-        code = request.query_params.get("code")
         state = request.query_params.get("state")
-        error = request.query_params.get("error")
-
-        # Base URL for frontend redirects
-        base_url = "/"
-
+        claimed = oauth_exchange.claim_callback(state)
+        if not claimed:
+            return self.redirect(error="invalid_state")
+        flow_id, provider_verifier = claimed
+        code = request.query_params.get("code", "")
+        error = None
+        if request.query_params.get("error"):
+            error = "denied"  # Never reflect Google's untrusted error text.
+        elif not code or len(code) > 2048:
+            error = "missing_code"
         if error:
-            return HttpResponseRedirect(f"{base_url}settings?google=error&detail={error}")
-
-        if not code or not state:
-            return HttpResponseRedirect(f"{base_url}settings?google=error&detail=missing_params")
-
-        # Verify state
-        state_data = cache.get(_cache_key(state))
-        if not state_data:
-            return HttpResponseRedirect(f"{base_url}settings?google=error&detail=invalid_state")
-        cache.delete(_cache_key(state))
-
-        # Exchange code for credentials (PKCE: pass the code_verifier stored at auth time)
-        code_verifier = state_data.pop("code_verifier", None)
+            oauth_exchange.fail_callback(flow_id)
+            return self.redirect(state=state, error=error)
         try:
-            google_id, email, credentials_json = GoogleAuthService.exchange_code(code, code_verifier)
+            google_id, email, credentials = GoogleAuthService.exchange_code(code, provider_verifier)
+            ticket = oauth_exchange.finish_callback(flow_id, google_id, email, credentials)
         except Exception:
-            logger.exception("Google OAuth code exchange failed")
-            return HttpResponseRedirect(f"{base_url}settings?google=error&detail=exchange_failed")
+            # Provider exceptions can embed authorization codes and credential bodies.
+            logger.warning("Google OAuth provider exchange failed")
+            oauth_exchange.fail_callback(flow_id)
+            return self.redirect(state=state, error="token_exchange_failed")
+        return self.redirect(state=state, ticket=ticket, error="invalid_exchange")
 
-        mode = state_data.get("mode", "link")
 
-        if mode == "link":
-            return self._handle_link(state_data, google_id, email, credentials_json, base_url)
-        else:
-            return self._handle_login(google_id, email, credentials_json, base_url)
+class GoogleExchangeView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "google_oauth"
 
-    def _handle_link(self, state_data, google_id, email, credentials_json, base_url):
-        """Link Google account to an existing user."""
-        from apps.projects.models import User
-
-        target_user_id = state_data["target_user_id"]
-        linked_by_id = state_data.get("linked_by_id")
-
+    def post(self, request):
         try:
-            target_user = User.objects.get(pk=target_user_id)
-        except User.DoesNotExist:
-            return HttpResponseRedirect(f"{base_url}settings?google=error&detail=user_not_found")
-
-        linked_by = None
-        if linked_by_id:
-            try:
-                linked_by = User.objects.get(pk=linked_by_id)
-            except User.DoesNotExist:
-                logger.warning(
-                    "google_oauth: linked_by user %s not found while linking google_id=%s to target_user_id=%s; "
-                    "continuing without parent attribution.",
-                    linked_by_id, google_id, target_user_id,
-                )
-
-        # Check if this google_id is already linked to a different user
-        existing = GoogleAccount.objects.filter(google_id=google_id).exclude(user=target_user).first()
-        if existing:
-            return HttpResponseRedirect(
-                f"{base_url}settings?google=error&detail=already_linked_other"
-            )
-
-        GoogleAuthService.link_account(target_user, google_id, email, credentials_json, linked_by)
-        return HttpResponseRedirect(f"{base_url}settings?google=linked")
-
-    def _handle_login(self, google_id, email, credentials_json, base_url):
-        """Log in via Google — find existing linked account."""
-        try:
-            account = GoogleAccount.objects.select_related("user").get(google_id=google_id)
-        except GoogleAccount.DoesNotExist:
-            return HttpResponseRedirect(
-                f"{base_url}?google_error=no_account"
-            )
-
-        user = account.user
-        if not user.is_active:
-            return HttpResponseRedirect(f"{base_url}?google_error=inactive")
-
-        # Update stored credentials (they may have been refreshed)
-        account.encrypted_credentials = GoogleAuthService.encrypt_credentials(credentials_json)
-        account.save(update_fields=["encrypted_credentials", "updated_at"])
-
-        # Issue a DRF token
-        token, _ = Token.objects.get_or_create(user=user)
-        return HttpResponseRedirect(f"{base_url}?token={token.key}")
+            response = Response(oauth_exchange.exchange(request))
+        except oauth_exchange.ExchangeError as exc:
+            response = _exchange_error(exc)
+        except oauth_exchange.AuthorizationBusy:
+            response = _exchange_error(oauth_exchange.ExchangeError("authorization_changed"))
+        except OperationalError as exc:
+            if not oauth_exchange.is_lock_conflict(exc):
+                raise
+            response = _exchange_error(oauth_exchange.ExchangeError("authorization_changed"))
+        response["Referrer-Policy"] = "no-referrer"
+        response["Cache-Control"] = "no-store"
+        return response
 
 
 # ── Account management ───────────────────────────────────────────────────

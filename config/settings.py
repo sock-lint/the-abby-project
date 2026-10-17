@@ -521,6 +521,7 @@ REST_FRAMEWORK = {
     #   after 10 wrong passwords in a minute. Pair with a per-username
     #   AnonRateThrottle if IP rotation becomes a concern.
     "DEFAULT_THROTTLE_RATES": {
+        "google_oauth": "10/min",
         "signup": "5/hour",
         "login": "10/min",
         # Dynamic Client Registration (RFC 7591) — public, no auth required,
@@ -613,6 +614,10 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "google-oauth-erasure": {
+        "task": "apps.google_integration.tasks.prune_google_oauth_transactions",
+        "schedule": 300.0,
+    },
     "auto-clock-out": {
         "task": "apps.timecards.tasks.auto_clock_out_task",
         "schedule": crontab(minute="*/30"),
@@ -765,7 +770,11 @@ if SENTRY_DSN:
     from sentry_sdk.integrations.logging import LoggingIntegration
     from sentry_sdk.integrations.redis import RedisIntegration
 
+    from config.oauth_diagnostics import scrub_google_oauth
+
     sentry_sdk.init(
+        before_send=scrub_google_oauth,
+        before_send_transaction=scrub_google_oauth,
         dsn=SENTRY_DSN,
         environment=SENTRY_ENVIRONMENT,
         traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,

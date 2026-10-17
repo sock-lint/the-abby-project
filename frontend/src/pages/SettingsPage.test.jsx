@@ -11,6 +11,8 @@ import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
 import { applyTheme, themes } from '../themes.js';
 import * as apiFunctions from '../api/index.js';
+import { GOOGLE_STATE, GOOGLE_URL, interceptGoogleNavigation, prepareGoogleCallback } from '../test/googleAuthorization';
+import { useAuth } from '../hooks/useApi';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -27,6 +29,85 @@ function renderPage(handlers = []) {
 }
 
 describe('SettingsPage', () => {
+  it('shows the verified link result after auth boot without credential-bearing return parameters', async () => {
+    await prepareGoogleCallback({ mode: 'link', forUserId: 7 });
+    const exchanges = [];
+    server.use(
+      http.post('*/api/auth/google/exchange/', async ({ request }) => {
+        exchanges.push({ body: await request.json(), auth: request.headers.get('authorization') });
+        return HttpResponse.json({ mode: 'link', linked: true });
+      }),
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+      http.get('*/api/cosmetics/', () => HttpResponse.json({ active_theme: [] })),
+    );
+    function AfterBoot() {
+      const { loading } = useAuth();
+      return loading ? null : <SettingsPage />;
+    }
+    renderWithProviders(<AfterBoot />);
+    expect(await screen.findByText('Google account linked successfully.')).toBeInTheDocument();
+    expect(exchanges).toHaveLength(1);
+    expect(exchanges[0].auth).toBe('Token test-session');
+    expect(exchanges[0].body.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(window.location.pathname).toBe('/settings');
+    expect(window.location.search).toBe('');
+    expect(window.location.hash).toBe('');
+  });
+
+  it('starts one parent-bound Google link on double click, then offers an explicit fresh retry after failure', async () => {
+    const starts = [];
+    let finish;
+    renderPage([
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+      http.get('*/api/auth/google/', ({ request }) => {
+        starts.push(request);
+        return new Promise(resolve => { finish = () => resolve(HttpResponse.json({ error: 'Unavailable' }, { status: 503 })); });
+      }),
+    ]);
+    const user = userEvent.setup();
+    const button = await screen.findByRole('button', { name: /connect google/i });
+    await user.dblClick(button);
+    await waitFor(() => expect(starts).toHaveLength(1));
+    expect(starts[0].headers.get('authorization')).toBe('Token test-session');
+    expect(button).toBeDisabled();
+    finish();
+    expect(await screen.findByText(/could not start google linking/i)).toBeInTheDocument();
+    expect(button).toBeEnabled();
+    const navigation = interceptGoogleNavigation();
+    server.use(http.get('*/api/auth/google/', ({ request }) => {
+      starts.push(request);
+      return HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 });
+    }));
+    try {
+      await user.click(button);
+      await waitFor(() => expect(navigation.destinations).toEqual([GOOGLE_URL]));
+      expect(starts).toHaveLength(2);
+      expect(new URL(starts[0].url).searchParams.get('code_challenge')).not.toBe(new URL(starts[1].url).searchParams.get('code_challenge'));
+    } finally { navigation.restore(); }
+  });
+
+  it('cancels a delayed link start when Settings unmounts', async () => {
+    const requests = [];
+    let finish;
+    const view = renderPage([
+      http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
+      http.get('*/api/auth/google/', () => {
+        requests.push(true);
+        return new Promise(resolve => { finish = () => resolve(HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 })); });
+      }),
+    ]);
+    const navigation = interceptGoogleNavigation();
+    try {
+      await userEvent.click(await screen.findByRole('button', { name: /connect google/i }));
+      await waitFor(() => expect(requests).toHaveLength(1));
+      view.unmount();
+      finish();
+      await waitFor(() => expect(sessionStorage.getItem('abby_google_authorization_v1')).toBeNull());
+      expect(navigation.destinations).toEqual([]);
+    } finally { navigation.restore(); }
+  });
+
   it('does not equip the already selected theme again', async () => {
     const user = userEvent.setup();
     const spy = spyHandler('post', /\/api\/character\/equip\/$/, { slot: 'active_theme' });

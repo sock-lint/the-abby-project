@@ -10,6 +10,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -270,25 +271,35 @@ class GoogleAuthService:
         """Create or update a GoogleAccount for the given user."""
         from .models import GoogleAccount
 
-        encrypted = cls.encrypt_credentials(credentials_json)
-        account, created = GoogleAccount.objects.update_or_create(
-            user=user,
-            defaults={
-                "google_id": google_id,
-                "google_email": email,
-                "encrypted_credentials": encrypted,
-                "linked_by": linked_by,
-            },
-        )
+        from .oauth_exchange import invalidate_google_flows, lock_users
+
+        with transaction.atomic():
+            if user.pk not in lock_users([user.pk]):
+                raise ValueError("Account is unavailable")
+            account, _ = GoogleAccount.objects.update_or_create(
+                user=user,
+                defaults={
+                    "google_id": google_id,
+                    "google_email": email,
+                    "encrypted_credentials": cls.encrypt_credentials(credentials_json),
+                    "linked_by": linked_by,
+                },
+            )
+            invalidate_google_flows(user.pk)
         return account
 
     @staticmethod
     def unlink_account(user):
         """Remove the user's GoogleAccount and all calendar mappings."""
         from .models import CalendarEventMapping, GoogleAccount
+        from .oauth_exchange import invalidate_google_flows, lock_users
 
-        CalendarEventMapping.objects.filter(user=user).delete()
-        GoogleAccount.objects.filter(user=user).delete()
+        with transaction.atomic():
+            if user.pk not in lock_users([user.pk]):
+                return
+            CalendarEventMapping.objects.filter(user=user).delete()
+            GoogleAccount.objects.filter(user=user).delete()
+            invalidate_google_flows(user.pk)
 
 
 class GoogleCalendarService:

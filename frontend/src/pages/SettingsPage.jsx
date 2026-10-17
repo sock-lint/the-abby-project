@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LogOut, Link2, Unlink, Calendar, RefreshCw, Check,
   Lock,
 } from 'lucide-react';
 import {
-  getGoogleAuthUrl, getGoogleAccount, unlinkGoogleAccount,
+  getGoogleAccount, unlinkGoogleAccount,
   updateCalendarSettings, triggerCalendarSync,
   getCosmetics, equipCosmetic,
 } from '../api';
@@ -26,6 +26,8 @@ import { ToggleField } from '../components/form';
 import InstallCard from '../pwa/InstallCard';
 import PushNotificationsCard from '../pwa/PushNotificationsCard';
 import HomeworkAISettings from './settings/HomeworkAISettings';
+import useGoogleAuthorization from '../hooks/useGoogleAuthorization';
+import { takeGoogleLinkResult } from '../auth/googleOAuth';
 
 // Auto-dismiss window for transient Google-account status banners. Long
 // enough to read but short enough that the user doesn't come back to
@@ -35,6 +37,7 @@ const GOOGLE_MESSAGE_DISMISS_MS = 5000;
 
 export default function SettingsPage() {
   const { user, logout: onLogout, setUser } = useAuth();
+  const googleAuthorization = useGoogleAuthorization({ mode: 'link', actor: user });
   const { hash } = useLocation();
   const appearanceRef = useRef(null);
   const homeworkAIRef = useRef(null);
@@ -81,9 +84,34 @@ export default function SettingsPage() {
   // that holds the toggle rather than one card up.
   const [calendarError, setCalendarError] = useState('');
 
+  const loadGoogleAccount = useCallback(async () => {
+    if (!user?.id) return;
+    const token = getToken();
+    const actorId = user?.id;
+    const familyId = user?.family?.id;
+    const current = () => mountedRef.current && getToken() === token
+      && userRef.current?.id === actorId && userRef.current?.family?.id === familyId;
+    setGoogleLoading(true);
+    try {
+      const data = await getGoogleAccount();
+      if (!current()) return;
+      setGoogleAccount(data);
+      if (data?.linked) setCalendarEnabled(data.calendar_sync_enabled || false);
+    } catch {
+      if (!current()) return;
+      setGoogleAccount(null);
+    } finally {
+      if (current()) setGoogleLoading(false);
+    }
+  }, [user?.id, user?.family?.id]);
+
+  useEffect(() => { void loadGoogleAccount(); }, [loadGoogleAccount]);
+
   useEffect(() => {
-    loadGoogleAccount();
     loadCovers();
+    const result = takeGoogleLinkResult();
+    if (result?.error) setGoogleError(result.error);
+    else if (result) setGoogleMessage('Google account linked successfully.');
     const params = new URLSearchParams(window.location.search);
     const googleStatus = params.get('google');
     if (googleStatus === 'linked') {
@@ -144,18 +172,6 @@ export default function SettingsPage() {
     }
   };
 
-  const loadGoogleAccount = async () => {
-    setGoogleLoading(true);
-    try {
-      const data = await getGoogleAccount();
-      setGoogleAccount(data);
-      if (data?.linked) setCalendarEnabled(data.calendar_sync_enabled || false);
-    } catch {
-      setGoogleAccount(null);
-    } finally {
-      setGoogleLoading(false);
-    }
-  };
 
   const handleThemeChange = async (themeName) => {
     const owned = ownedByTheme?.[themeName];
@@ -194,18 +210,6 @@ export default function SettingsPage() {
     } finally {
       equippingRef.current = false;
       if (isCurrentAccount()) setCoverEquipping(null);
-    }
-  };
-
-  const handleLinkGoogle = async () => {
-    setGoogleError('');
-    try {
-      const data = await getGoogleAuthUrl();
-      if (data?.authorization_url) {
-        window.location.href = data.authorization_url;
-      }
-    } catch {
-      setGoogleError('Could not start Google linking.');
     }
   };
 
@@ -452,7 +456,7 @@ export default function SettingsPage() {
           On a Mac, open the downloaded file in Calendar or choose File → Import.
           Events added to an iCloud calendar also appear on your other Apple devices.
         </p>
-        {googleError && <ErrorAlert message={googleError} className="mb-3" />}
+        {(googleError || googleAuthorization.error) && <ErrorAlert message={googleError || googleAuthorization.error} className="mb-3" />}
         {googleMessage && (
           <div className="font-script text-body text-sheikah-teal-deep mb-3">{googleMessage}</div>
         )}
@@ -476,7 +480,8 @@ export default function SettingsPage() {
         ) : (
           <Button
             variant="secondary"
-            onClick={handleLinkGoogle}
+            onClick={() => { setGoogleError(''); void googleAuthorization.start(); }}
+            disabled={googleAuthorization.busy}
             className="flex items-center gap-2 w-full"
           >
             <Link2 size={16} /> Connect Google account

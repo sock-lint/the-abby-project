@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff } from 'lucide-react';
 import ErrorAlert from '../components/ErrorAlert';
-import { getGoogleLoginUrl } from '../api';
+import { getGoogleConfig } from '../api';
+import useGoogleAuthorization from '../hooks/useGoogleAuthorization';
+import { supportsGoogleReturn } from '../auth/googleOAuth';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import Button from '../components/Button';
 import IconButton from '../components/IconButton';
@@ -20,11 +22,13 @@ export default function Login({ onLogin, sessionError = '' }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [googleAvailable, setGoogleAvailable] = useState(false);
+  const google = useGoogleAuthorization({ mode: 'login' });
 
   useEffect(() => {
-    getGoogleLoginUrl()
+    let active = true;
+    getGoogleConfig()
       .then((data) => {
-        if (data?.authorization_url) setGoogleAvailable(true);
+        if (active && data?.configured) setGoogleAvailable(true);
       })
       .catch(() => {});
 
@@ -37,6 +41,7 @@ export default function Login({ onLogin, sessionError = '' }) {
       setError('Your account is inactive.');
       window.history.replaceState({}, '', window.location.pathname);
     }
+    return () => { active = false; };
   }, []);
 
   const handleSubmit = async (e) => {
@@ -52,20 +57,6 @@ export default function Login({ onLogin, sessionError = '' }) {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    setError('');
-    setLoading(true);
-    try {
-      const data = await getGoogleLoginUrl();
-      if (data?.authorization_url) {
-        window.location.href = data.authorization_url;
-      }
-    } catch {
-      setError('Could not start Google sign-in.');
-      setLoading(false);
-    }
-  };
-
   return (
     <div className="min-h-dvh flex items-center justify-center p-4 parchment-bg">
       <div className="w-full max-w-sm">
@@ -73,7 +64,7 @@ export default function Login({ onLogin, sessionError = '' }) {
 
         <ParchmentCard flourish as="form" onSubmit={handleSubmit}>
           <div className="space-y-4">
-            <ErrorAlert message={error || sessionError} />
+            <ErrorAlert message={error || google.error || sessionError} />
             <TextField
               id="login-username"
               label="Username"
@@ -103,7 +94,7 @@ export default function Login({ onLogin, sessionError = '' }) {
                 {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </IconButton>
             </div>
-            <Button type="submit" disabled={loading} className="w-full">
+            <Button type="submit" disabled={loading || google.busy} className="w-full">
               {loading ? 'Signing in…' : 'Sign in'}
             </Button>
 
@@ -125,8 +116,8 @@ export default function Login({ onLogin, sessionError = '' }) {
                 </div>
                 <button
                   type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={loading}
+                  onClick={() => { setError(''); void google.start(); }}
+                  disabled={loading || google.busy}
                   className="w-full flex items-center justify-center gap-2 bg-ink-page border border-ink-page-shadow text-ink-primary font-body py-2.5 rounded-lg hover:bg-ink-page-rune-glow transition-colors disabled:opacity-50"
                 >
                   {/* intentional: official Google brand colors required for the Sign-in-with-Google logo (#4285F4 / #34A853 / #FBBC05 / #EA4335) */}
@@ -138,6 +129,7 @@ export default function Login({ onLogin, sessionError = '' }) {
                   </svg>
                   Sign in with Google
                 </button>
+                {!supportsGoogleReturn() && <p className="font-body text-caption text-ink-secondary">Google authorization needs Abby’s hosted browser app. Password sign-in is available here.</p>}
               </>
             )}
           </div>

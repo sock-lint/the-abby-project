@@ -5,6 +5,9 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from './hooks/useApi'
 import { isNativeRuntime } from './platform/runtime'
+import { captureGoogleCallback } from './auth/googleOAuth'
+
+captureGoogleCallback()
 
 // Chrome fires beforeinstallprompt very early after page load — often before
 // React has mounted InstallPromptProvider and its useEffect has run. Capture

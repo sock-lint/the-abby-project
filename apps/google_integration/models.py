@@ -1,7 +1,42 @@
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Now
 
 from config.base_models import CreatedAtModel, TimestampedModel
+
+
+class GoogleAuthInvalidation(models.Model):
+    """Revocations also fence anonymous flows whose Google identity is not known yet."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, primary_key=True,
+                               on_delete=models.CASCADE, related_name="+")
+    invalidated_at = models.DateTimeField()
+
+
+class GoogleOAuthTransaction(models.Model):
+    """One browser-bound authorization; never stores a plaintext bearer credential."""
+
+    state_hash = models.CharField(max_length=64, unique=True)
+    browser_challenge = models.CharField(max_length=43)
+    mode = models.CharField(max_length=5)
+    initiator = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
+                                 on_delete=models.CASCADE, related_name="+")
+    target = models.ForeignKey(settings.AUTH_USER_MODEL, null=True,
+                              on_delete=models.CASCADE, related_name="+")
+    initiator_family_id = models.PositiveBigIntegerField(null=True)
+    target_family_id = models.PositiveBigIntegerField(null=True)
+    initiator_role = models.CharField(max_length=10, blank=True)
+    target_role = models.CharField(max_length=10, blank=True)
+    initiator_password_hash = models.CharField(max_length=64, blank=True)
+    target_password_hash = models.CharField(max_length=64, blank=True)
+    initiator_token_hash = models.CharField(max_length=64, blank=True)
+    client_hash = models.CharField(max_length=64, db_index=True)
+    encrypted_payload = models.BinaryField(default=bytes)
+    stage = models.CharField(max_length=10, default="pending")
+    exchange_hash = models.CharField(max_length=64, unique=True, null=True)
+    created_at = models.DateTimeField(db_default=Now())
+    expires_at = models.DateTimeField(db_index=True)
+    exchange_expires_at = models.DateTimeField(null=True)
 
 
 class GoogleAccount(TimestampedModel):

@@ -839,3 +839,13 @@ catalog artwork. Unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+Google sign-in/linking uses `google-auth-config.json` (public configuration),
+`google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
+(proof-verified login with the existing shared DRF token and UserSerializer),
+and `google-auth-linked.json` (confirmed link). The producer is
+`config.tests.test_google_auth_api_contract_fixtures`; the React consumer is
+`src/api/googleAuthContracts.test.js`. All tokens, Google identities and URLs
+are synthetic. The browser sends the verifier only in the exchange POST;
+callback URLs contain an opaque expiring ticket, never a DRF/Google token.
+See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).

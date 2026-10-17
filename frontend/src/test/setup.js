@@ -8,6 +8,8 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, configure } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from 'vitest';
 import { server } from './server.js';
+import { webcrypto } from 'node:crypto';
+import { __resetGoogleAuthorizationForTesting } from '../auth/googleOAuth';
 
 // Coverage on the shared CI host can delay MSW responses and React rendering
 // beyond RTL's one-second default. Wait for the actual condition, with a bound.
@@ -28,6 +30,7 @@ vi.mock('@sentry/react', () => ({
 }));
 
 // --- Browser API polyfills ------------------------------------------------
+if (!crypto.subtle) Object.defineProperty(crypto, 'subtle', { value: webcrypto.subtle, configurable: true });
 // jsdom omits these but app code relies on them via framer-motion, lucide,
 // and the image-downscale util.
 if (!Element.prototype.scrollIntoView) {
@@ -121,6 +124,8 @@ beforeAll(() => {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
+  __resetGoogleAuthorizationForTesting();
   // Default API fixtures represent an authenticated user. Anonymous cases
   // explicitly clear this credential so successful /me/ mocks cannot stand
   // in for authentication without a session.

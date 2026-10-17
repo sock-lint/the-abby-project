@@ -7,6 +7,30 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Google authorization return
+
+Login availability reads the nonmutating `/api/auth/google/config/`; only an
+explicit click starts authorization. Login, Settings and Manage's child-link
+sheet share `useGoogleAuthorization` and `auth/googleOAuth.js`. Each start uses
+a fresh browser verifier, sends only its S256 challenge, and stores the bounded
+attempt in sessionStorage scoped to backend/browser origin, initiating
+credential fingerprint, actor/family and optional child. No Abby or Google
+bearer token is stored there or accepted from navigation URLs.
+
+`main.jsx` captures and scrubs the opaque callback fragment before Sentry
+initializes. AuthProvider shares one proof exchange across StrictMode replay,
+then uses the existing push-safe session replacement. A reload before the POST
+can resume; a reload after an uncertain POST requires a fresh explicit start,
+without replaying the mutation. Expired, missing, cancelled and account-switched
+attempts keep the current account. Late start/receipt responses cannot navigate
+or replace a newer account. Browser Back restores the start controls.
+
+Google return currently supports the hosted same-origin browser app only.
+Native and cross-origin API/redirect configurations fail closed with guidance;
+there is no arbitrary return URL or native OAuth parity claim. Calendar and
+Drive retain their existing authorization contracts; Drive's transient GIS
+`drive.file` interaction is independent of this account-link flow.
+
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
 `/__design` documents reusable page recipes and interactive recovery states.

@@ -69,12 +69,13 @@ class AuthView(APIView):
             password = request.data.get("password")
             user = authenticate(request, username=username, password=password)
             if user:
-                # Audit H2: rotate on every successful login. The
-                # transaction wraps delete + create so we never leave a
-                # user without any token between the two writes (otherwise
-                # a parallel request from the same user could see "no
-                # token" mid-rotation and 401 unnecessarily).
+                from apps.google_integration.oauth_exchange import invalidate_google_flows, lock_users
                 with transaction.atomic():
+                    fresh = lock_users([user.pk]).get(user.pk)
+                    if not fresh or not fresh.is_active or not fresh.check_password(password):
+                        return Response({"error": "Invalid credentials"}, status=401)
+                    user = fresh
+                    invalidate_google_flows(user.pk)
                     Token.objects.filter(user=user).delete()
                     token = Token.objects.create(user=user)
                 data = UserSerializer(user).data
@@ -97,9 +98,17 @@ class AuthView(APIView):
                 # binding, so an old handler cannot recreate this device after
                 # logout even when the browser already aborted its fetch.
                 with transaction.atomic():
-                    credential = Token.objects.select_for_update().filter(
-                        user=request.user, key=request.auth.key,
-                    ).first()
+                    from apps.google_integration.oauth_exchange import AuthorizationBusy, is_lock_conflict, lock_users
+                    from django.db import OperationalError
+                    lock_users([request.user.pk])
+                    try:
+                        credential = Token.objects.select_for_update(nowait=True).filter(
+                            user=request.user, key=request.auth.key,
+                        ).first()
+                    except OperationalError as exc:
+                        if is_lock_conflict(exc):
+                            raise AuthorizationBusy() from None
+                        raise
                     if credential:
                         from apps.notifications.models import PushSubscription
 
