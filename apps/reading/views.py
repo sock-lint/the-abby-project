@@ -13,7 +13,6 @@ from rest_framework.views import APIView
 from apps.quests.activity import household_timezone
 from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
 
-from .constants import INTERESTS
 from .models import ReadingBook, ReadingSession
 from .services import ReadingRewardService
 from .serializers import (
@@ -23,6 +22,7 @@ from .serializers import (
     ReadingSessionCreateSerializer,
     ReadingSessionSerializer,
     ReadingSessionWriteSerializer,
+    DiscoveryFilterSerializer,
 )
 
 
@@ -220,7 +220,15 @@ class ReadingRecommendationsView(APIView):
         from .recommendations import recommend_books
 
         target = _target_user(request)
-        interest = request.query_params.get("interest")
-        if interest is not None and interest not in INTERESTS:
-            raise serializers.ValidationError({"interest": "Choose a supported reading interest."})
-        return Response(recommend_books(target, interest=interest))
+        filters = DiscoveryFilterSerializer(data=request.query_params)
+        filters.is_valid(raise_exception=True)
+        values = dict(filters.validated_data)
+        # Keep the original simple call shape for existing topic consumers.
+        interest = values.pop("interest", None)
+        if "book_format" in values:
+            values["format"] = values.pop("book_format")
+        if not values.get("q"):
+            values.pop("q", None)
+        if not values.get("rotation"):
+            values.pop("rotation", None)
+        return Response(recommend_books(target, interest=interest, **values))

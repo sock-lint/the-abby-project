@@ -1,0 +1,49 @@
+{
+  "id": 301,
+  "user": 7,
+  "suggested_by": {
+    "id": 6,
+    "display_name": "reading-fixture-parent"
+  },
+  "catalog_id": "fixture-clockwork-garden",
+  "catalog_entry": {
+    "id": "fixture-clockwork-garden",
+    "title": "The Clockwork Garden",
+    "author": "Example Writer",
+    "interests": [
+      "science",
+      "friendship"
+    ],
+    "age_min": 8,
+    "age_max": null,
+    "description": "Friends build a garden full of surprising inventions.",
+    "source_url": "https://publisher.example/books/clockwork-garden",
+    "source_urls": [
+      "https://publisher.example/books/clockwork-garden"
+    ],
+    "isbn": "9780000000000",
+    "cover_url": "https://covers.openlibrary.org/b/isbn/9780000000000-M.jpg?default=false",
+    "page_count": 180,
+    "formats": [
+      "print",
+      "ebook"
+    ],
+    "moods": [
+      "funny"
+    ],
+    "styles": [
+      "illustrated"
+    ],
+    "themes": [
+      "inventors",
+      "friendship"
+    ],
+    "series": null
+  },
+  "message": "Thought you would enjoy the inventions!",
+  "status": "pending",
+  "client_request_id": "77777777-7777-4777-8777-777777777777",
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00",
+  "on_shelf": false
+}
