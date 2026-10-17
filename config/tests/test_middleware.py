@@ -109,7 +109,8 @@ class HealthCheckReleaseEvidenceTests(TestCase):
     resource_uuid = "lr5dn6lhga31vyk6u5qvhm4c"
 
     @override_settings(SOURCE_COMMIT="a" * 40, COOLIFY_RESOURCE_UUID="lr5dn6lhga31vyk6u5qvhm4c")
-    def test_served_identity_is_validated_and_never_cached(self):
+    @patch("config.middleware.pwa_script_manifest", return_value=None)
+    def test_served_identity_is_validated_and_never_cached(self, _manifest):
         response = self.client.get("/health")
         self.assertEqual(response.json(), {
             "status": "ok", "db": "up", "commit": self.commit,

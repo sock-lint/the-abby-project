@@ -6,7 +6,7 @@ this is fatal — the service worker MUST be served from /sw.js (not /static/sw.
 to control the whole app, and browsers reject manifests served as text/html.
 
 Fix: explicit URL routes for the small set of PWA root files, served from
-frontend_dist/ directly. The three root scripts must revalidate in browsers and
+frontend_dist/ directly. The four root scripts must revalidate in browsers and
 bypass Cloudflare edge storage, including HEAD and conditional 304 responses,
 so an obsolete service worker cannot hide a new release from update detection.
 
@@ -24,6 +24,7 @@ from django.test import SimpleTestCase, override_settings
 _FIXTURE_FILES = {
     "sw.js": b"// fixture sw\n",
     "push-sw.js": b"// fixture push sw\n",
+    "privacy-sw.js": b"// fixture privacy sw\n",
     "registerSW.js": b"// fixture registerSW\n",
     "manifest.webmanifest": b'{"name":"Abby"}',
     "pwa-192x192.png": b"\x89PNG\r\n\x1a\n",
@@ -32,7 +33,7 @@ _FIXTURE_FILES = {
     "apple-touch-icon.png": b"\x89PNG\r\n\x1a\n",
     "favicon.svg": b"<svg xmlns='http://www.w3.org/2000/svg'></svg>",
 }
-_PWA_SCRIPT_FILES = ("sw.js", "push-sw.js", "registerSW.js")
+_PWA_SCRIPT_FILES = ("sw.js", "push-sw.js", "privacy-sw.js", "registerSW.js")
 
 
 def _response_body(response):

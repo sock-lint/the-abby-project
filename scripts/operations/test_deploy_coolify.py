@@ -1,15 +1,20 @@
 """Synthetic deployment API checks; never contacts GitHub, Coolify, or production."""
 
 import contextlib
+import hashlib
 import io
+import os
 import unittest
-from unittest.mock import Mock
+import zlib
+from unittest.mock import Mock, patch
+from urllib.request import ProxyHandler
 from http.client import RemoteDisconnected
 from urllib.error import HTTPError, URLError
 
 from deploy_coolify import (
     ApiError, Config, ConnectionFailure, DeploymentError, DeploymentInterrupted,
-    InvalidResponse, JsonApi, NoRedirect, deploy,
+    InvalidResponse, JsonApi, NoRedirect, PublicScript, ScriptClient, MAX_SCRIPT_BYTES,
+    PWA_SCRIPTS, deploy, verify_script,
 )
 
 
@@ -17,6 +22,13 @@ SHA = "a" * 40
 OTHER_SHA = "b" * 40
 APP_UUID = "synthetic-app"
 DEPLOY_UUID = "synthetic-deployment"
+SCRIPT_BODY = b"/* synthetic worker */ self.addEventListener('install', () => {});"
+SCRIPT_PROOF = {"sha256": hashlib.sha256(SCRIPT_BODY).hexdigest(), "bytes": len(SCRIPT_BODY)}
+SCRIPT_HEADERS = {"content-type": "text/javascript; charset=utf-8", "cache-control": "no-cache, max-age=0, must-revalidate", "cf-cache-status": "DYNAMIC"}
+
+
+def good_script():
+    return PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS))
 
 
 class DeploymentTests(unittest.TestCase):
@@ -27,7 +39,10 @@ class DeploymentTests(unittest.TestCase):
         }
         self.coolify = Mock()
         self.health = Mock()
-        self.health.request.return_value = {"status": "ok", "db": "up", "commit": SHA, "resourceUuid": APP_UUID}
+        self.health.request.return_value = {"status": "ok", "db": "up", "commit": SHA, "resourceUuid": APP_UUID,
+                                            "pwaScripts": {path: dict(SCRIPT_PROOF) for path in PWA_SCRIPTS}}
+        self.scripts = Mock()
+        self.scripts.request.return_value = good_script()
         self.latest_main = Mock(return_value=SHA)
         self.responses = []
         self.history = {"count": 0, "deployments": []}
@@ -68,7 +83,8 @@ class DeploymentTests(unittest.TestCase):
         self.now += seconds
 
     def run_deploy(self):
-        return deploy(self.config, self.coolify, self.latest_main, self.health, clock=lambda: self.now, sleep=self.sleep)
+        return deploy(self.config, self.coolify, self.latest_main, self.health, clock=lambda: self.now, sleep=self.sleep,
+                      scripts=self.scripts)
 
     def mutations(self):
         return [call for call in self.coolify.request.call_args_list if call.args[0] == "POST"]
@@ -97,7 +113,9 @@ class DeploymentTests(unittest.TestCase):
         self.assertTrue(self.run_deploy())
         self.assertEqual(len(self.mutations()), 1)
         self.coolify.request.assert_any_call("POST", "/deploy", {"uuid": APP_UUID, "force": False})
-        self.health.request.assert_called_once_with("GET")
+        self.assertEqual(self.health.request.call_count, 2)
+        self.assertTrue(all(call.args == ("GET",) for call in self.health.request.call_args_list))
+        self.assertEqual([call.args[0] for call in self.scripts.request.call_args_list], list(PWA_SCRIPTS))
 
     def test_reuses_existing_exact_sha_native_deployment(self):
         self.history = {"count": 1, "deployments": [self.response("in_progress")]}
@@ -205,7 +223,7 @@ class DeploymentTests(unittest.TestCase):
         self.assertEqual(self.now, 6)
 
     def test_transient_github_reads_recover_before_and_during_monitoring(self):
-        self.latest_main.side_effect = [ConnectionFailure("synthetic"), SHA, SHA, ApiError(502), SHA, SHA, SHA]
+        self.latest_main.side_effect = [ConnectionFailure("synthetic"), SHA, SHA, ApiError(502), *([SHA] * 12)]
         self.responses = [self.response("finished")]
         self.assertTrue(self.run_deploy())
         self.assertEqual(len(self.mutations()), 1)
@@ -380,13 +398,15 @@ class DeploymentTests(unittest.TestCase):
 
     def test_health_temporary_failure_recovers_with_identity(self):
         self.responses = [self.response("finished")]
-        self.health.request.side_effect = [ConnectionFailure("synthetic"), self.health.request.return_value]
+        self.health.request.side_effect = [ConnectionFailure("synthetic"), self.health.request.return_value,
+                                           self.health.request.return_value]
         self.assertTrue(self.run_deploy())
         self.assertEqual(len(self.mutations()), 1)
 
     def test_health_plaintext_rollout_response_waits_for_exact_json_identity(self):
         self.responses = [self.response("finished")]
-        self.health.request.side_effect = [InvalidResponse("synthetic plaintext ok"), self.health.request.return_value]
+        self.health.request.side_effect = [InvalidResponse("synthetic plaintext ok"), self.health.request.return_value,
+                                           self.health.request.return_value]
         self.assertTrue(self.run_deploy())
         self.assertEqual(self.now, 10)
         self.assertEqual(len(self.mutations()), 1)
@@ -462,6 +482,221 @@ class DeploymentTests(unittest.TestCase):
                 with self.assertRaises(DeploymentError):
                     self.run_deploy()
                 self.assertEqual(self.mutations(), [])
+
+    def test_cached_html_during_swap_retries_then_accepts_real_workers(self):
+        self.responses = [self.response("finished")]
+        self.scripts.request.side_effect = [
+            PublicScript(b"<html>Oops - Something Broke</html>", {
+                "content-type": "text/html", "cache-control": "max-age=14400", "cf-cache-status": "HIT", "age": "1",
+            }), good_script(), good_script(), good_script(),
+        ]
+        self.assertTrue(self.run_deploy())
+        self.assertEqual(self.now, 10)
+        self.assertEqual([call.args[0] for call in self.scripts.request.call_args_list],
+                         [PWA_SCRIPTS[0], *PWA_SCRIPTS])
+        self.assertEqual(len(self.mutations()), 1)
+
+    def test_persistent_worker_delivery_failure_holds_finished_release(self):
+        for script in (PublicScript(b"<html>Oops</html>", SCRIPT_HEADERS),
+                       PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{"content-type": "text/html"})),
+                       PublicScript(SCRIPT_BODY + b" changed", SCRIPT_HEADERS),
+                       PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{"cf-cache-status": "HIT"})),
+                       PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, age="8"))):
+            with self.subTest(script=script):
+                self.now = 0
+                self.coolify.reset_mock()
+                self.responses = [self.response("finished")]
+                self.scripts.request.return_value = script
+                with self.assertRaisesRegex(DeploymentError, "fresh worker delivery"):
+                    self.run_deploy()
+                self.assertEqual(self.now, 30)
+                self.assertEqual(len(self.mutations()), 1)
+                self.assertEqual(self.mutations()[0].args[1], "/deploy")
+
+    def test_missing_or_malformed_runtime_hashes_never_fetch_scripts(self):
+        cases = (None, {}, {PWA_SCRIPTS[0]: SCRIPT_PROOF},
+                 {path: dict(SCRIPT_PROOF, bytes=True) for path in PWA_SCRIPTS},
+                 {path: dict(SCRIPT_PROOF, bytes=MAX_SCRIPT_BYTES + 1) for path in PWA_SCRIPTS},
+                 {path: dict(SCRIPT_PROOF, sha256="not-a-hash") for path in PWA_SCRIPTS})
+        for manifest in cases:
+            with self.subTest(manifest=manifest):
+                self.now = 0
+                self.responses = [self.response("finished")]
+                self.health.request.return_value["pwaScripts"] = manifest
+                with self.assertRaisesRegex(DeploymentError, "public /health"):
+                    self.run_deploy()
+                self.scripts.request.assert_not_called()
+
+    def test_final_health_must_still_prove_same_deployment_and_worker_hashes(self):
+        initial = self.health.request.return_value
+        for final in (dict(initial, commit=OTHER_SHA), dict(initial, resourceUuid="other-app"),
+                      dict(initial, pwaScripts={path: dict(SCRIPT_PROOF, sha256="f" * 64) for path in PWA_SCRIPTS})):
+            with self.subTest(final=final):
+                self.now = 0
+                self.coolify.reset_mock()
+                self.responses = [self.response("finished")]
+                calls = 0
+
+                def health(*args):
+                    nonlocal calls
+                    calls += 1
+                    return initial if calls % 2 else final
+
+                self.health.request.side_effect = health
+                with self.assertRaisesRegex(DeploymentError, "fresh worker delivery"):
+                    self.run_deploy()
+                self.assertEqual(len(self.mutations()), 1)
+
+    def test_supersession_between_worker_requests_never_passes_or_cancels_finished(self):
+        self.responses = [self.response("finished")]
+
+        def script(*args, **kwargs):
+            self.latest_main.return_value = OTHER_SHA
+            return good_script()
+
+        self.scripts.request.side_effect = script
+        with self.assertRaisesRegex(DeploymentError, "superseded"):
+            self.run_deploy()
+        self.scripts.request.assert_called_once()
+        self.assertEqual(len(self.mutations()), 1)
+
+    def test_worker_request_cannot_outlive_shared_verification_deadline(self):
+        self.responses = [self.response("finished")]
+
+        def script(*args, **kwargs):
+            self.now = 31
+            return good_script()
+
+        self.scripts.request.side_effect = script
+        with self.assertRaisesRegex(DeploymentError, "deadline"):
+            self.run_deploy()
+        self.assertEqual(len(self.mutations()), 1)
+        self.scripts.request.assert_called_once()
+
+
+class WorkerDeliveryTests(unittest.TestCase):
+    def test_public_worker_client_ignores_ambient_proxy_configuration(self):
+        with patch.dict(os.environ, {"https_proxy": "http://synthetic-private-proxy.example:8080", "HTTPS_PROXY": "http://synthetic-private-proxy.example:8080"}):
+            client = ScriptClient("https://synthetic.example/health")
+        # An empty explicit ProxyHandler installs no proxy protocol handlers;
+        # build_opener therefore cannot fall back to environment proxy discovery.
+        self.assertFalse(any(isinstance(handler, ProxyHandler) for handler in client.opener.handlers))
+        with patch("deploy_coolify.build_opener") as opener:
+            ScriptClient("https://synthetic.example/health")
+            self.assertEqual(opener.call_args.args[0].proxies, {})
+
+    def client(self, body=SCRIPT_BODY, headers=None, *, status=200, url="https://synthetic.example/sw.js"):
+        response = Mock()
+        response.status, response.headers = status, headers or SCRIPT_HEADERS
+        response.geturl.return_value = url
+        response.read.return_value = body
+        response.__enter__ = Mock(return_value=response)
+        response.__exit__ = Mock(return_value=False)
+        client = ScriptClient("https://synthetic.example/health")
+        client.opener = Mock()
+        client.opener.open.return_value = response
+        return client
+
+    def test_canonical_worker_client_has_no_auth_cookie_or_query_buster(self):
+        client = self.client()
+        verify_script(client.request("/sw.js", timeout=1.5), SCRIPT_PROOF)
+        request = client.opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, "https://synthetic.example/sw.js")
+        self.assertIsNone(request.get_header("Authorization"))
+        self.assertIsNone(request.get_header("Cookie"))
+        self.assertIsNone(request.get_header("Cache-control"))
+        self.assertEqual(request.get_header("Accept-encoding"), "identity")
+        self.assertEqual(client.opener.open.call_args.kwargs, {"timeout": 1.5})
+
+    def test_only_fixed_paths_and_https_same_origin_are_allowed(self):
+        for url in ("http://synthetic.example/health", "https://token@synthetic.example/health",
+                    "https://synthetic.example/health?token=secret", "https://synthetic.example/health#fragment"):
+            with self.subTest(url=url), self.assertRaises(DeploymentError):
+                ScriptClient(url)
+        client = self.client()
+        for path in ("/sw.js?release=foo", "https://other.example/sw.js", "//other.example/sw.js", "/api/auth/", "/sw.js/.."):
+            with self.subTest(path=path), self.assertRaises(DeploymentError):
+                client.request(path)
+        client.opener.open.assert_not_called()
+
+    def test_redirects_wrong_final_urls_and_non200_are_rejected_without_body(self):
+        for status, url in ((302, "https://synthetic.example/sw.js"), (404, "https://synthetic.example/sw.js"),
+                            (200, "https://other.example/sw.js"), (200, "https://synthetic.example/sw.js?bust=1")):
+            with self.subTest(status=status, url=url):
+                client = self.client(status=status, url=url)
+                with self.assertRaises(InvalidResponse):
+                    client.request("/sw.js")
+                client.opener.open.return_value.read.assert_not_called()
+        client = self.client()
+        client.opener.open.side_effect = HTTPError("https://synthetic.example/sw.js", 302, "synthetic-secret", {}, None)
+        with self.assertRaises(InvalidResponse) as error:
+            client.request("/sw.js")
+        self.assertNotIn("synthetic-secret", str(error.exception))
+        client.opener.open.assert_called_once()
+
+    def test_plain_and_decoded_worker_sizes_are_bounded(self):
+        client = self.client(b"x" * (MAX_SCRIPT_BYTES + 1))
+        with self.assertRaises(InvalidResponse):
+            client.request("/sw.js")
+        client.opener.open.return_value.read.assert_called_once_with(MAX_SCRIPT_BYTES + 1)
+        compressed = zlib.compressobj(wbits=16 + zlib.MAX_WBITS)
+        bomb = compressed.compress(b"x" * (MAX_SCRIPT_BYTES + 1)) + compressed.flush()
+        client = self.client(bomb, dict(SCRIPT_HEADERS, **{"content-encoding": "gzip"}))
+        with self.assertRaises(InvalidResponse):
+            client.request("/sw.js")
+
+    def test_valid_encoded_worker_compares_decoded_hash(self):
+        for encoding, wbits in (("gzip", 16 + zlib.MAX_WBITS), ("deflate", zlib.MAX_WBITS)):
+            with self.subTest(encoding=encoding):
+                compressor = zlib.compressobj(wbits=wbits)
+                body = compressor.compress(SCRIPT_BODY) + compressor.flush()
+                client = self.client(body, dict(SCRIPT_HEADERS, **{"content-encoding": encoding}))
+                verify_script(client.request("/sw.js"), SCRIPT_PROOF)
+
+    def test_invalid_encoded_worker_and_network_errors_are_sanitized(self):
+        client = self.client(b"synthetic-secret", dict(SCRIPT_HEADERS, **{"content-encoding": "gzip"}))
+        with self.assertRaises(InvalidResponse) as error:
+            client.request("/sw.js")
+        self.assertNotIn("synthetic-secret", str(error.exception))
+        client.opener.open.side_effect = URLError("synthetic-secret")
+        with self.assertRaises(ConnectionFailure) as error:
+            client.request("/sw.js")
+        self.assertNotIn("synthetic-secret", str(error.exception))
+
+    def test_safe_revalidation_and_stronger_no_store_policies(self):
+        for policy in ("no-cache, max-age=0, must-revalidate", 'MAX-AGE="0", Must-Revalidate, No-Cache', "no-store"):
+            with self.subTest(policy=policy):
+                verify_script(PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{"cache-control": policy})), SCRIPT_PROOF)
+        verify_script(PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{
+            "age": "0", "cloudflare-cdn-cache-control": "no-store", "cdn-cache-control": "no-store",
+        })), SCRIPT_PROOF)
+
+    def test_unsafe_malformed_and_ambiguous_policies_are_rejected(self):
+        for policy in ("max-age=14400", "no-cache", "no-cache, max-age=0", "no-store, max-age=14400",
+                       "no-store, immutable", "no-store, max-age=0, max-age=14400", "no-cache, max-age=-1, must-revalidate",
+                       "no-cache, max-age=invalid, must-revalidate", "no-cache, max-age=0, s-maxage=600, must-revalidate",
+                       "no-cache, max-age=0, must-revalidate,", 'no-cache, max-age="0, must-revalidate'):
+            with self.subTest(policy=policy), self.assertRaises(InvalidResponse):
+                verify_script(PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{"cache-control": policy})), SCRIPT_PROOF)
+        for extra in ({"age": "1"}, {"age": "invalid"}, {"cf-cache-status": "HIT"}, {"cf-cache-status": "REVALIDATED"},
+                      {"cf-cache-status": "STALE"}, {"cloudflare-cdn-cache-control": "public, max-age=300"}):
+            with self.subTest(extra=extra), self.assertRaises(InvalidResponse):
+                verify_script(PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **extra)), SCRIPT_PROOF)
+
+    def test_edge_miss_is_rejected_before_it_can_become_a_cached_hit(self):
+        headers = dict(SCRIPT_HEADERS, **{"cf-cache-status": "MISS", "age": "0"})
+        with self.assertRaisesRegex(InvalidResponse, "edge cache"):
+            verify_script(PublicScript(SCRIPT_BODY, headers), SCRIPT_PROOF)
+        for status in ("DYNAMIC", "BYPASS"):
+            with self.subTest(status=status):
+                headers["cf-cache-status"] = status
+                verify_script(PublicScript(SCRIPT_BODY, headers), SCRIPT_PROOF)
+
+    def test_cdn_no_store_does_not_hide_conflicting_positive_lifetimes(self):
+        for header in ("cloudflare-cdn-cache-control", "cdn-cache-control"):
+            for policy in ("no-store, max-age=14400", "no-store, s-maxage=14400", "no-store, immutable"):
+                with self.subTest(header=header, policy=policy), self.assertRaisesRegex(InvalidResponse, "CDN storage"):
+                    verify_script(PublicScript(SCRIPT_BODY, dict(SCRIPT_HEADERS, **{header: policy})), SCRIPT_PROOF)
 
 
 class ApiSafetyTests(unittest.TestCase):
