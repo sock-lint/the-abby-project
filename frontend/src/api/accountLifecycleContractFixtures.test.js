@@ -6,8 +6,30 @@ import closePreview from '../../../contracts/api/fixtures/lifecycle-close-previe
 import { getAccountLifecycle, transferFamilyContact, deleteOwnAccount, closeOwnFamily } from './index';
 import { spyHandler } from '../test/spy';
 import { server } from '../test/server';
+import { setToken } from './client';
 
 describe('Account lifecycle responses shared with Django', () => {
+  it('pins reads and destructive writes to the credential captured by the confirmation', async () => {
+    const headers = [];
+    const captured = 'synthetic-confirmation-session';
+    setToken('synthetic-replacement-session');
+    const read = spyHandler('get', /\/api\/account\/lifecycle\/$/, ({ request }) => {
+      headers.push(request.headers.get('authorization'));
+      return parentPreview;
+    });
+    const writes = ['transfer', 'delete', 'close-family'].map((path) => spyHandler('post', new RegExp(`/api/account/lifecycle/${path}/$`), ({ request }) => {
+      headers.push(request.headers.get('authorization'));
+      return new HttpResponse(null, { status: 204 });
+    }));
+    server.use(read.handler, ...writes.map(({ handler }) => handler));
+    await getAccountLifecycle({ token: captured });
+    const body = { password: 'synthetic-current-password' };
+    await transferFamilyContact(body, { token: captured });
+    await deleteOwnAccount(body, { token: captured });
+    await closeOwnFamily(body, { token: captured });
+    expect(headers).toEqual(Array(4).fill(`Token ${captured}`));
+  });
+
   it.each([parentPreview, childPreview, closePreview])('preserves the verified current-account impact preview ($user.username)', async (fixture) => {
     const read = spyHandler('get', /\/api\/account\/lifecycle\/$/, fixture);
     server.use(read.handler);

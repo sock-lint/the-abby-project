@@ -71,7 +71,7 @@ function LifecyclePanel({ user }) {
     setError('');
     setPreview(null);
     try {
-      const next = readPreview(await getAccountLifecycle(), identity);
+      const next = readPreview(await getAccountLifecycle({ token: credential }), identity);
       if (isCurrent()) setPreview(next);
     } catch {
       if (isCurrent()) setError('Could not load your account deletion options. Try again.');
@@ -147,9 +147,10 @@ function LifecycleConfirmation({ mode, user, preview, credential, onCancel, onRe
     setError('');
     setErrors({});
     try {
-      if (transfer) await transferFamilyContact({ password, successor_id: selectedParent.id });
-      else if (close) await closeOwnFamily({ password, confirm_family_slug: confirmation, family_version: preview.family_version });
-      else await deleteOwnAccount({ password, confirm_username: confirmation, ...(needsSuccessor ? { successor_id: selectedParent.id } : {}) });
+      const options = { token: credential };
+      if (transfer) await transferFamilyContact({ password, successor_id: selectedParent.id }, options);
+      else if (close) await closeOwnFamily({ password, confirm_family_slug: confirmation, family_version: preview.family_version }, options);
+      else await deleteOwnAccount({ password, confirm_username: confirmation, ...(needsSuccessor ? { successor_id: selectedParent.id } : {}) }, options);
       if (!isCurrent()) return;
       setPassword('');
       if (transfer) onTransferred();
