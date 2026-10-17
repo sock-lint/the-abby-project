@@ -112,4 +112,21 @@ describe('BadgeDetailSheet', () => {
     );
     expect(document.body.querySelector('[data-ladder="true"]')).toBeNull();
   });
+
+  it('features earned badge artwork while keeping the real identity and description readable', () => {
+    renderWithProviders(<BadgeDetailSheet entry={earnedEntry} onClose={() => {}} />);
+    expect(document.body.querySelector('[data-pedestal-image="frame-gold"]')).not.toBeNull();
+    expect(screen.getByText('🏆')).toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: earnedEntry.badge.name })).toBeInTheDocument();
+    expect(screen.getByText(earnedEntry.badge.description)).toBeInTheDocument();
+    expect(screen.getByText('rare')).toBeInTheDocument();
+  });
+
+  it('leaves future badge artwork unframed without losing its unlock guidance', () => {
+    renderWithProviders(<BadgeDetailSheet entry={unearnedEntry} onClose={() => {}} />);
+    expect(document.body.querySelector('[data-pedestal-image="frame-gold"]')).toBeNull();
+    expect(screen.getByText('🏆')).toBeInTheDocument();
+    expect(screen.getByText(/Earn 100 badges/)).toBeInTheDocument();
+    expect(screen.getByText('legendary')).toBeInTheDocument();
+  });
 });

@@ -50,6 +50,31 @@ the portable verification workspace is not an editable source backup.
 
 ## Application choices
 
+Storybook accents share one 2D presentation across decorated app panels:
+`ParchmentCard` reserves top/bottom gutters for small corner ornaments,
+including Today, reward balances, Hatching, sign-in and shared empty states.
+Boolean and named flourish props use the same accents; legacy seal positions
+use a single matching corner, and combined props do not add ornaments.
+Direct content children retain the caller's layout and spacing rhythm.
+The daily bonus star follows the server's award state, and the featured
+earned badge and earned badge detail use one measured gold-frame component.
+Badge tiles retain quiet artwork; rarity labels and icon fallbacks are shared.
+Existing difficulty stars use lit/unlit art with their original glyph fallback and a numeric
+accessible label. Equipped profile cosmetics stay independent.
+
+Child challenge cards use the Light illustration; the child Shop uses one
+Treasure introduction while individual offers retain their actual art,
+prices, stock and controls. Complete image canvases sit above content on
+cards with limited room or beside a readable text column when the card's own
+width allows it. This includes challenge tiles inside the full desktop folio,
+where a wide viewport can still leave a narrow card. Missing/failed decorative
+art collapses its column. These choices create no new gameplay mappings.
+
+The `storybook-accents.pw.js` fixture checks actual components at phone and
+desktop widths with long/enlarged text, both light and dark covers, and
+failed artwork. Private PNG acceptance requires the imported release;
+screenshots stay outside Git and hosted artifacts.
+
 The existing Hatching screen uses a neutral Normal Egg on the Trunk Pedestal
 as decorative artwork when available ingredients exist. It does not depict an
 owned species or promise a rarity. Real ingredient names, quantities, eligibility

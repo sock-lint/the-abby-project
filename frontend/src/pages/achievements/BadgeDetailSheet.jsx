@@ -1,18 +1,18 @@
 import BottomSheet from '../../components/BottomSheet';
 import ShareButton from '../../components/ShareButton';
-import { RARITY_PILL_COLORS, RARITY_TEXT_COLORS } from '../../constants/colors';
 import {
   collectionForBadge,
   ladderSiblings,
   unlockHint,
 } from './collections.constants';
-import { RARITY_HALO } from '../../components/atlas/mastery.constants';
+import BadgeArtwork from '../../components/atlas/BadgeArtwork';
+import BadgeRarity from '../../components/atlas/BadgeRarity';
 
 const TIER_NUMERALS = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'];
 
 /**
- * BadgeDetailSheet — illuminated detail pane for a single sigil. Hero
- * glyph in an ornate ring, rarity ribbon, collection chip ("from the
+ * BadgeDetailSheet — detail pane for a single badge. Featured earned artwork,
+ * readable rarity pill, collection chip ("from the
  * reliquary of {name} · Chapter N"), plain-English unlock hint, optional ladder
  * of sibling badges (shared criterion_type, differing criterion_value),
  * XP bonus line, and a "sealed on {date}" or "not yet earned" footer.
@@ -30,26 +30,12 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
 
   return (
     <BottomSheet title={badge.name} onClose={onClose}>
-      <div className="space-y-4">
+      <div className="min-w-0 space-y-4 [overflow-wrap:anywhere]">
         {/* Hero sigil */}
         <div className="flex flex-col items-center text-center">
-          <div
-            className={`relative w-24 h-24 rounded-full border-2 border-ink-page-shadow flex items-center justify-center bg-ink-page-rune-glow shadow-[0_0_0_4px_var(--color-ink-page-aged),0_0_0_5px_var(--color-ink-page-shadow)] ${
-              earned ? RARITY_HALO[rarity] || RARITY_HALO.common : ''
-            }`}
-          >
-            <span aria-hidden="true" className={`text-5xl leading-none ${earned ? '' : 'grayscale opacity-50'}`}>
-              {badge.icon || '🏅'}
-            </span>
-          </div>
+          <BadgeArtwork badge={badge} earned={earned} variant="featured" />
 
-          <div
-            className={`mt-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-micro font-rune uppercase tracking-wider ${
-              RARITY_PILL_COLORS[rarity] || RARITY_PILL_COLORS.common
-            }`}
-          >
-            {rarity}
-          </div>
+          <div className="mt-3"><BadgeRarity rarity={rarity} quiet={!earned} /></div>
 
           {collection && (
             <div
@@ -61,7 +47,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
           )}
 
           {badge.description && (
-            <p className="mt-3 text-body text-ink-whisper max-w-prose">
+            <p className="mt-3 text-body text-ink-secondary max-w-prose">
               {badge.description}
             </p>
           )}
@@ -72,7 +58,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
             data-unlock-hint="true"
             className="rounded-xl border border-ink-page-shadow/60 bg-ink-page-aged/60 px-3 py-2 text-center"
           >
-            <div className="font-rune uppercase tracking-wider text-micro text-ink-whisper">
+            <div className="font-body text-caption font-semibold text-ink-secondary">
               {earned ? 'you earned this by' : 'to earn'}
             </div>
             <div className="mt-0.5 font-script text-body text-ink-primary leading-snug">
@@ -87,10 +73,10 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
 
         {badge.xp_bonus > 0 && (
           <div className="flex items-center justify-center gap-2 rounded-xl border border-sheikah-teal/30 bg-sheikah-teal/5 px-3 py-2">
-            <span className="font-rune text-caption uppercase tracking-wider text-sheikah-teal-deep">
+            <span className="font-body text-caption font-semibold text-ink-secondary">
               Bonus XP
             </span>
-            <span className="font-display text-lede font-bold text-sheikah-teal-deep">
+            <span className="font-body text-lede font-bold text-gold-leaf">
               +{badge.xp_bonus} XP
             </span>
           </div>
@@ -99,7 +85,7 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
         <div className="text-center">
           {earned ? (
             <>
-              <div className={`font-script text-lede ${RARITY_TEXT_COLORS[rarity] || 'text-ink-primary'}`}>
+              <div className="font-body text-body text-ink-secondary">
                 {`Earned ${formatSealDate(earnedAt)}`}
               </div>
               <div className="flex justify-center mt-2">

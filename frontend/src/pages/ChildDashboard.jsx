@@ -24,6 +24,7 @@ import HomeworkSubmitSheet from '../components/HomeworkSubmitSheet';
 import IconButton from '../components/IconButton';
 import PageHeader from '../components/layout/PageHeader';
 import ProgressBar from '../components/ProgressBar';
+import StarRating from '../components/StarRating';
 import Button from '../components/Button';
 import ErrorAlert from '../components/ErrorAlert';
 import ScrollRail from '../components/ScrollRail';
@@ -238,8 +239,9 @@ export default function ChildDashboard({ data, reload }) {
                       {p.status.replace('_', ' ')}
                     </RuneBadge>
                   </div>
-                  <div className="font-script text-caption text-ink-whisper mb-3">
-                    difficulty: {'★'.repeat(p.difficulty || 1)}
+                  <div className="flex flex-wrap items-center gap-1 font-body text-caption text-ink-secondary mb-3">
+                    <span aria-hidden="true">Difficulty:</span>
+                    <StarRating value={p.difficulty || 1} />
                   </div>
                   {p.milestones_total > 0 && (
                     <>

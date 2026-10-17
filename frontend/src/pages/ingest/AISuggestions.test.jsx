@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event';
 import AISuggestions from './AISuggestions.jsx';
 
 describe('AISuggestions', () => {
+  it('announces the difficulty once and applies the exact suggested value', async () => {
+    const setOverrides = vi.fn();
+    const user = userEvent.setup();
+    render(<AISuggestions suggestions={{ difficulty: 3 }} categories={[]} overrides={{ category_id: 8 }} setOverrides={setOverrides} setDraft={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Difficulty: 3 out of 5' }));
+    expect(setOverrides).toHaveBeenCalledWith({ category_id: 8, difficulty: 3 });
+  });
+
   it('renders nothing when no suggestions', () => {
     const { container } = render(
       <AISuggestions

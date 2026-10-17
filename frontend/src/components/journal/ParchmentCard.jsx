@@ -1,5 +1,6 @@
 import { forwardRef } from 'react';
-import { Flower2, Sparkles } from 'lucide-react';
+import PedestalImage from '../../pedestal/PedestalImage';
+import '../../pedestal/storybook-accents.css';
 
 /**
  * Shared storybook panel. Legacy variant/decoration props remain compatible
@@ -32,41 +33,35 @@ const ParchmentCard = forwardRef(function ParchmentCard(
 
   const base =
     'relative p-5 shadow-[0_8px_24px_-12px_var(--color-modal-shadow-strong)]';
+  const decorated = Boolean(flourish || seal);
 
   return (
     <Tag
       ref={ref}
-      className={`${base} ${toneClasses} ${variantClasses} ${className}`}
+      className={`${base} ${toneClasses} ${variantClasses} ${decorated ? 'storybook-panel' : ''} ${className}`}
+      data-storybook-panel={decorated ? 'true' : undefined}
       {...props}
     >
-      {flourish && <CornerFlourishes />}
-      {seal && <WaxSeal position={seal === true ? 'top-right' : seal} />}
+      {decorated && <StorybookCorners flourish={flourish} seal={seal} />}
       {children}
     </Tag>
   );
 });
 
-function CornerFlourishes() {
-  return (
-    <>
-      {['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'].map((position) => (
-        <Sparkles key={position} aria-hidden="true" className={`absolute ${position} w-4 h-4 text-sheikah-teal opacity-20 pointer-events-none`} />
-      ))}
-    </>
-  );
-}
-
-function WaxSeal({ position = 'top-right' }) {
+function StorybookCorners({ flourish, seal }) {
   const positions = {
-    'top-right': 'top-2 right-2', 'top-left': 'top-2 left-2',
-    'bottom-right': 'bottom-2 right-2', 'bottom-left': 'bottom-2 left-2',
+    'top-left': 'top-2 left-2',
+    'top-right': 'top-2 right-2 storybook-corner--right',
+    'bottom-left': 'bottom-2 left-2 storybook-corner--bottom',
+    'bottom-right': 'bottom-2 right-2 storybook-corner--end',
   };
-  return (
-    <Flower2
-      aria-hidden="true"
-      className={`absolute ${positions[position] || positions['top-right']} w-9 h-9 p-2 rounded-full bg-moss/10 text-moss pointer-events-none`}
-    />
-  );
+  // Combined legacy props request the same two accents, never extra ornaments.
+  const corners = flourish ? ['top-left', 'bottom-right'] : [positions[seal] ? seal : 'top-right'];
+  return <>
+    {corners.map(position => <span key={position} className={`storybook-corner ${positions[position]}`} aria-hidden="true" data-storybook-corner>
+      <PedestalImage assetId="corner-decor-01" fallback="" />
+    </span>)}
+  </>;
 }
 
 export default ParchmentCard;

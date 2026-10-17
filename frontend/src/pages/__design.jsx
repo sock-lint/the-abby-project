@@ -17,6 +17,7 @@ import { TextField, SelectField, TextAreaField } from '../components/form';
 import IlluminatedVersal from '../components/atlas/IlluminatedVersal';
 import AccordionSection from '../components/dashboard/AccordionSection';
 import SectionHeader from '../components/SectionHeader';
+import StarRating from '../components/StarRating';
 import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
 import SkillsShowcase from './design/SkillsShowcase';
 import CollectionsShowcase from './design/CollectionsShowcase';
@@ -141,7 +142,7 @@ function DesignShowcaseContent() {
           <div className="font-script text-ink-whisper text-xs">flourish</div>
           <h3 className="font-display text-lg mt-1">Decorated panel</h3>
           <p className="font-body text-sm text-ink-secondary mt-1">
-            Optional soft sparkles in the corners.
+            Small Storybook corners with reserved space around the content.
           </p>
         </ParchmentCard>
 
@@ -193,7 +194,7 @@ function DesignShowcaseContent() {
           />
           <QuestLogEntry
             title="Math chapter 7 practice"
-            meta="Due Wed · effort ★★★"
+            meta={<span className="flex flex-wrap items-center gap-1">Due Wed · <StarRating value={3} title="Effort: 3 out of 5" /></span>}
             reward="$2.50 · 12🪙"
             kind="study"
             tone="teal"

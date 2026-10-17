@@ -1,0 +1,4 @@
+/* Decorative icons scale with their canvas, independently of enlarged text. */
+.badge-artwork { container-type: inline-size; }
+.badge-artwork__glyph { flex: none; font-size: calc(50cqw / var(--badge-icon-length, 1)); line-height: 1; white-space: nowrap; }
+.badge-artwork[data-badge-artwork="featured"] .badge-artwork__glyph { font-size: calc(37.5cqw / var(--badge-icon-length, 1)); }

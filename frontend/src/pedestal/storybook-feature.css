@@ -1,0 +1,8 @@
+/* Nested grids can make a desktop card narrower than a phone card. Wrap from
+ * the space this feature owns, keeping a readable text column beside the art. */
+.storybook-feature { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 1rem; }
+.storybook-feature__art { width: clamp(8rem, 30%, 10rem); max-width: 100%; flex: 0 0 auto; pointer-events: none; }
+.storybook-feature__art:has([data-image-state="unavailable"]),
+.storybook-feature__art:has([data-image-state="error"]) { display: none; }
+.storybook-feature__art .mt-image-placeholder { display: none; }
+.storybook-feature__content { flex: 1 1 16rem; min-width: min(100%, 16rem); overflow-wrap: anywhere; }

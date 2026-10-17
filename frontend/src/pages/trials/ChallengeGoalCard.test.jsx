@@ -1,9 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, screen } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import ChallengeGoalCard, { ChallengeGoalDetail } from './ChallengeGoalCard';
+import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
+
+vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
+beforeEach(() => resolvePedestalImage.mockReturnValue(null));
 
 describe('Challenge goal cards', () => {
+  it.each([false, true])('uses decorative card art only in the child view (parent: %s)', (isParent) => {
+    resolvePedestalImage.mockReturnValue({ url: '/synthetic/light-card.png', width: 512, height: 512, assetId: 'card-front-light', variantId: 'web' });
+    const goal = buildChallengeGoal({ rewards: { coins: 10, xp: 20, items: [] } });
+    const { container } = renderWithProviders(<ChallengeGoalCard goal={goal} isParent={isParent} onSelect={() => {}} />, { withAuth: false });
+    expect(Boolean(container.querySelector('img'))).toBe(!isParent);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByText('Completion bonus · 10 coins · 20 XP')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: `View ${goal.name}` })).toBeEnabled();
+  });
+
   it('opens the full goal rather than an inert whole-card target', async () => {
     const select = vi.fn();
     const goal = buildChallengeGoal();

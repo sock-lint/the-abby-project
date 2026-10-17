@@ -145,7 +145,7 @@ export default function HeroPrimaryCard({ role = 'child', ctx = {} }) {
 
   return (
     <motion.div {...reveal}>
-      <ParchmentCard tone="bright" flourish className="relative overflow-hidden">
+      <ParchmentCard tone="bright" flourish="storybook" className="relative overflow-hidden">
         {!ctx.hideDate && <div className="font-script text-sheikah-teal-deep text-body mb-0.5">
           {weekday ? `${weekday} · ${dateStr}` : 'Today'}
         </div>}
