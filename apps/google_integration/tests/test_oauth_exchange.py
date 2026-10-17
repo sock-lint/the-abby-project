@@ -421,6 +421,34 @@ class GoogleExchangeTests(TestCase):
         cache.clear()  # Check the durable pending cap independently of rate limiting.
         self.assertEqual(self.client.get(BASE + "login/", query).status_code, 400)
 
+    def test_spoofed_forwarded_headers_cannot_bypass_pending_authorization_limit(self):
+        query = {"code_challenge": challenge(), "code_challenge_method": "S256"}
+        statuses = [
+            self.client.get(
+                BASE + "login/", query, REMOTE_ADDR="192.0.2.10",
+                HTTP_X_FORWARDED_FOR=f"198.51.100.{index + 1}",
+            ).status_code
+            for index in range(25)
+        ]
+        saved = GoogleOAuthTransaction.objects.count()
+        self.assertTrue(all(code in {200, 400, 429} for code in statuses), statuses)
+        self.assertLessEqual(
+            statuses.count(200), 10,
+            f"One network peer created {saved} durable authorizations by varying an untrusted header; statuses={statuses}",
+        )
+        self.assertLessEqual(saved, 10)
+        self.assertIn(429, statuses, "Forwarded-header changes must not bypass the Google authorization throttle either")
+        # The database cap remains authoritative after a cache restart or
+        # throttle eviction, with the same stable network peer identity.
+        for index in range(15):
+            cache.clear()
+            response = self.client.get(
+                BASE + "login/", query, REMOTE_ADDR="192.0.2.10",
+                HTTP_X_FORWARDED_FOR=f"203.0.113.{index + 1}",
+            )
+            self.assertEqual(response.status_code, 400)
+        self.assertLessEqual(GoogleOAuthTransaction.objects.count(), 10)
+
     def test_completed_and_failed_flows_do_not_block_a_fresh_attempt(self):
         for _ in range(10):
             flow = self.begin()
@@ -428,6 +456,30 @@ class GoogleExchangeTests(TestCase):
             GoogleOAuthTransaction.objects.filter(pk=row.pk).update(stage="consumed" if _ % 2 else "failed", encrypted_payload=b"")
             cache.clear()
         self.assertEqual(self.begin()["expires_in"], 600)
+
+    def test_global_retained_transaction_limit_fails_closed_until_expiry_cleanup_frees_capacity(self):
+        from apps.google_integration.oauth_exchange import prune_expired
+
+        query = {"code_challenge": challenge(), "code_challenge_method": "S256"}
+        with patch("apps.google_integration.oauth_exchange.MAX_TRANSACTIONS", 3):
+            for index in range(3):
+                response = self.client.get(BASE + "login/", query, REMOTE_ADDR=f"192.0.2.{index + 1}")
+                self.assertEqual(response.status_code, 200, response.content)
+            rows = list(GoogleOAuthTransaction.objects.order_by("pk"))
+            GoogleOAuthTransaction.objects.filter(pk=rows[0].pk).update(stage="consumed", encrypted_payload=b"")
+            GoogleOAuthTransaction.objects.filter(pk=rows[1].pk).update(expires_at=timezone.now() - timedelta(seconds=1))
+            blocked = self.client.get(BASE + "login/", query, REMOTE_ADDR="192.0.2.4")
+            self.assertEqual(blocked.status_code, 503, blocked.content)
+            self.assertEqual(set(blocked.json()), {"error", "code"})
+            self.assertEqual(blocked.json()["code"], "authorization_busy")
+            self.assertEqual(GoogleOAuthTransaction.objects.count(), 3)
+            self.assertEqual(prune_expired(limit=1), 1)
+            retry = self.client.get(BASE + "login/", query, REMOTE_ADDR="192.0.2.4")
+            self.assertEqual(retry.status_code, 200, retry.content)
+            self.assertEqual(GoogleOAuthTransaction.objects.count(), 3)
+            self.assertTrue(GoogleOAuthTransaction.objects.filter(pk=rows[0].pk, stage="consumed").exists())
+            for secret in (VERIFIER, "synthetic-provider-pkce-verifier", "synthetic-server-secret"):
+                self.assertNotIn(secret, blocked.content.decode())
 
     def test_expired_credentials_are_pruned_in_bounded_batches_without_removing_live_flow(self):
         from apps.google_integration.oauth_exchange import prune_expired
@@ -440,6 +492,29 @@ class GoogleExchangeTests(TestCase):
         self.assertEqual(GoogleOAuthTransaction.objects.count(), 2)
         self.assertEqual(prune_expired(limit=2), 1)
         self.assertTrue(GoogleOAuthTransaction.objects.filter(pk=self.transaction(live).pk).exists())
+
+    def test_expired_pending_verifiers_are_boundedly_erased_and_capacity_is_reusable(self):
+        from apps.google_integration.oauth_exchange import prune_expired
+
+        flows = [self.begin() for _ in range(10)]
+        rows = [self.transaction(flow) for flow in flows]
+        self.assertTrue(all(row.encrypted_payload for row in rows))
+        self.assertTrue(all(
+            GoogleAuthService.decrypt_credentials(row.encrypted_payload)["code_verifier"] == "synthetic-provider-pkce-verifier"
+            for row in rows
+        ))
+        expired_ids = [row.pk for row in rows[:3]]
+        retained_ids = [row.pk for row in rows[3:]]
+        GoogleOAuthTransaction.objects.filter(pk__in=expired_ids).update(expires_at=timezone.now() - timedelta(seconds=1))
+        self.assertEqual(prune_expired(limit=2), 2)
+        self.assertEqual(GoogleOAuthTransaction.objects.filter(pk__in=expired_ids).count(), 1)
+        self.assertEqual(GoogleOAuthTransaction.objects.filter(pk__in=retained_ids).count(), 7)
+        cache.clear()
+        self.assertEqual(self.begin()["expires_in"], 600)
+        self.assertEqual(prune_expired(limit=2), 1)
+        self.assertEqual(GoogleOAuthTransaction.objects.count(), 8)
+        self.assertFalse(GoogleOAuthTransaction.objects.filter(pk__in=expired_ids).exists())
+        self.assertEqual(GoogleOAuthTransaction.objects.filter(pk__in=retained_ids).count(), 7)
 
     def test_short_return_expiry_erases_staged_credentials_before_initial_state_expiry(self):
         from apps.google_integration.oauth_exchange import prune_expired

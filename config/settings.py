@@ -499,6 +499,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "accounts.User"
 
+# Only explicitly known transport proxies may supply Google OAuth client IPs.
+GOOGLE_OAUTH_TRUSTED_PROXY_NETWORKS = [
+    value.strip() for value in os.environ.get("GOOGLE_OAUTH_TRUSTED_PROXY_NETWORKS", "").split(",")
+    if value.strip()
+]
+
 # Django REST Framework
 
 REST_FRAMEWORK = {

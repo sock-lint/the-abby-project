@@ -76,6 +76,15 @@ class GoogleAuthApiContractFixtureTests(APITestCase):
         self.assert_response_fixture(self.client.get(BASE + "config/"), "google-auth-config.json")
         self.assertFalse(GoogleOAuthTransaction.objects.exists())
 
+    def test_authorization_capacity_failure_matches_shared_contract_without_persisting_secrets(self):
+        with patch("apps.google_integration.oauth_exchange.MAX_TRANSACTIONS", 0):
+            body = self.assert_response_fixture(self.begin(), "google-auth-busy.json", status=503)
+        self.assertEqual(body["code"], "authorization_busy")
+        self.assertFalse(GoogleOAuthTransaction.objects.exists())
+        self.assertTrue(Token.objects.filter(pk=self.credential.key).exists())
+        for secret in (self.credential.key, VERIFIER, "synthetic-provider-pkce", "synthetic-server-secret"):
+            self.assertNotIn(secret, str(body))
+
     def test_login_initiation_matches_shared_contract_with_only_public_redirect_metadata(self):
         response = self.begin()
         self.assert_response_fixture(response, "google-auth-init.json")

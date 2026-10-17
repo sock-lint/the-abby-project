@@ -5,6 +5,12 @@ from django.db.models.functions import Now
 from config.base_models import CreatedAtModel, TimestampedModel
 
 
+class GoogleOAuthAdmission(models.Model):
+    """Singleton row serializes the hard bound on retained OAuth transactions."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+
+
 class GoogleAuthInvalidation(models.Model):
     """Revocations also fence anonymous flows whose Google identity is not known yet."""
 

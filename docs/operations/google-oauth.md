@@ -191,11 +191,12 @@ bypass model hooks and are not a supported revocation interface.
 The locking order is ordered User rows (`NO KEY UPDATE`), initiating Token,
 transaction, GoogleAccount. Password login/logout follow the same User/Token
 order. Logout releases User before waiting for an in-flight push binding, then
-revalidates its exact token under fresh User/Token locks. Exchange locks on subordinate rows use NOWAIT so a concurrent legacy
-account cascade cannot deadlock them. A changed authorization returns the safe
+revalidates its exact token under fresh User/Token locks. Exchange locks on
+subordinate rows use NOWAIT so a concurrent legacy account cascade cannot
+deadlock them. A changed authorization returns the safe
 exchange error; competing ordinary auth mutations may return HTTP 409 and
-roll back so they can be retried. Family IDs in the transaction are scalar snapshots, not new Family
-foreign keys. Never hold these locks during a Google network request.
+roll back so they can be retried. Family IDs in the transaction are scalar
+snapshots, not new Family foreign keys. Never hold these locks during a Google network request.
 
 Transactions store only hashed state/tickets and encrypted provider material.
 Claim, failure and successful consumption erase their previous encrypted
@@ -207,7 +208,26 @@ existing Beat/worker health and expired-row backlog; operators may invoke the
 same bounded task to drain it. Database backups can retain prior encrypted
 rows under the operator's backup retention; this is not immediate backup
 erasure. Invalidation rows live until user deletion. Initiation/exchange are
-throttled and outstanding transactions are bounded per throttle client.
+throttled at ten requests/minute and at most ten live transactions per caller.
+Authenticated callers use their user ID. Anonymous callers use the transport
+peer by default: forwarded headers cannot invent a new identity. Behind an
+unconfigured reverse proxy, anonymous clients share that peer's bucket.
+`GOOGLE_OAUTH_TRUSTED_PROXY_NETWORKS` may list explicitly verified proxy CIDRs;
+only then does Google authorization walk X-Forwarded-For from right to left,
+stopping at the first untrusted hop. Configure only proxies that replace or
+append the actual transport caller, and include every trusted hop needed for
+client attribution. Private address ranges receive no automatic trust. Missing,
+malformed or oversized chains fall back to the transport peer. Other API
+throttle contracts are unchanged.
+
+A singleton database admission lock also limits **all retained transaction
+rows to 1,000**, independent of IPs, headers, accounts and cache availability.
+Spent and expired rows still count until bounded erasure removes them. At
+capacity, initiation returns HTTP 503 `{error, code: "authorization_busy"}`
+without storing another verifier. Completion of an existing flow is allowed.
+An unavailable worker therefore stops new admission rather than allowing
+unbounded retained rows. Monitor both the expired backlog and admission
+capacity; do not raise the bound to conceal failed erasure.
 OAuth error envelopes retain exception types and code coordinates but strip
 request secrets, exception locals and provider messages. OAuth performance
 traces are omitted.

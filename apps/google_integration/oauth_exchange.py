@@ -19,19 +19,21 @@ from django.utils import timezone
 from django.utils.crypto import salted_hmac
 from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import APIException
-from rest_framework.throttling import ScopedRateThrottle
 
-from .models import GoogleAccount, GoogleAuthInvalidation, GoogleOAuthTransaction
+from .models import GoogleAccount, GoogleAuthInvalidation, GoogleOAuthAdmission, GoogleOAuthTransaction
 from .services import GoogleAuthService, _decrypt, _encrypt
+from .throttling import google_client_identity
 
 OPAQUE = re.compile(r"^[A-Za-z0-9_-]{43}$")
 VERIFIER = re.compile(r"^[A-Za-z0-9._~-]{43,128}$")
+MAX_TRANSACTIONS = 1000
 MESSAGES = {
     "invalid_exchange": "This Google authorization expired or was already used. Start again.",
     "authorization_changed": "Your account or authorization changed. Start again.",
     "no_account": "This Google account is not linked. Sign in with your password to link it.",
     "inactive": "This account is inactive.",
     "already_linked_other": "This Google account is already linked to another account.",
+    "authorization_busy": "Google authorization is busy. Please try again later.",
 }
 
 
@@ -39,6 +41,13 @@ class ExchangeError(Exception):
     def __init__(self, code="invalid_exchange"):
         self.code = code
         super().__init__(MESSAGES[code])
+
+
+class CapacityError(ExchangeError):
+    http_status = 503
+
+    def __init__(self):
+        super().__init__("authorization_busy")
 
 
 class AuthorizationBusy(APIException):
@@ -117,9 +126,14 @@ def start(request, *, mode, target=None):
                 raise ExchangeError("authorization_changed")
             values.update(target=target, target_family_id=target.family_id,
                           target_role=target.role, target_password_hash=target.get_session_auth_hash())
-        client_hash = salted_hmac("google-oauth-client", ScopedRateThrottle().get_ident(request),
+        client_hash = salted_hmac("google-oauth-client", google_client_identity(request),
                                  algorithm="sha256").hexdigest()
         now = timezone.now()
+        # Count all retained stages, not just live rows: if erasure is down,
+        # new authorization fails closed instead of growing storage forever.
+        GoogleOAuthAdmission.objects.select_for_update().get_or_create(pk=1)
+        if GoogleOAuthTransaction.objects.count() >= MAX_TRANSACTIONS:
+            raise CapacityError()
         if GoogleOAuthTransaction.objects.filter(
             client_hash=client_hash, expires_at__gt=now, stage__in=["pending", "processing", "ready"],
         ).count() >= 10:

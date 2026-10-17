@@ -6,7 +6,6 @@ from django.http import HttpResponseRedirect
 from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.throttling import ScopedRateThrottle
 
 from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
@@ -19,6 +18,7 @@ from .drive_uploads import (
 from .models import GoogleAccount
 from .services import GoogleAuthService
 from . import oauth_exchange
+from .throttling import GoogleOAuthThrottle
 
 logger = logging.getLogger(__name__)
 
@@ -106,11 +106,11 @@ class GoogleOAuthConfigView(APIView):
 
 
 def _exchange_error(exc):
-    return Response({"error": str(exc), "code": exc.code}, status=400)
+    return Response({"error": str(exc), "code": exc.code}, status=getattr(exc, "http_status", 400))
 
 
 class GoogleAuthInitView(APIView):
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [GoogleOAuthThrottle]
     throttle_scope = "google_oauth"
 
     def get(self, request):
@@ -127,7 +127,7 @@ class GoogleAuthInitView(APIView):
 
 class GoogleLoginView(APIView):
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [GoogleOAuthThrottle]
     throttle_scope = "google_oauth"
 
     def get(self, request):
@@ -181,7 +181,7 @@ class GoogleCallbackView(APIView):
 
 class GoogleExchangeView(APIView):
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [ScopedRateThrottle]
+    throttle_classes = [GoogleOAuthThrottle]
     throttle_scope = "google_oauth"
 
     def post(self, request):

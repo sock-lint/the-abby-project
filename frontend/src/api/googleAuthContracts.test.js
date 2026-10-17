@@ -8,8 +8,25 @@ import config from '../../../contracts/api/fixtures/google-auth-config.json';
 import init from '../../../contracts/api/fixtures/google-auth-init.json';
 import login from '../../../contracts/api/fixtures/google-auth-login.json';
 import linked from '../../../contracts/api/fixtures/google-auth-linked.json';
+import busy from '../../../contracts/api/fixtures/google-auth-busy.json';
+import { getToken } from './client';
 
 describe('Google authorization API contracts', () => {
+  it('preserves a busy authorization code and current session without automatically retrying', async () => {
+    const token = getToken();
+    const requests = [];
+    server.use(http.get('*/api/auth/google/login/', ({ request }) => {
+      requests.push(request);
+      return HttpResponse.json(busy, { status: 503 });
+    }));
+    await expect(getGoogleLoginUrl('c'.repeat(43))).rejects.toMatchObject({
+      status: 503, message: busy.error, response: { code: 'authorization_busy', error: busy.error },
+    });
+    expect(requests).toHaveLength(1);
+    expect(requests[0].headers.get('authorization')).toBeNull();
+    expect(getToken()).toBe(token);
+  });
+
   it('reads availability without attaching an existing session or creating an authorization', async () => {
     const requests = [];
     server.use(http.get('*/api/auth/google/config/', ({ request }) => {
