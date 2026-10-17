@@ -777,7 +777,9 @@ ranking reads no reflection text and makes no runtime external requests.
 
 `inventory-roster-hatching.json`, `pet-hatch-roster.json` and
 `mount-breed-roster.json` cover real namespaced Base-only inventory, hatch and
-breed producers/consumers. Breed receipts add nullable `egg_item_catalog_icon`;
-newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
+breed producers/consumers. Breed receipts include nullable `egg_item_catalog_icon`
+and `potion_item_catalog_icon` so both granted ingredients use their exact
+catalog artwork. Unrecognized item identities retain null and their existing
+sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).

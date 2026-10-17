@@ -176,15 +176,20 @@ use some of these historical names.
 
 The October 2026 Meadow refresh shares bundled Nunito, cream/lavender/mint surfaces, rounded controls and collection tiles across React and the companion presentation. All legacy font aliases resolve to Nunito. React uses the variable font's real 200–1000 weight range for body copy, labels and headings; The retired Unity reference retains the shared weight-600 export. Both come from `shared/storybook/fonts`, with runtime copies maintained by `scripts/storybook/sync_presentation.py`. The bundled React `.ttf` is precached for offline typography.
 
-The replaceable Meadow presentation also supplies the welcome screen. Its licensed chick is a generic artwork preview, not evidence of an account's owned species or growth. Today and Bestiary render actual server-confirmed companions through their species `sprite_key`. `cute-chick`, `cute-chick-fledgling` and `cute-chick-mount` use privately staged Chick/Fledgling/Bird portraits when the matching licensed Chick overlay is present; missing or failed portraits recover through the runtime catalog and labelled icon. Other species retain their own runtime artwork. Saved cover keys and cosmetic ownership stay unchanged: `hyrule`/`vigil`/`sunlit`/`snowquill`/`verdant`/`harvest` now display as Memory/Twilight/Honey/Cloud/Clover/Peach Meadow. Django and React share these labels and seasonal aliases through `shared/catalog/theme-presentation.json`, copied into React by `scripts/storybook/sync_presentation.py`. Baseline art/palette data remains in `shared/storybook/presentation.json`; `themes.js` adds semantic shades for readable UI.
+The replaceable Meadow presentation also supplies the welcome screen. Its licensed chick is a generic artwork preview, not evidence of an account's owned species or growth. Today and Bestiary render actual server-confirmed companions through their species `sprite_key`. Exact Base Chick and the 14 registered Meshtint families use their pinned stage portraits when the private releases and retained Chick supplemental portraits are installed. Missing or failed portraits recover through the runtime sprite catalog and labelled icon; legacy species retain their own artwork. Saved cover keys and cosmetic ownership stay unchanged: `hyrule`/`vigil`/`sunlit`/`snowquill`/`verdant`/`harvest` now display as Memory/Twilight/Honey/Cloud/Clover/Peach Meadow. Django and React share these labels and seasonal aliases through `shared/catalog/theme-presentation.json`, copied into React by `scripts/storybook/sync_presentation.py`. Baseline art/palette data remains in `shared/storybook/presentation.json`; `themes.js` adds semantic shades for readable UI.
 
 `RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Today and Companions use `petSpriteKeys` for retained pet rows. The shared pure-data `companion/birdEvolution.js` resolves the exact Chick/Base identity from server-confirmed `evolution_stage` and `evolved_to_mount`, never growth alone, for 2D portraits, 3D selection, form names and the existing Bird motion adapter. The generic `companion/lifecycle.js` and four-stage `PetEvolutionGuide` use `shared/catalog/companion-lifecycle.json` for Egg → Baby → Middle → Grown across every species; `lifecycle_stage` comes from the server. Egg is the pre-hatch inventory stage, with family art names kept separate from stage IDs. See `docs/operations/companion-lifecycle.md`. Nicknames remain separate from stage names; saved species/potion identities do not change. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
 
 **Supported offers and saved collections:** use Django's read-only
 `catalog_available` fields through `utils/catalogAvailability.js`; React does
 not infer acquisition eligibility from an icon or model filename. New pet
-offers are Base Chick. The server-derived `evolution_stage` selects Chick below 50 growth, Fledgling from 50, and Bird after confirmed evolution at 100; see `docs/operations/bird-evolution.md`. Companions
-and Grown pets keep earlier unsupported rows in Saved collection with their
+offers cover 15 Base-potion families: Chick and the 14 exact namespaced
+identities in `shared/catalog/companion-roster.json`. Server-confirmed
+`lifecycle_stage` selects their Baby/Middle/Grown presentation; the compatible
+Chick `evolution_stage` selects Chick below 50 growth, Fledgling from 50,
+and Bird after confirmed evolution at 100. See
+`docs/operations/companion-lifecycle.md` and `docs/operations/bird-evolution.md`.
+Companions and Grown pets keep the 17 legacy definitions' saved rows in Saved collection with their
 existing care, activation and expedition controls. Unknown identities never
 receive the Chick/Bird model. Collection counts use supported rows and the
 server's supported `total_possible`; saved ownership counts remain intact.
@@ -197,8 +202,10 @@ availability without presenting unreachable unlocks. See the
 
 **Pet interactions:** the Pets home opens its exact owned appearance automatically.
 Tapping says hello; Hop/Fly together and Look around use only staged, manifest-named
-supplied takes. Each take keeps its complete matching rig and the idle framing;
-turns reverse before returning to idle. Play is repeatable local presentation,
+supplied takes. Each take keeps its complete matching rig and the idle framing.
+Retained licensed bird turns reverse before returning to idle; shared Bird and
+roster playback preserve their manifest-declared motion and native loop behavior.
+Play is repeatable local presentation,
 with no progression or currency mutation. Motion respects reduced-motion,
 hidden/offscreen/background state and the View setting. Feed and expedition
 actions remain explicit DOM controls; acknowledgements follow successful server
@@ -373,7 +380,12 @@ Prepared companion roster: `companion/sharedRosterRelease.js` resolves the exact
 `shared/catalog/companion-roster.json`. `sharedRosterPlayback.js` loads each
 native take with its own rig on demand and disposes replaced takes.
 `FamilyStagePreview` previews Egg/Baby/Middle/Grown locally; no preview creates
-ownership or progression. The existing Chick/Bird and pedestal pins remain
+ownership or progression. Hatching's `PetEvolutionGuide` resolves family form
+labels only for exact registered egg identities and the selected potion's
+`metadata.variant`; unknown/conflicting eggs keep generic stage labels and
+the egg stage stays highlighted before hatching. Breeding ceremonies use the
+receipt's `potion_item_catalog_icon` through `CatalogIcon`, preserving its
+sprite/emoji fallback. The existing Chick/Bird and pedestal pins remain
 intact; seven retained portraits use the inventory-pinned private supplemental
 import. Dummy is separate future training art with no product binding. Read
 [the adoption runbook](../docs/operations/companion-lifecycle.md) for intake,
