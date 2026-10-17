@@ -21,6 +21,37 @@ def _latest(queryset, user_field, timestamp_field, *fields):
     ).filter(_rank=1).values(user_field, timestamp_field, *fields)
 
 
+def recurring_goal_window(goal, at, fallback_zone):
+    """Project the canonical challenge window without creating its occurrence.
+
+    Accept the selected goal values so the overview and heartbeat can reuse
+    the same read-only calculation. Match ``quests.goals._occurrence``: weekly
+    takes precedence; rolling periods retain their saved local wall clock
+    across daylight-saving changes rather than counting UTC-hour blocks.
+    """
+    if at < goal["starts_at"]:
+        return None
+    try:
+        zone = ZoneInfo(goal["timezone_name"])
+    except (ValueError, ZoneInfoNotFoundError):
+        zone = fallback_zone
+    if goal["repeat_weekly"]:
+        day = at.astimezone(zone).date()
+        monday = day - timedelta(days=day.weekday())
+        return (
+            datetime.combine(monday, time.min, tzinfo=zone),
+            datetime.combine(monday + timedelta(days=7), time.min, tzinfo=zone),
+        )
+    start, end = goal["starts_at"], goal["ends_at"]
+    if goal["repeat_days"]:
+        local_start, local_at = start.astimezone(zone), at.astimezone(zone)
+        elapsed = (local_at.replace(tzinfo=None) - local_start.replace(tzinfo=None)).total_seconds()
+        cycle = int(elapsed // (goal["repeat_days"] * 86400))
+        start = local_start + timedelta(days=cycle * goal["repeat_days"])
+        end = start + timedelta(days=goal["repeat_days"])
+    return start, end
+
+
 def build_family_overview(parent):
     from apps.achievements.models import UserBadge
     from apps.chores.models import Chore, ChoreCompletion
@@ -131,8 +162,8 @@ def build_family_overview(parent):
             "unit": frozen.get("unit", goal["goal__unit"]), "ends_at": goal["ends_at"].isoformat(),
         })
 
-    # A weekly successor is normally materialized by challenge reads or the
-    # child's next saved activity. Parent Today must still show this week's
+    # A recurring successor is normally materialized by challenge reads or the
+    # child's next saved activity. Parent Today must still show this period's
     # assignment before either happens. Project an unpaid, zero-progress
     # preview without enrolling, inserting an occurrence or awarding anything.
     # Any existing current occurrence (including completed) suppresses it.
@@ -141,26 +172,25 @@ def build_family_overview(parent):
     )
     recurring = ChallengeGoal.objects.filter(
         user_id__in=child_ids, family_id=parent.family_id, is_catalog=False,
-        repeat_weekly=True, starts_at__lte=now,
-    ).annotate(_current=Exists(current_occurrence)).filter(_current=False).annotate(
+        starts_at__lte=now,
+    ).filter(Q(repeat_weekly=True) | Q(repeat_days__gt=0)).annotate(
+        _current=Exists(current_occurrence),
+    ).filter(_current=False).annotate(
         _count=Window(expression=Count("pk"), partition_by=[F("user_id")]),
         _rank=Window(expression=RowNumber(), partition_by=[F("user_id")], order_by=F("pk").asc()),
-    ).filter(_rank__lte=3).values("pk", "user_id", "name", "target", "unit", "timezone_name", "_count")
+    ).filter(_rank__lte=3).values(
+        "pk", "user_id", "name", "target", "unit", "timezone_name", "_count",
+        "starts_at", "ends_at", "repeat_weekly", "repeat_days",
+    )
     counted_recurring = set()
     for goal in recurring:
         summary = rows[goal["user_id"]]["parent_goals"]
         if goal["user_id"] not in counted_recurring:
             summary["active_count"] += goal["_count"]
             counted_recurring.add(goal["user_id"])
-        try:
-            goal_zone = ZoneInfo(goal["timezone_name"])
-        except (ValueError, ZoneInfoNotFoundError):
-            goal_zone = zone
-        goal_day = now.astimezone(goal_zone).date()
-        goal_monday = goal_day - timedelta(days=goal_day.weekday())
-        ends_at = datetime.combine(goal_monday + timedelta(days=7), time.min, tzinfo=goal_zone)
+        starts_at, ends_at = recurring_goal_window(goal, now, zone)
         summary["items"].append({
-            "id": f"preview:{goal['pk']}:{goal_monday.isoformat()}", "preview": True,
+            "id": f"preview:{goal['pk']}:{starts_at.date().isoformat()}", "preview": True,
             "name": goal["name"], "progress": "0", "target": str(goal["target"]),
             "unit": goal["unit"], "ends_at": ends_at.astimezone(dt_timezone.utc).isoformat(),
         })

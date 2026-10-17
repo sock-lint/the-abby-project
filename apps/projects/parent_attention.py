@@ -2,7 +2,7 @@
 import hashlib
 import json
 
-from django.db.models import Count, Max
+from django.db.models import Count, Max, Q
 
 
 def parent_attention(user):
@@ -43,6 +43,7 @@ def parent_attention(user):
     from apps.timecards.models import TimeEntry
     from apps.achievements.models import UserBadge
     from apps.families.queries import children_in
+    from apps.projects.parent_overview import recurring_goal_window
     from django.utils import timezone
 
     # Invalidate the family overview after a co-parent edits work or a goal,
@@ -60,9 +61,24 @@ def parent_attention(user):
     marks = [query.aggregate(count=Count("pk"), latest=Max(field)) for query, field in watched]
     roster = list(children_in(user.family).order_by("pk").values("pk", "username", "display_name", "hourly_rate"))
     roster_revision = hashlib.sha256(json.dumps(roster, sort_keys=True, default=str).encode()).hexdigest()
-    day = timezone.now().astimezone(family_zone(user)).date().isoformat()
+    now = timezone.now()
+    zone = family_zone(user)
+    day = now.astimezone(zone).date().isoformat()
+    recurring = ChallengeGoal.objects.filter(
+        family_id=family, is_catalog=False, user_id__in=children_in(user.family).values("pk"),
+    ).filter(Q(repeat_weekly=True) | Q(repeat_days__gt=0)).order_by("pk").values(
+        "pk", "starts_at", "ends_at", "timezone_name", "repeat_weekly", "repeat_days",
+    )
+    # A rolling goal can start a new cycle during the household day without
+    # any saved activity. Hash window identities so the next pulse refreshes
+    # that projection, without publishing names or creating occurrences.
+    windows = []
+    for goal in recurring:
+        window = recurring_goal_window(goal, now, zone)
+        windows.append((goal["pk"], window[0].isoformat() if window else None))
+    cycle_revision = hashlib.sha256(json.dumps(windows).encode()).hexdigest()
     return {
         "counts": counts,
         "total": sum(counts.values()),
-        "revision": ":".join(f"{key}={value['count']},{value['latest'] or 0}" for key, value in aggregates.items()) + f":{day}:{marks}:{roster_revision}",
+        "revision": ":".join(f"{key}={value['count']},{value['latest'] or 0}" for key, value in aggregates.items()) + f":{zone}:{day}:{marks}:{roster_revision}:{cycle_revision}",
     }

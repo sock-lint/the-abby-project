@@ -58,6 +58,24 @@ class ParentAttentionTests(TestCase):
         self.assertNotEqual(before["revision"], after["revision"])
         self.assertNotIn("Updated child name", after["revision"])
 
+    def test_recurring_goal_boundary_refreshes_within_the_household_day(self):
+        from apps.quests.models import ChallengeGoal
+
+        ChallengeGoal.objects.create(
+            family=self.home.family, created_by=self.home.parents[0], user=self.home.children[0],
+            name="Private goal name", metric="minutes", target=20, unit="minutes",
+            starts_at=datetime(2026, 10, 14, 22, tzinfo=datetime_timezone.utc),
+            ends_at=datetime(2026, 10, 17, 22, tzinfo=datetime_timezone.utc),
+            repeat_days=3, timezone_name="America/New_York",
+        )
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 10, 17, 21, 59, tzinfo=datetime_timezone.utc)):
+            before = parent_attention(self.home.parents[0])
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 10, 17, 22, 1, tzinfo=datetime_timezone.utc)):
+            after = parent_attention(self.home.parents[0])
+        self.assertEqual(before["counts"], after["counts"])
+        self.assertNotEqual(before["revision"], after["revision"])
+        self.assertNotIn("Private goal name", after["revision"])
+
     def test_query_count_is_bounded(self):
-        with self.assertNumQueries(17):
+        with self.assertNumQueries(18):
             parent_attention(self.home.parents[0])

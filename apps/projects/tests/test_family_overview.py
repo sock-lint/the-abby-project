@@ -163,10 +163,90 @@ class ParentFamilyOverviewTests(TestCase):
         self.assertEqual(ChallengeOccurrence.objects.filter(goal=old.goal).count(), 1)
         self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in captured))
 
-    def test_completed_current_week_never_rearms_a_recurring_parent_goal(self):
-        occurrence = self.goal(status="completed", completed_at=self.now)
-        occurrence.goal.repeat_weekly = True
-        occurrence.goal.save(update_fields=["repeat_weekly"])
+    def test_rolling_parent_goal_has_current_zero_progress_before_a_child_opens_challenges(self):
+        from apps.projects.parent_overview import build_family_overview
+        old = self.goal()
+        old.goal.starts_at = self.now - timedelta(days=4)
+        old.goal.ends_at = self.now - timedelta(days=1)
+        old.goal.repeat_days = 3
+        old.goal.save(update_fields=["starts_at", "ends_at", "repeat_days"])
+        old.starts_at, old.ends_at = old.goal.starts_at, old.goal.ends_at
+        old.save(update_fields=["starts_at", "ends_at"])
+        with patch("django.utils.timezone.now", return_value=self.now):
+            with CaptureQueriesContext(connection) as captured:
+                summary = build_family_overview(self.parent)["children"][0]["parent_goals"]
+        self.assertEqual(summary["active_count"], 1)
+        self.assertEqual(summary["items"][0]["progress"], "0")
+        self.assertEqual(summary["items"][0]["ends_at"], (self.now + timedelta(days=2)).isoformat())
+        self.assertTrue(summary["items"][0]["preview"])
+        self.assertEqual(ChallengeOccurrence.objects.filter(goal=old.goal).count(), 1)
+        self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in captured))
+
+    def test_rolling_previews_keep_the_saved_wall_clock_at_dst_cycle_boundaries(self):
+        from apps.projects.parent_overview import build_family_overview
+        from apps.quests.goals import _occurrence
+        cases = [
+            # New York's three calendar days span 71 hours in spring and 73
+            # in autumn. The next cycle always starts at the saved 9am clock.
+            (self.child, datetime(2026, 3, 6, 14, tzinfo=dt_timezone.utc),
+             datetime(2026, 3, 9, 13, tzinfo=dt_timezone.utc), "2026-03-12T13:00:00+00:00"),
+            (self.sibling, datetime(2026, 10, 30, 13, tzinfo=dt_timezone.utc),
+             datetime(2026, 11, 2, 14, tzinfo=dt_timezone.utc), "2026-11-05T14:00:00+00:00"),
+        ]
+        for child, start, boundary, expected_end in cases:
+            with self.subTest(boundary=boundary):
+                old = self.goal(user=child)
+                old.goal.starts_at, old.goal.ends_at = start, boundary
+                old.goal.repeat_days = 3
+                old.goal.timezone_name = "America/New_York"
+                old.goal.save(update_fields=["starts_at", "ends_at", "repeat_days", "timezone_name"])
+                old.starts_at, old.ends_at = start, boundary
+                old.save(update_fields=["starts_at", "ends_at"])
+                with patch("django.utils.timezone.now", return_value=boundary - timedelta(microseconds=1)):
+                    row = next(row for row in build_family_overview(self.parent)["children"] if row["kid_id"] == child.pk)
+                self.assertEqual(row["parent_goals"]["items"][0]["id"], f"goal:{old.pk}")
+                with patch("django.utils.timezone.now", return_value=boundary):
+                    with CaptureQueriesContext(connection) as captured:
+                        row = next(row for row in build_family_overview(self.parent)["children"] if row["kid_id"] == child.pk)
+                preview = row["parent_goals"]["items"][0]
+                self.assertEqual(preview["progress"], "0")
+                self.assertEqual(preview["ends_at"], expected_end)
+                self.assertTrue(preview["preview"])
+                self.assertEqual(ChallengeOccurrence.objects.filter(goal=old.goal).count(), 1)
+                self.assertFalse(any(query["sql"].lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE")) for query in captured))
+                # Compare against the real materializer only after proving the
+                # overview did not write. Both must describe the same period.
+                materialized = _occurrence(old.goal, boundary)
+                self.assertEqual(materialized.starts_at, boundary)
+                self.assertEqual(materialized.ends_at, datetime.fromisoformat(expected_end))
+
+    def test_rolling_and_weekly_previews_share_the_exact_total_and_three_item_cap(self):
+        self.goal()
+        for index in range(4):
+            old = self.goal()
+            old.goal.starts_at = self.now - timedelta(days=4)
+            old.goal.ends_at = self.now - timedelta(days=1)
+            old.goal.repeat_weekly = index % 2 == 0
+            old.goal.repeat_days = 0 if old.goal.repeat_weekly else 3
+            old.goal.save(update_fields=["starts_at", "ends_at", "repeat_weekly", "repeat_days"])
+            old.starts_at, old.ends_at = old.goal.starts_at, old.goal.ends_at
+            old.save(update_fields=["starts_at", "ends_at"])
+        goals = self.overview()["children"][0]["parent_goals"]
+        self.assertEqual(goals["active_count"], 5)
+        self.assertEqual(len(goals["items"]), 3)
+
+    def test_rolling_future_goals_wait_for_their_initial_start(self):
+        occurrence = self.goal(starts_at=self.now + timedelta(days=1), ends_at=self.now + timedelta(days=4))
+        occurrence.goal.starts_at, occurrence.goal.ends_at = occurrence.starts_at, occurrence.ends_at
+        occurrence.goal.repeat_days = 3
+        occurrence.goal.save(update_fields=["starts_at", "ends_at", "repeat_days"])
+        self.assertEqual(self.overview()["children"][0]["parent_goals"], {"active_count": 0, "items": []})
+
+    def test_completed_current_period_never_rearms_weekly_or_rolling_parent_goals(self):
+        for weekly, days in ((True, 0), (False, 3)):
+            occurrence = self.goal(status="completed", completed_at=self.now)
+            occurrence.goal.repeat_weekly, occurrence.goal.repeat_days = weekly, days
+            occurrence.goal.save(update_fields=["repeat_weekly", "repeat_days"])
         self.assertEqual(self.overview()["children"][0]["parent_goals"], {"active_count": 0, "items": []})
 
     def test_weekly_previews_keep_an_exact_total_and_use_the_saved_goal_timezone(self):
@@ -268,7 +348,13 @@ class ParentFamilyOverviewTests(TestCase):
             for index in range(3):
                 child = User.objects.create_user(username=f"extra-{index}", role="child", family=self.family)
                 self.homework(assigned_to=child)
-                self.goal(user=child)
+                old = self.goal(user=child)
+                old.goal.starts_at = self.now - timedelta(days=4)
+                old.goal.ends_at = self.now - timedelta(days=1)
+                old.goal.repeat_days = 3
+                old.goal.save(update_fields=["starts_at", "ends_at", "repeat_days"])
+                old.starts_at, old.ends_at = old.goal.starts_at, old.goal.ends_at
+                old.save(update_fields=["starts_at", "ends_at"])
                 self.chore(assigned_to=child)
             with self.assertNumQueries(11):
                 overview = build_family_overview(self.parent)
