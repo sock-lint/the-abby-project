@@ -1,5 +1,5 @@
 /* Two small corners get their own vertical gutters, never the text's space. */
-.storybook-panel { min-width: 0; padding-block: 2.25rem; overflow-wrap: anywhere; }
+.storybook-panel { min-width: 0; padding-block: 2.5rem; overflow-wrap: anywhere; }
 .storybook-corner { position: absolute; width: 1.25rem; height: 1.25rem; margin: 0; pointer-events: none; }
 .storybook-corner--right { transform: scaleX(-1); }
 .storybook-corner--bottom { transform: scaleY(-1); }

@@ -200,8 +200,8 @@ test('shared decorated panels preserve corners, content clearance and direct-chi
       };
     });
     expect(spacing.gaps).toEqual([16, 16]);
-    expect(spacing.paddingTop).toBe('36px');
-    expect(spacing.paddingBottom).toBe('36px');
+    expect(spacing.paddingTop).toBe('40px');
+    expect(spacing.paddingBottom).toBe('40px');
     for (const corner of spacing.corners) {
       expect(corner.width).toBe(20);
       expect(corner.height).toBe(20);

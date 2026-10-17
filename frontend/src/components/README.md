@@ -316,8 +316,9 @@ responses.
 
 [Hatching](../pages/bestiary/hatchery/Hatchery.jsx) uses the neutral
 Normal Egg/pedestal and `card-front-egg-star`. Every decorated
-`ParchmentCard` uses the same 20px corners inset 8px, with a 36px top/bottom
-content inset retaining an 8px gap. `flourish` and `flourish="storybook"`
+`ParchmentCard` uses the same 20px corners inset 8px, with a 40px top/bottom
+content inset retaining at least an 8px gap from rendered text, including
+enlarged headings. `flourish` and `flourish="storybook"`
 both request two corners; legacy `seal` requests one at its existing position.
 Combined props never add extra ornaments. Children stay direct so caller
 layout and `space-y-*` rhythm continue to apply. Plain cards remain quiet.
