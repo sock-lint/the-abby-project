@@ -8,7 +8,7 @@ import unittest
 import zlib
 from unittest.mock import Mock, patch
 from urllib.request import ProxyHandler
-from http.client import RemoteDisconnected
+from http.client import HTTPMessage, RemoteDisconnected
 from urllib.error import HTTPError, URLError
 
 from deploy_coolify import (
@@ -575,6 +575,47 @@ class DeploymentTests(unittest.TestCase):
 
 
 class WorkerDeliveryTests(unittest.TestCase):
+    def test_repeated_cache_headers_cannot_hide_an_unsafe_earlier_policy(self):
+        for name, first, last in (("Cache-Control", "public, max-age=14400, immutable", "no-cache, max-age=0, must-revalidate"),
+                                  ("Cloudflare-CDN-Cache-Control", "public, max-age=14400", "no-store"),
+                                  ("CDN-Cache-Control", "public, s-maxage=14400", "no-store")):
+            with self.subTest(header=name):
+                headers = HTTPMessage()
+                for key, value in SCRIPT_HEADERS.items():
+                    if key.lower() != name.lower():
+                        headers.add_header(key, value)
+                headers.add_header(name, first)
+                headers.add_header(name, last)
+                script = self.client(headers=headers).request("/sw.js")
+                self.assertIn(first, script.headers[name.lower()])
+                self.assertIn(last, script.headers[name.lower()])
+                with self.assertRaises(InvalidResponse):
+                    verify_script(script, SCRIPT_PROOF)
+
+    def test_revalidation_directives_may_span_repeated_cache_control_fields(self):
+        headers = HTTPMessage()
+        headers.add_header("Content-Type", "text/javascript")
+        headers.add_header("CF-Cache-Status", "DYNAMIC")
+        for value in ("no-cache", "max-age=0", "must-revalidate"):
+            headers.add_header("Cache-Control", value)
+        verify_script(self.client(headers=headers).request("/sw.js"), SCRIPT_PROOF)
+
+    def test_repeated_singleton_headers_are_rejected_before_reading_body(self):
+        for name, first, last in (("Content-Type", "text/html", "text/javascript"),
+                                  ("Content-Encoding", "gzip", "identity"), ("Age", "600", "0"),
+                                  ("CF-Cache-Status", "HIT", "DYNAMIC")):
+            with self.subTest(header=name):
+                headers = HTTPMessage()
+                for key, value in SCRIPT_HEADERS.items():
+                    if key.lower() != name.lower():
+                        headers.add_header(key, value)
+                headers.add_header(name, first)
+                headers.add_header(name, last)
+                client = self.client(headers=headers)
+                with self.assertRaisesRegex(InvalidResponse, "ambiguous delivery headers"):
+                    client.request("/sw.js")
+                client.opener.open.return_value.read.assert_not_called()
+
     def test_public_worker_client_ignores_ambient_proxy_configuration(self):
         with patch.dict(os.environ, {"https_proxy": "http://synthetic-private-proxy.example:8080", "HTTPS_PROXY": "http://synthetic-private-proxy.example:8080"}):
             client = ScriptClient("https://synthetic.example/health")

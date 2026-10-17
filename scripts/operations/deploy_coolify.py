@@ -121,7 +121,17 @@ class ScriptClient:
             with self.opener.open(request, timeout=timeout) as response:
                 if response.status != 200 or response.geturl() != url:
                     raise InvalidResponse("Canonical PWA script did not return HTTP 200 at its original URL.")
-                headers = {key.lower(): value for key, value in response.headers.items()}
+                values = {}
+                for key, value in response.headers.items():
+                    values.setdefault(key.lower(), []).append(value)
+                # HTTPMessage.items() preserves repeated fields. Combine all
+                # cache policies, and refuse ambiguous singleton delivery
+                # metadata instead of letting its last field hide an earlier
+                # unsafe policy, MIME type, encoding or edge-cache status.
+                for name in ("content-type", "content-encoding", "age", "cf-cache-status"):
+                    if len(values.get(name, [])) > 1:
+                        raise InvalidResponse("Canonical PWA script has ambiguous delivery headers.")
+                headers = {key: ", ".join(items) for key, items in values.items()}
                 body = response.read(MAX_SCRIPT_BYTES + 1)
                 if len(body) > MAX_SCRIPT_BYTES:
                     raise InvalidResponse("Canonical PWA script exceeded the delivery size limit.")
