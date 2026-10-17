@@ -28,7 +28,7 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
       aria-label={accessibleName}
       data-trophy-slot="true"
       data-filled={badge ? 'true' : 'false'}
-      className={`group relative flex min-w-0 max-w-full items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex-col text-center'}`}
+      className={`group relative min-w-0 max-w-full gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl p-2 transition-transform hover:-translate-y-0.5 active:scale-[0.98] ${compact ? 'grid grid-cols-[auto_minmax(0,1fr)] items-start w-full text-left border border-ink-page-shadow bg-ink-page-aged' : 'flex flex-col items-center text-center'}`}
     >
       {badge ? (
         <BadgeArtwork badge={badge} earned variant="featured" size={compact ? 'md' : 'lg'} />
@@ -39,12 +39,13 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
       )}
 
       {compact ? (
-        <span className="min-w-0 flex-1">
+        <span data-trophy-copy="true" className="min-w-0">
           <span className="block font-body text-caption text-ink-secondary">Your trophy badge</span>
           <span className="block font-body font-bold text-body text-ink-primary break-words [overflow-wrap:anywhere]">
             {badge?.name || 'Choose an earned badge'}
           </span>
           {badge && <span className="mt-1 block"><BadgeRarity rarity={rarity} /></span>}
+          <span aria-hidden="true" className="mt-2 block font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>
         </span>
       ) : badge ? (
         <>
@@ -66,7 +67,6 @@ export default function TrophySlot({ badge, onOpen, compact = false }) {
           </div>
         </>
       )}
-      {compact && <span aria-hidden="true" className="shrink-0 font-body text-caption text-sheikah-teal-deep">{badge ? 'Change' : 'Choose'}</span>}
     </button>
   );
 }

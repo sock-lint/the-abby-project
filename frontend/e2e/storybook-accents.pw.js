@@ -219,13 +219,28 @@ test('shared decorated panels preserve corners, content clearance and direct-chi
 test('shared badge glyphs stay inside their artwork at enlarged text sizes', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const problems = [];
+  const copyProblems = [];
   for (const [width, large] of [[375, false], [320, true], [375, true]]) {
     await page.setViewportSize({ width, height: 900 });
     await open(page, { view: 'composition', large });
     problems.push(...(await badgeGlyphProblems(page)).map(problem => ({ ...problem, width, large })));
+    if (large) {
+      const slot = page.getByRole('region', { name: 'Composed profile', exact: true }).locator('[data-trophy-slot]');
+      const copy = slot.getByText('Your trophy badge', { exact: true }).locator('..');
+      const hint = slot.getByText('Change', { exact: true });
+      const artwork = slot.locator('[data-badge-artwork]');
+      const lastCopyLine = slot.locator('[data-badge-rarity]').locator('..');
+      const [buttonBox, copyBox, hintBox, artBox, rarityBox, innerWidth] = await Promise.all([
+        slot.boundingBox(), copy.boundingBox(), hint.boundingBox(), artwork.boundingBox(), lastCopyLine.boundingBox(),
+        slot.evaluate(element => element.clientWidth - parseFloat(getComputedStyle(element).paddingLeft) - parseFloat(getComputedStyle(element).paddingRight)),
+      ]);
+      const measurement = { viewport: width, buttonWidth: buttonBox.width, innerWidth, copyWidth: copyBox.width, copyShare: copyBox.width / innerWidth, hintBelowCopy: hintBox.y - (rarityBox.y + rarityBox.height), hintColumnOffset: hintBox.x - copyBox.x, artworkTopOffset: artBox.y - copyBox.y };
+      if (measurement.copyShare <= 0.5 || measurement.hintBelowCopy < -0.5 || Math.abs(measurement.hintColumnOffset) > 1 || Math.abs(measurement.artworkTopOffset) > 1) copyProblems.push(measurement);
+    }
     await page.unroute('**/*');
   }
   expect(problems).toEqual([]);
+  expect(copyProblems, 'Compact trophy copy must own the second column, with its hint below and artwork aligned to the start.').toEqual([]);
 });
 
 test('badge collection, earned detail and trophy picker share artwork while preserving selection', async ({ page }) => {
