@@ -111,6 +111,23 @@ describe('CodexSection', () => {
     await waitFor(() => expect(screen.getByText('fox-idle')).toBeInTheDocument());
   });
 
+  it('opens grown-pet artwork details without a generation shortcut', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([
+        { id: 1, name: 'Fox', sprite_key: 'fox', icon: '🦊', available_potions: [] },
+      ])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
+    );
+    const user = userEvent.setup();
+    render(<CodexSection />);
+    await user.click(await screen.findByRole('tab', { name: /Grown pets/ }));
+    await user.click(screen.getByRole('button', { name: /Fox/ }));
+    const detail = screen.getByRole('dialog', { name: 'Fox mount' });
+    expect(within(detail).queryByRole('button', { name: /regenerate/i })).not.toBeInTheDocument();
+    expect(within(detail).getByText('fox-mount')).toBeInTheDocument();
+  });
+
   it('restores the previously-active section from localStorage on mount', async () => {
     server.use(
       http.get('*/api/items/catalog/', () => HttpResponse.json([])),

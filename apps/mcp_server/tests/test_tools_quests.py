@@ -78,11 +78,11 @@ class CatalogAndCreateTests(_Base):
 
     def test_catalog_filter_by_type(self) -> None:
         QuestDefinition.objects.create(
-            name="Boss1", description="", quest_type="boss", target_value=1,
+            name="Boss1", description="", quest_type="boss", target_value=1, is_system=True,
         )
         QuestDefinition.objects.create(
             name="Coll1", description="", quest_type="collection",
-            target_value=1,
+            target_value=1, is_system=True,
         )
         with override_user(self.parent):
             bosses = q.list_quest_catalog(

@@ -434,12 +434,6 @@ export const handlers = [
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
   ),
   http.get('*/api/sprites/admin/', empty),
-  http.post('*/api/sprites/admin/generate/', () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }, { status: 201 }),
-  ),
-  http.post(/\/api\/sprites\/admin\/[^/]+\/reroll\/$/, () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }),
-  ),
   http.patch(/\/api\/sprites\/admin\/[^/]+\/$/, ok),
   http.delete(/\/api\/sprites\/admin\/[^/]+\/$/, () => HttpResponse.json({ deleted: true })),
 

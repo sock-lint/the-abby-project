@@ -1,8 +1,15 @@
 # Google OAuth registration
 
-Prepared October 11, 2026. The public pages are a reviewable draft until the
+Prepared October 11, 2026; AI evidence updated October 17, 2026. The public pages are a reviewable draft until the
 deployment owner approves their wording and publication. This runbook does not
 claim Google approval or completed verification.
+
+The [AI inventory and Google verification evidence](google-ai-disclosure.md)
+records all runtime model calls, MCP exports, browser dictation and Google-data
+flows, with official policy sources and unresolved operator evidence. Use it
+alongside this registration checklist if Google asks about AI or third-party
+processing; no verification message has been supplied, so confirm the actual
+review in Verification Center rather than assume a separate AI certification.
 
 ## Application wiring
 
@@ -45,6 +52,9 @@ before changing any setting.
    `https://www.googleapis.com/auth/calendar.events.owned`. Replace the older
    `calendar.events` declaration; the application now requests the narrower
    permission for the primary calendar and other calendars owned by the user.
+   If the separate [Drive Picker](google-drive-picker.md) is configured, also
+   declare `https://www.googleapis.com/auth/drive.file`; its separate browser
+   grant does not add broad Drive access or a Gemini permission.
 6. In **Audience**, choose the actual audience. For External / Testing, add
    intended Google accounts as test users. Testing and personally known limited
    users can have verification exceptions, warning screens, caps, and limited
@@ -64,6 +74,12 @@ incremental authorization.
   encryption at rest does not make it inaccessible to operators. Adopt and
   enforce the stated Google-data access restrictions. A page alone cannot
   establish Limited Use compliance.
+- Confirm actual AI recipients and provider-account restrictions. Selected
+  Drive PDF text can go to Anthropic during import; saved imported text can
+  later reach family OpenAI/Anthropic planning or authorized MCP clients. The
+  public `/privacy/#ai` inventory discloses these paths, but publication does
+  not establish timely consent, downstream provider terms or deletion. Follow
+  the evidence/actions in [the AI disclosure record](google-ai-disclosure.md#submission-evidence-and-unresolved-operator-actions).
 - Confirm the audience classification. Google's policy restricts Google
   Account OAuth in primarily child-directed apps; mixed-audience apps can
   provide optional Google integration when the app is usable without it.
@@ -126,6 +142,10 @@ narrower scope does not meet the implemented feature. Provide reviewer access
 instructions without exposing a real household's data. Domain verification,
 branding review, and sensitive-scope review are distinct prerequisites; record
 the actual console status rather than claiming approval from page deployment.
+When Drive/AI is in review, also demonstrate the selected-file permission,
+import notice and affirmative user action, reviewable draft, and any subsequent
+assistant data flow. Removing sprite generation does not remove these text-AI
+transfers or the Calendar permission review.
 
 Official guidance, checked October 11, 2026:
 

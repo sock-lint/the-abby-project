@@ -4,6 +4,31 @@ import userEvent from '@testing-library/user-event';
 import SourceStep from './SourceStep.jsx';
 
 describe('SourceStep', () => {
+  it.each(['url', 'pdf'])('discloses the AI transfer before starting a %s import', async (sourceTab) => {
+    const onStart = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <SourceStep
+        sourceTab={sourceTab} setSourceTab={vi.fn()}
+        url="https://example.com/how-to" setUrl={vi.fn()}
+        file={new File(['tutorial'], 'tutorial.pdf', { type: 'application/pdf' })} setFile={vi.fn()}
+        onStart={onStart}
+      />,
+    );
+
+    const disclosure = screen.getByText(/up to 12,000 characters of extracted text/i);
+    expect(disclosure).toBeVisible();
+    expect(disclosure).toHaveTextContent('Anthropic (Claude)');
+    expect(disclosure).toHaveTextContent('source title');
+    expect(disclosure).toHaveTextContent('If AI import is enabled');
+    expect(disclosure).toHaveTextContent('Processing starts before review');
+    expect(screen.getByRole('link', { name: 'Privacy details' })).toHaveAttribute('href', '/privacy/#ai');
+    expect(onStart).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Parse Source' }));
+    expect(onStart).toHaveBeenCalledTimes(1);
+  });
+
   it('renders URL tab by default', () => {
     render(
       <SourceStep

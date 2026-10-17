@@ -9,7 +9,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from django.conf import settings
 from django.test import TestCase, override_settings
 from pydantic import ValidationError as PydanticValidationError
 
@@ -22,22 +21,23 @@ from apps.mcp_server.errors import (
 )
 
 
-_VALIDATION_ERRORS = (MCPValidationError, PydanticValidationError)
 from apps.mcp_server.schemas import (
     DeleteContentPackIn,
     DeletePackFileIn,
     GetContentPackIn,
     ListContentPacksIn,
     ListRpgCatalogIn,
-    LoadContentPackIn,
     PrunePackContentIn,
     ReadPackFileIn,
     ValidateContentPackIn,
     WritePackFileIn,
 )
+from apps.mcp_server.content_pack_schemas import LoadContentPackIn
 from apps.mcp_server.tools import content_packs as cp
 from apps.accounts.models import User
 from apps.rpg.models import ItemDefinition
+
+_VALIDATION_ERRORS = (MCPValidationError, PydanticValidationError)
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +58,7 @@ class _PacksMixin(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.parent = User.objects.create_user(
-            username="p", password="pw", role="parent",
+            username="p", password="pw", role="parent", is_staff=True,
         )
         self.child = User.objects.create_user(
             username="c", password="pw", role="child",
@@ -72,6 +72,10 @@ class _PacksMixin(TestCase):
         self._override.disable()
         shutil.rmtree(self.tmp, ignore_errors=True)
         super().tearDown()
+
+    def _load_reviewed(self, pack):
+        plan = cp.validate_content_pack(ValidateContentPackIn(pack=pack))
+        return cp.load_content_pack(LoadContentPackIn(pack=pack, preview_id=plan["preview_id"], content_digest=plan["content_digest"]))
 
     def _get_tmp_dir(self) -> str:
         import tempfile
@@ -162,6 +166,43 @@ class WritePackFileTests(_PacksMixin):
                 filename="items.yaml",
                 yaml_content=blob,
             ))
+
+
+class PackOwnershipTests(_PacksMixin):
+    def test_other_family_cannot_read_change_list_or_preview_draft(self):
+        from config.tests.factories import make_family
+        other = make_family("Another author", parents=[{"username": "foreign-author", "is_staff": True}]).parents[0]
+        with override_user(self.parent):
+            cp.write_pack_file(WritePackFileIn(pack="private", filename="rewards.yaml", yaml_content="rewards: []"))
+        with override_user(other):
+            self.assertEqual(cp.list_content_packs(ListContentPacksIn())["count"], 0)
+            with self.assertRaises(MCPNotFoundError):
+                cp.read_pack_file(ReadPackFileIn(pack="private", filename="rewards.yaml"))
+            with self.assertRaises(MCPNotFoundError):
+                cp.write_pack_file(WritePackFileIn(pack="private", filename="rewards.yaml", yaml_content="rewards: []"))
+            with self.assertRaises(MCPNotFoundError):
+                cp.validate_content_pack(ValidateContentPackIn(pack="private"))
+
+    def test_legacy_unowned_directory_cannot_be_adopted_by_name(self):
+        folder = self.tmp / "content" / "rpg" / "packs" / "legacy"
+        folder.mkdir()
+        (folder / "rewards.yaml").write_text("rewards: []")
+        with override_user(self.parent), self.assertRaises(MCPNotFoundError):
+            cp.write_pack_file(WritePackFileIn(pack="legacy", filename="rewards.yaml", yaml_content="rewards: []"))
+
+    def test_content_symlink_cannot_escape_owner_directory(self):
+        with override_user(self.parent):
+            cp.write_pack_file(WritePackFileIn(pack="links", filename="items.yaml", yaml_content="items: []"))
+            path = self.tmp / "content" / "rpg" / "packs" / "links" / "items.yaml"
+            path.unlink()
+            outside = self.tmp / "outside.yaml"
+            outside.write_text("private: synthetic")
+            path.symlink_to(outside)
+            with self.assertRaises(MCPValidationError):
+                cp.read_pack_file(ReadPackFileIn(pack="links", filename="items.yaml"))
+            with self.assertRaises(MCPValidationError):
+                cp.write_pack_file(WritePackFileIn(pack="links", filename="items.yaml", yaml_content="items: []"))
+        self.assertEqual(outside.read_text(), "private: synthetic")
 
 
 class ReadAndDeletePackFileTests(_PacksMixin):
@@ -280,7 +321,9 @@ class ValidateAndLoadTests(_PacksMixin):
 
     def test_validate_empty_pack_rejected(self) -> None:
         # create an empty pack dir — no YAML files
-        (self.tmp / "content" / "rpg" / "packs" / "emptypack").mkdir()
+        with override_user(self.parent):
+            cp.write_pack_file(WritePackFileIn(pack="emptypack", filename="items.yaml", yaml_content="items: []"))
+            cp.delete_pack_file(DeletePackFileIn(pack="emptypack", filename="items.yaml"))
         with override_user(self.parent), self.assertRaises(MCPValidationError):
             cp.validate_content_pack(ValidateContentPackIn(pack="emptypack"))
 
@@ -299,8 +342,8 @@ class ValidateAndLoadTests(_PacksMixin):
     def test_load_persists_and_is_idempotent(self) -> None:
         self._write_simple_items("spring")
         with override_user(self.parent):
-            first = cp.load_content_pack(LoadContentPackIn(pack="spring"))
-            second = cp.load_content_pack(LoadContentPackIn(pack="spring"))
+            first = self._load_reviewed("spring")
+            second = self._load_reviewed("spring")
             summary = cp.get_content_pack(GetContentPackIn(pack="spring"))
         # Namespaced slug landed.
         self.assertTrue(
@@ -374,7 +417,7 @@ class ListRpgCatalogTests(_PacksMixin):
                     "    item_type: cosmetic_title\n"
                 ),
             ))
-            cp.load_content_pack(LoadContentPackIn(pack="catpack"))
+            self._load_reviewed("catpack")
             result = cp.list_rpg_catalog(ListRpgCatalogIn())
         slugs = {it["slug"] for it in result["items"]}
         self.assertIn("catpack-apple", slugs)
@@ -395,7 +438,7 @@ class ListRpgCatalogTests(_PacksMixin):
                     "    item_type: cosmetic_title\n"
                 ),
             ))
-            cp.load_content_pack(LoadContentPackIn(pack="filt"))
+            self._load_reviewed("filt")
             foods = cp.list_rpg_catalog(ListRpgCatalogIn(item_type="food"))
         self.assertEqual(len(foods["items"]), 1)
         self.assertEqual(foods["items"][0]["slug"], "filt-f")
@@ -447,59 +490,30 @@ class PrunePackContentMCPTests(_PacksMixin):
                     "    item_definition: food-a\n"
                 ),
             ))
-            cp.load_content_pack(LoadContentPackIn(pack=pack))
+            self._load_reviewed(pack)
 
-    def test_prune_removes_drops_and_rewards(self) -> None:
+    def test_direct_prune_is_refused_and_reviewed_removal_preserves_offer_history(self):
         from apps.rewards.models import Reward
         from apps.rpg.models import DropTable
-
         pack = "prunable"
         self._seed_pack_with_drops_and_rewards(pack)
-        self.assertTrue(
-            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
-        )
-        self.assertTrue(
-            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
-        )
-
         with override_user(self.parent):
-            r = cp.prune_pack_content(PrunePackContentIn(pack=pack))
-        self.assertEqual(r["drops_deleted"], 1)
-        self.assertEqual(r["rewards_deleted"], 1)
-        self.assertFalse(r["dry_run"])
+            with self.assertRaisesMessage(MCPValidationError, "Direct pruning"):
+                cp.prune_pack_content(PrunePackContentIn(pack=pack))
+            cp.write_pack_file(WritePackFileIn(pack=pack, filename="drops.yaml", yaml_content="rules: []"))
+            cp.write_pack_file(WritePackFileIn(pack=pack, filename="rewards.yaml", yaml_content="rewards: []"))
+            plan = cp.prune_pack_content(PrunePackContentIn(pack=pack, dry_run=True))
+            self.assertEqual(plan["retired"], {"drop": 1, "shop_offer": 1})
+            self.assertTrue(DropTable.objects.filter(item__slug=f"{pack}-food-a").exists())
+            cp.load_content_pack(LoadContentPackIn(pack=pack, preview_id=plan["preview_id"], content_digest=plan["content_digest"]))
+        self.assertFalse(DropTable.objects.filter(item__slug=f"{pack}-food-a").exists())
+        self.assertFalse(Reward.objects.get(item_definition__slug=f"{pack}-food-a").is_active)
+        self.assertTrue(ItemDefinition.objects.filter(slug=f"{pack}-food-a").exists())
 
-        # Rows gone, pack ItemDefinition preserved.
-        self.assertFalse(
-            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
-        )
-        self.assertFalse(
-            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
-        )
-        self.assertTrue(
-            ItemDefinition.objects.filter(slug=f"{pack}-food-a").exists()
-        )
-
-    def test_dry_run_reports_but_persists_nothing(self) -> None:
-        from apps.rewards.models import Reward
-        from apps.rpg.models import DropTable
-
-        pack = "prunedry"
-        self._seed_pack_with_drops_and_rewards(pack)
-
-        with override_user(self.parent):
-            r = cp.prune_pack_content(
-                PrunePackContentIn(pack=pack, dry_run=True),
-            )
-        self.assertEqual(r["drops_deleted"], 1)
-        self.assertEqual(r["rewards_deleted"], 1)
-        self.assertTrue(r["dry_run"])
-        # Nothing actually removed.
-        self.assertTrue(
-            DropTable.objects.filter(item__slug=f"{pack}-food-a").exists()
-        )
-        self.assertTrue(
-            Reward.objects.filter(item_definition__slug=f"{pack}-food-a").exists()
-        )
+    def test_direct_load_without_review_is_refused(self):
+        self._seed_pack_with_drops_and_rewards("reviewed")
+        with override_user(self.parent), self.assertRaisesMessage(MCPValidationError, "preview_content_pack"):
+            cp.load_content_pack(LoadContentPackIn(pack="reviewed"))
 
     def test_child_cannot_prune(self) -> None:
         with override_user(self.child), self.assertRaises(MCPPermissionDenied):

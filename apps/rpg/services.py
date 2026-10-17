@@ -17,8 +17,8 @@ the documented curve stays in sync. See also:
 Tunables that DO belong in settings (deploy-toggleable):
 ``COINS_PER_HOUR``, ``COINS_PER_DOLLAR``, ``COINS_PER_BADGE_RARITY``,
 ``BIRTHDAY_COINS_PER_YEAR``, ``HOMEWORK_LATE_CUTOFF_DAYS``,
-``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``,
-``SPRITE_GENERATION_MAX_FRAMES``. Those live in ``config/settings.py``.
+``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``.
+Those live in ``config/settings.py``.
 
 The ``apps/rpg/tests/test_trigger_parity.py`` gate enforces that every
 ``TriggerType`` member appears in ``BASE_DROP_RATES`` (or is in the
@@ -843,6 +843,14 @@ class ConsumableService:
     a typo in content YAML doesn't quietly no-op.
     """
 
+    # Shared by runtime validation and the read-only catalog audit. Adding an
+    # effect requires both this declaration and an _apply_effect handler.
+    SUPPORTED_EFFECTS = frozenset({
+        "streak_freeze", "xp_boost", "coin_boost", "drop_boost", "growth_tonic",
+        "rage_breaker", "growth_surge", "feast_platter", "mystery_box", "lucky_dip",
+        "quest_reroll", "morale_tonic", "skill_tonic", "food_basket",
+    })
+
     # Effects that overwrite a timer/expiry or operate on a single shared
     # target — applying them N times in a row gains nothing (later calls
     # just reset the same field) or errors (rage_breaker / quest_reroll
@@ -898,6 +906,8 @@ class ConsumableService:
         effect = (item.metadata or {}).get("effect")
         if not effect:
             raise ValueError("That consumable has no effect configured")
+        if not isinstance(effect, str) or effect not in ConsumableService.SUPPORTED_EFFECTS:
+            raise ValueError(f"Unknown consumable effect: {effect!r}")
 
         if quantity > 1 and effect in ConsumableService.STACK_UNSAFE_EFFECTS:
             raise ValueError(
