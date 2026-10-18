@@ -114,6 +114,7 @@ class HomeworkSubmission(ApprovalWorkflowModel, CreatedAtModel):
         max_length=15, choices=Timeliness.choices,
         help_text="Computed at submission time by comparing submit date to due_date.",
     )
+    timing_snapshot = models.JSONField(default=None, null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ["-created_at"]

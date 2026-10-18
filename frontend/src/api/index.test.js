@@ -400,6 +400,22 @@ describe('homework submissions with optional status', () => {
   });
 });
 
+describe('reviewed work history', () => {
+  it.each([['chore', 'chore-completions'], ['homework', 'homework-submissions']])('reads a known %s endpoint with its selected child and page', async (kind, endpoint) => {
+    await api.getReviewHistory(kind, { userId: 7, page: 2 });
+    const call = lastCall();
+    const url = new URL(call.url, 'https://synthetic.example');
+    expect(call.method).toBe('GET');
+    expect(url.pathname).toBe(`/api/${endpoint}/`);
+    expect(Object.fromEntries(url.searchParams)).toEqual({ status: 'reviewed', page: '2', user_id: '7' });
+  });
+
+  it.each([['other', 1], ['homework', 0], ['chore', 1.5], ['chore', '2']])('rejects invalid history kind/page %s/%s before reading', (kind, page) => {
+    expect(() => api.getReviewHistory(kind, { userId: 7, page })).toThrow('Invalid reviewed-work request.');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('FormData uploads', () => {
   it('createReward POSTs multipart', async () => {
     const fd = new FormData();

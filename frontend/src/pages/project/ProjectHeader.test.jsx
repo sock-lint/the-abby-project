@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import ProjectHeader from './ProjectHeader.jsx';
 import { buildProject } from '../../test/factories.js';
+import { formatDate } from '../../utils/format';
 
 function renderHeader(props = {}) {
   return render(
@@ -15,12 +16,73 @@ function renderHeader(props = {}) {
         onAction={props.onAction || vi.fn()}
         onEdit={props.onEdit || vi.fn()}
         onOpenQR={props.onOpenQR || vi.fn()}
+        timezone={props.timezone}
       />
     </MemoryRouter>,
   );
 }
 
 describe('ProjectHeader', () => {
+  it.each([
+    ['2026-10-19T06:59:00Z', false],
+    ['2026-10-19T07:00:00Z', true],
+  ])('marks an active due date as passed only after family midnight at %s', (now, passed) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(now));
+    try {
+      renderHeader({ timezone: 'America/Phoenix', project: { status: 'in_progress', due_date: '2026-10-18' } });
+      expect(Boolean(screen.queryByText('Due date passed'))).toBe(passed);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each(['in_review', 'completed', 'archived'])('does not call a %s project overdue based on its approval date', (status) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-21T12:00:00Z'));
+    try {
+      renderHeader({ timezone: 'America/Phoenix', project: { status, due_date: '2026-10-18', completed_at: '2026-10-20T01:00:00Z' } });
+      expect(screen.queryByText('Due date passed')).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('uses the family timezone for recorded completion instead of the browser timezone', () => {
+    renderHeader({ timezone: 'America/Phoenix', project: { status: 'completed', completed_at: '2026-10-20T01:00:00Z' } });
+    expect(screen.getByText(/Completion recorded/)).toHaveTextContent('Oct 19, 2026');
+    expect(screen.getByText(/Completion recorded/)).toHaveTextContent('6:00 PM MST');
+  });
+
+  it('shows the due date and recorded completion without treating approval after the due date as late work', () => {
+    const due = '2026-10-18';
+    const completed = '2026-10-20T01:00:00Z';
+    renderHeader({ isParent: true, project: { status: 'completed', due_date: due, completed_at: completed } });
+    expect(screen.getByText(/^Current due/)).toHaveTextContent(`Current due ${formatDate(due)}`);
+    expect(screen.getByText(/Completion recorded/)).toHaveTextContent('Completion recorded Oct 19, 2026');
+    expect(screen.queryByText(/^(late|early|on time)\b/i)).not.toBeInTheDocument();
+  });
+
+  it('shows that a submitted project still awaits completion approval without inventing its submission date', () => {
+    renderHeader({ isParent: true, project: { status: 'in_review', due_date: null, updated_at: '2026-10-20T01:00:00Z' } });
+    expect(screen.getByText('No due date set')).toBeInTheDocument();
+    expect(screen.getByText('Awaiting completion approval')).toBeInTheDocument();
+    expect(screen.queryByText(/Completion recorded/)).not.toBeInTheDocument();
+  });
+
+  it('keeps a historical completion date unknown when the project has no saved completion timestamp', () => {
+    renderHeader({ isParent: true, project: { status: 'completed', completed_at: null, updated_at: '2026-10-20T01:00:00Z' } });
+    expect(screen.getByText('Completion date unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(/Completion recorded/)).not.toBeInTheDocument();
+  });
+
+  it('labels a retained completion timestamp as previous when a project is back in review', () => {
+    const completed = '2026-10-20T01:00:00Z';
+    renderHeader({ isParent: true, project: { status: 'in_review', completed_at: completed } });
+    expect(screen.getByText(/Previous completion recorded/)).toHaveTextContent('Previous completion recorded Oct 19, 2026');
+    expect(screen.getByText('Awaiting completion approval')).toBeInTheDocument();
+  });
+
   it.each(['draft', 'active', 'in_progress', 'in_review', 'completed'])(
     'labels a homework plan without separate project controls in %s status',
     (status) => {

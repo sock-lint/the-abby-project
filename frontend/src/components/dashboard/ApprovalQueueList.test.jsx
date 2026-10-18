@@ -35,6 +35,20 @@ const redemption = {
 };
 
 describe('ApprovalQueueList', () => {
+  it('shows the saved deadline and actual submission before approving work', () => {
+    renderList([{ ...homework, timingRecord: {
+      created_at: '2026-10-17T01:30:00Z', timeliness: 'on_time',
+      timing_snapshot: { version: 1, schedule: 'homework', due_on: '2026-10-16',
+        submitted_at: '2026-10-17T01:30:00Z', submitted_on: '2026-10-16',
+        timezone: 'America/Phoenix', timeliness: 'on_time' },
+    } }]);
+    expect(screen.getByText('Due')).toBeInTheDocument();
+    expect(screen.getByText('Submitted')).toBeInTheDocument();
+    expect(screen.getByText('On time')).toBeInTheDocument();
+    expect(document.querySelector('time[datetime="2026-10-16"]')).toBeInTheDocument();
+    expect(document.querySelector('time[datetime="2026-10-17T01:30:00Z"]')).toHaveTextContent('Oct 16');
+  });
+
   it('approves only selected work after an explicit consequence confirmation', async () => {
     const user = userEvent.setup();
     const choreSpy = spyHandler('post', /\/api\/chore-completions\/11\/approve\/$/, {});

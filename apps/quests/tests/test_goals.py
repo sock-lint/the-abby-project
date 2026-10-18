@@ -526,6 +526,98 @@ class GoalApiTests(_GoalFixture, TestCase):
         self.assertFalse(CoinLedger.objects.exists())
         self.assertEqual(self.client.delete(f"/api/challenges/{goal_id}/pin/").data, {"pin": None})
 
+    def test_goal_response_keeps_period_and_real_recorded_completion_timestamp(self):
+        created = self.client.post("/api/challenges/goals/", self.payload, format="json")
+        self.assertEqual(created.status_code, 201, created.data)
+        self.assertIsNone(created.data["completed_at"])
+        occurrence = ChallengeOccurrence.objects.get(pk=created.data["id"].split(":")[1])
+        starts_at, ends_at = occurrence.starts_at, occurrence.ends_at
+        recorded_at = ends_at + timedelta(days=1)
+        performed_at = ends_at - timedelta(days=1)
+        with patch("django.utils.timezone.now", return_value=recorded_at):
+            self.fact("late-approved-run", at=performed_at, distance="3218.688")
+            # Completion recognition and reward delivery are separate stored
+            # timestamps; the new field must not alias the reward receipt.
+            awarded_at = recorded_at + timedelta(hours=1)
+            ChallengeOccurrence.objects.filter(pk=occurrence.pk).update(awarded_at=awarded_at)
+            response = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(response.status_code, 200, response.data)
+        saved = next(row for row in response.data["results"] if row["id"] == created.data["id"])
+        self.assertEqual(saved["status"], "completed")
+        self.assertEqual(saved["starts_at"], starts_at.isoformat())
+        self.assertEqual(saved["ends_at"], ends_at.isoformat())
+        self.assertEqual(saved["completed_at"], recorded_at.isoformat())
+        self.assertEqual(saved["reward_receipt"]["awarded_at"], awarded_at.isoformat())
+        receipt = next(row for row in response.data["recent_receipts"] if row["id"] == saved["id"])
+        self.assertEqual(receipt["completed_at"], recorded_at.isoformat())
+
+    def test_missed_week_remains_history_and_next_cycle_keeps_saved_zone_across_dst(self):
+        family = self.family.family
+        family.timezone = "America/New_York"
+        family.save(update_fields=["timezone"])
+        self.child.family = family
+        offered_at = datetime(2026, 10, 28, 16, 15, tzinfo=ZoneInfo("UTC"))
+        with patch("django.utils.timezone.now", return_value=offered_at):
+            occurrence = self.goal()
+        self.assertEqual(occurrence.starts_at, datetime(2026, 10, 26, 4, tzinfo=ZoneInfo("UTC")))
+        self.assertEqual(occurrence.ends_at, datetime(2026, 11, 2, 5, tzinfo=ZoneInfo("UTC")))
+
+        # Updating today's household zone must not change an accepted goal's
+        # weekly clock or erase the prior, incomplete period.
+        family.timezone = "Pacific/Auckland"
+        family.save(update_fields=["timezone"])
+        with patch("django.utils.timezone.now", return_value=occurrence.ends_at):
+            response = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = sorted(response.data["results"], key=lambda row: row["starts_at"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["status"], "expired")
+        self.assertEqual(rows[0]["progress"], "0")
+        self.assertIsNone(rows[0]["completed_at"])
+        self.assertEqual(rows[1]["status"], "active")
+        self.assertEqual(datetime.fromisoformat(rows[1]["starts_at"]), occurrence.ends_at)
+        self.assertEqual(rows[1]["ends_at"], datetime(2026, 11, 9, 5, tzinfo=ZoneInfo("UTC")).isoformat())
+        self.assertTrue(all(row["timezone"] == "America/New_York" for row in rows))
+        self.assertTrue(all(row["completed_at"] is None for row in rows))
+        self.assertEqual(response.data["recent_receipts"], [])
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+
+    def test_rolling_catalog_cycle_keeps_saved_wall_clock_across_dst_and_zone_change(self):
+        ChallengeEnrollment.objects.filter(user=self.child).update(timezone_name="America/New_York")
+        definition = self.definition(is_repeatable=True)
+        offered_at = datetime(2026, 10, 28, 16, 15, tzinfo=ZoneInfo("UTC"))
+        with patch("django.utils.timezone.now", return_value=offered_at):
+            first = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        original = first.data["results"][0]
+        self.assertEqual(original["ends_at"], datetime(2026, 11, 4, 17, 15, tzinfo=ZoneInfo("UTC")).isoformat())
+
+        family = self.family.family
+        family.timezone = "Pacific/Auckland"
+        family.save(update_fields=["timezone"])
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 11, 4, 17, 15, tzinfo=ZoneInfo("UTC"))):
+            response = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(response.status_code, 200, response.data)
+        rows = sorted(response.data["results"], key=lambda row: row["starts_at"])
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["status"], "expired")
+        self.assertEqual(rows[1]["starts_at"], original["ends_at"])
+        self.assertEqual(rows[1]["ends_at"], datetime(2026, 11, 11, 17, 15, tzinfo=ZoneInfo("UTC")).isoformat())
+        self.assertTrue(all(row["timezone"] == "America/New_York" for row in rows))
+        self.assertTrue(all(row["completed_at"] is None for row in rows))
+        self.assertEqual(ChallengeOccurrence.objects.filter(goal__catalog_definition=definition).count(), 2)
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+
+    def test_legacy_completed_goal_has_no_invented_completion_timestamp(self):
+        definition = self.definition()
+        legacy = Quest.objects.create(
+            definition=definition, status="completed", end_date=self.now, current_progress=2,
+        )
+        QuestParticipant.objects.create(user=self.child, quest=legacy, contribution=2)
+        response = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(response.status_code, 200, response.data)
+        saved = next(row for row in response.data["results"] if row["id"] == f"legacy:{legacy.pk}")
+        self.assertIsNone(saved["completed_at"])
+
     def test_cross_family_children_unknown_children_and_pin_targets_are_indistinguishable(self):
         outsider = make_family("Other goals", children=[{"username": "goaloutsider"}]).children[0]
         payload = {**self.payload, "user_id": outsider.pk}

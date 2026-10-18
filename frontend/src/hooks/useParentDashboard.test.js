@@ -6,6 +6,28 @@ import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 
 describe('useParentDashboard', () => {
+  it('keeps a chore receipt and uses its saved marked-complete timestamp for queue age', async () => {
+    const completion = { id: 93, chore_title: 'Weekly watering', user: 2,
+      created_at: '2026-10-12T00:00:00Z', completed_date: '2026-10-12',
+      timing_snapshot: { version: 1, submitted_at: '2026-10-16T18:30:00Z', due_on: '2026-10-18', timezone: 'America/Phoenix' } };
+    server.use(http.get('*/api/chore-completions/', () => HttpResponse.json([completion])));
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    const pending = result.current.pending.find((row) => row.id === 93);
+    expect(pending.timingRecord).toEqual(completion);
+    expect(pending.submittedAt).toBe('2026-10-16T18:30:00Z');
+  });
+
+  it('retains the original timing receipt for homework review', async () => {
+    const submission = { id: 92, assignment_title: 'Original deadline', user: 2,
+      created_at: '2026-10-17T01:30:00Z', timeliness: 'on_time',
+      timing_snapshot: { version: 1, due_on: '2026-10-16', timezone: 'America/Phoenix' } };
+    server.use(http.get('*/api/homework/dashboard/', () => HttpResponse.json({ pending_submissions: [submission] })));
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.pending.find((row) => row.id === 92).timingRecord).toEqual(submission);
+  });
+
   it('labels homework without a supplied title with the current feature name', async () => {
     server.use(http.get('*/api/homework/dashboard/', () => HttpResponse.json({
       pending_submissions: [{ id: 91, user_id: 2 }],

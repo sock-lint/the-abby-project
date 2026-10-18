@@ -62,6 +62,17 @@ Use the library's page recipes and interactive states when composing a screen:
 - Parent child selectors use `ChildContext` with a roster verified by
   `useChildContext`; a URL or remembered ID is never authorization. Audience
   copy names the actual readers: “Only me” and “Shared with parents.”
+- `SubmissionTiming` presents a submission's saved schedule, deadline and
+  household timezone, its actual submitted/marked-complete timestamp, and its
+  separate parent decision timestamp. A changed `current_due_date` stays
+  separate from the frozen deadline. Older period keys are not completion
+  timestamps; missing historical deadlines stay unknown, while a saved null
+  deadline says “No due date.” `TimelinessBadge` describes saved timing without
+  promising reward percentages. `ReviewedWorkHistory` opens a paginated,
+  read-only history for the child verified by `useChildContext`; requests and
+  visible rows reset across child, family, account and credential changes.
+  While open, confirmed parent review events refresh history from page one;
+  bursts coalesce and closed disclosures make no background history reads.
 - `AttachmentField` gives selected files a readable name/size, linked help and
   errors, replace/remove controls and optional image preview. Its owning form
   retains processing, validation and the explicit upload/retry contract.

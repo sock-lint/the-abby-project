@@ -18,7 +18,8 @@ function unifyChore(c) {
     subtitle: c.notes || null,
     notes: c.notes || null,
     reward: c.reward_amount_snapshot ?? null,
-    submittedAt: c.submitted_at || c.created_at || null,
+    submittedAt: c.timing_snapshot?.submitted_at || c.submitted_at || c.created_at || null,
+    timingRecord: c,
   };
 }
 
@@ -29,9 +30,10 @@ function unifyHomework(h) {
     kidId: h.user_id ?? h.user ?? null,
     kidName: h.user_name || 'Unassigned',
     title: h.assignment_title || h.title || 'Homework',
-    subtitle: h.timeliness ? `submitted ${h.timeliness}` : null,
+    subtitle: null,
     reward: h.reward_amount_snapshot ?? null,
-    submittedAt: h.submitted_at || h.created_at || null,
+    submittedAt: h.timing_snapshot?.submitted_at || h.submitted_at || h.created_at || null,
+    timingRecord: h,
     // The kid's evidence — carried through so a parent can judge the work
     // from the queue instead of hopping to Quests → Study to see it.
     notes: h.notes || null,

@@ -2,12 +2,13 @@ from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
 from config.viewsets import (
     ApprovalActionMixin, RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
+    get_child_or_404,
 )
 
 from .models import Chore, ChoreCompletion, ChoreSkillTag
@@ -258,10 +259,29 @@ class ChoreCompletionViewSet(
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
+        qs = qs.filter(chore__family_id=self.request.user.family_id)
         status_filter = self.request.query_params.get("status")
-        if status_filter:
+        if status_filter == "reviewed":
+            qs = qs.filter(status__in=[
+                ChoreCompletion.Status.APPROVED, ChoreCompletion.Status.REJECTED,
+            ])
+        elif status_filter:
             qs = qs.filter(status=status_filter)
-        return qs
+        raw_user_id = self.request.query_params.get("user_id")
+        if raw_user_id is not None:
+            try:
+                user_id = int(raw_user_id)
+                if not 0 < user_id <= 9223372036854775807:
+                    raise ValueError
+            except (TypeError, ValueError):
+                raise ValidationError({"user_id": "Enter a valid child ID."}) from None
+            if self.request.user.role != "parent" and user_id != self.request.user.pk:
+                raise NotFound("Child not found")
+            child = get_child_or_404(user_id, requesting_user=self.request.user)
+            if child is None:
+                raise NotFound("Child not found")
+            qs = qs.filter(user=child)
+        return qs.order_by("-created_at", "-pk")
 
     @action(detail=True, methods=["post"])
     @transaction.atomic

@@ -1,5 +1,20 @@
 # Shared API response fixtures
 
+`completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
+`completion-timing-homework-reviewed.json` and
+`completion-timing-homework-assignment.json` come from the real submission/read
+endpoints. They distinguish the weekly Monday period from a Friday submission,
+the original homework deadline from a later edit, and a later parent approval.
+`timing_snapshot` v1 freezes `timezone`, `submitted_at`, `submitted_on`,
+`schedule`, `period_start`, `period_end`, `due_on` and `timeliness`. Legacy rows
+remain null. Read-only nullable `current_due_date` is today's editable deadline,
+not historical evidence. Parent reviewed history uses the normal paginated
+`?status=reviewed&user_id=<verified child>` filters. Challenge payloads add
+nullable `completed_at`; legacy quest history does not invent a timestamp.
+The producer is `config.tests.test_submission_timing_api_contract_fixtures` and
+the React consumer is `src/api/submissionTimingContractFixtures.test.jsx`;
+both run in the required API fixtures workflow.
+
 `content-workbench-catalog.json` and `content-workbench-denied.json` bind the
 staff content editor's catalog, exact reward references, reverse item uses,
 simulation metadata and permission denial to real Django responses. Producers

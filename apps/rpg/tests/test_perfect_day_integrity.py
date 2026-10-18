@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timezone as datetime_timezone
+from datetime import date, datetime, timedelta, timezone as datetime_timezone
+from itertools import chain, repeat
 from threading import Barrier
 from unittest.mock import patch
 
@@ -54,6 +55,15 @@ class PerfectDayIntegrityMixin:
 
 
 class PerfectDayIntegrityTests(PerfectDayIntegrityMixin, TestCase):
+    def assert_no_perfect_day_bonus(self, balance):
+        from apps.rpg.models import PerfectDayReceipt
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.perfect_days_count, 0)
+        self.assertEqual(CoinService.get_balance(self.child), balance)
+        self.assertFalse(PerfectDayReceipt.objects.filter(user=self.child).exists())
+        self.assertFalse(Notification.objects.filter(user=self.child, notification_type="perfect_day").exists())
+        self.assertFalse(ActivityEvent.objects.filter(subject=self.child, event_type="system.perfect_day").exists())
+
     def test_pending_completion_never_qualifies(self):
         self.complete(status=ChoreCompletion.Status.PENDING)
         evaluate_perfect_day_task()
@@ -130,21 +140,174 @@ class PerfectDayIntegrityTests(PerfectDayIntegrityMixin, TestCase):
         self.profile.save(update_fields=["last_active_date"])
         from apps.chores.services import ChoreService
         from apps.rpg.models import PerfectDayReceipt
-        # Actual Beat time: Oct 15 Phoenix / Oct 16 Tokyo. Current producer
-        # services store the configured day, so the worker must use it too.
+        # Actual Beat time: Oct 15 Phoenix / Oct 16 Tokyo. Household schedule
+        # identity and the existing worker/streak accounting day are distinct.
         now = datetime(2026, 10, 16, 6, 55, tzinfo=datetime_timezone.utc)
         with patch("django.utils.timezone.now", return_value=now):
             completion = ChoreService.submit_completion(self.child, self.chore)
             ChoreService.approve_completion(completion, self.parent)
             balance = CoinService.get_balance(self.child)
+            # A request-local timezone override must not change Beat's day.
+            with timezone.override("Asia/Tokyo"):
+                evaluate_perfect_day_task()
+                evaluate_perfect_day_task()
+        self.profile.refresh_from_db()
+        self.assertEqual(completion.completed_date, date(2026, 10, 16))
+        self.assertEqual(completion.timing_snapshot["submitted_on"], "2026-10-16")
+        self.assertEqual(completion.timing_snapshot["submitted_at"], now.isoformat())
+        self.assertEqual(self.profile.last_active_date, date(2026, 10, 15))
+        self.assertEqual(self.profile.perfect_days_count, 1)
+        self.assertEqual(CoinService.get_balance(self.child), balance + 15)
+        self.assertEqual(PerfectDayReceipt.objects.get(user=self.child).day, date(2026, 10, 15))
+
+    def test_tokyo_period_matching_next_worker_day_cannot_reward_yesterdays_submission_again(self):
+        from apps.chores.services import ChoreService
+        from apps.rpg.models import PerfectDayReceipt
+        from apps.rpg.services import StreakService
+        self.family.timezone = "Asia/Tokyo"
+        self.family.save(update_fields=["timezone"])
+        submitted_at = datetime(2026, 10, 16, 6, 55, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=submitted_at):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+            ChoreService.approve_completion(completion, self.parent)
+            evaluate_perfect_day_task()
+        self.assertEqual(completion.completed_date, date(2026, 10, 16))
+        # Activity on the next worker day does not reuse the prior day's chore.
+        next_worker_tick = datetime(2026, 10, 17, 6, 55, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=next_worker_tick):
+            StreakService.record_activity(self.child)
+            balance = CoinService.get_balance(self.child)
             evaluate_perfect_day_task()
             evaluate_perfect_day_task()
         self.profile.refresh_from_db()
-        self.assertEqual(completion.completed_date, date(2026, 10, 15))
-        self.assertEqual(self.profile.last_active_date, completion.completed_date)
         self.assertEqual(self.profile.perfect_days_count, 1)
-        self.assertEqual(CoinService.get_balance(self.child), balance + 15)
-        self.assertEqual(PerfectDayReceipt.objects.get(user=self.child).day, completion.completed_date)
+        self.assertEqual(CoinService.get_balance(self.child), balance)
+        self.assertEqual(list(PerfectDayReceipt.objects.filter(user=self.child).values_list("day", flat=True)), [date(2026, 10, 15)])
+
+    def test_later_approval_does_not_move_a_submission_to_the_next_worker_day(self):
+        from apps.chores.services import ChoreService
+        self.family.timezone = "Asia/Tokyo"
+        self.family.save(update_fields=["timezone"])
+        submitted_at = datetime(2026, 10, 16, 6, 55, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=submitted_at):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+        approved_at = submitted_at + timedelta(days=1)
+        with patch("django.utils.timezone.now", return_value=approved_at):
+            ChoreService.approve_completion(completion, self.parent)
+            balance = CoinService.get_balance(self.child)
+            evaluate_perfect_day_task()
+        self.profile.refresh_from_db()
+        self.assertEqual(self.profile.last_active_date, date(2026, 10, 16))
+        self.assert_no_perfect_day_bonus(balance)
+
+    def test_created_at_crossing_worker_midnight_does_not_move_the_captured_submission(self):
+        from apps.chores.services import ChoreService
+        self.family.timezone = "Asia/Tokyo"
+        self.family.save(update_fields=["timezone"])
+        submitted_at = datetime(2026, 10, 16, 6, 59, 59, 999999, tzinfo=datetime_timezone.utc)
+        inserted_at = datetime(2026, 10, 16, 7, tzinfo=datetime_timezone.utc)
+        # First now() captures submission; the insert and later calls cross
+        # midnight. Approval/streak activity legitimately belong to Oct16.
+        with patch("django.utils.timezone.now", side_effect=chain([submitted_at], repeat(inserted_at))):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+        self.assertEqual(completion.created_at, inserted_at)
+        self.assertEqual(completion.timing_snapshot["submitted_at"], submitted_at.isoformat())
+        with patch("django.utils.timezone.now", return_value=inserted_at):
+            ChoreService.approve_completion(completion, self.parent)
+            balance = CoinService.get_balance(self.child)
+            evaluate_perfect_day_task()
+        self.assert_no_perfect_day_bonus(balance)
+
+    def test_legacy_completion_uses_its_recorded_worker_date_without_timestamp_backfill(self):
+        self.family.timezone = "Asia/Tokyo"
+        self.family.save(update_fields=["timezone"])
+        worker_day = date(2026, 10, 15)
+        self.profile.last_active_date = worker_day
+        self.profile.save(update_fields=["last_active_date"])
+        completion = self.complete(day=worker_day)
+        ChoreCompletion.objects.filter(pk=completion.pk).update(
+            created_at=datetime(2026, 10, 17, tzinfo=datetime_timezone.utc),
+        )
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 10, 16, 6, 55, tzinfo=datetime_timezone.utc)):
+            evaluate_perfect_day_task()
+            evaluate_perfect_day_task()
+        self.assert_reward_count(1)
+        completion.refresh_from_db()
+        self.assertIsNone(completion.timing_snapshot)
+        self.assertEqual(completion.completed_date, worker_day)
+
+    def test_malformed_or_different_version_evidence_cannot_fall_back_to_period_date(self):
+        from apps.chores.services import ChoreService
+        at = datetime(2026, 10, 15, 18, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=at):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+            ChoreService.approve_completion(completion, self.parent)
+        valid = completion.timing_snapshot
+        invalid_snapshots = [{}, [], *[
+            {**valid, field: value} for field, value in [
+                ("version", 2), ("version", "1"), ("version", True),
+                ("submitted_at", None), ("submitted_at", "invalid"),
+                ("submitted_at", "2026-10-15T11:00:00"),
+                ("submitted_at", "9999-12-31T23:59:59-12:00"),
+                ("timezone", None), ("timezone", "Unknown/Zone"),
+                ("schedule", "weekly"), ("period_start", "2026-10-14"),
+                ("period_end", "2026-10-16"), ("submitted_on", "2026-10-14"),
+            ]
+        ]]
+        balance = CoinService.get_balance(self.child)
+        for snapshot in invalid_snapshots:
+            with self.subTest(snapshot=snapshot), patch("django.utils.timezone.now", return_value=at):
+                ChoreCompletion.objects.filter(pk=completion.pk).update(timing_snapshot=snapshot)
+                evaluate_perfect_day_task()
+                self.assert_no_perfect_day_bonus(balance)
+
+    def test_weekly_submission_cannot_become_daily_evidence_after_a_schedule_edit(self):
+        from apps.chores.services import ChoreService
+        self.chore.recurrence = Chore.Recurrence.WEEKLY
+        self.chore.save(update_fields=["recurrence"])
+        at = datetime(2026, 10, 19, 18, tzinfo=datetime_timezone.utc)  # Monday in Phoenix.
+        with patch("django.utils.timezone.now", return_value=at):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+            ChoreService.approve_completion(completion, self.parent)
+            self.chore.recurrence = Chore.Recurrence.DAILY
+            self.chore.save(update_fields=["recurrence"])
+            balance = CoinService.get_balance(self.child)
+            evaluate_perfect_day_task()
+        self.assertEqual(completion.completed_date, date(2026, 10, 19))
+        self.assert_no_perfect_day_bonus(balance)
+
+    def test_malformed_evidence_underflowing_worker_timezone_is_ignored(self):
+        from apps.rpg.tasks import _completion_accounting_day
+        completion = ChoreCompletion(
+            completed_date=date(1, 1, 1), timing_snapshot={
+                "version": 1, "schedule": "daily", "timezone": "Asia/Tokyo",
+                "submitted_at": "0001-01-01T00:00:00+00:00",
+                "submitted_on": "0001-01-01", "period_start": "0001-01-01",
+                "period_end": "0001-01-01",
+            },
+        )
+        self.assertIsNone(_completion_accounting_day(completion))
+
+    def test_foreign_child_or_chore_approval_cannot_satisfy_local_daily_work(self):
+        from apps.chores.services import ChoreService
+        other = make_family("Foreign", parents=[{"username": "foreign-perfect-parent"}],
+                            children=[{"username": "foreign-perfect-child"}])
+        at = datetime(2026, 10, 15, 18, tzinfo=datetime_timezone.utc)
+        with patch("django.utils.timezone.now", return_value=at):
+            completion = ChoreService.submit_completion(self.child, self.chore)
+            ChoreService.approve_completion(completion, self.parent)
+            ChoreCompletion.objects.filter(pk=completion.pk).update(user=other.children[0])
+            foreign_chore = Chore.objects.create(
+                family=other.family, created_by=other.parents[0], title="Foreign chore",
+            )
+            ChoreCompletion.objects.create(
+                user=self.child, chore=foreign_chore, completed_date=completion.completed_date,
+                status=ChoreCompletion.Status.APPROVED, timing_snapshot=completion.timing_snapshot,
+                reward_amount_snapshot=0, coin_reward_snapshot=0,
+            )
+            balance = CoinService.get_balance(self.child)
+            evaluate_perfect_day_task()
+        self.assert_no_perfect_day_bonus(balance)
 
     def test_legacy_tokyo_award_backfill_prevents_same_worker_day_retry(self):
         from django.apps import apps
