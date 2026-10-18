@@ -8,7 +8,9 @@ function timestampInZone(value, zones, dateOnly = false) {
       minute: '2-digit', timeZoneName: 'short' };
   for (const zone of zones.filter(Boolean)) {
     try {
-      const formatter = new Intl.DateTimeFormat(undefined, { ...options, timeZone: zone });
+      // Internal date-only values must stay Gregorian ISO dates regardless
+      // of the browser's calendar or digit shapes. Display remains localized.
+      const formatter = new Intl.DateTimeFormat(dateOnly ? 'en-CA' : undefined, { ...options, timeZone: zone });
       if (!dateOnly) return formatter.format(new Date(value));
       const parts = formatter.formatToParts(new Date(value));
       const part = (type) => parts.find((item) => item.type === type).value;

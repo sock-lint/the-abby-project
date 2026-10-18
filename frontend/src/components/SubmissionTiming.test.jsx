@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import SubmissionTiming from './SubmissionTiming';
 
@@ -108,5 +108,20 @@ describe('Saved submission timing', () => {
     }} />);
     expect(dateRow('Marked complete')).toHaveTextContent('Oct 16');
     expect(dateRow('Marked complete')).toHaveTextContent('MST');
+  });
+
+  it('keeps legacy done dates valid with a browser locale that uses non-Latin digits', () => {
+    const NativeDateTimeFormat = Intl.DateTimeFormat;
+    const formatter = vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locale, options) {
+      return new NativeDateTimeFormat(locale ?? 'ar-EG', options);
+    });
+    try {
+      render(<SubmissionTiming kind="chore" timezone="America/Phoenix" record={{
+        completed_date: '2026-10-17', created_at: '2026-10-18T01:35:00Z',
+      }} />);
+      expect(dateRow('Done on').querySelector('time')).toHaveAttribute('datetime', '2026-10-17');
+    } finally {
+      formatter.mockRestore();
+    }
   });
 });
