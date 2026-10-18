@@ -23,6 +23,7 @@ from config.viewsets import filter_projects_accessible_to
 from .budget import PrintBudgetService, quantize_grams
 from .matching import mint_slug, plate_filename_for
 from .models import PrintBudgetLedger, PrintJob, PrintJobEvent, PrintRequest
+from .pricing import quote_print_coins
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +155,7 @@ class PrintRequestService:
                     "Enter a positive print-time estimate to quote a Coin price.",
                 )
             request.minutes_per_coin_snapshot = rate
-            request.coin_cost = (request.estimated_minutes + rate - 1) // rate
+            request.coin_cost = quote_print_coins(request.estimated_minutes, rate)
 
         if not force:
             problems = PrintBudgetService.check_affordable(

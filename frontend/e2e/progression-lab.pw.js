@@ -9,10 +9,12 @@ let devServer;
 let origin;
 let metadata;
 let report;
+let economyReport;
 
 test.beforeAll(async () => {
   metadata = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-metadata.json', import.meta.url), 'utf8'));
   report = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-report.json', import.meta.url), 'utf8'));
+  economyReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-economy-report.json', import.meta.url), 'utf8'));
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
@@ -64,6 +66,24 @@ async function openLab(page, response = report) {
 }
 
 for (const width of [375, 1280]) {
+  test(`purchasing forecasts separate Coins and money at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { requests, external } = await openLab(page, economyReport);
+    await expect(page.getByRole('checkbox', { name: 'Model purchases and family costs' })).toBeChecked();
+    await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
+    const purchasing = page.getByRole('region', { name: 'Purchasing forecast' });
+    await expect(purchasing).toBeVisible();
+    await expect(purchasing.getByRole('table', { name: 'Affordability and actual purchases for each reward' })).toBeVisible();
+    await expect(purchasing.getByRole('table', { name: 'Calendar month purchasing results, median per child' })).toBeVisible();
+    await expect(purchasing.getByRole('rowheader', { name: /^Practice outing/ })).toBeVisible();
+    await expect(purchasing.getByRole('rowheader', { name: /^Practice print/ })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    expect(requests.filter((path) => path.endsWith('/simulate/'))).toHaveLength(1);
+    expect(requests.every((path) => ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/'].includes(path))).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`progression-economy-${width}.png`), fullPage: true });
+  });
+
   test(`designer report is readable at ${width}px without horizontal page overflow`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const { requests, external } = await openLab(page);
