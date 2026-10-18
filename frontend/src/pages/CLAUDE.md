@@ -7,6 +7,52 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Progression lab
+
+`/manage/rpg-content` adds the staff-parent content workspace alongside the lab.
+It browses challenges and items, saves revisioned server drafts, shows reward
+wiring and audits, and compares the published and proposed catalogs before
+explicit publication. Use the exact reviewed preview and draft revision for
+comparison/publication. Editing invalidates old reviews; account changes fence
+in-flight responses. Existing item effects are versioned to preserve owned and
+promised items. See [`RPG content workbench`](../../../docs/operations/rpg-content-workbench.md).
+
+`/manage/progression-lab` is the staff-parent designer workspace, linked from
+Manage → Admin. The metadata endpoint is the authority for staff access;
+regular parents recover from its 403 without seeing simulations. All forecasts
+come from the server's anonymous, bounded simulator. React keeps editable
+assumptions, a current report and an optional comparison in account-scoped
+component state. Local JSON imports restore validated routines only and never
+run automatically or present old imported results as current forecasts.
+Unreached milestones, conditional percentile dates, expired one-time windows
+and the model's finite-content subset stay explicit. See
+[`Progression Lab`](../../../docs/operations/progression-lab.md) and the shared
+producer/consumer checks before changing its response or presentation.
+
+## Google authorization return
+
+Login availability reads the nonmutating `/api/auth/google/config/`; only an
+explicit click starts authorization. Login, Settings and Manage's child-link
+sheet share `useGoogleAuthorization` and `auth/googleOAuth.js`. Each start uses
+a fresh browser verifier, sends only its S256 challenge, and stores the bounded
+attempt in sessionStorage scoped to backend/browser origin, initiating
+credential fingerprint, actor/family and optional child. No Abby or Google
+bearer token is stored there or accepted from navigation URLs.
+
+`main.jsx` captures and scrubs the opaque callback fragment before Sentry
+initializes. AuthProvider shares one proof exchange across StrictMode replay,
+then uses the existing push-safe session replacement. A reload before the POST
+can resume; a reload after an uncertain POST requires a fresh explicit start,
+without replaying the mutation. Expired, missing, cancelled and account-switched
+attempts keep the current account. Late start/receipt responses cannot navigate
+or replace a newer account. Browser Back restores the start controls.
+
+Google return currently supports the hosted same-origin browser app only.
+Native and cross-origin API/redirect configurations fail closed with guidance;
+there is no arbitrary return URL or native OAuth parity claim. Calendar and
+Drive retain their existing authorization contracts; Drive's transient GIS
+`drive.file` interaction is independent of this account-link flow.
+
 ## Page primitives (added 2026-05, commit `2b240fc`)
 
 `/__design` documents reusable page recipes and interactive recovery states.
@@ -411,6 +457,27 @@ with task, child and schedule; rewards are optional and advanced XP, skill,
 icon and order controls stay in Advanced. Alternating-week chores preview their
 reference week without changing schedule eligibility. Setup suggestions remain
 optional links, with no invented completion claims.
+
+### Submission dates and reviewed work
+
+`SubmissionTiming` separates the saved deadline/recurrence period, the child's
+submission (or Marked complete) timestamp, and the later parent decision. New
+homework and chore rows consume server-owned `timing_snapshot` v1 values in the
+saved household timezone. A changed `current_due_date` is labelled Current due;
+it never replaces the original deadline. Weekly `completed_date` is a Monday
+period identifier, not the day the child did the work. Legacy rows identify
+missing timing evidence explicitly; saved undated chores say No due date.
+Timing badges report labels only, without obsolete reward percentages.
+
+Parent homework and chore pages expose `ReviewedWorkHistory` after a child is
+verified by the current roster. It loads known endpoint pages, shows approved
+and rejected work, fences child/account/credential changes, and refreshes from
+page one after confirmed review events while open. Parent Today uses the same
+saved timing component in its approval queue. Assignment cards keep saved
+submission dates on both parent and child views. Project/challenge completion
+is labelled Completion recorded because approval or delayed processing can
+determine that timestamp; it is not proof of when the child physically worked.
+Habits retain tap-history semantics, rather than acquiring invented deadlines.
 
 Timecards show saved work notes and automatic clock-out warnings. A disputed
 card offers Resolve and approve with a parent note. Mark as paid opens the

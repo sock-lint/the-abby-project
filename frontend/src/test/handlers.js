@@ -44,8 +44,9 @@ export const handlers = [
   // A lifecycle preview must match the exact mounted account/family. Tests
   // exercising this feature supply their own preview and mutation spies.
   http.get('*/api/account/lifecycle/', () => HttpResponse.json({ error: 'Account lifecycle preview is not configured in this fixture.' }, { status: 503 })),
-  http.get('*/api/auth/google/', () => HttpResponse.json({ authorization_url: '' })),
-  http.get('*/api/auth/google/login/', () => HttpResponse.json({ authorization_url: '' })),
+  http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: false })),
+  http.get('*/api/auth/google/', () => HttpResponse.json({ authorization_url: '', state: '', expires_in: 600 })),
+  http.get('*/api/auth/google/login/', () => HttpResponse.json({ authorization_url: '', state: '', expires_in: 600 })),
   http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
   http.delete('*/api/auth/google/account/', nullBody),
   http.get('*/api/auth/google/calendar/', () => HttpResponse.json({ sync_enabled: false })),
@@ -427,6 +428,9 @@ export const handlers = [
   // Dev tools — default to disabled so the Test tab stays hidden in
   // tests that don't explicitly opt in.
   http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
+  // Designer workspace stays staff-only unless a test supplies its catalog.
+  http.get('*/api/rpg/progression-lab/', () => new HttpResponse(null, { status: 403 })),
+  http.post('*/api/rpg/progression-lab/simulate/', () => new HttpResponse(null, { status: 403 })),
   http.get('*/api/dev/children/', empty),
   http.get('*/api/dev/rewards/', empty),
   http.get('*/api/dev/items/', empty),

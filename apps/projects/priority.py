@@ -68,7 +68,8 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
     Args:
         user: Django user instance (must have `.role` attribute).
         target_date: `date` to treat as "today". Defaults to
-            `timezone.localdate()` — passed explicitly by tests.
+            the household's local date for homework/chore schedules.
+            Explicit values also override the habit accounting date in tests.
         hour: `int` 0-23 to treat as current hour (for streak-protection
             gating). Defaults to current server-local hour.
         limit: Trim result to at most this many items.
@@ -81,15 +82,23 @@ def build_next_actions(user, *, target_date=None, hour=None, limit=20):
         return []
 
     from django.utils import timezone
+    from config.submission_timing import submission_context
+
+    now = timezone.now()
     if target_date is None:
-        target_date = timezone.localdate()
+        target_date = submission_context(user, at=now)[2]
+        # Habit taps and streak protection retain their existing accounting
+        # day/hour; changing task scheduling must not reset that daily cap.
+        habit_date = timezone.localdate(now)
+    else:
+        habit_date = target_date
     if hour is None:
-        hour = timezone.localtime().hour
+        hour = timezone.localtime(now).hour
 
     actions = []
     actions.extend(_chore_actions(user, target_date))
     actions.extend(_homework_actions(user, target_date))
-    actions.extend(_habit_actions(user, target_date, hour=hour))
+    actions.extend(_habit_actions(user, habit_date, hour=hour))
 
     def sort_key(a):
         has_money = bool(a.reward and a.reward.get("money") not in (None, "0.00"))

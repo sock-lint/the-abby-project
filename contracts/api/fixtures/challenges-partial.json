@@ -13,6 +13,7 @@
       "status": "active",
       "starts_at": "2026-10-14T19:00:00+00:00",
       "ends_at": "2026-10-21T19:00:00+00:00",
+      "completed_at": null,
       "timezone": "America/Phoenix",
       "what_counts": "movement sessions",
       "rewards": {
@@ -48,6 +49,7 @@
       "status": "active",
       "starts_at": "2026-10-12T07:00:00+00:00",
       "ends_at": "2026-10-19T07:00:00+00:00",
+      "completed_at": null,
       "timezone": "America/Phoenix",
       "what_counts": "Running sessions",
       "rewards": {

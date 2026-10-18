@@ -400,6 +400,22 @@ describe('homework submissions with optional status', () => {
   });
 });
 
+describe('reviewed work history', () => {
+  it.each([['chore', 'chore-completions'], ['homework', 'homework-submissions']])('reads a known %s endpoint with its selected child and page', async (kind, endpoint) => {
+    await api.getReviewHistory(kind, { userId: 7, page: 2 });
+    const call = lastCall();
+    const url = new URL(call.url, 'https://synthetic.example');
+    expect(call.method).toBe('GET');
+    expect(url.pathname).toBe(`/api/${endpoint}/`);
+    expect(Object.fromEntries(url.searchParams)).toEqual({ status: 'reviewed', page: '2', user_id: '7' });
+  });
+
+  it.each([['other', 1], ['homework', 0], ['chore', 1.5], ['chore', '2']])('rejects invalid history kind/page %s/%s before reading', (kind, page) => {
+    expect(() => api.getReviewHistory(kind, { userId: 7, page })).toThrow('Invalid reviewed-work request.');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
 describe('FormData uploads', () => {
   it('createReward POSTs multipart', async () => {
     const fd = new FormData();
@@ -492,18 +508,18 @@ describe('getInstructablesPreview', () => {
 
 describe('google oauth endpoints', () => {
   it('getGoogleAuthUrl without id', async () => {
-    await api.getGoogleAuthUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/$/);
+    await api.getGoogleAuthUrl(undefined, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAuthUrl with id', async () => {
-    await api.getGoogleAuthUrl(7);
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?for_user=7$/);
+    await api.getGoogleAuthUrl(7, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256&for_user=7$/);
   });
 
   it('getGoogleLoginUrl', async () => {
-    await api.getGoogleLoginUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/$/);
+    await api.getGoogleLoginUrl('challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAccount without id', async () => {

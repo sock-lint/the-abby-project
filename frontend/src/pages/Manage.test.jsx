@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { buildParent, buildUser } from '../test/factories.js';
 import { spyHandler } from '../test/spy.js';
+import { GOOGLE_STATE, GOOGLE_URL, interceptGoogleNavigation } from '../test/googleAuthorization';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -26,6 +27,57 @@ function renderPage(route = '/manage') {
 }
 
 describe('Manage', () => {
+  it('starts one Google child link with the selected child and current parent credential', async () => {
+    const requests = [];
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7, role: 'child', display_name: 'Abby', google_linked: false })])),
+      http.get('*/api/auth/google/', ({ request }) => {
+        requests.push(request);
+        return HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 });
+      }),
+    );
+    const navigation = interceptGoogleNavigation();
+    try {
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+      const sheet = await screen.findByRole('dialog', { name: /edit abby/i });
+      await user.dblClick(within(sheet).getByRole('button', { name: /^link google account$/i }));
+      await waitFor(() => expect(navigation.destinations).toEqual([GOOGLE_URL]));
+      expect(requests).toHaveLength(1);
+      expect(new URL(requests[0].url).searchParams.get('for_user')).toBe('7');
+      expect(new URL(requests[0].url).searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(requests[0].headers.get('authorization')).toBe('Token test-session');
+    } finally { navigation.restore(); }
+  });
+
+  it('cancels a delayed Google child link when the edit sheet closes', async () => {
+    const requests = [];
+    let finish;
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7, role: 'child', display_name: 'Abby', google_linked: false })])),
+      http.get('*/api/auth/google/', () => {
+        requests.push(true);
+        return new Promise(resolve => { finish = () => resolve(HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 })); });
+      }),
+    );
+    const navigation = interceptGoogleNavigation();
+    try {
+      renderPage();
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole('button', { name: /^edit$/i }));
+      const sheet = await screen.findByRole('dialog', { name: /edit abby/i });
+      await user.click(within(sheet).getByRole('button', { name: /^link google account$/i }));
+      await waitFor(() => expect(requests).toHaveLength(1));
+      await user.click(within(sheet).getByRole('button', { name: /^cancel$/i }));
+      finish();
+      await waitFor(() => expect(sessionStorage.getItem('abby_google_authorization_v1')).toBeNull());
+      expect(navigation.destinations).toEqual([]);
+    } finally { navigation.restore(); }
+  });
+
   it('provides parent printer administration outside the print request page', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
     renderPage('/manage?tab=3D+Printing');
@@ -635,6 +687,8 @@ describe('Manage — Admin tab', () => {
       expect(screen.getByRole('tab', { name: /^Admin$/ })).toBeInTheDocument(),
     );
     await user.click(screen.getByRole('tab', { name: /^Admin$/ }));
+    expect(screen.getByRole('link', { name: 'Open progression lab' })).toHaveAttribute('href', '/manage/progression-lab');
+    expect(screen.getByRole('link', { name: 'Manage RPG content' })).toHaveAttribute('href', '/manage/rpg-content');
     await user.type(await screen.findByLabelText(/family name/i), 'New House');
     await user.type(screen.getByLabelText(/sign-in name/i), 'founder');
     await user.type(screen.getByLabelText(/^password$/i), 'ApbBy1!Strong');

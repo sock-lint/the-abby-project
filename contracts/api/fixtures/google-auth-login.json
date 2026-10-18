@@ -1,0 +1,27 @@
+{
+  "mode": "login",
+  "token": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "user": {
+    "id": 910,
+    "username": "fixture-google-parent",
+    "display_name": "Alex",
+    "role": "parent",
+    "hourly_rate": "8.00",
+    "avatar": null,
+    "theme": "summer",
+    "lorebook_flags": {},
+    "google_linked": true,
+    "date_of_birth": null,
+    "grade_entry_year": null,
+    "age_years": null,
+    "current_grade": null,
+    "school_year_label": null,
+    "family": {
+      "id": 901,
+      "name": "Google Authorization Fixture Family",
+      "slug": "google-authorization-fixture-family",
+      "timezone": "America/Phoenix",
+      "default_theme": "hyrule"
+    }
+  }
+}

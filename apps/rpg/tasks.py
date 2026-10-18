@@ -1,10 +1,49 @@
 import logging
+from datetime import timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from celery import shared_task
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 
 logger = logging.getLogger(__name__)
+
+
+def _completion_accounting_day(completion):
+    """Map saved daily submission evidence to the configured worker day.
+
+    Legacy rows have only the original configured-day period identity. New
+    rows keep a household period and must use their captured submission instant,
+    independently of a later database insert, parent approval or zone edit.
+    """
+    snapshot = completion.timing_snapshot
+    if snapshot is None:
+        return completion.completed_date
+    if (
+        not isinstance(snapshot, dict)
+        or type(snapshot.get("version")) is not int
+        or snapshot["version"] != 1
+        or snapshot.get("schedule") != "daily"
+        or not isinstance(snapshot.get("submitted_at"), str)
+        or not isinstance(snapshot.get("timezone"), str)
+    ):
+        return None
+    try:
+        submitted_at = parse_datetime(snapshot["submitted_at"])
+        if submitted_at is None or timezone.is_naive(submitted_at):
+            return None
+        household_day = timezone.localdate(submitted_at, ZoneInfo(snapshot["timezone"]))
+        worker_day = timezone.localdate(submitted_at, timezone.get_default_timezone())
+    except (ValueError, OverflowError, ZoneInfoNotFoundError):
+        return None
+    period = completion.completed_date.isoformat()
+    if household_day != completion.completed_date or any(
+        snapshot.get(key) != period for key in ("submitted_on", "period_start", "period_end")
+    ):
+        return None
+    return worker_day
 
 
 @transaction.atomic
@@ -24,14 +63,27 @@ def _award_perfect_day(child, today):
     if not profile or profile.last_active_date != today:
         return False
 
-    available = ChoreService.get_available_chores(child, today)
-    daily_chores = [c for c in available if c.recurrence == Chore.Recurrence.DAILY]
-    # Availability treats pending submissions as done to prevent duplicate
-    # submissions. Reward eligibility requires actual parent approval instead.
-    if not daily_chores or not all(
-        c.today_completion_status == ChoreCompletion.Status.APPROVED
-        for c in daily_chores
-    ):
+    daily_chores = [chore for chore in Chore.objects.filter(
+        Q(assigned_to=child) | Q(assigned_to__isnull=True),
+        family_id=child.family_id, is_active=True, pending_parent_review=False,
+        recurrence=Chore.Recurrence.DAILY,
+    ) if ChoreService.is_active_this_week(chore, today)]
+    if not daily_chores:
+        return False
+    daily_ids = {chore.pk for chore in daily_chores}
+    # IANA household/worker offsets can cross up to two calendar dates.
+    # The active-completion constraint bounds this to five approved rows per
+    # chore, without scanning its history or trusting a versioned period as
+    # an accounting date. Pending/rejected rows cannot satisfy the set.
+    completions = ChoreCompletion.objects.filter(
+        user=child, chore_id__in=daily_ids, status=ChoreCompletion.Status.APPROVED,
+        completed_date__range=(today - timedelta(days=2), today + timedelta(days=2)),
+    ).only("chore_id", "completed_date", "timing_snapshot").order_by()
+    approved_ids = {
+        completion.chore_id for completion in completions
+        if _completion_accounting_day(completion) == today
+    }
+    if approved_ids != daily_ids:
         return False
 
     _receipt, created = PerfectDayReceipt.objects.get_or_create(user=child, day=today)
@@ -77,14 +129,15 @@ def _award_perfect_day(child, today):
 def evaluate_perfect_day_task():
     """Award approved daily chores once per child and configured local date.
 
-    Chore completions and streak activity currently save this same configured
-    day. Keep the eligibility and receipt date on that shared producer contract.
+    Household chore periods stay distinct from this worker/streak day. New
+    completions use their captured submission instant; legacy rows retain
+    their configured-day completed_date fallback.
     """
     from apps.families.queries import children_across_families
 
     awarded = 0
     seen = 0
-    today = timezone.localdate()
+    today = timezone.localdate(timezone=timezone.get_default_timezone())
     for _family, child in children_across_families():
         seen += 1
         awarded += _award_perfect_day(child, today)

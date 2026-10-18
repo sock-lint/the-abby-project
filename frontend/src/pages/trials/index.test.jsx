@@ -68,7 +68,9 @@ describe('Automatic challenges', () => {
       .toEqual(['Almost finished', 'Small target', 'Halfway there']);
     expect(screen.queryByRole('article', { name: 'Many points' })).not.toBeInTheDocument();
     expect(screen.queryByRole('article', { name: 'Untouched goal' })).not.toBeInTheDocument();
-    expect(within(bonus).queryByText(/^Ends /)).not.toBeInTheDocument();
+    within(bonus).getAllByText(/Goal period/).forEach((period) => {
+      expect(period).toHaveTextContent('Goal period Oct 12, 2026 – Oct 18, 2026');
+    });
   });
 
   it('refreshes a hidden bonus into the preview when saved activity makes progress, without opening its browser', async () => {
@@ -134,7 +136,7 @@ describe('Automatic challenges', () => {
       route: '/quests?tab=trials&goal=goal%3A11',
     });
     const dialog = await screen.findByRole('dialog', { name: 'Run 2 miles this week' });
-    expect(within(dialog).getByText('Ends Oct 18')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Goal period/)).toHaveTextContent('Goal period Oct 12, 2026 – Oct 18, 2026');
     expect(within(dialog).getByRole('heading', { name: 'What counts' })).toBeInTheDocument();
     await user.keyboard('{Escape}');
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
@@ -186,7 +188,8 @@ describe('Automatic challenges', () => {
   it('shows a saved future challenge as Upcoming without pinning or starting it', async () => {
     renderGoals({ goals: [buildChallengeGoal({ status: 'upcoming', starts_at: '2026-10-16T07:00:00Z', timezone: 'America/Phoenix' })] });
     const upcoming = await screen.findByRole('region', { name: 'Upcoming challenges' });
-    expect(within(upcoming).getByText('Starts Oct 16')).toBeInTheDocument();
+    expect(within(upcoming).getByText('Upcoming')).toBeInTheDocument();
+    expect(within(upcoming).getByText(/Goal period/)).toHaveTextContent('Goal period Oct 16, 2026 – Oct 18, 2026');
     expect(within(upcoming).queryByRole('button', { name: /pin/i })).not.toBeInTheDocument();
   });
 

@@ -48,6 +48,10 @@ The Capacitor configuration has no `server.url`; built assets are copied into
 the app. Native boot disables service-worker generation/registration, browser
 install/update prompts and Web Push initialization/teardown. Existing web PWA
 privacy-cache purges, shared browser sessions and worker checks remain active.
+Google account sign-in/linking requires the hosted same-origin browser return;
+the frontend refuses native or cross-origin Google redirects. Its browser
+transaction uses an S256 proof and a single-use exchange, with callback values
+scrubbed before telemetry. See `src/pages/CLAUDE.md#google-authorization-return`.
 Allow only the selected local WebView origins in staging Django/media CORS
 (Capacitor defaults: `capacitor://localhost` on iOS, `https://localhost` on
 Android); validate API and model/media requests separately.

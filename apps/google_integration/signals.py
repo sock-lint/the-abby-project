@@ -1,6 +1,6 @@
 import logging
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_delete
 from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
@@ -60,3 +60,25 @@ def sync_chore_to_calendar(sender, instance, **kwargs):
     from .tasks import sync_chore_task
 
     sync_chore_task.delay(instance.id)
+
+
+@receiver(pre_delete, sender="authtoken.Token")
+def invalidate_pending_google_on_logout(sender, instance, origin=None, using="default", **kwargs):
+    # Skip User/Family cascades: their collected FK rows cannot be recreated.
+    # Root Token instance AND queryset deletions must revoke outstanding flows.
+    if not isinstance(origin, sender) and getattr(origin, "model", None) is not sender:
+        return
+    from django.contrib.auth import get_user_model
+    from django.db import OperationalError, transaction
+    from .oauth_exchange import AuthorizationBusy, invalidate_google_flows, is_lock_conflict
+
+    try:
+        with transaction.atomic(using=using):
+            if get_user_model().objects.using(using).select_for_update(no_key=True).filter(pk=instance.user_id).exists():
+                # A User cascade can have deleted Token before reaching User.
+                list(sender.objects.using(using).select_for_update(nowait=True).filter(pk=instance.pk))
+                invalidate_google_flows(instance.user_id, using=using)
+    except OperationalError as exc:
+        if is_lock_conflict(exc):
+            raise AuthorizationBusy() from None
+        raise

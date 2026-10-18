@@ -1,8 +1,20 @@
 from django.urls import path
 
-from . import sprite_admin_views, views
+from . import progression_views, sprite_admin_views, views, workbench_views
 
 urlpatterns = [
+    path("rpg/content-workbench/", workbench_views.ContentWorkbenchView.as_view(), name="content-workbench"),
+    path("rpg/content-workbench/drafts/", workbench_views.ContentDraftListView.as_view(), name="content-draft-list"),
+    path("rpg/content-workbench/drafts/<uuid:draft_id>/", workbench_views.ContentDraftDetailView.as_view(), name="content-draft-detail"),
+    path("rpg/content-workbench/drafts/<uuid:draft_id>/preview/", workbench_views.ContentDraftPreviewView.as_view(), name="content-draft-preview"),
+    path("rpg/content-workbench/drafts/<uuid:draft_id>/simulate/", workbench_views.ContentDraftSimulationView.as_view(), name="content-draft-simulate"),
+    path("rpg/content-workbench/drafts/<uuid:draft_id>/publish/", workbench_views.ContentDraftPublishView.as_view(), name="content-draft-publish"),
+    path("rpg/progression-lab/", progression_views.ProgressionLabView.as_view(), name="progression-lab"),
+    path(
+        "rpg/progression-lab/simulate/",
+        progression_views.ProgressionSimulationView.as_view(),
+        name="progression-lab-simulate",
+    ),
     path("character/", views.CharacterView.as_view(), name="character"),
     path("character/avatar/", views.AvatarPreferencesView.as_view(), name="character-avatar"),
     path("character/avatar/catalog/", views.AvatarCatalogView.as_view(), name="avatar-catalog"),

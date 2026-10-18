@@ -10,6 +10,33 @@ import ErrorAlert from '../../components/ErrorAlert';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import ArtworkImage from '../../components/rpg/ArtworkImage';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
+import { formatDate } from '../../utils/format';
+
+function familyDateParts(timezone, date = new Date()) {
+  return new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+}
+
+function familyDay(timezone) {
+  let parts;
+  try {
+    parts = familyDateParts(timezone);
+  } catch {
+    parts = familyDateParts('UTC');
+  }
+  const part = (name) => parts.find((value) => value.type === name).value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function completionTime(value, timezone) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return null;
+  const options = { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' };
+  try {
+    return new Intl.DateTimeFormat(undefined, { ...options, timeZone: timezone }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(undefined, { ...options, timeZone: 'UTC' }).format(date);
+  }
+}
 
 // Status → workflow-progress percent. Drives the gilt fill on the project's
 // drop-cap so a draft glimmers faintly, in_review reads three-quarters
@@ -41,10 +68,13 @@ function projectVersalProps(project) {
  */
 export default function ProjectHeader({
   project, isParent, isAssigned,
-  onAction, onEdit, onOpenQR,
+  onAction, onEdit, onOpenQR, timezone = 'America/Phoenix',
 }) {
   const navigate = useNavigate();
   const isHomeworkPlan = project.is_homework_plan;
+  const recordedCompletion = completionTime(project.completed_at, timezone);
+  const duePassed = ['draft', 'active', 'in_progress'].includes(project.status)
+    && project.due_date && project.due_date < familyDay(timezone);
   const [flash, setFlash] = useState('');
   const [error, setError] = useState('');
 
@@ -92,6 +122,16 @@ export default function ProjectHeader({
               )}
               <StarRating value={project.difficulty} />
             </div>
+            {!isHomeworkPlan && <div className="mt-3 space-y-1 font-body text-caption text-ink-secondary">
+              {project.due_date
+                ? <p>{['completed', 'archived'].includes(project.status) ? 'Current due' : 'Due'} <time dateTime={project.due_date}>{formatDate(project.due_date)}</time></p>
+                : <p>No due date set</p>}
+              {duePassed && <p>Due date passed</p>}
+              {recordedCompletion
+                ? <p>{['completed', 'archived'].includes(project.status) ? 'Completion recorded' : 'Previous completion recorded'} <time dateTime={project.completed_at}>{recordedCompletion}</time></p>
+                : project.status === 'completed' && <p>Completion date unavailable</p>}
+              {project.status === 'in_review' && <p>Awaiting completion approval</p>}
+            </div>}
           </div>
         </div>
         {!isHomeworkPlan && <div className="flex gap-2 flex-wrap">

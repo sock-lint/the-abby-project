@@ -1,0 +1,5 @@
+{
+  "authorization_url": "https://accounts.google.com/o/oauth2/auth?client_id=synthetic-client.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fjournal.example.invalid%2Fapi%2Fauth%2Fgoogle%2Fcallback%2F&response_type=code&state=sssssssssssssssssssssssssssssssssssssssssss",
+  "state": "sssssssssssssssssssssssssssssssssssssssssss",
+  "expires_in": 600
+}

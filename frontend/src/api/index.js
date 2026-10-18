@@ -446,6 +446,15 @@ export const reactivateParent = (id) => api.post(`/parents/${id}/reactivate/`);
 export const adminPing = () => api.get('/admin/families/');
 export const adminCreateFamily = (data) => api.post('/admin/families/', data);
 
+// Anonymous, server-calculated designer scenarios; staff parents only.
+export const getProgressionLab = (options) => api.get('/rpg/progression-lab/', options);
+export {
+  getContentWorkbench, createContentDraft, getContentDraft, updateContentDraft,
+  previewContentDraft, simulateContentDraft, publishContentDraft,
+} from './contentWorkbench';
+export const simulateProgressionLab = (data, options) =>
+  api.post('/rpg/progression-lab/simulate/', data, options);
+
 // Admin → OAuth Clients (staff-parent-only)
 export const listOAuthApplications = () => api.get('/admin/oauth/applications/');
 export const revokeOAuthApplication = (clientId) =>
@@ -465,6 +474,13 @@ export const completeChore = (id, notes = '') =>
 export const getChoreCompletions = (status) => {
   const qs = status ? `?status=${status}` : '';
   return api.get(`/chore-completions/${qs}`);
+};
+export const getReviewHistory = (kind, { userId, page = 1, signal } = {}) => {
+  const endpoint = { chore: 'chore-completions', homework: 'homework-submissions' }[kind];
+  if (!endpoint || !Number.isInteger(page) || page < 1) throw new Error('Invalid reviewed-work request.');
+  const query = new URLSearchParams({ status: 'reviewed', page: String(page) });
+  if (userId != null && userId !== '') query.set('user_id', String(userId));
+  return api.get(`/${endpoint}/?${query}`, { signal });
 };
 export const approveChoreCompletion = (id) =>
   withParentReviewRefresh(api.post(`/chore-completions/${id}/approve/`));
@@ -493,11 +509,17 @@ export const getGoogleDriveSources = (sourceType, page = 1, options = {}) => api
   options,
 );
 export const uploadAbbyFileToGoogleDrive = (data, options = {}) => api.post('/auth/google/drive/upload/', data, options);
-export const getGoogleAuthUrl = (forUserId) => {
-  const qs = forUserId ? `?for_user=${forUserId}` : '';
-  return api.get(`/auth/google/${qs}`);
+export const getGoogleConfig = () => api.get('/auth/google/config/', { token: '', selfHeal: false });
+export const getGoogleAuthUrl = (forUserId, challenge, options = {}) => {
+  const params = new URLSearchParams({ code_challenge: challenge, code_challenge_method: 'S256' });
+  if (forUserId) params.set('for_user', forUserId);
+  return api.get(`/auth/google/?${params}`, options);
 };
-export const getGoogleLoginUrl = () => api.get('/auth/google/login/');
+export const getGoogleLoginUrl = (challenge, options = {}) => api.get(
+  `/auth/google/login/?${new URLSearchParams({ code_challenge: challenge, code_challenge_method: 'S256' })}`,
+  { token: '', selfHeal: false, ...options },
+);
+export const exchangeGoogleAuthorization = (data, options = {}) => api.post('/auth/google/exchange/', data, options);
 export const getGoogleAccount = (forUserId) => {
   const qs = forUserId ? `?for_user=${forUserId}` : '';
   return api.get(`/auth/google/account/${qs}`);

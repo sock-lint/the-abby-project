@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from config.base_models import TimestampedModel
@@ -86,7 +86,25 @@ class User(AbstractUser):
                 defaults={"name": "Default Family"},
             )
             self.family_id = family.id
-        super().save(*args, **kwargs)
+        sensitive = {"password", "is_active", "family_id", "role"}
+        fields = kwargs.get("update_fields")
+        if self.pk and (fields is None or sensitive.intersection(fields) or "family" in fields):
+            # Serialize changes with exchange/revocation. A savepoint also keeps the
+            # invalidation marker atomic with password and membership updates.
+            using = kwargs.get("using") or self._state.db or "default"
+            with transaction.atomic(using=using):
+                previous = type(self).objects.using(using).select_for_update(no_key=True).filter(pk=self.pk).first()
+                changed = previous and any(
+                    getattr(previous, name) != getattr(self, name)
+                    for name in sensitive
+                    if fields is None or name in fields or (name == "family_id" and "family" in fields)
+                )
+                super().save(*args, **kwargs)
+                if changed:
+                    from apps.google_integration.oauth_exchange import invalidate_google_flows
+                    invalidate_google_flows(self.pk, using=using)
+        else:
+            super().save(*args, **kwargs)
 
     @property
     def display_label(self) -> str:

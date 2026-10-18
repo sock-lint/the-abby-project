@@ -5,6 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import Login from './Login.jsx';
 import { server } from '../test/server.js';
+import { GOOGLE_STATE, GOOGLE_URL, interceptGoogleNavigation } from '../test/googleAuthorization';
+import { setToken } from '../api/client';
 
 afterEach(() => {
   window.history.replaceState({}, '', '/');
@@ -26,7 +28,7 @@ describe('Login', () => {
   });
   it('renders the form fields', () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     renderLogin();
     expect(screen.getByLabelText(/^username$/i)).toBeInTheDocument();
@@ -36,7 +38,7 @@ describe('Login', () => {
 
   it('shows the "Create a family" link by default', () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     renderLogin();
     const link = screen.getByRole('link', { name: /create a family/i });
@@ -46,7 +48,7 @@ describe('Login', () => {
   it('hides the "Create a family" link when VITE_ALLOW_SIGNUP is false', () => {
     vi.stubEnv('VITE_ALLOW_SIGNUP', 'false');
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     renderLogin();
     expect(screen.queryByRole('link', { name: /create a family/i })).toBeNull();
@@ -54,7 +56,7 @@ describe('Login', () => {
 
   it('calls onLogin with entered credentials', async () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     const onLogin = vi.fn().mockResolvedValue();
     const user = userEvent.setup();
@@ -67,7 +69,7 @@ describe('Login', () => {
 
   it('displays an error when login fails', async () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     const onLogin = vi.fn().mockRejectedValue(new Error('bad password'));
     const user = userEvent.setup();
@@ -80,43 +82,70 @@ describe('Login', () => {
 
   it('shows the Google button when the backend advertises OAuth', async () => {
     server.use(
-      http.get('*/api/auth/google/login/', () =>
-        HttpResponse.json({ authorization_url: 'https://accounts.google.com/…' }),
+      http.get('*/api/auth/google/config/', () =>
+        HttpResponse.json({ configured: true }),
       ),
     );
     renderLogin();
     await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
   });
 
-  it('redirects to the Google OAuth URL when clicked', async () => {
-    const url = 'https://accounts.google.com/auth';
+  it('starts one proof-bound Google request on a double click and navigates only after success', async () => {
+    const starts = [];
+    let finish;
     server.use(
-      http.get('*/api/auth/google/login/', () =>
-        HttpResponse.json({ authorization_url: url }),
-      ),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: true })),
+      http.get('*/api/auth/google/login/', ({ request }) => {
+        starts.push(request);
+        return new Promise(resolve => { finish = () => resolve(HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 })); });
+      }),
     );
     const user = userEvent.setup();
-    renderLogin();
-    await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
-    // Stub window.location via defineProperty so assignment doesn't actually
-    // navigate jsdom.
-    const hrefSetter = vi.fn();
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: new Proxy(window.location, {
-        set(target, prop, value) {
-          if (prop === 'href') { hrefSetter(value); return true; }
-          target[prop] = value; return true;
-        },
+    const navigation = interceptGoogleNavigation();
+    try {
+      renderLogin();
+      const button = await screen.findByRole('button', { name: /sign in with google/i });
+      await user.dblClick(button);
+      await waitFor(() => expect(starts).toHaveLength(1));
+      expect(button).toBeDisabled();
+      expect(new URL(starts[0].url).searchParams.get('code_challenge')).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(starts[0].headers.get('authorization')).toBeNull();
+      finish();
+      await waitFor(() => expect(navigation.destinations).toEqual([GOOGLE_URL]));
+      expect(button).toBeDisabled();
+      const event = new Event('pageshow');
+      Object.defineProperty(event, 'persisted', { value: true });
+      window.dispatchEvent(event);
+      await waitFor(() => expect(button).toBeEnabled());
+      expect(sessionStorage.getItem('abby_google_authorization_v1')).toBeNull();
+    } finally { navigation.restore(); }
+  });
+
+  it('does not navigate a delayed Google start after another account signs in', async () => {
+    const requests = [];
+    let finish;
+    server.use(
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: true })),
+      http.get('*/api/auth/google/login/', () => {
+        requests.push(true);
+        return new Promise(resolve => { finish = () => resolve(HttpResponse.json({ authorization_url: GOOGLE_URL, state: GOOGLE_STATE, expires_in: 600 })); });
       }),
-    });
-    await user.click(screen.getByRole('button', { name: /sign in with google/i }));
-    await waitFor(() => expect(hrefSetter).toHaveBeenCalledWith(url));
+    );
+    const navigation = interceptGoogleNavigation();
+    try {
+      renderLogin();
+      await userEvent.click(await screen.findByRole('button', { name: /sign in with google/i }));
+      await waitFor(() => expect(requests).toHaveLength(1));
+      setToken('another-account');
+      finish();
+      await waitFor(() => expect(sessionStorage.getItem('abby_google_authorization_v1')).toBeNull());
+      expect(navigation.destinations).toEqual([]);
+    } finally { navigation.restore(); }
   });
 
   it('surfaces the ?google_error=no_account banner', () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     window.history.pushState({}, '', '/?google_error=no_account');
     renderLogin();
@@ -125,7 +154,7 @@ describe('Login', () => {
 
   it('surfaces the ?google_error=inactive banner', () => {
     server.use(
-      http.get('*/api/auth/google/login/', () => HttpResponse.json({})),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({})),
     );
     window.history.pushState({}, '', '/?google_error=inactive');
     renderLogin();
@@ -134,7 +163,7 @@ describe('Login', () => {
 
   it('hides the Google button if auth/google/login fails', async () => {
     server.use(
-      http.get('*/api/auth/google/login/', () =>
+      http.get('*/api/auth/google/config/', () =>
         HttpResponse.json({ error: 'nope' }, { status: 500 }),
       ),
     );
@@ -144,22 +173,23 @@ describe('Login', () => {
     expect(screen.queryByText(/sign in with google/i)).toBeNull();
   });
 
-  it('handles google login URL fetch error', async () => {
+  it('shows a failed start and retries with a fresh proof after an explicit click', async () => {
+    const starts = [];
     server.use(
-      http.get('*/api/auth/google/login/', () =>
-        HttpResponse.json({ authorization_url: 'x' }),
-      ),
+      http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: true })),
+      http.get('*/api/auth/google/login/', ({ request }) => {
+        starts.push(request);
+        return HttpResponse.json({ error: 'unavailable' }, { status: 503 });
+      }),
     );
     const user = userEvent.setup();
     renderLogin();
-    await waitFor(() => expect(screen.getByText(/sign in with google/i)).toBeInTheDocument());
-    // Second call (on click) fails:
-    server.use(
-      http.get('*/api/auth/google/login/', () =>
-        HttpResponse.json({ error: 'x' }, { status: 500 }),
-      ),
-    );
-    await user.click(screen.getByRole('button', { name: /sign in with google/i }));
+    const button = await screen.findByRole('button', { name: /sign in with google/i });
+    await user.click(button);
     expect(await screen.findByText(/could not start google sign-in/i)).toBeInTheDocument();
+    expect(button).toBeEnabled();
+    await user.click(button);
+    await waitFor(() => expect(starts).toHaveLength(2));
+    expect(new URL(starts[0].url).searchParams.get('code_challenge')).not.toBe(new URL(starts[1].url).searchParams.get('code_challenge'));
   });
 });

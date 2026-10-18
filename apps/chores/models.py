@@ -43,6 +43,10 @@ class Chore(TimestampedModel):
     recurrence = models.CharField(
         max_length=10, choices=Recurrence.choices, default=Recurrence.DAILY,
     )
+    due_date = models.DateField(
+        null=True, blank=True,
+        help_text="Optional household-local deadline for a one-time chore.",
+    )
     week_schedule = models.CharField(
         max_length=12,
         choices=WeekSchedule.choices,
@@ -106,6 +110,10 @@ class ChoreCompletion(ApprovalWorkflowModel, CreatedAtModel):
     )
     completed_date = models.DateField(
         help_text="The calendar date (or period-start for weekly) this completion covers.",
+    )
+    timing_snapshot = models.JSONField(
+        null=True, blank=True, default=None, editable=False,
+        help_text="Server-owned schedule and submission dates; unknown for legacy rows.",
     )
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING,

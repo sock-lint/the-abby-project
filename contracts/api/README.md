@@ -1,5 +1,27 @@
 # Shared API response fixtures
 
+`completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
+`completion-timing-homework-reviewed.json` and
+`completion-timing-homework-assignment.json` come from the real submission/read
+endpoints. They distinguish the weekly Monday period from a Friday submission,
+the original homework deadline from a later edit, and a later parent approval.
+`timing_snapshot` v1 freezes `timezone`, `submitted_at`, `submitted_on`,
+`schedule`, `period_start`, `period_end`, `due_on` and `timeliness`. Legacy rows
+remain null. Read-only nullable `current_due_date` is today's editable deadline,
+not historical evidence. Parent reviewed history uses the normal paginated
+`?status=reviewed&user_id=<verified child>` filters. Challenge payloads add
+nullable `completed_at`; legacy quest history does not invent a timestamp.
+The producer is `config.tests.test_submission_timing_api_contract_fixtures` and
+the React consumer is `src/api/submissionTimingContractFixtures.test.jsx`;
+both run in the required API fixtures workflow.
+
+`content-workbench-catalog.json` and `content-workbench-denied.json` bind the
+staff content editor's catalog, exact reward references, reverse item uses,
+simulation metadata and permission denial to real Django responses. Producers
+live in `config/tests/test_content_workbench_api_contract_fixtures.py`; React
+transport and editor consumption checks live in
+`frontend/src/api/contentWorkbenchContractFixtures.test.jsx`.
+
 `badges-rarity-bonuses.json` and `badges-earned-rarity-bonuses.json` verify real catalog/earned responses, opt-outs and family isolation.
 
 Rarity responses include server-derived badge `coin_bonus` (base, before a
@@ -75,6 +97,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
+| `google-auth-busy.json` | Google authorization start rejected with HTTP 503 at retained-transaction capacity, without saving another verifier or changing the user's credential |
 | `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; disconnected family Planning AI connection |
 | `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
@@ -337,6 +360,16 @@ run it from a complete checkout, not an isolated
 copy of `unity/AbbyCamp`.
 
 ## Check for drift
+
+`config.tests.test_progression_api_contract_fixtures` produces
+`progression-lab-metadata.json` and `progression-lab-report.json` through the
+real staff-parent endpoints, using fixed synthetic global skill, item, drop,
+companion, badge and challenge definitions. The report starts from zero and
+contains no household progress. The React consumer
+`src/api/progressionLabContractFixtures.test.js` checks the exact metadata and
+anonymous simulation request/response shapes. Both run in the API fixtures
+gate. See [Progression Lab](../../docs/operations/progression-lab.md) for the
+model boundary, conditional milestone percentiles and finite-content subset.
 
 `config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
 settings through real parent-only reads, saves and resets. The exact response
@@ -846,3 +879,17 @@ catalog artwork. Unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+Google sign-in/linking uses `google-auth-config.json` (public configuration),
+`google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
+(proof-verified login with the existing shared DRF token and UserSerializer),
+`google-auth-linked.json` (confirmed link), and `google-auth-busy.json`
+(HTTP 503 capacity refusal). The producer is
+`config.tests.test_google_auth_api_contract_fixtures`; the React consumer is
+`src/api/googleAuthContracts.test.js`. All tokens, Google identities and URLs
+are synthetic. The browser sends the verifier only in the exchange POST;
+callback URLs contain an opaque expiring ticket, never a DRF/Google token.
+The global bound includes spent and expired rows until bounded cleanup removes
+them. At capacity, a new start returns `code: authorization_busy` without saving
+another verifier; retry requires capacity to become available.
+See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).
