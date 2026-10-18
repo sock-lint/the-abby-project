@@ -32,6 +32,9 @@ share launches and item promises across mounts. Saved `expedition_limits`
 comparisons preserve the same Coin policy in both arms; show trip quality,
 pending promises and unavailable targets alongside runway. These policies are
 simulation only.
+Metadata and completed reports distinguish current from recorded incubation policy.
+Saved comparisons display their recorded policy and never infer current timing
+for legacy reports. Pending/ready eggs remain distinct from owned companions.
 Unreached milestones, conditional percentile dates, expired one-time windows
 and the model's finite-content subset stay explicit. See
 [`Progression Lab`](../../../docs/operations/progression-lab.md) and the shared

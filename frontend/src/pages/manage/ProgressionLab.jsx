@@ -23,6 +23,9 @@ import ProgressionExpeditionBudgetControls from './ProgressionExpeditionBudgetCo
 import ProgressionExpeditionBudgetReport from './ProgressionExpeditionBudgetReport';
 import ProgressionExperimentNotebook from './ProgressionExperimentNotebook';
 import { expeditionBudgetLabel, importedScenario, rewardPolicyLabel, scenariosMatch } from './progressionLabScenario';
+import PetIncubationPolicy from './PetIncubationPolicy';
+import PetIncubationState from './PetIncubationState';
+import PetIncubationJourney from './PetIncubationJourney';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -196,6 +199,7 @@ function AccountProgressionLab() {
                     <ChoiceField name="expedition_tier" label="Expedition length" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
                   </div>
                   <p className="text-caption text-ink-secondary mt-3">These values change this scenario only. Parent approvals are assumed complete. See model coverage below for the exact companion and reward behavior included.</p>
+                  <PetIncubationPolicy policy={metadata.pet_incubation_policy} context="metadata" />
                 </details>
                 {metadata.reward_budget_defaults && metadata.reward_budget_limits && <ProgressionRewardBudgetControls budget={config.reward_budget ?? metadata.reward_budget_defaults}
                   limits={metadata.reward_budget_limits} onChange={(budget) => setConfig((previous) => ({ ...previous, reward_budget: budget, ...(budget.daily_coins != null ? { reward_commitment: { enabled: false } } : {}) }))} error={fieldErrors.reward_budget ?? fieldErrors['reward_budget.daily_coins']} />}
@@ -279,6 +283,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     {baseline && <p className="text-caption text-ink-secondary">Purchasing is {report.economy?.enabled ? 'on' : 'off'} in this report and {baseline.economy?.enabled ? 'on' : 'off'} in the comparison. {!scenariosMatch(report.config.economy, baseline.config.economy) && 'Purchasing assumptions differ; review their offers, budgets and earned-money assumptions alongside the totals.'}</p>}
     {baseline && (report.reward_budget || baseline.reward_budget) && <p className="text-caption text-ink-secondary">Reward policy: {rewardPolicyLabel(report.config)} in this report; {rewardPolicyLabel(baseline.config)} in the comparison.</p>}
     {baseline && <p className="text-caption text-ink-secondary">Expedition limits: {expeditionBudgetLabel(report.config.expedition_budget)} in this report; {expeditionBudgetLabel(baseline.config.expedition_budget)} in the comparison.</p>}
+    <PetIncubationPolicy policy={report.pet_incubation_policy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Modeled runway at a glance">Finite targets include eligible modeled badges, one-time challenges, obtainable cosmetics and companion stages. They describe a subset of Abby’s content, not total app exhaustion.</SectionHeader>
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -311,6 +316,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label={`Day ${snapshot.day} median state`}>
           {[['Discovered', snapshot.finite_completed_p50], ['Modeled targets not completed', snapshot.finite_remaining_p50], [report.economy?.enabled ? 'Coins available' : 'Coins saved', snapshot.coins_p50], ['Total XP', snapshot.total_xp_p50], ['Character level', snapshot.level_p50], ['Inventory units held', snapshot.inventory_units_p50], ['Hatched companions', snapshot.pets_p50], ['Grown companions', snapshot.mounts_p50], ['Expired unfinished challenges', snapshot.expired_oneoff_challenges_p50]].map(([label, value]) => <div key={label} className="rounded-lg bg-ink-page-aged p-3"><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold text-ink-primary">{number(value)}</dd></div>)}
         </dl>
+        <PetIncubationState snapshot={snapshot} />
       </> : <p>No timeline is available for this report.</p>}
     </ParchmentCard>
     <ParchmentCard className="space-y-3">
@@ -323,11 +329,12 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     <ProgressionEconomyReport economy={report.economy} baseline={baseline?.economy} config={report.config.economy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Inspect a reproducible journey">Representative trial seed: {report.journey?.seed ?? report.config.seed}. This event log describes one child; the summaries above describe the whole group.</SectionHeader>
+      <PetIncubationJourney events={report.journey?.events} policy={report.pet_incubation_policy} truncated={report.journey?.truncated} />
       <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show event receipts</summary>
         <pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify(report.journey?.events ?? [], null, 2)}</pre>
         {report.journey?.truncated && <p className="text-caption text-ink-secondary">The event preview is bounded. The report marks it as truncated.</p>}
       </details>
-      <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show exact scenario and model summary</summary><pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify({ config: report.config, summary: report.summary, engine_version: report.engine_version, source_commit: report.source_commit, rules_fingerprint: report.rules_fingerprint, catalog_fingerprint: report.catalog.fingerprint }, null, 2)}</pre></details>
+      <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show exact scenario and model summary</summary><pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify({ config: report.config, summary: report.summary, pet_incubation_policy: report.pet_incubation_policy, engine_version: report.engine_version, source_commit: report.source_commit, rules_fingerprint: report.rules_fingerprint, catalog_fingerprint: report.catalog.fingerprint }, null, 2)}</pre></details>
     </ParchmentCard>
   </section>;
 }

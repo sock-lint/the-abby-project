@@ -2,13 +2,15 @@
 from io import StringIO
 from pathlib import Path
 import tempfile
+from uuid import uuid4
 
 from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.mcp_server.shapes import item_definition_to_dict, user_pet_to_dict
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.serializers import (
     PetCodexEntrySerializer, PetSpeciesCatalogSerializer, PetSpeciesSerializer,
     UserMountSerializer,
@@ -183,12 +185,16 @@ class CompanionLifecycleTests(TestCase):
             "schema_version": 1, "potion_slugs": ["base"],
             "pets": [{"species_slug": "future-fox", "sprite_key": "future-fox", "potion_slugs": ["base"]}],
         }):
-            response = self.client.post("/api/pets/hatch/", {
-                "egg_item_id": egg.pk, "potion_item_id": potion.pk, "lifecycle_stage": "grown",
+            start = self.client.post("/api/pets/incubations/", {
+                "egg_item_id": egg.pk, "potion_item_id": potion.pk, "lifecycle_stage": "grown", "request_id": str(uuid4()),
             }, format="json")
+        self.assertEqual(start.status_code, 201)
+        incubation_id = start.json()["incubation"]["id"]
+        PetIncubation.objects.filter(pk=incubation_id).update(ready_at=timezone.now())
+        response = self.client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json().get("lifecycle_stage"), "baby")
-        self.assertEqual(response.json()["growth_points"], 0)
+        self.assertEqual(response.json()["pet"].get("lifecycle_stage"), "baby")
+        self.assertEqual(response.json()["pet"]["growth_points"], 0)
         self.assertFalse(UserInventory.objects.filter(user=self.child, item__in=[egg, potion]).exists())
         self.assertEqual(UserPet.objects.filter(user=self.child).count(), 1)
         self.assertFalse(UserMount.objects.filter(user=self.child).exists())

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getInventory, getStable, hatchPet } from '../../../api';
+import { getIncubation, getInventory, getStable, hatchIncubation, startIncubation } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
@@ -17,11 +17,15 @@ import PetCeremonyModal from '../PetCeremonyModal';
 import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
+import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import EggCollection from './EggCollection';
 import usePetMutationGuard from '../party/usePetMutationGuard';
+import IncubationCard from './IncubationCard';
+import useIncubationRefresh from './useIncubationRefresh';
+import { formatExpeditionRemaining } from '../party/party.constants';
 
 export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const {
@@ -31,15 +35,24 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     data: inventoryData, loading: loadingInventory, error: inventoryError,
     reload: reloadInventory,
   } = useApi(getInventory, [refreshRevision]);
+  const {
+    data: incubationData, loading: loadingIncubation, refreshing: refreshingIncubation,
+    error: incubationError, reload: reloadIncubation, setData: setIncubationData,
+  } = useApi(getIncubation, [refreshRevision]);
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
   const [hatchEgg, setHatchEgg] = useState('');
   const [hatchPotion, setHatchPotion] = useState('');
   const [hatchSuccess, setHatchSuccess] = useState(null);
   const [hatchCeremony, setHatchCeremony] = useState(null);
+  const startRequest = useRef(null);
   const beginMutation = usePetMutationGuard();
+  const incubation = incubationData?.incubation;
+  useIncubationRefresh(incubation, reloadIncubation);
 
-  if (loadingStable || loadingInventory) return <Loader />;
+  // Incubation status, its retry, and hatch receipts are independent of the
+  // supplies reads. Those reads have their own loading state below.
+  if (loadingIncubation) return <Loader />;
 
   const mounts = stableData?.mounts || [];
   const inventory = normalizeList(inventoryData);
@@ -54,16 +67,17 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     && [...(stableData?.pets || []), ...mounts].some((pet) =>
       pet.species?.slug === selectedEggSpecies.slug && pet.potion?.slug === selectedPotion.slug);
 
-  const refresh = () => { reloadStable(); reloadInventory(); };
+  const refresh = () => { reloadStable(); reloadInventory(); reloadIncubation(); };
   const changed = onChanged || refresh;
+  const suppliesLoaded = !!inventoryData && !!stableData;
 
   // A failed satchel fetch used to render "No eggs or potions in your Satchel
   // yet — drops fall from clocked work…", which reads as "you own nothing"
   // rather than "we couldn't load it", with no way to retry.
-  const fetchError = stableError || inventoryError;
+  const fetchError = stableError || inventoryError || incubationError;
   // Inventory supplies the ingredients and the stable prevents duplicate
   // hatches. Both reads are needed to show the available choices.
-  if (fetchError && (!inventoryData || !stableData)) {
+  if (incubationError && !incubationData) {
     return (
       <div className="space-y-3 max-w-xl mx-auto">
         <ErrorAlert message={fetchError} />
@@ -74,24 +88,54 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     );
   }
 
-  const handleHatch = async () => {
-    if (!selectedEggItem || !selectedPotionItem || alreadyOwned) return;
+  const handleStart = async () => {
+    if (!selectedEggItem || !selectedPotionItem || alreadyOwned || incubation || fetchError || refreshingIncubation) return;
     const request = beginMutation();
     if (!request) return;
     setWorking(true);
     setError('');
     try {
-      const pet = await hatchPet(hatchEgg, hatchPotion);
+      const pair = `${hatchEgg}:${hatchPotion}`;
+      if (startRequest.current?.pair !== pair) startRequest.current = { pair, id: crypto.randomUUID() };
+      const receipt = await startIncubation(hatchEgg, hatchPotion, startRequest.current.id);
       if (!request.isCurrent()) return;
-      setHatchSuccess({
-        speciesName: companionFormName(pet?.species, pet?.potion, 'baby'),
-        potionName: pet?.potion?.name,
-      });
-      setHatchCeremony(pet);
+      startRequest.current = null;
+      const completed = receipt.incubation?.status === 'hatched';
+      setIncubationData((previous) => ({ ...previous, ...receipt, incubation: completed ? null : receipt.incubation }));
+      setHatchSuccess(completed ? {
+        petId: receipt.incubation.pet_id,
+        speciesName: companionFormName(receipt.incubation.species, receipt.incubation.potion_type, 'baby'),
+        potionName: receipt.incubation.potion_type?.name,
+        fresh: false,
+      } : null);
       setHatchEgg('');
       setHatchPotion('');
       changed();
-    } catch (e) { if (request.isCurrent()) setError(e.message); }
+    } catch (e) {
+      if (request.isCurrent()) { setError(e.message); void reloadIncubation(); }
+    } finally { if (request.isCurrent()) setWorking(false); request.finish(); }
+  };
+
+  const handleHatch = async () => {
+    if (!incubation?.is_ready || incubationError || refreshingIncubation) return;
+    const request = beginMutation();
+    if (!request) return;
+    setWorking(true);
+    setError('');
+    try {
+      const receipt = await hatchIncubation(incubation.id);
+      if (!request.isCurrent()) return;
+      const pet = receipt.pet;
+      setIncubationData((previous) => ({ ...previous, ...receipt, incubation: null }));
+      setHatchSuccess({
+        petId: pet?.id,
+        speciesName: companionFormName(pet?.species, pet?.potion, 'baby'),
+        potionName: pet?.potion?.name,
+        fresh: receipt.freshly_hatched === true,
+      });
+      if (receipt.freshly_hatched === true) setHatchCeremony(pet);
+      changed();
+    } catch (e) { if (request.isCurrent()) { setError(e.message); void reloadIncubation(); } }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
 
@@ -111,20 +155,27 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
-        Combine one egg and one potion to hatch a baby. Care helps it reach its middle stage at 50 growth and its grown form at 100.
+        Incubate one egg with one potion, then hatch a baby when it is ready. Care helps it reach its middle stage at 50 growth and its grown form at 100.
       </p>
 
       {/* Covers the partial case too — stable loaded, satchel didn't. */}
       <ErrorAlert message={error || fetchError} />
+      {fetchError && <Button variant="secondary" size="sm" onClick={refresh}>Try again</Button>}
 
+      {incubation && <IncubationCard egg={incubation.egg} potion={incubation.potion}
+        remainingSeconds={incubation.remaining_seconds} isReady={incubation.is_ready}
+        snapshotKey={incubation} working={working} refreshing={refreshingIncubation} blocked={!!incubationError}
+        onHatch={handleHatch} onRefresh={reloadIncubation} />}
+
+      {suppliesLoaded ? <>
       <EggCollection eggs={allEggs.map((entry) => ({ ...entry, available: isCatalogAvailable(entry.item) }))}
         potionCount={potions.reduce((total, entry) => total + entry.quantity, 0)}
         selectedId={hatchEgg} onSelect={setHatchEgg} working={working} />
 
       <ParchmentCard flourish>
-        <ChapterRubric index={0} name="Hatch a new pet" icon="✨" />
+        <ChapterRubric index={0} name="Incubate a new pet" icon="✨" />
         <p className="font-script text-sm text-ink-whisper mb-3">
-          Choose an available egg and a compatible potion to hatch your companion.
+          Choose an available egg and a compatible potion. Incubation takes {formatExpeditionRemaining(incubationData?.duration_seconds) || 'some time'} and continues while you are away.
         </p>
 
         {eggs.length === 0 ? (
@@ -148,7 +199,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
                 id="hatch-egg"
                 label="Egg"
                 value={hatchEgg}
-                disabled={working}
+                disabled={working || !!incubation}
                 onChange={(e) => setHatchEgg(e.target.value)}
               >
                 <option value="">Select an egg…</option>
@@ -162,7 +213,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
                 id="hatch-potion"
                 label="Potion"
                 value={hatchPotion}
-                disabled={working || potions.length === 0}
+                disabled={working || !!incubation || potions.length === 0}
                 onChange={(e) => setHatchPotion(e.target.value)}
               >
                 <option value="">Select a potion…</option>
@@ -179,16 +230,19 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
               <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep" to="/bestiary?tab=companions">Care for companions</Link>
             </div>}
             <Button
-              onClick={handleHatch}
-              disabled={!selectedEggItem || !selectedPotionItem || alreadyOwned || working}
+              onClick={handleStart}
+              disabled={!selectedEggItem || !selectedPotionItem || alreadyOwned || working || !!incubation || !!fetchError || refreshingIncubation}
               className="w-full mt-3"
             >
-              {working ? 'Hatching…' : 'Hatch pet'}
+              {working && !incubation ? 'Starting…' : 'Start incubation'}
             </Button>
-            <p className="mt-2 text-caption text-ink-secondary">Hatching uses 1 egg and 1 potion. Each species and potion pair can join your collection once.</p>
+            <p className="mt-2 text-caption text-ink-secondary">Starting incubation uses 1 egg and 1 potion. Each species and potion pair can join your collection once.</p>
+            {incubation && <p className="mt-2 text-caption text-ink-secondary">Finish hatching your current egg before starting another.</p>}
             </div>
           </div>
         )}
+
+        {(eggs.length === 0 || potions.length === 0) && <div className="mt-3"><PetSuppliesGuide /></div>}
 
         {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
           <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>
@@ -199,12 +253,20 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
           <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" />
         </section>}
 
-        {hatchSuccess && (
-          <div role="status" className="mt-3 font-body text-body text-moss">
-            ✨ You hatched a {hatchSuccess.potionName} {hatchSuccess.speciesName}!
+      </ParchmentCard>
+      </> : (loadingStable || loadingInventory) && <Loader />}
+
+      {hatchSuccess && (
+          <div className="space-y-2 font-body text-body">
+            <p role="status" className="text-moss">{hatchSuccess.fresh
+              ? `✨ You hatched a ${hatchSuccess.potionName} ${hatchSuccess.speciesName}!`
+              : `Your ${hatchSuccess.potionName} ${hatchSuccess.speciesName} is ready for care.`}</p>
+            <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep"
+              to={`/bestiary?tab=companions${hatchSuccess.petId != null ? `&pet=${encodeURIComponent(hatchSuccess.petId)}` : ''}`}>
+              Care for your new pet
+            </Link>
           </div>
         )}
-      </ParchmentCard>
     </div>
   );
 }

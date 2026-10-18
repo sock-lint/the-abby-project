@@ -648,8 +648,11 @@ export const getRecentDrops = () => api.get('/drops/recent/');
 // Pets
 export const getStable = () => api.get('/pets/stable/');
 export const getPetCodex = () => api.get('/pets/codex/');
-export const hatchPet = (eggItemId, potionItemId) =>
-  api.post('/pets/hatch/', { egg_item_id: eggItemId, potion_item_id: potionItemId });
+export const getIncubation = () => api.get('/pets/incubations/');
+export const startIncubation = (eggItemId, potionItemId, requestId) =>
+  api.post('/pets/incubations/', { egg_item_id: eggItemId, potion_item_id: potionItemId, request_id: requestId });
+export const hatchIncubation = (incubationId) =>
+  api.post(`/pets/incubations/${incubationId}/hatch/`);
 export const feedPet = (petId, foodItemId) =>
   api.post(`/pets/${petId}/feed/`, { food_item_id: foodItemId });
 export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);

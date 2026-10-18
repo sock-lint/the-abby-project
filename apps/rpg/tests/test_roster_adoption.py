@@ -4,15 +4,26 @@ import json
 from pathlib import Path
 import tempfile
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.test import TestCase, override_settings
+from django.utils import timezone
 
-from apps.pets.models import PetSpecies, PotionType, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserPet
 from apps.pets.services import PetService
 from apps.rpg.catalog_support import item_is_available, pet_is_available
 from apps.rpg.content.loader import ContentPack, ContentPackError
 from apps.rpg.models import DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
+
+
+def _claim_test_incubation(user, egg_item_id, potion_item_id):
+    incubation, _ = PetService.start_incubation(user, egg_item_id, potion_item_id, uuid4())
+    # Only the disposable test row's deadline moves. The real explicit claim
+    # remains responsible for materialization, badges and Chronicle hooks.
+    PetIncubation.objects.filter(pk=incubation.pk).update(ready_at=timezone.now())
+    _, pet, _ = PetService.hatch_incubation(user, incubation.pk)
+    return pet
 
 
 ROSTER = json.loads(Path("shared/catalog/companion-roster.json").read_text())
@@ -279,7 +290,7 @@ class PreparedEggIdentityTests(TestCase):
 
     def test_exact_typed_canonical_egg_hatches_without_consuming_legacy_ownership(self):
         self.assertTrue(item_is_available(self.egg))
-        pet = PetService.hatch_pet(self.user, self.egg.pk, self.potion.pk)
+        pet = _claim_test_incubation(self.user, self.egg.pk, self.potion.pk)
         self.assertEqual(pet.species_id, self.species.pk)
         self.assertEqual(pet.potion_id, self.base.pk)
         self.assertEqual(pet.growth_points, 0)
@@ -311,7 +322,7 @@ class PreparedEggIdentityTests(TestCase):
                 self.egg.save()
                 self.assertFalse(item_is_available(self.egg))
                 with self.assertRaises(ValueError):
-                    PetService.hatch_pet(self.user, self.egg.pk, self.potion.pk)
+                    PetService.start_incubation(self.user, self.egg.pk, self.potion.pk, uuid4())
                 self.assertEqual(UserInventory.objects.get(user=self.user, item=self.egg).quantity, 1)
                 self.assertFalse(UserPet.objects.filter(user=self.user).exists())
 
@@ -321,7 +332,7 @@ class PreparedEggIdentityTests(TestCase):
         self.egg.metadata = {"species": "Bat"}
         self.egg.save()
         with self.assertRaises(ValueError):
-            PetService.hatch_pet(self.user, self.egg.pk, self.potion.pk)
+            PetService.start_incubation(self.user, self.egg.pk, self.potion.pk, uuid4())
         self.assertFalse(item_is_available(self.egg))
         self.assertEqual(UserInventory.objects.get(user=self.user, item=self.egg).quantity, 1)
         self.assertEqual(UserInventory.objects.get(user=self.user, item=self.potion).quantity, 1)
@@ -337,7 +348,7 @@ class PreparedEggIdentityTests(TestCase):
                 self.potion.slug, self.potion.potion_type, self.potion.metadata = slug, potion, metadata
                 self.potion.save()
                 with self.assertRaises(ValueError):
-                    PetService.hatch_pet(self.user, self.egg.pk, self.potion.pk)
+                    PetService.start_incubation(self.user, self.egg.pk, self.potion.pk, uuid4())
                 self.assertEqual(UserInventory.objects.get(user=self.user, item=self.potion).quantity, 1)
                 self.assertEqual(UserInventory.objects.get(user=self.user, item=self.egg).quantity, 1)
                 self.assertFalse(UserPet.objects.filter(user=self.user).exists())
@@ -387,7 +398,7 @@ class CanonicalChickEggTests(TestCase):
         self.egg.metadata = {"species": "Chick"}
         self.egg.save()
         with self.assertRaises(ValueError):
-            PetService.hatch_pet(self.child, self.egg.pk, self.potion.pk)
+            PetService.start_incubation(self.child, self.egg.pk, self.potion.pk, uuid4())
         self.assertFalse(item_is_available(self.egg))
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.egg).quantity, 2)
         self.assertFalse(UserPet.objects.filter(user=self.child).exists())
@@ -400,10 +411,10 @@ class CanonicalChickEggTests(TestCase):
                 self.egg.save()
                 self.assertFalse(item_is_available(self.egg))
                 with self.assertRaises(ValueError):
-                    PetService.hatch_pet(self.child, self.egg.pk, self.potion.pk)
+                    PetService.start_incubation(self.child, self.egg.pk, self.potion.pk, uuid4())
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.egg).quantity, 2)
 
     def test_exact_retained_chick_still_hatches(self):
         self.assertTrue(item_is_available(self.egg))
-        pet = PetService.hatch_pet(self.child, self.egg.pk, self.potion.pk)
+        pet = _claim_test_incubation(self.child, self.egg.pk, self.potion.pk)
         self.assertEqual((pet.species_id, pet.potion_id, pet.growth_points), (self.chick.pk, self.base.pk, 0))

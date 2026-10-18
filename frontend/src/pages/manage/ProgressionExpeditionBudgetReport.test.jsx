@@ -33,6 +33,22 @@ describe('Shared expedition forecast', () => {
     expect(within(region).getByRole('table', { name: 'Experiment success criteria' })).toBeVisible();
   });
 
+  it('uses saved incubation timing and preserves legacy comparison bodies without inferring the current policy', () => {
+    const policy = { duration_seconds: 86400, max_active: 1, clock: 'elapsed_seconds', start_strategy: 'first_compatible_pair_during_care', claim_strategy: 'next_active_care_visit_at_or_after_ready' };
+    const saved = { ...comparison, control: { ...comparison.control, pet_incubation_policy: policy }, candidate: { ...comparison.candidate, pet_incubation_policy: policy } };
+    const original = JSON.stringify(saved);
+    const { rerender } = renderWithProviders(<ExperimentComparison comparison={saved} dirty={false} />);
+    expect(within(screen.getByRole('region', { name: 'Recorded incubation policy' })).getByText('24 hours')).toBeVisible();
+    expect(JSON.stringify(saved)).toBe(original);
+    const legacy = JSON.parse(original);
+    delete legacy.control.pet_incubation_policy;
+    delete legacy.candidate.pet_incubation_policy;
+    rerender(<ExperimentComparison comparison={legacy} dirty={false} />);
+    expect(screen.getByText(/This report did not record an incubation policy/)).toBeVisible();
+    expect(screen.queryByText('24 hours')).toBeNull();
+    expect(legacy.candidate).not.toHaveProperty('pet_incubation_policy');
+  });
+
   it('keeps older reports readable without invented expedition totals', () => {
     renderWithProviders(<ProgressionExpeditionBudgetReport />);
     expect(screen.queryByRole('region', { name: 'Expedition budget forecast' })).toBeNull();

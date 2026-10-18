@@ -7,10 +7,19 @@ from rest_framework.test import APITestCase
 
 from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies, PotionType
-from apps.quests.models import QuestDefinition, QuestSkillTag
+from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.models import DropTable, ItemDefinition
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
+
+
+INCUBATION_POLICY = {
+    "duration_seconds": 86400,
+    "max_active": 1,
+    "clock": "elapsed_seconds",
+    "start_strategy": "first_compatible_pair_during_care",
+    "claim_strategy": "next_active_care_visit_at_or_after_ready",
+}
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None, SOURCE_COMMIT="")
@@ -61,9 +70,10 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         QuestSkillTag.objects.create(id=562, quest_definition=quest, skill=persistence, xp_weight=1)
 
     def test_metadata_and_seeded_report_match_shared_wire_contract(self):
-        metadata = self.assert_response_fixture(
-            self.client.get("/api/rpg/progression-lab/"), "progression-lab-metadata.json",
-        )
+        metadata_response = self.client.get("/api/rpg/progression-lab/")
+        self.assertEqual(metadata_response.status_code, 200, metadata_response.data)
+        self.assertEqual(metadata_response.json().get("pet_incubation_policy"), INCUBATION_POLICY)
+        metadata = self.assert_response_fixture(metadata_response, "progression-lab-metadata.json")
         self.assertEqual(metadata["catalog"]["supported_pet_variants"], 1)
         self.assertEqual(metadata["catalog"]["supported_items"], 5)
         report = self.assert_response_fixture(self.client.post(
@@ -76,6 +86,8 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertEqual(len(report["trace"]), 30)
         self.assertTrue(report["journey"]["events"])
         self.assertEqual(report["coverage"]["initial_state"]["coins"], 0)
+        self.assertEqual(report["pet_incubation_policy"], INCUBATION_POLICY)
+        self.assertEqual(report["rules_fingerprint"], metadata["rules_fingerprint"])
 
     def test_purchases_and_money_match_shared_wire_contract(self):
         response = self.client.post(
@@ -106,6 +118,7 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         )
         self.assertEqual(response.status_code, 200, response.data)
         report = self.assert_response_fixture(response, "progression-lab-economy-report.json")
+        self.assertEqual(report["pet_incubation_policy"], INCUBATION_POLICY)
         self.assertTrue(report["economy"]["enabled"])
         self.assertEqual(report["config"]["economy"]["start_date"], "2026-01-20")
 
@@ -126,6 +139,7 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertGreater(budget["omitted_coins"]["p50"], 0)
         self.assertLessEqual(budget["awarded_coins"]["p90"], 5 * response.data["summary"]["active_days"])
         self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")
+        self.assertEqual(response.json()["pet_incubation_policy"], INCUBATION_POLICY)
 
     def test_full_value_commitments_match_shared_wire_contract(self):
         response = self.client.post("/api/rpg/progression-lab/simulate/", {
@@ -268,3 +282,66 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         ProgressionObservation.objects.filter(pk=observation.json()["observations"][0]["id"]).update(id="00000000-0000-4000-8000-000000000004")
         snapshot = self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-observed.json")
         self.assertEqual(snapshot["observations"][0]["status"], "insufficient_evidence")
+
+    def test_companion_badges_pay_once_when_care_reaches_their_milestones(self):
+        quest = QuestDefinition.objects.get(pk=561)
+        quest.target_value = 1
+        quest.save(update_fields=["target_value"])
+        for item_id, quantity in ((531, 1), (532, 1), (533, 30)):
+            QuestRewardItem.objects.create(quest_definition=quest, item_id=item_id, quantity=quantity)
+        names = ["First lab hatch", "First lab species", "First lab grown companion"]
+        for pk, name, criteria_type, rarity, xp_bonus in (
+            (552, names[0], "pets_hatched", "common", 7),
+            (553, names[1], "pet_species_owned", "uncommon", 8),
+            (554, names[2], "mounts_evolved", "rare", 9),
+        ):
+            Badge.objects.create(
+                id=pk, name=name, criteria_type=criteria_type, criteria_value={"count": 1},
+                rarity=rarity, xp_bonus=xp_bonus,
+            )
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 1, "seed": 17, "reading_minutes": 0,
+            "chores_per_day": 1, "chore_coins": 5, "chore_xp": 100,
+            "habits_per_day": 0, "journal_per_day": False, "expeditions_per_day": 0,
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        report = response.json()
+        earned = [event for event in report["journey"]["events"]
+                  if event["source"] == "badge_earned" and event["target"] in names]
+        # Exercise the real endpoint independently of the generated snapshots.
+        self.assertEqual([(event["target"], event["day"]) for event in earned],
+                         [(name, 2) for name in names])
+        self.assertEqual(report["pet_incubation_policy"], INCUBATION_POLICY)
+        first_day, claim_day = report["trace"][:2]
+        self.assertEqual((first_day["incubating_eggs_p50"], first_day["ready_eggs_p50"],
+                          first_day["pets_p50"], first_day["mounts_p50"], first_day["badges_p50"]),
+                         (1, 0, 0, 0, 1))
+        self.assertEqual((claim_day["incubating_eggs_p50"], claim_day["ready_eggs_p50"],
+                          claim_day["pets_p50"], claim_day["mounts_p50"], claim_day["badges_p50"]),
+                         (0, 0, 1, 1, 4))
+        started = next(event for event in report["journey"]["events"] if event["source"] == "incubation_started")
+        self.assertEqual((started["day"], started["duration_seconds"], started["ready_day"]), (1, 86400, 2))
+        ready = next(event for event in report["journey"]["events"] if event["source"] == "incubation_ready")
+        self.assertEqual(ready["day"], 2)
+        self.assertEqual(report["summary"]["finite_breakdown"]["badge"], 4)
+        self.assertTrue(all(day["badges_p50"] == 4 for day in report["trace"][1:]))
+        badges = next(source for source in report["flows"]["sources"] if source["source"] == "badges")
+        self.assertEqual((badges["coins"], badges["xp"]), (60.0, 29.0))
+        self.assert_response_fixture(response, "progression-lab-pet-incubation-report.json")
+
+    def test_metadata_and_report_capture_duration_setting_without_rewriting_an_earlier_report(self):
+        scenario = {"horizon_days": 30, "trials": 1, "seed": 17}
+        original = self.client.post("/api/rpg/progression-lab/simulate/", scenario, format="json")
+        self.assertEqual(original.status_code, 200, original.data)
+        original = original.json()
+        self.assertEqual(original.get("pet_incubation_policy"), INCUBATION_POLICY)
+        with override_settings(PET_INCUBATION_DURATION_SECONDS=172800):
+            metadata = self.client.get("/api/rpg/progression-lab/")
+            changed = self.client.post("/api/rpg/progression-lab/simulate/", scenario, format="json")
+        self.assertEqual((metadata.status_code, changed.status_code), (200, 200))
+        policy = {**INCUBATION_POLICY, "duration_seconds": 172800}
+        self.assertEqual(metadata.json()["pet_incubation_policy"], policy)
+        self.assertEqual(changed.json()["pet_incubation_policy"], policy)
+        self.assertEqual(metadata.json()["rules_fingerprint"], changed.json()["rules_fingerprint"])
+        self.assertNotEqual(original["rules_fingerprint"], changed.json()["rules_fingerprint"])
+        self.assertEqual(original["pet_incubation_policy"], INCUBATION_POLICY)

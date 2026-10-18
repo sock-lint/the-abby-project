@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta
 from django.utils import timezone
 from django.utils.functional import cached_property
 from rest_framework import serializers
-from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
+from .models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserPet, UserMount
 from .lifecycle import LIFECYCLE_STAGES, companion_lifecycle_stage
 from .rarity import companion_rarity
 from .services import bird_evolution_stage
@@ -46,6 +46,45 @@ class PotionTypeSerializer(serializers.ModelSerializer):
 
     def get_catalog_available(self, obj):
         return potion_is_available(obj)
+
+
+class StartIncubationSerializer(serializers.Serializer):
+    egg_item_id = serializers.IntegerField(min_value=1)
+    potion_item_id = serializers.IntegerField(min_value=1)
+    request_id = serializers.UUIDField()
+
+
+class PetIncubationSerializer(serializers.ModelSerializer):
+    egg = serializers.JSONField(source="accepted_pair.egg", read_only=True)
+    potion = serializers.JSONField(source="accepted_pair.potion", read_only=True)
+    species = serializers.JSONField(source="accepted_pair.species", read_only=True)
+    potion_type = serializers.JSONField(source="accepted_pair.potion_type", read_only=True)
+    remaining_seconds = serializers.SerializerMethodField()
+    is_ready = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    pet_id = serializers.IntegerField(read_only=True, allow_null=True)
+
+    class Meta:
+        model = PetIncubation
+        fields = ["id", "egg", "potion", "species", "potion_type", "started_at", "ready_at", "remaining_seconds", "is_ready", "status", "hatched_at", "pet_id"]
+        read_only_fields = fields
+
+    @cached_property
+    def as_of(self):
+        return self.context.get("as_of") or timezone.now()
+
+    def get_remaining_seconds(self, obj):
+        if obj.hatched_at is not None:
+            return 0
+        return max(0, math.ceil((obj.ready_at - self.as_of).total_seconds()))
+
+    def get_is_ready(self, obj):
+        return obj.hatched_at is None and obj.ready_at <= self.as_of
+
+    def get_status(self, obj):
+        if obj.hatched_at is not None:
+            return "hatched"
+        return "ready" if self.get_is_ready(obj) else "incubating"
 
 
 class PotionTypeMiniSerializer(serializers.ModelSerializer):

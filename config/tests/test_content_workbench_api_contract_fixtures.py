@@ -8,6 +8,7 @@ from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.models import DropTable, ItemDefinition
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
+from config.tests.test_progression_api_contract_fixtures import INCUBATION_POLICY
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], SOURCE_COMMIT="", RPG_ASSET_SUPPORT_POLICY=None)
@@ -46,6 +47,7 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
         self.assertEqual(len(body["catalog"]["items"]), 1)
         self.assertEqual(len(body["catalog"]["quests"]), 1)
         self.assertEqual(body["drafts"], [])
+        self.assertEqual(body["simulation"]["pet_incubation_policy"], INCUBATION_POLICY)
 
     def test_regular_parents_cannot_inspect_the_authoring_workspace(self):
         self.designer.is_staff = False

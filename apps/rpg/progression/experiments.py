@@ -17,7 +17,7 @@ from apps.accounts.models import User
 from apps.quests.activity import household_timezone
 from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
 from .catalog import load_catalog
-from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, rules_fingerprint, simulate_progression
+from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, pet_incubation_policy, rules_fingerprint, simulate_progression
 from .feedback import evaluate_comparison, feedback_fingerprint, feedback_metadata, normalize_targets
 
 MAX_EXPERIMENTS = 20
@@ -129,8 +129,8 @@ def _snapshot(experiment):
     )}
 
 
-def _binding(catalog):
-    return {"engine_version": ENGINE_VERSION, "rules_fingerprint": rules_fingerprint(),
+def _binding(catalog, *, incubation_policy=None):
+    return {"engine_version": ENGINE_VERSION, "rules_fingerprint": rules_fingerprint(incubation_policy=incubation_policy),
             "feedback_fingerprint": feedback_fingerprint(),
             "catalog_fingerprint": catalog.fingerprint,
             "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable"}
@@ -240,9 +240,10 @@ def compare_experiment(actor, experiment_id, revision):
         catalog = load_catalog()
     except ValueError as exc:
         raise ExperimentUnavailable(str(exc)) from exc
-    binding = _binding(catalog)
-    control = simulate_progression(control_config, catalog=catalog)
-    candidate = simulate_progression(candidate_config, catalog=catalog)
+    incubation_policy = pet_incubation_policy()
+    binding = _binding(catalog, incubation_policy=incubation_policy)
+    control = simulate_progression(control_config, catalog=catalog, incubation_policy=incubation_policy)
+    candidate = simulate_progression(candidate_config, catalog=catalog, incubation_policy=incubation_policy)
     evaluation = evaluate_comparison(control, candidate, inputs["targets"])
     if len(json.dumps({"inputs": inputs, "control": control, "candidate": candidate,
                        "evaluation": evaluation, "binding": binding}).encode()) > MAX_EVIDENCE_BYTES:

@@ -156,7 +156,7 @@ the-abby-project/
 │   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 30 tool modules / 222 tools
+│   └── mcp_server/          # FastMCP server with 30 tool modules / 224 tools
 │                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
@@ -526,7 +526,10 @@ header sent) are exempt — they surface the 401 as a normal error.
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/pets/stable/` | Full pet + mount collection with stats |
-| POST | `/api/pets/hatch/` | Hatch an egg + potion (body: `{egg_item_id, potion_item_id}`) |
+| GET | `/api/pets/incubations/` | Current egg, server readiness and configured wait |
+| POST | `/api/pets/incubations/` | Start incubation; consumes an egg + potion (body: `{egg_item_id, potion_item_id, request_id}`) |
+| POST | `/api/pets/incubations/{id}/hatch/` | Explicitly hatch a ready egg; safely replayable |
+| POST | `/api/pets/hatch/` | Retired instant hatch: authenticated HTTP 410 without writes |
 | POST | `/api/pets/{id}/feed/` | Feed a food item to a pet (body: `{food_item_id}`) — auto-evolves at 100 growth |
 | POST | `/api/pets/{id}/activate/` | Set pet as active (only one at a time) |
 | GET | `/api/mounts/` | User's mount collection |
@@ -687,7 +690,7 @@ Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets
 The [AI and Google data disclosure inventory](docs/operations/google-ai-disclosure.md) maps remaining LLM calls, Google-selected PDF inference, external MCP clients, browser dictation, retention, consent limits and reviewer evidence. It does not claim Google approval. In-app AI image/sprite generation is retired; existing prepared artwork remains available.
 
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp`. **30 tool modules / 222 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
+FastMCP server mounted inside Django ASGI at `/mcp`. **30 tool modules / 224 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
 Grouped by domain:
 
@@ -811,7 +814,7 @@ Habitica-inspired RPG system layered on top of existing productivity features. E
 - **Perfect Day** — Nightly Celery task awards `perfect_days_count += 1` and 15 bonus coins to any child who was active AND completed all daily chores. Gentle-nudge design: missed days dim the streak flame visually but never destroy earned rewards.
 - **Habits** — `/api/habits/` — Micro-behaviors distinct from chores (no approval, multiple taps/day allowed). `strength` increments on `+1` taps, decrements on `-1`, and decays by 1 daily if untapped (Celery task at 00:05 local). Strength drives a color scale (red → yellow → green → blue). Positive habit taps trigger the full game loop (drops, quest progress).
 - **Drops & Inventory** — Every task completion rolls against `BASE_DROP_RATES[trigger_type]` (e.g., clock_out 40%, chore 30%, milestone 80%, badge 100%) + streak bonus (`+5%/day`, capped at +50%). Weighted random from `DropTable` entries filtered by `min_level`. 23+ items across eggs, potions, food, cosmetics, and coin pouches. Already-owned cosmetics auto-salvage to coins. Frontend `useDropToasts` hook polls every 20s and emits rarity-colored toast celebrations via `DropToastStack`.
-- **Pets & Mounts** — `/bestiary` (split across **Companions**, **Mounts**, and **Hatchery** tabs) — 15 supported Base-potion families, with retained earlier ownership. Lifecycle: hatch on the Hatchery tab (consumes 1 egg + 1 potion, species/potion looked up from typed FKs on `ItemDefinition`) → feed food items on Companions (rarity/authored food growth plus a preferred-food bonus) → auto-evolve at 100 growth into a matching `UserMount`. Each tab carries filter pills (Companions: `All / Active / Baby / Middle / Hungry / Almost grown`; Grown pets: `All / Active / Out exploring`). Direct-grant growth from consumables is daily-capped per pet (`CONSUMABLE_GROWTH_DAILY_CAP=50`). A purely visual `happiness_for_pet` state (`happy`/`bored`/`stale`/`away`, derived from `last_fed_at`) dims the sprite without penalizing rewards. Only one active pet and one active mount at a time.
+- **Pets & Mounts** — `/bestiary` (split across **Companions**, **Grown pets**, **Collection**, and **Hatchery** tabs) — 15 supported Base-potion families, with retained earlier ownership. Lifecycle: start incubation in the Hatchery (consumes 1 egg + 1 potion, 24 hours by default, one unfinished egg per account) → explicitly hatch the server-ready egg → feed food on Companions → reach Middle at 50 saved growth → auto-evolve at 100 into a matching `UserMount`. The timer survives reloads and creates no pet until the explicit hatch. [Timed incubation](docs/operations/pet-incubation.md) documents accepted promises, safe retries and the current Progression Lab limitation. Each tab carries filter pills (Companions: `All / Active / Baby / Middle / Hungry / Almost grown`; Grown pets: `All / Active / Out exploring`). Direct-grant growth from consumables is daily-capped per pet (`CONSUMABLE_GROWTH_DAILY_CAP=50`). A purely visual `happiness_for_pet` state (`happy`/`bored`/`stale`/`away`, derived from `last_fed_at`) dims the sprite without penalizing rewards. Only one active pet and one active mount at a time.
 - **Quests** — `/quests` — Two types: **boss** (damage-based HP pool) and **collection** (item count target). One active quest per user at a time. Damage scales per trigger (clock_out 10/hr, chore 15, homework 25, milestone 50, badge 30, project 75, habit 5). `QuestDefinition.trigger_filter` supports filtering by `allowed_triggers`, `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `streak_target`, `perfect_day_target`. Rage mechanic: if no participant makes progress in a full day, the boss gains a 20-point shield (visual urgency, easily recoverable). On completion: coin + XP + item rewards auto-distributed; status → `completed`. Past end_date without completion → `expired` (no rewards, no penalty). Parents can create custom quests or assign to children.
 - **Cosmetics** — `/character` — 4 equip slots (frame, title, theme, pet accessory). `CharacterProfile` has nullable FKs with `limit_choices_to` enforcing type safety. Cosmetics are NOT consumed on equip (unlike eggs/potions/food). Drop from high-value triggers (milestone, badge, perfect day, quest complete). Duplicates salvage for coins. Avatar frame renders as a colored border; title renders as a chip under the display name.
 

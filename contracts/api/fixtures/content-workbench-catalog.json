@@ -23,14 +23,14 @@
         "edit_reason": "",
         "values": {
           "coin_value": 2,
-          "icon": "🍎",
+          "name": "Practice snack",
           "description": "",
+          "sprite_key": "",
+          "rarity": "common",
+          "icon": "🍎",
           "metadata": {
             "growth": 5
-          },
-          "rarity": "common",
-          "name": "Practice snack",
-          "sprite_key": ""
+          }
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "quest_type": "collection",
-          "is_repeatable": false,
           "target_value": 2,
-          "name": "Practice challenge",
-          "duration_days": 7,
           "coin_reward": 10,
+          "description": "Complete two approved chores.",
+          "quest_type": "collection",
+          "duration_days": 7,
+          "name": "Practice challenge",
+          "xp_reward": 15,
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "description": "Complete two approved chores.",
-          "xp_reward": 15,
           "icon": "⚔️",
-          "sprite_key": "",
+          "is_repeatable": false,
           "required_badge": null,
           "reward_items": [
             {
@@ -233,6 +233,13 @@
   },
   "simulation": {
     "schema_version": 1,
+    "pet_incubation_policy": {
+      "duration_seconds": 86400,
+      "max_active": 1,
+      "clock": "elapsed_seconds",
+      "start_strategy": "first_compatible_pair_during_care",
+      "claim_strategy": "next_active_care_visit_at_or_after_ready"
+    },
     "defaults": {
       "horizon_days": 90,
       "trials": 20,
@@ -597,7 +604,7 @@
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
-        "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+        "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
         "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards",
@@ -615,7 +622,9 @@
         "Day 1 starts an abstract week; visits occur on the first N days of each seven-day block",
         "All configured chores are approved that visit; each habit is a distinct positive habit with one tap/day",
         "Source skills are fixed synthetic tags, reported in activity_skills; absent/locked skills earn no XP",
-        "Care hatches any compatible new pair, opens Coin pouches and feeds all available food to the oldest unevolved pet",
+        "Visits occur at fixed 86400-second intervals; within-visit actions take no modeled time",
+        "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
+        "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -704,8 +713,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "d9efcbdac035b2d7403830cde8771c12224635f06ad64c20c90e21d584ae6754",
-    "engine_version": "2026-10-18.4",
+    "rules_fingerprint": "d7b38e5fdb466df7af6f6d88f1e39d9553216c28fff1f3cbd70187d7474abcf1",
+    "engine_version": "2026-10-18.5",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

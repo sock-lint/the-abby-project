@@ -206,11 +206,16 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pet-not-owned.json` | Foreign or unknown pet feed/activation rejected with the same HTTP 400 body |
 | `mount-not-owned.json` | Foreign or unknown mount activation rejected with the same HTTP 400 body |
 | `inventory-hatching.json` | `GET /api/inventory/`, owned eggs and hatching potions with quantities and nullable typed species/potion names |
-| `pet-hatch.json` | `POST /api/pets/hatch/`, HTTP 201 full newly owned pet after consuming one egg and one potion |
-| `pet-hatch-missing-ingredients.json` | Hatch rejected with HTTP 400 because either ingredient ID is absent |
-| `pet-hatch-unavailable-egg.json` | Hatch rejected with HTTP 400 because the child does not own that egg |
-| `pet-hatch-unavailable-potion.json` | Hatch rejected with HTTP 400 because the child does not own that potion |
-| `pet-hatch-duplicate.json` | Hatch rejected with HTTP 400 because the child already owns that species/potion combination, including an evolved pet |
+| `pet-incubation-empty.json` | Self-scoped `GET /api/pets/incubations/`; no current egg, configured duration and server clock |
+| `pet-incubation-start.json` | `POST /api/pets/incubations/`; HTTP 201 consumes one egg/potion with a UUID request ID; same-request retry returns the identical incubation with HTTP 200 |
+| `pet-incubation-progress.json`, `pet-incubation-ready.json` | Real server-relative waiting/ready reads; neither creates an owned pet or grants rewards |
+| `pet-incubation-too-early.json` | Explicit hatch before the accepted deadline returns HTTP 409 without writes |
+| `pet-incubation-hatched.json`, `pet-incubation-hatch-retry.json` | Explicit ready hatch returns HTTP 201 with the full saved baby; exact-ID retry returns HTTP 200 and `freshly_hatched: false` |
+| `pet-incubation-missing-ingredients.json` | Start rejects missing item IDs with typed field errors and HTTP 400 |
+| `pet-hatch-retired.json` | Authenticated legacy `POST /api/pets/hatch/` returns HTTP 410 without spending ingredients |
+| `pet-hatch-unavailable-egg.json` | Incubation start rejected with HTTP 400 because the child does not own that egg |
+| `pet-hatch-unavailable-potion.json` | Incubation start rejected with HTTP 400 because the child does not own that potion |
+| `pet-hatch-duplicate.json` | Incubation start rejected with HTTP 400 because the child already owns that species/potion combination, including an evolved pet |
 | `expedition-start-short.json` | `POST /api/mounts/61/expedition/`, HTTP 201 two-hour run with locked planned loot |
 | `expedition-start-standard.json` | Same start endpoint for mount 62, four-hour run with two planned item slots |
 | `expedition-start-long.json` | Same start endpoint for mount 63, eight-hour run with three planned item slots |
@@ -261,22 +266,39 @@ through evolution; a sprite filename never substitutes for species identity.
 Legacy species without an authored slug return explicit `null` and keep their
 existing 2D presentation.
 
-Hatching also submits item-definition IDs, using `egg_item_id` and
-`potion_item_id`. The real service consumes exactly one of each owned ingredient,
-deletes a depleted inventory row, and returns a full new pet at zero growth that
-is neither active nor evolved. It preserves the existing active pet and records
-the first-hatch chronicle entry. Producer checks keep the generated pet identity
-deterministic on PostgreSQL/SQLite, reject missing, unowned and wrong-type
-ingredients without writes, reject duplicates even after evolution, and verify
-sibling/foreign-family inventory remains untouched. A supplied `user_id` cannot
-change the owner; unauthenticated requests are rejected. Typed inventory fields
-`pet_species_name` and `potion_type_name` are display names or explicit null;
-they do not expose catalog IDs or declare potion compatibility. The server
-remains authoritative for ingredient eligibility. Nonempty species compatibility
-lists are enforced before either ingredient is consumed; a legacy empty list
-means unrestricted authored compatibility within the approved asset policy.
-Stable `total_possible` sums approved compatible pairs. It does not count every
-authored species/potion combination or saved legacy row as a new offer.
+Timed incubation starts at `POST /api/pets/incubations/` with item-definition
+`egg_item_id`, `potion_item_id` and a UUID `request_id`. It consumes one owned egg
+and one compatible potion exactly once, freezes their display/species/potion
+identities and an absolute deadline, and creates no `UserPet`, badge or Chronicle
+first. Same-request retries return the saved row; a conflicting request cannot
+occupy the account's single active slot. The default duration is 24 hours
+(86,400 seconds); these canonical examples use that default and claim at the
+saved `ready_at` deadline.
+
+`GET /api/pets/incubations/` returns `{incubation, duration_seconds, server_now}`.
+The nullable row carries frozen ingredient and family metadata, `started_at`,
+`ready_at`, nonnegative integer `remaining_seconds`, boolean `is_ready`,
+`status: incubating|ready|hatched`, nullable `hatched_at` and nullable `pet_id`.
+Its deadline and readiness use the same server clock snapshot. Merely reading
+at or after readiness creates no pet and grants nothing.
+
+Only an explicit ready `POST /api/pets/incubations/<id>/hatch/` creates the full
+inactive baby and its normal badge/Chronicle effects. Its envelope is
+`{incubation, pet, freshly_hatched, server_now}`; the first success is HTTP 201.
+An exact-ID retry is HTTP 200 with the same pet and `freshly_hatched: false`,
+without consuming more supplies or paying again. Start returns
+`{incubation, server_now}`. Early/conflicting actions return HTTP 409; foreign,
+sibling and unknown incubation IDs share HTTP 404. All routes require auth.
+The old instant `/api/pets/hatch/` is retired with HTTP 410 and no writes.
+
+Producer checks exercise the real start, waiting and ready reads, early rejection,
+explicit claim and retry. They pin generated IDs on PostgreSQL/SQLite, retain the
+prior active companion, preserve sibling/foreign inventory, and verify no pet or
+first-hatch entry exists until the ready claim. Existing duplicate and ingredient
+validation fixtures now come from start. Typed inventory names and saved lifecycle
+stages retain their existing meanings. `pet-hatch.json`, `pet-hatch-roster.json`
+and `pet-hatch-missing-ingredients.json` are retained historical instant-hatch
+snapshots for older reference material; active clients use the incubation fixtures.
 
 Expeditions remain self-scoped to the authenticated account, including siblings
 within one family. Start submits only `tier`; claim uses the expedition ID in the
@@ -394,8 +416,9 @@ statement workflow, not a claim that every Greenlight export has these columns.
 `frontend/src/api/sharedContractFixtures.test.js` serves these same files with
 MSW and exercises the real React API wrappers, token handling, list normalization
 and HTTP error propagation, including feed/evolution, pet/mount activation, and
-the complete HTTP 201 hatch receipt. Hatching checks assert the exact ingredient
-request and preserve the real rejection body/status without replaying a POST.
+the complete ready-hatch receipt. Incubation checks assert the exact UUID and
+ingredient request, server readiness, explicit claim/retry and legacy retirement
+without automatically replaying a POST.
 Notification page links are root-relative so an HTTP tunnel behind a public
 HTTPS site cannot change the client's destination origin. Producer checks cover
 HTTP, HTTPS and forwarded proxy headers, pagination in both directions, unchanged
@@ -417,6 +440,23 @@ contains no household progress. The React consumer
 anonymous simulation request/response shapes. Both run in the API fixtures
 gate. See [Progression Lab](../../docs/operations/progression-lab.md) for the
 model boundary, conditional milestone percentiles and finite-content subset.
+
+Lab metadata, generated reports and content-workbench simulation metadata add a
+read-only `pet_incubation_policy`: `duration_seconds` (the captured server
+setting, normally 86,400), `max_active: 1`, `clock: "elapsed_seconds"`,
+`start_strategy: "first_compatible_pair_during_care"` and
+`claim_strategy: "next_active_care_visit_at_or_after_ready"`. The captured policy
+belongs to the report's rules fingerprint; changing today's duration cannot
+rewrite an earlier report. It is not a client-supplied scenario setting.
+
+Daily traces distinguish waiting `incubating_eggs_p10/p50/p90` from ready,
+unclaimed `ready_eggs_p10/p50/p90`. Starting consumes the modeled ingredients
+without creating a pet or companion badge. Journey events record
+`incubation_started` with the exact `duration_seconds` and integer `ready_day`,
+then `incubation_ready`; the existing `hatch` event occurs only on the next
+eligible active care visit. `ready_day` is the first modeled calendar day at
+or after the deadline, including inactive days. These are anonymous simulation
+states and never create live incubations or rewards.
 
 `config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
 settings through real parent-only reads, saves and resets. The exact response
@@ -929,8 +969,9 @@ recognition and preferences. `reading-family-suggestion.json`,
 the child's explicit save, and dismissal. The existing Django producer and
 React consumer above validate these synthetic responses together.
 
-`inventory-roster-hatching.json` and `pet-hatch-roster.json` cover real namespaced
-Base-only inventory and hatch producers/consumers. Ingredient items retain exact
+`inventory-roster-hatching.json`, `pet-incubation-roster-start.json` and
+`pet-incubation-roster-hatched.json` cover real namespaced Base-only inventory,
+accepted egg metadata and explicit ready-hatch producers/consumers. Ingredient items retain exact
 catalog artwork; unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`.
 Previously saved loot and frozen receipts are retained verbatim. See the
@@ -949,3 +990,11 @@ The global bound includes spent and expired rows until bounded cleanup removes
 them. At capacity, a new start returns `code: authorization_busy` without saving
 another verifier; retry requires capacity to become available.
 See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).
+
+The combined Lab also produces `progression-lab-pet-incubation-report.json`
+through the real anonymous endpoint: day1 reserves an egg/potion, day2 records
+readiness and explicit active-care hatch/evolution with one-time milestone
+awards. Notebook control/candidate reports share a single immutable incubation
+snapshot with their rule binding. Real setting drift marks historical evidence
+stale and blocks decisions without replacing saved report bodies. The quota,
+commitment and incubation fixtures are regenerated together against that model.

@@ -6,6 +6,8 @@ urlpatterns = [
     path("pets/codex/", views.PetCodexView.as_view(), name="pet-codex"),
     path("pets/species/catalog/", views.PetSpeciesCatalogView.as_view(), name="pet-species-catalog"),
     path("pets/hatch/", views.HatchPetView.as_view(), name="pet-hatch"),
+    path("pets/incubations/", views.PetIncubationsView.as_view(), name="pet-incubations"),
+    path("pets/incubations/<int:pk>/hatch/", views.HatchIncubationView.as_view(), name="pet-incubation-hatch"),
     path(
         "pets/companion-growth/recent/",
         views.CompanionGrowthRecentView.as_view(),

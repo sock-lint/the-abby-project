@@ -256,21 +256,36 @@ test('corrupt native bytes and image failures retain fallbacks; retry and reduce
   expect(errors).toEqual([]);
 });
 
-test('the current Hatching page keeps approved inventory, explicit actions and server-confirmed completion', async ({ page }) => {
+test('the Hatchery keeps approved inventory, timed incubation and explicit server-confirmed hatching', async ({ page }) => {
   const writes = [];
+  let incubation = null;
+  let ready = false;
+  const waiting = { id: 7, egg: { name: 'Chick Egg', icon: '🥚' }, potion: { name: 'Base Potion' }, remaining_seconds: 7200, is_ready: false, status: 'incubating' };
+  const serverNow = '2026-10-18T10:00:00Z';
   await page.route('**/api/**', async route => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     if (!path.startsWith('/api/')) return route.continue();
     if (request.method() !== 'GET') writes.push({ path, method: request.method(), body: request.postDataJSON() });
+    if (path === '/api/pets/incubations/' && request.method() === 'POST') {
+      incubation = waiting;
+      return route.fulfill({ status: 201, json: { incubation, server_now: serverNow } });
+    }
+    if (path === '/api/pets/incubations/7/hatch/' && request.method() === 'POST') {
+      incubation = null;
+      return route.fulfill({ status: 201, json: {
+        incubation: { ...waiting, status: 'hatched', pet_id: 99 }, freshly_hatched: true, server_now: serverNow,
+        pet: { id: 99, species: { name: 'Chick', icon: '🐤' }, potion: { name: 'Base', slug: 'base' } },
+      } });
+    }
     const bodies = {
-      '/api/pets/stable/': { pets: [], mounts: [], total_possible: 1, breeding_available: false },
+      '/api/pets/stable/': { pets: [], mounts: [], total_possible: 1 },
+      '/api/pets/incubations/': { incubation: incubation && { ...incubation, is_ready: ready, remaining_seconds: ready ? 0 : 7200, status: ready ? 'ready' : 'incubating' }, duration_seconds: 7200, server_now: serverNow },
       '/api/inventory/': [
         { id: 1, quantity: 1, item: { id: 11, name: 'Chick Egg', icon: '🥚', item_type: 'egg', catalog_available: true } },
         { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', icon: '🧪', item_type: 'potion', catalog_available: true } },
         { id: 3, quantity: 1, item: { id: 33, name: 'Earlier Egg', item_type: 'egg', catalog_available: false } },
       ],
-      '/api/pets/hatch/': { id: 99, species: { name: 'Chick', icon: '🐤' }, potion: { name: 'Base', slug: 'base' } },
       '/api/sprites/catalog/': {},
     };
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(bodies[path] ?? []) });
@@ -296,7 +311,16 @@ test('the current Hatching page keeps approved inventory, explicit actions and s
     await expect(page.getByText('3D display is off.')).toBeVisible();
     expect(writes).toEqual([]);
   }
+  await expect(page.getByRole('button', { name: 'Hatch pet', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Start incubation', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your egg is incubating' })).toBeVisible();
+  await expect(page.getByText('Ready to hatch in 2h.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Hatch pet', exact: true })).toHaveCount(0);
+  expect(writes).toEqual([{ path: '/api/pets/incubations/', method: 'POST', body: { egg_item_id: '11', potion_item_id: '22', request_id: expect.stringMatching(/^[\da-f-]{36}$/i) } }]);
+  ready = true;
+  await page.getByRole('button', { name: 'Check readiness' }).click();
   await page.getByRole('button', { name: 'Hatch pet', exact: true }).click();
   await expect(page.getByRole('alertdialog')).toBeVisible();
-  expect(writes).toEqual([{ path: '/api/pets/hatch/', method: 'POST', body: { egg_item_id: '11', potion_item_id: '22' } }]);
+  expect(writes).toHaveLength(2);
+  expect(writes[1]).toEqual({ path: '/api/pets/incubations/7/hatch/', method: 'POST', body: null });
 });

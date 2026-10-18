@@ -6,6 +6,7 @@ import economyReport from '../../../contracts/api/fixtures/progression-lab-econo
 import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
 import commitmentReport from '../../../contracts/api/fixtures/progression-lab-commitment-report.json';
 import expeditionBudgetReport from '../../../contracts/api/fixtures/progression-lab-expedition-budget-report.json';
+import petIncubationReport from '../../../contracts/api/fixtures/progression-lab-pet-incubation-report.json';
 import experiments from '../../../contracts/api/fixtures/progression-experiment-list.json';
 import comparison from '../../../contracts/api/fixtures/progression-experiment-comparison.json';
 import commitmentComparison from '../../../contracts/api/fixtures/progression-experiment-commitment-comparison.json';
@@ -17,6 +18,30 @@ import { listProgressionExperiments, createProgressionExperiment, getProgression
 import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
+
+const incubationPolicy = { duration_seconds: 86400, max_active: 1, clock: 'elapsed_seconds',
+  start_strategy: 'first_compatible_pair_during_care', claim_strategy: 'next_active_care_visit_at_or_after_ready' };
+
+function expectRecordedIncubation(response) {
+  expect(response.pet_incubation_policy).toEqual(incubationPolicy);
+  for (const day of response.trace) {
+    for (const field of ['incubating_eggs', 'ready_eggs']) {
+      for (const quantile of ['p10', 'p50', 'p90']) {
+        expect(day[`${field}_${quantile}`]).toEqual(expect.any(Number));
+        expect(day[`${field}_${quantile}`]).toBeGreaterThanOrEqual(0);
+        expect(day[`${field}_${quantile}`]).toBeLessThanOrEqual(1);
+      }
+    }
+  }
+}
+
+function expectPairedIncubation(response) {
+  expectRecordedIncubation(response.control);
+  expectRecordedIncubation(response.candidate);
+  expect(response.control.pet_incubation_policy).toEqual(response.candidate.pet_incubation_policy);
+  expect(response.control.rules_fingerprint).toBe(response.binding.rules_fingerprint);
+  expect(response.candidate.rules_fingerprint).toBe(response.binding.rules_fingerprint);
+}
 
 describe('Progression lab shared API fixtures', () => {
   it('transports server-owned experiment evidence and decisions without accepting client reports', async () => {
@@ -55,6 +80,7 @@ describe('Progression lab shared API fixtures', () => {
     expect(comparison.candidate.config.reward_commitment.enabled).toBe(false);
     expect(comparison.evaluation.proposal.evaluated_by_current_engine).toBe(true);
     expect(comparison.evaluation.proposal.live_ready).toBe(false);
+    expectPairedIncubation(comparison);
     expect(observations.policy.is_live_experiment).toBe(false);
     expect(observations.status).toBe('insufficient_evidence');
     const capture = spyHandler('post', new RegExp(`${root}${id}/observations/$`), observed);
@@ -78,6 +104,8 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.coverage.initial_state).toEqual({ coins: 0, xp: 0, pets: 0, mounts: 0, inventory: 0 });
     expect(response.limits.horizon_days.choices).toContain(report.config.horizon_days);
     expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.pet_incubation_policy).toEqual(incubationPolicy);
+    expect(response.defaults).not.toHaveProperty('pet_incubation_policy');
   });
 
   it('transports the separate full-promise prototype and its saved server comparison', async () => {
@@ -109,6 +137,31 @@ describe('Progression lab shared API fixtures', () => {
     expect(saved.candidate.reward_commitment.summary.activity_pouch_committed.p50).toBeGreaterThan(0);
     expect(saved.candidate.rules_fingerprint).toBe(metadata.rules_fingerprint);
     expect(saved.evaluation.proposal.live_ready).toBe(false);
+    expectPairedIncubation(saved);
+  });
+
+  it('transports reserved ingredients, elapsed readiness and explicit hatching before companion milestone rewards', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, petIncubationReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(petIncubationReport.config);
+    expect(simulation.calls[0].body).toEqual(petIncubationReport.config);
+    expect(simulation.calls[0].body).not.toHaveProperty('pet_incubation_policy');
+    expect(response).toEqual(petIncubationReport);
+    expectRecordedIncubation(response);
+    const [reservation, claim] = response.trace;
+    expect(reservation).toMatchObject({ day: 1, incubating_eggs_p50: 1, ready_eggs_p50: 0, pets_p50: 0, mounts_p50: 0, badges_p50: 1 });
+    expect(claim).toMatchObject({ day: 2, incubating_eggs_p50: 0, ready_eggs_p50: 0, pets_p50: 1, mounts_p50: 1, badges_p50: 4 });
+    const events = response.journey.events;
+    const start = events.find((event) => event.source === 'incubation_started');
+    const ready = events.find((event) => event.source === 'incubation_ready');
+    const hatch = events.find((event) => event.source === 'hatch');
+    expect(start).toMatchObject({ day: 1, duration_seconds: 86400, ready_day: 2 });
+    expect(ready.day).toBe(2);
+    expect(hatch.day).toBe(2);
+    expect(events.indexOf(start)).toBeLessThan(events.indexOf(ready));
+    expect(events.indexOf(ready)).toBeLessThan(events.indexOf(hatch));
+    expect(response.flows.sources.find((source) => source.source === 'badges')).toMatchObject({ coins: 60, xp: 29 });
+    expect(response.trace.slice(1).every((day) => day.badges_p50 === 4)).toBe(true);
   });
 
   it('posts only the anonymous scenario and preserves completion denominators, missing dates and subset totals', async () => {
@@ -130,6 +183,7 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.summary.finite_completed_p50 + response.summary.finite_remaining_p50).toBe(response.summary.finite_content_total);
     expect(response.journey.seed).toBe(report.config.seed);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
   });
 
   it('transports shared launch and item quotas while retaining their accounting and unchanged Coin hypothesis', async () => {
@@ -163,6 +217,7 @@ describe('Progression lab shared API fixtures', () => {
     expect(saved.candidate).toEqual(expeditionBudgetReport);
     expect(saved.candidate.rules_fingerprint).toBe(metadata.rules_fingerprint);
     for (const check of saved.evaluation.checks) expect(check.candidate.trials).toBe(input.config.trials);
+    expectPairedIncubation(saved);
   });
 
   it('preserves purchase timing, calendar budgets and separate Coin and money flows', async () => {
@@ -189,6 +244,17 @@ describe('Progression lab shared API fixtures', () => {
       expect(offer.first_purchase.trials).toBe(economyReport.config.trials);
       expect(offer.first_coin_affordable.trials).toBe(economyReport.config.trials);
     }
+    expectRecordedIncubation(response);
+    const events = response.journey.events;
+    const start = events.find((event) => event.source === 'incubation_started');
+    expect(start).toMatchObject({ source: 'incubation_started', duration_seconds: 86400 });
+    expect(Number.isInteger(start.ready_day)).toBe(true);
+    const ready = events.find((event) => event.source === 'incubation_ready' && event.target === start.target);
+    const hatch = events.find((event) => event.source === 'hatch' && event.target === start.target);
+    expect(ready.day).toBeGreaterThanOrEqual(start.ready_day);
+    expect(hatch.day).toBeGreaterThanOrEqual(ready.day);
+    expect(events.indexOf(start)).toBeLessThan(events.indexOf(ready));
+    expect(events.indexOf(ready)).toBeLessThan(events.indexOf(hatch));
   });
 
   it('propagates a rejected scenario without silently retrying the request', async () => {
@@ -212,5 +278,6 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.trace.at(-1).reward_budget_awarded_coins_p90).toBeLessThanOrEqual(response.summary.active_days * 5);
     expect(response.config.chore_coins).toBe(5);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
   });
 });

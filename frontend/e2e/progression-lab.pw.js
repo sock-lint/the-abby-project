@@ -145,6 +145,7 @@ for (const width of [375, 1280]) {
     const saved = notebook.getByRole('region', { name: 'Saved experiment comparison', exact: true });
     await expect(saved.getByText(/Control: 100-Coin commitment prototype.*Unlimited expeditions.*Candidate: 100-Coin commitment prototype/)).toBeVisible();
     await expect(saved.getByRole('region', { name: 'Expedition budget forecast' })).toBeVisible();
+    await expect(saved.getByRole('region', { name: 'Recorded incubation policy' }).getByText('24 hours')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(external).toEqual([]);
     expect(requests.every((path) => labReads.includes(path) || path.startsWith(`/api/rpg/progression-lab/experiments/${experimentDecided.id}/`))).toBe(true);

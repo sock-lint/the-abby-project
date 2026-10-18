@@ -1,0 +1,62 @@
+{
+  "incubation": {
+    "id": 1,
+    "egg": {
+      "id": 91,
+      "slug": "meshtint-bat-egg",
+      "name": "Bat Egg",
+      "icon": "🥚",
+      "sprite_key": "",
+      "rarity": "uncommon",
+      "item_type": "egg",
+      "catalog_icon": "bat-egg-portrait"
+    },
+    "potion": {
+      "id": 52,
+      "slug": "base-potion",
+      "name": "Base Potion",
+      "icon": "P",
+      "sprite_key": "",
+      "rarity": "common",
+      "item_type": "potion",
+      "catalog_icon": "item-base-potion"
+    },
+    "species": {
+      "id": 142,
+      "slug": "meshtint-bat",
+      "name": "Bat",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bat",
+      "description": "",
+      "rarity": "uncommon",
+      "food_preference": "",
+      "catalog_available": true,
+      "catalog_icon": "bat-baby-portrait",
+      "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    "potion_type": {
+      "id": 41,
+      "slug": "base",
+      "name": "Base",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "common",
+      "description": "",
+      "catalog_available": true
+    },
+    "started_at": "2026-10-10T12:00:00-07:00",
+    "ready_at": "2026-10-11T12:00:00-07:00",
+    "remaining_seconds": 86400,
+    "is_ready": false,
+    "status": "incubating",
+    "hatched_at": null,
+    "pet_id": null
+  },
+  "server_now": "2026-10-10T12:00:00-07:00"
+}

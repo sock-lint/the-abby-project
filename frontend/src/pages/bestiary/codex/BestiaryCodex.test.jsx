@@ -11,10 +11,10 @@ vi.mock('framer-motion', async () => {
   return { ...a, AnimatePresence: ({ children }) => children };
 });
 
-function renderCodex() {
+function renderCodex(props = {}) {
   return render(
     <MemoryRouter>
-      <BestiaryCodex />
+      <BestiaryCodex {...props} />
     </MemoryRouter>,
   );
 }
@@ -32,6 +32,57 @@ beforeEach(() => {
 });
 
 describe('BestiaryCodex', () => {
+  const catalog = {
+    species: [
+      { id: 1, slug: 'dragon', name: 'Dragon', icon: '🐉', sprite_key: 'dragon', available_potions: samplePotions, discovered: true, owned_pet_ids: [12], owned_mount_potion_ids: [] },
+      { id: 2, slug: 'wolf', name: 'Wolf', icon: '🐺', sprite_key: 'wolf', available_potions: samplePotions, discovered: false, owned_pet_ids: [], owned_mount_potion_ids: [] },
+    ],
+    potions: samplePotions,
+    totals: { species: 2, discovered_species: 1, mounts_possible: 4, mounts_owned: 0 },
+  };
+
+  it('reports a failed catalog load instead of an empty collection and retries the real request', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pets/codex/', () => {
+      requests += 1;
+      return requests === 1
+        ? HttpResponse.json({ detail: 'The pet collection is temporarily unavailable.' }, { status: 503 })
+        : HttpResponse.json(catalog);
+    }));
+    const user = userEvent.setup();
+    renderCodex();
+    expect(await screen.findByRole('alert')).toHaveTextContent('The pet collection is temporarily unavailable.');
+    expect(screen.queryByText('No pet species are available yet.')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(await screen.findByRole('button', { name: /^Dragon/ })).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(requests).toBe(2);
+  });
+
+  it('keeps the current collection and selected group visible when a refresh fails', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pets/codex/', () => {
+      requests += 1;
+      return requests === 2
+        ? HttpResponse.json({ detail: 'Could not refresh the collection.' }, { status: 503 })
+        : HttpResponse.json(catalog);
+    }));
+    const user = userEvent.setup();
+    const view = renderCodex();
+    await screen.findByRole('button', { name: /^Dragon/ });
+    await user.click(screen.getByRole('tab', { name: /^Undiscovered/ }));
+    const tile = screen.getByLabelText(/unknown species/i);
+    view.rerender(<MemoryRouter><BestiaryCodex refreshRevision={1} /></MemoryRouter>);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not refresh the collection.');
+    expect(screen.getByLabelText(/unknown species/i)).toBe(tile);
+    expect(screen.getByRole('tab', { name: /^Undiscovered/ })).toHaveAttribute('aria-selected', 'true');
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(requests).toBe(3));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(screen.getByRole('tab', { name: /^Undiscovered/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText(/unknown species/i)).toBe(tile);
+  });
+
   it('renders silhouette tiles for un-discovered species', async () => {
     server.use(
       http.get('*/api/pets/codex/', () =>

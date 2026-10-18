@@ -27,7 +27,7 @@ Celery tasks: `chronicle-birthday-check` (00:20, grants `BIRTHDAY_COINS_PER_YEAR
 - `PATCH /api/chronicle/{id}/grade/` — owner-only corrections and sharing changes on any date, with no extra reward.
 - `GET` / `POST /api/chronicle/entries/{id}/comments/` — conversations on shared journals and grades, available only to the author and parents in that family.
 
-Event hooks call into `ChronicleService` from `GameLoopService`, `ExchangeService.approve`, `PetService.hatch_pet`/`feed_pet`.
+Event hooks call into `ChronicleService` from `GameLoopService`, `ExchangeService.approve`, `PetService.hatch_incubation`/`feed_pet`.
 
 ## Gotchas
 
