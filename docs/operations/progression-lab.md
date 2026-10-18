@@ -61,6 +61,13 @@ weights, automatic challenge matching, supported badge criteria, hatching,
 food growth and expedition tier rules. Simulated state is held in memory.
 The model never calls award writers inside a rolled-back transaction.
 
+Hatching and confirmed evolution evaluate the same pet and badge scopes as
+live care, including their existing Coins and XP. Reachability includes those
+care events when a companion can be obtained, so badge-gated challenges and
+finite targets follow the same path. The rules fingerprint includes the live
+ownership/growth hooks; forecasts made before a hook changes are different
+model evidence, even when the catalog itself is unchanged.
+
 The initial model supports reading, approved synthetic chores, positive
 synthetic habits, tracked project time, journal entries, creations and
 movement. Activity skill tags and automatic companion-care choices are

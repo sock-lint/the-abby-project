@@ -5,7 +5,7 @@ from rest_framework.test import APITestCase
 
 from apps.achievements.models import Badge, Skill, SkillCategory
 from apps.pets.models import PetSpecies, PotionType
-from apps.quests.models import QuestDefinition, QuestSkillTag
+from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rpg.models import DropTable, ItemDefinition
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
@@ -124,3 +124,36 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertGreater(budget["omitted_coins"]["p50"], 0)
         self.assertLessEqual(budget["awarded_coins"]["p90"], 5 * response.data["summary"]["active_days"])
         self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")
+
+    def test_companion_badges_pay_once_when_care_reaches_their_milestones(self):
+        quest = QuestDefinition.objects.get(pk=561)
+        quest.target_value = 1
+        quest.save(update_fields=["target_value"])
+        for item_id, quantity in ((531, 1), (532, 1), (533, 30)):
+            QuestRewardItem.objects.create(quest_definition=quest, item_id=item_id, quantity=quantity)
+        names = ["First lab hatch", "First lab species", "First lab grown companion"]
+        for pk, name, criteria_type, rarity, xp_bonus in (
+            (552, names[0], "pets_hatched", "common", 7),
+            (553, names[1], "pet_species_owned", "uncommon", 8),
+            (554, names[2], "mounts_evolved", "rare", 9),
+        ):
+            Badge.objects.create(
+                id=pk, name=name, criteria_type=criteria_type, criteria_value={"count": 1},
+                rarity=rarity, xp_bonus=xp_bonus,
+            )
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 1, "seed": 17, "reading_minutes": 0,
+            "chores_per_day": 1, "chore_coins": 5, "chore_xp": 100,
+            "habits_per_day": 0, "journal_per_day": False, "expeditions_per_day": 0,
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        report = response.json()
+        earned = [event for event in report["journey"]["events"]
+                  if event["source"] == "badge_earned" and event["target"] in names]
+        # Exercise the real endpoint independently of the generated snapshots.
+        self.assertEqual([(event["target"], event["day"]) for event in earned],
+                         [(name, 1) for name in names])
+        self.assertEqual(report["summary"]["finite_breakdown"]["badge"], 4)
+        self.assertTrue(all(day["badges_p50"] == 4 for day in report["trace"]))
+        badges = next(source for source in report["flows"]["sources"] if source["source"] == "badges")
+        self.assertEqual((badges["coins"], badges["xp"]), (60.0, 29.0))
