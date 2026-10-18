@@ -2,7 +2,8 @@
 
 Use the real Django URL configuration, production WhiteNoise middleware and
 collectstatic storage. Only the API responses are synthetic; no database,
-credentials, uploads, or user fixtures are read. Each process loads one release
+credentials, uploads, or user fixtures are read. OAuth navigation uses the real
+Django login and unauthenticated authorization views. Each process loads one release
 at import time, matching replacement of the production Django container.
 """
 
@@ -36,6 +37,8 @@ def main():
     from django.core.management import call_command
     from django.core.wsgi import get_wsgi_application
 
+    # Only the build/static paths move into the disposable release. Keep the
+    # project template directories so the real OAuth login form is rendered.
     settings.BASE_DIR = args.release_dir.resolve()
     settings.STATIC_ROOT = settings.BASE_DIR / "staticfiles"
     settings.STATICFILES_DIRS = [settings.BASE_DIR / "frontend_dist"]

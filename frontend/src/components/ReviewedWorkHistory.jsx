@@ -10,7 +10,7 @@ import RuneBadge from './journal/RuneBadge';
 import SubmissionTiming from './SubmissionTiming';
 import ProofGallery from './ProofGallery';
 
-function History({ kind, childId }) {
+function History({ kind, childId, timezone }) {
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [attempt, setAttempt] = useState(0);
@@ -65,6 +65,9 @@ function History({ kind, childId }) {
   }, [open, kind, childId, page, attempt]);
   const title = kind === 'chore' ? 'Reviewed chores' : 'Reviewed homework';
   return <details className="space-y-3" onToggle={(event) => {
+    // React propagates nested details toggles. Only this history disclosure
+    // should reset its rows; opening completion evidence must preserve them.
+    if (event.target !== event.currentTarget) return;
     const next = event.currentTarget.open;
     setOpen(next);
     setError('');
@@ -78,7 +81,7 @@ function History({ kind, childId }) {
           <p className="font-body font-semibold text-body break-words">{row.user_name} · {row.chore_title || row.assignment_title}</p>
           <RuneBadge tone={row.status === 'approved' ? 'moss' : 'ember'}>{row.status === 'approved' ? 'Approved' : 'Rejected'}</RuneBadge>
         </div>
-        <SubmissionTiming record={row} kind={kind} />
+        <SubmissionTiming record={row} kind={kind} timezone={timezone} />
         {row.notes && <p className="font-body text-caption text-ink-secondary whitespace-pre-wrap break-words">{row.notes}</p>}
         {kind === 'homework' && <ProofGallery proofs={row.proofs || []} />}
       </ParchmentCard>)}
@@ -98,5 +101,5 @@ export default function ReviewedWorkHistory({ kind, childId }) {
   // implicit family-wide history request.
   if (user?.role !== 'parent' || !Number.isSafeInteger(Number(childId)) || Number(childId) < 1) return null;
   const scope = `${user.id}:${user.family?.id}:${getToken()}:${kind}:${childId ?? 'all'}`;
-  return <History key={scope} kind={kind} childId={childId} />;
+  return <History key={scope} kind={kind} childId={childId} timezone={user.family?.timezone} />;
 }

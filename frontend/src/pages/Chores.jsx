@@ -173,11 +173,11 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
           <option value="">All children</option>
           {children.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
         </SelectField>}
-        <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
+        <SelectField label="Repeats" value={form.recurrence} onChange={onField('recurrence')}>
           {Object.entries(RECURRENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </SelectField>
         {form.recurrence === 'one_time' && (
-          <TextField label="Due date (optional)" type="date" value={form.due_date} onChange={onField('due_date')} helpText="Leave blank for no deadline." />
+          <TextField label="Scheduled date (optional)" type="date" value={form.due_date} onChange={onField('due_date')} helpText="The chore is due on this day. Leave blank to keep it unscheduled." />
         )}
         {isParent && showSchedule && <>
           <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
@@ -459,7 +459,7 @@ function ChoresWorkspace({ context }) {
                     <div className="font-body text-body font-medium text-ink-primary">
                       {c.user_name} — {c.chore_icon} {c.chore_title}
                     </div>
-                    <SubmissionTiming record={c} kind="chore" />
+                    <SubmissionTiming record={c} kind="chore" timezone={context.user.family?.timezone} />
                     <div className="font-script text-caption text-ink-whisper">
                       ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                     </div>
@@ -592,7 +592,7 @@ function ChoresWorkspace({ context }) {
                           <RefreshCw size={10} />{RECURRENCE_LABELS[chore.recurrence]}
                         </span>
                         {chore.recurrence === 'one_time' && chore.due_date && (
-                          <span>Due {formatDate(chore.due_date)}</span>
+                          <span>Scheduled for {formatDate(chore.due_date)}</span>
                         )}
                         {chore.week_schedule === 'alternating' && (
                           <span className="flex items-center gap-0.5 text-royal">
@@ -691,7 +691,7 @@ function ChoresWorkspace({ context }) {
                       <div className="font-body text-body font-medium text-ink-primary truncate">
                         {c.chore_title}
                       </div>
-                      <SubmissionTiming record={c} kind="chore" />
+                      <SubmissionTiming record={c} kind="chore" timezone={context.user.family?.timezone} />
                       <div className="font-script text-caption text-ink-whisper">
                         ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                       </div>
