@@ -20,6 +20,8 @@ from config.oauth_views import (
     WellKnownProtectedResourceView,
 )
 
+handler404 = "config.errors.page_not_found"
+
 # Load the built SPA entry point once at import time. In production the
 # Docker build copies frontend/dist into BASE_DIR/frontend_dist. In local
 # dev (python manage.py runserver) the file won't exist — React is served
@@ -218,6 +220,8 @@ urlpatterns += [
 
 # SPA catch-all — MUST be last. React Router owns every other path.
 # Exclude:
+#   - api/ (and the bare api root) so unknown endpoints return JSON 404s,
+#     and CommonMiddleware can append a slash to registered API paths.
 #   - static/ so missing assets get a proper 404 instead of index.html
 #     served as text/html (WhiteNoise handles real static files at the
 #     middleware layer before the URL resolver runs).
@@ -227,5 +231,5 @@ urlpatterns += [
 #     and the SPA must never claim either prefix — otherwise HTML-when-
 #     JSON-expected crashes the client before it sends the auth header.
 urlpatterns += [
-    re_path(r"^(?!static/|\.well-known/|oauth/).*$", spa_view, name="spa"),
+    re_path(r"^(?!api(?:/|$)|static/|\.well-known/|oauth/).*$", spa_view, name="spa"),
 ]
