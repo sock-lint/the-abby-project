@@ -8,6 +8,7 @@ import RuneBadge from '../../components/journal/RuneBadge';
 import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import ArtworkImage from '../../components/rpg/ArtworkImage';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 
 // Status → workflow-progress percent. Drives the gilt fill on the project's
@@ -86,7 +87,7 @@ export default function ProjectHeader({
               )}
               {project.category && (
                 <span className="font-script text-ink-whisper">
-                  {project.category.icon} {project.category.name}
+                  <ArtworkImage assetId={project.category.catalog_icon} fallback={project.category.icon || null} size={20} /> {project.category.name}
                 </span>
               )}
               <StarRating value={project.difficulty} />

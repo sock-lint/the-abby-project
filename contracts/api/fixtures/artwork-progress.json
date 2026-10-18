@@ -1,0 +1,21 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 401,
+      "user": 7,
+      "skill": 301,
+      "skill_name": "Python",
+      "skill_icon": "PYTHON",
+      "skill_catalog_icon": "skill-coding-python",
+      "category_name": "Coding",
+      "subject_name": "Languages & Apps",
+      "xp_points": 150,
+      "level": 1,
+      "unlocked": true,
+      "xp_to_next_level": 150
+    }
+  ]
+}

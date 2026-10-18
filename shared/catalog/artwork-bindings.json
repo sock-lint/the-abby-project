@@ -1,0 +1,5147 @@
+{
+  "schema_version": 1,
+  "family_id": "abby-artwork-completion",
+  "release_version": "1.0.0",
+  "manifest_sha256": "1ceb2d42a96c2c8f7c6ec912d8e0901b0d391c4ddbabb4827ed8d3d8ddaf9cde",
+  "badges": {
+    "10-Hour Club": {
+      "asset_id": "badge-10-hour-club",
+      "expected_criterion": {
+        "criteria_type": "hours_worked",
+        "criteria_value": {
+          "hours": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "10-Hour Club"
+      },
+      "name": "10-Hour Club",
+      "sha256": "dbee78d8cc151b22788e202cea8d94285c05a811bcb07d2f72dcb80b8445cbc5",
+      "variant_id": "icon-256"
+    },
+    "25-Hour Club": {
+      "asset_id": "badge-25-hour-club",
+      "expected_criterion": {
+        "criteria_type": "hours_worked",
+        "criteria_value": {
+          "hours": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "25-Hour Club"
+      },
+      "name": "25-Hour Club",
+      "sha256": "b43d894efa45bef418cce99b2d322a2741c81ae7a1ea7f72b5aad5f03bae4ec4",
+      "variant_id": "icon-256"
+    },
+    "50-Hour Club": {
+      "asset_id": "badge-50-hour-club",
+      "expected_criterion": {
+        "criteria_type": "hours_worked",
+        "criteria_value": {
+          "hours": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "50-Hour Club"
+      },
+      "name": "50-Hour Club",
+      "sha256": "ed615a6e4387fd72ff2d3fd47bf758de89f44fa3d153f70b2237625f4bd97c3c",
+      "variant_id": "icon-256"
+    },
+    "A Year in Ink": {
+      "asset_id": "badge-a-year-in-ink",
+      "expected_criterion": {
+        "criteria_type": "journal_entries_written",
+        "criteria_value": {
+          "count": 365
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "A Year in Ink"
+      },
+      "name": "A Year in Ink",
+      "sha256": "d6e3fb034280f18a05ddb7507de3fbc7a40a10b3f5ffb1d265f8ec741572860f",
+      "variant_id": "icon-256"
+    },
+    "A Year of Making": {
+      "asset_id": "badge-a-year-of-making",
+      "expected_criterion": {
+        "criteria_type": "creations_logged",
+        "criteria_value": {
+          "count": 365
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "A Year of Making"
+      },
+      "name": "A Year of Making",
+      "sha256": "00095399f848c97fbe127d95fd19ae35f8f888b03f9f1a7a2f1a54573e8d9962",
+      "variant_id": "icon-256"
+    },
+    "Alchemist": {
+      "asset_id": "badge-alchemist",
+      "expected_criterion": {
+        "criteria_type": "consumable_variety",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Alchemist"
+      },
+      "name": "Alchemist",
+      "sha256": "18b6740ce3d8cb7fe21cc1b05ef11b97a4295de701eda974185edd09f8ffada8",
+      "variant_id": "icon-256"
+    },
+    "Alchemist II": {
+      "asset_id": "badge-alchemist-ii",
+      "expected_criterion": {
+        "criteria_type": "consumable_variety",
+        "criteria_value": {
+          "count": 7
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Alchemist II"
+      },
+      "name": "Alchemist II",
+      "sha256": "3cf2f32f99664cab2bec6ea720f4114f79488382428fedb21432096f7e75ee03",
+      "variant_id": "icon-256"
+    },
+    "All the Years": {
+      "asset_id": "badge-all-the-years",
+      "expected_criterion": {
+        "criteria_type": "birthdays_logged",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "All the Years"
+      },
+      "name": "All the Years",
+      "sha256": "5938a84d2273b4b42f68cb380cd5178841cc2663e1f74504c9f7d2030dae886f",
+      "variant_id": "icon-256"
+    },
+    "Apprentice Path Complete": {
+      "asset_id": "badge-apprentice-path-complete",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Apprentice Path"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Apprentice Path Complete"
+      },
+      "name": "Apprentice Path Complete",
+      "sha256": "48069e3d36a9f250723bb2971c14bf445d91a8d29470cd04003901c8d6929a91",
+      "variant_id": "icon-256"
+    },
+    "Archivist": {
+      "asset_id": "badge-archivist",
+      "expected_criterion": {
+        "criteria_type": "collection_quests_completed",
+        "criteria_value": {
+          "count": 15
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Archivist"
+      },
+      "name": "Archivist",
+      "sha256": "5bcb0a9f384ef2b083ad0e0973db8317e831864408aff08d0d14e81d521471eb",
+      "variant_id": "icon-256"
+    },
+    "Artisan": {
+      "asset_id": "badge-artisan",
+      "expected_criterion": {
+        "criteria_type": "creations_logged",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Artisan"
+      },
+      "name": "Artisan",
+      "sha256": "f7e20d468cc7ffed53e57069320ce4b8de392cbf95e5efb76b3d2b5e407ec57f",
+      "variant_id": "icon-256"
+    },
+    "Badge Collector": {
+      "asset_id": "badge-badge-collector",
+      "expected_criterion": {
+        "criteria_type": "badges_earned_count",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Badge Collector"
+      },
+      "name": "Badge Collector",
+      "sha256": "23b0303cda629110bbcc6c882d066734f4a873166cbb44c625b81935e15698ff",
+      "variant_id": "icon-256"
+    },
+    "Beastmaster": {
+      "asset_id": "badge-beastmaster",
+      "expected_criterion": {
+        "criteria_type": "mounts_evolved",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Beastmaster"
+      },
+      "name": "Beastmaster",
+      "sha256": "443665a15e38c915c1fcd5e50d61a066dfe16266f00763df229dc057ad1defd6",
+      "variant_id": "icon-256"
+    },
+    "Better Together": {
+      "asset_id": "badge-better-together",
+      "expected_criterion": {
+        "criteria_type": "co_op_project_completed",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Better Together"
+      },
+      "name": "Better Together",
+      "sha256": "8c012c0ee58b0689627dea4b6f1d981d3b2d1594aa940dd32feea568b57b02a4",
+      "variant_id": "icon-256"
+    },
+    "Big Saver": {
+      "asset_id": "badge-big-saver",
+      "expected_criterion": {
+        "criteria_type": "savings_goal_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Big Saver"
+      },
+      "name": "Big Saver",
+      "sha256": "10c6f39bda48375b13c807f84d55aa6cc857accf4cebe7f93769a80cb6dbd1c4",
+      "variant_id": "icon-256"
+    },
+    "Big Spender": {
+      "asset_id": "badge-big-spender",
+      "expected_criterion": {
+        "criteria_type": "coins_spent_lifetime",
+        "criteria_value": {
+          "amount": 500
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Big Spender"
+      },
+      "name": "Big Spender",
+      "sha256": "f961c1794b2f410c44e9e61149b5694b3147b5636f3a87b8d41ec3a61d21a6a6",
+      "variant_id": "icon-256"
+    },
+    "Birthday Week Champion": {
+      "asset_id": "badge-birthday-week-champion",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Birthday Week"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Birthday Week Champion"
+      },
+      "name": "Birthday Week Champion",
+      "sha256": "ca0002c3985f679597326a0536641954d2e1c1f3aecbb69e278da93795a7543f",
+      "variant_id": "icon-256"
+    },
+    "Boost Trinity": {
+      "asset_id": "badge-boost-trinity",
+      "expected_criterion": {
+        "criteria_type": "consumable_variety",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Boost Trinity"
+      },
+      "name": "Boost Trinity",
+      "sha256": "21b39f3c8c2e777373b6c05495e719e8a49ca219ae434f2e18e4ff5b2200d378",
+      "variant_id": "icon-256"
+    },
+    "Boss Slayer": {
+      "asset_id": "badge-boss-slayer",
+      "expected_criterion": {
+        "criteria_type": "boss_quests_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Boss Slayer"
+      },
+      "name": "Boss Slayer",
+      "sha256": "bbbaa524d6d4cad4bbd95e5b333330808296c9a26ff51ff1e462ece9e85ee907",
+      "variant_id": "icon-256"
+    },
+    "Boss Vanquisher": {
+      "asset_id": "badge-boss-vanquisher",
+      "expected_criterion": {
+        "criteria_type": "boss_quests_completed",
+        "criteria_value": {
+          "count": 15
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Boss Vanquisher"
+      },
+      "name": "Boss Vanquisher",
+      "sha256": "08f8a2f5b9d88b0f876ba222f36e943e4b63c18ade9d1d1c9780801e6de12754",
+      "variant_id": "icon-256"
+    },
+    "Bounty Boss": {
+      "asset_id": "badge-bounty-boss",
+      "expected_criterion": {
+        "criteria_type": "bounty_completed",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Bounty Boss"
+      },
+      "name": "Bounty Boss",
+      "sha256": "fc9f1317a4caea782cb01324ddf5ef148f1540d14f68daf6bdfde5612165a7c3",
+      "variant_id": "icon-256"
+    },
+    "Bounty Hunter": {
+      "asset_id": "badge-bounty-hunter",
+      "expected_criterion": {
+        "criteria_type": "bounty_completed",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Bounty Hunter"
+      },
+      "name": "Bounty Hunter",
+      "sha256": "0b2f832557ce9e252f83ac399a5ecfd7b5c7c138e23ddc00309306e4fc832a3a",
+      "variant_id": "icon-256"
+    },
+    "Bridge Builder": {
+      "asset_id": "badge-bridge-builder",
+      "expected_criterion": {
+        "criteria_type": "cross_category_unlock",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Bridge Builder"
+      },
+      "name": "Bridge Builder",
+      "sha256": "133371da69cf4b90f95e87711e60e2eff17d0dc7a82c9eecb15cb653cf0b044c",
+      "variant_id": "icon-256"
+    },
+    "Bronze Saver": {
+      "asset_id": "badge-bronze-saver",
+      "expected_criterion": {
+        "criteria_type": "total_coins_earned",
+        "criteria_value": {
+          "amount": 500
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Bronze Saver"
+      },
+      "name": "Bronze Saver",
+      "sha256": "df572af89cb6143ab96e91bb12f3277d5ebef8963b4b4c99110ade2f413d3f20",
+      "variant_id": "icon-256"
+    },
+    "Century Worker": {
+      "asset_id": "badge-century-worker",
+      "expected_criterion": {
+        "criteria_type": "hours_worked",
+        "criteria_value": {
+          "hours": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Century Worker"
+      },
+      "name": "Century Worker",
+      "sha256": "d6574604050d97f9ef0214eb110b3a84cbb91326a3bac0ef6508b286c2c2091b",
+      "variant_id": "icon-256"
+    },
+    "Chore Apprentice": {
+      "asset_id": "badge-chore-apprentice",
+      "expected_criterion": {
+        "criteria_type": "chore_completions",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Chore Apprentice"
+      },
+      "name": "Chore Apprentice",
+      "sha256": "6e0ac76d908a5df34dfb644d2ba4dbcf7befa52f103007a991d09a5c7bfdaecc",
+      "variant_id": "icon-256"
+    },
+    "Chore Hero": {
+      "asset_id": "badge-chore-hero",
+      "expected_criterion": {
+        "criteria_type": "chore_completions",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Chore Hero"
+      },
+      "name": "Chore Hero",
+      "sha256": "04a10ef5057c567318ec6323cf9829e890377e8b9af20f9ceffc7ea7de677e5f",
+      "variant_id": "icon-256"
+    },
+    "Chore Legend": {
+      "asset_id": "badge-chore-legend",
+      "expected_criterion": {
+        "criteria_type": "chore_completions",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Chore Legend"
+      },
+      "name": "Chore Legend",
+      "sha256": "1fff51f19eedb2c2b0130b8694e82fa7854b54e51384dc57dba70ccc53c7256a",
+      "variant_id": "icon-256"
+    },
+    "Chronicler": {
+      "asset_id": "badge-chronicler",
+      "expected_criterion": {
+        "criteria_type": "journal_entries_written",
+        "criteria_value": {
+          "count": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Chronicler"
+      },
+      "name": "Chronicler",
+      "sha256": "713fba3053729e57e5b70e2b1609fd926055d4754f16e4a0f4ec47d12a051890",
+      "variant_id": "icon-256"
+    },
+    "Collector": {
+      "asset_id": "badge-collector",
+      "expected_criterion": {
+        "criteria_type": "collection_quests_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Collector"
+      },
+      "name": "Collector",
+      "sha256": "a588a71417843f54fa6ad12d8cab25f169bd580de1b82ac28cccd01b8aaa0cc5",
+      "variant_id": "icon-256"
+    },
+    "Constellation": {
+      "asset_id": "badge-constellation",
+      "expected_criterion": {
+        "criteria_type": "journal_streak_days",
+        "criteria_value": {
+          "days": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Constellation"
+      },
+      "name": "Constellation",
+      "sha256": "6b6a82e83f09240b388ba03535689e2f2affae7a43327276997ce997a0566413",
+      "variant_id": "icon-256"
+    },
+    "Cross-Trainer": {
+      "asset_id": "badge-cross-trainer",
+      "expected_criterion": {
+        "criteria_type": "movement_type_breadth",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Cross-Trainer"
+      },
+      "name": "Cross-Trainer",
+      "sha256": "f3525726948e25c71eb1e18d05f28cc305d0259e048f99e5def0fa03eca2af6d",
+      "variant_id": "icon-256"
+    },
+    "Decade Marker": {
+      "asset_id": "badge-decade-marker",
+      "expected_criterion": {
+        "criteria_type": "birthdays_logged",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Decade Marker"
+      },
+      "name": "Decade Marker",
+      "sha256": "34cb6c2c4e85a29b4e62565d4b57b7d0f20fbc3a861e5d0ccd5b092fdaf90fc3",
+      "variant_id": "icon-256"
+    },
+    "Decathlete": {
+      "asset_id": "badge-decathlete",
+      "expected_criterion": {
+        "criteria_type": "movement_type_breadth",
+        "criteria_value": {
+          "count": 6
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Decathlete"
+      },
+      "name": "Decathlete",
+      "sha256": "f73a793b3a1690c553c0395395201fa88b58cb49c46fbb9e1824d487b09ca006",
+      "variant_id": "icon-256"
+    },
+    "Deep Dive": {
+      "asset_id": "badge-deep-dive",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 1,
+          "level": 4
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Deep Dive"
+      },
+      "name": "Deep Dive",
+      "sha256": "a92dc536544e110420531e66746482eacf9bfa17cff3d2aff0980b2f8f8b9c1e",
+      "variant_id": "icon-256"
+    },
+    "Devoted": {
+      "asset_id": "badge-devoted",
+      "expected_criterion": {
+        "criteria_type": "movement_sessions_logged",
+        "criteria_value": {
+          "count": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Devoted"
+      },
+      "name": "Devoted",
+      "sha256": "1255d0a49019421e7fb910f15b4564a25006f3339fb6a9568ea2e20dceb83c36",
+      "variant_id": "icon-256"
+    },
+    "Diversified": {
+      "asset_id": "badge-diversified",
+      "expected_criterion": {
+        "criteria_type": "category_projects",
+        "criteria_value": {
+          "categories": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Diversified"
+      },
+      "name": "Diversified",
+      "sha256": "6c2495df9932dff7c151273641f5555974aae15bbaa6d17bef7b40914dc0837d",
+      "variant_id": "icon-256"
+    },
+    "Documentarian": {
+      "asset_id": "badge-documentarian",
+      "expected_criterion": {
+        "criteria_type": "photos_uploaded",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Documentarian"
+      },
+      "name": "Documentarian",
+      "sha256": "5c054e5dd09bd347c392679e21f1bce13c4028ef4bcab4815ebe0ff271397fbf",
+      "variant_id": "icon-256"
+    },
+    "Documentarian II": {
+      "asset_id": "badge-documentarian-ii",
+      "expected_criterion": {
+        "criteria_type": "photos_uploaded",
+        "criteria_value": {
+          "count": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Documentarian II"
+      },
+      "name": "Documentarian II",
+      "sha256": "0cd0b6c946328e4d77270814a38c3ff694cf60266249f3964c3da28f510c11c1",
+      "variant_id": "icon-256"
+    },
+    "Documentarian III": {
+      "asset_id": "badge-documentarian-iii",
+      "expected_criterion": {
+        "criteria_type": "photos_uploaded",
+        "criteria_value": {
+          "count": 250
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Documentarian III"
+      },
+      "name": "Documentarian III",
+      "sha256": "7e93f6fa906c51a4b018f6c740d49230dd42006242c1aa0985e0cbbb4417a0e7",
+      "variant_id": "icon-256"
+    },
+    "Doomscroll Slayer": {
+      "asset_id": "badge-doomscroll-slayer",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Defeat the Doomscroll"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Doomscroll Slayer"
+      },
+      "name": "Doomscroll Slayer",
+      "sha256": "3968b5f878bcbdf60fb702c4f858290f8e3f9104f7b1524902a1467f150d5de1",
+      "variant_id": "icon-256"
+    },
+    "Double Mastery": {
+      "asset_id": "badge-double-mastery",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 2,
+          "level": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Double Mastery"
+      },
+      "name": "Double Mastery",
+      "sha256": "0d0c3de6c55cd06d2c3f90a70eefb052e8b5582438407b7fb78b4d863099619c",
+      "variant_id": "icon-256"
+    },
+    "Dressed for the Quest": {
+      "asset_id": "badge-dressed-for-the-quest",
+      "expected_criterion": {
+        "criteria_type": "cosmetic_full_set",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Dressed for the Quest"
+      },
+      "name": "Dressed for the Quest",
+      "sha256": "cf5f6e356489a65f77f8e75f209ae2e3d634427231bbc2a2beb084a8275bc20c",
+      "variant_id": "icon-256"
+    },
+    "Early Bird": {
+      "asset_id": "badge-early-bird",
+      "expected_criterion": {
+        "criteria_type": "early_bird",
+        "criteria_value": {
+          "hour": 8
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Early Bird"
+      },
+      "name": "Early Bird",
+      "sha256": "e41da167c42fbf7e9abbfbd1bed284a34cbc339f1fa941a5abf85d1b0ce23a35",
+      "variant_id": "icon-256"
+    },
+    "Family Forge": {
+      "asset_id": "badge-family-forge",
+      "expected_criterion": {
+        "criteria_type": "co_op_project_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Family Forge"
+      },
+      "name": "Family Forge",
+      "sha256": "a5546fec42228257aae702ca6d9a40970d2ebb5ada45f46e641d698161a9ee9e",
+      "variant_id": "icon-256"
+    },
+    "Farewell Sprint Champion": {
+      "asset_id": "badge-farewell-sprint-champion",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Farewell Sprint"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Farewell Sprint Champion"
+      },
+      "name": "Farewell Sprint Champion",
+      "sha256": "3382a311937f94cff50cdea76343750ad626ab8e6c1d69c91b4d67e90330c90d",
+      "variant_id": "icon-256"
+    },
+    "Featured": {
+      "asset_id": "badge-featured",
+      "expected_criterion": {
+        "criteria_type": "creations_approved",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Featured"
+      },
+      "name": "Featured",
+      "sha256": "fd675e01392b0abf00f493c9982b2644eb641100a53834fe5bd95a5c2a3ad542",
+      "variant_id": "icon-256"
+    },
+    "Fifty Dollar Maker": {
+      "asset_id": "badge-fifty-dollar-maker",
+      "expected_criterion": {
+        "criteria_type": "total_earned",
+        "criteria_value": {
+          "amount": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Fifty Dollar Maker"
+      },
+      "name": "Fifty Dollar Maker",
+      "sha256": "f2bc8b3d6919e0a4afe5da1f1c579ca8bfd80b775b0d62434d8e9be381b145fb",
+      "variant_id": "icon-256"
+    },
+    "First Birthday In-App": {
+      "asset_id": "badge-first-birthday-in-app",
+      "expected_criterion": {
+        "criteria_type": "birthdays_logged",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Birthday In-App"
+      },
+      "name": "First Birthday In-App",
+      "sha256": "9fa2f4e98053053fc6209a80f72cf879fd35ca371972e6888296fbd04ea032e1",
+      "variant_id": "icon-256"
+    },
+    "First Bounty": {
+      "asset_id": "badge-first-bounty",
+      "expected_criterion": {
+        "criteria_type": "bounty_completed",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Bounty"
+      },
+      "name": "First Bounty",
+      "sha256": "66adef7f3ac8f64d6ba9efa25efd08efe69698ea29a38c31ff8a9397edc748e1",
+      "variant_id": "icon-256"
+    },
+    "First Clock-In": {
+      "asset_id": "badge-first-clock-in",
+      "expected_criterion": {
+        "criteria_type": "first_clock_in",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Clock-In"
+      },
+      "name": "First Clock-In",
+      "sha256": "8b4d5122efda9328bcec00020df5d1a74b3f649d2dbeaadd34caa7f62d5dab19",
+      "variant_id": "icon-256"
+    },
+    "First Dollar": {
+      "asset_id": "badge-first-dollar",
+      "expected_criterion": {
+        "criteria_type": "total_earned",
+        "criteria_value": {
+          "amount": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Dollar"
+      },
+      "name": "First Dollar",
+      "sha256": "4d525b268edd97027b1d4dfde6889bd07995cf059da3f01f62c61e6d3301ef84",
+      "variant_id": "icon-256"
+    },
+    "First Lap": {
+      "asset_id": "badge-first-lap",
+      "expected_criterion": {
+        "criteria_type": "movement_sessions_logged",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Lap"
+      },
+      "name": "First Lap",
+      "sha256": "5062b1d9c3d724e63ce5947da9b090259edf627ce9599ff2c2fa84834162d7cf",
+      "variant_id": "icon-256"
+    },
+    "First Page": {
+      "asset_id": "badge-first-page",
+      "expected_criterion": {
+        "criteria_type": "journal_entries_written",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Page"
+      },
+      "name": "First Page",
+      "sha256": "b4135cd7c967b5b291516982a1f2109d8100cde480fdebf6bb7f9bfd20e5b706",
+      "variant_id": "icon-256"
+    },
+    "First Project": {
+      "asset_id": "badge-first-project",
+      "expected_criterion": {
+        "criteria_type": "first_project",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Project"
+      },
+      "name": "First Project",
+      "sha256": "b2bd04fbc89bbbee9f2561a03711a560972a836d85b5744272fd073b667e783e",
+      "variant_id": "icon-256"
+    },
+    "First Redemption": {
+      "asset_id": "badge-first-redemption",
+      "expected_criterion": {
+        "criteria_type": "reward_redeemed",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Redemption"
+      },
+      "name": "First Redemption",
+      "sha256": "5c7ea1da456be5c520d3fe2548704305ca19e083742b10527c19fd16e6601806",
+      "variant_id": "icon-256"
+    },
+    "First Ride": {
+      "asset_id": "badge-first-ride",
+      "expected_criterion": {
+        "criteria_type": "mounts_evolved",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Ride"
+      },
+      "name": "First Ride",
+      "sha256": "a452029a7ee1947d6bf2106775b568c47ee6f409eb07e7dc3fb785fb475713a2",
+      "variant_id": "icon-256"
+    },
+    "First Spark": {
+      "asset_id": "badge-first-spark",
+      "expected_criterion": {
+        "criteria_type": "creations_logged",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "First Spark"
+      },
+      "name": "First Spark",
+      "sha256": "1b2d8cacfd6f1e826d12e1d7a5907b377bf197c3574849951051643ce3ee110e",
+      "variant_id": "icon-256"
+    },
+    "Forgemaster's Regalia": {
+      "asset_id": "badge-forgemaster-s-regalia",
+      "expected_criterion": {
+        "criteria_type": "cosmetic_set_owned",
+        "criteria_value": {
+          "slugs": [
+            "frame-gold",
+            "title-legendary-forgemaster",
+            "title-master-crafter"
+          ]
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Forgemaster's Regalia"
+      },
+      "name": "Forgemaster's Regalia",
+      "sha256": "8774428e2efb88320b5bb939e1d2c796f8ee1b2998da52ae74c28f6bf2cc2f09",
+      "variant_id": "icon-256"
+    },
+    "Fortnight": {
+      "asset_id": "badge-fortnight",
+      "expected_criterion": {
+        "criteria_type": "streak_days",
+        "criteria_value": {
+          "days": 14
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Fortnight"
+      },
+      "name": "Fortnight",
+      "sha256": "d0c8660d25b32e3140415487a7354cca16a89e46c39f7992ee05e02888805244",
+      "variant_id": "icon-256"
+    },
+    "Fortnight of Light": {
+      "asset_id": "badge-fortnight-of-light",
+      "expected_criterion": {
+        "criteria_type": "perfect_days_count",
+        "criteria_value": {
+          "count": 14
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Fortnight of Light"
+      },
+      "name": "Fortnight of Light",
+      "sha256": "bea62cc9426039114904337b7a0217e042e806e543ab226d9bf1c8aafbf2c249",
+      "variant_id": "icon-256"
+    },
+    "Framed": {
+      "asset_id": "badge-framed",
+      "expected_criterion": {
+        "criteria_type": "creations_approved",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Framed"
+      },
+      "name": "Framed",
+      "sha256": "fd55ea488e503eb4b29de37bec0e7eb495861adc55cacb27a1a683c272918063",
+      "variant_id": "icon-256"
+    },
+    "Freshman": {
+      "asset_id": "badge-freshman",
+      "expected_criterion": {
+        "criteria_type": "grade_reached",
+        "criteria_value": {
+          "grade": 9
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Freshman"
+      },
+      "name": "Freshman",
+      "sha256": "6f36798c3dda8b3d63127625ed8d66d09c3f3109d97204d0fc7bf68dfe59f019",
+      "variant_id": "icon-256"
+    },
+    "Freshman Survivor": {
+      "asset_id": "badge-freshman-survivor",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "First Week of Freshman Year"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Freshman Survivor"
+      },
+      "name": "Freshman Survivor",
+      "sha256": "2270a31e55f0ee0c5a0fbc846e88341f9a9b00417b62203a75367f558715bf48",
+      "variant_id": "icon-256"
+    },
+    "Frozen in Time": {
+      "asset_id": "badge-frozen-in-time",
+      "expected_criterion": {
+        "criteria_type": "streak_freeze_used",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Frozen in Time"
+      },
+      "name": "Frozen in Time",
+      "sha256": "4ac6ea45b4c4b7bfb42d6dd6d34c9530ce57e08546ae8db46e5d3aa6a54c8c80",
+      "variant_id": "icon-256"
+    },
+    "Full Ark": {
+      "asset_id": "badge-full-ark",
+      "expected_criterion": {
+        "criteria_type": "pet_species_owned",
+        "criteria_value": {
+          "count": 15
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Full Ark"
+      },
+      "name": "Full Ark",
+      "sha256": "d81864985409e2f8707861551ae84644842679f3b8163ee33504ddb6f31b4955",
+      "variant_id": "icon-256"
+    },
+    "Full Potion Shelf": {
+      "asset_id": "badge-full-potion-shelf",
+      "expected_criterion": {
+        "criteria_type": "full_potion_shelf",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Full Potion Shelf"
+      },
+      "name": "Full Potion Shelf",
+      "sha256": "59f5029ace28cbc528d350bd1b343537c8ee1a865f2e197399543077b82e3d9c",
+      "variant_id": "icon-256"
+    },
+    "Garden Hero": {
+      "asset_id": "badge-garden-hero",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Garden Pest Hunter"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Garden Hero"
+      },
+      "name": "Garden Hero",
+      "sha256": "a801573c425a34012a9e4391d1d63203c0a2ba3f99bfa03dfb1bec368d9fb6a7",
+      "variant_id": "icon-256"
+    },
+    "Gilded Vault": {
+      "asset_id": "badge-gilded-vault",
+      "expected_criterion": {
+        "criteria_type": "coins_spent_lifetime",
+        "criteria_value": {
+          "amount": 5000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Gilded Vault"
+      },
+      "name": "Gilded Vault",
+      "sha256": "1531b3071891b04e416038dd4781ec6b0459ed36ad7df6a830a2b11eef02a508",
+      "variant_id": "icon-256"
+    },
+    "Gold Saver": {
+      "asset_id": "badge-gold-saver",
+      "expected_criterion": {
+        "criteria_type": "total_coins_earned",
+        "criteria_value": {
+          "amount": 5000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Gold Saver"
+      },
+      "name": "Gold Saver",
+      "sha256": "e19b9fc6c92f14755719b2ee1b9d5c5f536ab42d27e5ad408dc717511d27d8ad",
+      "variant_id": "icon-256"
+    },
+    "Grand Collector": {
+      "asset_id": "badge-grand-collector",
+      "expected_criterion": {
+        "criteria_type": "badges_earned_count",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Grand Collector"
+      },
+      "name": "Grand Collector",
+      "sha256": "ac7532ab0e959958aecc5d5c440b748bf8b51bb893c1e285957e8b8be4f27c52",
+      "variant_id": "icon-256"
+    },
+    "Grandmaster": {
+      "asset_id": "badge-grandmaster",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 5,
+          "level": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Grandmaster"
+      },
+      "name": "Grandmaster",
+      "sha256": "0c6aba74343c009ea335f642e30b72aecd6b238393b1a7196b9da9b999376e12",
+      "variant_id": "icon-256"
+    },
+    "Hat Trick": {
+      "asset_id": "badge-hat-trick",
+      "expected_criterion": {
+        "criteria_type": "projects_completed",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Hat Trick"
+      },
+      "name": "Hat Trick",
+      "sha256": "41164016986c92695c90bccac5ee079be175b1026ff26af4b1a180f0498c0018",
+      "variant_id": "icon-256"
+    },
+    "Hatchling Friend": {
+      "asset_id": "badge-hatchling-friend",
+      "expected_criterion": {
+        "criteria_type": "pets_hatched",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Hatchling Friend"
+      },
+      "name": "Hatchling Friend",
+      "sha256": "a4832dc4f3a46cf3c68d14189df80562c422f8583b022f2e0279ae12b53a1716",
+      "variant_id": "icon-256"
+    },
+    "High Five": {
+      "asset_id": "badge-high-five",
+      "expected_criterion": {
+        "criteria_type": "projects_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "High Five"
+      },
+      "name": "High Five",
+      "sha256": "88858847cb1a4795c906c4f7a8a915fbf420d3180af8e55fbdaff3f888e14aeb",
+      "variant_id": "icon-256"
+    },
+    "Historian": {
+      "asset_id": "badge-historian",
+      "expected_criterion": {
+        "criteria_type": "journal_entries_written",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Historian"
+      },
+      "name": "Historian",
+      "sha256": "401ac052895417c0b90df403d66a8c47d150d8be36271bfb278079b142c3130a",
+      "variant_id": "icon-256"
+    },
+    "Hour One": {
+      "asset_id": "badge-hour-one",
+      "expected_criterion": {
+        "criteria_type": "movement_total_minutes",
+        "criteria_value": {
+          "minutes": 60
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Hour One"
+      },
+      "name": "Hour One",
+      "sha256": "bd570ddaf8a017c5737f9d7d0f65a9d09bd663b8ec5cd3c7c92de19a569f446d",
+      "variant_id": "icon-256"
+    },
+    "Hundred Dollar Club": {
+      "asset_id": "badge-hundred-dollar-club",
+      "expected_criterion": {
+        "criteria_type": "total_earned",
+        "criteria_value": {
+          "amount": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Hundred Dollar Club"
+      },
+      "name": "Hundred Dollar Club",
+      "sha256": "e7cc385bb976f2c3702f767693044b50ea57399d71dc097860ce82f6235a480d",
+      "variant_id": "icon-256"
+    },
+    "Iron": {
+      "asset_id": "badge-iron",
+      "expected_criterion": {
+        "criteria_type": "movement_sessions_logged",
+        "criteria_value": {
+          "count": 200
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Iron"
+      },
+      "name": "Iron",
+      "sha256": "74af12f2a6fa9ed0dbd7d5a0eb3fe87c2298fc14e53c080bb7da95bd602e65eb",
+      "variant_id": "icon-256"
+    },
+    "Jack of All Trades": {
+      "asset_id": "badge-jack-of-all-trades",
+      "expected_criterion": {
+        "criteria_type": "skill_categories_breadth",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Jack of All Trades"
+      },
+      "name": "Jack of All Trades",
+      "sha256": "ae24cad0694cf14dcd7ca2202b84ecb83f151e3a3277ac017f0dd699fe4ff9ce",
+      "variant_id": "icon-256"
+    },
+    "Journeyman": {
+      "asset_id": "badge-journeyman",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 1,
+          "level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Journeyman"
+      },
+      "name": "Journeyman",
+      "sha256": "f3182f57053df0eaa277777654e58b6088a1a249dddb3dea1ed3cde345651443",
+      "variant_id": "icon-256"
+    },
+    "Journeyman Trial Complete": {
+      "asset_id": "badge-journeyman-trial-complete",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Journeyman Trial"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Journeyman Trial Complete"
+      },
+      "name": "Journeyman Trial Complete",
+      "sha256": "a149561265e6924ae12a63e8281077386c1109cbca656e918826e0c98f0eae11",
+      "variant_id": "icon-256"
+    },
+    "Junior": {
+      "asset_id": "badge-junior",
+      "expected_criterion": {
+        "criteria_type": "grade_reached",
+        "criteria_value": {
+          "grade": 11
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Junior"
+      },
+      "name": "Junior",
+      "sha256": "00ddf80a1c9030ab72c0eeb50b2c6bd58f9fc0d7bcd8780553d6309467d6028d",
+      "variant_id": "icon-256"
+    },
+    "Key Turner": {
+      "asset_id": "badge-key-turner",
+      "expected_criterion": {
+        "criteria_type": "skills_unlocked",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Key Turner"
+      },
+      "name": "Key Turner",
+      "sha256": "7803a06493e5b2103c126904f89e2675bc3d9c24eaaacc3b83c360200030dcaf",
+      "variant_id": "icon-256"
+    },
+    "Legacy": {
+      "asset_id": "badge-legacy",
+      "expected_criterion": {
+        "criteria_type": "creations_approved",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Legacy"
+      },
+      "name": "Legacy",
+      "sha256": "0c7d95d9bbe03ec3742f1ad0904c9a4fd11a99ae26017d1b6e630ddf089a6856",
+      "variant_id": "icon-256"
+    },
+    "Level Up": {
+      "asset_id": "badge-level-up",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 1,
+          "level": 2
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Level Up"
+      },
+      "name": "Level Up",
+      "sha256": "20c97ce6325f372ab54e9efb25753917dfa6c338e1cec918d27e08242040bfd0",
+      "variant_id": "icon-256"
+    },
+    "Life Chronicler": {
+      "asset_id": "badge-life-chronicler",
+      "expected_criterion": {
+        "criteria_type": "chronicle_milestones_logged",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Life Chronicler"
+      },
+      "name": "Life Chronicler",
+      "sha256": "9a1b5caea10e77bc1bdca33f83d191658999e742e88326133f2e0fc72dd5994c",
+      "variant_id": "icon-256"
+    },
+    "Lockpicker": {
+      "asset_id": "badge-lockpicker",
+      "expected_criterion": {
+        "criteria_type": "skills_unlocked",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Lockpicker"
+      },
+      "name": "Lockpicker",
+      "sha256": "baedac94ca02237e988f12c3739da3d6f1a9628b3cd05caef9fbbdd4ff3a598a",
+      "variant_id": "icon-256"
+    },
+    "Looked Back": {
+      "asset_id": "badge-looked-back",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Chronicle Retrospective"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Looked Back"
+      },
+      "name": "Looked Back",
+      "sha256": "ec620c214379362c646a340259ebe71242529bd838996f907c447803539d79c1",
+      "variant_id": "icon-256"
+    },
+    "Lunar Scribe": {
+      "asset_id": "badge-lunar-scribe",
+      "expected_criterion": {
+        "criteria_type": "journal_streak_days",
+        "criteria_value": {
+          "days": 30
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Lunar Scribe"
+      },
+      "name": "Lunar Scribe",
+      "sha256": "1c5434f11d5d83a39a7fac5dd5c3212e281e15d54a5399c7548760a141d18e61",
+      "variant_id": "icon-256"
+    },
+    "Maker": {
+      "asset_id": "badge-maker",
+      "expected_criterion": {
+        "criteria_type": "creations_logged",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Maker"
+      },
+      "name": "Maker",
+      "sha256": "92ecce442cb674fcbaf45337ce1b594397fb41a4d0ccb0cae58d5e5ca254b3b6",
+      "variant_id": "icon-256"
+    },
+    "Maker Legend": {
+      "asset_id": "badge-maker-legend",
+      "expected_criterion": {
+        "criteria_type": "projects_completed",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Maker Legend"
+      },
+      "name": "Maker Legend",
+      "sha256": "4fb4f69065b5add71514193240a164d733e3d7ebf2fdcc294c8332906b53e663",
+      "variant_id": "icon-256"
+    },
+    "Many Years": {
+      "asset_id": "badge-many-years",
+      "expected_criterion": {
+        "criteria_type": "birthdays_logged",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Many Years"
+      },
+      "name": "Many Years",
+      "sha256": "f1cdc9314f255a52cdcfe54fd45d5fd3598c82614972b7d31304c974be7ac1a6",
+      "variant_id": "icon-256"
+    },
+    "Marathon Day": {
+      "asset_id": "badge-marathon-day",
+      "expected_criterion": {
+        "criteria_type": "hours_in_day",
+        "criteria_value": {
+          "hours": 4
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Marathon Day"
+      },
+      "name": "Marathon Day",
+      "sha256": "fede6ffaaead77bde32634bac2ee3212e33bff61ff538a0ab9ccce25b4f23e89",
+      "variant_id": "icon-256"
+    },
+    "Marathoner": {
+      "asset_id": "badge-marathoner",
+      "expected_criterion": {
+        "criteria_type": "movement_total_minutes",
+        "criteria_value": {
+          "minutes": 3000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Marathoner"
+      },
+      "name": "Marathoner",
+      "sha256": "e19e1d84c19a5b6c3280673d66f86a1be065181c710f04bcff8107cab4510b39",
+      "variant_id": "icon-256"
+    },
+    "Master Alchemist": {
+      "asset_id": "badge-master-alchemist",
+      "expected_criterion": {
+        "criteria_type": "consumable_variety",
+        "criteria_value": {
+          "count": 9
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master Alchemist"
+      },
+      "name": "Master Alchemist",
+      "sha256": "4a5ac04d9199096be9a5e92610dde2b99b9202e7ebcfcef49b9c074b9edbee1c",
+      "variant_id": "icon-256"
+    },
+    "Master Craftsman": {
+      "asset_id": "badge-master-craftsman",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 1,
+          "level": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master Craftsman"
+      },
+      "name": "Master Craftsman",
+      "sha256": "62c65dd42c570c25cf9b6ddf0e461aff15a1d3bda089ab8e7011e6f2d7c6db85",
+      "variant_id": "icon-256"
+    },
+    "Master of Art & Crafts": {
+      "asset_id": "badge-master-of-art-crafts",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Art & Crafts",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Art & Crafts"
+      },
+      "name": "Master of Art & Crafts",
+      "sha256": "8951659120803368268a8e08aef3fac8c85797bf9a60ca2fe2ae8c5b443fbc4f",
+      "variant_id": "icon-256"
+    },
+    "Master of Coding": {
+      "asset_id": "badge-master-of-coding",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Coding",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Coding"
+      },
+      "name": "Master of Coding",
+      "sha256": "f09054bdbf55abde2518619cc545cd08a56468fdba7962782f6bf3194597b3e1",
+      "variant_id": "icon-256"
+    },
+    "Master of Cooking": {
+      "asset_id": "badge-master-of-cooking",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Cooking",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Cooking"
+      },
+      "name": "Master of Cooking",
+      "sha256": "2a69548f840bf5da90aae8cd1aae9f52dd84bd45c04b6856b79928eace5bff11",
+      "variant_id": "icon-256"
+    },
+    "Master of Electronics": {
+      "asset_id": "badge-master-of-electronics",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Electronics",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Electronics"
+      },
+      "name": "Master of Electronics",
+      "sha256": "0a19099b53e5922741c57ac6c7704cd074a1b543b83b783c2f3945fb5b9e3393",
+      "variant_id": "icon-256"
+    },
+    "Master of Language Arts": {
+      "asset_id": "badge-master-of-language-arts",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Language Arts",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Language Arts"
+      },
+      "name": "Master of Language Arts",
+      "sha256": "2e135815e4365aab19f29a439c33ec30c4b5b736937898e0a7109c1e01ca893a",
+      "variant_id": "icon-256"
+    },
+    "Master of Life Skills": {
+      "asset_id": "badge-master-of-life-skills",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Life Skills",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Life Skills"
+      },
+      "name": "Master of Life Skills",
+      "sha256": "600b7ac50e5e00ae9e12de4656b85f189aeee11368047063fe17e1c6504a7253",
+      "variant_id": "icon-256"
+    },
+    "Master of Making & Fabrication": {
+      "asset_id": "badge-master-of-making-fabrication",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Making & Fabrication",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Making & Fabrication"
+      },
+      "name": "Master of Making & Fabrication",
+      "sha256": "7b695fd9c436c610943315199ffa99744fb4f6850cd3f5a7fc341a94773a154a",
+      "variant_id": "icon-256"
+    },
+    "Master of Math": {
+      "asset_id": "badge-master-of-math",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Math",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Math"
+      },
+      "name": "Master of Math",
+      "sha256": "67d16cb042e58022b5c1241718fdc61eef9f81212e7570a4211d50f2a958aac9",
+      "variant_id": "icon-256"
+    },
+    "Master of Music": {
+      "asset_id": "badge-master-of-music",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Music",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Music"
+      },
+      "name": "Master of Music",
+      "sha256": "f4e373f91271db0abf58bf0c1c4d4cbd40409114575c7f12cf5597c3040b328f",
+      "variant_id": "icon-256"
+    },
+    "Master of Outdoors": {
+      "asset_id": "badge-master-of-outdoors",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Outdoors",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Outdoors"
+      },
+      "name": "Master of Outdoors",
+      "sha256": "33f9e2c53691e313ce510c2e190fd2ebae1fadcdb2ca4fbdfb6951ae0b687432",
+      "variant_id": "icon-256"
+    },
+    "Master of Physical": {
+      "asset_id": "badge-master-of-physical",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Physical",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Physical"
+      },
+      "name": "Master of Physical",
+      "sha256": "2b5af2256133c948c8e25bb0410ccb91586337fc261e60cb7ba52dd3051eb31f",
+      "variant_id": "icon-256"
+    },
+    "Master of Science": {
+      "asset_id": "badge-master-of-science",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Science",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Science"
+      },
+      "name": "Master of Science",
+      "sha256": "439de69e04266c7f05e8b60fb90cf4ef5d5d3551d42e74a0c85a869cf473ec02",
+      "variant_id": "icon-256"
+    },
+    "Master of Sewing & Textiles": {
+      "asset_id": "badge-master-of-sewing-textiles",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Sewing & Textiles",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Sewing & Textiles"
+      },
+      "name": "Master of Sewing & Textiles",
+      "sha256": "8249dfb8d49e4aa41c9e5bf56b29d08fa84a2c4a42cffd1058eb9a8ee04b11d9",
+      "variant_id": "icon-256"
+    },
+    "Master of Woodworking": {
+      "asset_id": "badge-master-of-woodworking",
+      "expected_criterion": {
+        "criteria_type": "category_mastery",
+        "criteria_value": {
+          "category": "Woodworking",
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master of Woodworking"
+      },
+      "name": "Master of Woodworking",
+      "sha256": "1545966e3f0986119269c33e3de39f95d7ae59637a88604e6e7c16d36385997d",
+      "variant_id": "icon-256"
+    },
+    "Master's Path Complete": {
+      "asset_id": "badge-master-s-path-complete",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Master's Path"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Master's Path Complete"
+      },
+      "name": "Master's Path Complete",
+      "sha256": "232707d9a272bebc335447537dfe0656746b8088abea217fc0eb238bfcdb4684",
+      "variant_id": "icon-256"
+    },
+    "Milestone Architect": {
+      "asset_id": "badge-milestone-architect",
+      "expected_criterion": {
+        "criteria_type": "milestones_completed",
+        "criteria_value": {
+          "count": 200
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Milestone Architect"
+      },
+      "name": "Milestone Architect",
+      "sha256": "226ebcc0a1e13d41cefba0b8519d72eeb37e476c12c11d51f4cdd97a01415091",
+      "variant_id": "icon-256"
+    },
+    "Milestone Foreman": {
+      "asset_id": "badge-milestone-foreman",
+      "expected_criterion": {
+        "criteria_type": "milestones_completed",
+        "criteria_value": {
+          "count": 75
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Milestone Foreman"
+      },
+      "name": "Milestone Foreman",
+      "sha256": "dae0907d51743b7402167721cbdfb2daeb4f8de944226f675ca9cd396ca57908",
+      "variant_id": "icon-256"
+    },
+    "Milestone Marker": {
+      "asset_id": "badge-milestone-marker",
+      "expected_criterion": {
+        "criteria_type": "milestones_completed",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Milestone Marker"
+      },
+      "name": "Milestone Marker",
+      "sha256": "61207c94f5b6d8d27d8925e8ff8c5308268e1664254c36157a3eaaa66c210ca4",
+      "variant_id": "icon-256"
+    },
+    "Mount Cavalry": {
+      "asset_id": "badge-mount-cavalry",
+      "expected_criterion": {
+        "criteria_type": "mounts_evolved",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Mount Cavalry"
+      },
+      "name": "Mount Cavalry",
+      "sha256": "9710fb6b4e8fd5713089d6e657ef775c078aec253def543ce0b06f482ee35d78",
+      "variant_id": "icon-256"
+    },
+    "Mount Legion": {
+      "asset_id": "badge-mount-legion",
+      "expected_criterion": {
+        "criteria_type": "mounts_evolved",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Mount Legion"
+      },
+      "name": "Mount Legion",
+      "sha256": "dd25c1d9431de315c0d07330166d4e9dec720976f2b16e677be52c734b73d873",
+      "variant_id": "icon-256"
+    },
+    "Night Owl": {
+      "asset_id": "badge-night-owl",
+      "expected_criterion": {
+        "criteria_type": "late_night",
+        "criteria_value": {
+          "hour": 21
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Night Owl"
+      },
+      "name": "Night Owl",
+      "sha256": "5af36c3bf965c3cd8a2802e0241e821e5633459db5007bc4e4fda3c39c84ce64",
+      "variant_id": "icon-256"
+    },
+    "Perfect 10": {
+      "asset_id": "badge-perfect-10",
+      "expected_criterion": {
+        "criteria_type": "projects_completed",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Perfect 10"
+      },
+      "name": "Perfect 10",
+      "sha256": "ef11f7b7d8635dfef90da494bdfcf8927a9d379bed504c5e12602a151e5308df",
+      "variant_id": "icon-256"
+    },
+    "Perfect Day": {
+      "asset_id": "badge-perfect-day",
+      "expected_criterion": {
+        "criteria_type": "perfect_days_count",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Perfect Day"
+      },
+      "name": "Perfect Day",
+      "sha256": "679dbec4b58263f5177888be96efc8b91dd3ab6d39195373b367889e5b7c4e65",
+      "variant_id": "icon-256"
+    },
+    "Perfect Month": {
+      "asset_id": "badge-perfect-month",
+      "expected_criterion": {
+        "criteria_type": "perfect_days_count",
+        "criteria_value": {
+          "count": 30
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Perfect Month"
+      },
+      "name": "Perfect Month",
+      "sha256": "c94426303a5f8c2273906b3f7e8123626e93f1122a058643d1632ec315019d8d",
+      "variant_id": "icon-256"
+    },
+    "Perfect Timecard": {
+      "asset_id": "badge-perfect-timecard",
+      "expected_criterion": {
+        "criteria_type": "perfect_timecard",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Perfect Timecard"
+      },
+      "name": "Perfect Timecard",
+      "sha256": "57c79d0b7ae42ee29eb0bca698a6019485cbf7fa5d94bec8717bb454be21a7d7",
+      "variant_id": "icon-256"
+    },
+    "Perfect Week": {
+      "asset_id": "badge-perfect-week",
+      "expected_criterion": {
+        "criteria_type": "perfect_days_count",
+        "criteria_value": {
+          "count": 7
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Perfect Week"
+      },
+      "name": "Perfect Week",
+      "sha256": "c313c4421c92e590983214f23a8b63e4ba38bef6ebe134f655e669e4de20e202",
+      "variant_id": "icon-256"
+    },
+    "Planner": {
+      "asset_id": "badge-planner",
+      "expected_criterion": {
+        "criteria_type": "homework_planned_ahead",
+        "criteria_value": {
+          "count": 3,
+          "days_ahead": 2
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Planner"
+      },
+      "name": "Planner",
+      "sha256": "504bc100b33f0e4c7e2bee789ae20d1e5c7b413fcce213a2005826b2f983c307",
+      "variant_id": "icon-256"
+    },
+    "Planner II": {
+      "asset_id": "badge-planner-ii",
+      "expected_criterion": {
+        "criteria_type": "homework_planned_ahead",
+        "criteria_value": {
+          "count": 10,
+          "days_ahead": 2
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Planner II"
+      },
+      "name": "Planner II",
+      "sha256": "06bc4c948ef961c42394efde85de09d0a8db034826016559b0def877778eb674",
+      "variant_id": "icon-256"
+    },
+    "Planner III": {
+      "asset_id": "badge-planner-iii",
+      "expected_criterion": {
+        "criteria_type": "homework_planned_ahead",
+        "criteria_value": {
+          "count": 25,
+          "days_ahead": 2
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Planner III"
+      },
+      "name": "Planner III",
+      "sha256": "346f0c96a8b8ac0428681c222dc193ec515170161f13ee770af8e5bd48d8fd30",
+      "variant_id": "icon-256"
+    },
+    "Platinum Saver": {
+      "asset_id": "badge-platinum-saver",
+      "expected_criterion": {
+        "criteria_type": "total_coins_earned",
+        "criteria_value": {
+          "amount": 10000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Platinum Saver"
+      },
+      "name": "Platinum Saver",
+      "sha256": "0be034dd1bb5ba3f371ca357583dd879c991e2ea70abe1b13bc07cc41b8d2498",
+      "variant_id": "icon-256"
+    },
+    "Polymath": {
+      "asset_id": "badge-polymath",
+      "expected_criterion": {
+        "criteria_type": "creation_skill_breadth",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Polymath"
+      },
+      "name": "Polymath",
+      "sha256": "23eb268c189b204c3872b0a880c70dea6f4abcfb0b9e8b569f69e88af7f62554",
+      "variant_id": "icon-256"
+    },
+    "Popsicle Crew": {
+      "asset_id": "badge-popsicle-crew",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Popsicle Picnic"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Popsicle Crew"
+      },
+      "name": "Popsicle Crew",
+      "sha256": "3d15e13fe7970a498e9dd0f32c2d09b32302102a9d67d265af65d3c182b5c008",
+      "variant_id": "icon-256"
+    },
+    "Prolific": {
+      "asset_id": "badge-prolific",
+      "expected_criterion": {
+        "criteria_type": "creations_logged",
+        "criteria_value": {
+          "count": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Prolific"
+      },
+      "name": "Prolific",
+      "sha256": "814cddc07e78c5def5e2dd18efe555d8574d3525c1a050e34637379b7ec5d23e",
+      "variant_id": "icon-256"
+    },
+    "Punctual": {
+      "asset_id": "badge-punctual",
+      "expected_criterion": {
+        "criteria_type": "homework_on_time_count",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Punctual"
+      },
+      "name": "Punctual",
+      "sha256": "17effd517a8f2e7c95e7fcdfacbbf4e167c9ed6405b63bbd529d3e7abcc4d5a6",
+      "variant_id": "icon-256"
+    },
+    "Punctual II": {
+      "asset_id": "badge-punctual-ii",
+      "expected_criterion": {
+        "criteria_type": "homework_on_time_count",
+        "criteria_value": {
+          "count": 15
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Punctual II"
+      },
+      "name": "Punctual II",
+      "sha256": "b0321c138872685b851c1326c246aef4801f2fc6a946ce6c0293a5e5981040b6",
+      "variant_id": "icon-256"
+    },
+    "Punctual III": {
+      "asset_id": "badge-punctual-iii",
+      "expected_criterion": {
+        "criteria_type": "homework_on_time_count",
+        "criteria_value": {
+          "count": 40
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Punctual III"
+      },
+      "name": "Punctual III",
+      "sha256": "0519de4142d6a000345d5b36131a1510a4f150992f90856446440cecf46e32f2",
+      "variant_id": "icon-256"
+    },
+    "Quarter Thousand Club": {
+      "asset_id": "badge-quarter-thousand-club",
+      "expected_criterion": {
+        "criteria_type": "total_earned",
+        "criteria_value": {
+          "amount": 250
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Quarter Thousand Club"
+      },
+      "name": "Quarter Thousand Club",
+      "sha256": "082d039b49730257b4ce579bd2d6ff5f2a5f3876f9a718b1373bef194b1f3b74",
+      "variant_id": "icon-256"
+    },
+    "Quest Adept": {
+      "asset_id": "badge-quest-adept",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Quest Adept"
+      },
+      "name": "Quest Adept",
+      "sha256": "99b3e92f6416d092bc797f3b29469a48bf7a74ab43fe64b76e3d91ba7e53c7ec",
+      "variant_id": "icon-256"
+    },
+    "Quest Master": {
+      "asset_id": "badge-quest-master",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "count": 20
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Quest Master"
+      },
+      "name": "Quest Master",
+      "sha256": "521495ab8a48c8c158302b571adc26c5b60ab50ec35a128229d09b9e75abd22c",
+      "variant_id": "icon-256"
+    },
+    "Quest Novice": {
+      "asset_id": "badge-quest-novice",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Quest Novice"
+      },
+      "name": "Quest Novice",
+      "sha256": "cddd2a177203d74ce33d16d1ed31b922f9b05f39694b859adfff994bd32aef92",
+      "variant_id": "icon-256"
+    },
+    "Ranger's Kit": {
+      "asset_id": "badge-ranger-s-kit",
+      "expected_criterion": {
+        "criteria_type": "cosmetic_set_owned",
+        "criteria_value": {
+          "slugs": [
+            "frame-robin-hood",
+            "title-trailblazer",
+            "cover-verdant"
+          ]
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Ranger's Kit"
+      },
+      "name": "Ranger's Kit",
+      "sha256": "ccafc5f9a5acee5253ca816b24d4923960b2537569e4805b36b4b4efe8b75fba",
+      "variant_id": "icon-256"
+    },
+    "Regular": {
+      "asset_id": "badge-regular",
+      "expected_criterion": {
+        "criteria_type": "movement_sessions_logged",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Regular"
+      },
+      "name": "Regular",
+      "sha256": "2f8e27d5e315e6452c8883883132347c6fd850bc73122476a5ba7015c063a884",
+      "variant_id": "icon-256"
+    },
+    "Renaissance Kid": {
+      "asset_id": "badge-renaissance-kid",
+      "expected_criterion": {
+        "criteria_type": "skill_categories_breadth",
+        "criteria_value": {
+          "categories": 4,
+          "min_level": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Renaissance Kid"
+      },
+      "name": "Renaissance Kid",
+      "sha256": "57c6c7a59c1b2b31e2020c9cdcad575b6964572a4bea4dfe5168ad511a85776b",
+      "variant_id": "icon-256"
+    },
+    "Ritualist": {
+      "asset_id": "badge-ritualist",
+      "expected_criterion": {
+        "criteria_type": "habit_count_at_strength",
+        "criteria_value": {
+          "count": 3,
+          "strength": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Ritualist"
+      },
+      "name": "Ritualist",
+      "sha256": "b397f5f567c99e6d82a65b96b5d914c8663b95c1f79352568f9615ea0494da44",
+      "variant_id": "icon-256"
+    },
+    "Rooted": {
+      "asset_id": "badge-rooted",
+      "expected_criterion": {
+        "criteria_type": "habit_max_strength",
+        "criteria_value": {
+          "strength": 7
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Rooted"
+      },
+      "name": "Rooted",
+      "sha256": "d75f88b549eab2d76d84cdaf043cc413ca31aafd827a37335c564ebd675a087c",
+      "variant_id": "icon-256"
+    },
+    "Saver": {
+      "asset_id": "badge-saver",
+      "expected_criterion": {
+        "criteria_type": "savings_goal_completed",
+        "criteria_value": {
+          "count": 1
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Saver"
+      },
+      "name": "Saver",
+      "sha256": "e120126fa2c73631b6cd1ec68d332a6657dd1e6117a5b98b190f12747a6babbe",
+      "variant_id": "icon-256"
+    },
+    "Scholar's Wardrobe": {
+      "asset_id": "badge-scholar-s-wardrobe",
+      "expected_criterion": {
+        "criteria_type": "cosmetic_set_owned",
+        "criteria_value": {
+          "slugs": [
+            "frame-scholar",
+            "title-scholar",
+            "cover-snowquill"
+          ]
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Scholar's Wardrobe"
+      },
+      "name": "Scholar's Wardrobe",
+      "sha256": "eadc4bb1b24bd32462335be48ed8a8a68b2dfbf2b9bbd5bea63ee9715de89ae0",
+      "variant_id": "icon-256"
+    },
+    "Scribe": {
+      "asset_id": "badge-scribe",
+      "expected_criterion": {
+        "criteria_type": "journal_entries_written",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Scribe"
+      },
+      "name": "Scribe",
+      "sha256": "cfc4a72967638da8351dc232d52a68b66a95812f0b80f7ebc688e4a5a38b426b",
+      "variant_id": "icon-256"
+    },
+    "Second Wind": {
+      "asset_id": "badge-second-wind",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Comeback Kid"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Second Wind"
+      },
+      "name": "Second Wind",
+      "sha256": "1498318e933c90b55a3e6c2cdc16b241f7b61fce8a96b9b2ab6bf73c3d85e7f1",
+      "variant_id": "icon-256"
+    },
+    "Senior": {
+      "asset_id": "badge-senior",
+      "expected_criterion": {
+        "criteria_type": "grade_reached",
+        "criteria_value": {
+          "grade": 12
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Senior"
+      },
+      "name": "Senior",
+      "sha256": "c0d0b80d74cb31448808bb2c0537f50ceafe5956c553181503581ace2d696873",
+      "variant_id": "icon-256"
+    },
+    "Seven Nights Storyteller": {
+      "asset_id": "badge-seven-nights-storyteller",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Seven Nights of Stories"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Seven Nights Storyteller"
+      },
+      "name": "Seven Nights Storyteller",
+      "sha256": "91f35c3e126194ec389c7960af37fc6c38307136bfdea0d6d56e3767b964c176",
+      "variant_id": "icon-256"
+    },
+    "Shopkeeper": {
+      "asset_id": "badge-shopkeeper",
+      "expected_criterion": {
+        "criteria_type": "reward_redeemed",
+        "criteria_value": {
+          "count": 25
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Shopkeeper"
+      },
+      "name": "Shopkeeper",
+      "sha256": "06ceca155bf9fc5de5e3d13a6add8075203304f77c24249ce52f37be9c771f37",
+      "variant_id": "icon-256"
+    },
+    "Silver Saver": {
+      "asset_id": "badge-silver-saver",
+      "expected_criterion": {
+        "criteria_type": "total_coins_earned",
+        "criteria_value": {
+          "amount": 2000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Silver Saver"
+      },
+      "name": "Silver Saver",
+      "sha256": "bbf4b83aaac12cf511b4d03dde883f122c8bb9db074d31d362dd3e7af7965d97",
+      "variant_id": "icon-256"
+    },
+    "Skeleton Key": {
+      "asset_id": "badge-skeleton-key",
+      "expected_criterion": {
+        "criteria_type": "skills_unlocked",
+        "criteria_value": {
+          "count": 15
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Skeleton Key"
+      },
+      "name": "Skeleton Key",
+      "sha256": "f6f91f69889ae54ff8829785792925eff2e1f66aeb2753254eddd86891607b9d",
+      "variant_id": "icon-256"
+    },
+    "Sophomore": {
+      "asset_id": "badge-sophomore",
+      "expected_criterion": {
+        "criteria_type": "grade_reached",
+        "criteria_value": {
+          "grade": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Sophomore"
+      },
+      "name": "Sophomore",
+      "sha256": "508271be6b21678b67270fa11554a7a641ccce3fe76bb9b136f9ca788b7f4ec5",
+      "variant_id": "icon-256"
+    },
+    "Specialist": {
+      "asset_id": "badge-specialist",
+      "expected_criterion": {
+        "criteria_type": "category_projects",
+        "criteria_value": {
+          "category": "any",
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Specialist"
+      },
+      "name": "Specialist",
+      "sha256": "b09d9c6d175691522209bcb5611b61edf078ad4f05d6dc52e839235771f214a4",
+      "variant_id": "icon-256"
+    },
+    "Species Trio": {
+      "asset_id": "badge-species-trio",
+      "expected_criterion": {
+        "criteria_type": "pet_species_owned",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Species Trio"
+      },
+      "name": "Species Trio",
+      "sha256": "1afa5c1f3de4056dc73d7d8858c96e98219b341d76956533cdc4386fb85ef857",
+      "variant_id": "icon-256"
+    },
+    "Speedrunner": {
+      "asset_id": "badge-speedrunner",
+      "expected_criterion": {
+        "criteria_type": "fast_project",
+        "criteria_value": {
+          "days": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Speedrunner"
+      },
+      "name": "Speedrunner",
+      "sha256": "c825de0b1214f64165b1d4dba0880b7ec665506ba10e682575bdaacfa2ca8544",
+      "variant_id": "icon-256"
+    },
+    "Spring Bloom Collector": {
+      "asset_id": "badge-spring-bloom-collector",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Spring Bloom Collector"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Spring Bloom Collector"
+      },
+      "name": "Spring Bloom Collector",
+      "sha256": "983b6bd68051082e4d687d6988acc07cc6ffe57ffd21690e0b92e88d9bbad443",
+      "variant_id": "icon-256"
+    },
+    "Stable Keeper": {
+      "asset_id": "badge-stable-keeper",
+      "expected_criterion": {
+        "criteria_type": "pets_hatched",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Stable Keeper"
+      },
+      "name": "Stable Keeper",
+      "sha256": "8ffaff112f37387a22a0cb6f20418ea5698e3682c2a16a8687489a7b7299b639",
+      "variant_id": "icon-256"
+    },
+    "Streak Week": {
+      "asset_id": "badge-streak-week",
+      "expected_criterion": {
+        "criteria_type": "streak_days",
+        "criteria_value": {
+          "days": 7
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Streak Week"
+      },
+      "name": "Streak Week",
+      "sha256": "e175a41ecb992fac33c22ad09b7a8f62dc1d2d441bb64d5c32c0344c1bb306fe",
+      "variant_id": "icon-256"
+    },
+    "Subject Polymath": {
+      "asset_id": "badge-subject-polymath",
+      "expected_criterion": {
+        "criteria_type": "subjects_completed",
+        "criteria_value": {
+          "count": 5,
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Subject Polymath"
+      },
+      "name": "Subject Polymath",
+      "sha256": "09c218966a38f6044a32059270e6604c7c7ea002350e0fb8a61eeaca0d1dd53a",
+      "variant_id": "icon-256"
+    },
+    "Subject Scholar": {
+      "asset_id": "badge-subject-scholar",
+      "expected_criterion": {
+        "criteria_type": "subjects_completed",
+        "criteria_value": {
+          "count": 1,
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Subject Scholar"
+      },
+      "name": "Subject Scholar",
+      "sha256": "1efef2b51ac32e05f1519a1d9a9db957a2f190659260f8b3e91db2058d3e9a57",
+      "variant_id": "icon-256"
+    },
+    "Summer Adventurer": {
+      "asset_id": "badge-summer-adventurer",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "Summer Adventure"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Summer Adventurer"
+      },
+      "name": "Summer Adventurer",
+      "sha256": "e0408e6b8e7579703595378069a8c75a56578386378c39a9a968ad8a3d380120",
+      "variant_id": "icon-256"
+    },
+    "Summer Champion": {
+      "asset_id": "badge-summer-champion",
+      "expected_criterion": {
+        "criteria_type": "total_earned",
+        "criteria_value": {
+          "amount": 500
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Summer Champion"
+      },
+      "name": "Summer Champion",
+      "sha256": "9c4fdfff512f88362e86ada6d38e38d599a1b2792987e1126d087fb8cfd9da2d",
+      "variant_id": "icon-256"
+    },
+    "Summer Warrior": {
+      "asset_id": "badge-summer-warrior",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "quest_name": "The Summer Before High School"
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Summer Warrior"
+      },
+      "name": "Summer Warrior",
+      "sha256": "9a4a6561979cc9cb19ee5556d4550139317944912b00d67594ab29f0f756ca97",
+      "variant_id": "icon-256"
+    },
+    "Ten Hours": {
+      "asset_id": "badge-ten-hours",
+      "expected_criterion": {
+        "criteria_type": "movement_total_minutes",
+        "criteria_value": {
+          "minutes": 600
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Ten Hours"
+      },
+      "name": "Ten Hours",
+      "sha256": "241088cdc54a1548b3816d8ebd8baead4e366fca9d987c02c8ed7537283a9a36",
+      "variant_id": "icon-256"
+    },
+    "Three Day Streak": {
+      "asset_id": "badge-three-day-streak",
+      "expected_criterion": {
+        "criteria_type": "streak_days",
+        "criteria_value": {
+          "days": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Three Day Streak"
+      },
+      "name": "Three Day Streak",
+      "sha256": "eaf78653e41bf1c81b8780ccb4bbfa3ff2094d8a9bcc5b06ddda0ec24f2fa016",
+      "variant_id": "icon-256"
+    },
+    "Three-Night Quill": {
+      "asset_id": "badge-three-night-quill",
+      "expected_criterion": {
+        "criteria_type": "journal_streak_days",
+        "criteria_value": {
+          "days": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Three-Night Quill"
+      },
+      "name": "Three-Night Quill",
+      "sha256": "adaaa0ae02215e837a49b6c135905ce258ab7c4be094b91d457af13f6e18c8cf",
+      "variant_id": "icon-256"
+    },
+    "Thrifty": {
+      "asset_id": "badge-thrifty",
+      "expected_criterion": {
+        "criteria_type": "savings_goal_completed",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Thrifty"
+      },
+      "name": "Thrifty",
+      "sha256": "eae6e7195b0ce7cb30c345a220f1b934d5610a89a7ca536bac701e748f0fdadd",
+      "variant_id": "icon-256"
+    },
+    "Treasurer": {
+      "asset_id": "badge-treasurer",
+      "expected_criterion": {
+        "criteria_type": "reward_redeemed",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Treasurer"
+      },
+      "name": "Treasurer",
+      "sha256": "f7aadea92cf76802921cc68e7afadbebae2c24eeab5f27770a05538c0099dca2",
+      "variant_id": "icon-256"
+    },
+    "Triple Threat": {
+      "asset_id": "badge-triple-threat",
+      "expected_criterion": {
+        "criteria_type": "skill_level_reached",
+        "criteria_value": {
+          "count": 3,
+          "level": 2
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Triple Threat"
+      },
+      "name": "Triple Threat",
+      "sha256": "a1cedf0510c723d3cce1728f47ee9756d7dcf57ae617ddb92d65114174ea0527",
+      "variant_id": "icon-256"
+    },
+    "Turning Point": {
+      "asset_id": "badge-turning-point",
+      "expected_criterion": {
+        "criteria_type": "chronicle_milestones_logged",
+        "criteria_value": {
+          "count": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Turning Point"
+      },
+      "name": "Turning Point",
+      "sha256": "b3a228290ed2b5a4ab74458257cceac04ba948c4eb303987210c0cd233734601",
+      "variant_id": "icon-256"
+    },
+    "Tycoon": {
+      "asset_id": "badge-tycoon",
+      "expected_criterion": {
+        "criteria_type": "coins_spent_lifetime",
+        "criteria_value": {
+          "amount": 2000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Tycoon"
+      },
+      "name": "Tycoon",
+      "sha256": "c0571b9e9cc06ae45cd092a53ed380d896b7583c4b249d652dc08058adf4d0cf",
+      "variant_id": "icon-256"
+    },
+    "Under Budget": {
+      "asset_id": "badge-under-budget",
+      "expected_criterion": {
+        "criteria_type": "materials_under_budget",
+        "criteria_value": {}
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Under Budget"
+      },
+      "name": "Under Budget",
+      "sha256": "88ac68422d5ed3b00a67dec57ae036ce0aa991a0dab4cef474d8317b0485236a",
+      "variant_id": "icon-256"
+    },
+    "Universal Genius": {
+      "asset_id": "badge-universal-genius",
+      "expected_criterion": {
+        "criteria_type": "skill_categories_breadth",
+        "criteria_value": {
+          "categories": 8,
+          "min_level": 3
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Universal Genius"
+      },
+      "name": "Universal Genius",
+      "sha256": "7d610d05a3311b42418ac5e0016c97fbd5d0c36414809bc28ce42a9990630945",
+      "variant_id": "icon-256"
+    },
+    "Unstoppable": {
+      "asset_id": "badge-unstoppable",
+      "expected_criterion": {
+        "criteria_type": "streak_days",
+        "criteria_value": {
+          "days": 30
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Unstoppable"
+      },
+      "name": "Unstoppable",
+      "sha256": "bfd589768c01ef13188467fbf6c6a220812a518ba73a527ae63712208ce12552",
+      "variant_id": "icon-256"
+    },
+    "Veteran Collector": {
+      "asset_id": "badge-veteran-collector",
+      "expected_criterion": {
+        "criteria_type": "badges_earned_count",
+        "criteria_value": {
+          "count": 50
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Veteran Collector"
+      },
+      "name": "Veteran Collector",
+      "sha256": "cd7e88981f16612ab884961828dc40b8d088aaad8c8dd71be929833802c4e276",
+      "variant_id": "icon-256"
+    },
+    "Wayfinder": {
+      "asset_id": "badge-wayfinder",
+      "expected_criterion": {
+        "criteria_type": "habit_taps_lifetime",
+        "criteria_value": {
+          "count": 100
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Wayfinder"
+      },
+      "name": "Wayfinder",
+      "sha256": "a14f53a0dd750483849849ac62a14e583dfd3bb0d608ef9a8c034a45bec18b6c",
+      "variant_id": "icon-256"
+    },
+    "Wayfinder II": {
+      "asset_id": "badge-wayfinder-ii",
+      "expected_criterion": {
+        "criteria_type": "habit_taps_lifetime",
+        "criteria_value": {
+          "count": 500
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Wayfinder II"
+      },
+      "name": "Wayfinder II",
+      "sha256": "1687a0372e64712faea1de91eee15696750939297974b294af01b8d02b1bb636",
+      "variant_id": "icon-256"
+    },
+    "Wayfinder III": {
+      "asset_id": "badge-wayfinder-iii",
+      "expected_criterion": {
+        "criteria_type": "habit_taps_lifetime",
+        "criteria_value": {
+          "count": 2000
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Wayfinder III"
+      },
+      "name": "Wayfinder III",
+      "sha256": "4be8b76ce2da8e9d1cfc8e31ed6aafccbd1c2ff940181051a05e44d023a5d347",
+      "variant_id": "icon-256"
+    },
+    "Weekly Diarist": {
+      "asset_id": "badge-weekly-diarist",
+      "expected_criterion": {
+        "criteria_type": "journal_streak_days",
+        "criteria_value": {
+          "days": 7
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Weekly Diarist"
+      },
+      "name": "Weekly Diarist",
+      "sha256": "297c7af6a9c223386ff516f757e3e0f9304ae011ca33d19b461e3a513e278353",
+      "variant_id": "icon-256"
+    },
+    "Wheel of the Year": {
+      "asset_id": "badge-wheel-of-the-year",
+      "expected_criterion": {
+        "criteria_type": "quest_completed",
+        "criteria_value": {
+          "count": 4,
+          "quest_names": [
+            "Spring Planting",
+            "Summer Solstice",
+            "Autumn Leaves",
+            "Winter Solstice"
+          ]
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Wheel of the Year"
+      },
+      "name": "Wheel of the Year",
+      "sha256": "c1df3bf690d27003d78ff74cb3fd33a1cf7e2b2a070590b29478ff3476e666e9",
+      "variant_id": "icon-256"
+    },
+    "Wild at Heart": {
+      "asset_id": "badge-wild-at-heart",
+      "expected_criterion": {
+        "criteria_type": "pet_species_owned",
+        "criteria_value": {
+          "count": 10
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Wild at Heart"
+      },
+      "name": "Wild at Heart",
+      "sha256": "6d914002a632ba6365ca562343e2986817855f765492cb700b706ee95fcd1ce4",
+      "variant_id": "icon-256"
+    },
+    "Workshop Regular": {
+      "asset_id": "badge-workshop-regular",
+      "expected_criterion": {
+        "criteria_type": "days_worked",
+        "criteria_value": {
+          "count": 5
+        }
+      },
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Workshop Regular"
+      },
+      "name": "Workshop Regular",
+      "sha256": "8763e9865a7d86893ac557ce81b0ec3be21fcbc80227c912c0fe37c8e23b42eb",
+      "variant_id": "icon-256"
+    }
+  },
+  "categories": {
+    "Art & Crafts": {
+      "asset_id": "category-art-crafts",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Art & Crafts"
+      },
+      "name": "Art & Crafts",
+      "sha256": "5e1fc8e1e0b8e5d47bdeaec626b0a031d4082a34c7057e9c9170524cf31f5830",
+      "variant_id": "icon-256"
+    },
+    "Coding": {
+      "asset_id": "category-coding",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Coding"
+      },
+      "name": "Coding",
+      "sha256": "0f0c560605961284fa2c776ad6541aacc7c20630a5bc27c28210582a8fae57b6",
+      "variant_id": "icon-256"
+    },
+    "Cooking": {
+      "asset_id": "category-cooking",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Cooking"
+      },
+      "name": "Cooking",
+      "sha256": "a8c1010fcd6bd91ddd3fef954ce5c5e16b479b812e96c8379fc82c325227c5b8",
+      "variant_id": "icon-256"
+    },
+    "Electronics": {
+      "asset_id": "category-electronics",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Electronics"
+      },
+      "name": "Electronics",
+      "sha256": "fee1b4556507fb608f2a6bc4b71d8edf49c1affb598f1f5ecf2f869fae590739",
+      "variant_id": "icon-256"
+    },
+    "Language Arts": {
+      "asset_id": "category-language-arts",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Language Arts"
+      },
+      "name": "Language Arts",
+      "sha256": "5d2c47c333cab3dc12660688208c8330f73ad73e0b2e030e409ca60700e83a6f",
+      "variant_id": "icon-256"
+    },
+    "Life Skills": {
+      "asset_id": "category-life-skills",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Life Skills"
+      },
+      "name": "Life Skills",
+      "sha256": "57ef9ae2bcf9ba6614d0d7742b103c2716382099cfe9c9ba5abbde72b79aabab",
+      "variant_id": "icon-256"
+    },
+    "Making & Fabrication": {
+      "asset_id": "category-making-fabrication",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Making & Fabrication"
+      },
+      "name": "Making & Fabrication",
+      "sha256": "d6d74165898bc28d617a5c5c3f4b59d2b2146b7bee26742789f3409529dee8b4",
+      "variant_id": "icon-256"
+    },
+    "Math": {
+      "asset_id": "category-math",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Math"
+      },
+      "name": "Math",
+      "sha256": "67865543e5fd8b17cc289d620676439bfcb395bdb067a5f1690af356beee0f42",
+      "variant_id": "icon-256"
+    },
+    "Music": {
+      "asset_id": "category-music",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Music"
+      },
+      "name": "Music",
+      "sha256": "0a170b5a7f64463a145ee82ed8ee43de8529e89797b7f90941ffea39b1852a38",
+      "variant_id": "icon-256"
+    },
+    "Outdoors": {
+      "asset_id": "category-outdoors",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Outdoors"
+      },
+      "name": "Outdoors",
+      "sha256": "c985b4132d54d4c4e748d692cba78b96f463dce3f72205c2f16d0553e4dd676e",
+      "variant_id": "icon-256"
+    },
+    "Physical": {
+      "asset_id": "category-physical",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Physical"
+      },
+      "name": "Physical",
+      "sha256": "7c21f1eec17c0f6e0f8ccdf9983d1b347d716398457e7e13cc2a20beb6d9c29b",
+      "variant_id": "icon-256"
+    },
+    "Science": {
+      "asset_id": "category-science",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Science"
+      },
+      "name": "Science",
+      "sha256": "0854e9e8a490613905e011ab0b7bb3a3f47acb28570f662714db1f0cded213aa",
+      "variant_id": "icon-256"
+    },
+    "Sewing & Textiles": {
+      "asset_id": "category-sewing-textiles",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Sewing & Textiles"
+      },
+      "name": "Sewing & Textiles",
+      "sha256": "43dd5f3459200640576fc9bfebd2ab291a8b11553433db9696d68801ae75bb0c",
+      "variant_id": "icon-256"
+    },
+    "Woodworking": {
+      "asset_id": "category-woodworking",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Woodworking"
+      },
+      "name": "Woodworking",
+      "sha256": "f8edaea78573e0f255ba8f1296cb678442284f96db4e4aa201f2a8750cbc5168",
+      "variant_id": "icon-256"
+    }
+  },
+  "subjects": {
+    "Art & Crafts": {
+      "3D & Digital": {
+        "asset_id": "subject-art-crafts-3d-digital",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "3D & Digital"
+        },
+        "name": "3D & Digital",
+        "sha256": "675cbc728f116194c217547dde2281b154ca613cfce62d9ee9f0503e867318ab",
+        "variant_id": "icon-256"
+      },
+      "Craft Work": {
+        "asset_id": "subject-art-crafts-craft-work",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Craft Work"
+        },
+        "name": "Craft Work",
+        "sha256": "ba151945177905978c4145af4e70c829825163f2084d2c9667e09108c2aaec85",
+        "variant_id": "icon-256"
+      },
+      "Drawing & Painting": {
+        "asset_id": "subject-art-crafts-drawing-painting",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Drawing & Painting"
+        },
+        "name": "Drawing & Painting",
+        "sha256": "ae719f76ad9da2bba2401ecdd6d0ab7f8efd1956edc1a847c96e6b12fe64bfb6",
+        "variant_id": "icon-256"
+      }
+    },
+    "Coding": {
+      "Fundamentals": {
+        "asset_id": "subject-coding-fundamentals",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Fundamentals"
+        },
+        "name": "Fundamentals",
+        "sha256": "abcf2fae07e7df1397ce0e154b941cd3cf202bb85d0c631a62294bc148ea7434",
+        "variant_id": "icon-256"
+      },
+      "Languages & Apps": {
+        "asset_id": "subject-coding-languages-apps",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Languages & Apps"
+        },
+        "name": "Languages & Apps",
+        "sha256": "b831edddeb2a64a050aae976719dcd2ad6b83dd11481815db610a3b59063b055",
+        "variant_id": "icon-256"
+      },
+      "Specializations": {
+        "asset_id": "subject-coding-specializations",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Specializations"
+        },
+        "name": "Specializations",
+        "sha256": "c2e132b3e8bf01402f670c814a3861801aa69adf204e908b73d9778cab3f96ba",
+        "variant_id": "icon-256"
+      }
+    },
+    "Cooking": {
+      "Creating Dishes": {
+        "asset_id": "subject-cooking-creating-dishes",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Creating Dishes"
+        },
+        "name": "Creating Dishes",
+        "sha256": "371352b3ff67df95a59e66bb924c6c0ac73d8c932a4fee9a8edc30ca0fbe91fc",
+        "variant_id": "icon-256"
+      },
+      "Culinary Craft": {
+        "asset_id": "subject-cooking-culinary-craft",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Culinary Craft"
+        },
+        "name": "Culinary Craft",
+        "sha256": "c2642d473b71378017d3a05eb905d05b14e4338d96a99535c90b9da81966d194",
+        "variant_id": "icon-256"
+      },
+      "Kitchen Basics": {
+        "asset_id": "subject-cooking-kitchen-basics",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Kitchen Basics"
+        },
+        "name": "Kitchen Basics",
+        "sha256": "f0ae8ed57755fe5034d8697af8979a5fef76418115411b6dcd5ca1e08105f0c8",
+        "variant_id": "icon-256"
+      }
+    },
+    "Electronics": {
+      "Advanced": {
+        "asset_id": "subject-electronics-advanced",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Advanced"
+        },
+        "name": "Advanced",
+        "sha256": "1567486cde44801dcb39198631adb4810713879f14859e7607f98e0f2deffdcf",
+        "variant_id": "icon-256"
+      },
+      "Fundamentals": {
+        "asset_id": "subject-electronics-fundamentals",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Fundamentals"
+        },
+        "name": "Fundamentals",
+        "sha256": "cca97adec1af6195246c8fda0126d305eb33ff03e13da47941cd2019f4312619",
+        "variant_id": "icon-256"
+      }
+    },
+    "Language Arts": {
+      "Languages": {
+        "asset_id": "subject-language-arts-languages",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Languages"
+        },
+        "name": "Languages",
+        "sha256": "2672288d2debdf6ee028f5d9e6758eeecadf5aea2e5bcba0de228c8806b6d028",
+        "variant_id": "icon-256"
+      },
+      "Reading": {
+        "asset_id": "subject-language-arts-reading",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Reading"
+        },
+        "name": "Reading",
+        "sha256": "b3e02f12765ee56284d2f5e6fb2eeada5f6bb8e324bfc568bb59351ca5b8b7df",
+        "variant_id": "icon-256"
+      },
+      "Writing": {
+        "asset_id": "subject-language-arts-writing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Writing"
+        },
+        "name": "Writing",
+        "sha256": "e1609c97029983162ea88b8fffce1b41e509f15d2ce0a53f7fbeb6f6f32357f3",
+        "variant_id": "icon-256"
+      }
+    },
+    "Life Skills": {
+      "Communication": {
+        "asset_id": "subject-life-skills-communication",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Communication"
+        },
+        "name": "Communication",
+        "sha256": "b414b0bfb7882a37377a99180d7ccb9fd90b4451be1eb2d82ed4a8b97b1ad2f7",
+        "variant_id": "icon-256"
+      },
+      "Money & Planning": {
+        "asset_id": "subject-life-skills-money-planning",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Money & Planning"
+        },
+        "name": "Money & Planning",
+        "sha256": "15f79de36c59c4fda29e9f1d4076a132ae074ffbcfdb84ef813b97a763ffcd51",
+        "variant_id": "icon-256"
+      },
+      "Personal": {
+        "asset_id": "subject-life-skills-personal",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Personal"
+        },
+        "name": "Personal",
+        "sha256": "c359c8e909cc41ebb4a912247ea43e0a414c3173aa04bbe60639ee675446dd9d",
+        "variant_id": "icon-256"
+      }
+    },
+    "Making & Fabrication": {
+      "Digital Fab": {
+        "asset_id": "subject-making-fabrication-digital-fab",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "Digital Fab"
+        },
+        "name": "Digital Fab",
+        "sha256": "b09dc016dab64c28b4a5ba68bdba60cbf903376230e60d08b7b6f2bc54c17b30",
+        "variant_id": "icon-256"
+      },
+      "Shop Safety & Tools": {
+        "asset_id": "subject-making-fabrication-shop-safety-tools",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "Shop Safety & Tools"
+        },
+        "name": "Shop Safety & Tools",
+        "sha256": "b4fca53e9a1e7d4b705a867d7caa2cd714fab58eef51526eee3012593ec4664c",
+        "variant_id": "icon-256"
+      }
+    },
+    "Math": {
+      "Higher Math": {
+        "asset_id": "subject-math-higher-math",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Higher Math"
+        },
+        "name": "Higher Math",
+        "sha256": "a50fd9dc16a7362673117d7f4a850503f5a828486b5286aa35e6e373037caa3e",
+        "variant_id": "icon-256"
+      },
+      "Numeracy": {
+        "asset_id": "subject-math-numeracy",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Numeracy"
+        },
+        "name": "Numeracy",
+        "sha256": "5af66a49ffbfcbfc81fabce0e13f6e425ecb4898beecd2895664be99a5937edc",
+        "variant_id": "icon-256"
+      }
+    },
+    "Music": {
+      "Creating": {
+        "asset_id": "subject-music-creating",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Creating"
+        },
+        "name": "Creating",
+        "sha256": "8356dfb1e1ef3dde70a512f4fdf00f6d98f1598f6dd3a29da7ce39c9078db8af",
+        "variant_id": "icon-256"
+      },
+      "Foundation": {
+        "asset_id": "subject-music-foundation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Foundation"
+        },
+        "name": "Foundation",
+        "sha256": "7bf30209961faf24623c3bc06c7710963fb24667d46dfcacb7ae4b3b508560c2",
+        "variant_id": "icon-256"
+      },
+      "Performance": {
+        "asset_id": "subject-music-performance",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Performance"
+        },
+        "name": "Performance",
+        "sha256": "d7cec464ad45fc8b07cd6d08225581ac2b2274815c5a90219a817aaa59f6f05b",
+        "variant_id": "icon-256"
+      }
+    },
+    "Outdoors": {
+      "Field Skills": {
+        "asset_id": "subject-outdoors-field-skills",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Field Skills"
+        },
+        "name": "Field Skills",
+        "sha256": "636e7ecf78342ded5da1fddd20f82dc92e643f6b646d9ab95c0090d6b42c5768",
+        "variant_id": "icon-256"
+      },
+      "Growing Things": {
+        "asset_id": "subject-outdoors-growing-things",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Growing Things"
+        },
+        "name": "Growing Things",
+        "sha256": "b03a08fb68fba9af91f80896846e8e411f1c04815c2cb8e7454730c082e2a35e",
+        "variant_id": "icon-256"
+      }
+    },
+    "Physical": {
+      "Body Work": {
+        "asset_id": "subject-physical-body-work",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Body Work"
+        },
+        "name": "Body Work",
+        "sha256": "f87a068d738f1020889e2f5af09d44cb14a7b7a70c70aeca37d49f90cf4de5f5",
+        "variant_id": "icon-256"
+      },
+      "Sports": {
+        "asset_id": "subject-physical-sports",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Sports"
+        },
+        "name": "Sports",
+        "sha256": "d2a0627343b0168ca825ed9e8f9bade9198bb6d898bca685bb1709e82aa11c57",
+        "variant_id": "icon-256"
+      }
+    },
+    "Science": {
+      "Scientific Method": {
+        "asset_id": "subject-science-scientific-method",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Scientific Method"
+        },
+        "name": "Scientific Method",
+        "sha256": "d88189a5b9c21f3c5f0b6249f2f422c0362cf69a80049aaaa1d1950f60619703",
+        "variant_id": "icon-256"
+      },
+      "Specializations": {
+        "asset_id": "subject-science-specializations",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Specializations"
+        },
+        "name": "Specializations",
+        "sha256": "81cc289fb706a1a8687b10696e442984690bdc982c32629c46eb01fabc432bc2",
+        "variant_id": "icon-256"
+      }
+    },
+    "Sewing & Textiles": {
+      "Garment Making": {
+        "asset_id": "subject-sewing-textiles-garment-making",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Garment Making"
+        },
+        "name": "Garment Making",
+        "sha256": "845c2b0716979cd233c244f6b781826163a0a9c260fece477e18a575ba1dece0",
+        "variant_id": "icon-256"
+      },
+      "Hand Work": {
+        "asset_id": "subject-sewing-textiles-hand-work",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Hand Work"
+        },
+        "name": "Hand Work",
+        "sha256": "f5084862e47b39df8b4d83d3387db9dd7befd1d43bc3a660073d53244f71cb58",
+        "variant_id": "icon-256"
+      }
+    },
+    "Woodworking": {
+      "Advanced Technique": {
+        "asset_id": "subject-woodworking-advanced-technique",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Advanced Technique"
+        },
+        "name": "Advanced Technique",
+        "sha256": "ebe8491ba1c815d81719e4234fdc536e8a330a0b2ddb3b5b5db106253559d346",
+        "variant_id": "icon-256"
+      },
+      "Shop Basics": {
+        "asset_id": "subject-woodworking-shop-basics",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Shop Basics"
+        },
+        "name": "Shop Basics",
+        "sha256": "55e7c0fb3e5e5049c4effc87f4d6d2ac3bc592d8e0901a5a335bc9858b3247a0",
+        "variant_id": "icon-256"
+      }
+    }
+  },
+  "skills": {
+    "Art & Crafts": {
+      "Color Theory": {
+        "asset_id": "skill-art-crafts-color-theory",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Color Theory"
+        },
+        "name": "Color Theory",
+        "sha256": "0d67cedef1de934ef1f17752c1a99ec8f4454d9a83f018ed32e3796e11ffe655",
+        "subject": "Drawing & Painting",
+        "variant_id": "icon-256"
+      },
+      "Digital Art": {
+        "asset_id": "skill-art-crafts-digital-art",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Digital Art"
+        },
+        "name": "Digital Art",
+        "sha256": "d9446f74d60a8090a5dada20c4fb6477a2e6b419bbf6a6fd341fd36f4e4d24cf",
+        "subject": "3D & Digital",
+        "variant_id": "icon-256"
+      },
+      "Drawing": {
+        "asset_id": "skill-art-crafts-drawing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Drawing"
+        },
+        "name": "Drawing",
+        "sha256": "90e7ae99866c5dc991d9b08d531e83e203cc983522b24239618c8029eee419df",
+        "subject": "Drawing & Painting",
+        "variant_id": "icon-256"
+      },
+      "Painting": {
+        "asset_id": "skill-art-crafts-painting",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Painting"
+        },
+        "name": "Painting",
+        "sha256": "69e0bf73caa448382c1ae9f3087be41a59e03b6ca8e2d6d9babc4ec04a617680",
+        "subject": "Drawing & Painting",
+        "variant_id": "icon-256"
+      },
+      "Sculpture & 3D": {
+        "asset_id": "skill-art-crafts-sculpture-3d",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Sculpture & 3D"
+        },
+        "name": "Sculpture & 3D",
+        "sha256": "85620e6f5775ac42e9b9f84786f6326613e6223fbe5a3ab2659a7f9eade4562f",
+        "subject": "3D & Digital",
+        "variant_id": "icon-256"
+      },
+      "Textile & Fiber": {
+        "asset_id": "skill-art-crafts-textile-fiber",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Art & Crafts",
+          "name": "Textile & Fiber"
+        },
+        "name": "Textile & Fiber",
+        "sha256": "e74e05fd1f16e7a48efdaab89e9fe5f59956f950ea814225b8f952f7454ca46e",
+        "subject": "Craft Work",
+        "variant_id": "icon-256"
+      }
+    },
+    "Coding": {
+      "Data & Visualization": {
+        "asset_id": "skill-coding-data-visualization",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Data & Visualization"
+        },
+        "name": "Data & Visualization",
+        "sha256": "1da66457f66ca7045fb796d8e35477ad73669a2f6773c8322345b856043e9c21",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      },
+      "Hardware Programming": {
+        "asset_id": "skill-coding-hardware-programming",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Hardware Programming"
+        },
+        "name": "Hardware Programming",
+        "sha256": "9e871c29bf302c59bd59e089a71349e83db810a1070c82e1578c1cfdaad18edf",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      },
+      "Logic & Algorithms": {
+        "asset_id": "skill-coding-logic-algorithms",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Logic & Algorithms"
+        },
+        "name": "Logic & Algorithms",
+        "sha256": "b16b2fae1fd8cd315a89d04da3d6f0debcfb7183c6502d3383c4b96f2cdac468",
+        "subject": "Fundamentals",
+        "variant_id": "icon-256"
+      },
+      "Python": {
+        "asset_id": "skill-coding-python",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Python"
+        },
+        "name": "Python",
+        "sha256": "078ac25eb0d3e5897cb15be0a3c801303a52fe1adb63062bdf1079a4e6a64e87",
+        "subject": "Languages & Apps",
+        "variant_id": "icon-256"
+      },
+      "Version Control": {
+        "asset_id": "skill-coding-version-control",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Version Control"
+        },
+        "name": "Version Control",
+        "sha256": "5ec9e47413d9c21eb7c25743a348765736e5e01d1ebeddad00ab1f2403914937",
+        "subject": "Fundamentals",
+        "variant_id": "icon-256"
+      },
+      "Web Development": {
+        "asset_id": "skill-coding-web-development",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Coding",
+          "name": "Web Development"
+        },
+        "name": "Web Development",
+        "sha256": "ec05454f172da45743591d7a30ed7c5450ead67b8220b3b14b381c67b1a00a86",
+        "subject": "Languages & Apps",
+        "variant_id": "icon-256"
+      }
+    },
+    "Cooking": {
+      "Baking": {
+        "asset_id": "skill-cooking-baking",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Baking"
+        },
+        "name": "Baking",
+        "sha256": "9e60b76c0a22a6c601aaf80f982b267abc8e6a26b7b815118ba5439acfc34d89",
+        "subject": "Creating Dishes",
+        "variant_id": "icon-256"
+      },
+      "Flavor & Seasoning": {
+        "asset_id": "skill-cooking-flavor-seasoning",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Flavor & Seasoning"
+        },
+        "name": "Flavor & Seasoning",
+        "sha256": "f2f6e0ba81c693224996f2244d1bef1c782644ef0ff9d5a68c29ba5a39034335",
+        "subject": "Creating Dishes",
+        "variant_id": "icon-256"
+      },
+      "Food Safety": {
+        "asset_id": "skill-cooking-food-safety",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Food Safety"
+        },
+        "name": "Food Safety",
+        "sha256": "21405a0c130f7a31cf3e3b8159be356dab8428c94d3130647a538fdeee1ea824",
+        "subject": "Kitchen Basics",
+        "variant_id": "icon-256"
+      },
+      "Heat Control": {
+        "asset_id": "skill-cooking-heat-control",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Heat Control"
+        },
+        "name": "Heat Control",
+        "sha256": "a70929a03d42a9e8b65338908379104e23097e21bf6cb9ded56e041d51118bc1",
+        "subject": "Kitchen Basics",
+        "variant_id": "icon-256"
+      },
+      "Knife Skills": {
+        "asset_id": "skill-cooking-knife-skills",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Knife Skills"
+        },
+        "name": "Knife Skills",
+        "sha256": "723e344af130ecbdb4e9d686c95ecfdab410538bfb9cbf32ce164de4c4b75c4e",
+        "subject": "Kitchen Basics",
+        "variant_id": "icon-256"
+      },
+      "Meal Planning": {
+        "asset_id": "skill-cooking-meal-planning",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Meal Planning"
+        },
+        "name": "Meal Planning",
+        "sha256": "7dee43a8f8098d43cbca28006ed2be9cd667b14730eed89e4a6c760ee692d9bb",
+        "subject": "Culinary Craft",
+        "variant_id": "icon-256"
+      },
+      "Plating & Presentation": {
+        "asset_id": "skill-cooking-plating-presentation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Cooking",
+          "name": "Plating & Presentation"
+        },
+        "name": "Plating & Presentation",
+        "sha256": "73b7e290bb1e01ef0933da1993a187ddd28e72537d9c7d5409ddec14377ef60a",
+        "subject": "Culinary Craft",
+        "variant_id": "icon-256"
+      }
+    },
+    "Electronics": {
+      "Circuit Design": {
+        "asset_id": "skill-electronics-circuit-design",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Circuit Design"
+        },
+        "name": "Circuit Design",
+        "sha256": "3db4e124c9f93a941a2fd5859db23c1692e67c85e6931ed33fafc5d064e49848",
+        "subject": "Advanced",
+        "variant_id": "icon-256"
+      },
+      "Circuit Reading": {
+        "asset_id": "skill-electronics-circuit-reading",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Circuit Reading"
+        },
+        "name": "Circuit Reading",
+        "sha256": "aa40d91d1fe170d2b506c88f1bf3f33dbbad52e118c09720bbfe02c341ff07e2",
+        "subject": "Fundamentals",
+        "variant_id": "icon-256"
+      },
+      "Microcontrollers": {
+        "asset_id": "skill-electronics-microcontrollers",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Microcontrollers"
+        },
+        "name": "Microcontrollers",
+        "sha256": "ef2931f0c0385b3bdb7809e66b8287ac64ff263ec03121ae50c3ea043180274b",
+        "subject": "Advanced",
+        "variant_id": "icon-256"
+      },
+      "PCB Layout": {
+        "asset_id": "skill-electronics-pcb-layout",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "PCB Layout"
+        },
+        "name": "PCB Layout",
+        "sha256": "078b8c2480eec13b8f7e12d0457c8fc42accb5d283571b2680b02a5a256d60e5",
+        "subject": "Advanced",
+        "variant_id": "icon-256"
+      },
+      "SMD Soldering": {
+        "asset_id": "skill-electronics-smd-soldering",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "SMD Soldering"
+        },
+        "name": "SMD Soldering",
+        "sha256": "b3814c3a85cbf880ef66b12353be137e1be3a90a69f2c4e23354c18506ec8821",
+        "subject": "Advanced",
+        "variant_id": "icon-256"
+      },
+      "Through-Hole Soldering": {
+        "asset_id": "skill-electronics-through-hole-soldering",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Through-Hole Soldering"
+        },
+        "name": "Through-Hole Soldering",
+        "sha256": "dd091a117ee0555b61cbf9591de49cc32aba9221efa00b4fd5d18500153bd21e",
+        "subject": "Fundamentals",
+        "variant_id": "icon-256"
+      },
+      "Wiring & Connectors": {
+        "asset_id": "skill-electronics-wiring-connectors",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Electronics",
+          "name": "Wiring & Connectors"
+        },
+        "name": "Wiring & Connectors",
+        "sha256": "7ab4a602aa33ba6dac048a4a706792a9c2dbc6a53e4886148cde5b620070e703",
+        "subject": "Fundamentals",
+        "variant_id": "icon-256"
+      }
+    },
+    "Language Arts": {
+      "Creative Writing": {
+        "asset_id": "skill-language-arts-creative-writing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Creative Writing"
+        },
+        "name": "Creative Writing",
+        "sha256": "a43550295c9b6bb699a1b507b1384649a43c3a1d94412ce83aa05c0583ed8ce5",
+        "subject": "Writing",
+        "variant_id": "icon-256"
+      },
+      "Essay Craft": {
+        "asset_id": "skill-language-arts-essay-craft",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Essay Craft"
+        },
+        "name": "Essay Craft",
+        "sha256": "1c6ea0c2b2430f4f85d68edd1ec7888d11e6029e1311d982f44cb980c975cf7e",
+        "subject": "Writing",
+        "variant_id": "icon-256"
+      },
+      "Foreign Language": {
+        "asset_id": "skill-language-arts-foreign-language",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Foreign Language"
+        },
+        "name": "Foreign Language",
+        "sha256": "c6f28b6dfc4fbb827cff0d69e75119d504bcfd2ecae49dbefbb06dc5118f3bb3",
+        "subject": "Languages",
+        "variant_id": "icon-256"
+      },
+      "Public Speaking": {
+        "asset_id": "skill-language-arts-public-speaking",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Public Speaking"
+        },
+        "name": "Public Speaking",
+        "sha256": "b4dffb241789226034db24c9a912c9959d638112b114407855adc582a26b31ce",
+        "subject": "Languages",
+        "variant_id": "icon-256"
+      },
+      "Reading Comprehension": {
+        "asset_id": "skill-language-arts-reading-comprehension",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Reading Comprehension"
+        },
+        "name": "Reading Comprehension",
+        "sha256": "ccf35fa0f45de33bbf451f87a51323dc325e98e9e3c2009b711eceb95e606622",
+        "subject": "Reading",
+        "variant_id": "icon-256"
+      },
+      "Vocabulary": {
+        "asset_id": "skill-language-arts-vocabulary",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Language Arts",
+          "name": "Vocabulary"
+        },
+        "name": "Vocabulary",
+        "sha256": "c64f25cfd37a8ca00b21f73bf21fcbd2f1b5c090730efa1fd8c0a69054f58a2d",
+        "subject": "Reading",
+        "variant_id": "icon-256"
+      }
+    },
+    "Life Skills": {
+      "Budgeting": {
+        "asset_id": "skill-life-skills-budgeting",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Budgeting"
+        },
+        "name": "Budgeting",
+        "sha256": "6d2244daa0ce05768623f226d003fdede25c63ee37a1c612d38aadb34b92a69d",
+        "subject": "Money & Planning",
+        "variant_id": "icon-256"
+      },
+      "Communication": {
+        "asset_id": "skill-life-skills-communication",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Communication"
+        },
+        "name": "Communication",
+        "sha256": "5a2cbea2751d1e3a71d7a8ec1995b03d5f9b2a3b5b60cfae7b0e86cd3d6247e9",
+        "subject": "Communication",
+        "variant_id": "icon-256"
+      },
+      "Driving": {
+        "asset_id": "skill-life-skills-driving",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Driving"
+        },
+        "name": "Driving",
+        "sha256": "e2794504a4ad5bd4f7bd6fa223fa2e8e7e41e1b79201b66624283e055b4b47ef",
+        "subject": "Personal",
+        "variant_id": "icon-256"
+      },
+      "Nutrition": {
+        "asset_id": "skill-life-skills-nutrition",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Nutrition"
+        },
+        "name": "Nutrition",
+        "sha256": "b4491f705dba25769779207e7e4893272dce62cfb17e79968c95236e3bea8d99",
+        "subject": "Personal",
+        "variant_id": "icon-256"
+      },
+      "Persistence": {
+        "asset_id": "skill-life-skills-persistence",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Persistence"
+        },
+        "name": "Persistence",
+        "sha256": "afc14e4ff2c3771143374109cb787e10a732da51e63ff39ebb8cab5a0a42397c",
+        "subject": "Personal",
+        "variant_id": "icon-256"
+      },
+      "Presentation": {
+        "asset_id": "skill-life-skills-presentation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Presentation"
+        },
+        "name": "Presentation",
+        "sha256": "a4a7cb6495b77006d77c4b9337b42dfa91a7ed3c01be7186d75d78ae6cb62e76",
+        "subject": "Communication",
+        "variant_id": "icon-256"
+      },
+      "Project Planning": {
+        "asset_id": "skill-life-skills-project-planning",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Project Planning"
+        },
+        "name": "Project Planning",
+        "sha256": "81da053acfa884bfeae719044e47f65537f5cca908233afef402eb322aa61f43",
+        "subject": "Money & Planning",
+        "variant_id": "icon-256"
+      },
+      "Technical Writing": {
+        "asset_id": "skill-life-skills-technical-writing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Technical Writing"
+        },
+        "name": "Technical Writing",
+        "sha256": "727b037beba4719f280c3edcfaca89aec4ca4b88a3156bc1e771634ab11363c0",
+        "subject": "Communication",
+        "variant_id": "icon-256"
+      },
+      "Time Management": {
+        "asset_id": "skill-life-skills-time-management",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Life Skills",
+          "name": "Time Management"
+        },
+        "name": "Time Management",
+        "sha256": "1bfa9209b972e466bf0678163c220bc7509a52def76bcf5be5884a1ba20d3d65",
+        "subject": "Money & Planning",
+        "variant_id": "icon-256"
+      }
+    },
+    "Making & Fabrication": {
+      "3D Printing": {
+        "asset_id": "skill-making-fabrication-3d-printing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "3D Printing"
+        },
+        "name": "3D Printing",
+        "sha256": "f4d3cd847dc199e3ef75a1d0617dc148b819724941f8669dfcf11b2b78e56c1f",
+        "subject": "Digital Fab",
+        "variant_id": "icon-256"
+      },
+      "CAD & Modeling": {
+        "asset_id": "skill-making-fabrication-cad-modeling",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "CAD & Modeling"
+        },
+        "name": "CAD & Modeling",
+        "sha256": "e53f06dcbf967394c8d4bac5fb51bb03f3eee1707dcdc7997a5b088f18ec06d2",
+        "subject": "Digital Fab",
+        "variant_id": "icon-256"
+      },
+      "Enclosure Design": {
+        "asset_id": "skill-making-fabrication-enclosure-design",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "Enclosure Design"
+        },
+        "name": "Enclosure Design",
+        "sha256": "19d5eb80bb9b513e868591f22db4bb19773e9a64ecf4035ff8d35804b03b45e8",
+        "subject": "Digital Fab",
+        "variant_id": "icon-256"
+      },
+      "Soldering Safety": {
+        "asset_id": "skill-making-fabrication-soldering-safety",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "Soldering Safety"
+        },
+        "name": "Soldering Safety",
+        "sha256": "1a77ea0a3b607109e57805fce0eb52d1b76a85c7ea7fe7e279670c03427af509",
+        "subject": "Shop Safety & Tools",
+        "variant_id": "icon-256"
+      },
+      "Tool Mastery": {
+        "asset_id": "skill-making-fabrication-tool-mastery",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Making & Fabrication",
+          "name": "Tool Mastery"
+        },
+        "name": "Tool Mastery",
+        "sha256": "69047f1475f365ec8e92f5aceba506eea60d16afb87f728602a09ba3f9bd7c7f",
+        "subject": "Shop Safety & Tools",
+        "variant_id": "icon-256"
+      }
+    },
+    "Math": {
+      "Algebra": {
+        "asset_id": "skill-math-algebra",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Algebra"
+        },
+        "name": "Algebra",
+        "sha256": "247efc5fd63a2097864bcd9f3b3dc0dc99e6e17db477db3c73124b92b1d792d4",
+        "subject": "Higher Math",
+        "variant_id": "icon-256"
+      },
+      "Arithmetic": {
+        "asset_id": "skill-math-arithmetic",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Arithmetic"
+        },
+        "name": "Arithmetic",
+        "sha256": "b7f36df5d3060fde671d5bf0ae41d677e5d036b351067b2d42efd9b1696d6e90",
+        "subject": "Numeracy",
+        "variant_id": "icon-256"
+      },
+      "Data Sense": {
+        "asset_id": "skill-math-data-sense",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Data Sense"
+        },
+        "name": "Data Sense",
+        "sha256": "61bfa0ae07d073e0fe109806e23548d72b423d8d534be07169d9fb51e6a0d681",
+        "subject": "Numeracy",
+        "variant_id": "icon-256"
+      },
+      "Geometry": {
+        "asset_id": "skill-math-geometry",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Math",
+          "name": "Geometry"
+        },
+        "name": "Geometry",
+        "sha256": "3524368297edbf53ddb53fe564585d600df4821ff643aa88c5d8156e714482be",
+        "subject": "Higher Math",
+        "variant_id": "icon-256"
+      }
+    },
+    "Music": {
+      "Audio Production": {
+        "asset_id": "skill-music-audio-production",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Audio Production"
+        },
+        "name": "Audio Production",
+        "sha256": "41003b7b7e36eb545d831329951277ece5c0f3135875d5ab85dba2b8eefde23a",
+        "subject": "Creating",
+        "variant_id": "icon-256"
+      },
+      "Composition": {
+        "asset_id": "skill-music-composition",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Composition"
+        },
+        "name": "Composition",
+        "sha256": "af0fded575e3dd9d99d35bda4d0c05e3d7466a22b5f3bde21fc36fe4af32080f",
+        "subject": "Creating",
+        "variant_id": "icon-256"
+      },
+      "Ear Training": {
+        "asset_id": "skill-music-ear-training",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Ear Training"
+        },
+        "name": "Ear Training",
+        "sha256": "f590f5707bef619955eda4c3a3fc46e2c6b28fd463f7e3b44c66082f7991f194",
+        "subject": "Foundation",
+        "variant_id": "icon-256"
+      },
+      "Instrument Practice": {
+        "asset_id": "skill-music-instrument-practice",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Instrument Practice"
+        },
+        "name": "Instrument Practice",
+        "sha256": "b0421b9f2f18b1b0f6b9a24bdee1b50f6e9df9a532cbdf6a8d66f5d0be7cab3d",
+        "subject": "Foundation",
+        "variant_id": "icon-256"
+      },
+      "Rhythm": {
+        "asset_id": "skill-music-rhythm",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Rhythm"
+        },
+        "name": "Rhythm",
+        "sha256": "412d70e7ef0f6c8e2ba5ba0a1b61335a8ea96222e9de46ab474a0285bc765207",
+        "subject": "Foundation",
+        "variant_id": "icon-256"
+      },
+      "Stage Performance": {
+        "asset_id": "skill-music-stage-performance",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Stage Performance"
+        },
+        "name": "Stage Performance",
+        "sha256": "f292a78e32b8d3beb7fa2fa841242589cac860c1ba892c706b4c93278d8a5d26",
+        "subject": "Performance",
+        "variant_id": "icon-256"
+      },
+      "Vocal": {
+        "asset_id": "skill-music-vocal",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Music",
+          "name": "Vocal"
+        },
+        "name": "Vocal",
+        "sha256": "ea6dd282e380556cf778c6aaaa23f0f15f2d77d9cf16e335b6ead6d860efcca6",
+        "subject": "Performance",
+        "variant_id": "icon-256"
+      }
+    },
+    "Outdoors": {
+      "Building & Construction": {
+        "asset_id": "skill-outdoors-building-construction",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Building & Construction"
+        },
+        "name": "Building & Construction",
+        "sha256": "f817da5f412fda58e4b6ab1fe525a6650bedee5180b54934f546efe807ff2a33",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      },
+      "Camping & Orienteering": {
+        "asset_id": "skill-outdoors-camping-orienteering",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Camping & Orienteering"
+        },
+        "name": "Camping & Orienteering",
+        "sha256": "ed5b5de5dd7541eb2e2d7485fc8d87d2b0ff82cb7a7c9488b37471c23e447366",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      },
+      "Fishing": {
+        "asset_id": "skill-outdoors-fishing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Fishing"
+        },
+        "name": "Fishing",
+        "sha256": "9c977922657853acf5b95f8ddda22e9f2a8a68ac56c726be290fb1250ca35c5a",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      },
+      "Gardening": {
+        "asset_id": "skill-outdoors-gardening",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Gardening"
+        },
+        "name": "Gardening",
+        "sha256": "6feef8bf5ef26661ea0b084788c23d4509ff4f5f29c4fe3b40683fc19b89c334",
+        "subject": "Growing Things",
+        "variant_id": "icon-256"
+      },
+      "Nature ID": {
+        "asset_id": "skill-outdoors-nature-id",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Nature ID"
+        },
+        "name": "Nature ID",
+        "sha256": "4b4ce72ebe2878621df1a3816e70a554f7786bad4264a1415121b1682ea7fd17",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      },
+      "Tool Maintenance": {
+        "asset_id": "skill-outdoors-tool-maintenance",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Tool Maintenance"
+        },
+        "name": "Tool Maintenance",
+        "sha256": "62d5e30bdc2f197ab50f29109918260808a9c670448176ea8aaec0854f39a0b6",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      },
+      "Water Systems": {
+        "asset_id": "skill-outdoors-water-systems",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Water Systems"
+        },
+        "name": "Water Systems",
+        "sha256": "b3ebe7f87594dd2be0a7ec99afc49d86778c1a3e2fcd6ad58e5e4b31dee1c5ae",
+        "subject": "Growing Things",
+        "variant_id": "icon-256"
+      },
+      "Weather & Stargazing": {
+        "asset_id": "skill-outdoors-weather-stargazing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Outdoors",
+          "name": "Weather & Stargazing"
+        },
+        "name": "Weather & Stargazing",
+        "sha256": "93f7be679d5f95384c4ba5b9cbb398fb7db62f4705a9f42769f7fed332505699",
+        "subject": "Field Skills",
+        "variant_id": "icon-256"
+      }
+    },
+    "Physical": {
+      "Climbing": {
+        "asset_id": "skill-physical-climbing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Climbing"
+        },
+        "name": "Climbing",
+        "sha256": "ab5614a14a8ee5a00ec4cb11bc2e41e841c29107fd76c0de73f49d5bcd0e7ff1",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Cycling": {
+        "asset_id": "skill-physical-cycling",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Cycling"
+        },
+        "name": "Cycling",
+        "sha256": "201621b675de2c1bf505b9851680d4bbeda7e753c47075ea68bac44d01a98636",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Dance": {
+        "asset_id": "skill-physical-dance",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Dance"
+        },
+        "name": "Dance",
+        "sha256": "faacb2b75fd0b8d0a868f6b966301c7e8e8fedc24a2203cccde024210a633096",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Endurance": {
+        "asset_id": "skill-physical-endurance",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Endurance"
+        },
+        "name": "Endurance",
+        "sha256": "7e247aaa860980a12a1c38e91157e439cad600d26b6a165b7b5568d89ccd14a4",
+        "subject": "Body Work",
+        "variant_id": "icon-256"
+      },
+      "Flexibility": {
+        "asset_id": "skill-physical-flexibility",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Flexibility"
+        },
+        "name": "Flexibility",
+        "sha256": "f3d8e7da792afd7c55a284a35eef307d7b4b6dd0777c7102cb71ea6ed98c4ee1",
+        "subject": "Body Work",
+        "variant_id": "icon-256"
+      },
+      "Martial Arts": {
+        "asset_id": "skill-physical-martial-arts",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Martial Arts"
+        },
+        "name": "Martial Arts",
+        "sha256": "5de1b9f3a2fac02641db507a1013b35abfc5319f87b1fec05a59fa16a5abf5a7",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Mindfulness": {
+        "asset_id": "skill-physical-mindfulness",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Mindfulness"
+        },
+        "name": "Mindfulness",
+        "sha256": "34dd06e37ec4819e71340856a5ce73bf789d51b9107a70d93fa7d91c8aa1a52b",
+        "subject": "Body Work",
+        "variant_id": "icon-256"
+      },
+      "Running": {
+        "asset_id": "skill-physical-running",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Running"
+        },
+        "name": "Running",
+        "sha256": "e646bca021936c01ce60a11a7531d26161e48fb17aaa1800a2c3e89a18b07203",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Strength": {
+        "asset_id": "skill-physical-strength",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Strength"
+        },
+        "name": "Strength",
+        "sha256": "a8c043c7ec76a84040730ed290b5d3412709ab149325499c4be54ab3334d72b2",
+        "subject": "Body Work",
+        "variant_id": "icon-256"
+      },
+      "Swimming": {
+        "asset_id": "skill-physical-swimming",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Swimming"
+        },
+        "name": "Swimming",
+        "sha256": "661335bedf83277a9eece797a217dd220dc877dabe6f27c409d90a21366ce40f",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      },
+      "Team Sports": {
+        "asset_id": "skill-physical-team-sports",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Physical",
+          "name": "Team Sports"
+        },
+        "name": "Team Sports",
+        "sha256": "4d8924869de19d6697542d4ecf1026279f6f4ee54b75888d19fd393b301fcbae",
+        "subject": "Sports",
+        "variant_id": "icon-256"
+      }
+    },
+    "Science": {
+      "Astronomy": {
+        "asset_id": "skill-science-astronomy",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Astronomy"
+        },
+        "name": "Astronomy",
+        "sha256": "283090ee08456b0c1bd89f8aa845b5e0ab7eed513d49dd2f1cd6ea346dad9e0b",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      },
+      "Biology Basics": {
+        "asset_id": "skill-science-biology-basics",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Biology Basics"
+        },
+        "name": "Biology Basics",
+        "sha256": "fa078d87e264b769bc3d664b77f8b288f6fc677f7d883b7eea5d799abd1264ca",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      },
+      "Chemistry Basics": {
+        "asset_id": "skill-science-chemistry-basics",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Chemistry Basics"
+        },
+        "name": "Chemistry Basics",
+        "sha256": "2cb0ffeed582e809adc6368df2a9e226efbf12fd526f0d032cee7e623e6f2437",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      },
+      "Documentation": {
+        "asset_id": "skill-science-documentation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Documentation"
+        },
+        "name": "Documentation",
+        "sha256": "0efa318ef6a468a48e3fae151671a001ca157139208e0507577e93a3cbd33800",
+        "subject": "Scientific Method",
+        "variant_id": "icon-256"
+      },
+      "Experimentation": {
+        "asset_id": "skill-science-experimentation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Experimentation"
+        },
+        "name": "Experimentation",
+        "sha256": "9f83db2eec7188266a6cb88ba2eb75a63faa5148538f439ee4530ebd0fb680f2",
+        "subject": "Scientific Method",
+        "variant_id": "icon-256"
+      },
+      "Measurement": {
+        "asset_id": "skill-science-measurement",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Measurement"
+        },
+        "name": "Measurement",
+        "sha256": "fee2b7985748e221b76afb5cfe905bcb8e8c7f34b6639ad2ab33b1b9ef47f34e",
+        "subject": "Scientific Method",
+        "variant_id": "icon-256"
+      },
+      "Observation": {
+        "asset_id": "skill-science-observation",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Observation"
+        },
+        "name": "Observation",
+        "sha256": "18ec4852d50f8543dda49fd845a915dc3db714986bd01e1f94332c178aa78a75",
+        "subject": "Scientific Method",
+        "variant_id": "icon-256"
+      },
+      "Physics Basics": {
+        "asset_id": "skill-science-physics-basics",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Science",
+          "name": "Physics Basics"
+        },
+        "name": "Physics Basics",
+        "sha256": "46669d619d587e2ad68acf9298f6a6f366eb1bccae92b24bca883ee856a6308b",
+        "subject": "Specializations",
+        "variant_id": "icon-256"
+      }
+    },
+    "Sewing & Textiles": {
+      "Embroidery": {
+        "asset_id": "skill-sewing-textiles-embroidery",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Embroidery"
+        },
+        "name": "Embroidery",
+        "sha256": "260adb71293bcdbae076781573bbe43c31da66811a7712ec83b7811a3f068ef5",
+        "subject": "Hand Work",
+        "variant_id": "icon-256"
+      },
+      "Fabric Selection": {
+        "asset_id": "skill-sewing-textiles-fabric-selection",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Fabric Selection"
+        },
+        "name": "Fabric Selection",
+        "sha256": "b45da87f404e2f7a20cae5657d25e6d7ce0856547aa823a41a325253637970aa",
+        "subject": "Garment Making",
+        "variant_id": "icon-256"
+      },
+      "Hand Sewing": {
+        "asset_id": "skill-sewing-textiles-hand-sewing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Hand Sewing"
+        },
+        "name": "Hand Sewing",
+        "sha256": "2152569c0e9a3c9d7b38bdc7a293fd1911ac5d5deb03c5701812bcb0694735f5",
+        "subject": "Hand Work",
+        "variant_id": "icon-256"
+      },
+      "Machine Sewing": {
+        "asset_id": "skill-sewing-textiles-machine-sewing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Machine Sewing"
+        },
+        "name": "Machine Sewing",
+        "sha256": "a56ae88af3d70ac345973d67bbf1e69d318e5166e6fee849dff0b817a128be2d",
+        "subject": "Garment Making",
+        "variant_id": "icon-256"
+      },
+      "Pattern Reading": {
+        "asset_id": "skill-sewing-textiles-pattern-reading",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Pattern Reading"
+        },
+        "name": "Pattern Reading",
+        "sha256": "2ab7ea7edd5308fd4e4a548797bae6f137a5e3b5332993f1bb39bc8920412679",
+        "subject": "Garment Making",
+        "variant_id": "icon-256"
+      },
+      "Quilting": {
+        "asset_id": "skill-sewing-textiles-quilting",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Sewing & Textiles",
+          "name": "Quilting"
+        },
+        "name": "Quilting",
+        "sha256": "0369df5133c3a2f7bd461f207e28123fdcd8852bc2e4d70c6572ac305882eaf9",
+        "subject": "Hand Work",
+        "variant_id": "icon-256"
+      }
+    },
+    "Woodworking": {
+      "Hand Tools": {
+        "asset_id": "skill-woodworking-hand-tools",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Hand Tools"
+        },
+        "name": "Hand Tools",
+        "sha256": "08b16e614b1374438f6b5cf39b122a6b735c59142b66136154358b7fc899718c",
+        "subject": "Shop Basics",
+        "variant_id": "icon-256"
+      },
+      "Joinery": {
+        "asset_id": "skill-woodworking-joinery",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Joinery"
+        },
+        "name": "Joinery",
+        "sha256": "e272141dbce1a4d5bbd2ad93882ae0eab50adb4dd7f380a65e32594716156a5f",
+        "subject": "Advanced Technique",
+        "variant_id": "icon-256"
+      },
+      "Measuring & Marking": {
+        "asset_id": "skill-woodworking-measuring-marking",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Measuring & Marking"
+        },
+        "name": "Measuring & Marking",
+        "sha256": "1d3b4b40aebbb6479006424b045d8faeca37b4b48d4e4b4f4ea2930e9c3edd9e",
+        "subject": "Shop Basics",
+        "variant_id": "icon-256"
+      },
+      "Power Tools": {
+        "asset_id": "skill-woodworking-power-tools",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Power Tools"
+        },
+        "name": "Power Tools",
+        "sha256": "8b3de16032abedc0460688e53139817b114900953b6cec7d3098bef8fce02a56",
+        "subject": "Advanced Technique",
+        "variant_id": "icon-256"
+      },
+      "Sanding & Finishing": {
+        "asset_id": "skill-woodworking-sanding-finishing",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Sanding & Finishing"
+        },
+        "name": "Sanding & Finishing",
+        "sha256": "7d3d0aec012d8ca35ab79889aa9e1b457487744363000e0167b5ba275d735034",
+        "subject": "Shop Basics",
+        "variant_id": "icon-256"
+      },
+      "Wood Selection": {
+        "asset_id": "skill-woodworking-wood-selection",
+        "family_id": "abby-artwork-completion",
+        "identity": {
+          "category": "Woodworking",
+          "name": "Wood Selection"
+        },
+        "name": "Wood Selection",
+        "sha256": "4505f4900eaf3fa96c57a30a2941a72ff913b53dac700185a2f0d93f06e0ffca",
+        "subject": "Advanced Technique",
+        "variant_id": "icon-256"
+      }
+    }
+  },
+  "items": {
+    "accessory-armor-plate": {
+      "asset_id": "item-accessory-armor-plate",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Armor Plate",
+        "slug": "accessory-armor-plate"
+      },
+      "name": "Armor Plate",
+      "sha256": "b21cbdf0ef3a190fc9b7f2348f065fd7626319e0cd44a166409c36c9f673d70a",
+      "variant_id": "icon-256"
+    },
+    "accessory-bandana": {
+      "asset_id": "item-accessory-bandana",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Bandana",
+        "slug": "accessory-bandana"
+      },
+      "name": "Bandana",
+      "sha256": "73d65a66d06bd35648239857584262cdfd5752f4508b70cdb5c9fff25a44dea6",
+      "variant_id": "icon-256"
+    },
+    "accessory-bow-tie": {
+      "asset_id": "item-accessory-bow-tie",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Bow Tie",
+        "slug": "accessory-bow-tie"
+      },
+      "name": "Bow Tie",
+      "sha256": "1056f48119a82e8edbd9eeda781e95229e2d31aa7891102cfedbf30caeb7a628",
+      "variant_id": "icon-256"
+    },
+    "accessory-celestial-halo": {
+      "asset_id": "item-accessory-celestial-halo",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Celestial Halo",
+        "slug": "accessory-celestial-halo"
+      },
+      "name": "Celestial Halo",
+      "sha256": "d63ab70f98afa991656c99dfebe841673f4505a2316223d6fca5bfa19313a1ab",
+      "variant_id": "icon-256"
+    },
+    "accessory-crown": {
+      "asset_id": "item-accessory-crown",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Crown",
+        "slug": "accessory-crown"
+      },
+      "name": "Crown",
+      "sha256": "6554f21b7e0bcdd9e383b0d22250033f3a85bb8eb0c5600232ae0a3e05714412",
+      "variant_id": "icon-256"
+    },
+    "accessory-diamond-ring": {
+      "asset_id": "item-accessory-diamond-ring",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Diamond Ring",
+        "slug": "accessory-diamond-ring"
+      },
+      "name": "Diamond Ring",
+      "sha256": "db0c7b438373d262d4559d92085de931a32cf5355381ec6a1de3917834b5986d",
+      "variant_id": "icon-256"
+    },
+    "accessory-flower-crown": {
+      "asset_id": "item-accessory-flower-crown",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Flower Crown",
+        "slug": "accessory-flower-crown"
+      },
+      "name": "Flower Crown",
+      "sha256": "ee89c584457e6de3677e190cbf13e26b329a8badb685916b14ce701ecc8fbd16",
+      "variant_id": "icon-256"
+    },
+    "accessory-gold-necklace": {
+      "asset_id": "item-accessory-gold-necklace",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Gold Necklace",
+        "slug": "accessory-gold-necklace"
+      },
+      "name": "Gold Necklace",
+      "sha256": "8950e9cedbf990ae400828aa545df23c7c93f696189fcd48af4f5ce6075cbad4",
+      "variant_id": "icon-256"
+    },
+    "accessory-party-hat": {
+      "asset_id": "item-accessory-party-hat",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Party Hat",
+        "slug": "accessory-party-hat"
+      },
+      "name": "Party Hat",
+      "sha256": "4ed629b4890c22dd3ab2d4b8bb685edf1a152d6dea60081e30dec21b668033d4",
+      "variant_id": "icon-256"
+    },
+    "accessory-prayer-beads": {
+      "asset_id": "item-accessory-prayer-beads",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Prayer Beads",
+        "slug": "accessory-prayer-beads"
+      },
+      "name": "Prayer Beads",
+      "sha256": "9f6f579e6fe168b1b44a2d5d7febca5701a08a58637c14b9955946087b2d3151",
+      "variant_id": "icon-256"
+    },
+    "accessory-silver-ring": {
+      "asset_id": "item-accessory-silver-ring",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Silver Ring",
+        "slug": "accessory-silver-ring"
+      },
+      "name": "Silver Ring",
+      "sha256": "4525ca67e4c48d619d5c985c291d56e29f3316192c9e7323705e740b902bad26",
+      "variant_id": "icon-256"
+    },
+    "accessory-sunglasses": {
+      "asset_id": "item-accessory-sunglasses",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Sunglasses",
+        "slug": "accessory-sunglasses"
+      },
+      "name": "Sunglasses",
+      "sha256": "2b5d0644316f243da64c09add40c8afaaf286a21a1e42e98a97afdb0bc943216",
+      "variant_id": "icon-256"
+    },
+    "accessory-tiny-cape": {
+      "asset_id": "item-accessory-tiny-cape",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Tiny Cape",
+        "slug": "accessory-tiny-cape"
+      },
+      "name": "Tiny Cape",
+      "sha256": "d315cbe63e176a4d751cb7df3f2b2b1186d2f7a74c245509529dce28f6226084",
+      "variant_id": "icon-256"
+    },
+    "accessory-tribal-necklace": {
+      "asset_id": "item-accessory-tribal-necklace",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Tribal Necklace",
+        "slug": "accessory-tribal-necklace"
+      },
+      "name": "Tribal Necklace",
+      "sha256": "056507ed2d3d33da3dda28b80384dc2475d6526e4b70be60c3f7ed258287381d",
+      "variant_id": "icon-256"
+    },
+    "accessory-wizard-hat": {
+      "asset_id": "item-accessory-wizard-hat",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Wizard Hat",
+        "slug": "accessory-wizard-hat"
+      },
+      "name": "Wizard Hat",
+      "sha256": "0b906038b626e26af22e4b5123631f72f02d95eae22e11cec60b67140082846f",
+      "variant_id": "icon-256"
+    },
+    "birthday-pack-accessory-party-horn": {
+      "asset_id": "item-birthday-pack-accessory-party-horn",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Party Horn",
+        "slug": "birthday-pack-accessory-party-horn"
+      },
+      "name": "Party Horn",
+      "sha256": "db331ded0aad47ec493d8e168ecd30ba1ae4ef07945255cbce835c71e2a9268d",
+      "variant_id": "icon-256"
+    },
+    "birthday-pack-food-birthday-cake": {
+      "asset_id": "item-birthday-pack-food-birthday-cake",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Birthday Cake Slice",
+        "slug": "birthday-pack-food-birthday-cake"
+      },
+      "name": "Birthday Cake Slice",
+      "sha256": "72cb885de24f039fcaed93fc73a3bf595ee2661d9bbe07b9d9e736d3bf625904",
+      "variant_id": "icon-256"
+    },
+    "birthday-pack-food-party-punch": {
+      "asset_id": "item-birthday-pack-food-party-punch",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Party Punch",
+        "slug": "birthday-pack-food-party-punch"
+      },
+      "name": "Party Punch",
+      "sha256": "d5f210b5e6a6fb9c2f67a8d14fdd423b96d935f38e4893533e5cbc8a65039385",
+      "variant_id": "icon-256"
+    },
+    "birthday-pack-frame-confetti": {
+      "asset_id": "item-birthday-pack-frame-confetti",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_frame",
+        "name": "Confetti Frame",
+        "slug": "birthday-pack-frame-confetti"
+      },
+      "name": "Confetti Frame",
+      "sha256": "673b3a9f56c0998d41e66e536c7b7f98d7ff0ba5f1b92e9f584f064600d5c8ec",
+      "variant_id": "icon-256"
+    },
+    "birthday-pack-title-birthday-legend": {
+      "asset_id": "item-birthday-pack-title-birthday-legend",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_title",
+        "name": "Birthday Legend",
+        "slug": "birthday-pack-title-birthday-legend"
+      },
+      "name": "Birthday Legend",
+      "sha256": "665cdca682d8385420b59cab2afd6e2c50f9a6038c341f3768cfea40b53db8e7",
+      "variant_id": "icon-256"
+    },
+    "hs-prep-2026-accessory-backpack-charm": {
+      "asset_id": "item-hs-prep-2026-accessory-backpack-charm",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_pet_accessory",
+        "name": "Lucky Backpack Charm",
+        "slug": "hs-prep-2026-accessory-backpack-charm"
+      },
+      "name": "Lucky Backpack Charm",
+      "sha256": "bfd58a5e49a7d9f1f122a4023333163be6c349d14bb9b0473c6f263b0bbc6514",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-food-grilled-corn": {
+      "asset_id": "item-summer-2026-food-grilled-corn",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Grilled Corn on the Cob",
+        "slug": "summer-2026-food-grilled-corn"
+      },
+      "name": "Grilled Corn on the Cob",
+      "sha256": "4b08ff8e224bcd27536c42966b35ebb8f28c8993313f0956478da3f2ac7db23f",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-food-lemonade": {
+      "asset_id": "item-summer-2026-food-lemonade",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Fresh Lemonade",
+        "slug": "summer-2026-food-lemonade"
+      },
+      "name": "Fresh Lemonade",
+      "sha256": "7806b24c9af2d7240962ef70aae2e2c88acc1a32ecf829dbca5ebb30dcdf650e",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-food-popsicle": {
+      "asset_id": "item-summer-2026-food-popsicle",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Frozen Popsicle",
+        "slug": "summer-2026-food-popsicle"
+      },
+      "name": "Frozen Popsicle",
+      "sha256": "ee9d93a8f4830b4123f8741ad97ba46ff2a624e9e682624769379f4baa278a81",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-food-watermelon": {
+      "asset_id": "item-summer-2026-food-watermelon",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Watermelon Slice",
+        "slug": "summer-2026-food-watermelon"
+      },
+      "name": "Watermelon Slice",
+      "sha256": "93f6039f219ed63e552e58693e9e72b9010fe44cd4537eed3e83fd2e57d7935c",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-frame-seashell": {
+      "asset_id": "item-summer-2026-frame-seashell",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_frame",
+        "name": "Seashell Frame",
+        "slug": "summer-2026-frame-seashell"
+      },
+      "name": "Seashell Frame",
+      "sha256": "47c1218580f1ca339ad2e098331edd5b6ba5f0d607b12be265ebda03cac78b2b",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-theme-beach": {
+      "asset_id": "item-summer-2026-theme-beach",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_theme",
+        "name": "Beach Day Theme",
+        "slug": "summer-2026-theme-beach"
+      },
+      "name": "Beach Day Theme",
+      "sha256": "e47463a4d82f6adeaed1222aac2aa5d47632f909986d51819a51f1aa63150299",
+      "variant_id": "icon-256"
+    },
+    "summer-2026-title-summer-adventurer": {
+      "asset_id": "item-summer-2026-title-summer-adventurer",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_title",
+        "name": "Summer Adventurer",
+        "slug": "summer-2026-title-summer-adventurer"
+      },
+      "name": "Summer Adventurer",
+      "sha256": "664fb16285519d08872cb852d58ad3f7a5ddeb15022c1ab22b8833bd09633396",
+      "variant_id": "icon-256"
+    },
+    "year-in-review-pack-food-celebration-feast": {
+      "asset_id": "item-year-in-review-pack-food-celebration-feast",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "food",
+        "name": "Celebration Feast",
+        "slug": "year-in-review-pack-food-celebration-feast"
+      },
+      "name": "Celebration Feast",
+      "sha256": "b68d21c2fdae414a058fb7b841fd59674a101f0e1bf3ae51c559427b57f35630",
+      "variant_id": "icon-256"
+    },
+    "year-in-review-pack-frame-chronicle": {
+      "asset_id": "item-year-in-review-pack-frame-chronicle",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_frame",
+        "name": "Chronicle Frame",
+        "slug": "year-in-review-pack-frame-chronicle"
+      },
+      "name": "Chronicle Frame",
+      "sha256": "74ff72366cef69f417c5f3f17571947096d530efdb7b1eea17f19853a75c6111",
+      "variant_id": "icon-256"
+    },
+    "year-in-review-pack-theme-golden-hour": {
+      "asset_id": "item-year-in-review-pack-theme-golden-hour",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_theme",
+        "name": "Golden Hour Theme",
+        "slug": "year-in-review-pack-theme-golden-hour"
+      },
+      "name": "Golden Hour Theme",
+      "sha256": "96d1cac7128d5eb073c3e7ebf09bcc3d390a082a0676507fee6eae68100d3545",
+      "variant_id": "icon-256"
+    },
+    "year-in-review-pack-title-chapter-champion": {
+      "asset_id": "item-year-in-review-pack-title-chapter-champion",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_title",
+        "name": "Chapter Champion",
+        "slug": "year-in-review-pack-title-chapter-champion"
+      },
+      "name": "Chapter Champion",
+      "sha256": "8bd99394094296b083427de8c0ffdcfeccc77c4265435bbd72cc3b653b2e5ce1",
+      "variant_id": "icon-256"
+    },
+    "year-in-review-pack-title-year-survivor": {
+      "asset_id": "item-year-in-review-pack-title-year-survivor",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "item_type": "cosmetic_title",
+        "name": "Year Survivor",
+        "slug": "year-in-review-pack-title-year-survivor"
+      },
+      "name": "Year Survivor",
+      "sha256": "64f7d5289a051e6886d2d3cf296289df084192f6fe6d41dbe498ae58724058cc",
+      "variant_id": "icon-256"
+    }
+  },
+  "challenges": {
+    "Birthday Week": {
+      "asset_id": "challenge-birthday-week",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Birthday Week"
+      },
+      "name": "Birthday Week",
+      "quest_type": "collection",
+      "sha256": "d2910c0ff15f8bb498cb61254b0bef72777fe56de55e00faa0bf464c3a517076",
+      "variant_id": "icon-256"
+    },
+    "Chronicle Retrospective": {
+      "asset_id": "challenge-chronicle-retrospective",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Chronicle Retrospective"
+      },
+      "name": "Chronicle Retrospective",
+      "quest_type": "collection",
+      "sha256": "aa8691c256dec8c00d0f76ae7c4628efb2513ad5610eee9b2d40f36034424bfa",
+      "variant_id": "icon-256"
+    },
+    "Farewell Sprint": {
+      "asset_id": "challenge-farewell-sprint",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Farewell Sprint"
+      },
+      "name": "Farewell Sprint",
+      "quest_type": "boss",
+      "sha256": "37368923900cf9df158ad32c54e89ae9f15d84341f90756e71ba4114295a270d",
+      "variant_id": "icon-256"
+    },
+    "Popsicle Picnic": {
+      "asset_id": "challenge-popsicle-picnic",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Popsicle Picnic"
+      },
+      "name": "Popsicle Picnic",
+      "quest_type": "collection",
+      "sha256": "afa509ebc2c43ca3b5a6f507b39ac5525e37a64922f1b8745ef77ee3d58c2af0",
+      "variant_id": "icon-256"
+    },
+    "Summer Adventure": {
+      "asset_id": "challenge-summer-adventure",
+      "family_id": "abby-artwork-completion",
+      "identity": {
+        "name": "Summer Adventure"
+      },
+      "name": "Summer Adventure",
+      "quest_type": "boss",
+      "sha256": "775c585b1fd6cf5ef4ace11560846157d4a26045ad225574896c3fb82c324797",
+      "variant_id": "icon-256"
+    }
+  },
+  "birthday": {
+    "asset_id": "birthday-candle",
+    "family_id": "abby-artwork-completion",
+    "identity": {
+      "slot": "BirthdayCelebrationModal.candle"
+    },
+    "name": "Birthday candle",
+    "sha256": "14fa1fdad1c792d4d944a3f246102ea60a3d3002b4b9b945e1c0f8e0b10a3483",
+    "variant_id": "icon-256"
+  }
+}

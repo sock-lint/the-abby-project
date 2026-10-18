@@ -1,6 +1,6 @@
 from django.utils import timezone
 from rest_framework import serializers
-from apps.rpg.catalog_icons import item_catalog_icon
+from apps.rpg.catalog_icons import badge_catalog_icon, item_catalog_icon
 from apps.pets.lifecycle import egg_species_slug, item_lifecycle_stage
 
 from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory, DropLog
@@ -193,6 +193,7 @@ class CharacterProfileSerializer(serializers.ModelSerializer):
             "id": badge.pk,
             "name": badge.name,
             "icon": badge.icon,
+            "catalog_icon": badge_catalog_icon(badge),
             "rarity": badge.rarity,
             "description": badge.description,
         }

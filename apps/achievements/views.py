@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.viewsets import StaffParentWritePermissionMixin, WriteReadSerializerMixin
+from apps.rpg.catalog_icons import category_catalog_icon
 
 from .models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
 from .serializers import (
@@ -51,7 +52,7 @@ class SubjectViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, 
 
 
 class SkillViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
-    queryset = Skill.objects.select_related("category").all()
+    queryset = Skill.objects.select_related("category", "subject").all()
     serializer_class = SkillSerializer
     write_serializer_class = SkillWriteSerializer
 
@@ -62,7 +63,7 @@ class SkillProgressViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return SkillProgress.objects.filter(
             user=self.request.user
-        ).select_related("skill", "skill__category")
+        ).select_related("skill", "skill__category", "skill__subject")
 
 
 class SkillTreeView(APIView):
@@ -80,6 +81,7 @@ class SkillTreeView(APIView):
                 "id": category.id,
                 "name": category.name,
                 "icon": category.icon,
+                "catalog_icon": category_catalog_icon(category),
                 "color": category.color,
             },
             "summary": summary,
@@ -93,7 +95,7 @@ class AchievementsSummaryView(APIView):
         badges = UserBadge.objects.filter(user=user).select_related("badge")
         progress = SkillProgress.objects.filter(
             user=user
-        ).select_related("skill", "skill__category")
+        ).select_related("skill", "skill__category", "skill__subject")
 
         categories = {}
         for sp in progress:
@@ -102,6 +104,7 @@ class AchievementsSummaryView(APIView):
                 categories[cat_name] = {
                     "category_id": sp.skill.category_id,
                     "icon": sp.skill.category.icon,
+                    "catalog_icon": category_catalog_icon(sp.skill.category),
                     "color": sp.skill.category.color,
                     "skills": [],
                 }
