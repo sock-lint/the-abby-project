@@ -113,6 +113,31 @@ def available_pet_variants(species):
     return variants
 
 
+def available_pet_pairs():
+    """Read approved authored pairs in one batch, including legacy compatibility.
+
+    An empty authored relation means unrestricted, just as in
+    ``available_pet_variants``. Keep the latter's QuerySet API for callers that
+    filter/count one species; collection reads must not query once per species.
+    """
+    from apps.pets.models import PetSpecies, PotionType
+
+    policy = _policy()
+    potions = list(PotionType.objects.all())
+    pairs = set()
+    for species in PetSpecies.objects.prefetch_related("available_potions"):
+        rule = _pet_rule(species, policy)
+        if rule is None:
+            continue
+        authored_ids = {potion.pk for potion in species.available_potions.all()}
+        pairs.update(
+            (species.pk, potion.pk) for potion in potions
+            if potion.slug in rule.potion_slugs
+            and (not authored_ids or potion.pk in authored_ids)
+        )
+    return pairs
+
+
 def _legacy_reference(model, value):
     if not isinstance(value, str) or not value.strip():
         return None
