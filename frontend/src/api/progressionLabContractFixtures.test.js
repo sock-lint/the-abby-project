@@ -3,6 +3,7 @@ import { http, HttpResponse } from 'msw';
 import metadata from '../../../contracts/api/fixtures/progression-lab-metadata.json';
 import report from '../../../contracts/api/fixtures/progression-lab-report.json';
 import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
+import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
 import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
@@ -77,5 +78,20 @@ describe('Progression lab shared API fixtures', () => {
     server.use(simulation.handler);
     await expect(simulateProgressionLab({ ...report.config, trials: 41 })).rejects.toMatchObject({ status: 400 });
     expect(simulation.calls).toHaveLength(1);
+  });
+
+  it('keeps the daily per-child automatic Coin budget and its source accounting through transport', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, budgetReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(budgetReport.config);
+    expect(simulation.calls[0].body.reward_budget).toEqual({ daily_coins: 5 });
+    expect(response.reward_budget.daily_coins).toBe(5);
+    const { summary, sources } = response.reward_budget;
+    expect(summary.omitted_coins.p50).toBeGreaterThan(0);
+    expect(summary.raw_coins.mean).toBeCloseTo(summary.awarded_coins.mean + summary.omitted_coins.mean, 1);
+    expect(sources.map((source) => source.source)).toEqual(expect.arrayContaining(['expeditions', 'expeditions_salvage', 'coin_pouches']));
+    expect(response.trace.at(-1).reward_budget_awarded_coins_p90).toBeLessThanOrEqual(response.summary.active_days * 5);
+    expect(response.config.chore_coins).toBe(5);
+    expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
   });
 });

@@ -18,6 +18,19 @@ describe('Progression scenario preservation', () => {
     expect(economyDefaults.offers).toEqual([]);
   });
 
+  it('restores legacy reports with an uncapped reward budget and preserves bounded saved budgets', () => {
+    const current = { ...metadata, defaults: { ...metadata.defaults, reward_budget: { daily_coins: null } },
+      reward_budget_defaults: { daily_coins: null }, reward_budget_limits: { daily_coins: { min: 0, max: 100000, nullable: true } } };
+    const legacy = importedScenario({ schema_version: 1, config: { seed: 42 } }, current);
+    expect(legacy.reward_budget).toEqual({ daily_coins: null });
+    const saved = importedScenario({ schema_version: 1, config: { seed: 42, reward_budget: { daily_coins: 0 } } }, current);
+    expect(saved.reward_budget).toEqual({ daily_coins: 0 });
+    expect(current.defaults.reward_budget).toEqual({ daily_coins: null });
+    for (const reward_budget of [{ daily_coins: -1 }, { daily_coins: 100001 }, { daily_coins: '50' }, { daily_coins: 1.5 }, { daily_coins: 50, child_id: 1 }, {}]) {
+      expect(() => importedScenario({ schema_version: 1, config: { seed: 42, reward_budget } }, current)).toThrow();
+    }
+  });
+
   it('preserves offer costs and real calendar assumptions while deriving print quotes from minutes and rate', () => {
     const economy = { ...copy(economyDefaults), enabled: true, start_date: '2026-01-20', monthly_family_budget_cents: 600,
       printing: { minutes_per_coin: 10, monthly_minutes: 30, monthly_grams: 20 },

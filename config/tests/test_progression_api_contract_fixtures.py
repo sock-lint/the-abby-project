@@ -106,3 +106,21 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         report = self.assert_response_fixture(response, "progression-lab-economy-report.json")
         self.assertTrue(report["economy"]["enabled"])
         self.assertEqual(report["config"]["economy"]["start_date"], "2026-01-20")
+
+    def test_daily_reward_budget_matches_shared_wire_contract(self):
+        response = self.client.post(
+            "/api/rpg/progression-lab/simulate/",
+            {"horizon_days": 30, "trials": 3, "seed": 17,
+             "chores_per_day": 1, "chore_coins": 5,
+             "habits_per_day": 0, "journal_per_day": False,
+             "reward_budget": {"daily_coins": 5}},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        # Assert behavior before the fixture comparison so a fixture rewrite
+        # cannot accidentally turn an uncapped response into passing evidence.
+        self.assertEqual(response.data["config"]["reward_budget"]["daily_coins"], 5)
+        budget = response.data["reward_budget"]["summary"]
+        self.assertGreater(budget["omitted_coins"]["p50"], 0)
+        self.assertLessEqual(budget["awarded_coins"]["p90"], 5 * response.data["summary"]["active_days"])
+        self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")

@@ -10,11 +10,13 @@ let origin;
 let metadata;
 let report;
 let economyReport;
+let budgetReport;
 
 test.beforeAll(async () => {
   metadata = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-metadata.json', import.meta.url), 'utf8'));
   report = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-report.json', import.meta.url), 'utf8'));
   economyReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-economy-report.json', import.meta.url), 'utf8'));
+  budgetReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-reward-budget-report.json', import.meta.url), 'utf8'));
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
@@ -66,6 +68,26 @@ async function openLab(page, response = report) {
 }
 
 for (const width of [375, 1280]) {
+  test(`per-child reward budget comparison remains readable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { requests, external } = await openLab(page, budgetReport);
+    await expect(page.getByRole('spinbutton', { name: 'Daily reward budget per child (Coins)' })).toHaveValue('5');
+    await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
+    const forecast = page.getByRole('region', { name: 'Reward budget forecast', exact: true });
+    await expect(forecast.getByRole('table', { name: 'Reward budget totals across simulated journeys' })).toBeVisible();
+    await expect(forecast.getByRole('rowheader', { name: 'Coins omitted by the budget' })).toBeVisible();
+    await page.getByRole('button', { name: 'Keep as comparison' }).click();
+    await expect(forecast.getByText(/Comparison budget: 5 Coins/)).toBeVisible();
+    await page.getByRole('button', { name: '100 Coins per child per day', exact: true }).click();
+    await expect(page.getByText(/Inputs have changed/)).toBeVisible();
+    await expect(page.getByRole('spinbutton', { name: 'Daily reward budget per child (Coins)' })).toHaveValue('100');
+    expect(requests.filter((path) => path.endsWith('/simulate/'))).toHaveLength(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    expect(requests.every((path) => ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/'].includes(path))).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`progression-budget-${width}.png`), fullPage: true });
+  });
+
   test(`purchasing forecasts separate Coins and money at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const { requests, external } = await openLab(page, economyReport);
@@ -96,7 +118,7 @@ for (const width of [375, 1280]) {
     await expect(slider).toHaveValue('1');
     await expect(slider).toHaveAccessibleDescription(`Day ${report.trace[1].day}`);
     await page.getByRole('button', { name: 'Keep as comparison' }).click();
-    await expect(page.getByRole('columnheader', { name: 'Comparison median' })).toBeVisible();
+    await expect(page.getByRole('table', { name: 'Milestone completion and calendar days among successful journeys' }).getByRole('columnheader', { name: 'Comparison median' })).toBeVisible();
     for (const name of ['Sources: mean totals per simulated child', 'Sinks and consumption: mean totals per simulated child']) {
       const table = page.getByRole('table', { name });
       if (await table.count()) await expect(table).toBeVisible();
