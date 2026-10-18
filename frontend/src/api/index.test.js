@@ -492,18 +492,18 @@ describe('getInstructablesPreview', () => {
 
 describe('google oauth endpoints', () => {
   it('getGoogleAuthUrl without id', async () => {
-    await api.getGoogleAuthUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/$/);
+    await api.getGoogleAuthUrl(undefined, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAuthUrl with id', async () => {
-    await api.getGoogleAuthUrl(7);
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?for_user=7$/);
+    await api.getGoogleAuthUrl(7, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256&for_user=7$/);
   });
 
   it('getGoogleLoginUrl', async () => {
-    await api.getGoogleLoginUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/$/);
+    await api.getGoogleLoginUrl('challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAccount without id', async () => {

@@ -6,6 +6,7 @@ import { AuthProvider } from './hooks/useApi.js';
 import { server } from './test/server.js';
 import { buildUser } from './test/factories.js';
 import * as pushSession from './pwa/pushSession.js';
+import { prepareGoogleCallback } from './test/googleAuthorization';
 import avatarCatalog from '../../contracts/api/fixtures/avatar-catalog.json';
 import defaultCharacter from '../../contracts/api/fixtures/character-avatar-default.json';
 
@@ -87,13 +88,24 @@ describe('App', () => {
     const replace = vi.spyOn(pushSession, 'replaceSessionToken').mockRejectedValue(
       new Error('Could not stop notifications on this device. Reconnect and try again.'),
     );
-    window.history.replaceState({}, '', '/?token=another-account');
+    await prepareGoogleCallback();
+    const exchanges = [];
+    server.use(http.post('*/api/auth/google/exchange/', async ({ request }) => {
+      exchanges.push({ body: await request.json(), auth: request.headers.get('authorization') });
+      return HttpResponse.json({ mode: 'login', token: 'another-account', user: buildUser({ id: 22 }) });
+    }));
     try {
       renderApp();
       expect(await screen.findByRole('alert')).toHaveTextContent(/could not stop notifications/i);
       expect(screen.getByRole('button', { name: /^sign in$/i })).toBeEnabled();
-      expect(replace).toHaveBeenCalledWith('another-account');
+      expect(exchanges).toHaveLength(1);
+      expect(exchanges[0].auth).toBeNull();
+      expect(exchanges[0].body.code_verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      expect(replace).toHaveBeenCalledWith('another-account', {
+        expectedToken: 'test-session', isCurrent: expect.any(Function),
+      });
       expect(window.location.search).toBe('');
+      expect(window.location.hash).toBe('');
     } finally {
       replace.mockRestore();
       window.history.replaceState({}, '', '/');

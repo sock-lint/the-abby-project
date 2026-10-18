@@ -493,11 +493,17 @@ export const getGoogleDriveSources = (sourceType, page = 1, options = {}) => api
   options,
 );
 export const uploadAbbyFileToGoogleDrive = (data, options = {}) => api.post('/auth/google/drive/upload/', data, options);
-export const getGoogleAuthUrl = (forUserId) => {
-  const qs = forUserId ? `?for_user=${forUserId}` : '';
-  return api.get(`/auth/google/${qs}`);
+export const getGoogleConfig = () => api.get('/auth/google/config/', { token: '', selfHeal: false });
+export const getGoogleAuthUrl = (forUserId, challenge, options = {}) => {
+  const params = new URLSearchParams({ code_challenge: challenge, code_challenge_method: 'S256' });
+  if (forUserId) params.set('for_user', forUserId);
+  return api.get(`/auth/google/?${params}`, options);
 };
-export const getGoogleLoginUrl = () => api.get('/auth/google/login/');
+export const getGoogleLoginUrl = (challenge, options = {}) => api.get(
+  `/auth/google/login/?${new URLSearchParams({ code_challenge: challenge, code_challenge_method: 'S256' })}`,
+  { token: '', selfHeal: false, ...options },
+);
+export const exchangeGoogleAuthorization = (data, options = {}) => api.post('/auth/google/exchange/', data, options);
 export const getGoogleAccount = (forUserId) => {
   const qs = forUserId ? `?for_user=${forUserId}` : '';
   return api.get(`/auth/google/account/${qs}`);
