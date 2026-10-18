@@ -655,8 +655,6 @@ export const feedPet = (petId, foodItemId) =>
 export const activatePet = (petId) => api.post(`/pets/${petId}/activate/`);
 export const getMounts = () => api.get('/mounts/');
 export const activateMount = (mountId) => api.post(`/mounts/${mountId}/activate/`);
-export const breedMounts = (mountAId, mountBId) =>
-  api.post('/mounts/breed/', { mount_a_id: mountAId, mount_b_id: mountBId });
 export const getRecentCompanionGrowth = () => api.get('/pets/companion-growth/recent/');
 export const markCompanionGrowthSeen = () => api.post('/pets/companion-growth/seen/');
 
@@ -868,8 +866,6 @@ export const devMarkDailyChallengeReady = (body) =>
 export const devSetPetGrowth = (body) => api.post('/dev/set-pet-growth/', body);
 export const devGrantHatchIngredients = (body) =>
   api.post('/dev/grant-hatch-ingredients/', body);
-export const devClearBreedCooldowns = (body) =>
-  api.post('/dev/clear-breed-cooldowns/', body);
 export const devSeedCompanionGrowth = (body) =>
   api.post('/dev/seed-companion-growth/', body);
 export const devMarkExpeditionReady = (body) =>

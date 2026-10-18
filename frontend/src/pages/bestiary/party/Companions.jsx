@@ -32,14 +32,14 @@ import usePetMutationGuard from './usePetMutationGuard';
  * "pets" branch and given filter pills (All / Active / Hungry / Ready
  * to evolve) so a roster of dozens stays navigable.
  */
-export default function Companions() {
+export default function Companions({ refreshRevision = 0, onChanged } = {}) {
   const {
     data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
-  } = useApi(getStable);
+  } = useApi(getStable, [refreshRevision]);
   const {
     data: inventoryData, loading: loadingInventory, error: inventoryError,
     reload: reloadInventory,
-  } = useApi(getInventory);
+  } = useApi(getInventory, [refreshRevision]);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [selectedPet, setSelectedPet] = useState(null);
@@ -85,6 +85,7 @@ export default function Companions() {
   if (loadingStable || loadingInventory) return <Loader />;
 
   const refresh = () => { reloadStable(); reloadInventory(); };
+  const refreshAfterChange = () => { if (onChanged) onChanged(); else refresh(); };
 
   // A failed stable fetch used to render "No companions yet. Find eggs and
   // potions in drops…" — indistinguishable from an empty party, and the kid
@@ -120,7 +121,7 @@ export default function Companions() {
         || (result?.evolution_stage && result.evolution_stage !== pet.evolution_stage);
       if (changedStage) setReaction(null);
       else if (!result?.evolved) setReaction({ id: ++receiptCounter.current, creatureId: pet.id, action: 'celebrate' });
-      refresh();
+      refreshAfterChange();
     } catch (e) { if (request.isCurrent()) setError(e.message); }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
@@ -130,7 +131,7 @@ export default function Companions() {
     if (!request) return;
     setWorking(true);
     setError('');
-    try { await activatePet(petId); if (request.isCurrent()) refresh(); }
+    try { await activatePet(petId); if (request.isCurrent()) refreshAfterChange(); }
     catch (e) { if (request.isCurrent()) setError(e.message); }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
@@ -147,7 +148,7 @@ export default function Companions() {
         setClaimedExpedition(result);
         if (result.mount?.id === homeMount?.id) setReaction({ id: ++receiptCounter.current, creatureId: homePet.id, action: 'celebrate' });
       }
-      refresh();
+      refreshAfterChange();
     } catch (e) { if (request.isCurrent()) setError(e.message); }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
@@ -180,7 +181,7 @@ export default function Companions() {
         {homeMount && <DailyExpeditionCard mount={homeMount} name={homePet.name?.trim() || companionFormName(homePet.species, homePet.potion, companionStage(homePet))} working={working} onLaunch={setLaunchMount} onClaim={handleClaim} onRefresh={reloadStable} />}
       </CompanionPreview>}
 
-      {launchMount && <ExpeditionLaunchSheet mount={launchMount} onDismiss={() => setLaunchMount(null)} onLaunched={refresh} />}
+      {launchMount && <ExpeditionLaunchSheet mount={launchMount} onDismiss={() => setLaunchMount(null)} onLaunched={refreshAfterChange} />}
       {claimedExpedition && <PetCeremonyModal mode="expedition_return" expedition={claimedExpedition} onDismiss={() => setClaimedExpedition(null)} />}
 
       <IncipitBand
@@ -227,7 +228,7 @@ export default function Companions() {
 
       {supportedPets.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
-          {savedPets.length ? 'Your earlier pets are in Saved collection below. Use an available egg and potion to hatch a new companion.' : 'No companions yet. Collect an egg and a potion, then combine them on the Hatching tab.'}
+          {savedPets.length ? 'Your earlier pets are in Saved collection below. Use an available egg and potion to hatch a new companion.' : 'No companions yet. Collect an egg and a potion, then combine them in the Hatchery.'}
         </EmptyState>
       ) : visiblePets.length === 0 ? (
         <EmptyState icon={<EggIcon size={28} />}>

@@ -7,7 +7,7 @@ from rest_framework import serializers
 from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
 from .lifecycle import LIFECYCLE_STAGES, companion_lifecycle_stage
 from .rarity import companion_rarity
-from .services import MOUNT_BREEDING_COOLDOWN_DAYS, bird_evolution_stage
+from .services import bird_evolution_stage
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 from apps.rpg.catalog_icons import species_catalog_icon
 
@@ -185,32 +185,12 @@ class UserMountSerializer(serializers.ModelSerializer):
     def get_lifecycle_stage(self, obj):
         return companion_lifecycle_stage(obj, is_mount=True)
 
-    @cached_property
-    def breeding_as_of(self):
-        # Both fields share one server snapshot, including when the cooldown
-        # deadline passes while a complete mount list is being serialized.
-        return timezone.now()
-
+    # Retained response fields keep older clients from offering a retired action.
     def get_breeding_cooldown_seconds(self, obj):
-        if obj.last_bred_at is None:
-            return 0
-        ready_at = obj.last_bred_at + timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)
-        return max(0, math.ceil((ready_at - self.breeding_as_of).total_seconds()))
+        return 0
 
     def get_can_breed(self, obj):
-        if not self.get_catalog_available(obj) or self.get_breeding_cooldown_seconds(obj):
-            return False
-        # Stable/mount list serializers already have all owned peers. A single
-        # activation response queries the same owner rather than other families.
-        if not hasattr(self, "_breeding_peers"):
-            peers = getattr(self.parent, "instance", None)
-            self._breeding_peers = list(peers) if isinstance(self.parent, serializers.ListSerializer) else list(
-                UserMount.objects.filter(user_id=obj.user_id).select_related("species", "potion")
-            )
-        return any(peer.pk != obj.pk and peer.user_id == obj.user_id
-                   and pet_is_available(peer.species, peer.potion)
-                   and self.get_breeding_cooldown_seconds(peer) == 0
-                   for peer in self._breeding_peers)
+        return False
 
     def get_active_expedition(self, obj):
         """Compact summary of this mount's currently-running expedition.

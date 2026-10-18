@@ -12,7 +12,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | File | When loaded |
 |---|---|
 | [`apps/rpg/CLAUDE.md`](apps/rpg/CLAUDE.md) | RPG game loop · prepared sprite artwork · drops · streaks · consumables · cosmetics |
-| [`apps/pets/CLAUDE.md`](apps/pets/CLAUDE.md) | Pets · mounts · breeding · expeditions · companion growth · bestiary UI |
+| [`apps/pets/CLAUDE.md`](apps/pets/CLAUDE.md) | Pets · mounts · expeditions · companion growth · bestiary UI |
 | [`apps/quests/CLAUDE.md`](apps/quests/CLAUDE.md) | Automatic challenges · pins · parent measurable goals · legacy quests |
 | [`apps/chronicle/CLAUDE.md`](apps/chronicle/CLAUDE.md) | Age-aware chronicle · journal entries · chapter transitions · birthdays |
 | [`apps/homework/CLAUDE.md`](apps/homework/CLAUDE.md) | Homework lifecycle · effort scaling · AI planning · anti-farm gate |
@@ -453,11 +453,11 @@ and [`docs/operations/automatic-challenges.md`](docs/operations/automatic-challe
 [`contracts/api/README.md`](contracts/api/README.md) documents synthetic raw
 responses produced by Django and consumed by React, with retired Unity checks
 retained as reference. Coverage includes auth, paginated lists, companion
-mutations, expeditions/breeding mechanics, Greenlight, saved avatar choices and
+mutations, expedition mechanics, Greenlight, saved avatar choices and
 the production supported-art catalog. `config.tests.test_catalog_api_contract_fixtures`
 and `frontend/src/api/catalogContractFixtures.test.js` check supported offers,
 preserved ownership and no-consumption rejections under the production policy.
-Generic breeding fixtures explicitly use a scoped synthetic policy. Keep fixture
+Retired Unity breeding fixtures remain historical references; the current breeding endpoint returns HTTP 410. Keep fixture
 updates and affected producer/consumer checks together; regeneration is an
 explicit local operation described in the fixture guide. Fixtures do not replace
 permission or PostgreSQL transaction checks.
@@ -484,5 +484,5 @@ Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guar
 - Milestone completion rewards: `ProjectMilestone.save()` commits the status and one permanent `MilestoneCompletionRewardReceipt` with XP, money and completion effects. Reopening, reassignment and concurrent completions cannot pay again. The backfill recognizes completed status/timestamps and correctly typed `milestone.complete` activity; project-wide ledger rows cannot identify a milestone. MCP uses the signal's XP once and retains its existing bonus Coins only for the first receipt, in the same transaction.
 - RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
 - 3D printing: `apps/printing/matching.py` (the deterministic request↔job contract), `apps/printing/jobs.py::PrinterJobTracker.handle` (one merged MQTT report in, timeline rows out), `apps/printing/listener.py` + `management/commands/run_printer_listener.py` (the single connection), `apps/printing/fanout.py` (how everything else reads printer state) → see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md).
-- MCP server: `apps/mcp_server/` — 223 tools across 30 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
+- MCP server: `apps/mcp_server/` — 222 tools across 30 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.

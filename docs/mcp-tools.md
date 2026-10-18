@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 223 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
+> **Total: 222 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -65,7 +65,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `movement` | 6 |
 | `notifications` | 4 |
 | `payments` | 4 |
-| `pets` | 8 |
+| `pets` | 7 |
 | `portfolio` | 6 |
 | `projects` | 28 |
 | `quests` | 9 |
@@ -311,7 +311,6 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | --- | --- | --- | --- | --- |
 | `activate_mount` | `mcp:write` | No | — | Mark a mount as active (deactivates any prior active mount). |
 | `activate_pet` | `mcp:write` | No | — | Mark a pet as active (deactivates any prior active pet). |
-| `breed_mounts` | `mcp:write` | No | Required | Combine two mounts to yield a hybrid egg + potion pair. |
 | `feed_pet` | `mcp:write` | No | Required | Feed a food item to a pet. Auto-evolves at growth >= 100. |
 | `get_pet_stable` | `mcp:read` | Yes | — | Aggregate stable view: pets + mounts + collection stats. |
 | `hatch_pet` | `mcp:write` | No | Required | Hatch an egg + potion into a new pet (consumes both items). |

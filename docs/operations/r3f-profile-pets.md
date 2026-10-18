@@ -35,7 +35,7 @@ do not save appearance or award progression.
 Pets (`/bestiary`, alias `/pets`) opens the selected or active companion's
 woodland automatically. Touching the pet opens its existing care sheet; an
 evolved pet leads to its exact owned mount's expedition controls. Food,
-activation, hatching, breeding and expedition awards retain their existing
+activation, hatching and expedition awards retain their existing
 server rules. Purchased icons continue to represent the collection. Views
 without matching 3D art retain their own 2D identity and functional controls.
 Meadow uses confirmed active ownership and retains journal capture/receipt

@@ -58,8 +58,7 @@ npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/conte
 ```
 
 The catalog producer/consumer pair uses production asset support and checks
-available offers separately from retained saved ownership. Broader breeding
-fixtures use an explicit scoped synthetic policy for engine mechanics. For
+available offers separately from retained saved ownership. Historical breeding fixtures are retained only for retired Unity reference; active contracts verify HTTP 410 and inert compatibility fields. For
 catalog changes, also run:
 
 ```powershell

@@ -12,20 +12,34 @@ identify one ownership path; stages never create four separate species.
 | Egg | Species-linked egg `ItemDefinition` and owned inventory quantity | Choose an egg and compatible potion in Hatching |
 | Baby | Owned `UserPet`, below 50 saved growth, not evolved | Existing care, activation and growth |
 | Middle | Owned `UserPet`, at least 50 saved growth, not evolved | Same care; no additional award or ownership |
-| Grown | Confirmed `evolved_to_mount` or owned `UserMount` | Existing activation, expeditions and eligible breeding |
+| Grown | Confirmed `evolved_to_mount` or owned `UserMount` | Existing activation and expeditions |
+
+Pets → **Hatchery** (`/bestiary?tab=hatchery`) lists every owned egg and its
+quantity, including earlier saved eggs that are unavailable for new hatching.
+Available eggs can be selected and their family artwork and four-stage guide
+inspected even without a potion. Selecting or previewing an egg changes no
+inventory or progress. The hatch form explains an already owned species/potion
+pair before submission, including pets that have already grown; the server
+still validates ownership, availability and compatibility for every hatch.
 
 An egg remains in inventory until the existing explicit hatch action consumes
 one egg and one potion and creates a baby at zero growth. It is not an active
 companion, incubation timer or new pet row. Multiple eggs are inventory
 quantities; a hatched species/potion pair retains the existing unique ownership
-constraint. Breeding creates another species-linked egg and potion through the
-existing compatible output rules.
+constraint. Breeding is retired. Existing eggs, pets and grown companions are preserved.
 
 Existing pets retain their IDs, names, growth, feeding dates, activation,
 evolution, mounts and expedition history. The lifecycle is a read-only
 projection, requiring no data migration or backfill. An old unevolved row at
 100 growth remains Middle until evolution is confirmed. Stage reads, art loads,
 preview controls and local greetings award no XP, Coins, food or growth.
+
+Companions provides Baby and Middle filters using the saved server stage;
+growth tiles show the remaining points to the next threshold. Saved collection
+rows retain their care controls outside the active catalog filters. Confirmed
+pet mutations refresh every visited Pets tab, so hatching, middle growth,
+evolution and expeditions appear without reloading the page. Tab filters and
+unsubmitted hatch ingredient selections remain in place while switching tabs.
 
 ## API and consumers
 
@@ -51,12 +65,6 @@ Chick/Fledgling/Bird; the registered Bat family shows Bat/Vampire Bat/Bat Lord.
 Unknown or conflicting identities keep the generic stage labels. The egg
 stage remains highlighted until the explicit hatch succeeds; viewing later
 forms grants no ownership or growth.
-
-Breeding receipts expose `potion_item_catalog_icon` for the actual awarded
-potion item, alongside the existing egg icon binding. The ceremony uses
-`CatalogIcon` for both rewards, retaining the original sprite/emoji and potion
-filter fallback when a binding or private image is unavailable. Artwork never
-changes the awarded item, inventory quantity or breeding result.
 
 ## Prepared roster adoption
 
@@ -91,7 +99,7 @@ Only the existing global Base potion is supported. Unknown identities fail
 closed; retained metadata fallback never rescues a conflicting new identity.
 
 Dummy's separate pinned release is private future training art. It has no
-species, egg, inventory, companion, mount, drop, shop or breeding binding.
+species, egg, inventory, companion, mount, drop or shop binding.
 Training gameplay is unimplemented and Dummy does not count toward 15.
 
 ## Private intake and build
@@ -261,7 +269,7 @@ database or rewrite reward promises. No rollback or deployment was executed.
 5. Expand `shared/catalog/asset-support.json` only after the actual species and
    potion appearances pass the normal asset, renderer, CI and independent
    review gates. Catalog labels and owned portraits alone do not enable new
-   drops, rewards, shop offers, hatching or breeding.
+   drops, rewards, shop offers or hatching.
 6. Check egg inventory identity and quantity, baby hatch consumption, 49→50
    growth, confirmed 100 evolution, reload, saved legacy pets, family isolation,
    missing assets and reduced motion. Run producer/consumer fixtures, pet/RPG

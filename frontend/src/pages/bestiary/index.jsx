@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useCallback, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import ChapterHub from '../../components/layout/ChapterHub';
 import Companions from './party/Companions';
@@ -12,8 +13,7 @@ import { useRole } from '../../hooks/useRole';
  *
  * Companions (owned, growing) · Mounts (evolved, rideable) · Codex
  *   (every species, discovered or silhouetted, with lore + per-potion
- *   evolution preview) · Hatchery (hatch eggs + breed mounts; cooldown
- *   ticker + chromatic odds)
+ *   evolution preview) · Hatchery (owned eggs and hatching)
  *
  * Companions + Mounts replaced the single "Party" tab — see
  * pages/bestiary/party/. The Satchel moved to /treasury?tab=satchel.
@@ -23,6 +23,10 @@ import { useRole } from '../../hooks/useRole';
  */
 export default function BestiaryHub() {
   const { user } = useRole();
+  const [refreshRevision, setRefreshRevision] = useState(0);
+  // ChapterHub keeps visited tabs mounted. A confirmed write refreshes their
+  // server state without discarding a selected egg, collection or care view.
+  const onChanged = useCallback(() => setRefreshRevision((revision) => revision + 1), []);
   return (
     <>
       <ChapterHub
@@ -32,10 +36,10 @@ export default function BestiaryHub() {
         glyph="dragon-crest"
         defaultTabId="companions"
         tabs={[
-          { id: 'companions', label: 'Companions', render: () => <Companions /> },
-          { id: 'mounts',     label: 'Grown pets', render: () => <Mounts /> },
-          { id: 'codex',      label: 'Collection', render: () => <BestiaryCodex /> },
-          { id: 'hatchery',   label: 'Hatching',   render: () => <Hatchery /> },
+          { id: 'companions', label: 'Companions', render: () => <Companions refreshRevision={refreshRevision} onChanged={onChanged} /> },
+          { id: 'mounts',     label: 'Grown pets', render: () => <Mounts refreshRevision={refreshRevision} onChanged={onChanged} /> },
+          { id: 'codex',      label: 'Collection', render: () => <BestiaryCodex refreshRevision={refreshRevision} /> },
+          { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery refreshRevision={refreshRevision} onChanged={onChanged} /> },
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">

@@ -172,7 +172,7 @@
       "is_active": true,
       "last_bred_at": null,
       "active_expedition": null,
-      "can_breed": true,
+      "can_breed": false,
       "breeding_cooldown_seconds": 0,
       "expedition_available": false,
       "expedition_available_at": "2026-10-11T00:00:00-07:00",
@@ -218,7 +218,7 @@
       "is_active": false,
       "last_bred_at": null,
       "active_expedition": null,
-      "can_breed": true,
+      "can_breed": false,
       "breeding_cooldown_seconds": 0,
       "expedition_available": true,
       "expedition_available_at": null,
@@ -265,7 +265,7 @@
       "last_bred_at": "2026-10-08T12:00:00-07:00",
       "active_expedition": null,
       "can_breed": false,
-      "breeding_cooldown_seconds": 424795,
+      "breeding_cooldown_seconds": 0,
       "expedition_available": true,
       "expedition_available_at": null,
       "expedition_available_in_seconds": 0,
@@ -279,5 +279,5 @@
   "total_pets": 3,
   "total_mounts": 3,
   "total_possible": 4,
-  "breeding_available": true
+  "breeding_available": false
 }

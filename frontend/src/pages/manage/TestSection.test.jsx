@@ -52,7 +52,7 @@ describe('TestSection', () => {
     });
   });
 
-  it('renders all 16 cards once children load', async () => {
+  it('renders the supported tools once children load', async () => {
     mountDefaults({ children: TWO_KIDS });
     render(<TestSection />);
     await screen.findByText(/Force drop/i);
@@ -67,13 +67,13 @@ describe('TestSection', () => {
     expect(screen.getByText(/Reset day counters/i)).toBeInTheDocument();
     expect(screen.getByText(/Tick perfect day/i)).toBeInTheDocument();
 
-    // New 8
+    // Additional tools
     expect(screen.getByText(/Force approval notification/i)).toBeInTheDocument();
     expect(screen.getByText(/Force quest progress/i)).toBeInTheDocument();
     expect(screen.getByText(/Mark daily challenge ready/i)).toBeInTheDocument();
     expect(screen.getByText(/Set pet growth/i)).toBeInTheDocument();
     expect(screen.getByText(/Grant hatch ingredients/i)).toBeInTheDocument();
-    expect(screen.getByText(/Clear mount breed cooldowns/i)).toBeInTheDocument();
+    expect(screen.queryByText(/breed|breeding/i)).toBeNull();
     expect(screen.getByText(/Seed companion growth/i)).toBeInTheDocument();
     expect(screen.getByText(/Mark expedition ready/i)).toBeInTheDocument();
   });

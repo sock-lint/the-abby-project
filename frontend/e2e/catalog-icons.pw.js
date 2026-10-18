@@ -227,24 +227,19 @@ for (const theme of ['hyrule', 'vigil']) {
 }
 
 const rosterInventory = JSON.parse(readFileSync(new URL('../../contracts/api/fixtures/inventory-roster-hatching.json', import.meta.url), 'utf8'));
-const breedReceipt = JSON.parse(readFileSync(new URL('../../contracts/api/fixtures/mount-breed-roster.json', import.meta.url), 'utf8'));
 
 for (const [theme, width] of [['hyrule', 320], ['vigil', 375]]) {
-  test(`Hatching names the selected family and shows awarded potion art on ${theme}`, async ({ page }) => {
+  test(`Hatchery previews the selected family without mutations on ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 });
     await syntheticApp(page, theme);
     const mutations = [];
-    const species = { id: 90, slug: 'meshtint-bat', sprite_key: 'meshtint-bat', name: 'Bat', icon: '🐾' };
-    const potion = { id: 50, slug: 'base', name: 'Base' };
-    const mounts = [81, 82].map((id) => ({ id, species, potion, can_breed: true, last_bred_at: null }));
-    await page.route((url) => ['/api/inventory/', '/api/pets/stable/', '/api/mounts/breed/'].includes(url.pathname), async (route) => {
+    await page.route((url) => ['/api/inventory/', '/api/pets/stable/', '/api/pets/hatch/'].includes(url.pathname), async (route) => {
       const request = route.request(), path = new URL(request.url()).pathname;
       if (request.method() !== 'GET') {
         mutations.push({ path, method: request.method(), body: request.postDataJSON() });
-        expect(path).toBe('/api/mounts/breed/');
-        return route.fulfill({ status: 201, json: breedReceipt });
+        return route.fulfill({ status: 400, json: { detail: 'Preview must not hatch a pet.' } });
       }
-      return route.fulfill({ json: path === '/api/inventory/' ? rosterInventory : { pets: [], mounts, total_possible: 15, breeding_available: true } });
+      return route.fulfill({ json: path === '/api/inventory/' ? rosterInventory : { pets: [], mounts: [], total_possible: 15 } });
     });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -260,18 +255,7 @@ for (const [theme, width] of [['hyrule', 320], ['vigil', 375]]) {
     await expect(steps.nth(1)).not.toHaveAttribute('aria-current');
     expect(mutations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
-    await chooseDropdown(page.getByRole('combobox', { name: 'First grown pet' }), '81');
-    await chooseDropdown(page.getByRole('combobox', { name: 'Second grown pet' }), '82');
-    await page.getByRole('button', { name: 'Breed pets', exact: true }).click();
-    const ceremony = page.getByRole('alertdialog');
-    await expect(ceremony).toBeVisible();
-    const awardedPotion = ceremony.getByRole('img', { name: 'Base Potion', exact: true });
-    await expect.poll(() => awardedPotion.evaluate((element) => element.naturalWidth)).toBe(256);
-    const source = await awardedPotion.getAttribute('src');
-    expect(source).toContain('/abby-catalog-icons/1.0.0/');
-    expect((await awardedPotion.boundingBox()).width).toBe(72);
-    expect(mutations).toEqual([{ path: '/api/mounts/breed/', method: 'POST', body: { mount_a_id: '81', mount_b_id: '82' } }]);
     expect(errors).toEqual([]);
-    if (evidence) await page.screenshot({ path: `${evidence}/hatching-breed-${theme}.png`, fullPage: true });
+    if (evidence) await page.screenshot({ path: `${evidence}/hatchery-family-${theme}.png`, fullPage: true });
   });
 }

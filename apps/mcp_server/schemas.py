@@ -1557,7 +1557,7 @@ class ListPendingCreationsIn(_Base):
 
 
 # ---------------------------------------------------------------------------
-# Pets / Mounts / Breeding
+# Pets / Mounts
 # ---------------------------------------------------------------------------
 
 
@@ -1595,12 +1595,6 @@ class ListMountsIn(_Base):
 
 class ActivateMountIn(_Base):
     mount_id: int
-    user_id: Optional[int] = Field(default=None)
-
-
-class BreedMountsIn(_Base):
-    mount_a_id: int
-    mount_b_id: int
     user_id: Optional[int] = Field(default=None)
 
 

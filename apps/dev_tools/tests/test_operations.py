@@ -8,14 +8,13 @@ happens in ``config.viewsets.get_child_or_404`` which both views use.
 Each op gets coverage for: happy path, at least one failure mode, and the
 shape of the returned dict (which the frontend cards read for the result
 line). The pre-positioning ops (``set_pet_growth``, ``grant_hatch_ingredients``,
-``clear_mount_breed_cooldowns``) intentionally do NOT fire the resulting
+``seed_companion_growth``) intentionally do NOT fire the resulting
 ceremony — they just write state — so the assertions stop at "state was
 written."
 """
 from __future__ import annotations
 
 from django.test import TestCase, override_settings
-from django.utils import timezone
 
 from config.tests.factories import make_family
 
@@ -289,56 +288,6 @@ class GrantHatchIngredientsTests(TestCase):
             grant_hatch_ingredients(
                 self.child, species_slug="chick", potion_slug="base",
             )
-
-
-@override_settings(DEV_TOOLS_ENABLED=True, DEBUG=False)
-class ClearBreedCooldownsTests(TestCase):
-    def setUp(self):
-        fam = make_family(
-            parents=[{"username": "p"}],
-            children=[{"username": "abby"}],
-        )
-        self.child = fam.children[0]
-        from apps.pets.models import PetSpecies, PotionType, UserMount
-
-        species = PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
-        potion_a = PotionType.objects.create(slug="ember", name="Ember")
-        potion_b = PotionType.objects.create(slug="frost", name="Frost")
-        now = timezone.now()
-        self.m1 = UserMount.objects.create(
-            user=self.child, species=species, potion=potion_a,
-            last_bred_at=now,
-        )
-        self.m2 = UserMount.objects.create(
-            user=self.child, species=species, potion=potion_b,
-            last_bred_at=now,
-        )
-
-    def test_clears_all_when_no_mount_id(self):
-        from apps.dev_tools.operations import clear_mount_breed_cooldowns
-
-        result = clear_mount_breed_cooldowns(self.child)
-        self.assertEqual(result["mounts_reset"], 2)
-        self.m1.refresh_from_db()
-        self.m2.refresh_from_db()
-        self.assertIsNone(self.m1.last_bred_at)
-        self.assertIsNone(self.m2.last_bred_at)
-
-    def test_clears_only_named_mount(self):
-        from apps.dev_tools.operations import clear_mount_breed_cooldowns
-
-        result = clear_mount_breed_cooldowns(self.child, mount_id=self.m1.pk)
-        self.assertEqual(result["mounts_reset"], 1)
-        self.m1.refresh_from_db()
-        self.m2.refresh_from_db()
-        self.assertIsNone(self.m1.last_bred_at)
-        self.assertIsNotNone(self.m2.last_bred_at)
-
-    def test_unknown_mount_raises(self):
-        from apps.dev_tools.operations import OperationError, clear_mount_breed_cooldowns
-
-        with self.assertRaises(OperationError):
-            clear_mount_breed_cooldowns(self.child, mount_id=99999)
 
 
 @override_settings(DEV_TOOLS_ENABLED=True, DEBUG=False)

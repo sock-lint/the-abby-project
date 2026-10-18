@@ -68,6 +68,12 @@ class ToolPermissionTests(TransactionTestCase):
             def unreviewed_operation():
                 pass
 
+    def test_retired_pet_breeding_is_not_registered_or_permitted(self):
+        self.assertNotIn("breed_mounts", {entry.name for entry in mcp._tool_manager.list_tools()})
+        self.assertIsNone(mcp._tool_manager.get_tool("breed_mounts"))
+        with self.assertRaisesRegex(ValueError, "no reviewed permission policy"):
+            policy_for("breed_mounts")
+
     def test_catalog_grant_does_not_disclose_family_records_or_allow_drafts_or_publication(self):
         self.assertIn("categories", self.invoke("list_skill_categories", scopes={CATALOG_SCOPE}))
         for name, params in [

@@ -106,7 +106,7 @@ drop reads first, consumption waits and preserves the newly granted unit.
 `tests/test_drop_inventory_concurrency.py` checks both orders on PostgreSQL,
 including the habit response, saved drop receipt, effect and remaining item.
 
-`inventory.py::grant_item` coordinates mystery-box, expedition, breeding and
+`inventory.py::grant_item` coordinates mystery-box, expedition and
 challenge item grants with those same stack locks and database increments.
 The caller keeps catalog eligibility, salvage and its reward receipt; the
 grant commits or rolls back with the surrounding domain transaction.

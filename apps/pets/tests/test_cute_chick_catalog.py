@@ -1,6 +1,5 @@
 """Owned Cute Series content uses real RPG identities and lifecycle rules."""
 from io import StringIO
-from unittest.mock import patch
 
 from django.core.management import call_command
 from django.test import TestCase, override_settings
@@ -10,15 +9,6 @@ from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.services import PetService
 from apps.rpg.models import DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
-
-
-SYNTHETIC_BREEDING_ART = {
-    "schema_version": 1,
-    "pets": [
-        {"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["base", "fire", "cosmic"]},
-        {"species_slug": "wolf", "sprite_key": "wolf", "potion_slugs": ["fire"]},
-    ], "potion_slugs": ["base", "fire", "cosmic"],
-}
 
 
 class CuteChickCatalogTests(TestCase):
@@ -194,57 +184,19 @@ class CuteChickCatalogTests(TestCase):
         mount = UserMount.objects.get(pk=evolved["mount_id"])
         self.assertEqual((mount.user, mount.species, mount.potion), (self.child, self.chick, self.base))
 
-    def breed_chick_with_fire_wolf(self, *, chick_potion=None, roll=0.5):
-        chick_mount = UserMount.objects.create(
-            user=self.child, species=self.chick, potion=chick_potion or self.base,
-        )
-        wolf_mount = UserMount.objects.create(
-            user=self.child, species=PetSpecies.objects.get(slug="wolf"), potion=self.fire,
-        )
-        # Select Chick, then the final potion candidate. An unfiltered
-        # parental list would choose Fire and produce an unsupported pair.
-        # These tests cover future authored compatibility using deliberately
-        # approved synthetic art; the production registry remains Chick/Base.
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_BREEDING_ART), patch("apps.pets.services.random.random", return_value=roll), patch(
-            "apps.pets.services.random.choice",
-            side_effect=lambda options: self.chick if isinstance(options[0], PetSpecies) else options[-1],
-        ):
-            result = PetService.breed_mounts(self.child, chick_mount.pk, wolf_mount.pk)
-        return result
-
-    def assert_hatchable_base_chick_breed(self, result):
-        self.assertEqual(result["picked_species_slug"], "chick")
-        self.assertEqual(result["picked_potion_slug"], "base")
-        self.assertFalse(result["chromatic"])
-        pet = PetService.hatch_pet(self.child, result["egg_item_id"], result["potion_item_id"])
-        self.assertEqual((pet.species, pet.potion), (self.chick, self.base))
-
-    def test_mixed_breed_chooses_compatible_parental_potion(self):
-        self.assert_hatchable_base_chick_breed(self.breed_chick_with_fire_wolf())
-
-    def test_chromatic_roll_does_not_grant_unsupported_chick_variant(self):
-        self.assert_hatchable_base_chick_breed(self.breed_chick_with_fire_wolf(roll=0.001))
-
-    def test_breed_falls_back_to_registered_compatible_potion_for_legacy_mount(self):
-        self.assert_hatchable_base_chick_breed(self.breed_chick_with_fire_wolf(chick_potion=self.fire))
-
-    def test_no_compatible_breeding_item_leaves_inventory_and_cooldowns_unchanged(self):
-        self.base_potion.delete()
-
-        with self.assertRaisesMessage(ValueError, "No compatible potion item registered for Chick"):
-            self.breed_chick_with_fire_wolf(chick_potion=self.fire)
-
-        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
-        self.assertFalse(UserMount.objects.filter(user=self.child, last_bred_at__isnull=False).exists())
-
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_BREEDING_ART)
-    def test_empty_compatibility_allows_an_explicitly_supported_chromatic_breed_and_hatch(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY={
+        "schema_version": 1,
+        "pets": [{"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["cosmic"]}],
+        "potion_slugs": ["cosmic"],
+    })
+    def test_empty_compatibility_still_allows_an_explicitly_supported_hatch(self):
         self.chick.available_potions.clear()
         cosmic = PotionType.objects.get(slug="cosmic")
+        cosmic_item = ItemDefinition.objects.get(slug="cosmic-potion")
+        self.give(self.egg)
+        self.give(cosmic_item)
 
-        result = self.breed_chick_with_fire_wolf(roll=0.001)
+        pet = PetService.hatch_pet(self.child, self.egg.pk, cosmic_item.pk)
 
-        self.assertTrue(result["chromatic"])
-        self.assertEqual(result["picked_potion_slug"], "cosmic")
-        pet = PetService.hatch_pet(self.child, result["egg_item_id"], result["potion_item_id"])
         self.assertEqual((pet.species, pet.potion), (self.chick, cosmic))
+        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())

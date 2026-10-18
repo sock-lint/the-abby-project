@@ -71,7 +71,7 @@ to own content identities and compatible acquisition paths.
 | One of 14 exact `meshtint-*` slug/sprite identities, global Base potion, server-confirmed lifecycle stage | Its exact pinned native family-stage take and portrait |
 | Unknown identity, unsupported potion or missing model | Existing portrait/sprite fallback with usable creature controls |
 
-The owner approved Fledgling at 50 server-confirmed growth; growth alone never selects Bird. See [Bird Evolution adoption](../../docs/operations/bird-evolution.md) for the new shared release, motions, lifecycle and rollback. The private conversion details below retain the prior export baseline. Hatching, feeding, activation, breeding and
+The owner approved Fledgling at 50 server-confirmed growth; growth alone never selects Bird. See [Bird Evolution adoption](../../docs/operations/bird-evolution.md) for the new shared release, motions, lifecycle and rollback. The private conversion details below retain the prior export baseline. Hatching, feeding, activation and
 expeditions use existing shared services and acknowledged Django responses.
 Appearance loading and greetings award nothing. Account changes clear old
 bindings, and stale responses cannot restore the prior account's presentation.
@@ -226,7 +226,7 @@ provenance.
 
 Pet tapping and play remain local presentation with no growth, XP, Coins or
 items. Existing confirmed feed/claim receipts may trigger a small visual
-acknowledgement. No eating, sleeping, combat, breeding or custom hatch clip is
+acknowledgement. No eating, sleeping, combat or custom hatch clip is
 claimed. Motion pauses outside the viewport, in background/hidden tabs, when
 disabled, and for reduced-motion preferences. Failed models retain purchased
 portraits and usable DOM care/expedition controls.

@@ -104,7 +104,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises 15 exact Base-only families |
-| `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with availability flags and no breeding pair |
+| `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with catalog availability flags and preserved growth |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
 | `items-preserved-inventory.json` | `GET /api/inventory/`; unavailable saved egg/accessory entries remain owned without blocked actions |
@@ -198,18 +198,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `expedition-already-active.json` | Start rejected with HTTP 400 while that mount has an active expedition |
 | `expedition-daily-limit.json` | Start rejected with HTTP 400 after the same mount's first run is claimed that local day |
 | `expedition-expired.json` | Expired run claim rejected with HTTP 400 and no awards |
-| `pets-stable-breeding.json` | Stable with two ready parents (including an away mount) and a third mount still on breeding cooldown |
-| `pets-stable-breeding-after.json` | Same stable after a confirmed breed; both parents have their full server cooldown |
-| `inventory-breeding.json` | Inventory confirms one added egg and potion while existing food and other quantities remain unchanged |
-| `mount-breed.json` | `POST /api/mounts/breed/`, HTTP 201 registered egg/potion pair and cooldown receipt |
-| `mount-breed-chromatic.json` | Same real endpoint with a supported Cosmic upgrade forced by fixed random input |
-| `mount-breed-fallback.json` | Same real endpoint uses a registered supported potion when both old parents have incompatible variants |
-| `mount-breed-missing-mounts.json` | Breed rejected with HTTP 400 when either parent ID is absent |
-| `mount-breed-same-mount.json` | Breed rejected with HTTP 400 when both IDs identify the same mount |
-| `mount-breed-invalid-ids.json` | Breed rejected with HTTP 400 when a parent ID cannot be parsed as an integer |
-| `mount-breed-not-owned.json` | Sibling, foreign-family or unknown parent rejected with the same HTTP 400 body |
-| `mount-breed-cooldown.json` | Breed rejected with HTTP 400 because one parent is still resting |
-| `mount-breed-repeat-cooldown.json` | Repeating a completed breed during its cooldown is rejected without adding another pair |
+| `pets-stable-breeding-retired.json` | Stable preserves historical `last_bred_at` and an active expedition while legacy breeding availability stays false and cooldown seconds stay zero |
+| `mount-breed-retired.json` | Authenticated `POST /api/mounts/breed/` returns HTTP 410 without inspecting parent IDs or changing inventory, companions, history or rewards |
 
 `config/tests/test_api_contract_fixtures.py` seeds fixed family/user/habit/skill
 and companion/item IDs and a fixed clock, sends requests through the real Django
@@ -279,15 +269,11 @@ still applies after claiming, and sibling/foreign-family rows never enter an
 owned list or become eligible for start/claim. Real endpoint-created expedition
 IDs are pinned with a test-table sequence reset for PostgreSQL and SQLite.
 
-Every mount response now includes read-only `can_breed` and
-`breeding_cooldown_seconds`. The latter is a nonnegative integer rounded up from
-the remaining server cooldown; `can_breed` is exactly true when the mount is
-supported, those seconds are zero and the owner has another distinct supported
-cooldown-ready mount.
-Both fields use one server clock snapshot so a deadline passing during
-serialization cannot produce conflicting values. An active expedition does not
-change the existing breeding rule. A client must refresh eligibility rather
-than authorize a breed from its own countdown.
+Breeding has been removed. Every current mount response retains the read-only
+compatibility fields `can_breed: false` and `breeding_cooldown_seconds: 0`;
+the stable envelope retains `breeding_available: false`. Saved `last_bred_at`
+values remain historical data, including on activation responses. Reads do not
+rewrite those timestamps or make breeding available after a former cooldown.
 
 Mount responses also include read-only `expedition_available` and
 `expedition_available_at`. Availability is true only with no active/unclaimed
@@ -302,36 +288,41 @@ family and phone clocks do not alter it. Reads grant no rewards and never claim
 a returned trip. Clients may refresh at a deadline or on resume, but start and
 claim remain explicit server-authorized actions.
 
-Breeding submits distinct supported owned `mount_a_id` and `mount_b_id` values. The service
-adds one registered egg and one potion to the authenticated account's inventory,
-preserves both mounts, and stamps both parent cooldowns together. It consumes no
-food, eggs, potions or parents and grants no coins, XP or bonus drops. Compatible
-parental potions, registered compatibility fallbacks and supported Cosmic
-upgrades use the catalog foundation's existing rules. The receipt contains item
-identities, names/icons/sprite keys, selected species/potion names and nullable
-slugs, `chromatic`, and `cooldown_days`; it does not hatch the resulting pair.
-Producer checks compare the actual inventory changes, both cooldowns, unchanged
-progression and other-family state, and rejection one microsecond before the
-exact cooldown boundary. A later inventory/stable read confirms the new pair
-and fresh cooldowns without repeating the non-idempotent POST.
+Authenticated `POST /api/mounts/breed/` returns HTTP 410 with
+`{"error": "Pet breeding has been removed."}` for valid, missing, malformed,
+same-mount, unknown and other-family IDs. It never processes parents, grants
+items or rewards, stamps history or changes existing expeditions. Authentication
+remains required. The React transport checks preserve that retirement response
+without replaying a stale client's POST; the current application exposes no
+breeding action or API wrapper.
 
-The broader hatch/breeding scenarios in `test_api_contract_fixtures.py` use an
-explicit scoped synthetic asset policy to exercise generic engine mechanics,
-including compatibility fallbacks and Cosmic upgrades. They do not advertise
-those identities as production art. `test_catalog_api_contract_fixtures.py`
-uses the production default: retained `chick` / `cute-chick` plus 14 exact
-`meshtint-*` families, all Base-only, with explicit server lifecycle rules. It seeds both
-supported and unavailable saved rows, compares real catalog/stable/inventory
-responses, and verifies rejected hatch/equip requests consume nothing.
-`frontend/src/api/catalogContractFixtures.test.js` consumes the same bodies
-through the real API wrappers and preserves rejection status/details.
+The broader hatch scenarios in `test_api_contract_fixtures.py` use an explicit
+scoped synthetic asset policy to exercise ingredient compatibility. They do not
+advertise those identities as production art.
+`test_catalog_api_contract_fixtures.py` uses the production default: retained
+`chick` / `cute-chick` plus 14 exact `meshtint-*` families, all Base-only, with
+explicit server lifecycle rules. It seeds supported and unavailable saved rows,
+compares real catalog/stable/inventory responses, verifies rejected hatch/equip
+requests consume nothing, and confirms even two supported grown companions cannot
+breed. `frontend/src/api/catalogContractFixtures.test.js` consumes the current
+bodies through the real API wrappers and preserves rejection status/details.
+
+The former success/cooldown snapshots `pets-stable-breeding.json`,
+`pets-stable-breeding-after.json`, `mount-breed.json`,
+`mount-breed-chromatic.json`, `mount-breed-fallback.json`,
+`mount-breed-missing-mounts.json`, `mount-breed-same-mount.json`,
+`mount-breed-invalid-ids.json`, `mount-breed-not-owned.json`,
+`mount-breed-cooldown.json` and `mount-breed-repeat-cooldown.json` are retained
+only because retired Unity reference checks read those files. They are
+historical snapshots, not current endpoint contracts or supported gameplay;
+active Django producers and React consumers use the retirement fixtures above.
+Retired Unity reference checks are not release gates and may reflect former
+eligibility rules in the other snapshots they read.
 
 Read-only `catalog_available` on species, potions, owned pets/mounts and items
 describes new catalog eligibility. Stable ownership/totals retain saved legacy
-rows, while supported progress uses `total_possible`; `breeding_available`
-requires two distinct supported ready parents; the 15 Base-only families can
-provide eligible pairs. Saved pet feeding/activation/evolution and mount expeditions
-remain available. Cosmetic catalogs retain all slot keys with an empty
+rows, while supported progress uses `total_possible`. Saved pet
+feeding/activation/evolution and mount expeditions remain available. Cosmetic catalogs retain all slot keys with an empty
 `active_pet_accessory` list; inventory retains earlier accessories without
 equip actions. A previous accessory selection can still be removed. Flags
 never prove a reward happened or authorize a mutation locally.
@@ -889,13 +880,11 @@ recognition and preferences. `reading-family-suggestion.json`,
 the child's explicit save, and dismissal. The existing Django producer and
 React consumer above validate these synthetic responses together.
 
-`inventory-roster-hatching.json`, `pet-hatch-roster.json` and
-`mount-breed-roster.json` cover real namespaced Base-only inventory, hatch and
-breed producers/consumers. Breed receipts include nullable `egg_item_catalog_icon`
-and `potion_item_catalog_icon` so both granted ingredients use their exact
-catalog artwork. Unrecognized item identities retain null and their existing
-sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
-and frozen receipts are retained verbatim. See the
+`inventory-roster-hatching.json` and `pet-hatch-roster.json` cover real namespaced
+Base-only inventory and hatch producers/consumers. Ingredient items retain exact
+catalog artwork; unrecognized item identities retain null and their existing
+sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`.
+Previously saved loot and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
 
 Google sign-in/linking uses `google-auth-config.json` (public configuration),

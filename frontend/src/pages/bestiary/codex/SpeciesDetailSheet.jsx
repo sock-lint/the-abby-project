@@ -138,7 +138,7 @@ export default function SpeciesDetailSheet({ species, onClose }) {
               : eligible.length === 1
                 ? `the ${eligible[0].name} potion`
                 : `one of: ${eligible.map((p) => p.name).join(', ')}`}{' '}
-            on the Hatching tab.
+            in the Hatchery.
           </p>
         </section>}
       </div>

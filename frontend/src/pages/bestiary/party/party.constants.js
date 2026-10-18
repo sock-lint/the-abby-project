@@ -1,23 +1,6 @@
-// Mirrors apps/pets/services.py:MOUNT_BREEDING_COOLDOWN_DAYS. Stable
-// game-design constant — safe to live client-side. Imported by both
-// Mounts.jsx (filter pills) and Hatchery.jsx (breed-rest copy).
 import { companionRarity } from '../../../companion/rarity';
-
-export const BREEDING_COOLDOWN_DAYS = 7;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Returns null when the mount is ready to breed again, otherwise the
-// integer days remaining (rounded up so "less than a day" still reads as 1).
-export function daysUntilReady(lastBredAt) {
-  if (!lastBredAt) return null;
-  const last = new Date(lastBredAt).getTime();
-  if (Number.isNaN(last)) return null;
-  const elapsedMs = Date.now() - last;
-  const cooldownMs = BREEDING_COOLDOWN_DAYS * DAY_MS;
-  if (elapsedMs >= cooldownMs) return null;
-  return Math.max(1, Math.ceil((cooldownMs - elapsedMs) / DAY_MS));
-}
+import { companionStage, lifecycleStageLabel } from '../../../companion/lifecycle';
+import lifecycle from '../../../../../shared/catalog/companion-lifecycle.json';
 
 // Higher number = rarer = sorts first in default order.
 const RARITY_ORDER = {
@@ -54,16 +37,26 @@ export const HAPPINESS_WHISPER = {
 export const COMPANION_FILTERS = [
   { key: 'all',    label: 'All',             icon: '🎒', match: () => true },
   { key: 'active', label: 'Active',          icon: '⭐', match: (p) => !!p.is_active },
+  { key: 'baby',   label: 'Baby',            icon: '🐣', match: (p) => companionStage(p) === 'baby' },
+  { key: 'middle', label: 'Middle',          icon: '🌱', match: (p) => companionStage(p) === 'middle' },
   { key: 'hungry', label: 'Hungry',          icon: '🍖', match: (p) => !p.evolved_to_mount && HUNGRY_LEVELS.has(p.happiness_level) },
   { key: 'ready',  label: 'Almost grown', icon: '✨', match: (p) => !p.evolved_to_mount && (p.growth_points ?? 0) >= READY_TO_EVOLVE_THRESHOLD },
 ];
+
+export function nextStageProgress(pet) {
+  const stage = companionStage(pet);
+  const next = stage === 'baby' ? 'middle' : stage === 'middle' ? 'grown' : null;
+  if (!next || !Number.isFinite(pet.growth_points) || pet.growth_points < 0) return null;
+  const remaining = lifecycle[`${next}_growth`] - pet.growth_points;
+  // A counter at the threshold never confirms a stage change. Wait for the
+  // saved server stage instead of promising a local evolution.
+  return remaining > 0 ? `${remaining} growth to ${lifecycleStageLabel(next)}` : null;
+}
 
 export const MOUNT_FILTERS = [
   { key: 'all',      label: 'All',             icon: '🐎', match: () => true },
   { key: 'active',   label: 'Active',          icon: '⭐', match: (m) => !!m.is_active },
   { key: 'on_expedition', label: 'Out exploring', icon: '🗺', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
-  { key: 'ready',    label: 'Ready to breed',  icon: '💞', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) === null },
-  { key: 'cooldown', label: 'On cooldown',     icon: '⏳', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) !== null },
 ];
 
 // Format remaining time for an out-on-expedition mount card. Returns

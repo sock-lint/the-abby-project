@@ -256,9 +256,6 @@ commands let you bias outcomes.
 | Mystery box | `apps/rpg/services.py:1053` | Random uncommon-or-rarer cosmetic | Auto-salvages dupes. |
 | Food basket | `apps/rpg/services.py:1103` | N items rolled | N=stack count. |
 | Daily challenge template | `apps/quests/services.py:628` | `random.choice` from `DAILY_CHALLENGE_TEMPLATES` | Five types rotate. |
-| Mount breeding species | `apps/pets/services.py:396` | Random from {parent_a, parent_b} | 50/50. |
-| Mount breeding potion | `apps/pets/services.py:397` | Same | 50/50. |
-| Chromatic upgrade | `apps/pets/services.py:400` | `random.random() < 0.02` | 2% chance overrides potion to Cosmic regardless of parents. |
 
 ---
 
@@ -287,7 +284,6 @@ so firing the card and clicking "Mark verified" auto-checks the row.
 | `DailyChallengeClaimModal` <!-- id:mark-daily-challenge-ready --> | Today's `DailyChallenge` is `current == target` AND unclaimed | Test rig → Mark daily challenge ready | Gold-leaf ring on `DailyChallengeCard`. Tap → claim modal opens. "+coins · +xp" reveal. |
 | `PetCeremonyModal` (hatch) <!-- id:grant-hatch-ingredients --> | Egg + matching potion in inventory; kid taps hatch | Test rig → Grant hatch ingredients (species + potion) | Sparkle reveal. Species sprite. "has joined your party". Tap-anywhere dismiss. |
 | `PetCeremonyModal` (evolve) <!-- id:set-pet-growth --> | Pet's `growth_points` crosses 100 on the next feed | Test rig → Set pet growth (growth=99); kid feeds once | Crown halo. Mount sprite swap mid-flash. `animate-gilded-glint` sweep. |
-| `PetCeremonyModal` (breed) <!-- id:clear-breed-cooldowns --> | Two of the kid's mounts with `last_bred_at=None` | Test rig → Clear breed cooldowns; kid taps Breed in Hatchery | Two parent mounts slide in → cosmic-burst → egg + potion result. Chromatic upgrade carries cosmic ring + "the stars favored this pairing". |
 | `CompanionGrowthToastStack` <!-- id:seed-companion-growth --> | Non-empty `CharacterProfile.pending_companion_growth` | Test rig → Seed companion growth (ticks N, optional force_evolve) | Moss-tinted slide-ins on kid's session. If `force_evolve` checked, the last event escalates to `PetCeremonyModal mode="evolve"`. |
 | `ExpeditionToastStack` + `PetCeremonyModal` (expedition_return) <!-- id:mark-expedition-ready --> | Mount with `status="active"` AND `returns_at <= now` | Test rig → Mark expedition ready (tier short/standard/long) | Gold-bordered slide-in "{Mount} is back · tap to claim · {tier}". Tap → Mounts page → Claim → expedition_return ceremony with coin + item reveal. |
 | Anti-farm gate reset <!-- id:reset-day-counters --> | Kid has already hit a first-of-day cap on homework / creation / movement | Test rig → Reset day counters (kind=all or single) | Kid's next homework_create / creation log / movement entry re-fires the gated reward path (XP fan-out + drop roll + game-loop trigger). |
@@ -344,7 +340,6 @@ Backend rejections that surface as specific user-visible UI.
 | Journal locked (PATCH after midnight) | `PATCH /api/chronicle/{id}/journal/` | 403 PermissionDenied | Toast: "that entry is locked now". |
 | Streak freeze double-consume | `POST /api/inventory/{id}/use/` | (service-level no-op when already active) | UI silently no-ops. |
 | Stack-unsafe consumable N>1 | `POST /api/inventory/{id}/use/ {quantity: 2}` | 400 "can only be used one at a time" | Quantity stepper should clamp at 1 for these. |
-| Mount breed cooldown | `POST /api/mounts/breed/` | 400 + days remaining | Hatchery shows per-mount countdown chip. |
 | Trophy badge not earned | `POST /api/character/trophy/ {badge_id}` | 400 (server enforces UserBadge ownership) | Picker only shows earned. |
 | Self-deactivate | `POST /api/parents/<self.id>/deactivate/` | 400 "You cannot deactivate your own account." | Family tab hides the Edit button on the requester's own row, but if a client somehow bypassed it the backend stops the request. |
 | Self-delete | `DELETE /api/parents/<self.id>/` | 400 "You cannot delete your own account." | Same — defense in depth on top of the UI no-Edit-on-self rule. |
