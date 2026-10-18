@@ -86,6 +86,7 @@ export default function DesignEnvironment({ children }) {
               ['design-outcomes', 'Status and outcomes'],
               ['design-family', 'Family context'], ['design-notifications', 'Notifications'],
               ['design-attachments', 'Attachments'], ['design-atlas', 'Atlas primitives'],
+              ['design-achievement-cards', 'Achievement cards'],
               ['design-pedestal', 'Pedestal and card artwork'],
             ].map(([id, label]) => <a key={id} href={`#${id}`} className="inline-flex min-h-11 items-center px-3 rounded-lg underline text-body text-sheikah-teal-deep">{label}</a>)}
           </nav>

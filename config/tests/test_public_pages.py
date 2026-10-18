@@ -62,6 +62,23 @@ class PublicInformationPagesTests(SimpleTestCase):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)
 
+    def test_privacy_discloses_ai_recipients_and_google_derived_transfers(self):
+        response = self.client.get(reverse("public-privacy"))
+        for disclosure in (
+            'id="ai"',
+            "Anthropic",
+            "OpenAI",
+            "12,000 characters",
+            "before you review",
+            "Google-derived text",
+            "External assistants through MCP",
+            "external speech service",
+            "Removing that connection stops new family planning requests",
+            "no longer provides AI sprite or image generation",
+        ):
+            with self.subTest(disclosure=disclosure):
+                self.assertContains(response, disclosure)
+
     def test_public_pages_do_not_echo_credential_or_account_query_parameters(self):
         for name in ("public-about", "public-privacy"):
             with self.subTest(page=name):

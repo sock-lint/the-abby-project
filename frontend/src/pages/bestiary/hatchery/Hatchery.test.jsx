@@ -27,6 +27,21 @@ function renderHatchery() {
 }
 
 describe('Hatchery', () => {
+  it('shows the selected egg acquisition rarity and keeps it separate from growth', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { quantity: 1, item: { id: 11, name: 'Dragon Spark Egg', item_type: 'egg', rarity: 'legendary', pet_species_slug: 'meshtint-dragon', pet_species_name: 'Dragon Spark' } },
+        { quantity: 1, item: { id: 12, name: 'Base Potion', item_type: 'potion', rarity: 'common' } },
+      ])),
+    );
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
+    expect(screen.getByText('legendary companion · rarity stays the same as it grows')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dragon Spark family' })).toBeInTheDocument();
+  });
+
   it.each([
     [{ id: 11, slug: 'chick-egg', name: 'Chick Egg', item_type: 'egg', pet_species_slug: 'chick', pet_species_name: 'Chick', metadata: { species: 'chick' } }, ['Chick', 'Fledgling', 'Bird']],
     [rosterInventory.find(({ item }) => item.slug === 'meshtint-bat-egg').item, ['Bat', 'Vampire Bat', 'Bat Lord']],

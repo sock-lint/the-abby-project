@@ -1,7 +1,7 @@
 """Parent-only REST surface for the sprite admin UI on /manage.
 
 Thin wrappers around the existing services in ``apps.rpg.sprite_authoring``
-and ``apps.rpg.sprite_generation`` — no business logic here. Keeps
+— no business logic here. Keeps
 ``apps/rpg/views.py`` from growing further (it already mixes public
 catalog + habit + character views).
 """
@@ -16,7 +16,6 @@ from config.permissions import IsParent, IsStaffParent
 from . import sprite_authoring as svc
 from .models import SpriteAsset
 from .sprite_authoring import SpriteAuthoringError
-from .sprite_generation import SpriteGenerationError, generate_sprite_sheet
 
 
 class SpriteAdminSerializer(serializers.ModelSerializer):
@@ -70,91 +69,6 @@ class SpriteAdminListView(APIView):
         return Response(SpriteAdminSerializer(qs, many=True).data)
 
 
-class SpriteGenerateView(APIView):
-    """POST /api/sprites/admin/generate/ — create or replace via Gemini.
-
-    Sprites are GLOBAL content shared across every family — gate on
-    IsStaffParent so a signup-created parent can't burn a deployment's
-    Gemini budget seeding the public catalog with junk.
-    """
-
-    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
-
-    def post(self, request):
-        data = request.data
-        try:
-            kwargs = _extract_generate_kwargs(data)
-        except ValueError as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        try:
-            result = generate_sprite_sheet(actor=request.user, **kwargs)
-        except (SpriteGenerationError, SpriteAuthoringError) as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(result, status=status.HTTP_201_CREATED)
-
-
-class SpriteRerollView(APIView):
-    """POST /api/sprites/admin/<slug>/reroll/ — replay stored inputs.
-
-    Accepts optional override fields in the POST body (``prompt``,
-    ``motion``, ``style_hint``, ``tile_size``) so the chat-side
-    critique loop can refine the generation without first PATCHing
-    the row. Any override that's supplied is also persisted back to
-    the SpriteAsset row by ``generate_sprite_sheet`` (its
-    end-of-pipeline ``update(...)`` writes whatever inputs it ran
-    with), so the NEXT reroll resumes from the refined inputs.
-    """
-
-    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
-
-    def post(self, request, slug):
-        try:
-            asset = SpriteAsset.objects.get(slug=slug)
-        except SpriteAsset.DoesNotExist:
-            return Response({"detail": f"sprite {slug!r} not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        if not asset.prompt:
-            return Response(
-                {"detail": "no stored prompt — use Replace instead"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Layer caller-supplied overrides on top of the stored row.
-        data = request.data
-        prompt = (data.get("prompt") or asset.prompt).strip() or asset.prompt
-        motion = (data.get("motion") or asset.motion or "idle").strip() or "idle"
-        style_hint = (data.get("style_hint") if data.get("style_hint") is not None else asset.style_hint) or ""
-        tile_size_raw = data.get("tile_size")
-        try:
-            tile_size = int(tile_size_raw) if tile_size_raw not in (None, "") else (
-                asset.tile_size or asset.frame_width_px or 128
-            )
-        except (TypeError, ValueError):
-            return Response({"detail": "tile_size must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
-        return_debug_raw = bool(data.get("return_debug_raw"))
-
-        try:
-            result = generate_sprite_sheet(
-                slug=asset.slug,
-                prompt=prompt,
-                frame_count=asset.frame_count,
-                tile_size=tile_size,
-                fps=asset.fps,
-                pack=asset.pack,
-                style_hint=style_hint,
-                motion=motion,
-                reference_image_url=asset.reference_image_url or None,
-                original_intent=asset.original_intent,
-                return_debug_raw=return_debug_raw,
-                overwrite=True,
-                tighten_reference=True,
-                actor=request.user,
-            )
-        except (SpriteGenerationError, SpriteAuthoringError) as exc:
-            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(result)
-
-
 class SpriteAdminDetailView(APIView):
     """PATCH / DELETE /api/sprites/admin/<slug>/ — metadata edit + delete."""
 
@@ -181,7 +95,6 @@ class SpriteAdminDetailView(APIView):
         except SpriteAuthoringError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(result)
-
     def delete(self, request, slug):
         try:
             result = svc.delete_sprite(slug=slug)
@@ -190,35 +103,13 @@ class SpriteAdminDetailView(APIView):
         return Response(result)
 
 
-def _extract_generate_kwargs(data) -> dict:
-    """Pull a clean kwargs dict from request.data, raising ValueError on bad input."""
-    slug = (data.get("slug") or "").strip()
-    prompt = (data.get("prompt") or "").strip()
-    if not slug:
-        raise ValueError("slug is required")
-    if not prompt:
-        raise ValueError("prompt is required")
+class SpriteGenerationRetiredView(APIView):
+    """Keep retired authoring POSTs out of the site's HTML fallback."""
 
-    def _as_int(name, default):
-        raw = data.get(name)
-        if raw in (None, ""):
-            return default
-        try:
-            return int(raw)
-        except (TypeError, ValueError):
-            raise ValueError(f"{name} must be an integer")
+    permission_classes = [permissions.IsAuthenticated, IsStaffParent]
 
-    return {
-        "slug": slug,
-        "prompt": prompt,
-        "frame_count": _as_int("frame_count", 1),
-        "tile_size": _as_int("tile_size", 128),
-        "fps": _as_int("fps", 0),
-        "pack": (data.get("pack") or "ai-generated").strip() or "ai-generated",
-        "style_hint": (data.get("style_hint") or "").strip(),
-        "motion": (data.get("motion") or "idle").strip() or "idle",
-        "reference_image_url": (data.get("reference_image_url") or "").strip() or None,
-        "original_intent": (data.get("original_intent") or "").strip(),
-        "return_debug_raw": bool(data.get("return_debug_raw")),
-        "overwrite": bool(data.get("overwrite")),
-    }
+    def post(self, request, slug=None):
+        return Response(
+            {"detail": "AI sprite generation has been retired. Register prepared artwork instead."},
+            status=status.HTTP_410_GONE,
+        )

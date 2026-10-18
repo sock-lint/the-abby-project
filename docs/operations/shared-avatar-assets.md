@@ -16,6 +16,13 @@ Pedestal and card UI 1.0.1 adds private presentation assets alongside those pins
 see [pedestal-card-ui.md](pedestal-card-ui.md) for its verification, scene choices,
 protected staging and rollback. It adds no catalog or progression entitlement.
 
+Achievement card kit 1.0.0 is the seventh pinned family. Its separate wide and
+tall parchment bases and gold overlays supply the Profile, collection, challenge,
+and reward card surfaces; see [achievement-card-kit.md](achievement-card-kit.md)
+for the exact delivery digests, image resolver, resizing guides, and rollback.
+Its generic icons do not replace distinct catalog artwork or establish badge
+assignments. Existing companion roster and training dummy pins remain intact.
+
 ## Install and update
 
 From `frontend/`, install the checked-in, code-only package tarballs with `npm ci`.
@@ -30,7 +37,7 @@ npm run assets:verify
 npm run dev
 ```
 
-The six-release tree does not contain the seven retained companion portraits.
+The seven-release tree does not contain the seven retained companion portraits.
 `ABBY_COMPANION_WORKSPACE` supplies them from their pinned inventory paths;
 the importer verifies the workspace inventory and every listed file before using
 any portrait. Alternatively, the existing read-only private delivery reader can

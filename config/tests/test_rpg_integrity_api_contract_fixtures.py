@@ -150,10 +150,14 @@ class RpgRewardFollowupApiFixtureTests(APITransactionTestCase):
         with patch("apps.rpg.services.random.random", return_value=1):
             completed = self.client.post(f"/api/habits/{habit.pk}/log/", {"direction": 1}, format="json")
         body = self.assert_response_fixture(completed, "habit-coop-completed.json")
-        self.assertEqual(body["game_event"]["quest"]["rewards"], {
-            "coins": 13, "xp": 24,
-            "items": [{"item_name": food.name, "item_icon": "food", "quantity": 2, "item_catalog_icon": None}],
-        })
+        rewards = body["game_event"]["quest"]["rewards"]
+        self.assertEqual((rewards["coins"], rewards["xp"]), (13, 24))
+        self.assertEqual(len(rewards["items"]), 1)
+        self.assertEqual({key: rewards["items"][0][key] for key in (
+            "item_id", "item_name", "item_icon", "quantity", "item_catalog_icon", "item_rarity", "item_type", "item_catalog_available",
+        )}, {"item_id": food.pk, "item_name": food.name, "item_icon": "food", "quantity": 2, "item_catalog_icon": None,
+             "item_rarity": "common", "item_type": "food", "item_catalog_available": True})
+        self.assertIn("Adds 5 growth", rewards["items"][0]["item_effect_summary"])
         self.assertTrue(body["game_event"]["quest"]["completed"])
         quest.refresh_from_db()
         self.assertEqual(quest.status, Quest.Status.COMPLETED)

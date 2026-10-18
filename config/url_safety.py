@@ -1,8 +1,7 @@
 """Safe URL fetching — block SSRF against internal services.
 
 Audit H4: parent-supplied URLs flow into ``apps/rpg/sprite_authoring.py``
-(``register_sprite``), ``apps/rpg/sprite_generation.py``
-(``_fetch_reference_image``) and ``apps/ingestion/pipeline/base.py``
+(``register_sprite``) and ``apps/ingestion/pipeline/base.py``
 (``fetch_cached``). Without this guard, a parent — or an LLM with a parent
 token via MCP — could hit cloud-metadata IPs (169.254.169.254), internal
 services (``http://internal-redis:6379/``), or LAN-only hosts. The

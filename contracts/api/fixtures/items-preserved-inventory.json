@@ -17,6 +17,8 @@
       "metadata": {
         "border_color": "#abcdef"
       },
+      "effect_summary": "Equip this collectible from your Profile.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
@@ -50,6 +52,8 @@
       "rarity_display": "Common",
       "coin_value": 0,
       "metadata": {},
+      "effect_summary": "A saved pet accessory.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
@@ -77,6 +81,8 @@
       "rarity_display": "Common",
       "coin_value": 0,
       "metadata": {},
+      "effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+      "acquisition_sources": [],
       "pet_species_name": "Cat",
       "potion_type_name": null,
       "food_species_name": null,
@@ -106,6 +112,8 @@
       "metadata": {
         "variant": "base"
       },
+      "effect_summary": "Combine with a compatible egg in Hatching.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": "Base",
       "food_species_name": null,

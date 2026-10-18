@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
 import { RARITY_TEXT_COLORS } from '../../constants/colors';
 import { RARITY_HALO } from '../../components/atlas/mastery.constants';
@@ -148,13 +149,13 @@ export default function CosmeticSigil({
   );
 
   if (!owned) {
+    const source = item.acquisition_sources?.find((entry) => entry.name && entry.path?.startsWith('/') && !entry.path.startsWith('//'));
     return (
-      <div
-        aria-label={accessibleName}
-        role="img"
-        className="w-full"
-      >
-        {body}
+      <div className="w-full">
+        <div aria-label={accessibleName} role="img">{body}</div>
+        {source && <Link className="mt-1 flex min-h-11 items-center justify-center rounded-full px-3 text-caption font-body font-semibold text-sheikah-teal-deep underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep" to={source.path}>
+          {source.kind === 'challenge' ? 'View challenge' : 'View activity'}
+        </Link>}
       </div>
     );
   }

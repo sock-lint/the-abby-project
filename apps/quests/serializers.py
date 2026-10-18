@@ -45,6 +45,13 @@ class QuestRewardItemSerializer(serializers.ModelSerializer):
     def get_item_catalog_icon(self, obj):
         return item_catalog_icon(obj.item)
 
+    def to_representation(self, instance):
+        from .reward_items import reward_item_details
+
+        data = super().to_representation(instance)
+        data.update(reward_item_details(instance.item, snapshot=getattr(instance, "reward_snapshot", None)))
+        return data
+
 
 class QuestSkillTagSerializer(serializers.ModelSerializer):
     skill_name = serializers.CharField(source="skill.name", read_only=True)

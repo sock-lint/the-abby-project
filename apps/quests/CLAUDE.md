@@ -52,6 +52,12 @@ The daily bonus qualifies through approved work/completed projects or milestones
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.
 
+MCP `challenges.py` exposes saved-state inspection, shared-serializer preview,
+UUID-safe parent goal creation and same-family pins. Audit reads must not call
+the materializing `list_goals()` path. Goal creation can backfill and immediately
+pay a satisfied period; it requires explicit client confirmation. Legacy daily
+challenge tools do not create current measurable parent goals.
+
 ## Preserved legacy behavior
 
 Reading Adventure's `reading_logged` event can advance saved legacy quests

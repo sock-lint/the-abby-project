@@ -1,5 +1,17 @@
 # Shared API response fixtures
 
+`badges-rarity-bonuses.json` and `badges-earned-rarity-bonuses.json` verify real catalog/earned responses, opt-outs and family isolation.
+
+Rarity responses include server-derived badge `coin_bonus` (base, before a
+Lucky Coin boost), item `effect_summary` and authenticated `acquisition_sources`
+(`kind`, `name`, internal `path`). Companion species expose acquisition `rarity`;
+owned pets/mounts expose the higher species/saved-potion tier. New goal promises
+and receipts include item rarity, artwork, type and effect details; historical
+sparse receipts remain valid and are not rewritten. Recent drops include item
+details and nullable `salvage_coins`: null means the older exact payout was not
+recorded, rather than zero. Availability reflects today's action eligibility
+independently of preserved ownership and accepted item promises.
+
 `fixtures/*.json` contains raw Django response bodies shared by the React tests
 and retained Unity reference checks. Unity is retired and is not an active release
 gate. Keep the files here rather than copying sample
@@ -8,6 +20,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `template-skills.json` | Parent `GET /api/templates/1/`; reusable plans preserve weighted project skill tags and fixed milestone XP tags |
 | `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |
 | `catalog-icons-drops.json`, `catalog-icons-goals.json` | Recent drops, automatic goals and reward previews retain verified image IDs while same-name parent goals keep null |
 | `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |

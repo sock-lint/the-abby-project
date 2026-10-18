@@ -6,7 +6,6 @@ from django.test import TestCase
 from apps.achievements.models import Badge, Skill, SkillPrerequisite, Subject
 from apps.mcp_server.context import override_user
 from apps.mcp_server.errors import (
-    MCPNotFoundError,
     MCPPermissionDenied,
     MCPValidationError,
 )
@@ -19,13 +18,11 @@ from apps.mcp_server.schemas import (
     DeleteBadgeIn,
     DeleteCategoryIn,
     DeleteSkillIn,
-    DeleteSubjectIn,
     RemoveSkillPrerequisiteIn,
     SkillPrereqDraft,
     UpdateBadgeIn,
     UpdateCategoryIn,
     UpdateSkillIn,
-    UpdateSubjectIn,
 )
 from apps.mcp_server.tools import achievements as ach
 from apps.achievements.models import SkillCategory
@@ -35,7 +32,7 @@ from apps.accounts.models import User
 class _Base(TestCase):
     def setUp(self) -> None:
         self.parent = User.objects.create_user(
-            username="p", password="pw", role="parent",
+            username="p", password="pw", role="parent", is_staff=True,
         )
         self.child = User.objects.create_user(
             username="c", password="pw", role="child",

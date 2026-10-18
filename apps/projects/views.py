@@ -23,8 +23,7 @@ from config.viewsets import (
 from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
-    TemplateMaterial, TemplateMilestone, TemplateResource,
-    TemplateStep, User,
+    User,
 )
 from .serializers import (
     ChildSerializer, MaterialItemSerializer, ParentSerializer,
@@ -746,15 +745,7 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="create-project")
     def create_project_from_template(self, request, pk=None):
         """Create a new project from this template."""
-        from django.db.models import prefetch_related_objects
-
         template = self.get_object()
-        # Prefetch the four related sets we iterate below so the clone
-        # doesn't fire 4 + N queries (one per .all() + one per nested
-        # step.resources.all()).
-        prefetch_related_objects(
-            [template], "milestones", "materials", "steps", "resources",
-        )
         assigned_to_id = request.data.get("assigned_to_id")
         # Cross-family safety: a parent can only spin a template for a child
         # in their own family. ``get_child_or_404`` returns None on miss
@@ -767,58 +758,13 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             if assigned_to is None:
                 return child_not_found_response()
 
-        project = Project.objects.create(
-            title=template.title,
-            description=template.description,
-            instructables_url=template.instructables_url,
-            difficulty=template.difficulty,
-            category=template.category,
-            bonus_amount=template.bonus_amount,
-            materials_budget=template.materials_budget,
-            created_by=request.user,
-            assigned_to=assigned_to,
-            status="in_progress",
-        )
-
-        # Map template-milestone pk -> real ProjectMilestone so steps can
-        # rebind their FK to the new project's milestones (not the template's).
-        ms_id_map = {}
-        for ms in template.milestones.all():
-            pm = ProjectMilestone.objects.create(
-                project=project, title=ms.title,
-                description=ms.description, order=ms.order,
-                bonus_amount=ms.bonus_amount,
+        from .template_services import instantiate_project_template
+        try:
+            project = instantiate_project_template(
+                template, parent=request.user, assignee=assigned_to, allow_public=True,
             )
-            ms_id_map[ms.id] = pm
-
-        for mat in template.materials.all():
-            MaterialItem.objects.create(
-                project=project, name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-
-        # Clone steps first so we can map template-step ids to real step pks
-        # when copying step-scoped resources. Preserve the step→milestone
-        # linkage by resolving through ms_id_map.
-        step_id_map = {}
-        for ts in template.steps.all():
-            ps = ProjectStep.objects.create(
-                project=project, title=ts.title,
-                description=ts.description, order=ts.order,
-                milestone=ms_id_map.get(ts.milestone_id) if ts.milestone_id else None,
-            )
-            step_id_map[ts.id] = ps
-
-        for tr in template.resources.all():
-            ProjectResource.objects.create(
-                project=project,
-                step=step_id_map.get(tr.step_id) if tr.step_id else None,
-                title=tr.title,
-                url=tr.url,
-                resource_type=tr.resource_type,
-                order=tr.order,
-            )
+        except ProjectTemplate.DoesNotExist:
+            return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(ProjectDetailSerializer(project).data, status=status.HTTP_201_CREATED)
 
@@ -847,56 +793,16 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
         if project.is_homework:
             return Response({"error": "Homework plans cannot become paid project templates."}, status=status.HTTP_400_BAD_REQUEST)
 
-        template = ProjectTemplate.objects.create(
-            title=project.title,
-            description=project.description,
-            instructables_url=project.instructables_url,
-            difficulty=project.difficulty,
-            category=project.category,
-            bonus_amount=project.bonus_amount,
-            materials_budget=project.materials_budget,
-            source_project=project,
-            created_by=request.user,
-            family=request.user.family,
-            is_public=request.data.get("is_public", False),
-        )
-
-        # Map project-milestone pk -> TemplateMilestone so cloned steps point
-        # at the template's milestones, not the source project's.
-        ms_id_map = {}
-        for ms in project.milestones.all():
-            tm = TemplateMilestone.objects.create(
-                template=template, title=ms.title,
-                description=ms.description, order=ms.order,
-                bonus_amount=ms.bonus_amount,
+        from .template_services import save_project_template
+        try:
+            template = save_project_template(
+                project, parent=request.user,
+                is_public=request.data.get("is_public", False),
             )
-            ms_id_map[ms.id] = tm
-
-        for mat in project.materials.all():
-            TemplateMaterial.objects.create(
-                template=template, name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-
-        step_id_map = {}
-        for ps in project.steps.all():
-            ts = TemplateStep.objects.create(
-                template=template, title=ps.title,
-                description=ps.description, order=ps.order,
-                milestone=ms_id_map.get(ps.milestone_id) if ps.milestone_id else None,
-            )
-            step_id_map[ps.id] = ts
-
-        for pr in project.resources.all():
-            TemplateResource.objects.create(
-                template=template,
-                step=step_id_map.get(pr.step_id) if pr.step_id else None,
-                title=pr.title,
-                url=pr.url,
-                resource_type=pr.resource_type,
-                order=pr.order,
-            )
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ProjectTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
 

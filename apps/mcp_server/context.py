@@ -24,6 +24,29 @@ _CURRENT_USER: contextvars.ContextVar[Optional["User"]] = contextvars.ContextVar
 )
 
 
+_CURRENT_SCOPES: contextvars.ContextVar[frozenset[str]] = contextvars.ContextVar(
+    "mcp_current_scopes", default=frozenset(),
+)
+
+
+def set_current_scopes(scopes: frozenset[str]) -> contextvars.Token:
+    return _CURRENT_SCOPES.set(scopes)
+
+
+def reset_current_scopes(token: contextvars.Token) -> None:
+    _CURRENT_SCOPES.reset(token)
+
+
+def get_current_scopes() -> frozenset[str]:
+    return _CURRENT_SCOPES.get()
+
+
+def require_scope(scope: str) -> None:
+    get_current_user()
+    if scope not in get_current_scopes():
+        raise MCPPermissionDenied(f"This connection requires the {scope} permission. Reconnect to authorize it.")
+
+
 def set_current_user(user: Optional["User"]) -> contextvars.Token:
     """Set the user for the current context. Returns a token for reset()."""
     return _CURRENT_USER.set(user)
@@ -170,10 +193,19 @@ def get_in_family(
 
 
 @contextlib.contextmanager
-def override_user(user: Optional["User"]) -> Iterator[None]:
-    """Temporarily pin the current user (used in tests and stdio --as-user)."""
+def override_user(
+    user: Optional["User"], *, scopes: frozenset[str] | None = None,
+) -> Iterator[None]:
+    """Explicit local test/stdio identity override; never used by HTTP authentication.
+
+    Local callers may exercise all scopes by default. HTTP middleware always sets
+    only the token's exact validated scopes and cannot enter this override.
+    """
+    from .tool_policy import MCP_SCOPES
     token = set_current_user(user)
+    scope_token = set_current_scopes(MCP_SCOPES if scopes is None else scopes)
     try:
         yield
     finally:
+        reset_current_scopes(scope_token)
         reset_current_user(token)

@@ -26,6 +26,15 @@ to mean touching three files; now it's one YAML edit.
 
 ## Files
 
+Rarity controls successful-draw tier budgets independently from catalog size;
+`drops.yaml` weights select items within a tier. An omitted rarity in a macro
+map receives zero weight. See `apps/rpg/rarity.py` and its subsystem guidance
+for the ordinary, accomplishment, mystery and expedition budgets. Eggs and
+species share authored `egg_rarity`; current prepared families span all five
+tiers without changing their Base-only artwork bindings. Nonrepeatable Ghost,
+Wolf, Bomb, Shadow and Dragon Trails provide deterministic Rare+ collection
+paths through supported eggs plus a Base potion.
+
 | File                  | What it authors                                             |
 | --------------------- | ----------------------------------------------------------- |
 | `skill_tree.yaml`     | SkillCategory + Skill + SkillPrerequisite                   |

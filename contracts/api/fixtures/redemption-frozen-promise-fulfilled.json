@@ -30,6 +30,8 @@
       "rarity_display": "Common",
       "coin_value": 0,
       "metadata": {},
+      "effect_summary": "Equip this collectible from your Profile.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,

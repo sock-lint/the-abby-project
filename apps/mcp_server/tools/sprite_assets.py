@@ -7,7 +7,7 @@ full "drop in a folder of artwork → new items/pets" flow without leaving
 the conversation.
 
 Safety model mirrors the existing ``content_packs.py`` tools:
-- Parent-only via ``require_parent``.
+- Staff-parent-only via ``require_staff_parent``.
 - Every referenced path must resolve inside either
   ``reward-icons/<pack>/`` (for sheets) or
   ``content/rpg/packs/<pack>/sprites/`` (for loose files). Anything
@@ -25,7 +25,6 @@ from django.conf import settings
 from apps.rpg.content.sprites import (
     LooseFile,
     ManifestError,
-    Sheet,
     SheetTile,
     dump_manifest,
     load_manifest,
@@ -36,7 +35,7 @@ from apps.rpg.content.sprites import (
     validate_tile_bounds,
 )
 
-from ..context import require_parent
+from ..context import require_staff_parent
 from ..errors import MCPValidationError, safe_tool
 from ..schemas import RegisterSpriteAssetsIn
 from ..server import tool
@@ -139,7 +138,7 @@ def register_sprite_assets(params: RegisterSpriteAssetsIn) -> dict[str, Any]:
     The ``sprite_key`` values the LLM drafts in the pack YAML should match
     one of those slugs.
     """
-    require_parent()
+    require_staff_parent()
     pack = _validate_pack_name(params.pack)
 
     if not (params.sheets or params.tiles or params.loose):

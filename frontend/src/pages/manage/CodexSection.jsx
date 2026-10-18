@@ -6,7 +6,6 @@ import {
 import { useApi } from '../../hooks/useApi';
 import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 import BottomSheet from '../../components/BottomSheet';
-import Button from '../../components/Button';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
 import ErrorAlert from '../../components/ErrorAlert';
@@ -22,7 +21,6 @@ import { itemDisplayName } from '../../utils/itemDisplayName';
 import CatalogCard from './CatalogCard';
 import MountsBlock from './MountsBlock';
 import SpritesBlock from './SpritesBlock';
-import SpriteGenerateModal from './SpriteGenerateModal';
 import SpriteDetailSheet from './SpriteDetailSheet';
 
 const SECTIONS = [
@@ -315,7 +313,7 @@ function AdventureDetail({ quest }) {
 
 /* ── Mount detail sheet ──────────────────────────────────────────── */
 
-function MountDetail({ species, onRegenerate }) {
+function MountDetail({ species }) {
   const mountSlug = `${species.sprite_key}-mount`;
   return (
     <div className="text-center space-y-3">
@@ -347,11 +345,6 @@ function MountDetail({ species, onRegenerate }) {
       <div className="text-xs text-ink-secondary">
         Mount sprite slug: <code className="font-mono text-ink-primary">{mountSlug}</code>
       </div>
-      <div className="pt-2">
-        <Button variant="primary" size="sm" onClick={onRegenerate}>
-          Regenerate mount sprite
-        </Button>
-      </div>
     </div>
   );
 }
@@ -377,9 +370,6 @@ export default function CodexSection() {
   const [selectedQuest, setSelectedQuest] = useState(null);
   const [selectedMount, setSelectedMount] = useState(null);
   const [selectedSprite, setSelectedSprite] = useState(null);
-  const [creatingSprite, setCreatingSprite] = useState(false);
-  // Mount regeneration piggybacks on the same modal with a pre-filled slug.
-  const [regeneratingMount, setRegeneratingMount] = useState(null);
 
   const [activeSectionId, setActiveSectionId] = useState(() => {
     if (typeof window === 'undefined') return 'items';
@@ -476,7 +466,6 @@ export default function CodexSection() {
                   <SpritesBlock
                     sprites={sprites}
                     onSelect={setSelectedSprite}
-                    onCreate={() => setCreatingSprite(true)}
                   />
                 )}
               </>
@@ -505,13 +494,7 @@ export default function CodexSection() {
           title={`${selectedMount.name} mount`}
           onClose={() => setSelectedMount(null)}
         >
-          <MountDetail
-            species={selectedMount}
-            onRegenerate={() => {
-              setRegeneratingMount(selectedMount);
-              setSelectedMount(null);
-            }}
-          />
+          <MountDetail species={selectedMount} />
         </BottomSheet>
       )}
       {selectedSprite && (
@@ -519,37 +502,6 @@ export default function CodexSection() {
           sprite={selectedSprite}
           onClose={() => setSelectedSprite(null)}
           onChanged={onSpriteCatalogChanged}
-        />
-      )}
-      {creatingSprite && (
-        <SpriteGenerateModal
-          onClose={() => setCreatingSprite(false)}
-          onSuccess={async () => {
-            await onSpriteCatalogChanged();
-          }}
-        />
-      )}
-      {regeneratingMount && (
-        <SpriteGenerateModal
-          sprite={{
-            slug: `${regeneratingMount.sprite_key}-mount`,
-            prompt: '',
-            motion: 'idle',
-            frame_count: 1,
-            fps: 0,
-            pack: 'ai-generated',
-            style_hint: '',
-            tile_size: 64,
-            reference_image_url: '',
-            frame_width_px: 64,
-            frame_height_px: 64,
-          }}
-          mode="replace"
-          onClose={() => setRegeneratingMount(null)}
-          onSuccess={async () => {
-            setRegeneratingMount(null);
-            await onSpriteCatalogChanged();
-          }}
         />
       )}
     </div>

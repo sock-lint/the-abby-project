@@ -45,11 +45,38 @@ retry or remove a completed copy.
 In **Auto-fill from Source → PDF**, **Import PDF from Google Drive** copies a
 selected PDF into the existing import workflow. The parent reviews its plan
 before creating a project. School worksheets use this same project review flow;
-this version does not create homework assignments automatically. PDF text may
-be sent to the configured AI import provider, as disclosed before selection and
-in `/privacy/#drive`. Files must be genuine, downloadable PDFs of at most 25 MB.
+this version does not create homework assignments automatically. PDF title and
+up to 12,000 characters of extracted text may be sent to Anthropic when
+deployment AI import is enabled, as disclosed before selection and in
+`/privacy/#drive` and `/privacy/#ai`. Processing runs during import, before the
+review screen; choosing whether to apply suggestions does not prevent the
+earlier transfer. Files must be genuine, downloadable PDFs of at most 25 MB.
 Google Docs exports, folders, and shortcuts are not supported for PDF import.
 This separate PDF-only picker selects existing files and has no Upload tab.
+
+## Google review and AI disclosure
+
+The [AI inventory and verification record](google-ai-disclosure.md) describes
+recipients, all other AI features, downstream reuse, official sources and open
+evidence. Google's current [Drive scope guidance](https://developers.google.com/workspace/drive/api/guides/api-specific-auth)
+classifies `drive.file` as non-sensitive. This avoids broad Drive access; it
+does not by itself approve an application's use cases or downstream transfers.
+
+The source form provides a shared notice for URL, local PDF and Drive import
+before the explicit user action. It names Anthropic (Claude), the source title
+and up to 12,000 extracted-text characters. It has no per-request AI opt-out or persisted provider-specific
+consent record. Confirm that the actual disclosure and flow meet the review's
+requirements before representing consent as verified. Imported project text
+can later appear in idea/planning prompts or authorized MCP results; deleting
+a Google connection does not retract those earlier disclosures.
+
+The current [Workspace policy](https://developers.google.com/workspace/workspace-api-user-data-developer-policy)
+excludes backing up app/project content to Drive. The existing export feature
+copies an individually chosen file in an educational workflow; ask Google to
+confirm its eligibility rather than describing it as an approved backup
+integration or assuming a narrower scope resolves that use-case question.
+No Google approval, provider contract, retention period or completed security
+assessment is established by these documents.
 
 ## Runtime setup
 

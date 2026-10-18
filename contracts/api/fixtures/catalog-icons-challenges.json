@@ -25,7 +25,13 @@
         "item_icon": "F",
         "item_sprite_key": "fish",
         "item_catalog_icon": "item-fish",
-        "quantity": 1
+        "quantity": 1,
+        "item_rarity": "common",
+        "item_type": "food",
+        "item_description": "",
+        "item_metadata": {},
+        "item_effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+        "item_catalog_available": true
       }
     ],
     "skill_tags": [],

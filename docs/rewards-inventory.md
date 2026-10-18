@@ -218,7 +218,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 **Purpose:** Randomized loot pulls on task completion. The "surprise" reward layer that makes consistent engagement pay off in cosmetics/consumables.
 **Model:** [apps/rpg/models.py:195](../apps/rpg/models.py) — `DropTable`; `ItemDefinition` at [apps/rpg/models.py:111](../apps/rpg/models.py)
 **Item types (10):** `egg`, `potion`, `food`, `cosmetic_frame`, `cosmetic_title`, `cosmetic_theme`, `cosmetic_pet_accessory`, `quest_scroll`, `coin_pouch`, `consumable`
-**Rarities (5):** common, uncommon, rare, epic, legendary
+**Rarities (5):** common, uncommon, rare, epic, legendary. Successful ordinary draws use 60/25/10/4/1 tier weights; major accomplishments use 40/30/20/8/2. Empty tiers renormalize; authored item weights choose inside the tier. Unowned cosmetics precede same-tier duplicate salvage. These budgets are independent of the chance an activity drops anything.
 **Service:** `DropService.process_drops` — [apps/rpg/services.py:300](../apps/rpg/services.py)
 **Base drop rates** (`BASE_DROP_RATES`, keyed by [`TriggerType`](../apps/rpg/constants.py)): `CLOCK_OUT` 0.40, `CHORE_COMPLETE` 0.30, `HOMEWORK_COMPLETE` 0.35, `HOMEWORK_CREATED` 0.15 (daily-capped — see below), `MILESTONE_COMPLETE` 0.80, `PROJECT_COMPLETE` 1.00, `BADGE_EARNED` 1.00, `QUEST_COMPLETE` 1.00, `PERFECT_DAY` 1.00, `HABIT_LOG` 0.15. Streak adds `+0.05/day` up to `+0.50`. The content-pack loader validates every trigger string in `drops.yaml` against this enum and raises `ContentPackError` on typos.
 **Paths to earn:** Called by `GameLoopService.on_task_completed` from every activity trigger. `homework_created` beyond the first assignment of the day passes `drops_allowed=False` to suppress the roll (anti-farming cap in `HomeworkService.create_assignment`).
@@ -229,7 +229,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 **Service:** `PetService` — [apps/pets/services.py:77](../apps/pets/services.py)
 **Paths:**
 - **Hatch:** consume 1 egg + 1 potion (`PetService.hatch_pet`). Species × potion combo gated by `PetSpecies.available_potions` M2M.
-- **Feed:** consume food → +15 growth if preferred species match, +5 neutral.
+- **Feed:** consume food → rarity floors 5/8/10/12/15, raised by valid authored growth up to 30, plus 10 for a preferred species match; Growth Tonic doubles the total. The food chooser shows the server effect.
 - **Evolve:** auto at `growth_points >= 100` → `UserMount` created; pet retained in stable.
 - **Activate:** one active pet + one active mount per user.
 
