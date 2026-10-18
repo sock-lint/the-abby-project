@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 
 from apps.pets.models import PetSpecies, PotionType
 from apps.rpg.catalog_support import (
-    available_items, available_pet_variants,
+    available_items, available_pet_pairs, available_pet_variants,
     item_is_available, item_unavailable_reason, pet_is_available,
     potion_is_available, species_is_available,
 )
@@ -52,6 +52,20 @@ class OwnedArtCatalogPolicyTests(TestCase):
         self.assertQuerySetEqual(available_pet_variants(self.chick), [self.base])
         self.chick.available_potions.set([self.fire])
         self.assertQuerySetEqual(available_pet_variants(self.chick), [])
+
+    def test_batch_pet_pairs_match_single_species_querysets(self):
+        # Empty legacy compatibility and a nonempty incompatible relation must
+        # retain the same meaning in batch and individual reads.
+        for authored in ([], [self.base, self.fire], [self.fire]):
+            with self.subTest(authored=[potion.slug for potion in authored]):
+                self.chick.available_potions.set(authored)
+                expected = {
+                    (species.pk, potion.pk)
+                    for species in PetSpecies.objects.all()
+                    for potion in available_pet_variants(species)
+                }
+                with self.assertNumQueries(3):
+                    self.assertEqual(available_pet_pairs(), expected)
 
     def test_typed_item_identity_precedes_conflicting_legacy_metadata(self):
         egg = ItemDefinition.objects.create(slug="chick-egg", name="Conflicting Chick egg", item_type="egg", pet_species=self.fox, metadata={"species": "chick"})
