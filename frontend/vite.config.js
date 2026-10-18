@@ -70,6 +70,9 @@ export default defineConfig(({ command, mode }) => {
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
           /^\/api\//,
+          // OAuth authorization and login (including query strings) belong
+          // to Django, never the cached SPA navigation fallback.
+          /^\/oauth(?:\/|\?|$)/,
           // Product and privacy pages are rendered by Django without the SPA.
           /^\/(?:about|privacy)(?:\/|\?|$)/,
           /^\/admin\//,
