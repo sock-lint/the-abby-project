@@ -18,12 +18,33 @@ import invalidGoal from '../../../contracts/api/fixtures/challenge-goal-invalid.
 import promisedQuest from '../../../contracts/api/fixtures/quest-promised-item-active.json';
 import promisedQuestHistory from '../../../contracts/api/fixtures/quest-promised-item-history.json';
 import legacyPromisedItems from '../../../contracts/api/fixtures/challenges-legacy-promised-item.json';
+import openedDetails from '../../../contracts/api/fixtures/challenge-details-opened.json';
+import discoveryObserved from '../../../contracts/api/fixtures/challenge-discovery-observed.json';
 import { server } from '../test/server';
 import {
   createChallengeGoal, getActiveQuest, getChallenges, getQuestHistory, logMovementSession, pinChallenge, unpinChallenge,
+  recordChallengeOpening, getChallengeDiscovery,
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('records only a self details opening and reads bounded household discovery separately from completion', async () => {
+    const requests = [];
+    server.use(
+      http.post(`*/api/challenges/${encodeURIComponent(openedDetails.id)}/opened/`, async ({ request }) => {
+        requests.push(await request.json());
+        return HttpResponse.json(openedDetails);
+      }),
+      http.get('*/api/challenges/discovery/', () => HttpResponse.json(discoveryObserved)),
+    );
+    expect(await recordChallengeOpening(openedDetails.id)).toEqual(openedDetails);
+    expect(requests).toEqual([{}]);
+    expect(await getChallengeDiscovery()).toEqual(discoveryObserved);
+    expect(discoveryObserved.catalog_occurrences).toMatchObject({
+      cohort_materialized: 2, opened: 1, completed: 2, completed_without_recorded_opening: 1,
+    });
+    expect(discoveryObserved.cohort).toMatchObject({ tracked_children: 1, untracked_children: 1 });
+  });
+
   it('creates a weekly distance goal with its exact activity rule and unpaid reward preview', async () => {
     const submitted = [];
     const payload = {

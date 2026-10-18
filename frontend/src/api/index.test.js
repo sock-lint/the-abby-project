@@ -568,3 +568,20 @@ describe('getProjectQR uses getBlob', () => {
     expect(lastCall().url).toMatch(/\/api\/projects\/5\/qr\/$/);
   });
 });
+
+describe('challenge discovery endpoints', () => {
+  it('records the exact occurrence opening with no client-supplied event or reward data', async () => {
+    await api.recordChallengeOpening('goal:11', { token: 'opening-token' });
+    expect(lastCall()).toEqual({ url: expect.stringMatching(/\/api\/challenges\/goal%3A11\/opened\/$/), method: 'POST', body: '{}' });
+    expect(fetchSpy.mock.calls.at(-1)[1].headers.Authorization).toBe('Token opening-token');
+  });
+
+  it('reads the staff discovery report with cancellation and credential options', async () => {
+    const controller = new AbortController();
+    await api.getChallengeDiscovery({ signal: controller.signal, token: 'staff-token' });
+    expect(lastCall().url).toMatch(/\/api\/challenges\/discovery\/$/);
+    expect(lastCall().method).toBe('GET');
+    expect(fetchSpy.mock.calls.at(-1)[1].signal).toBe(controller.signal);
+    expect(fetchSpy.mock.calls.at(-1)[1].headers.Authorization).toBe('Token staff-token');
+  });
+});

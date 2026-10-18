@@ -3,6 +3,8 @@
   "name": "Run 2 miles this week",
   "description": "",
   "origin": "parent",
+  "first_details_opened_at": null,
+  "catalog_repeatable": false,
   "catalog_icon": null,
   "metric": "distance",
   "target": "2",

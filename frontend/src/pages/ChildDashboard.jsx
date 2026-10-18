@@ -40,6 +40,7 @@ import BadgeArtwork from '../components/atlas/BadgeArtwork';
 import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
+import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -268,6 +269,7 @@ export default function ChildDashboard({ data, reload }) {
       <ErrorAlert message={challengesError} />
       {challengesError && <Button variant="secondary" onClick={reloadChallenges}>Retry challenges</Button>}
       {!challengesLoading && (!challengesError || pinnedGoal) && <PinnedChallengeCard goal={pinnedGoal} />}
+      {!challengesLoading && !challengesError && <ExploreChallengesLink goals={challenges?.results || []} pinnedGoal={pinnedGoal} />}
 
       <DeckleDivider glyph="flourish-corner" />
 
