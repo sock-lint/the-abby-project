@@ -428,6 +428,9 @@ export const handlers = [
   // Dev tools — default to disabled so the Test tab stays hidden in
   // tests that don't explicitly opt in.
   http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
+  // Designer workspace stays staff-only unless a test supplies its catalog.
+  http.get('*/api/rpg/progression-lab/', () => new HttpResponse(null, { status: 403 })),
+  http.post('*/api/rpg/progression-lab/simulate/', () => new HttpResponse(null, { status: 403 })),
   http.get('*/api/dev/children/', empty),
   http.get('*/api/dev/rewards/', empty),
   http.get('*/api/dev/items/', empty),

@@ -15,6 +15,13 @@ The producer is `config.tests.test_submission_timing_api_contract_fixtures` and
 the React consumer is `src/api/submissionTimingContractFixtures.test.jsx`;
 both run in the required API fixtures workflow.
 
+`content-workbench-catalog.json` and `content-workbench-denied.json` bind the
+staff content editor's catalog, exact reward references, reverse item uses,
+simulation metadata and permission denial to real Django responses. Producers
+live in `config/tests/test_content_workbench_api_contract_fixtures.py`; React
+transport and editor consumption checks live in
+`frontend/src/api/contentWorkbenchContractFixtures.test.jsx`.
+
 `badges-rarity-bonuses.json` and `badges-earned-rarity-bonuses.json` verify real catalog/earned responses, opt-outs and family isolation.
 
 Rarity responses include server-derived badge `coin_bonus` (base, before a
@@ -353,6 +360,16 @@ run it from a complete checkout, not an isolated
 copy of `unity/AbbyCamp`.
 
 ## Check for drift
+
+`config.tests.test_progression_api_contract_fixtures` produces
+`progression-lab-metadata.json` and `progression-lab-report.json` through the
+real staff-parent endpoints, using fixed synthetic global skill, item, drop,
+companion, badge and challenge definitions. The report starts from zero and
+contains no household progress. The React consumer
+`src/api/progressionLabContractFixtures.test.js` checks the exact metadata and
+anonymous simulation request/response shapes. Both run in the API fixtures
+gate. See [Progression Lab](../../docs/operations/progression-lab.md) for the
+model boundary, conditional milestone percentiles and finite-content subset.
 
 `config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
 settings through real parent-only reads, saves and resets. The exact response

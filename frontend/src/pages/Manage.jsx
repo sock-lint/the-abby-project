@@ -989,6 +989,24 @@ function AdminSection() {
 
   return (
     <div className="space-y-4">
+      <ParchmentCard className="space-y-2">
+        <h2 className="font-display text-lede text-ink-primary">RPG content</h2>
+        <p className="text-body text-ink-secondary">
+          Manage challenges and items, audit rewards, and compare draft changes before publishing.
+        </p>
+        <Link to="/manage/rpg-content" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">
+          Manage RPG content
+        </Link>
+      </ParchmentCard>
+      <ParchmentCard className="space-y-2">
+        <h2 className="font-display text-lede text-ink-primary">Progression lab</h2>
+        <p className="text-body text-ink-secondary">
+          Simulate a new child’s routine to inspect rewards, collection pacing and content runway.
+        </p>
+        <Link to="/manage/progression-lab" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">
+          Open progression lab
+        </Link>
+      </ParchmentCard>
       <ParchmentCard>
         <div className="font-display font-semibold text-ink-primary mb-1">
           Create a new family
