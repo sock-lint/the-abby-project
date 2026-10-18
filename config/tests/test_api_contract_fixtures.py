@@ -50,7 +50,6 @@ SYNTHETIC_TOKEN = "0123456789012345678901234567890123456789"
         "disabled_item_types": ["cosmetic_pet_accessory"],
         "features": {},
     },
-    PET_INCUBATION_DURATION_SECONDS=7200,
     ALLOWED_HOSTS=["testserver"],
     TIME_ZONE="America/Phoenix",
     USE_TZ=True,
@@ -345,12 +344,16 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.pin_next_hatched_pet_identity()
         self.pin_next_incubation_identity()
         foreign_inventory = list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at"))
-        self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-empty.json")
+        empty = self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-empty.json")
+        self.assertEqual(empty["duration_seconds"], 86400)
         started = self.assert_response_fixture(self.start_fixture_incubation({
             "egg_item_id": 73, "potion_item_id": 75, "user_id": self.outsider.pk,
         }), "pet-incubation-start.json", status=201)
         incubation_id = started["incubation"]["id"]
-        self.assertEqual(started["incubation"]["remaining_seconds"], 7200)
+        saved_incubation = PetIncubation.objects.get(pk=incubation_id)
+        duration = saved_incubation.ready_at - saved_incubation.started_at
+        self.assertEqual(duration, timedelta(hours=24))
+        self.assertEqual(started["incubation"]["remaining_seconds"], 86400)
         self.assertEqual(started["incubation"]["status"], "incubating")
         self.assertIsNone(started["incubation"]["pet_id"])
         self.assertEqual(UserPet.objects.filter(user=self.child).count(), 1)
@@ -358,12 +361,12 @@ class SharedApiResponseFixtureTests(APITestCase):
         after_start = self.hatching_state()
         self.assert_response_fixture(self.start_fixture_incubation(), "pet-incubation-start.json")
         self.assertEqual(self.hatching_state(), after_start)
-        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=1)):
+        with patch("django.utils.timezone.now", return_value=saved_incubation.started_at + duration / 2):
             progress = self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-progress.json")
-            self.assertEqual(progress["incubation"]["remaining_seconds"], 3600)
+            self.assertEqual(progress["incubation"]["remaining_seconds"], 43200)
             self.assert_response_fixture(self.client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json"), "pet-incubation-too-early.json", status=409)
         self.assertEqual(self.hatching_state(), after_start)
-        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2)):
+        with patch("django.utils.timezone.now", return_value=saved_incubation.ready_at):
             ready = self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-ready.json")
             self.assertEqual((ready["incubation"]["status"], ready["incubation"]["is_ready"], ready["incubation"]["remaining_seconds"]), ("ready", True, 0))
             self.assertEqual(self.hatching_state(), after_start)

@@ -233,7 +233,9 @@ Timed incubation starts at `POST /api/pets/incubations/` with item-definition
 and one compatible potion exactly once, freezes their display/species/potion
 identities and an absolute deadline, and creates no `UserPet`, badge or Chronicle
 first. Same-request retries return the saved row; a conflicting request cannot
-occupy the account's single active slot. The default duration is two hours.
+occupy the account's single active slot. The default duration is 24 hours
+(86,400 seconds); these canonical examples use that default and claim at the
+saved `ready_at` deadline.
 
 `GET /api/pets/incubations/` returns `{incubation, duration_seconds, server_now}`.
 The nullable row carries frozen ingredient and family metadata, `started_at`,

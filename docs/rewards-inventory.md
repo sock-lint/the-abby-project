@@ -230,7 +230,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 **Model:** [apps/pets/models.py](../apps/pets/models.py) — `PetIncubation` (accepted egg/potion and deadline), `UserPet` (growth 0–100), `UserMount` (evolved).
 **Service:** `PetService` — [apps/pets/services.py:77](../apps/pets/services.py)
 **Paths:**
-- **Incubate:** `PetService.start_incubation` consumes 1 egg + 1 compatible potion and freezes a server deadline (two hours by default). One unfinished incubation per account; accepted species/potion promises survive later catalog retirement.
+- **Incubate:** `PetService.start_incubation` consumes 1 egg + 1 compatible potion and freezes a server deadline (24 hours by default). One unfinished incubation per account; accepted species/potion promises survive later catalog retirement.
 - **Hatch:** explicit `PetService.hatch_incubation` after readiness creates the baby and evaluates existing pet badges. Replaying the same claim grants nothing twice; reading the timer grants nothing. See [timed incubation](operations/pet-incubation.md).
 - **Feed:** consume food → rarity floors 5/8/10/12/15, raised by valid authored growth up to 30, plus 10 for a preferred species match; Growth Tonic doubles the total. The food chooser shows the server effect.
 - **Evolve:** auto at `growth_points >= 100` → `UserMount` created; pet retained in stable.

@@ -23,7 +23,7 @@ pair before submission, including pets that have already grown; the server
 validates ownership, availability and compatibility before accepting incubation.
 
 Starting incubation consumes one egg and one compatible potion and saves their
-accepted identity and server deadline, two hours by default. One unfinished
+accepted identity and server deadline, 24 hours by default. One unfinished
 incubation is allowed per account, including an egg already ready to hatch.
 The egg remains in the Egg stage until an explicit ready hatch creates a Baby
 at zero growth. It gains no care, activation, badge or pet ownership while

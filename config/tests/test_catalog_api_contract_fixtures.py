@@ -8,13 +8,13 @@ from django.conf import settings
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
 
 
-@override_settings(ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None, PET_INCUBATION_DURATION_SECONDS=7200)
+@override_settings(ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None)
 class CatalogApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared.SharedApiResponseFixtureTests.assert_response_fixture
     pin_next_mount_identity = shared.SharedApiResponseFixtureTests.pin_next_mount_identity
@@ -90,8 +90,10 @@ class CatalogApiResponseFixtureTests(APITestCase):
             "/api/pets/incubations/", {"egg_item_id": egg.pk, "potion_item_id": self.potion.pk,
                                        "request_id": shared.INCUBATION_REQUEST_ID}, format="json",
         ), "pet-incubation-roster-start.json", status=201)["incubation"]
+        saved_incubation = PetIncubation.objects.get(pk=incubation["id"])
+        self.assertEqual((saved_incubation.ready_at - saved_incubation.started_at).total_seconds(), 86400)
         self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
-        with patch("django.utils.timezone.now", return_value=shared.FIXED_NOW + shared.timedelta(hours=2)):
+        with patch("django.utils.timezone.now", return_value=saved_incubation.ready_at):
             body = self.assert_response_fixture(self.client.post(
                 f"/api/pets/incubations/{incubation['id']}/hatch/", {}, format="json",
             ), "pet-incubation-roster-hatched.json", status=201)["pet"]

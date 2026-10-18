@@ -549,18 +549,24 @@ describe('shared Django response fixtures through the React API client', () => {
       }),
     );
     expect(await getIncubation()).toEqual(incubationEmpty);
+    expect(incubationEmpty.duration_seconds).toBe(86400);
     expect(await startIncubation(73, 75, requestId)).toEqual(incubationStarted);
-    expect(incubationStarted.incubation).toMatchObject({ id: 1, status: 'incubating', is_ready: false, remaining_seconds: 7200, pet_id: null });
+    expect(incubationStarted.incubation).toMatchObject({ id: 1, status: 'incubating', is_ready: false, remaining_seconds: 86400, pet_id: null });
+    const readyAt = incubationStarted.incubation.ready_at;
+    expect(Date.parse(readyAt) - Date.parse(incubationStarted.incubation.started_at)).toBe(86400 * 1000);
     current = incubationProgress;
     expect(await getIncubation()).toEqual(incubationProgress);
+    expect(incubationProgress.incubation).toMatchObject({ ready_at: readyAt, remaining_seconds: 43200 });
     expect(calls).toHaveLength(1);
     await expect(hatchIncubation(1)).rejects.toMatchObject({ status: 409, response: incubationTooEarly });
     current = incubationReady;
     expect(await getIncubation()).toEqual(incubationReady);
-    expect(incubationReady.incubation).toMatchObject({ status: 'ready', is_ready: true, remaining_seconds: 0, pet_id: null });
+    expect(incubationReady.incubation).toMatchObject({ status: 'ready', is_ready: true, remaining_seconds: 0, pet_id: null, ready_at: readyAt });
+    expect(incubationReady.server_now).toBe(readyAt);
     expect(calls).toHaveLength(2);
     const first = await hatchIncubation(1);
     expect(first).toEqual(incubationHatched);
+    expect(first.server_now).toBe(readyAt);
     expect(first.freshly_hatched).toBe(true);
     expect(first.pet).toMatchObject({ id: 83, growth_points: 0, is_active: false, lifecycle_stage: 'baby',
       evolved_to_mount: false, happiness_level: 'happy', species: { id: 41, name: 'Fox' }, potion: { id: 44, slug: 'ice' } });

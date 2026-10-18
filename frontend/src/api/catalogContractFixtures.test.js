@@ -136,9 +136,11 @@ describe('current owned-art API contracts', () => {
     } });
     const requestId = '01234567-89ab-4cde-8012-3456789abcde';
     const accepted = await startIncubation(91, 52, requestId);
-    expect(accepted.incubation).toMatchObject({ status: 'incubating', pet_id: null, egg: { catalog_icon: 'bat-egg-portrait' } });
+    expect(accepted.incubation).toMatchObject({ status: 'incubating', remaining_seconds: 86400, pet_id: null, egg: { catalog_icon: 'bat-egg-portrait' } });
+    expect(Date.parse(accepted.incubation.ready_at) - Date.parse(accepted.incubation.started_at)).toBe(86400 * 1000);
     const receipt = await hatchIncubation(accepted.incubation.id);
     expect(receipt).toEqual(rosterHatch);
+    expect(receipt.server_now).toBe(accepted.incubation.ready_at);
     const pet = receipt.pet;
     expect(pet).toMatchObject({
       species: { slug: 'meshtint-bat', catalog_icon: 'bat-baby-portrait', rarity: 'uncommon' }, potion: { slug: 'base', rarity: 'common' }, rarity: 'uncommon',

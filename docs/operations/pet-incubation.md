@@ -15,7 +15,7 @@ keep their existing rules. Breeding remains retired.
 
 ## Time and accepted promises
 
-`PET_INCUBATION_DURATION_SECONDS` defaults to 7200 (two hours). A start freezes
+`PET_INCUBATION_DURATION_SECONDS` defaults to 86400 (24 hours). A start freezes
 its own deadline, so later setting changes affect only new starts. The server
 owns readiness and the saved timer continues while all clients are closed.
 No background task, open browser, check-in, food or currency is needed to make

@@ -325,7 +325,7 @@ export const handlers = [
   http.get('*/api/pets/codex/', () =>
     HttpResponse.json({ species: [], potions: [], totals: { species: 0, discovered_species: 0, mounts_possible: 0, mounts_owned: 0 } }),
   ),
-  http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation: null, duration_seconds: 7200, server_now: '2026-10-18T12:00:00Z' })),
+  http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation: null, duration_seconds: 86400, server_now: '2026-10-18T12:00:00Z' })),
   http.post('*/api/pets/hatch/', () => HttpResponse.json({ error: 'Instant hatching has been removed. Start an egg incubation in the Hatchery.' }, { status: 410 })),
   http.post(/\/api\/pets\/\d+\/feed\/$/, ok),
   http.post(/\/api\/pets\/\d+\/activate\/$/, ok),

@@ -8,6 +8,24 @@ afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 describe('Incubating egg presentation', () => {
   const egg = { name: 'Bat Egg', icon: '🥚' };
 
+  it('keeps the 24-hour egg incubating after two hours and waits for server readiness at its deadline', () => {
+    let elapsed = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => elapsed);
+    const onHatch = vi.fn();
+    const view = render(<IncubationCard egg={egg} remainingSeconds={86400} isReady={false} onHatch={onHatch} onRefresh={() => {}} />);
+    expect(screen.getByText('Ready to hatch in 24h.')).toBeInTheDocument();
+    act(() => { elapsed = 7200000; vi.advanceTimersByTime(1000); });
+    expect(screen.getByText('Ready to hatch in 22h.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hatch pet' })).toBeNull();
+    act(() => { elapsed = 86400000; vi.advanceTimersByTime(1000); });
+    expect(screen.getByText('Checking whether your egg is ready…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hatch pet' })).toBeNull();
+    expect(onHatch).not.toHaveBeenCalled();
+    view.rerender(<IncubationCard egg={egg} remainingSeconds={0} isReady onHatch={onHatch} onRefresh={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hatch pet' }));
+    expect(onHatch).toHaveBeenCalledTimes(1);
+  });
+
   it('counts down from server seconds without making an egg ready when the phone clock changes', () => {
     let elapsed = 0;
     vi.spyOn(performance, 'now').mockImplementation(() => elapsed);

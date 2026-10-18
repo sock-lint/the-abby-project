@@ -241,7 +241,7 @@ else:
 
 # --- Pet incubation -------------------------------------------------------
 # Applies only to newly accepted eggs; each incubation saves its own deadline.
-PET_INCUBATION_DURATION_SECONDS = int(os.environ.get("PET_INCUBATION_DURATION_SECONDS", "7200"))
+PET_INCUBATION_DURATION_SECONDS = int(os.environ.get("PET_INCUBATION_DURATION_SECONDS", "86400"))
 if PET_INCUBATION_DURATION_SECONDS < 1:
     raise ValueError("PET_INCUBATION_DURATION_SECONDS must be positive")
 

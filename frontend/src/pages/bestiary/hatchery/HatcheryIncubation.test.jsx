@@ -42,6 +42,12 @@ async function selectPair(user) {
 }
 
 describe('Timed egg incubation', () => {
+  it('presents the server default as a 24-hour incubation before starting an egg', async () => {
+    page();
+    expect(await screen.findByText(/Incubation takes 24h and continues while you are away/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Hatch pet' })).toBeNull();
+  });
+
   it.each(['inventory', 'pets/stable'])('allows a ready egg to hatch despite a failed %s read, without claiming supplies are empty', async (endpoint) => {
     let current = ready;
     const claim = spyHandler('post', /\/api\/pets\/incubations\/7\/hatch\/$/, () => {

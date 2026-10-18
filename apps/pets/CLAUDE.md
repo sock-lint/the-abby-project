@@ -55,7 +55,9 @@ validate the current pair and ownership, and consume exactly one egg + potion.
 They create no pet, growth, badge, XP, Coins or Chronicle hatch. Replaying the
 same request UUID and pair returns the saved row, including after completion;
 changing the pair for that UUID conflicts. Another unfinished egg conflicts.
-`PET_INCUBATION_DURATION_SECONDS` defaults to 7200 and is frozen into `ready_at`.
+`PET_INCUBATION_DURATION_SECONDS` defaults to 86400 (24 hours) and is frozen into
+`ready_at`. A later setting change affects new eggs only; accepted eggs retain
+their original deadlines, including eggs accepted under an earlier duration.
 Reads report server time, rounded-up remaining seconds and readiness without
 writing. Only an explicit ready hatch creates ownership and its existing rewards,
 under the same user-first lock and a lock on the incubation row itself. Catalog

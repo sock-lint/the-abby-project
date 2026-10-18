@@ -51,13 +51,13 @@
       "catalog_available": true
     },
     "started_at": "2026-10-10T12:00:00-07:00",
-    "ready_at": "2026-10-10T14:00:00-07:00",
-    "remaining_seconds": 3600,
+    "ready_at": "2026-10-11T12:00:00-07:00",
+    "remaining_seconds": 43200,
     "is_ready": false,
     "status": "incubating",
     "hatched_at": null,
     "pet_id": null
   },
-  "duration_seconds": 7200,
-  "server_now": "2026-10-10T13:00:00-07:00"
+  "duration_seconds": 86400,
+  "server_now": "2026-10-11T00:00:00-07:00"
 }

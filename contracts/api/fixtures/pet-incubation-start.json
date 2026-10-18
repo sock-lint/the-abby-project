@@ -51,8 +51,8 @@
       "catalog_available": true
     },
     "started_at": "2026-10-10T12:00:00-07:00",
-    "ready_at": "2026-10-10T14:00:00-07:00",
-    "remaining_seconds": 7200,
+    "ready_at": "2026-10-11T12:00:00-07:00",
+    "remaining_seconds": 86400,
     "is_ready": false,
     "status": "incubating",
     "hatched_at": null,
