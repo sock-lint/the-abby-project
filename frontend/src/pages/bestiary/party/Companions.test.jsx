@@ -73,6 +73,26 @@ function renderPage(handlers = []) {
 function collection() { return within(screen.getByRole('list', { name: 'Your companions' })); }
 
 describe('Companions tab', () => {
+  it('shows the server food effect before spending a serving', async () => {
+    const user = userEvent.setup();
+    const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, { new_growth: 100, growth_added: 10, evolved: false });
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [PETS[0]], mounts: [], total_possible: 48 })),
+      http.get('*/api/inventory/', () => HttpResponse.json([{ quantity: 2, item: {
+        id: 100, item_type: 'food', name: 'Rare berries', rarity: 'rare', icon: '🫐',
+        metadata: { growth: 999 }, effect_summary: 'Adds 10 growth, plus 10 more for a pet that prefers this food.',
+      } }])),
+      feed.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /Care for Fire Drake/ }));
+    const care = screen.getByRole('dialog', { name: 'Care for Fire Drake' });
+    expect(within(care).getByText('Adds 10 growth, plus 10 more for a pet that prefers this food.')).toBeInTheDocument();
+    expect(feed.calls).toHaveLength(0);
+    await user.click(within(care).getByRole('button', { name: /Rare berries/ }));
+    await waitFor(() => expect(feed.calls).toHaveLength(1));
+    expect(feed.calls[0]).toMatchObject({ method: 'POST', body: { food_item_id: 100 } });
+  });
+
   it('opens real care from the feed action even when the collection filter excludes it', async () => {
     const user = userEvent.setup();
     const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, { new_growth: 100, growth_added: 5, evolved: false });

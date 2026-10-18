@@ -51,7 +51,7 @@ class WellKnownDiscoveryTests(TestCase):
         self.assertEqual(body["resource"], "https://example.test/mcp")
         self.assertEqual(body["authorization_servers"], ["https://example.test"])
         self.assertIn("header", body["bearer_methods_supported"])
-        self.assertIn("mcp", body["scopes_supported"])
+        self.assertIn("mcp:read", body["scopes_supported"])
 
     def test_protected_resource_is_cacheable(self):
         resp = self.client.get("/.well-known/oauth-protected-resource")
@@ -162,7 +162,8 @@ class AuthorizeGateTests(TestCase):
             "response_type": "code",
             "client_id": self.app.client_id,
             "redirect_uri": "http://localhost:7331/callback",
-            "scope": "mcp",
+            "scope": "mcp:read",
+            "resource": "https://example.test/mcp",
             "state": "xyz",
             "code_challenge": "abc",
             "code_challenge_method": "S256",
@@ -220,7 +221,7 @@ class EndToEndPKCEFlowTests(TestCase):
             "client_id": self.client_id,
             "redirect_uri": "http://localhost:7331/callback",
             "response_type": "code",
-            "scope": "mcp",
+            "scope": "mcp:read",
             "state": "xyz",
             "code_challenge": challenge,
             "code_challenge_method": "S256",
@@ -251,7 +252,7 @@ class EndToEndPKCEFlowTests(TestCase):
         self.assertIn("access_token", body)
         self.assertIn("refresh_token", body)
         self.assertEqual(body["token_type"].lower(), "bearer")
-        self.assertEqual(body["scope"], "mcp")
+        self.assertEqual(body["scope"], "mcp:read")
 
         # The minted AccessToken carries the resource claim on the side table.
         from oauth2_provider.models import AccessToken
@@ -387,11 +388,11 @@ class MCPBearerAuthTests(TransactionTestCase):
         status, body = self._run_middleware(header)
         self.assertEqual(status, 401)
 
-    def test_missing_resource_claim_accepted(self):
-        """Missing claim = legacy / test fixture; we only reject on explicit mismatch."""
+    def test_missing_resource_claim_rejected(self):
+        """Unbound tokens must reconnect through exact-resource consent."""
         _, header = make_oauth_token(self.user, resource="")  # no claim stored
         status, _ = self._run_middleware(header)
-        self.assertEqual(status, 200)
+        self.assertEqual(status, 401)
 
     def test_inactive_user_rejected(self):
         _, header = make_oauth_token(self.user)
@@ -447,3 +448,195 @@ class AdminOAuthEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
         self.assertEqual(len(body["tokens"]), 1)
+
+
+@override_settings(SITE_URL="https://example.test", MCP_RESOURCE_URL="https://example.test/mcp")
+class ScopedOAuthGrantTests(TestCase):
+    def setUp(self):
+        from django.core.cache import cache
+        from oauth2_provider.models import Application
+        cache.clear()
+        self.parent = make_family(parents=[{"username": "grant-parent", "is_staff": True}]).parents[0]
+        self.app = Application.objects.create(
+            name="Scoped assistant", client_type=Application.CLIENT_PUBLIC,
+            authorization_grant_type=Application.GRANT_AUTHORIZATION_CODE,
+            redirect_uris="http://localhost:7331/callback", client_secret="",
+        )
+        self.client.force_login(self.parent)
+
+    def grant(self, *, scope="mcp:read", resource="https://example.test/mcp"):
+        verifier, challenge = _pkce_pair()
+        data = {
+            "client_id": self.app.client_id, "redirect_uri": "http://localhost:7331/callback",
+            "response_type": "code", "state": "scope-test", "code_challenge": challenge,
+            "code_challenge_method": "S256", "resource": resource, "allow": "Authorize",
+        }
+        if scope is not None:
+            data["scope"] = scope
+        response = self.client.post("/oauth/authorize/", data=data)
+        self.assertIn(response.status_code, (302, 303), response.content)
+        params = parse_qs(urlparse(response.url).query)
+        self.assertIn("code", params, response.url)
+        return params["code"][0], verifier
+
+    def exchange(self, code, verifier, **extra):
+        return self.client.post("/oauth/token/", data={
+            "grant_type": "authorization_code", "code": code,
+            "redirect_uri": "http://localhost:7331/callback",
+            "client_id": self.app.client_id, "code_verifier": verifier, **extra,
+        })
+
+    def refresh(self, refresh_token, **extra):
+        return self.client.post("/oauth/token/", data={
+            "grant_type": "refresh_token", "refresh_token": refresh_token,
+            "client_id": self.app.client_id, **extra,
+        })
+
+    def test_default_consent_is_read_only_and_authoring_is_explicit(self):
+        from urllib.parse import urlencode
+        verifier, challenge = _pkce_pair()
+        params = {
+            "client_id": self.app.client_id, "redirect_uri": "http://localhost:7331/callback",
+            "response_type": "code", "code_challenge": challenge,
+            "code_challenge_method": "S256", "resource": "https://example.test/mcp",
+        }
+        response = self.client.get("/oauth/authorize/?" + urlencode(params))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["form"].initial["scope"], "mcp:catalog")
+        self.assertContains(response, "Read content references and economy rules")
+        self.assertNotContains(response, "Read permitted family data")
+        params["scope"] = "mcp:read mcp:write mcp:catalog mcp:author mcp:publish"
+        response = self.client.get("/oauth/authorize/?" + urlencode(params))
+        self.assertContains(response, "Create and change permitted family records")
+        self.assertContains(response, "Draft and review content packs")
+        self.assertContains(response, "Publish global content")
+
+    def test_binding_survives_cache_loss_and_refresh_rotation(self):
+        from django.core.cache import cache
+        from oauth2_provider.models import AccessToken
+        from apps.mcp_server.auth import _resolve_user
+        code, verifier = self.grant(scope="mcp:read mcp:write")
+        cache.clear()
+        response = self.exchange(code, verifier)
+        self.assertEqual(response.status_code, 200, response.content)
+        refreshed = self.refresh(response.json()["refresh_token"])
+        self.assertEqual(refreshed.status_code, 200, refreshed.content)
+        token = AccessToken.objects.get(token=refreshed.json()["access_token"])
+        self.assertEqual(token.mcp_resource.resource, "https://example.test/mcp")
+        self.assertEqual(set(token.scope.split()), {"mcp:read", "mcp:write"})
+        self.assertEqual(_resolve_user(token.token), self.parent)
+
+    def test_authorization_rejects_missing_wrong_or_multiple_resources(self):
+        for resource in (None, "https://other.test/mcp", ["https://example.test/mcp", "https://other.test/mcp"]):
+            with self.subTest(resource=resource):
+                data = {"resource": resource} if resource is not None else {}
+                response = self.client.post("/oauth/authorize/", data=data)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(response.json()["error"], "invalid_target")
+
+    def test_exchange_cannot_override_the_consented_resource(self):
+        code, verifier = self.grant()
+        response = self.exchange(code, verifier, resource="https://other.test/mcp")
+        self.assertEqual(response.status_code, 400)
+
+    def test_missing_grant_binding_cannot_issue_a_token(self):
+        from apps.mcp_server.models import MCPAuthorizationResource
+        code, verifier = self.grant()
+        MCPAuthorizationResource.objects.filter(grant__code=code).delete()
+        self.assertEqual(self.exchange(code, verifier).status_code, 400)
+
+    def test_token_binding_failure_rolls_back_access_and_refresh_tokens(self):
+        from unittest.mock import patch
+        from oauth2_provider.models import AccessToken, RefreshToken
+        code, verifier = self.grant()
+        with patch("apps.mcp_server.models.MCPTokenResource.objects.update_or_create", side_effect=RuntimeError("Synthetic binding failure")):
+            with self.assertRaisesRegex(RuntimeError, "Synthetic binding failure"):
+                self.exchange(code, verifier)
+        self.assertFalse(AccessToken.objects.exists())
+        self.assertFalse(RefreshToken.objects.exists())
+
+    def test_lost_staff_privilege_blocks_code_exchange_and_refresh(self):
+        code, verifier = self.grant()
+        token_response = self.exchange(code, verifier)
+        self.assertEqual(token_response.status_code, 200, token_response.content)
+        another_code, another_verifier = self.grant()
+        self.parent.is_staff = False
+        self.parent.save(update_fields=["is_staff"])
+        self.assertEqual(self.exchange(another_code, another_verifier).status_code, 400)
+        self.assertEqual(self.refresh(token_response.json()["refresh_token"]).status_code, 400)
+
+    def test_refresh_cannot_widen_scopes_or_change_resource(self):
+        code, verifier = self.grant()
+        token_response = self.exchange(code, verifier)
+        refresh_token = token_response.json()["refresh_token"]
+        for extra in ({"scope": "mcp:read mcp:write"}, {"resource": "https://other.test/mcp"}):
+            with self.subTest(extra=extra):
+                self.assertEqual(self.refresh(refresh_token, **extra).status_code, 400)
+
+    def test_legacy_or_unbound_refresh_tokens_must_reconnect(self):
+        from oauth2_provider.models import RefreshToken
+        for scope, resource in (("mcp", "https://example.test/mcp"), ("mcp:read", "")):
+            with self.subTest(scope=scope, resource=resource):
+                access, _ = make_oauth_token(self.parent, application=self.app, scope=scope, resource=resource)
+                refresh = RefreshToken.objects.create(
+                    user=self.parent, application=self.app, access_token=access, token=secrets.token_urlsafe(32),
+                )
+                self.assertEqual(self.refresh(refresh.token).status_code, 400)
+
+    def test_discovery_only_advertises_explicit_scopes(self):
+        for url in ("/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"):
+            with self.subTest(url=url):
+                response = self.client.get(url)
+                self.assertEqual(set(response.json()["scopes_supported"]), {
+                    "mcp:read", "mcp:write", "mcp:catalog", "mcp:author", "mcp:publish",
+                })
+
+
+class OAuthLoginThrottleTests(TestCase):
+    def test_forwarded_headers_cannot_reset_the_transport_peer_limit(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from config.oauth_views import OAuthLoginThrottle
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with patch.object(OAuthLoginThrottle, "get_rate", return_value="1/min"), patch("config.oauth_views.authenticate", return_value=None) as authenticate:
+            responses = [
+                self.client.post(
+                    "/oauth/login/", {"username": "unknown", "password": "synthetic"},
+                    REMOTE_ADDR="192.0.2.10", HTTP_X_FORWARDED_FOR=forwarded,
+                )
+                for forwarded in ("1.1.1.1", "2.2.2.2", "3.3.3.3")
+            ]
+        self.assertEqual([response.status_code for response in responses], [401, 429, 429])
+        self.assertEqual(authenticate.call_count, 1)
+
+    def test_different_transport_peers_have_separate_limits(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from config.oauth_views import OAuthLoginThrottle
+        cache.clear()
+        self.addCleanup(cache.clear)
+        with patch.object(OAuthLoginThrottle, "get_rate", return_value="1/min"), patch("config.oauth_views.authenticate", return_value=None) as authenticate:
+            responses = [
+                self.client.post(
+                    "/oauth/login/", {"username": "unknown", "password": "synthetic"},
+                    REMOTE_ADDR=peer, HTTP_X_FORWARDED_FOR="1.1.1.1",
+                )
+                for peer in ("192.0.2.10", "192.0.2.11")
+            ]
+        self.assertEqual([response.status_code for response in responses], [401, 401])
+        self.assertEqual(authenticate.call_count, 2)
+
+    def test_login_attempts_are_bounded_before_authentication(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+        from config.oauth_views import OAuthLoginThrottle
+        cache.clear()
+        with patch.object(OAuthLoginThrottle, "get_rate", return_value="1/min"), patch("config.oauth_views.authenticate", return_value=None) as authenticate:
+            first = self.client.post("/oauth/login/", {"username": "unknown", "password": "synthetic"})
+            second = self.client.post("/oauth/login/", {"username": "unknown", "password": "synthetic"})
+        self.assertEqual(first.status_code, 401)
+        self.assertEqual(second.status_code, 429)
+        self.assertIn("Retry-After", second)
+        self.assertEqual(authenticate.call_count, 1)
+        cache.clear()

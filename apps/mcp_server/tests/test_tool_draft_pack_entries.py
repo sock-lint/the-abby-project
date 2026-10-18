@@ -27,7 +27,7 @@ class _PacksMixin(TestCase):
     def setUp(self) -> None:
         super().setUp()
         self.parent = User.objects.create_user(
-            username="p", password="pw", role="parent",
+            username="p", password="pw", role="parent", is_staff=True,
         )
         self.child = User.objects.create_user(
             username="c", password="pw", role="child",

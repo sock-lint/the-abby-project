@@ -1,4 +1,4 @@
-import { openDropdown } from '../../test/selectDropdown';
+import { openDropdown, selectDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -43,6 +43,7 @@ function renderPage(user, handlers = [], { route = '/homework' } = {}) {
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(user)),
     ...handlers,
+    http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
   );
   return render(
     <MemoryRouter initialEntries={[route]}>
@@ -72,7 +73,7 @@ describe('Homework', () => {
     renderPage(buildParent(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({
         assignments: [], pending_submissions: decided ? [] : [
-          { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+          { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
         ],
       })),
       request.handler, opposite.handler,
@@ -110,7 +111,7 @@ describe('Homework', () => {
     renderPage(buildParent(), [
       http.get('*/api/homework/dashboard/', () => HttpResponse.json({
         assignments: [], pending_submissions: decided ? [] : [
-          { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+          { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
         ],
       })),
       request.handler,
@@ -204,7 +205,7 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({ assignments: [], pending_submissions: [] }),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     expect(
       await screen.findByText(/tap “new assignment” to add one/i),
@@ -242,11 +243,11 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+            { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 3 })])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     await waitFor(() => expect(screen.getByText(/reading log/i)).toBeInTheDocument());
   });
@@ -256,11 +257,11 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+            { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
     ]);
     await waitFor(() => expect(screen.getByText(/reading log/i)).toBeInTheDocument());
     // No currency glyphs anywhere.
@@ -280,11 +281,11 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+            { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       approve.handler,
     ]);
 
@@ -302,11 +303,11 @@ describe('Homework', () => {
       http.get('*/api/homework/dashboard/', () =>
         HttpResponse.json({
           pending_submissions: [
-            { id: 9, assignment_title: 'Reading log', user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
+            { id: 9, assignment_title: 'Reading log', user: 1, user_name: 'Abby', status: 'pending', proofs: [], timeliness: 'on_time', subject: 'reading' },
           ],
         }),
       ),
-      http.get('*/api/children/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       reject.handler,
     ]);
 
@@ -410,6 +411,7 @@ describe('Homework', () => {
     const dateInput = dialog.querySelector('input[type="date"]');
     const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
     await user.type(dateInput, tomorrow);
+    await selectDropdown(user, within(dialog).getByRole('combobox', { name: 'Assign to' }), '');
     // Bypass the HTML5 required attr to exercise the JS guard directly.
     dialog.querySelector('form').noValidate = true;
     await user.click(screen.getByRole('button', { name: /create assignment/i }));
@@ -582,7 +584,7 @@ describe('Homework', () => {
       await user.click(screen.getByRole('button', { name: /create assignment/i }));
 
       await waitFor(() =>
-        expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
+        expect(screen.getByText(/Abby is temporarily unavailable/i)).toBeInTheDocument(),
       );
       const tagged = Sentry.captureException.mock.calls.find(
         ([, ctx]) => ctx?.tags?.area === 'homework.create',

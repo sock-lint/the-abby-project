@@ -66,7 +66,10 @@ def build_pulse(user) -> dict[str, Any]:
 
     expeditions_ready = ExpeditionService.list_for_user(user, ready_only=True)
 
+    from .parent_attention import parent_attention
+
     return {
+        "parent_attention": parent_attention(user),
         "unread_count": unread_count,
         "notifications": NotificationSerializer(notifications, many=True).data,
         "recent_drops": DropLogSerializer(drops, many=True).data,

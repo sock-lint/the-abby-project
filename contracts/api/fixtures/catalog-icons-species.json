@@ -5,6 +5,7 @@
     "icon": "C",
     "sprite_key": "cute-chick",
     "description": "",
+    "rarity": "common",
     "food_preference": "",
     "available_potions": [
       {

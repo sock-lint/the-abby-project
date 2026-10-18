@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
-import { setToken } from '../api/client.js';
+import { getToken, setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
 import {
   AuthProvider, OFFLINE_MESSAGE, useApi, useAuth,
@@ -165,6 +165,66 @@ describe('useApi', () => {
 });
 
 describe('AuthProvider + useAuth', () => {
+  it('clears only the deleted session and its cached identity without another logout request', async () => {
+    setToken('deleted-account-session');
+    const user = buildUser();
+    const logout = vi.spyOn(apiIndex, 'logout');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(user));
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('deleted-account-session'); });
+    expect(cleared).toBe(true);
+    expect(getToken()).toBe('');
+    expect(result.current.user).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+    expect(logout).not.toHaveBeenCalled();
+    logout.mockRestore();
+  });
+
+  it('ignores deletion completion after a different account signs in', async () => {
+    const newer = buildUser({ id: 702, username: 'replacement-account' });
+    setToken('replacement-session');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(newer)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(newer));
+    const cached = localStorage.getItem(STORAGE_KEYS.CACHED_USER);
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('old-deleted-session'); });
+    expect(cleared).toBe(false);
+    expect(getToken()).toBe('replacement-session');
+    expect(result.current.user).toEqual(newer);
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBe(cached);
+  });
+
+  it('does not unsubscribe a replacement account when deleted-session push teardown is delayed', async () => {
+    const originalWorker = navigator.serviceWorker;
+    let finishRegistration;
+    const registration = new Promise((resolve) => { finishRegistration = resolve; });
+    const getRegistration = vi.fn(() => registration);
+    const unsubscribe = vi.fn(async () => true);
+    const subscription = { endpoint: 'https://push.example.invalid/new-session', unsubscribe };
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration } });
+    try {
+      setToken('deleted-push-session');
+      const user = buildUser();
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+      const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+      await waitFor(() => expect(result.current.user).toEqual(user));
+      act(() => result.current.signOutDeletedAccount('deleted-push-session'));
+      await waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(1));
+      act(() => setToken('replacement-push-session'));
+      await act(async () => {
+        finishRegistration({ pushManager: { getSubscription: async () => subscription } });
+        await registration;
+      });
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(getToken()).toBe('replacement-push-session');
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+    }
+  });
+
   it('throws if used outside the provider', () => {
     // renderHook's wrapper defaults to a no-op; useAuth should throw inside
     // the hook body.
@@ -204,6 +264,35 @@ describe('AuthProvider + useAuth', () => {
 
   describe('offline boot hydration', () => {
     const cached = buildUser({ first_name: 'Cached' });
+
+    it('recovers the live profile after an HTML proxy response instead of hydrating the offline snapshot', async () => {
+      const token = 'proxy-recovery-session';
+      const liveUser = buildUser({ id: 27, first_name: 'Live' });
+      setToken(token);
+      localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token, user: cached }));
+      const requests = [];
+      server.use(http.get('*/api/auth/me/', ({ request }) => {
+        requests.push(request.headers.get('authorization'));
+        if (requests.length === 1) {
+          return new HttpResponse('<!DOCTYPE html><title>Oops — Something Broke</title>', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        }
+        return HttpResponse.json(liveUser);
+      }));
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      await waitFor(() => expect(result.current.loading).toBe(false));
+      expect(requests).toEqual([`Token ${token}`, `Token ${token}`]);
+      expect(result.current.user).toEqual(liveUser);
+      expect(result.current.offline).toBe(false);
+      expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe(token);
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.CACHED_USER))).toEqual({
+        version: 2, token, user: liveUser,
+      });
+    });
 
     it('hydrates from the cached user + flags offline when getMe network-errors and a token is present', async () => {
       localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, 'tok-123');

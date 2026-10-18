@@ -1,7 +1,7 @@
 """Movement-session MCP tools.
 
 Mirrors the REST surface at ``/api/movement-types/`` + ``/api/movement-sessions/``
-plus a parent-only ``set_movement_type_skill_tags`` shortcut so an LLM can wire
+plus a staff-parent-only ``set_movement_type_skill_tags`` shortcut so an LLM can wire
 a freshly-authored MovementType to skills in one call.
 
 The first ``MovementSessionService.DAILY_REWARD_LIMIT`` sessions per local day
@@ -22,7 +22,7 @@ from apps.movement.models import (
 )
 from apps.movement.services import MovementSessionService
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import get_current_user, get_in_family, resolve_target_user, require_staff_parent
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..schemas import (
     DeleteMovementSessionIn,
@@ -65,12 +65,7 @@ def list_movement_sessions(params: ListMovementSessionsIn) -> dict[str, Any]:
 def get_movement_session(params: GetMovementSessionIn) -> dict[str, Any]:
     """Fetch a single session. Children may only read their own."""
     user = get_current_user()
-    try:
-        session = MovementSession.objects.select_related("movement_type", "user").get(
-            pk=params.session_id,
-        )
-    except MovementSession.DoesNotExist:
-        raise MCPNotFoundError(f"MovementSession {params.session_id} not found.")
+    session = get_in_family(MovementSession, params.session_id, actor=user)
     if user.role != "parent" and session.user_id != user.id:
         raise MCPPermissionDenied("Children can only read their own sessions.")
     return movement_session_to_dict(session)
@@ -107,10 +102,7 @@ def log_movement_session(params: LogMovementSessionIn) -> dict[str, Any]:
 def delete_movement_session(params: DeleteMovementSessionIn) -> dict[str, Any]:
     """Remove a session row. Owner or parent only. Counter is NOT decremented."""
     user = get_current_user()
-    try:
-        session = MovementSession.objects.get(pk=params.session_id)
-    except MovementSession.DoesNotExist:
-        raise MCPNotFoundError(f"MovementSession {params.session_id} not found.")
+    session = get_in_family(MovementSession, params.session_id, actor=user)
     if user.role != "parent" and session.user_id != user.id:
         raise MCPPermissionDenied("You can only delete your own sessions.")
     session.delete()
@@ -120,14 +112,14 @@ def delete_movement_session(params: DeleteMovementSessionIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def set_movement_type_skill_tags(params: SetMovementTypeSkillTagsIn) -> dict[str, Any]:
-    """Replace the skill-tag fan-out on a MovementType (parent-only).
+    """Replace the skill-tag fan-out on a MovementType (staff-parent-only).
 
     Distribution mirrors ChoreSkillTag — the per-session XP pool is split
     across these tags by ``xp_weight``. Empty list strips tags.
     """
     from apps.achievements.models import Skill
 
-    require_parent()
+    require_staff_parent()
     try:
         mt = MovementType.objects.get(pk=params.movement_type_id)
     except MovementType.DoesNotExist:

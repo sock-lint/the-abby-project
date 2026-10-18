@@ -17,14 +17,23 @@ Docker access, Trivy, and access to the Coolify API and public health endpoint.
 Actions installs Node 22 and Python 3.12 for the corresponding jobs. No
 production SSH identity is needed.
 
+Production `frontend-test` uses the separate `abby-frontend` runner on the same
+CI VM, so frontend and backend tests can run concurrently. Its dedicated
+`abby-frontend` service account has private work, tool and dependency caches
+under `/var/lib/abby-frontend-runner`, no sudo or Docker membership, and a
+systemd sandbox that hides other users' home directories. The service is capped
+at six CPUs and 12 GiB RAM; Vitest retains its four-worker limit. This runner
+has only the frontend label. Backend tests, image build, vulnerability scan and
+deployment remain on `deploy-platform`; do not add that label to the frontend
+runner because backend services bind fixed PostgreSQL/Redis host ports.
+
 The [CI/CD workflow](../../.github/workflows/ci-cd.yml) checks that its SHA is
 still current `main`, runs the full frontend coverage gate and PostgreSQL backend
 tests, builds/publishes a public validation image, and scans it for fixable HIGH
 and CRITICAL vulnerabilities before invoking Coolify. The validation image
 checks the public checkout; Coolify performs the actual production build using
 its preserved private build inputs. Its separate native build can still fail
-even when the public image passes. The shared runner's frontend test process is
-bounded to four workers. GHCR credentials use a unique directory under each
+even when the public image passes. GHCR credentials use a unique directory under each
 job's runner temporary directory and are removed afterwards, leaving other
 repositories' Docker credentials alone.
 

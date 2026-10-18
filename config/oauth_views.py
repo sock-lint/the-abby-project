@@ -27,7 +27,7 @@ from oauth2_provider.views import AuthorizationView
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 
 
@@ -70,7 +70,7 @@ class WellKnownProtectedResourceView(View):
             "authorization_servers": [origin],
             "bearer_methods_supported": ["header"],
             "scopes_supported": list(
-                (getattr(settings, "OAUTH2_PROVIDER", {}) or {}).get("SCOPES", {"mcp": ""}).keys()
+                (getattr(settings, "OAUTH2_PROVIDER", {}) or {}).get("SCOPES", {}).keys()
             ),
             "resource_documentation": f"{origin}/manage",
         }
@@ -101,7 +101,7 @@ class WellKnownAuthorizationServerView(View):
             "code_challenge_methods_supported": ["S256"],
             "token_endpoint_auth_methods_supported": ["none"],
             "scopes_supported": list(
-                (getattr(settings, "OAUTH2_PROVIDER", {}) or {}).get("SCOPES", {"mcp": ""}).keys()
+                (getattr(settings, "OAUTH2_PROVIDER", {}) or {}).get("SCOPES", {}).keys()
             ),
             "service_documentation": f"{origin}/manage",
         }
@@ -125,16 +125,7 @@ def _is_staff_parent(user) -> bool:
 
 
 class AbbyAuthorizationView(AuthorizationView):
-    """DOT's AuthorizationView with two layers on top:
-
-    1. **Staff-parent-only check at dispatch** — non-staff users render the
-       forbidden page instead of seeing the consent screen.
-    2. **RFC 8707 resource indicator passthrough** — DOT's stock view only
-       forwards a fixed set of credentials to oauthlib; ``resource`` isn't
-       one of them, so unknown params get silently dropped. We extend the
-       credentials dict before delegation so ``AbbyOAuth2Validator`` can
-       pull the value off the oauthlib Request via attribute access.
-    """
+    """Staff-parent consent with one exact, durable RFC 8707 resource binding."""
 
     def dispatch(self, request, *args, **kwargs):
         if request.user.is_authenticated and not _is_staff_parent(request.user):
@@ -144,36 +135,25 @@ class AbbyAuthorizationView(AuthorizationView):
                 {"reason": "Your account isn't authorized to grant MCP access."},
                 status=403,
             )
+        if request.user.is_authenticated:
+            params = request.POST if request.method == "POST" else request.GET
+            if params.getlist("resource") != [settings.MCP_RESOURCE_URL]:
+                return JsonResponse({
+                    "error": "invalid_target",
+                    "error_description": "Specify exactly the advertised MCP resource.",
+                }, status=400)
         return super().dispatch(request, *args, **kwargs)
 
-    def form_valid(self, form):
-        """Bridge RFC 8707 ``resource`` from the auth-code leg to the token leg.
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["mcp_resource"] = settings.MCP_RESOURCE_URL
+        return context
 
-        DOT's stock flow drops unknown query/body parameters between the
-        authorization endpoint and the token endpoint (``Grant.claims`` is
-        a TextField reserved for OIDC claim shapes — not what we want to
-        repurpose). We stash the resource on the Django cache keyed by the
-        just-minted authorization code, with a 2-minute TTL (auth codes
-        themselves expire faster than this). ``AbbyOAuth2Validator.save_bearer_token``
-        reads it back when the matching token request comes through.
-        """
-        response = super().form_valid(form)
-        if getattr(response, "status_code", None) in (302, 303):
-            resource = (
-                self.request.POST.get("resource") or self.request.GET.get("resource")
-            )
-            if resource:
-                from urllib.parse import parse_qs, urlparse
-                from django.core.cache import cache
-                parsed = urlparse(response.url)
-                code_val = parse_qs(parsed.query).get("code", [None])[0]
-                if code_val:
-                    cache.set(
-                        f"abby:oauth:resource:{code_val}",
-                        resource[:512],
-                        timeout=120,
-                    )
-        return response
+    def create_authorization_response(self, request, scopes, credentials, allow):
+        # DOT versions before native RFC 8707 support drop extra form fields.
+        # Bind from the validated consent request, never an untrusted token override.
+        credentials = {**credentials, "resource": [settings.MCP_RESOURCE_URL]}
+        return super().create_authorization_response(request, scopes, credentials, allow)
 
 
 # ---------------------------------------------------------------------------
@@ -193,6 +173,17 @@ def _safe_next_url(value: str) -> str | None:
     return value
 
 
+class OAuthLoginThrottle(SimpleRateThrottle):
+    scope = "oauth_login"
+
+    def get_cache_key(self, request, view):
+        # Forwarded headers are client-controlled unless a separately trusted
+        # proxy contract validates them. Bound attempts by the transport peer;
+        # clients behind the same proxy intentionally share this conservative cap.
+        peer = request.META.get("REMOTE_ADDR") or "unknown-peer"
+        return self.cache_format % {"scope": self.scope, "ident": peer}
+
+
 class OAuthLoginView(View):
     """Minimal username/password form used when /oauth/authorize/ needs auth.
 
@@ -209,6 +200,15 @@ class OAuthLoginView(View):
         return render(request, self.template_name, {"next": next_url, "error": None})
 
     def post(self, request, *args, **kwargs):
+        throttle = OAuthLoginThrottle()
+        if not throttle.allow_request(request, self):
+            import math
+            response = render(request, self.template_name, {
+                "next": _safe_next_url(request.POST.get("next", "")) or "/manage",
+                "error": "Too many sign-in attempts. Try again shortly.",
+            }, status=429)
+            response["Retry-After"] = str(math.ceil(throttle.wait() or 60))
+            return response
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
         next_url = _safe_next_url(request.POST.get("next", "")) or "/manage"

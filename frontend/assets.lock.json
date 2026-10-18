@@ -37,6 +37,12 @@
       "release_version": "1.0.0"
     },
     {
+      "directory": "abby-achievement-card-kit/1.0.0/04f482b958aa1bf9b7f63911339eeeba59ae5745008b6355d71daf7e93e2c8c3",
+      "family_id": "abby-achievement-card-kit",
+      "manifest_sha256": "04f482b958aa1bf9b7f63911339eeeba59ae5745008b6355d71daf7e93e2c8c3",
+      "release_version": "1.0.0"
+    },
+    {
       "directory": "abby-artwork-completion/1.0.0/1ceb2d42a96c2c8f7c6ec912d8e0901b0d391c4ddbabb4827ed8d3d8ddaf9cde",
       "family_id": "abby-artwork-completion",
       "manifest_sha256": "1ceb2d42a96c2c8f7c6ec912d8e0901b0d391c4ddbabb4827ed8d3d8ddaf9cde",

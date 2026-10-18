@@ -1,6 +1,8 @@
 // Mirrors apps/pets/services.py:MOUNT_BREEDING_COOLDOWN_DAYS. Stable
 // game-design constant — safe to live client-side. Imported by both
 // Mounts.jsx (filter pills) and Hatchery.jsx (breed-rest copy).
+import { companionRarity } from '../../../companion/rarity';
+
 export const BREEDING_COOLDOWN_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,8 +29,8 @@ const RARITY_ORDER = {
 };
 
 export function compareByRarityThenName(a, b) {
-  const ra = RARITY_ORDER[a.potion?.rarity] ?? 0;
-  const rb = RARITY_ORDER[b.potion?.rarity] ?? 0;
+  const ra = RARITY_ORDER[companionRarity(a)] ?? 0;
+  const rb = RARITY_ORDER[companionRarity(b)] ?? 0;
   if (ra !== rb) return rb - ra;
   const na = a.species?.name || '';
   const nb = b.species?.name || '';

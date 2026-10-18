@@ -17,6 +17,8 @@ export const handlers = [
   http.get('*/api/reading-sessions/', empty),
   http.get('*/api/reading/summary/', () => HttpResponse.json({ books_total: 0, books_finished: 0, sessions_total: 0, total_minutes: 0, total_pages: 0, today: '2026-10-16', timezone: 'America/Phoenix' })),
   http.get('*/api/reading/recommendations/', () => HttpResponse.json({ results: [], basis: 'Explore a topic for your next book.' })),
+  http.get('*/api/reading/discovery-feedback/', () => HttpResponse.json({ results: [] })),
+  http.get('*/api/reading-family-suggestions/', () => HttpResponse.json({ count: 0, next: null, previous: null, results: [] })),
   http.post('*/api/reading-books/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, ...await request.json() }, { status: 201 })),
   http.post('*/api/reading-sessions/', async ({ request }) => HttpResponse.json({ id: 1, user: 1, book_title: 'A book', ...await request.json() }, { status: 201 })),
   http.patch(/\/api\/reading-books\/\d+\/$/, ok),
@@ -39,6 +41,9 @@ export const handlers = [
     HttpResponse.json({ detail: 'Authentication credentials were not provided.' }, { status: 401 }),
   ),
   http.patch('*/api/auth/me/', ok),
+  // A lifecycle preview must match the exact mounted account/family. Tests
+  // exercising this feature supply their own preview and mutation spies.
+  http.get('*/api/account/lifecycle/', () => HttpResponse.json({ error: 'Account lifecycle preview is not configured in this fixture.' }, { status: 503 })),
   http.get('*/api/auth/google/', () => HttpResponse.json({ authorization_url: '' })),
   http.get('*/api/auth/google/login/', () => HttpResponse.json({ authorization_url: '' })),
   http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
@@ -434,12 +439,6 @@ export const handlers = [
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
   ),
   http.get('*/api/sprites/admin/', empty),
-  http.post('*/api/sprites/admin/generate/', () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }, { status: 201 }),
-  ),
-  http.post(/\/api\/sprites\/admin\/[^/]+\/reroll\/$/, () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }),
-  ),
   http.patch(/\/api\/sprites\/admin\/[^/]+\/$/, ok),
   http.delete(/\/api\/sprites\/admin\/[^/]+\/$/, () => HttpResponse.json({ deleted: true })),
 

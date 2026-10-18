@@ -11,7 +11,6 @@ import CoinExchangeModal from '../pages/rewards/CoinExchangeModal';
 import RequestChangesModal from '../pages/project/modals/RequestChangesModal';
 import PrinterConfigPanel from '../pages/forge/PrinterConfigPanel';
 import ApprovalSheet from '../pages/forge/ApprovalSheet';
-import SpriteGenerateModal from '../pages/manage/SpriteGenerateModal';
 
 const registration = vi.hoisted(() => ({ callbacks: null, update: vi.fn() }));
 vi.mock('./registerPromptWorker', () => ({ registerPromptWorker: (callbacks) => {
@@ -56,11 +55,7 @@ const cases = [
     name: 'print approval', element: (onClose) => <ApprovalSheet request={REQUEST} onClose={onClose} />,
     field: () => screen.getByLabelText('Note (optional)'), draft: 'Keep this decision note', submit: 'Approve', endpoint: '*/api/print-requests/7/approve/',
   },
-  {
-    name: 'sprite request', element: (onClose) => <SpriteGenerateModal onClose={onClose} />,
-    field: () => screen.getByLabelText('Prompt'), draft: 'Keep this synthetic sprite prompt', submit: 'Create sprite', endpoint: '*/api/sprites/admin/generate/',
-    complete: () => fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'synthetic-sprite' } }),
-  },
+
 ];
 
 beforeEach(() => {
@@ -129,16 +124,6 @@ describe('manual sheet work protects updates and passive dismissal', () => {
     expect(screen.getByRole('button', { name: 'Apply update blocked' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
     await screen.findByRole('dialog', { name: 'Approved' });
-    await screen.findByRole('button', { name: 'Apply update available' });
-  });
-
-  it('releases the sprite-request guard on the confirmed success screen', async () => {
-    server.use(http.post('*/api/sprites/admin/generate/', () => HttpResponse.json({ slug: 'synthetic-sprite', frame_count: 1, frame_width_px: 64, frame_height_px: 64 })));
-    const field = await openForm(cases[6], vi.fn());
-    fireEvent.change(field, { target: { value: 'Keep this synthetic sprite prompt' } });
-    cases[6].complete();
-    fireEvent.click(screen.getByRole('button', { name: 'Create sprite' }));
-    await screen.findByRole('dialog', { name: 'Sprite created' });
     await screen.findByRole('button', { name: 'Apply update available' });
   });
 

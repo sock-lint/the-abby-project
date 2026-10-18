@@ -36,6 +36,10 @@ async function chooseOpenAI(user) {
   await user.type(screen.getByLabelText('API key'), 'synthetic-openai-key');
 }
 
+function planningAISection() {
+  return within(screen.getByRole('heading', { name: 'Planning AI' }).closest('#homework-ai'));
+}
+
 describe('Planning AI settings', () => {
   it('lets a family parent save an OpenAI model and keeps the key out of the confirmed form', async () => {
     const spy = spyHandler('put', /\/api\/homework\/ai-settings\/$/, OPENAI);
@@ -123,7 +127,7 @@ describe('Planning AI settings', () => {
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('The API key could not be saved.');
+    expect(await planningAISection().findByRole('alert')).toHaveTextContent('The API key could not be saved.');
     expect(screen.queryByText('Planning AI settings saved.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('API key')).toHaveValue('synthetic-openai-key');
     fail = false;
@@ -137,7 +141,7 @@ describe('Planning AI settings', () => {
     const { user } = renderSettings(DISCONNECTED, 'parent', [spy.handler]);
     await chooseOpenAI(user);
     await user.click(screen.getByRole('button', { name: 'Save planning AI' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save planning AI settings. Try again.');
+    expect(await planningAISection().findByRole('alert')).toHaveTextContent('Could not save planning AI settings. Try again.');
     expect(screen.queryByText('Planning AI settings saved.')).not.toBeInTheDocument();
     expect(screen.getByLabelText('API key')).toHaveValue('synthetic-openai-key');
   });
@@ -162,7 +166,7 @@ describe('Planning AI settings', () => {
     let confirmation = await screen.findByRole('alertdialog', { name: 'Remove planning AI connection?' });
     expect(spy.calls).toHaveLength(0);
     await user.click(within(confirmation).getByRole('button', { name: 'Remove connection' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent(/could not remove/i);
+    expect(await planningAISection().findByRole('alert')).toHaveTextContent(/could not remove/i);
     expect(screen.getByLabelText('AI provider')).toHaveValue('openai');
     fail = false;
     await user.click(screen.getByRole('button', { name: 'Remove connection' }));
@@ -200,6 +204,27 @@ describe('Planning AI settings', () => {
     } finally {
       finish();
     }
+  });
+
+  it('retries account options without making AI requests or changing the Planning AI draft', async () => {
+    const reads = spyHandler('get', /\/api\/homework\/ai-settings\/$/, DISCONNECTED);
+    const save = spyHandler('put', /\/api\/homework\/ai-settings\/$/, OPENAI);
+    const remove = spyHandler('delete', /\/api\/homework\/ai-settings\/$/, DISCONNECTED);
+    const account = spyHandler('get', /\/api\/account\/lifecycle\/$/,
+      HttpResponse.json({ detail: 'Account options unavailable.' }, { status: 503 }));
+    const { user } = renderSettings(DISCONNECTED, 'parent', [reads.handler, save.handler, remove.handler, account.handler]);
+    await chooseOpenAI(user);
+    const accountSection = within(screen.getByRole('region', { name: 'Account deletion and family handoff' }));
+    expect(await accountSection.findByRole('alert')).toHaveTextContent('Could not load your account deletion options.');
+    await user.click(accountSection.getByRole('button', { name: 'Retry account options' }));
+    await waitFor(() => expect(account.calls).toHaveLength(2));
+    expect(await accountSection.findByRole('alert')).toHaveTextContent('Could not load your account deletion options.');
+    expect(account.calls[1]).toEqual({ url: expect.stringMatching(/\/api\/account\/lifecycle\/$/), method: 'GET', body: null });
+    expect(reads.calls).toHaveLength(1);
+    expect(save.calls).toHaveLength(0);
+    expect(remove.calls).toHaveLength(0);
+    expect(planningAISection().getByLabelText('API key')).toHaveValue('synthetic-openai-key');
+    expect(planningAISection().queryByRole('alert')).toBeNull();
   });
 
   it('clears a typed key when the family account changes', async () => {

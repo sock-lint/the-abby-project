@@ -6,6 +6,8 @@ import {
   api, getBlob, getToken, setToken, OFFLINE_MESSAGE,
 } from './client.js';
 
+const UNAVAILABLE_MESSAGE = 'Abby is temporarily unavailable. Please try again in a moment.';
+
 describe('token helpers', () => {
   it('returns empty string when no token is stored', () => {
     setToken(null);
@@ -281,7 +283,7 @@ describe('non-JSON 200 guard', () => {
       ),
     );
     await expect(api.get('/notifications/unread_count/')).rejects.toThrow(
-      /non-JSON response/i,
+      UNAVAILABLE_MESSAGE,
     );
     // Must surface to Sentry so we notice it happening in prod.
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
@@ -294,7 +296,7 @@ describe('non-JSON 200 guard', () => {
         new HttpResponse('not json', { status: 200, headers: {} }),
       ),
     );
-    await expect(api.get('/thing/')).rejects.toThrow(/non-JSON response/i);
+    await expect(api.get('/thing/')).rejects.toThrow(UNAVAILABLE_MESSAGE);
   });
 
   it('accepts application/json with a charset suffix', async () => {
@@ -307,6 +309,129 @@ describe('non-JSON 200 guard', () => {
       ),
     );
     await expect(api.get('/thing/')).resolves.toEqual({ ok: true });
+  });
+});
+
+describe('upstream HTML recovery', () => {
+  const html = '<!DOCTYPE html><title>Oops — Something Broke</title>';
+  const htmlResponse = (status = 200) => new Response(html, {
+    status, headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  });
+  beforeEach(() => {
+    Sentry.addBreadcrumb.mockClear();
+    Sentry.captureException.mockClear();
+  });
+
+  it('recovers a cached HTML profile response with one fresh URL and the same credential and signal', async () => {
+    setToken('profile-session');
+    const controller = new AbortController();
+    let poisonedUrl;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      poisonedUrl ??= url;
+      return url === poisonedUrl ? htmlResponse() : Response.json({ id: 7 });
+    });
+    try {
+      await expect(api.get('/auth/me/?page=2&_abby_retry=echoed', { signal: controller.signal }))
+        .resolves.toEqual({ id: 7 });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      const [first, second] = fetchSpy.mock.calls.map(([url]) => new URL(url));
+      expect(second.pathname).toBe('/api/auth/me/');
+      expect(second.searchParams.get('page')).toBe('2');
+      expect(second.searchParams.get('_abby_session')).toBe(first.searchParams.get('_abby_session'));
+      expect(second.searchParams.getAll('_abby_retry')).toHaveLength(1);
+      expect(second.searchParams.get('_abby_retry')).not.toBe('echoed');
+      for (const [, init] of fetchSpy.mock.calls) {
+        expect(init.headers.Authorization).toBe('Token profile-session');
+        expect(init.cache).toBe('no-store');
+        expect(init.signal).toBe(controller.signal);
+      }
+      expect(getToken()).toBe('profile-session');
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ category: 'api', level: 'warning' }));
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('stops after two HTML responses, reports once, and keeps the credential', async () => {
+    setToken('valid-session');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => htmlResponse());
+    try {
+      await expect(api.get('/auth/me/')).rejects.toThrow(UNAVAILABLE_MESSAGE);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(getToken()).toBe('valid-session');
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: 'API 200 with non-JSON body: GET /auth/me/' }),
+        expect.objectContaining({ extra: expect.objectContaining({ status: 200, attempts: 2 }) }),
+      );
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it.each(['post', 'put', 'patch', 'delete', 'upload'])('never replays an HTML response to %s', async (method) => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => htmlResponse(201));
+    try {
+      const body = method === 'upload' ? new FormData() : { title: 'Synthetic' };
+      await expect(api[method]('/things/', body)).rejects.toThrow(UNAVAILABLE_MESSAGE);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).toHaveBeenCalledWith(
+        expect.objectContaining({ message: expect.stringContaining('API 201 with non-JSON body:') }),
+        expect.anything(),
+      );
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('honors cancellation before retrying', async () => {
+    const controller = new AbortController();
+    const response = htmlResponse();
+    vi.spyOn(response, 'text').mockImplementation(async () => {
+      controller.abort();
+      return html;
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response);
+    try {
+      await expect(api.get('/auth/me/', { signal: controller.signal })).rejects.toMatchObject({ name: 'AbortError' });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('does not retry an old credential after the account changes', async () => {
+    setToken('old-session');
+    const response = htmlResponse();
+    vi.spyOn(response, 'text').mockImplementation(async () => {
+      setToken('new-session');
+      return html;
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(response);
+    try {
+      await expect(api.get('/auth/me/')).rejects.toThrow(UNAVAILABLE_MESSAGE);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(getToken()).toBe('new-session');
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('processes an HTTP rejection on the second attempt with the original self-heal option', async () => {
+    setToken('profile-session');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(htmlResponse())
+      .mockResolvedValueOnce(Response.json({ detail: 'Invalid token.' }, { status: 401 }));
+    try {
+      await expect(api.get('/auth/me/', { selfHeal: false })).rejects.toMatchObject({ status: 401 });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(getToken()).toBe('profile-session');
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it('does not retry a real HTTP error or a failed connection', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(htmlResponse(503))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    try {
+      await expect(api.get('/auth/me/')).rejects.toMatchObject({ status: 503 });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      await expect(api.get('/auth/me/')).rejects.toThrow(OFFLINE_MESSAGE);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally { fetchSpy.mockRestore(); }
   });
 });
 

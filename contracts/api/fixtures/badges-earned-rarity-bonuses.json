@@ -1,0 +1,26 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 103,
+      "user": 7,
+      "badge": {
+        "id": 101,
+        "name": "Fixture rare achievement",
+        "description": "",
+        "icon": "",
+        "catalog_icon": null,
+        "subject": null,
+        "criteria_type": "first_project",
+        "criteria_value": {},
+        "xp_bonus": 30,
+        "rarity": "rare",
+        "catalog_available": true,
+        "coin_bonus": 35
+      },
+      "earned_at": "2026-10-10T12:00:00-07:00"
+    }
+  ]
+}

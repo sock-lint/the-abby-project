@@ -75,6 +75,7 @@ export function __resetSelfHealForTesting() {
 // no `.status` (it never reached the server), so the 401 self-heal and every
 // `err.status === 409` branch are unaffected.
 export const OFFLINE_MESSAGE = 'No connection — check your wifi and try again.';
+const UNAVAILABLE_MESSAGE = 'Abby is temporarily unavailable. Please try again in a moment.';
 
 function asOfflineError(cause) {
   const err = new Error(OFFLINE_MESSAGE);
@@ -98,7 +99,8 @@ async function fetchOrOffline(url, config) {
 async function request(path, options = {}) {
   const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
   const token = explicitToken ?? getToken();
-  const url = !options.method || options.method === 'GET'
+  const method = (fetchOptions.method || 'GET').toUpperCase();
+  let url = method === 'GET'
     ? privateReadUrl(path, token) : apiUrl(path);
   const authHeader = token ? { Authorization: `Token ${token}` } : {};
   const config = {
@@ -118,7 +120,36 @@ async function request(path, options = {}) {
     delete config.headers['Content-Type'];
   }
   const hadAuth = Boolean(config.headers?.Authorization);
-  const res = await fetchOrOffline(url, config);
+  let res = await fetchOrOffline(url, config);
+  let attempts = 1;
+  // A deployment proxy can return a cacheable HTML error page with a success
+  // status. Retry reads once at a fresh URL, since no-store alone cannot evict
+  // a response already cached upstream. Never replay a possible write.
+  while (res.ok && res.status !== 204) {
+    const contentType = res.headers?.get?.('content-type') || '';
+    if (contentType.toLowerCase().includes('application/json')) break;
+    const preview = (await res.text().catch(() => '')).slice(0, 120);
+    config.signal?.throwIfAborted();
+    if (method === 'GET' && attempts === 1 && getToken() === token) {
+      Sentry.addBreadcrumb({
+        category: 'api',
+        message: `Retrying ${method} ${path} after a non-JSON response`,
+        level: 'warning',
+        data: { status: res.status, contentType },
+      });
+      const retryUrl = new URL(url, window.location.origin);
+      retryUrl.searchParams.set('_abby_retry', crypto.randomUUID());
+      url = retryUrl.href;
+      attempts += 1;
+      res = await fetchOrOffline(url, config);
+      continue;
+    }
+    Sentry.captureException(
+      new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
+      { extra: { contentType, preview, url, status: res.status, attempts } },
+    );
+    throw new Error(UNAVAILABLE_MESSAGE);
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     const errorMessage = err.error || err.detail || JSON.stringify(err);
@@ -160,22 +191,6 @@ async function request(path, options = {}) {
     throw apiError;
   }
   if (res.status === 204) return null;
-  // Guard against an upstream proxy returning a 200 with an HTML error page
-  // (or anything else non-JSON) — happens when the origin is down and a load
-  // balancer substitutes its own body. We'd rather throw a clear error (and
-  // report it to Sentry) than silently feed `<!DOCTYPE html>` into res.json().
-  const contentType = res.headers?.get?.('content-type') || '';
-  if (!contentType.toLowerCase().includes('application/json')) {
-    const snippet = await res.text().catch(() => '');
-    const preview = snippet.slice(0, 120);
-    Sentry.captureException(
-      new Error(`API 200 with non-JSON body: ${options.method || 'GET'} ${path}`),
-      { extra: { contentType, preview, url } },
-    );
-    throw new Error(
-      `Unexpected non-JSON response from ${path} (content-type: ${contentType || 'missing'})`,
-    );
-  }
   return res.json();
 }
 

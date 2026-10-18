@@ -8,6 +8,7 @@
 // shelf spines tint themselves based on that.
 
 import { chapterMark, PROGRESS_TIER, RARITY_KEYS } from '../../../components/atlas/mastery.constants';
+import { acquisitionRarity } from '../../../companion/rarity';
 
 // Chapter definitions. `rubric` is the number the chapter marker renders;
 // `letter` is the IlluminatedVersal drop-cap. `tier` is the spine-tint hint
@@ -69,7 +70,8 @@ export function chapterIdForSpecies(species) {
 }
 
 // Aggregate the per-chapter rarity strand. We count each species' available
-// potion-variants by rarity: `total` is the variant count, `earned` is how
+// potion-variants by acquisition rarity (preserving higher saved potion tiers):
+// `total` is the variant count, `earned` is how
 // many of those variants the user owns as a mount. This way the strand reads
 // "how full is your shelf of mounts in this chapter" — matching the Sigil
 // Codex pattern where the strand is sealed-of-total per rarity.
@@ -81,7 +83,7 @@ function buildRarityCounts(speciesList) {
   for (const species of speciesList) {
     const owned = new Set(species.owned_mount_potion_ids || []);
     for (const potion of species.available_potions || []) {
-      const rarity = potion.rarity;
+      const rarity = acquisitionRarity(species, potion);
       if (!counts[rarity]) continue;
       counts[rarity].total += 1;
       if (owned.has(potion.id)) counts[rarity].earned += 1;

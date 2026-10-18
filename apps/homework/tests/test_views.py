@@ -115,6 +115,36 @@ class HomeworkAssignmentListTests(_Fixture):
         self.assertNotIn("Theirs", titles)
 
 
+class HomeworkAssignmentUpdateTests(_Fixture):
+    def test_parent_edits_due_date_without_serializing_the_skill_tag_manager(self):
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.homework.models import HomeworkSkillTag
+
+        assignment = HomeworkAssignment.objects.create(
+            title="Reading log", subject="reading",
+            due_date=timezone.localdate() + timedelta(days=1),
+            assigned_to=self.child, created_by=self.parent,
+        )
+        category = SkillCategory.objects.create(name="Learning")
+        skill = Skill.objects.create(name="Reading", category=category)
+        HomeworkSkillTag.objects.create(assignment=assignment, skill=skill, xp_amount=10)
+        due_date = (timezone.localdate() + timedelta(days=3)).isoformat()
+        self.client.force_authenticate(self.parent)
+
+        response = self.client.patch(
+            f"/api/homework/{assignment.pk}/", {"due_date": due_date}, format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["due_date"], due_date)
+        assignment.refresh_from_db()
+        self.assertEqual(assignment.due_date.isoformat(), due_date)
+        self.assertEqual(assignment.skill_tags.get().skill_id, skill.pk)
+        saved = self.client.get(f"/api/homework/{assignment.pk}/")
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.json()["skill_tags"][0]["skill"], skill.pk)
+
+
 class HomeworkSubmitTests(_Fixture):
     def setUp(self):
         super().setUp()

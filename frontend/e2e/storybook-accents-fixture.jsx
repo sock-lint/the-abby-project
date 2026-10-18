@@ -1,3 +1,4 @@
+import '../src/index.css';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -25,7 +26,6 @@ import AssignmentCard from '../src/pages/Homework/AssignmentCard';
 import { SpriteCatalogContext } from '../src/providers/spriteCatalog.context';
 import { applyTheme } from '../src/themes';
 import { AuthProvider } from '../src/hooks/useApi';
-import '../src/index.css';
 
 const params = new URLSearchParams(window.location.search);
 localStorage.setItem('abby_auth_token', 'synthetic-storybook-acceptance');
@@ -93,7 +93,7 @@ export function ComposedAccentsFixture() {
         <section aria-label="Composed profile">
           <SigilFrontispiece profile={{ display_name: long ? 'A thoughtful woodland maker and family helper' : 'Synthetic maker', level: 5, xp_in_level: 35, xp_needed_for_level: 100, active_trophy_badge: badges.find(item => item.id === currentTrophyId) || null }} onOpenTrophyPicker={() => setPickerOpen(true)} />
         </section>
-        <section aria-label="Badge collection" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <section aria-label="Badge collection" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
           {badges.map((item, index) => <BadgeSigil key={item.id} badge={item} earned={index < 2} earnedAt={index < 2 ? '2026-10-01T12:00:00Z' : null} hint={description} onSelect={setDetail} />)}
         </section>
         <section aria-label="Shared empty states" className="space-y-4">

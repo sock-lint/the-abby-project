@@ -283,16 +283,6 @@ LLM_BACKEND = os.environ.get("LLM_BACKEND", "auto")
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-haiku-4-5-20251001")
 
-# --- Google Gemini (sprite generation) ------------------------------------
-# Optional. When set, enables the ``generate_sprite_sheet`` MCP tool which
-# calls Gemini 3 Pro Image ("Nano Banana Pro") to produce pixel-art sprite
-# sheets from a text prompt. Empty disables the tool (raises at call time).
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-GEMINI_IMAGE_MODEL = os.environ.get("GEMINI_IMAGE_MODEL", "gemini-3-pro-image-preview")
-# Hard cap on per-call frame count — bounds worst-case API spend per
-# invocation (each frame is one image-generation call).
-SPRITE_GENERATION_MAX_FRAMES = 8
-
 # --- Google OAuth / Calendar ------------------------------------------------
 # Optional. When set, enables "Sign in with Google" and Google Calendar sync.
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
@@ -526,6 +516,7 @@ REST_FRAMEWORK = {
         # Dynamic Client Registration (RFC 7591) — public, no auth required,
         # so a bare per-IP cap is the guardrail against drive-by spam.
         "oauth_register": "10/hour",
+        "oauth_login": "10/min",
     },
 }
 
@@ -555,14 +546,16 @@ OAUTH2_PROVIDER = {
     "REFRESH_TOKEN_EXPIRE_SECONDS": 60 * 60 * 24 * 30,    # 30 days
     "ROTATE_REFRESH_TOKEN": True,
     "SCOPES": {
-        "mcp": "Access the Abby MCP server on your behalf",
+        "mcp:read": "Read permitted family data, including child records and non-private journals",
+        "mcp:write": "Create and change permitted family records, rewards, payments and progress",
+        "mcp:catalog": "Read content references and economy rules without household records",
+        "mcp:author": "Draft and review content packs and asset proposals without publishing",
+        "mcp:publish": "Publish global content, skills, badges, drop rules and prepared artwork",
     },
-    "DEFAULT_SCOPES": ["mcp"],
-    "REQUEST_APPROVAL_PROMPT": "auto",   # skip consent screen on re-auth
+    "DEFAULT_SCOPES": ["mcp:catalog"],
+    "REQUEST_APPROVAL_PROMPT": "force",  # show the requested permissions on every consent
     "ALLOWED_REDIRECT_URI_SCHEMES": ["https", "http"],  # http for localhost only
     "OIDC_ENABLED": False,
-    # Allow the wildcard ``*`` access scope claim from RFC 9728 metadata to
-    # round-trip; we only define ``mcp`` for now but DOT requires the dict.
 }
 
 # Parent self-signup creates a new Family + founding parent. Set to "false"
@@ -613,6 +606,10 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "private-file-cleanup": {
+        "task": "apps.accounts.tasks.cleanup_deleted_files",
+        "schedule": crontab(minute="*/5"),
+    },
     "auto-clock-out": {
         "task": "apps.timecards.tasks.auto_clock_out_task",
         "schedule": crontab(minute="*/30"),

@@ -17,8 +17,8 @@ the documented curve stays in sync. See also:
 Tunables that DO belong in settings (deploy-toggleable):
 ``COINS_PER_HOUR``, ``COINS_PER_DOLLAR``, ``COINS_PER_BADGE_RARITY``,
 ``BIRTHDAY_COINS_PER_YEAR``, ``HOMEWORK_LATE_CUTOFF_DAYS``,
-``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``,
-``SPRITE_GENERATION_MAX_FRAMES``. Those live in ``config/settings.py``.
+``HOMEWORK_SELF_PLAN_LEAD_DAYS``, ``ALLOW_PARENT_SIGNUP``.
+Those live in ``config/settings.py``.
 
 The ``apps/rpg/tests/test_trigger_parity.py`` gate enforces that every
 ``TriggerType`` member appears in ``BASE_DROP_RATES`` (or is in the
@@ -367,7 +367,15 @@ class DropService:
         # Weighted random selection
         items = list(entries)
         from .companion_catalog import companion_drop_weights
-        weights = companion_drop_weights(items)
+        from .rarity import (
+            ACCOMPLISHMENT_TIER_WEIGHTS, ACCOMPLISHMENT_TRIGGERS,
+            BASE_TIER_WEIGHTS, owned_cosmetic_ids, tier_balanced_weights,
+        )
+        budgets = ACCOMPLISHMENT_TIER_WEIGHTS if trigger_type in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS
+        weights = tier_balanced_weights(items, budgets,
+            authored_weights=companion_drop_weights(items), owned_item_ids=owned_cosmetic_ids(user))
+        if not any(weights):
+            return []
         selected = random.choices(items, weights=weights, k=1)[0]
         item = selected.item
 
@@ -409,6 +417,7 @@ class DropService:
         drop_log = DropLog.objects.create(
             user=user, item=item, trigger_type=trigger_type,
             quantity=1, was_salvaged=was_salvaged,
+            salvage_coins=item.coin_value if was_salvaged else 0,
         )
 
         ActivityLogService.record(
@@ -447,6 +456,7 @@ class DropService:
             "item_rarity": item.rarity,
             "quantity": 1,
             "was_salvaged": was_salvaged,
+            "salvage_coins": drop_log.salvage_coins,
         }]
 
 
@@ -843,6 +853,14 @@ class ConsumableService:
     a typo in content YAML doesn't quietly no-op.
     """
 
+    # Shared by runtime validation and the read-only catalog audit. Adding an
+    # effect requires both this declaration and an _apply_effect handler.
+    SUPPORTED_EFFECTS = frozenset({
+        "streak_freeze", "xp_boost", "coin_boost", "drop_boost", "growth_tonic",
+        "rage_breaker", "growth_surge", "feast_platter", "mystery_box", "lucky_dip",
+        "quest_reroll", "morale_tonic", "skill_tonic", "food_basket",
+    })
+
     # Effects that overwrite a timer/expiry or operate on a single shared
     # target — applying them N times in a row gains nothing (later calls
     # just reset the same field) or errors (rage_breaker / quest_reroll
@@ -898,6 +916,8 @@ class ConsumableService:
         effect = (item.metadata or {}).get("effect")
         if not effect:
             raise ValueError("That consumable has no effect configured")
+        if not isinstance(effect, str) or effect not in ConsumableService.SUPPORTED_EFFECTS:
+            raise ValueError(f"Unknown consumable effect: {effect!r}")
 
         if quantity > 1 and effect in ConsumableService.STACK_UNSAFE_EFFECTS:
             raise ValueError(
@@ -1064,6 +1084,10 @@ class ConsumableService:
             weights = [5 if i.rarity == "common" else 2 for i in eligible]
             from .companion_catalog import companion_item_weights
             weights = companion_item_weights(eligible, weights)
+            from .rarity import MYSTERY_TIER_WEIGHTS, tier_balanced_weights
+            weights = tier_balanced_weights(eligible, MYSTERY_TIER_WEIGHTS, authored_weights=weights)
+            if not any(weights):
+                raise ValueError("Mystery box has no eligible items to grant")
             granted = random.choices(eligible, weights=weights, k=1)[0]
             grant_item(profile.user, granted)
             return {
@@ -1088,6 +1112,11 @@ class ConsumableService:
                 raise ValueError("Lucky dip has no eligible cosmetics to grant")
             rarity_weights = {"common": 10, "uncommon": 6, "rare": 3, "epic": 1, "legendary": 1}
             weights = [rarity_weights.get(i.rarity, 1) for i in eligible]
+            from .rarity import LUCKY_DIP_TIER_WEIGHTS, owned_cosmetic_ids, tier_balanced_weights
+            weights = tier_balanced_weights(eligible, LUCKY_DIP_TIER_WEIGHTS,
+                authored_weights=weights, owned_item_ids=owned_cosmetic_ids(profile.user))
+            if not any(weights):
+                raise ValueError("Lucky dip has no eligible cosmetics to grant")
             granted = random.choices(eligible, weights=weights, k=1)[0]
             existing = UserInventory.objects.filter(
                 user=profile.user, item=granted,

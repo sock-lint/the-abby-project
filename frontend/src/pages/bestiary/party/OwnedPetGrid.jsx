@@ -8,6 +8,7 @@ import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { HAPPINESS_WHISPER } from './party.constants';
 import { creatureLabel } from '../../../companion/appearance';
 import { companionStageLabel } from '../../../companion/lifecycle';
+import { companionRarity } from '../../../companion/rarity';
 
 export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Your companions' }) {
   return (
@@ -31,7 +32,7 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                   <div className="flex items-center justify-center h-16 mb-1">
                     <div
                       className={`relative inline-flex items-center justify-center rounded-full p-1 bg-ink-page-aged/40 ${
-                        RARITY_HALO[pet.potion.rarity] || RARITY_HALO.common
+                        RARITY_HALO[companionRarity(pet)] || RARITY_HALO.common
                       }`}
                     >
                       <RpgSprite
@@ -57,10 +58,10 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                   <div className="text-caption text-ink-secondary">{companionStageLabel(pet)}</div>
                   <div
                     className={`font-script text-tiny uppercase tracking-wider ${
-                      RARITY_TEXT_COLORS[pet.potion.rarity]
+                      RARITY_TEXT_COLORS[companionRarity(pet)]
                     }`}
                   >
-                    {pet.potion.rarity}
+                    {companionRarity(pet)}
                   </div>
                   {!pet.evolved_to_mount && HAPPINESS_WHISPER[pet.happiness_level] && (
                     <div className="font-script text-tiny text-ink-whisper italic mt-0.5">

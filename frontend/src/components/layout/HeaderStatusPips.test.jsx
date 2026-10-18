@@ -48,7 +48,7 @@ describe('HeaderStatusPips', () => {
       ),
     ]);
     await waitFor(() =>
-      expect(screen.getByLabelText(/4 pending approvals/i)).toBeInTheDocument(),
+      expect(screen.getByLabelText(/4 items needing attention/i)).toBeInTheDocument(),
     );
     expect(screen.getByLabelText(/earnings this week/i)).toBeInTheDocument();
   });

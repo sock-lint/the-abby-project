@@ -19,8 +19,21 @@ import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterHatch from '../../../contracts/api/fixtures/pet-hatch-roster.json';
 import rosterBreed from '../../../contracts/api/fixtures/mount-breed-roster.json';
+import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
+import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
+import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('preserves base coin bonuses in catalog and earned badge responses', async () => {
+    server.use(
+      http.get('*/api/badges/', () => HttpResponse.json(badgeCatalog)),
+      http.get('*/api/badges/earned/', () => HttpResponse.json(earnedBadges)),
+    );
+    const catalog = await getBadges();
+    expect(catalog.results.find((badge) => badge.id === 101)).toMatchObject({ rarity: 'rare', coin_bonus: 35, xp_bonus: 30 });
+    expect(catalog.results.find((badge) => badge.id === 102).coin_bonus).toBe(0);
+    expect((await getEarnedBadges()).results[0].badge).toMatchObject({ id: 101, rarity: 'rare', coin_bonus: 35 });
+  });
   it('retains server-verified catalog IDs without deriving identity from shared sprite keys or names', async () => {
     server.use(
       http.get('*/api/items/catalog/', () => HttpResponse.json(imageItems)),
@@ -38,10 +51,17 @@ describe('current owned-art API contracts', () => {
     expect(challenges).toEqual(imageChallenges);
     expect(challenges.map((challenge) => challenge.catalog_icon)).toEqual(['challenge-feather-collector', null]);
     expect(challenges[0].reward_items[0].item_catalog_icon).toBe('item-fish');
+    expect(challenges[0].reward_items[0]).toMatchObject({ item_rarity: 'common', item_type: 'food', item_catalog_available: true });
+    expect(challenges[0].reward_items[0].item_effect_summary).toContain('Adds 5 growth');
+    expect(items.find((item) => item.id === 81).acquisition_sources).toEqual([
+      { kind: 'challenge', name: 'Feather Collector', path: '/quests?tab=trials' },
+    ]);
     expect(await getPetSpeciesCatalog()).toEqual(imageSpecies);
     expect(imageSpecies[0]).toMatchObject({ catalog_icon: 'portrait-chick', grown_catalog_icon: 'portrait-chick-grown', lifecycle_stages: ['egg', 'baby', 'middle', 'grown'] });
     expect(await getRecentDrops()).toEqual(imageDrops);
     expect(imageDrops[0].item_catalog_icon).toBe('item-fish-cooked');
+    expect(imageDrops[0]).toMatchObject({ item_type: 'food', item_catalog_available: true, salvage_coins: null });
+    expect(imageDrops[0].item_effect_summary).toContain('Adds 5 growth');
     const goals = await getChallenges();
     expect(goals).toEqual(imageGoals);
     expect(goals.results.filter((goal) => goal.origin === 'catalog').map((goal) => goal.catalog_icon)).toEqual(['challenge-feather-collector']);
@@ -75,8 +95,9 @@ describe('current owned-art API contracts', () => {
     expect(catalog.potions.map((potion) => potion.slug)).toEqual(['base']);
     expect(catalog.species.every((species) => species.available_potions.length === 1 && species.available_potions[0].slug === 'base')).toBe(true);
     expect(catalog.species.find((species) => species.slug === 'meshtint-bat')).toMatchObject({
-      catalog_icon: 'bat-baby-portrait', grown_catalog_icon: 'bat-grown-portrait',
+      catalog_icon: 'bat-baby-portrait', grown_catalog_icon: 'bat-grown-portrait', rarity: 'uncommon',
     });
+    expect(catalog.species.find((species) => species.slug === 'meshtint-dragon')).toMatchObject({ rarity: 'legendary', available_potions: [{ slug: 'base', rarity: 'common' }] });
     expect(catalog.species[0].lifecycle_stages).toEqual(['egg', 'baby', 'middle', 'grown']);
     expect(await getStable()).toEqual(stable);
     expect(stable.pets.map((pet) => [pet.name, pet.catalog_available])).toEqual([['Peep', true], ['Kit', false]]);
@@ -112,7 +133,7 @@ describe('current owned-art API contracts', () => {
     const pet = await hatchPet(91, 52);
     expect(pet).toEqual(rosterHatch);
     expect(pet).toMatchObject({
-      species: { slug: 'meshtint-bat', catalog_icon: 'bat-baby-portrait' }, potion: { slug: 'base' },
+      species: { slug: 'meshtint-bat', catalog_icon: 'bat-baby-portrait', rarity: 'uncommon' }, potion: { slug: 'base', rarity: 'common' }, rarity: 'uncommon',
       lifecycle_stage: 'baby', growth_points: 0, evolved_to_mount: false, catalog_available: true,
     });
     expect(calls).toEqual([{ egg_item_id: 91, potion_item_id: 52 }]);
@@ -139,6 +160,7 @@ describe('current owned-art API contracts', () => {
     expect(receipt).toMatchObject({
       picked_species_slug: 'meshtint-bat', picked_potion_slug: 'base', chromatic: false,
       egg_item_id: 91, egg_lifecycle_stage: 'egg', egg_item_catalog_icon: 'bat-egg-portrait',
+      potion_item_catalog_icon: 'item-base-potion',
     });
     expect(calls).toEqual([{ mount_a_id: 81, mount_b_id: 82 }]);
   });

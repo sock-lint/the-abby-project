@@ -5,19 +5,10 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ErrorAlert from '../../components/ErrorAlert';
 import Loader from '../../components/Loader';
 import RpgSprite from '../../components/rpg/RpgSprite';
-import SpriteGenerateModal from './SpriteGenerateModal';
 import {
-  rerollSprite,
   updateSpriteMeta,
   deleteSprite as apiDeleteSprite,
 } from '../../api';
-
-const REROLL_COST_PER_FRAME = 0.04;
-
-function formatCost(frameCount) {
-  const n = Math.max(1, Number(frameCount) || 1);
-  return `$${(n * REROLL_COST_PER_FRAME).toFixed(2)}`;
-}
 
 function Row({ label, value, mono }) {
   return (
@@ -31,28 +22,10 @@ function Row({ label, value, mono }) {
 }
 
 export default function SpriteDetailSheet({ sprite, onClose, onChanged }) {
-  const [confirmReroll, setConfirmReroll] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editingMeta, setEditingMeta] = useState(false);
-  const [replacing, setReplacing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-
-  const canReroll = Boolean(sprite.prompt);
-
-  const runReroll = async () => {
-    setConfirmReroll(false);
-    setBusy(true);
-    setError(null);
-    try {
-      await rerollSprite(sprite.slug);
-      if (onChanged) await onChanged();
-    } catch (err) {
-      setError(err);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const runDelete = async () => {
     setConfirmDelete(false);
@@ -67,20 +40,6 @@ export default function SpriteDetailSheet({ sprite, onClose, onChanged }) {
       setBusy(false);
     }
   };
-
-  if (replacing) {
-    return (
-      <SpriteGenerateModal
-        sprite={sprite}
-        mode="replace"
-        onClose={() => setReplacing(false)}
-        onSuccess={async () => {
-          setReplacing(false);
-          if (onChanged) await onChanged();
-        }}
-      />
-    );
-  }
 
   if (editingMeta) {
     return (
@@ -107,7 +66,7 @@ export default function SpriteDetailSheet({ sprite, onClose, onChanged }) {
           {busy && (
             <div className="rounded-lg bg-ink-page-aged/60 p-3 text-center">
               <Loader />
-              <div className="mt-2 text-xs text-ink-whisper">Working — Gemini calls take up to a minute.</div>
+              <div className="mt-2 text-xs text-ink-whisper">Saving changes…</div>
             </div>
           )}
 
@@ -121,7 +80,7 @@ export default function SpriteDetailSheet({ sprite, onClose, onChanged }) {
           </div>
 
           <details className="text-sm" open>
-            <summary className="cursor-pointer text-ink-whisper mb-2">Authoring inputs</summary>
+            <summary className="cursor-pointer text-ink-whisper mb-2">Historical authoring inputs</summary>
             <div className="space-y-1.5 pl-2">
               <Row
                 label="Prompt"
@@ -162,36 +121,10 @@ export default function SpriteDetailSheet({ sprite, onClose, onChanged }) {
             >
               Edit metadata
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setReplacing(true)}
-              disabled={busy}
-            >
-              Replace
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setConfirmReroll(true)}
-              disabled={busy || !canReroll}
-              title={canReroll ? undefined : 'No stored prompt — use Replace instead'}
-            >
-              Reroll
-            </Button>
           </div>
         </div>
       </BottomSheet>
 
-      {confirmReroll && (
-        <ConfirmDialog
-          title={`Reroll ${sprite.slug}?`}
-          message={`This re-runs the saved prompt through Gemini and replaces the current image. Approximate cost: ${formatCost(sprite.frame_count)}.`}
-          confirmLabel="Reroll"
-          onConfirm={runReroll}
-          onCancel={() => setConfirmReroll(false)}
-        />
-      )}
       {confirmDelete && (
         <ConfirmDialog
           title={`Delete ${sprite.slug}?`}

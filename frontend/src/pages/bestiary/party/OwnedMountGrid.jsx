@@ -10,6 +10,7 @@ import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { creatureLabel } from '../../../companion/appearance';
 import { companionFormName } from '../../../companion/lifecycle';
 import { daysUntilReady, formatExpeditionRemaining } from './party.constants';
+import { companionRarity } from '../../../companion/rarity';
 
 export default function OwnedMountGrid({ mounts, working, onActivate, onPreview, onClaim, onLaunch, label = 'Your grown pets' }) {
   return (
@@ -34,7 +35,7 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                   <div className="flex items-center justify-center h-20 mb-1">
                     <div
                       className={`relative inline-flex items-center justify-center rounded-full p-1.5 bg-ink-page-aged/40 ${
-                        RARITY_HALO[mount.potion.rarity] || RARITY_HALO.common
+                        RARITY_HALO[companionRarity(mount)] || RARITY_HALO.common
                       }`}
                     >
                       <RpgSprite
@@ -53,10 +54,10 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                   </div>
                   <div
                     className={`font-script text-tiny uppercase tracking-wider ${
-                      RARITY_TEXT_COLORS[mount.potion.rarity]
+                      RARITY_TEXT_COLORS[companionRarity(mount)]
                     }`}
                   >
-                    {mount.potion.rarity}
+                    {companionRarity(mount)}
                   </div>
                   <div className="font-script text-tiny text-gold-leaf mt-1">grown pet</div>
                   {onPreview && <Button size="sm" variant="ghost" className="mt-1 w-full" onClick={() => onPreview(mount.id)} aria-label={`Visit ${creatureLabel(mount, 'mount')}`}>Spend time together</Button>}

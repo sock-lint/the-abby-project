@@ -26,7 +26,13 @@
         "item_icon": "",
         "item_sprite_key": "",
         "item_catalog_icon": null,
-        "quantity": 2
+        "quantity": 2,
+        "item_rarity": "common",
+        "item_type": "egg",
+        "item_description": "",
+        "item_metadata": {},
+        "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+        "item_catalog_available": false
       }
     ],
     "skill_tags": [],

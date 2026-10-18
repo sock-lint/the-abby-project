@@ -1056,3 +1056,110 @@ quests:
     skill_tags:
       - {skill: "Life Skills::Budgeting", weight: 3}
       - {skill: "Life Skills::Persistence", weight: 1}
+
+  # ─── Companion collection trails ──────────────────────────────────────
+  # Guaranteed alternatives to random drops for every supported Rare, Epic
+  # and Legendary family. These one-time, automatically tracked goals include
+  # their compatible Base potion. Each saved meaningful action counts once;
+  # the shared catalog gate limits creations to the first two per local day.
+  # They add no XP/Coins beyond the underlying activities' normal rewards.
+
+  - name: Ghost Trail
+    description: "Welcome a rare Ghost companion: finish 10 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Ghost Egg and a compatible Base potion."
+    icon: "👻"
+    quest_type: collection
+    target_value: 10
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-ghost-egg
+        quantity: 1
+      - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Wolf Trail
+    description: "Welcome a rare Wolf Pup companion: finish 20 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and a compatible Base potion."
+    icon: "🐺"
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-wolf-egg
+        quantity: 1
+      - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Bomb Trail
+    description: "Welcome a rare Bomb companion: finish 30 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Bomb Egg and a compatible Base potion."
+    icon: "💣"
+    quest_type: collection
+    target_value: 30
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-bomb-egg
+        quantity: 1
+      - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Shadow Trail
+    description: "Welcome an epic Egglet companion and help it grow into Shadow: finish 25 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Egglet Egg and a compatible Base potion."
+    icon: "🌒"
+    quest_type: collection
+    target_value: 25
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-shadow-egg
+        quantity: 1
+      - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Dragon Trail
+    description: "Welcome a legendary Dragon Spark companion: finish 50 approved chores or homework assignments, project milestones, whole projects, or logged creations within 365 days. The first two creations each day count. Earn one Dragon Spark Egg and a compatible Base potion."
+    icon: "🐉"
+    quest_type: collection
+    target_value: 50
+    duration_days: 365
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-dragon-egg
+        quantity: 1
+      - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}

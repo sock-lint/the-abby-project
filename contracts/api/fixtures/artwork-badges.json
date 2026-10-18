@@ -16,7 +16,8 @@
       },
       "xp_bonus": 25,
       "rarity": "common",
-      "catalog_available": true
+      "catalog_available": true,
+      "coin_bonus": 5
     },
     {
       "id": 502,
@@ -31,7 +32,8 @@
       },
       "xp_bonus": 0,
       "rarity": "rare",
-      "catalog_available": true
+      "catalog_available": true,
+      "coin_bonus": 35
     }
   ]
 }

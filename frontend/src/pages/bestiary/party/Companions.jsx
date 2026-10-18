@@ -14,6 +14,7 @@ import CatalogIcon from '../../../components/rpg/CatalogIcon';
 import { normalizeList } from '../../../utils/api';
 import { PROGRESS_TIER } from '../../../components/atlas/mastery.constants';
 import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
+import BadgeRarity from '../../../components/atlas/BadgeRarity';
 import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
 import { creatureLabel } from '../../../companion/appearance';
@@ -290,7 +291,9 @@ export default function Companions() {
                       alt={f.item.name}
                     />
                     <span className="flex-1 min-w-0 font-body text-caption text-ink-primary break-words">
-                      {f.item.name}
+                      <span className="block">{f.item.name}</span>
+                      {f.item.rarity && <BadgeRarity rarity={f.item.rarity} />}
+                      {f.item.effect_summary && <span className="mt-1 block text-ink-secondary">{f.item.effect_summary}</span>}
                     </span>
                     <span className="shrink-0 font-rune text-tiny text-ink-whisper tabular-nums">
                       ×{f.quantity}

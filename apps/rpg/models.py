@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
@@ -273,6 +275,10 @@ class DropLog(CreatedAtModel):
     trigger_type = models.CharField(max_length=30)
     quantity = models.PositiveIntegerField(default=1)
     was_salvaged = models.BooleanField(default=False)
+    salvage_coins = models.PositiveIntegerField(
+        null=True, blank=True, editable=False,
+        help_text="Exact Coins awarded for this drop; null means an older receipt did not record the amount.",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -355,3 +361,35 @@ class SpriteAsset(TimestampedModel):
     def __str__(self):
         tag = "animated" if self.frame_count > 1 else "static"
         return f"{self.slug} ({tag}, {self.pack})"
+
+
+class ContentPackEntry(TimestampedModel):
+    """Stable authoring identity; never infer ownership from display names."""
+
+    pack = models.CharField(max_length=40)
+    family = models.ForeignKey("families.Family", on_delete=models.SET_NULL, null=True)
+    kind = models.CharField(max_length=40)
+    key = models.CharField(max_length=200)
+    model_label = models.CharField(max_length=100)
+    object_id = models.PositiveBigIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["pack", "kind", "key"], name="pack_entry_identity"),
+            models.UniqueConstraint(fields=["model_label", "object_id"], name="pack_entry_object_owner"),
+        ]
+
+
+class ContentPackPublication(TimestampedModel):
+    """An exact reviewed plan, retained as the receipt after publication."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    pack = models.CharField(max_length=40)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    content_digest = models.CharField(max_length=64)
+    state_digest = models.CharField(max_length=64)
+    changes = models.JSONField(default=list)
+    stats = models.JSONField(default=dict)
+    expires_at = models.DateTimeField()
+    published_at = models.DateTimeField(null=True, blank=True)

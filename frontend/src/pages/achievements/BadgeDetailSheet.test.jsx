@@ -36,6 +36,19 @@ const unearnedEntry = {
 };
 
 describe('BadgeDetailSheet', () => {
+  it('shows the server-derived base coin bonus beside XP before earning', () => {
+    renderWithProviders(<BadgeDetailSheet entry={{ ...unearnedEntry, badge: { ...unearnedEntry.badge, coin_bonus: 150 } }} onClose={() => {}} />);
+    expect(screen.getByText('Base coin bonus')).toBeInTheDocument();
+    expect(screen.getByText('+150 coins')).toBeInTheDocument();
+    expect(screen.getByText('+50 XP')).toBeInTheDocument();
+  });
+
+  it('does not invent a coin bonus for badges that opt out or lack the field', () => {
+    renderWithProviders(<BadgeDetailSheet entry={{ ...earnedEntry, badge: { ...earnedEntry.badge, coin_bonus: 0 } }} onClose={() => {}} />);
+    expect(screen.queryByText('Base coin bonus')).toBeNull();
+    expect(screen.getByText('+50 XP')).toBeInTheDocument();
+  });
+
   it('renders inside a dialog labeled by the badge name', () => {
     renderWithProviders(<BadgeDetailSheet entry={earnedEntry} onClose={() => {}} />);
     expect(screen.getByRole('dialog', { name: 'Perfect Joinery' })).toBeInTheDocument();

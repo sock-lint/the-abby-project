@@ -309,8 +309,7 @@ class ExpeditionService:
         if not entries:
             # Fallback: borrow from clock_out + chore_complete pools so a
             # fresh deployment without expedition-specific drops still
-            # produces sensible loot. Cosmetic items dominate those pools
-            # by design — they're the "feels like an adventure" payoff.
+            # produces the available supplies from those activity pools.
             entries = [entry for entry in (
                 DropTable.objects
                 .filter(
@@ -325,26 +324,23 @@ class ExpeditionService:
 
         items = []
         if entries:
-            # Bias by tier rarity weights — recompute weights to favour
-            # rarer items in longer-tier expeditions. Fall back to the
-            # authored DropTable.weight when the item's rarity isn't in
-            # the tier's rarity_weights map.
-            rarity_w = config["rarity_weights"]
-            biased_weights = []
-            for entry in entries:
-                # Use authored weight as a secondary multiplier so high-
-                # weight commons still beat low-weight legendaries on
-                # short expeditions. The intent is subtle bias, not a
-                # rarity steamroller.
-                rarity_factor = rarity_w.get(entry.item.rarity, 1)
-                biased_weights.append(max(1, entry.weight * rarity_factor))
-
+            # Fixed tier budgets, followed by authored weights within each
+            # eligible tier. Missing tiers are excluded; absent eligible tiers
+            # renormalize. Pre-rolls retain their result until claim.
             from apps.rpg.companion_catalog import companion_drop_weights
-            biased_weights = companion_drop_weights(entries, biased_weights)
+            from apps.rpg.rarity import COSMETIC_TYPES, owned_cosmetic_ids, tier_balanced_weights
+            authored_weights = companion_drop_weights(entries)
+            owned = owned_cosmetic_ids(user)
 
             for _ in range(config["item_slots"]):
+                biased_weights = tier_balanced_weights(entries, config["rarity_weights"],
+                    authored_weights=authored_weights, owned_item_ids=owned)
+                if not any(biased_weights):
+                    break
                 selected = random.choices(entries, weights=biased_weights, k=1)[0]
                 item = selected.item
+                if item.item_type in COSMETIC_TYPES:
+                    owned.add(item.pk)
                 items.append({
                     "item_id": item.pk,
                     "quantity": 1,

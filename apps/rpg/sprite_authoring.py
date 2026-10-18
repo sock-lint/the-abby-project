@@ -15,10 +15,13 @@ import base64
 import binascii
 import hashlib
 import io
+import logging
 from typing import Any, Optional
+from uuid import uuid4
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
+from django.db import transaction
 from PIL import Image, UnidentifiedImageError
 
 from apps.accounts.models import User
@@ -28,6 +31,15 @@ from apps.rpg.models import SpriteAsset
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB cap for single-sprite uploads
 MAX_DIMENSION_PX = 4096
+logger = logging.getLogger(__name__)
+
+
+def _discard_blob(storage, name):
+    """A failed cleanup must never undo a committed, usable catalog entry."""
+    try:
+        storage.delete(name)
+    except Exception:
+        logger.exception("Could not remove superseded sprite image")
 
 
 class SpriteAuthoringError(Exception):
@@ -141,27 +153,42 @@ def register_sprite(
 
     ext = "webp" if fmt == "WEBP" else "png"
     digest = hashlib.sha256(png_bytes).hexdigest()[:8]
-    filename = f"{slug}-{digest}.{ext}"
+    # Object stores may overwrite matching keys. Each upload needs its own
+    # staging key, including competing first creations of the same slug.
+    filename = f"{slug}-{digest}-{uuid4().hex[:8]}.{ext}"
 
-    existing = SpriteAsset.objects.filter(slug=slug).first()
-    if existing and not overwrite:
-        raise SpriteAuthoringError(
-            f"sprite {slug!r} already exists; pass overwrite=True to replace.",
-        )
-    if existing:
-        existing.image.delete(save=False)  # Ceph blob first, per storage-deletes invariant
-
-    asset = existing or SpriteAsset(slug=slug)
-    asset.pack = pack
-    asset.frame_count = frame_count
-    asset.fps = fps
-    asset.frame_width_px = frame_w
-    asset.frame_height_px = frame_h
-    asset.frame_layout = frame_layout
-    asset.created_by = actor
-    asset.full_clean()  # triggers SpriteAsset.clean() → validates frame/fps combo
-    asset.image.save(filename, ContentFile(png_bytes), save=False)
-    asset.save()
+    uploaded_name = None
+    storage = None
+    try:
+        with transaction.atomic():
+            existing = SpriteAsset.objects.select_for_update().filter(slug=slug).first()
+            if existing and not overwrite:
+                raise SpriteAuthoringError(
+                    f"sprite {slug!r} already exists; pass overwrite=True to replace.",
+                )
+            old_name = existing.image.name if existing else ""
+            asset = existing or SpriteAsset(slug=slug)
+            asset.pack = pack
+            asset.frame_count = frame_count
+            asset.fps = fps
+            asset.frame_width_px = frame_w
+            asset.frame_height_px = frame_h
+            asset.frame_layout = frame_layout
+            asset.created_by = actor
+            try:
+                asset.full_clean()
+            except ValidationError as exc:
+                raise SpriteAuthoringError("invalid sprite metadata: " + "; ".join(exc.messages)) from exc
+            storage = asset.image.storage
+            asset.image.save(filename, ContentFile(png_bytes), save=False)
+            uploaded_name = asset.image.name
+            asset.save()
+            if old_name and old_name != uploaded_name:
+                transaction.on_commit(lambda: _discard_blob(storage, old_name))
+    except Exception:
+        if uploaded_name and storage:
+            _discard_blob(storage, uploaded_name)
+        raise
 
     return {
         "slug": asset.slug,
