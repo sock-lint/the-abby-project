@@ -217,6 +217,7 @@ function ProjectDetailPage() {
       <BackLink {...backDestination}>Back to {isHomeworkPlan ? 'Homework' : 'Projects'}</BackLink>
 
       <ProjectHeader
+        timezone={user?.family?.timezone || 'America/Phoenix'}
         project={project}
         isParent={isParent}
         isAssigned={isAssigned}

@@ -1,0 +1,93 @@
+"""Synthetic submission dates are actual family-scoped endpoint responses."""
+from datetime import date, datetime, timezone
+from unittest.mock import patch
+
+from django.core.management.color import no_style
+from django.db import connection
+from django.test import override_settings
+from rest_framework.test import APITestCase
+
+from apps.chores.models import Chore, ChoreCompletion
+from apps.homework.models import HomeworkAssignment, HomeworkProof, HomeworkSubmission
+from apps.homework.services import HomeworkService
+from config.tests import test_api_contract_fixtures as shared_fixtures
+from config.tests.factories import make_family
+
+
+SUBMITTED = datetime(2026, 10, 23, 16, 30, tzinfo=timezone.utc)
+REVIEWED = datetime(2026, 10, 26, 18, tzinfo=timezone.utc)
+
+
+@override_settings(
+    ALLOWED_HOSTS=["testserver"], TIME_ZONE="America/Phoenix", USE_TZ=True,
+    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
+    VAPID_PUBLIC_KEY="", VAPID_PRIVATE_KEY="",
+)
+class SubmissionTimingApiFixtureTests(APITestCase):
+    assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
+
+    def setUp(self):
+        clock = patch("django.utils.timezone.now", return_value=SUBMITTED)
+        clock.start()
+        self.addCleanup(clock.stop)
+        household = make_family(
+            "Submission Timing Fixture", family_id=71,
+            parents=[{"id": 6, "username": "timing-parent"}],
+            children=[{"id": 7, "username": "timing-child", "display_name": "Abby"}],
+        )
+        self.family, self.parent, self.child = household.family, household.parents[0], household.children[0]
+        self.family.timezone = "America/New_York"
+        self.family.save(update_fields=["timezone"])
+        with connection.cursor() as cursor:
+            for sql in connection.ops.sequence_reset_sql(no_style(), [ChoreCompletion, HomeworkSubmission, HomeworkProof]):
+                cursor.execute(sql)
+
+    def test_weekly_period_and_friday_submission_survive_later_parent_review(self):
+        chore = Chore.objects.create(
+            id=21, family=self.family, created_by=self.parent, assigned_to=self.child,
+            title="Tidy the desk", recurrence="weekly", xp_reward=0,
+        )
+        self.client.force_authenticate(self.child)
+        pending = self.assert_response_fixture(
+            self.client.post(f"/api/chores/{chore.pk}/complete/", {"notes": "Finished Friday"}),
+            "completion-timing-weekly-pending.json", status=201,
+        )
+        self.assertEqual(pending["completed_date"], "2026-10-19")
+        self.assertEqual(pending["timing_snapshot"]["submitted_on"], "2026-10-23")
+        self.assertEqual(pending["timing_snapshot"]["due_on"], "2026-10-25")
+        self.client.force_authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=REVIEWED):
+            self.assertEqual(self.client.post(f"/api/chore-completions/{pending['id']}/approve/").status_code, 200)
+        reviewed = self.assert_response_fixture(
+            self.client.get("/api/chore-completions/", {"status": "reviewed", "user_id": self.child.pk}),
+            "completion-timing-chore-reviewed.json",
+        )
+        self.assertEqual(reviewed["results"][0]["timing_snapshot"], pending["timing_snapshot"])
+
+    def test_homework_saved_lateness_and_due_date_survive_a_due_date_edit_and_approval(self):
+        assignment = HomeworkAssignment.objects.create(
+            id=31, created_by=self.parent, assigned_to=self.child,
+            title="Reading worksheet", subject="reading", due_date=date(2026, 10, 22),
+        )
+        # An existing synthetic path keeps this response fixture independent of
+        # storage naming. Actual upload validation is covered by homework tests.
+        submission = HomeworkService.submit_completion(
+            self.child, assignment, images=["homework_proofs/synthetic-timing.png"], notes="Read two chapters",
+        )
+        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 26))
+        self.client.force_authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=REVIEWED):
+            self.assertEqual(self.client.post(f"/api/homework-submissions/{submission.pk}/approve/").status_code, 200)
+        reviewed = self.assert_response_fixture(
+            self.client.get("/api/homework-submissions/", {"status": "reviewed", "user_id": self.child.pk}),
+            "completion-timing-homework-reviewed.json",
+        )
+        row = reviewed["results"][0]
+        self.assertEqual(row["timing_snapshot"]["due_on"], "2026-10-22")
+        self.assertEqual(row["current_due_date"], "2026-10-26")
+        self.assertEqual(row["timeliness"], "late")
+        self.client.force_authenticate(self.child)
+        self.assert_response_fixture(
+            self.client.get(f"/api/homework/{assignment.pk}/"),
+            "completion-timing-homework-assignment.json",
+        )

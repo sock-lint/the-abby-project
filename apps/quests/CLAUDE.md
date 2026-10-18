@@ -48,6 +48,19 @@ Endpoints: `GET /api/challenges/` (parent may select a same-family child with `u
 
 Goal payloads expose server-owned `origin: parent|catalog|legacy` for presentation. Automatic catalog origin uses the saved `is_catalog` marker even after a template is retired; retained `Quest` rows always report `legacy`. Names, pinning and client input do not determine origin or change tracking.
 
+Goal payloads also expose nullable `completed_at` from the saved occurrence.
+It records when completion was processed, which can follow approval, retries or
+backfill after the goal period. React labels it “Completion recorded” alongside
+the preserved household-local period; it must not classify the child's work as
+late by comparing that timestamp to the period end. Legacy quests have no saved
+completion timestamp and return null, never their general `updated_at` value.
+An incomplete ended occurrence remains in history with its saved progress and
+null completion timestamp. Existing weekly and rolling cycles continue to use
+the goal's saved timezone after a household timezone change, including across
+DST. React includes the year in saved periods and the exact exclusive deadline
+in goal details; showing only the final included date must not imply that a
+rolling period accepts work through the end of that entire day.
+
 The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the explicit Persistence fallback and reports only actual unlocked-skill credit.
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.

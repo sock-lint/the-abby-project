@@ -9,6 +9,7 @@ import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
 import { buildChore, buildParent, buildUser } from '../test/factories.js';
 import { buildCalendarFile, downloadCalendarFile } from '../utils/calendar';
+import { formatDate } from '../utils/format';
 
 vi.mock('../utils/calendar', async (importOriginal) => ({
   ...await importOriginal(),
@@ -35,6 +36,147 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
+  it('offers an optional deadline only for a one-time chore and sends the selected date', async () => {
+    const user = userEvent.setup();
+    const create = spyHandler('post', /\/api\/chores\/$/, { id: 7, title: 'Plant bulbs' });
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      create.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: /new chore/i }));
+    expect(screen.queryByLabelText('Due date (optional)')).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Recurrence'));
+    await user.click(screen.getByRole('option', { name: 'One-time' }));
+    const dueDate = screen.getByLabelText('Due date (optional)');
+    expect(dueDate).not.toBeRequired();
+    fireEvent.change(dueDate, { target: { value: '2026-10-18' } });
+    await user.type(screen.getByLabelText('Title'), 'Plant bulbs');
+    await user.click(screen.getByRole('button', { name: /^create$/i }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({ recurrence: 'one_time', due_date: '2026-10-18' });
+  });
+
+  it('clears a one-time deadline when editing the chore to repeat weekly', async () => {
+    const user = userEvent.setup();
+    const chore = buildChore({ id: 7, recurrence: 'one_time', due_date: '2026-10-18' });
+    const update = spyHandler('patch', /\/api\/chores\/7\/$/, chore);
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : [chore],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      update.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: 'Edit chore' }));
+    expect(screen.getByLabelText('Due date (optional)')).toHaveValue('2026-10-18');
+    await user.click(screen.getByLabelText('Recurrence'));
+    await user.click(screen.getByRole('option', { name: 'Weekly' }));
+    expect(screen.queryByLabelText('Due date (optional)')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ recurrence: 'weekly', due_date: null });
+  });
+
+  it('explains and saves clearing an optional one-time deadline', async () => {
+    const user = userEvent.setup();
+    const chore = buildChore({ id: 7, recurrence: 'one_time', due_date: '2026-10-18' });
+    const update = spyHandler('patch', /\/api\/chores\/7\/$/, chore);
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true' ? [] : [chore],
+      )),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+      update.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: 'Edit chore' }));
+    const field = screen.getByLabelText('Due date (optional)');
+    expect(field).toHaveAccessibleDescription('Leave blank for no deadline.');
+    fireEvent.change(field, { target: { value: '' } });
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body).toMatchObject({ recurrence: 'one_time', due_date: null });
+  });
+
+  it('shows the saved weekly period, Sunday deadline and actual Friday submission in parent review', async () => {
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([{
+        id: 22, chore_title: 'Weekly watering', user: 1, user_name: 'Abby', status: 'pending',
+        completed_date: '2026-10-12', reward_amount_snapshot: '0.00', coin_reward_snapshot: 0,
+        timing_snapshot: {
+          version: 1, timezone: 'America/Phoenix', schedule: 'weekly',
+          submitted_at: '2026-10-16T18:30:00+00:00', submitted_on: '2026-10-16',
+          period_start: '2026-10-12', period_end: '2026-10-18', due_on: '2026-10-18', timeliness: 'on_time',
+        },
+      }])),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ]);
+    await screen.findByText('Scheduled week');
+    expect(screen.getByText('Scheduled week').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-12');
+    expect(screen.getByText('Due').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
+    expect(screen.getByText('Marked complete').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-16T18:30:00+00:00');
+    expect(screen.getByText('Marked complete').parentElement).toHaveTextContent('Oct 16');
+    expect(screen.getByText('On time')).toBeInTheDocument();
+  });
+
+  it('loads selected-child reviewed chores outside the pending queue only when opened', async () => {
+    const user = userEvent.setup();
+    const historyQueries = [];
+    renderPage(buildParent(), [
+      http.get('*/api/chores/', () => HttpResponse.json([])),
+      http.get('*/api/chore-completions/', ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        if (params.get('status') !== 'reviewed') return HttpResponse.json([]);
+        historyQueries.push(Object.fromEntries(params));
+        return HttpResponse.json({ count: 1, next: null, previous: null, results: [{
+          id: 23, user: 2, user_name: 'Sibling', chore_title: 'Reviewed shelves', status: 'approved',
+          created_at: '2026-10-16T18:30:00Z', decided_at: '2026-10-19T18:30:00Z',
+          completed_date: '2026-10-12', timing_snapshot: null,
+        }] });
+      }),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser(), buildUser({ id: 2, username: 'sibling' })])),
+      http.get('*/api/skills/', () => HttpResponse.json([])),
+    ], '/quests?tab=duties&child=2');
+    await screen.findByText('Reviewed chores');
+    expect(historyQueries).toHaveLength(0);
+    await user.click(screen.getByText('Reviewed chores'));
+    await screen.findByText('Sibling · Reviewed shelves');
+    expect(historyQueries).toHaveLength(1);
+    expect(historyQueries[0]).toMatchObject({ status: 'reviewed', user_id: '2', page: '1' });
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.getByText('Recorded period date')).toBeInTheDocument();
+    expect(screen.getByText(/original deadline and schedule were not saved/i)).toBeInTheDocument();
+    expect(screen.queryByText('On time')).not.toBeInTheDocument();
+  });
+
+  it('shows one-time deadlines on cards and preserves unknown legacy timing in child history', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/chores/', () => HttpResponse.json([
+        buildChore({ recurrence: 'one_time', due_date: '2026-10-18' }),
+      ])),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([{
+        id: 24, user: 1, chore_title: 'Old watering', status: 'approved', completed_date: '2026-10-12',
+        created_at: '2026-10-16T18:30:00Z', timing_snapshot: null,
+        reward_amount_snapshot: '0.00', coin_reward_snapshot: 0,
+      }])),
+    ]);
+    await screen.findByText('Old watering');
+    expect(screen.getByText(`Due ${formatDate('2026-10-18')}`)).toBeInTheDocument();
+    expect(screen.getByText('Recorded period date')).toBeInTheDocument();
+    expect(screen.getByText('Marked complete').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-16T18:30:00Z');
+    expect(screen.getByText(/original deadline and schedule were not saved/i)).toBeInTheDocument();
+    expect(screen.queryByText('Reviewed chores')).not.toBeInTheDocument();
+    expect(screen.queryByText('On time')).not.toBeInTheDocument();
+  });
+
   it.each([
     ['child proposal', buildUser(), /propose a chore/i, /send to parent/i],
     ['parent creation', buildParent(), /new chore/i, /^create$/i],

@@ -23,9 +23,9 @@ function GoalDisclosure({ title, children }) {
 export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, busy = false, toolbar = null, dailyBonus = null }) {
   const focus = challengeFocus(goals, pinnedGoal);
   const cardProps = { timezone, onSelect, onPin, busy, isParent };
-  const cards = (rows, showDeadline = true) => (
+  const cards = (rows) => (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-      {rows.map((goal) => <ChallengeGoalCard key={goal.id} goal={goal} {...cardProps} showDeadline={showDeadline} />)}
+      {rows.map((goal) => <ChallengeGoalCard key={goal.id} goal={goal} {...cardProps} />)}
     </div>
   );
   let sectionIndex = 0;
@@ -58,11 +58,11 @@ export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezon
       {focus.bonusPreview.length > 0 && <section className="space-y-3" aria-label="Bonus progress">
         <ChapterRubric index={sectionIndex++} name="Bonus progress" />
         <p className="font-body text-caption text-ink-secondary">A few bonus challenges your activity is moving toward completion.</p>
-        {cards(focus.bonusPreview, false)}
+        {cards(focus.bonusPreview)}
       </section>}
       {focus.otherBonuses.length > 0 && <GoalDisclosure title="Browse bonus challenges">
         <p className="font-body text-caption text-ink-secondary">These optional bonuses track automatically too. Open a challenge for its activity rules and bonus period.</p>
-        {cards(focus.otherBonuses, false)}
+        {cards(focus.otherBonuses)}
       </GoalDisclosure>}
       <GoalDisclosure title={`History · ${focus.history.length}`}>
         {focus.history.length ? cards(focus.history) : <p className="font-body text-body text-ink-secondary">No completed or ended challenges yet.</p>}

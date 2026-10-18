@@ -8,6 +8,7 @@ import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
 import AddToCalendar from '../../components/AddToCalendar';
 import { formatDate } from '../../utils/format';
+import SubmissionTiming from '../../components/SubmissionTiming';
 
 export default function AssignmentCard({
   assignment, onSubmit, onPlan, planning, canPlan,
@@ -32,9 +33,9 @@ export default function AssignmentCard({
       </div>
       <div className="flex flex-wrap items-center gap-2">
         {canManage && a.assigned_to_name && <span className="font-body text-caption text-ink-secondary">For {a.assigned_to_name}</span>}
-        <span className="font-script text-body text-ink-whisper">
+        {!sub && <span className="font-script text-body text-ink-whisper">
           due {formatDate(a.due_date)}
-        </span>
+        </span>}
         {a.due_date && (
           <AddToCalendar event={{
             id: `homework:${a.id}`,
@@ -45,6 +46,7 @@ export default function AssignmentCard({
           }} />
         )}
       </div>
+      {sub && <SubmissionTiming record={{ ...sub, current_due_date: a.due_date }} kind="homework" />}
       {a.description && (
         <div className="rounded-xl bg-ink-page px-3 py-2 space-y-1">
           <p className="font-body font-semibold text-caption text-ink-secondary">Instructions</p>

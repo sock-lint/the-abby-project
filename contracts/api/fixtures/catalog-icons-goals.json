@@ -13,6 +13,7 @@
       "status": "active",
       "starts_at": "2026-10-10T19:00:00+00:00",
       "ends_at": "2026-10-17T19:00:00+00:00",
+      "completed_at": null,
       "timezone": "America/Phoenix",
       "what_counts": "approved chores",
       "rewards": {
@@ -63,6 +64,7 @@
       "status": "active",
       "starts_at": "2026-10-05T07:00:00+00:00",
       "ends_at": "2026-10-12T07:00:00+00:00",
+      "completed_at": null,
       "timezone": "America/Phoenix",
       "what_counts": "approved chores",
       "rewards": {

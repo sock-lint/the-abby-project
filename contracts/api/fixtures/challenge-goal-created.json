@@ -11,6 +11,7 @@
   "status": "active",
   "starts_at": "2026-10-12T00:00:00-07:00",
   "ends_at": "2026-10-19T00:00:00-07:00",
+  "completed_at": null,
   "timezone": "America/Phoenix",
   "what_counts": "Running sessions",
   "rewards": {

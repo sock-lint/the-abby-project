@@ -30,7 +30,7 @@ class ChoreSerializer(serializers.ModelSerializer):
         fields = [
             "id", "title", "description", "icon",
             "reward_amount", "coin_reward", "xp_reward",
-            "recurrence", "week_schedule", "schedule_start_date",
+            "recurrence", "due_date", "week_schedule", "schedule_start_date",
             "assigned_to", "assigned_to_name",
             "created_by", "created_by_name",
             "is_active", "pending_parent_review", "order",
@@ -68,23 +68,37 @@ class ChoreWriteSerializer(serializers.ModelSerializer):
         fields = [
             "title", "description", "icon",
             "reward_amount", "coin_reward", "xp_reward",
-            "recurrence", "week_schedule", "schedule_start_date",
+            "recurrence", "due_date", "week_schedule", "schedule_start_date",
             "assigned_to", "is_active", "order",
             "skill_tags",
         ]
+
+    def validate(self, attrs):
+        recurrence = attrs.get(
+            "recurrence", self.instance.recurrence if self.instance else Chore.Recurrence.DAILY,
+        )
+        if recurrence != Chore.Recurrence.ONE_TIME:
+            if attrs.get("due_date") is not None:
+                raise serializers.ValidationError({
+                    "due_date": "Only one-time chores can have a due date.",
+                })
+            # A recurrence edit must not retain a hidden one-time deadline.
+            attrs["due_date"] = None
+        return attrs
 
 
 class ChoreCompletionSerializer(serializers.ModelSerializer):
     chore_title = serializers.CharField(source="chore.title", read_only=True)
     chore_icon = serializers.CharField(source="chore.icon", read_only=True)
     user_name = serializers.CharField(source="user.display_label", read_only=True)
+    current_due_date = serializers.DateField(source="chore.due_date", read_only=True, allow_null=True)
 
     class Meta:
         model = ChoreCompletion
         fields = [
             "id", "chore", "chore_title", "chore_icon",
             "user", "user_name",
-            "completed_date", "status", "notes",
+            "completed_date", "timing_snapshot", "current_due_date", "status", "notes",
             "decided_at", "decided_by",
             "reward_amount_snapshot", "coin_reward_snapshot",
             "created_at",

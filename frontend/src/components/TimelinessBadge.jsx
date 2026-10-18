@@ -6,15 +6,16 @@ const TIMELINESS_STYLES = {
 };
 
 const TIMELINESS_LABELS = {
-  early: 'Early +25%',
-  on_time: 'On Time',
-  late: 'Late -50%',
-  beyond_cutoff: 'Past Cutoff',
+  early: 'Early',
+  on_time: 'On time',
+  late: 'Late',
+  beyond_cutoff: 'Late',
 };
 
 export default function TimelinessBadge({ timeliness }) {
-  const color = TIMELINESS_STYLES[timeliness] || TIMELINESS_STYLES.on_time;
-  const label = TIMELINESS_LABELS[timeliness] || timeliness;
+  const known = Object.hasOwn(TIMELINESS_LABELS, timeliness);
+  const color = known ? TIMELINESS_STYLES[timeliness] : 'bg-ink-page-shadow/40 text-ink-secondary';
+  const label = known ? TIMELINESS_LABELS[timeliness] : 'Timing unknown';
   return (
     <span className={`inline-flex px-2 py-0.5 rounded-full text-caption font-medium ${color}`}>
       {label}

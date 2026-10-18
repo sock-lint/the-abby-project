@@ -64,6 +64,7 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
         source="assignment.created_by.role", read_only=True,
     )
     user_name = serializers.CharField(source="user.display_label", read_only=True)
+    current_due_date = serializers.DateField(source="assignment.due_date", read_only=True)
 
     class Meta:
         model = HomeworkSubmission
@@ -73,10 +74,19 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
             "user", "user_name",
             "status", "notes",
             "decided_at", "decided_by",
-            "timeliness",
+            "timeliness", "timing_snapshot", "current_due_date",
             "proofs",
             "created_at",
         ]
+        read_only_fields = fields
+
+
+class HomeworkSubmissionStatusSerializer(serializers.ModelSerializer):
+    """Only the matching child's saved timing belongs on an assignment card."""
+
+    class Meta:
+        model = HomeworkSubmission
+        fields = ["id", "status", "timeliness", "timing_snapshot", "created_at", "decided_at"]
         read_only_fields = fields
 
 
@@ -113,13 +123,19 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
         # and fires one query per assignment in list views.
         for sub in obj.submissions.all():
             if sub.user_id == obj.assigned_to_id and sub.status != HomeworkSubmission.Status.REJECTED:
-                return {"id": sub.id, "status": sub.status}
+                return {
+                    **HomeworkSubmissionStatusSerializer(sub).data,
+                    "current_due_date": obj.due_date.isoformat(),
+                }
         return None
 
     def get_timeliness_preview(self, obj):
         from .services import HomeworkService
+        from config.submission_timing import submission_context
 
-        return {"timeliness": HomeworkService.get_timeliness(obj.due_date)}
+        request = self.context.get("request")
+        user = request.user if request else obj.assigned_to
+        return {"timeliness": HomeworkService.get_timeliness(obj.due_date, submit_date=submission_context(user)[2])}
 
     def get_has_project(self, obj):
         return obj.project_id is not None

@@ -2,7 +2,7 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.utils.decorators import method_decorator
@@ -209,10 +209,30 @@ class HomeworkSubmissionViewSet(
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
+        # A historical submitter must not expose the current assignment's
+        # details after that assignment moves into another household.
+        qs = qs.filter(assignment__assigned_to__family_id=self.request.user.family_id)
+        raw_child = self.request.query_params.get("user_id")
+        if raw_child is not None:
+            try:
+                child_id = int(raw_child)
+            except (ValueError, TypeError):
+                raise NotFound("Child not found") from None
+            if child_id < 1 or child_id > 2**63 - 1:
+                raise NotFound("Child not found")
+            if self.request.user.role == "parent":
+                child = get_child_or_404(child_id, requesting_user=self.request.user)
+                if child is None:
+                    raise NotFound("Child not found")
+            elif child_id != self.request.user.pk:
+                raise NotFound("Child not found")
+            qs = qs.filter(user_id=child_id)
         status_filter = self.request.query_params.get("status")
-        if status_filter:
+        if status_filter == "reviewed":
+            qs = qs.filter(status__in=[HomeworkSubmission.Status.APPROVED, HomeworkSubmission.Status.REJECTED])
+        elif status_filter:
             qs = qs.filter(status=status_filter)
-        return qs
+        return qs.order_by("-created_at", "-pk")
 
     @action(detail=True, methods=["post"])
     @transaction.atomic

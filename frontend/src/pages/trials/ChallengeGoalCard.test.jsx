@@ -10,6 +10,55 @@ vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn()
 beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
+  it('shows the exact exclusive deadline of a rolling period in its saved timezone', () => {
+    const goal = buildChallengeGoal({ timezone: 'America/New_York', starts_at: '2026-10-28T16:15:00Z', ends_at: '2026-11-04T17:15:00Z' });
+    renderWithProviders(<ChallengeGoalDetail goal={goal} timezone="Pacific/Auckland" onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText(/Goal period/)).toHaveTextContent('Goal period Oct 28, 2026 – Nov 4, 2026');
+    const deadline = screen.getByText(/Counts work before/);
+    expect(deadline).toHaveTextContent('Nov 4, 2026');
+    expect(deadline).toHaveTextContent('12:15 PM EST');
+    expect(deadline.querySelector('time')).toHaveAttribute('dateTime', goal.ends_at);
+    expect(screen.queryByText(/Completion recorded/)).not.toBeInTheDocument();
+  });
+
+  it('keeps an incomplete ended period truthful without a completion timestamp', () => {
+    const goal = buildChallengeGoal({ status: 'expired', progress: '1', completed_at: null, updated_at: '2026-10-20T01:00:00Z' });
+    renderWithProviders(<ChallengeGoalCard goal={goal} timezone="America/Phoenix" onSelect={() => {}} />, { withAuth: false });
+    expect(screen.getByText('Period ended')).toBeInTheDocument();
+    expect(screen.getByText(/Goal period/)).toHaveTextContent('2026');
+    expect(screen.getByText('1 / 2 miles')).toBeInTheDocument();
+    expect(screen.queryByText(/Completion recorded|Completion date unavailable/)).not.toBeInTheDocument();
+  });
+
+  it.each(['card', 'detail'])('keeps the saved period beside a later recorded completion in the %s', (surface) => {
+    const goal = buildChallengeGoal({
+      status: 'completed', timezone: 'America/Phoenix',
+      completed_at: '2026-10-20T01:00:00Z',
+    });
+    renderWithProviders(surface === 'card'
+      ? <ChallengeGoalCard goal={goal} timezone="UTC" onSelect={() => {}} />
+      : <ChallengeGoalDetail goal={goal} timezone="UTC" onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText(/Goal period/)).toHaveTextContent('Goal period Oct 12, 2026 – Oct 18, 2026');
+    expect(screen.getByText(/Completion recorded/)).toHaveTextContent('Completion recorded Oct 19, 2026');
+    expect(screen.queryByText(/^(late|early|on time)\b/i)).not.toBeInTheDocument();
+  });
+
+  it.each(['active', 'expired'])('shows the automatic goal period in %s cards, including background bonuses', (status) => {
+    const goal = buildChallengeGoal({ status, origin: 'catalog', timezone: 'America/Phoenix' });
+    renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={() => {}} />, { withAuth: false });
+    expect(screen.getByText(/Goal period/)).toHaveTextContent('Goal period Oct 12, 2026 – Oct 18, 2026');
+    expect(screen.queryByText(/Completion recorded/)).not.toBeInTheDocument();
+  });
+
+  it('leaves a legacy completion date unknown instead of using its updated timestamp', () => {
+    const goal = buildChallengeGoal({
+      legacy: true, status: 'completed', completed_at: null, updated_at: '2026-10-21T01:00:00Z',
+    });
+    renderWithProviders(<ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('Completion date unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(/Completion recorded/)).not.toBeInTheDocument();
+  });
+
   it('retains exact catalog artwork, long title and pin control within the child card', async () => {
     resolveCatalogIcon.mockImplementation((id) => id === 'item-meat' ? { url: '/synthetic/meat.png' } : null);
     const goal = buildChallengeGoal({ name: 'An extraordinarily long challenge name to keep fully readable', catalog_icon: 'item-meat' });
@@ -126,7 +175,7 @@ describe('Challenge goal cards', () => {
 
   it('retains ended legacy attempts in history without treating them as active', () => {
     renderWithProviders(<ChallengeGoalCard goal={buildChallengeGoal({ legacy: true, status: 'failed' })} onSelect={() => {}} />, { withAuth: false });
-    expect(screen.getByText('Ended')).toBeInTheDocument();
+    expect(screen.getByText('Period ended')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /pin/i })).not.toBeInTheDocument();
   });
 

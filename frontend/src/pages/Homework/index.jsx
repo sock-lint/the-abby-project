@@ -19,7 +19,8 @@ import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import HomeworkSubmitSheet from '../../components/HomeworkSubmitSheet';
-import TimelinessBadge from '../../components/TimelinessBadge';
+import SubmissionTiming from '../../components/SubmissionTiming';
+import ReviewedWorkHistory from '../../components/ReviewedWorkHistory';
 import ProofGallery from '../../components/ProofGallery';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
@@ -311,10 +312,10 @@ function HomeworkWorkspace({ context }) {
                         <span className="text-ink-primary">{sub.assignment_title}</span>
                       </div>
                       <div className="flex gap-1.5 flex-wrap">
-                        <TimelinessBadge timeliness={sub.timeliness} />
                         <StatusBadge status={sub.status} />
                       </div>
                     </div>
+                    <SubmissionTiming record={sub} kind="homework" />
                     {sub.notes && (
                       <p className="font-script text-sm text-ink-secondary italic">
                         &ldquo;{sub.notes}&rdquo;
@@ -344,6 +345,7 @@ function HomeworkWorkspace({ context }) {
                 )}
               </ApprovalQueue>
             </section>
+            <ReviewedWorkHistory kind="homework" childId={targetUserId} />
           </>
         )}
       </QuestFolio>

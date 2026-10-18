@@ -4,22 +4,25 @@ import TimelinessBadge from './TimelinessBadge.jsx';
 
 describe('TimelinessBadge', () => {
   it.each([
-    ['early', 'Early +25%'],
-    ['on_time', 'On Time'],
-    ['late', 'Late -50%'],
-    ['beyond_cutoff', 'Past Cutoff'],
+    ['early', 'Early'],
+    ['on_time', 'On time'],
+    ['late', 'Late'],
+    ['beyond_cutoff', 'Late'],
   ])('renders label for %s', (t, label) => {
     render(<TimelinessBadge timeliness={t} />);
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
-  it('falls back to the raw value for unknown timeliness', () => {
-    render(<TimelinessBadge timeliness="galactic" />);
-    expect(screen.getByText('galactic')).toBeInTheDocument();
+  it.each([undefined, null, 'galactic', '__proto__'])('shows neutral unknown timing for %s without implying on-time work', (timeliness) => {
+    render(<TimelinessBadge timeliness={timeliness} />);
+    const badge = screen.getByText('Timing unknown');
+    expect(badge).toHaveClass('text-ink-secondary');
+    expect(badge).not.toHaveClass('text-sheikah-teal-deep');
+    expect(screen.queryByText('On time')).not.toBeInTheDocument();
   });
 
-  it('uses on_time styling for unknown timeliness', () => {
-    const { container } = render(<TimelinessBadge timeliness="galactic" />);
-    expect(container.firstChild.className).toContain('bg-blue-500/20');
+  it('does not promise reward percentage changes from a submission classification', () => {
+    const { container } = render(<TimelinessBadge timeliness="early" />);
+    expect(container).not.toHaveTextContent('%');
   });
 });
