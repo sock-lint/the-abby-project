@@ -20,6 +20,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `api-not-found.json` | Unknown `/api/` paths return JSON 404s instead of the SPA's HTML/200; routing and React client checks preserve the generic error without retries or echoed request values |
 | `lifecycle-preview.json`, `lifecycle-child-preview.json`, `lifecycle-close-preview.json` | Self-scoped Settings impact review, active parent successors, shared ownership counts and a membership fingerprint; child privacy and sole-active-parent closure remain distinct |
 | `template-skills.json` | Parent `GET /api/templates/1/`; reusable plans preserve weighted project skill tags and fixed milestone XP tags |
 | `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |

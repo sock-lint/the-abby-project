@@ -43,13 +43,21 @@ class QuestRewardItemSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_item_catalog_icon(self, obj):
+        cache = self.context.get("reward_item_details_cache")
+        if cache is not None:
+            from .reward_items import reward_item_details
+
+            return reward_item_details(obj.item, cache=cache)["item_catalog_icon"]
         return item_catalog_icon(obj.item)
 
     def to_representation(self, instance):
         from .reward_items import reward_item_details
 
         data = super().to_representation(instance)
-        data.update(reward_item_details(instance.item, snapshot=getattr(instance, "reward_snapshot", None)))
+        data.update(reward_item_details(
+            instance.item, snapshot=getattr(instance, "reward_snapshot", None),
+            cache=self.context.get("reward_item_details_cache"),
+        ))
         return data
 
 

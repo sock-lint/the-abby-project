@@ -5,11 +5,12 @@ import re
 from zoneinfo import ZoneInfo
 
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.pets.models import PetSpecies
 from apps.quests.models import (
     ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition,
     QuestParticipant, QuestRewardItem,
@@ -185,5 +186,65 @@ class ChallengeListQueryTests(TestCase):
             self.assertEqual({p["user"] for p in row["participants"]}, {self.child.pk, self.sibling.pk})
             self.assertEqual(row["rewards"]["items"][0]["item"], self.item.pk)
             self.assertEqual(row["rewards"]["items"][0]["quantity"], 2)
+        self.assertFalse(CoinLedger.objects.exists())
+        self.assert_constant_queries(small, large)
+
+    def legacy_egg_reward(self):
+        PetSpecies.objects.create(
+            name="Legacy Query Wolf", slug="legacy-query-wolf", icon="W", sprite_key="wolf",
+        )
+        ItemDefinition.objects.filter(pk=self.item.pk).update(
+            item_type="egg", metadata={"species": "Legacy Query Wolf"},
+        )
+
+    def test_warm_saved_legacy_egg_previews_have_constant_query_count(self):
+        self.legacy_egg_reward()
+        self.saved_goal("Legacy egg 0", completed=True)
+        self.client.get("/api/challenges/")
+        small = self.measured_get()
+        for index in range(1, 6):
+            row = self.saved_goal(f"Legacy egg {index}", completed=True)
+            row.snapshot["items"][0].update(
+                item_name=f"Frozen reward {index}", item_catalog_available=True,
+            )
+            row.save(update_fields=["snapshot"])
+        large = self.measured_get()
+        by_name = {row["name"]: row for row in large[0]["results"]}
+        for index in range(1, 6):
+            self.assertEqual(
+                by_name[f"Legacy egg {index}"]["rewards"]["items"][0]["item_name"],
+                f"Frozen reward {index}",
+            )
+        for row in large[0]["results"] + large[0]["recent_receipts"]:
+            self.assertFalse(row["rewards"]["items"][0]["item_catalog_available"])
+        self.assertFalse(CoinLedger.objects.exists())
+        self.assert_constant_queries(small, large)
+        supported_policy = {
+            "schema_version": 1,
+            "pets": [{"species_slug": "legacy-query-wolf", "sprite_key": "wolf", "potion_slugs": ["base"]}],
+            "potion_slugs": ["base"],
+        }
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=supported_policy):
+            refreshed = self.measured_get()[0]
+        for row in refreshed["results"] + refreshed["recent_receipts"]:
+            self.assertTrue(row["rewards"]["items"][0]["item_catalog_available"])
+        refreshed_by_name = {row["name"]: row for row in refreshed["results"]}
+        self.assertEqual(
+            refreshed_by_name["Legacy egg 5"]["rewards"]["items"][0]["item_name"],
+            "Frozen reward 5",
+        )
+
+    def test_warm_legacy_egg_promises_have_constant_query_count(self):
+        self.legacy_egg_reward()
+        self.legacy_batch(0)
+        self.client.get("/api/challenges/")
+        small = self.measured_get()
+        for index in range(1, 6):
+            self.legacy_batch(index)
+        large = self.measured_get()
+        for row in large[0]["results"]:
+            self.assertEqual(row["rewards"]["items"][0]["item"], self.item.pk)
+            self.assertEqual(row["rewards"]["items"][0]["quantity"], 2)
+            self.assertFalse(row["rewards"]["items"][0]["item_catalog_available"])
         self.assertFalse(CoinLedger.objects.exists())
         self.assert_constant_queries(small, large)
