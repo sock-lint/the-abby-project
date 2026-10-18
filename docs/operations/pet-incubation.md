@@ -59,10 +59,16 @@ actual start, wait, ready, hatch and replay producers.
 
 ## Progression Lab boundary
 
-The current Progression Lab simulates hatching within an active daily visit.
-It does not yet model this incubation deadline, the one-egg limit, or an
-explicit later hatch visit. Its pet, growth and badge milestone forecasts
-therefore do not establish parity with the timed live loop. Existing reports
-retain their original model bindings. Incubation is documented here separately
-while the independently owned Lab update is in progress; no simulation engine
-or saved experiment policy is changed by this feature.
+The Lab records the installed incubation policy with metadata and each report.
+It reserves one compatible egg/potion pair during active care, advances the
+frozen elapsed deadline on inactive days, then claims at the next active care
+visit before activity rewards and feeding. Pending eggs remain separate from
+owned companions and completed milestones. Hatching and confirmed evolution
+evaluate the same companion badge scopes as live care.
+
+Daily visits occur at fixed 24-hour intervals; this assumption does not predict
+real return habits or phone timing. Both sides of a Content Workbench comparison
+share one captured policy. Later duration changes require a new simulation
+before publication, while earlier report bodies retain their original bindings
+and missing policy fields remain unrecorded. See [Progression Lab](progression-lab.md)
+for the clock, care strategy and model limits.
