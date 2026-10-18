@@ -137,6 +137,7 @@ export default function ParentDashboard() {
             )}
             <ApprovalQueueList
               items={pending}
+              timezone={user.family?.timezone}
               loading={loading}
               incomplete={incomplete}
               showEmpty={pendingTimecards === 0 && pendingPrintCount === 0 && pendingDeliveryCount === 0}

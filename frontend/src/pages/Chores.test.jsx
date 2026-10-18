@@ -36,7 +36,7 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=duti
 }
 
 describe('Chores', () => {
-  it('offers an optional deadline only for a one-time chore and sends the selected date', async () => {
+  it('uses one optional scheduled date for a one-time chore and sends it as the deadline', async () => {
     const user = userEvent.setup();
     const create = spyHandler('post', /\/api\/chores\/$/, { id: 7, title: 'Plant bulbs' });
     renderPage(buildParent(), [
@@ -47,10 +47,10 @@ describe('Chores', () => {
       create.handler,
     ]);
     await user.click(await screen.findByRole('button', { name: /new chore/i }));
-    expect(screen.queryByLabelText('Due date (optional)')).not.toBeInTheDocument();
-    await user.click(screen.getByLabelText('Recurrence'));
+    expect(screen.queryByLabelText('Scheduled date (optional)')).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Repeats'));
     await user.click(screen.getByRole('option', { name: 'One-time' }));
-    const dueDate = screen.getByLabelText('Due date (optional)');
+    const dueDate = screen.getByLabelText('Scheduled date (optional)');
     expect(dueDate).not.toBeRequired();
     fireEvent.change(dueDate, { target: { value: '2026-10-18' } });
     await user.type(screen.getByLabelText('Title'), 'Plant bulbs');
@@ -73,10 +73,10 @@ describe('Chores', () => {
       update.handler,
     ]);
     await user.click(await screen.findByRole('button', { name: 'Edit chore' }));
-    expect(screen.getByLabelText('Due date (optional)')).toHaveValue('2026-10-18');
-    await user.click(screen.getByLabelText('Recurrence'));
+    expect(screen.getByLabelText('Scheduled date (optional)')).toHaveValue('2026-10-18');
+    await user.click(screen.getByLabelText('Repeats'));
     await user.click(screen.getByRole('option', { name: 'Weekly' }));
-    expect(screen.queryByLabelText('Due date (optional)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Scheduled date (optional)')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Update' }));
     await waitFor(() => expect(update.calls).toHaveLength(1));
     expect(update.calls[0].body).toMatchObject({ recurrence: 'weekly', due_date: null });
@@ -96,15 +96,15 @@ describe('Chores', () => {
       update.handler,
     ]);
     await user.click(await screen.findByRole('button', { name: 'Edit chore' }));
-    const field = screen.getByLabelText('Due date (optional)');
-    expect(field).toHaveAccessibleDescription('Leave blank for no deadline.');
+    const field = screen.getByLabelText('Scheduled date (optional)');
+    expect(field).toHaveAccessibleDescription('The chore is due on this day. Leave blank to keep it unscheduled.');
     fireEvent.change(field, { target: { value: '' } });
     await user.click(screen.getByRole('button', { name: 'Update' }));
     await waitFor(() => expect(update.calls).toHaveLength(1));
     expect(update.calls[0].body).toMatchObject({ recurrence: 'one_time', due_date: null });
   });
 
-  it('shows the saved weekly period, Sunday deadline and actual Friday submission in parent review', async () => {
+  it('shows the weekly scheduled date and actual day done with precise timestamps in details', async () => {
     renderPage(buildParent(), [
       http.get('*/api/chores/', () => HttpResponse.json([])),
       http.get('*/api/chore-completions/', () => HttpResponse.json([{
@@ -119,12 +119,14 @@ describe('Chores', () => {
       http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
       http.get('*/api/skills/', () => HttpResponse.json([])),
     ]);
-    await screen.findByText('Scheduled week');
-    expect(screen.getByText('Scheduled week').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-12');
-    expect(screen.getByText('Due').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
+    await screen.findByText('Scheduled for');
+    expect(screen.getByText('Scheduled for').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
     expect(screen.getByText('Marked complete').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-16T18:30:00+00:00');
     expect(screen.getByText('Marked complete').parentElement).toHaveTextContent('Oct 16');
-    expect(screen.getByText('On time')).toBeInTheDocument();
+    expect(screen.getByText('Done on').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-16');
+    expect(screen.getByText('Marked complete').closest('details')).not.toHaveAttribute('open');
+    expect(screen.queryByText('On time')).not.toBeInTheDocument();
+    expect(screen.queryByText('Missed')).not.toBeInTheDocument();
   });
 
   it('loads selected-child reviewed chores outside the pending queue only when opened', async () => {
@@ -152,8 +154,8 @@ describe('Chores', () => {
     expect(historyQueries).toHaveLength(1);
     expect(historyQueries[0]).toMatchObject({ status: 'reviewed', user_id: '2', page: '1' });
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
-    expect(screen.getByText('Recorded period date')).toBeInTheDocument();
-    expect(screen.getByText(/original deadline and schedule were not saved/i)).toBeInTheDocument();
+    expect(screen.getByText('Recorded for')).toBeInTheDocument();
+    expect(screen.getByText(/original schedule was not saved/i)).toBeInTheDocument();
     expect(screen.queryByText('On time')).not.toBeInTheDocument();
   });
 
@@ -169,10 +171,10 @@ describe('Chores', () => {
       }])),
     ]);
     await screen.findByText('Old watering');
-    expect(screen.getByText(`Due ${formatDate('2026-10-18')}`)).toBeInTheDocument();
-    expect(screen.getByText('Recorded period date')).toBeInTheDocument();
+    expect(screen.getByText(`Scheduled for ${formatDate('2026-10-18')}`)).toBeInTheDocument();
+    expect(screen.getByText('Recorded for')).toBeInTheDocument();
     expect(screen.getByText('Marked complete').parentElement.querySelector('time')).toHaveAttribute('datetime', '2026-10-16T18:30:00Z');
-    expect(screen.getByText(/original deadline and schedule were not saved/i)).toBeInTheDocument();
+    expect(screen.getByText(/original schedule was not saved/i)).toBeInTheDocument();
     expect(screen.queryByText('Reviewed chores')).not.toBeInTheDocument();
     expect(screen.queryByText('On time')).not.toBeInTheDocument();
   });

@@ -35,6 +35,20 @@ const redemption = {
 };
 
 describe('ApprovalQueueList', () => {
+  it('shows legacy chore completion in the family timezone in both the queue and details', async () => {
+    const user = userEvent.setup();
+    renderList([{ ...chore, timingRecord: {
+      completed_date: '2026-10-17', created_at: '2026-10-17T23:30:00Z', timing_snapshot: null,
+    } }], undefined, { timezone: 'Asia/Tokyo' });
+    const doneOn = screen.getByText('Done on').parentElement;
+    expect(doneOn.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
+    expect(doneOn).not.toHaveTextContent('UTC');
+    await user.click(screen.getByRole('button', { name: /dishes.*tap to see the work/i }));
+    const detail = await screen.findByRole('dialog', { name: 'Dishes' });
+    const detailTime = within(detail).getByText('Done on').parentElement;
+    expect(detailTime.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
+  });
+
   it('shows the saved deadline and actual submission before approving work', () => {
     renderList([{ ...homework, timingRecord: {
       created_at: '2026-10-17T01:30:00Z', timeliness: 'on_time',

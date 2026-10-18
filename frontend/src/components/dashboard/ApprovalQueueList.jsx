@@ -97,7 +97,7 @@ function hasDetail(item) {
   return Boolean(thumbFor(item) || item.notes || item.timingRecord);
 }
 
-function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpenDetail, selected, onSelect, groupBusy }) {
+function Row({ item, timezone, isHidden, onApprove, onOpenReject, onProposalReview, onOpenDetail, selected, onSelect, groupBusy }) {
   const [busy, setBusy] = useState(null); // 'approve' | 'reject' | null
   const [error, setError] = useState('');
   const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
@@ -185,7 +185,7 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
             )}
           </div>
         )}
-        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} />}
+        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} timezone={timezone} />}
         </div>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-3 sm:shrink-0">
@@ -237,7 +237,7 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
   );
 }
 
-function DetailSheet({ item, onClose, onApprove, onReject }) {
+function DetailSheet({ item, timezone, onClose, onApprove, onReject }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const meta = KIND_LABELS[item.kind] || KIND_LABELS.chore;
@@ -271,7 +271,7 @@ function DetailSheet({ item, onClose, onApprove, onReject }) {
             {item.subtitle ? ` · ${item.subtitle}` : ''}
           </span>
         </div>
-        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} />}
+        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} timezone={timezone} />}
         {photos.length > 0 && (
           <ProofGallery proofs={photos} />
         )}
@@ -377,7 +377,7 @@ function RejectSheet({ item, onCancel, onConfirm }) {
  *   onDone  : called after a successful approve/reject (used to reload counts)
  */
 export default function ApprovalQueueList({
-  items = [], loading = false, incomplete = false, showEmpty = true, onDone,
+  items = [], loading = false, incomplete = false, showEmpty = true, onDone, timezone,
 }) {
   const navigate = useNavigate();
   const [hiddenIds, setHiddenIds] = useState(() => new Set());
@@ -595,6 +595,7 @@ export default function ApprovalQueueList({
                   <Row
                     key={rowKey(it)}
                     item={it}
+                    timezone={timezone}
                     isHidden={hiddenIds.has(rowKey(it))}
                     onApprove={handleApproveOne}
                     onOpenReject={(target) => setRejectTarget(target)}
@@ -613,6 +614,7 @@ export default function ApprovalQueueList({
       {detailTarget && (
         <DetailSheet
           item={detailTarget}
+          timezone={timezone}
           onClose={() => setDetailTarget(null)}
           onApprove={handleApproveOne}
           onReject={(target) => setRejectTarget(target)}
