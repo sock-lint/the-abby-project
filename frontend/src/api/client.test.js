@@ -347,7 +347,16 @@ describe('upstream HTML recovery', () => {
       }
       expect(getToken()).toBe('profile-session');
       expect(Sentry.captureException).not.toHaveBeenCalled();
-      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({ category: 'api', level: 'warning' }));
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+        category: 'api', level: 'warning',
+        data: expect.objectContaining({
+          status: 200,
+          responseDiagnostics: {
+            redirected: false, originRelation: 'unknown', pathRelation: 'unknown',
+            responseType: 'default', serviceWorkerControlled: false,
+          },
+        }),
+      }));
     } finally { fetchSpy.mockRestore(); }
   });
 
@@ -363,6 +372,45 @@ describe('upstream HTML recovery', () => {
         expect.objectContaining({ message: 'API 200 with non-JSON body: GET /auth/me/' }),
         expect.objectContaining({ extra: expect.objectContaining({ status: 200, attempts: 2 }) }),
       );
+    } finally { fetchSpy.mockRestore(); }
+  });
+
+  it.each([
+    { redirected: false, finalUrl: 'http://localhost:3000/api/pulse/?private=synthetic', originRelation: 'same_origin', pathRelation: 'same_path' },
+    { redirected: true, finalUrl: 'https://other.example/api/private/123?token=synthetic', originRelation: 'cross_origin', pathRelation: 'other_api_path' },
+    { redirected: true, finalUrl: 'http://localhost:3000/private/123?token=synthetic', originRelation: 'same_origin', pathRelation: 'other_path' },
+  ])('distinguishes malformed pulse response provenance: $originRelation / $pathRelation', async ({ redirected, finalUrl, originRelation, pathRelation }) => {
+    setToken('pulse-session');
+    const controller = new AbortController();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      const response = htmlResponse();
+      Object.defineProperties(response, {
+        redirected: { value: redirected },
+        url: { value: finalUrl.replace('http://localhost:3000', window.location.origin) },
+        type: { value: 'basic' },
+      });
+      return response;
+    });
+    try {
+      await expect(api.get('/pulse/', { signal: controller.signal })).rejects.toThrow(UNAVAILABLE_MESSAGE);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      const [error, { extra }] = Sentry.captureException.mock.calls[0];
+      expect(error.message).toBe('API 200 with non-JSON body: GET /pulse/');
+      expect(extra).toMatchObject({
+        status: 200, attempts: 2,
+        responseDiagnostics: { redirected, originRelation, pathRelation, responseType: 'basic', serviceWorkerControlled: false },
+      });
+      expect(Object.keys(extra.responseDiagnostics).sort()).toEqual([
+        'originRelation', 'pathRelation', 'redirected', 'responseType', 'serviceWorkerControlled',
+      ]);
+      expect(JSON.stringify(extra.responseDiagnostics)).not.toMatch(/synthetic|private|123|token|other\.example/);
+      for (const [, config] of fetchSpy.mock.calls) {
+        expect(config.cache).toBe('no-store');
+        expect(config.headers.Authorization).toBe('Token pulse-session');
+        expect(config.signal).toBe(controller.signal);
+      }
+      expect(getToken()).toBe('pulse-session');
     } finally { fetchSpy.mockRestore(); }
   });
 
