@@ -44,6 +44,21 @@ function CurrentLocation() {
 }
 
 describe('QuickActionsSheet', () => {
+  it('holds journal capture after a failed read and loads the existing entry on retry', async () => {
+    let failed = true;
+    renderSheet(buildUser(), [http.get('*/api/chronicle/journal/today/', () => failed
+      ? HttpResponse.json({ detail: 'Journal unavailable' }, { status: 503 })
+      : HttpResponse.json({ id: 42, title: 'Already saved', summary: 'Keep this', is_private: true, occurred_on: new Date().toLocaleDateString('en-CA') }))]);
+    const user = userEvent.setup();
+    await screen.findByText('Journal unavailable');
+    expect(screen.getByRole('button', { name: /write in journal/i })).toBeDisabled();
+    failed = false;
+    await user.click(screen.getByRole('button', { name: 'Try again' }));
+    await user.click(await screen.findByRole('button', { name: /edit today.s journal/i }));
+    expect(await screen.findByRole('dialog', { name: 'Edit your journal entry' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/mind/i)).toHaveValue('Keep this');
+  });
+
   it.each([
     ['Assign homework', '/quests?tab=study&new=1&child=8'],
     ['New chore', '/quests?tab=duties&propose=1&child=8'],

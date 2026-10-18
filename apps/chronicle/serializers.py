@@ -8,11 +8,15 @@ class ChronicleEntrySerializer(serializers.ModelSerializer):
     reward_receipt = serializers.SerializerMethodField()
 
     def get_reward_receipt(self, entry):
-        if entry.kind not in (ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.GRADE):
+        if entry.kind not in (ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.DAILY_NOTE, ChronicleEntry.Kind.GRADE):
             return None
-        return entry.metadata.get("reward_receipt", {
+        receipt = entry.metadata.get("reward_receipt", {
             "status": "unavailable", "xp_awarded": 0, "skills": [],
         })
+        if entry.kind in (ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.DAILY_NOTE):
+            # Old rows have no verified coin receipt; never infer a payout.
+            return {"coins_awarded": 0, "coin_status": "unavailable", **receipt}
+        return receipt
 
     class Meta:
         model = ChronicleEntry

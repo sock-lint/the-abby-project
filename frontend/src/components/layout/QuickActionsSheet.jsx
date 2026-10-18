@@ -8,9 +8,9 @@ import {
   clockIn, clockOut, getProjects,
   getHomeworkDashboard,
   getSavingsGoals,
-  getTodayJournal,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import useJournalCapture from '../../hooks/useJournalCapture';
 import useChildContext from '../../hooks/useChildContext';
 import useMountedRef from '../../hooks/useMountedRef';
 import ChildContext from '../family/ChildContext';
@@ -206,7 +206,6 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
   const [clockNotes, setClockNotes] = useState('');
   const [clockBusy, setClockBusy] = useState(false);
-  const [journalOpen, setJournalOpen] = useState(false);
   const [gradeOpen, setGradeOpen] = useState(false);
   const [creationOpen, setCreationOpen] = useState(false);
   const [movementOpen, setMovementOpen] = useState(false);
@@ -217,24 +216,8 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
   const [submitAssignment, setSubmitAssignment] = useState(null);
   // Optional — see ClockPane.
   const showSuccess = useContext(SuccessToastContext);
-  // Child only: today's journal entry (if already written). Drives the row
-  // label + whether the modal opens in edit or create mode.
-  const { data: todayJournal } = useApi(
-    isParent ? () => Promise.resolve(null) : getTodayJournal,
-  );
-  const [journalMode, setJournalMode] = useState('create');
-  const [journalEntry, setJournalEntry] = useState(null);
-
-  const openJournal = () => {
-    if (todayJournal && todayJournal.id) {
-      setJournalEntry(todayJournal);
-      setJournalMode('edit');
-    } else {
-      setJournalEntry(null);
-      setJournalMode('create');
-    }
-    setJournalOpen(true);
-  };
+  const journal = useJournalCapture(!isParent);
+  const todayJournal = journal.data;
 
   // Contextual enable/disable flags.
   const { data: hwDashboard } = useApi(isParent ? () => Promise.resolve(null) : getHomeworkDashboard);
@@ -291,13 +274,12 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
         }}
       />
     )}
-    {journalOpen && (
+    {journal.capture && (
       <JournalEntryFormModal
-        mode={journalMode}
-        entry={journalEntry}
-        onClose={() => setJournalOpen(false)}
-        onSaved={() => {
-          setJournalOpen(false);
+        {...journal.capture}
+        onClose={journal.close}
+        onSaved={(saved) => {
+          journal.saved(saved);
           onClose();
         }}
       />
@@ -397,15 +379,17 @@ function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReloa
               />
               <ActionRow
                 icon={<PenTool size={18} />}
-                label={todayJournal && todayJournal.id ? 'Edit today\u2019s journal' : 'Write in journal'}
+                label={journal.loading || journal.refreshing ? 'Checking today’s entry…' : todayJournal && todayJournal.id ? 'Edit today\u2019s journal' : 'Write in journal'}
                 hint={
                   todayJournal && todayJournal.id
                     ? 'You already wrote today \u2014 edit it'
                     : 'Dictate or type a memory for today'
                 }
                 tone="royal"
-                onClick={openJournal}
+                disabled={journal.loading || journal.refreshing || Boolean(journal.error)}
+                onClick={journal.open}
               />
+              <ErrorAlert message={journal.error} onRetry={journal.reload} />
               {/* Use the same feature names as the Tasks tabs. */}
               <ActionRow
                 icon={<BookOpen size={18} />}

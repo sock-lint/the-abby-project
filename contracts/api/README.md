@@ -1,5 +1,25 @@
 # Shared API response fixtures
 
+`journal-created.json`, `journal-replayed.json`, `journal-today.json` and
+`journal-edited.json` bind the Today capture and Memories journal to the same
+saved entry and measured reward receipt. Journal receipts add whole-number
+`coins_awarded` and `coin_status` (`awarded`, `already_received`, or
+`unavailable`) alongside the existing verified XP fields. The amount describes
+the original committed award; reading, replaying and editing do not pay again.
+`journal-coins-already-received.json` verifies that a note saved by an older
+client and a new journal share one daily Coin acknowledgment. Existing journal
+XP remains independent from this daily Coin eligibility.
+
+`journal-summary-legacy.json` contains a current journal and an older
+`daily_note` in one history. Imported notes retain their original date and text,
+remain private and read-only, and report unavailable historical rewards with
+zero verified XP/Coins rather than inventing a payout. They award nothing on
+import or read. `journal-summary-parent-private.json` excludes both private
+entries from the parent's scoped summary. Producers live in
+`config/tests/test_journal_api_contract_fixtures.py`; React transport consumers
+live in `frontend/src/api/journalContractFixtures.test.js`, and both run in the
+required API fixtures workflow.
+
 `progression-lab-metadata.json`, `progression-lab-report.json` and
 `progression-lab-economy-report.json` bind anonymous new-child forecasts to
 their real staff-parent endpoints. The economy example uses synthetic reward

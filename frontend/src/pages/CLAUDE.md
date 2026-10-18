@@ -542,11 +542,24 @@ local sign-out, without sending a logout request with a deleted credential.
 ## Daily reflection and challenges
 
 Child Today owns `dashboard/WellbeingCard.jsx`: today's affirmation and a gentle
-one-line daily note, with optional prompts and extra thoughts, appear after tasks, projects and the pinned goal, before progress
-and Rewards & earnings.
-The same self-scoped wellbeing endpoints handle first saves and later edits;
-parents do not render this card. Profile owns identity, picture, character,
-frames and titles. Its former daily-note card and Challenges shortcut are removed.
+entry point to the same Journal shown in Memories. It previews today's saved
+entry, names its sharing state, and links to `/chronicle?tab=journal`.
+`useJournalCapture` is shared by Today, Journal and Quick actions. It refreshes
+`getTodayJournal` before opening the shared `JournalEntryFormModal`, holds
+capture on loading/read failures, and chooses create or edit from confirmed
+server state. Account/credential keys fence private preview and capture state.
+The modal offers one writing field, an optional title, dictation and gentle
+ideas, with the existing per-account drafts and immutable save reconciliation.
+New entries default private; edits and create-conflict recovery preserve the
+existing entry's sharing choice. Confirmations show only server-receipted XP
+and Coins, suppress reward celebrations for edits and known saved retries, and
+refresh shared balances after saving. The flat daily 2 Coin bonus accompanies
+normal journal progression; it is not a promise of the entire coin payout.
+Migrated `daily_note` memories appear alongside journals, remain private and
+read-only, and offer no sharing or family conversation controls. Timeline and
+entry-detail surfaces enforce the same legacy-note privacy.
+Parents do not render Today's card. Profile owns identity, picture, character,
+frames and titles.
 Challenges remains under Tasks → Challenges (`/quests?tab=trials`). Every matching
 goal tracks automatically; pinning controls which one is featured. Today displays
 `PinnedChallengeCard` and the automatic `DailyChallengeCard` (labeled Today's
@@ -562,7 +575,7 @@ pages/
                                branches to ChildDashboard / ParentDashboard
   ChildDashboard.jsx           Child body (HeroPrimaryCard + VitalPipStrip
                                + quest log + WellbeingCard + AccordionSections)
-  dashboard/WellbeingCard.jsx   Child Today's affirmation + optional daily note
+  dashboard/WellbeingCard.jsx   Child Today's affirmation + shared journal entry point
   ParentDashboard.jsx          Parent body (ApprovalQueueList + Week at a
                                glance + Quick adjusts)
   _dashboardShared.js          formatWeekdayDate, mapProjectTone,

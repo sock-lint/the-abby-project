@@ -131,16 +131,19 @@ entries:
     icon: "🪶"
     audience_title: "Your daily journal"
     chapter: daily_life
-    summary: "One private reflection per day, with writing XP."
+    summary: "One daily journal, with writing XP and a small Coin reward."
     kid_voice: |
       Write what mattered today: something you did, a worry, a funny moment,
       or anything you want to remember. Keep it private or choose to share
-      it with your parents.
+      it with your parents. A few words on Today go into this same journal.
     mechanics:
       - "Each child may write one journal entry per local day; the database enforces one-per-day."
+      - "Today and Memories → Journal open the same entry. A few words are enough; length and mood do not determine rewards."
       - "The first saved entry can earn writing XP from a 15 XP pool split toward Creative Writing and Vocabulary, and counts for streaks, drops, and challenges. The save confirmation shows any verified XP award."
+      - "The first save each local day also earns 2 Coins. This shares the earlier daily-note allowance, stays flat with Lucky Coin, and does not pay again for edits, retries, or sharing changes."
       - "Children can edit entry text on the day it was written. After midnight, the text is read-only, but its sharing setting can still be changed."
       - "New journal entries default to Only me. Parents can read only entries marked Shared with parents."
+      - "Earlier daily notes appear privately in the same history with their original dates. They remain read-only and do not earn retroactive rewards. Writing is optional; skipping a note has no separate penalty."
     parent_knobs:
       settings: []
       powers_badges:
@@ -150,7 +153,7 @@ entries:
         - "The XP split is hardcoded to Creative Writing and Vocabulary."
     economy:
       money: false
-      coins: false
+      coins: true
       xp: true
       drops: true
       quest_progress: true
@@ -158,7 +161,7 @@ entries:
     trial_template: scribe
     trial:
       prompt: "Write what mattered today."
-      payoff: "+15 XP across Creative Writing & Vocabulary"
+      payoff: "Writing XP when eligible · 2 Coins on the first daily save"
       placeholder: "Today I…"
       min_length: 8
 
@@ -623,7 +626,7 @@ entries:
     mechanics:
       - "Coins are tracked in an append-only CoinLedger separate from real money."
       - "Coins can come from tracked time, project/milestone bonuses, badges, chores, challenges, daily check-ins, expeditions, exchanges, drops/salvage, birthdays, and parent adjustments."
-      - "The personal note on Today is separate from Journal: its first save each local day earns 2 Coins, with no XP, drop chance, challenge progress, or streak credit. Edits do not pay again, and skipping a note has no penalty."
+      - "Today and Memories → Journal save into the same journal. The first daily entry earns 2 Coins alongside eligible journal rewards; edits and retries do not pay again. Earlier daily-note payouts share this allowance, and older notes receive no retroactive reward."
       - "Reward redemption deducts Coins immediately as a held debit; rejection refunds them."
       - "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory on approval. Real-world rewards stay approved until a parent confirms handover; combined offers use both steps. Unavailable new offers are omitted while earlier pending promises are preserved."
       - "Money-to-Coins exchange is parent-approved and snapshots the exchange rate at request time."

@@ -1,0 +1,60 @@
+{
+  "id": 401,
+  "kind": "journal",
+  "occurred_on": "2026-10-10",
+  "chapter_year": 2026,
+  "title": "A little note about today",
+  "summary": "Today was hard. Drawing helped me feel calmer.",
+  "icon_slug": "",
+  "event_slug": "",
+  "related_object_type": "",
+  "related_object_id": null,
+  "metadata": {
+    "request_fingerprint": "b3d94ed24215b98b192b24241a9f0f56fd8666bfac67b4abe119954cbcae50a1",
+    "reward_receipt": {
+      "receipt_id": "journal:401",
+      "status": "awarded",
+      "xp_awarded": 15,
+      "skills": [
+        {
+          "skill_id": 32,
+          "name": "Creative Writing",
+          "xp": 10
+        },
+        {
+          "skill_id": 33,
+          "name": "Vocabulary",
+          "xp": 5
+        }
+      ],
+      "awarded_at": "2026-10-10T19:00:00+00:00",
+      "coins_awarded": 2,
+      "coin_status": "awarded"
+    }
+  },
+  "viewed_at": null,
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "is_private": true,
+  "user": 7,
+  "client_entry_id": "33333333-3333-4333-8333-333333333333",
+  "reward_receipt": {
+    "coins_awarded": 2,
+    "coin_status": "awarded",
+    "receipt_id": "journal:401",
+    "status": "awarded",
+    "xp_awarded": 15,
+    "skills": [
+      {
+        "skill_id": 32,
+        "name": "Creative Writing",
+        "xp": 10
+      },
+      {
+        "skill_id": 33,
+        "name": "Vocabulary",
+        "xp": 5
+      }
+    ],
+    "awarded_at": "2026-10-10T19:00:00+00:00"
+  }
+}

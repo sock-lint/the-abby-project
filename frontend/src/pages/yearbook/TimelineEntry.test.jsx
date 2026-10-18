@@ -29,6 +29,12 @@ function mountAsUser(entry, userFixture) {
 }
 
 describe('TimelineEntry', () => {
+  it('labels a saved daily note private and withholds it from a parent', async () => {
+    mountAsUser({ id: 80, kind: 'daily_note', user: 1, is_private: false,
+      title: 'Old private note', summary: 'Private legacy words', occurred_on: '2026-10-10' }, buildParent());
+    await waitFor(() => expect(screen.queryByText('Old private note')).toBeNull());
+  })
+
   it('summarizes quarter report cards in the timeline and shows subject results in their detail', async () => {
     const { user } = mountAsUser({
       id: 40, kind: 'grade', user: 1, title: 'Quarter 2 report card', is_private: true,

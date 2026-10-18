@@ -1,272 +1,146 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import WellbeingCard from './WellbeingCard.jsx';
+import JournalReader from '../chronicle/JournalReader.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
 import { spyHandler } from '../../test/spy.js';
 import { buildUser } from '../../test/factories.js';
-import { PwaStatusContext } from '../../pwa/pwaStatus.context.js';
+import { journalDraftKey } from '../yearbook/journalDraft';
 
 vi.mock('framer-motion', async () => {
-  const a = await vi.importActual('framer-motion');
-  return { ...a, AnimatePresence: ({ children }) => children };
+  const actual = await vi.importActual('framer-motion');
+  return { ...actual, AnimatePresence: ({ children }) => children };
 });
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = new Date().toLocaleDateString('en-CA');
+const AFFIRMATION = { affirmation: { text: 'You are enough today, exactly as you are.' }, gratitude_lines: [] };
+const receipt = { status: 'awarded', xp_awarded: 19, coins_awarded: 2, coin_status: 'awarded' };
 
-const FRESH_TODAY = {
-  id: 7,
-  date: TODAY,
-  is_today: true,
-  affirmation: {
-    slug: 'rest-is-progress',
-    text: 'Rest is part of the work, not a break from it.',
-    tone: 'calm',
-  },
-  gratitude_lines: [],
-  gratitude_paid: false,
-  max_lines: 3,
-  max_line_chars: 200,
-  coin_reward: 2,
-};
-
-function renderCard(handlers = [], updateStatus) {
-  server.use(
-    http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
-    ...handlers,
-  );
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        {updateStatus ? <PwaStatusContext.Provider value={updateStatus}><WellbeingCard /></PwaStatusContext.Provider> : <WellbeingCard />}
-      </AuthProvider>
-    </MemoryRouter>,
-  );
+function renderCard(handlers = []) {
+  server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+    http.get('*/api/wellbeing/today/', () => HttpResponse.json(AFFIRMATION)), ...handlers);
+  return render(<MemoryRouter><AuthProvider><Routes>
+    <Route path="/" element={<WellbeingCard />} />
+    <Route path="/chronicle" element={<JournalReader />} />
+  </Routes></AuthProvider></MemoryRouter>);
 }
 
-describe('WellbeingCard', () => {
-  it('protects an unsaved daily note from app updates until the server confirms saving', async () => {
+describe('Today journal entry point', () => {
+  it('checks again before capture when another entry point saved since Today loaded', async () => {
+    let saved = null;
+    renderCard([http.get('*/api/chronicle/journal/today/', () => saved ? HttpResponse.json(saved) : new HttpResponse(null, { status: 204 }))]);
     const user = userEvent.setup();
-    const guards = new Set();
-    const registerUpdateGuard = (id, active) => { if (active) guards.add(id); else guards.delete(id); };
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => ({
-      ...FRESH_TODAY, gratitude_lines: body.lines, gratitude_paid: true,
-      coin_awarded: 0, freshly_paid: false,
-    }));
-    const view = renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)), submit.handler,
-    ], { registerUpdateGuard });
-    const note = await screen.findByRole('textbox', { name: "Today's note" });
-    expect(guards.size).toBe(0);
-    await user.type(note, 'I tried drawing a kite.');
-    await waitFor(() => expect(guards.size).toBe(1));
-    await user.click(screen.getByRole('button', { name: 'Save', exact: true }));
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['I tried drawing a kite.'] });
-    await screen.findByText('Saved for today');
-    await waitFor(() => expect(guards.size).toBe(0));
-    await user.type(note, ' Another thought.');
-    await waitFor(() => expect(guards.size).toBe(1));
-    view.unmount();
-    expect(guards.size).toBe(0);
-  });
-  it('invites one daily note and prevents empty saves without an error', async () => {
-    const user = userEvent.setup();
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, {});
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)), submit.handler,
-    ]);
-    await screen.findByText(FRESH_TODAY.affirmation.text);
-    expect(screen.getAllByRole('textbox')).toHaveLength(1);
-    expect(screen.getByText(/one short line is enough/i)).toBeInTheDocument();
-    expect(screen.queryByText(/0\/3|blanks are fine|three small things/i)).not.toBeInTheDocument();
-    const note = screen.getByRole('textbox', { name: "Today's note" });
-    const save = screen.getByRole('button', { name: 'Save' });
-    expect(save).toBeDisabled();
-    await user.type(note, '   ');
-    expect(save).toBeDisabled();
-    await user.click(save);
-    expect(submit.calls).toHaveLength(0);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    const write = await screen.findByRole('button', { name: 'Write today’s entry' });
+    saved = { id: 42, title: 'Saved elsewhere', summary: 'Keep these words', occurred_on: TODAY, is_private: false };
+    await user.click(write);
+    const dialog = await screen.findByRole('dialog', { name: 'Edit your journal entry' });
+    expect(within(dialog).getByLabelText(/mind/i)).toHaveValue('Keep these words');
+    expect(within(dialog).getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
   });
 
-  it('saves a personal thought using the successful response even if a later GET would be empty', async () => {
-    const user = userEvent.setup();
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => ({
-      ...FRESH_TODAY, gratitude_lines: body.lines, gratitude_paid: true,
-      coin_awarded: 2, freshly_paid: true,
-    }));
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)), submit.handler,
-    ]);
-    const note = await screen.findByRole('textbox', { name: "Today's note" });
-    await user.type(note, '  Today was hard, but I tried.  ');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['Today was hard, but I tried.'] });
-    expect(await screen.findByText('Saved for today')).toBeInTheDocument();
-    expect(note).toHaveValue('Today was hard, but I tried.');
-    expect(screen.getByLabelText('Daily note reward')).toHaveTextContent('+2');
-    expect(screen.getByRole('button', { name: 'Update' })).toBeEnabled();
-    expect(screen.queryByText(/first save today earns/i)).not.toBeInTheDocument();
+  it('keeps capture disabled until the first today lookup finishes', async () => {
+    let finish;
+    const ready = new Promise((resolve) => { finish = resolve; });
+    renderCard([http.get('*/api/chronicle/journal/today/', async () => { await ready; return new HttpResponse(null, { status: 204 }); })]);
+    expect(await screen.findByRole('button', { name: 'Checking today’s entry…' })).toBeDisabled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+    finish();
+    expect(await screen.findByRole('button', { name: 'Write today’s entry' })).toBeEnabled();
   });
 
-  it('offers optional ideas without inserting text or submitting anything', async () => {
-    const user = userEvent.setup();
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, {});
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)), submit.handler,
-    ]);
-    const note = await screen.findByRole('textbox', { name: "Today's note" });
-    await user.click(screen.getByText('Need an idea? (optional)'));
-    await user.click(screen.getByRole('button', { name: 'Something I tried' }));
-    expect(note).toHaveAttribute('placeholder', 'Something I tried today…');
-    expect(note).toHaveValue('');
-    expect(note).toHaveFocus();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
-    expect(submit.calls).toHaveLength(0);
-    expect(screen.queryByLabelText('Daily note reward')).not.toBeInTheDocument();
-    await user.type(note, 'I tried drawing');
-    await user.click(screen.getByRole('button', { name: 'Someone I appreciate' }));
-    expect(note).toHaveValue('I tried drawing');
-  });
-
-  it('preserves all saved lines and edits without claiming another daily reward', async () => {
-    const user = userEvent.setup();
-    const paid = { ...FRESH_TODAY, gratitude_paid: true, gratitude_lines: ['One', 'Two', 'Three'] };
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => ({
-      ...paid, gratitude_lines: body.lines, freshly_paid: false, coin_awarded: 0,
-    }));
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(paid)), submit.handler,
-    ]);
-    const note = await screen.findByRole('textbox', { name: "Today's note" });
-    await waitFor(() => expect(note).toHaveValue('One'));
-    expect(screen.getAllByRole('textbox')).toHaveLength(3);
-    expect(screen.getByRole('textbox', { name: 'Another thought (optional)' })).toHaveValue('Two');
-    expect(screen.getByRole('textbox', { name: 'One more thought (optional)' })).toHaveValue('Three');
-    expect(screen.getByText('Saved for today')).toBeInTheDocument();
-    await user.clear(note);
-    await user.type(note, 'Different thought');
-    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Update' }));
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['Different thought', 'Two', 'Three'] });
-    expect(await screen.findByText('Saved for today')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Daily note reward')).not.toBeInTheDocument();
-  });
-
-  it('keeps the draft and offers a retry when saving fails', async () => {
-    const user = userEvent.setup();
-    let attempts = 0;
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)),
-      http.post('*/api/wellbeing/today/gratitude/', async ({ request }) => {
-        attempts += 1;
-        if (attempts === 1) return HttpResponse.json({ error: 'Could not save. Try again.' }, { status: 503 });
-        const body = await request.json();
-        return HttpResponse.json({ ...FRESH_TODAY, gratitude_lines: body.lines, freshly_paid: false });
-      }),
-    ]);
-    const note = await screen.findByRole('textbox', { name: "Today's note" });
-    await user.type(note, 'Something I want to remember');
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save. Try again.');
-    expect(note).toHaveValue('Something I want to remember');
-    expect(screen.queryByText('Saved for today')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText('Saved for today')).toBeInTheDocument();
-    expect(attempts).toBe(2);
-  });
-
-  it('allows a saved note to retry its unconfirmed daily reward without requiring an edit', async () => {
-    const user = userEvent.setup();
-    const unpaid = { ...FRESH_TODAY, gratitude_lines: ['Already saved'], gratitude_paid: false };
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, {
-      ...unpaid, gratitude_paid: true, freshly_paid: true, coin_awarded: 2,
+  it('saves through the shared private journal flow and finds the same words in Memories', async () => {
+    let saved;
+    const post = spyHandler('post', /\/api\/chronicle\/journal\/$/, ({ body }) => {
+      saved = { ...body, id: 42, user: 1, kind: 'journal', occurred_on: TODAY, title: 'A difficult afternoon', reward_receipt: receipt };
+      return saved;
     });
+    const oldPost = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, {});
     renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(unpaid)), submit.handler,
+      http.get('*/api/chronicle/journal/today/', () => saved ? HttpResponse.json(saved) : new HttpResponse(null, { status: 204 })),
+      http.get('*/api/chronicle/summary/', () => HttpResponse.json({ chapters: [{ chapter_year: 2026, label: 'This year', is_current: true, entries: saved ? [saved] : [] }] })),
+      post.handler, oldPost.handler,
     ]);
-    expect(await screen.findByText('Saved for today')).toBeInTheDocument();
-    const update = screen.getByRole('button', { name: 'Update' });
-    expect(update).toBeEnabled();
-    await user.click(update);
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['Already saved'] });
-    expect(await screen.findByLabelText('Daily note reward')).toHaveTextContent('+2');
-    expect(update).toBeEnabled();
-  });
-
-  it('renders today’s affirmation text', async () => {
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)),
-    ]);
-    await waitFor(() =>
-      expect(screen.getByText(/Rest is part of the work/)).toBeInTheDocument(),
-    );
-  });
-
-  it('Save POSTs the typed gratitude lines and shows a coin chip on first-of-day pay', async () => {
     const user = userEvent.setup();
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => ({
-      ...FRESH_TODAY,
-      gratitude_lines: body?.lines || [],
-      gratitude_paid: true,
-      coin_awarded: 2,
-      freshly_paid: true,
-    }));
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)),
-      submit.handler,
-    ]);
-    await waitFor(() =>
-      expect(screen.getByText(/Rest is part of the work/)).toBeInTheDocument(),
-    );
-
-    await user.click(screen.getByRole('button', { name: /add more thoughts/i }));
-    const inputs = screen.getAllByRole('textbox');
-    expect(inputs).toHaveLength(3);
-    await user.type(inputs[0], 'warm bread');
-    await user.type(inputs[2], 'a quiet morning');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['warm bread', 'a quiet morning'] });
-    // Coin flash chip appears (role=status separates it from the
-    // "first save today earns +2" hint that's always visible).
-    await waitFor(() =>
-      expect(screen.getByLabelText('Daily note reward')).toHaveTextContent(/\+2/),
-    );
+    expect(await screen.findByText(AFFIRMATION.affirmation.text)).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Write today’s entry' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Write in your journal' });
+    await user.type(within(dialog).getByLabelText(/mind/i), 'A difficult afternoon. I asked for help.');
+    expect(within(dialog).getByRole('checkbox', { name: /share with parents/i })).not.toBeChecked();
+    await user.click(within(dialog).getByRole('button', { name: 'Save entry' }));
+    await waitFor(() => expect(post.calls).toHaveLength(1));
+    expect(post.calls[0].body).toEqual({ title: '', summary: 'A difficult afternoon. I asked for help.', is_private: true, client_entry_id: expect.stringMatching(/^[0-9a-f-]{36}$/) });
+    expect(post.calls[0].url).toMatch(/\/api\/chronicle\/journal\/$/);
+    expect(oldPost.calls).toHaveLength(0);
+    expect(await screen.findByText('+19 XP earned')).toBeInTheDocument();
+    expect(screen.getByText('+2 Coins earned')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(await screen.findByText('A difficult afternoon. I asked for help.')).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Memories → Journal' }));
+    expect(await screen.findByRole('heading', { name: 'A difficult afternoon' })).toBeInTheDocument();
+    expect(screen.getByText('A difficult afternoon. I asked for help.')).toBeInTheDocument();
   });
 
-  it('disables Save when no lines are written', async () => {
+  it('reopens today’s shared entry and PATCHes it without another reward or sharing change', async () => {
+    const saved = { id: 42, title: 'My day', summary: 'Warm bread', kind: 'journal', is_private: false, occurred_on: TODAY, reward_receipt: receipt };
+    const patch = spyHandler('patch', /\/api\/chronicle\/42\/journal\/$/, ({ body }) => ({ ...saved, ...body }));
+    const post = spyHandler('post', /\/api\/chronicle\/journal\/$/, {});
+    renderCard([http.get('*/api/chronicle/journal/today/', () => HttpResponse.json(saved)), patch.handler, post.handler]);
     const user = userEvent.setup();
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(FRESH_TODAY)),
-    ]);
-    await waitFor(() =>
-      expect(screen.getByText(/Rest is part of the work/)).toBeInTheDocument(),
-    );
-    const save = screen.getByRole('button', { name: /save/i });
-    expect(save).toBeDisabled();
-    await user.click(save);
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Edit today’s entry' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit your journal entry' });
+    expect(within(dialog).getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
+    await user.type(within(dialog).getByLabelText(/mind/i), ' and a walk together');
+    await user.click(within(dialog).getByRole('button', { name: 'Update entry' }));
+    await waitFor(() => expect(patch.calls).toHaveLength(1));
+    expect(patch.calls[0].body).toEqual({ title: 'My day', summary: 'Warm bread and a walk together', is_private: false });
+    expect(patch.calls[0].url).toMatch(/\/api\/chronicle\/42\/journal\/$/);
+    expect(post.calls).toHaveLength(0);
+    await screen.findByRole('dialog', { name: 'Entry updated' });
+    expect(screen.queryByText(/XP earned|Coins earned/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Done' }));
+    expect(await screen.findByText('Warm bread and a walk together')).toBeInTheDocument();
   });
 
-  it('shows Update label and skips coin chip when today’s row already paid', async () => {
-    const paid = { ...FRESH_TODAY, gratitude_paid: true, gratitude_lines: ['previous note'] };
-    renderCard([
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(paid)),
-    ]);
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: /update/i })).toBeInTheDocument(),
-    );
-    // No "first save earns +2" hint when already paid.
-    expect(screen.queryByText(/first save today earns/i)).toBeNull();
+  it('keeps an unconfirmed save draft when moving from Today into Journal', async () => {
+    const post = spyHandler('post', /\/api\/chronicle\/journal\/$/, HttpResponse.json({ detail: 'Temporarily unavailable' }, { status: 503 }));
+    renderCard([post.handler, http.get('*/api/chronicle/summary/', () => HttpResponse.json({ chapters: [] }))]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Write today’s entry' }));
+    await user.type(screen.getByLabelText(/mind/i), 'Keep my private words');
+    await user.click(screen.getByRole('button', { name: 'Save entry' }));
+    await screen.findByText(/we could not confirm the save/i);
+    const draft = JSON.parse(localStorage.getItem(journalDraftKey(1)));
+    expect(draft.pending.payload).toEqual(post.calls[0].body);
+    await user.click(screen.getByRole('button', { name: /keep draft & close/i }));
+    await user.click(screen.getByRole('link', { name: 'Memories → Journal' }));
+    await user.click(await screen.findByRole('button', { name: 'Write today’s entry' }));
+    expect(screen.getByLabelText(/mind/i)).toHaveValue('Keep my private words');
+    expect(screen.getByLabelText(/mind/i)).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Check save' })).toBeInTheDocument();
+  });
+
+  it('holds capture during a failed today lookup and retries without mistaking failure for no entry', async () => {
+    let failed = true;
+    renderCard([http.get('*/api/chronicle/journal/today/', () => failed
+      ? HttpResponse.json({ detail: 'Journal temporarily unavailable' }, { status: 503 })
+      : HttpResponse.json({ id: 42, summary: 'Already saved', title: 'My day', is_private: true, occurred_on: TODAY }))]);
+    const user = userEvent.setup();
+    expect(await screen.findByText('Journal temporarily unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Write today’s entry' })).toBeNull();
+    failed = false;
+    await user.click(screen.getByRole('button', { name: /try again/i }));
+    await user.click(await screen.findByRole('button', { name: 'Edit today’s entry' }));
+    expect(screen.getByLabelText(/mind/i)).toHaveValue('Already saved');
+  });
+
+  it('keeps journal capture available if the optional affirmation cannot load', async () => {
+    renderCard([http.get('*/api/wellbeing/today/', () => HttpResponse.json({}, { status: 503 }))]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole('button', { name: 'Write today’s entry' }));
+    expect(await screen.findByRole('dialog', { name: 'Write in your journal' })).toBeInTheDocument();
   });
 });

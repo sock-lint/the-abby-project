@@ -22,14 +22,15 @@ function todayISO() {
 export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
   const { user, isParent } = useRole()
   const [editing, setEditing] = useState(false)
+  const isDailyNote = entry.kind === 'daily_note'
   const isJournal = entry.kind === 'journal'
   const isGrade = entry.kind === 'grade'
   const isReportCard = isGrade && Boolean(entry.metadata?.report_card)
-  const isPersonalEntry = isJournal || isGrade
-  const isOwner = isPersonalEntry && entry.user === user?.id
+  const isPersonalEntry = isJournal || isGrade || isDailyNote
+  const isOwner = !isDailyNote && isPersonalEntry && entry.user === user?.id
   const isSameDay = isJournal && entry.occurred_on === todayISO()
   const canEdit = isOwner && isSameDay
-  const isPrivate = isPersonalEntry && entry.is_private !== false
+  const isPrivate = isPersonalEntry && (isDailyNote || entry.is_private !== false)
 
   if (isPrivate && isParent) {
     return (
@@ -82,7 +83,7 @@ export default function EntryDetailSheet({ entry, onClose, onUpdated }) {
         {entry.metadata?.gift_coins && (
           <p className="text-body">🎁 {entry.metadata.gift_coins} coins</p>
         )}
-        <JournalConversation entry={entry} defaultOpen />
+        {isDailyNote ? <p className="text-caption text-ink-secondary">Saved daily note</p> : <JournalConversation entry={entry} defaultOpen />}
         {isOwner && (
           <div className="flex justify-end pt-2">
             <Button

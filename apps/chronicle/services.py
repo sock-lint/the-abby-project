@@ -388,6 +388,14 @@ class ChronicleService:
             raise JournalAlreadyExistsError(existing)
 
         entry.metadata["reward_receipt"] = _award_journal_xp(user, entry)
+        # Today and the Journal share one flat daily coin acknowledgment.
+        # This separate savepoint preserves the memory and verified XP if
+        # coin processing fails; edits and exact retries never reaward.
+        from apps.wellbeing.services import WellbeingService
+
+        entry.metadata["reward_receipt"].update(
+            WellbeingService.award_daily_writing_coins(user, day),
+        )
 
         # Note: kept inline (rather than ``safe_game_loop_call``) so journal
         # tests can patch ``apps.chronicle.services.GameLoopService`` —

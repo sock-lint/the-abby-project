@@ -47,6 +47,7 @@ from apps.rpg.services import (
     STREAK_MULTIPLIER_CAP,
     STREAK_MULTIPLIER_PER_DAY,
 )
+from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
 from .catalog import load_catalog
 from .economy import (
@@ -206,7 +207,7 @@ def rules_fingerprint():
         "reward_budget_source": inspect.getsource(inspect.getmodule(RewardBudget)),
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
-        "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS],
+        "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS, GRATITUDE_FIRST_OF_DAY_COINS],
         "creations": [CreationService.BASELINE_XP, CreationService.DAILY_XP_LIMIT],
         "movement": [
             MovementSessionService.DAILY_REWARD_LIMIT,
@@ -1205,7 +1206,11 @@ class Trial:
                     self.counters["journal_best_streak"], self.counters["journal_streak"]
                 )
                 self.award_xp(JOURNAL_XP_POOL, self.tags["journal"], "journal")
-                self.event("journal_entry")
+                # Native journal XP evaluates badges before its daily Coins;
+                # the game-loop hook does not evaluate them a second time.
+                self.evaluate_badges(scopes=None if self.tags["journal"] else {"chronicle", "badges"})
+                self.coin_award(GRATITUDE_FIRST_OF_DAY_COINS, "journal")
+                self.event("journal_entry", evaluate_source_badges=False)
             self.feed_and_hatch()
             self.launch_expeditions()
             if self.economy:

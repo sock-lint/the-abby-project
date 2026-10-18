@@ -131,7 +131,10 @@ class JournalReceiptTests(TestCase):
             response = self.post()
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["reward_receipt"]["xp_awarded"], 15)
-        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+        # The failed game-loop grant rolls back; the separate verified
+        # first-save journal acknowledgment remains committed.
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child).values_list("amount", flat=True)), [2])
+        self.assertEqual(response.json()["reward_receipt"]["coins_awarded"], 2)
 
     def test_unseeded_catalog_preserves_memory_without_inventing_xp(self):
         self.writing.delete()

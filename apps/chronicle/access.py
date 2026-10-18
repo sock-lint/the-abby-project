@@ -9,6 +9,6 @@ def visible_chronicle_entries(user, queryset):
     queryset = filter_queryset_by_role(user, queryset, "user")
     if user.role == "parent":
         queryset = queryset.exclude(
-            Q(kind__in=("journal", "grade"), is_private=True) & ~Q(user=user),
+            (Q(kind__in=("journal", "grade"), is_private=True) | Q(kind="daily_note")) & ~Q(user=user),
         )
     return queryset

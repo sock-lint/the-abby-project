@@ -1,4 +1,4 @@
-"""WellbeingService — daily affirmation roll + gratitude submit.
+"""Daily affirmations, shared writing Coins, and legacy note compatibility.
 
 Mirrors the shape of ``DailyChallengeService.get_or_create_today`` (idempotent)
 so the surface plugs into the existing ``GET /today/`` poll pattern.
@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.utils import timezone
 
@@ -25,10 +26,8 @@ logger = logging.getLogger(__name__)
 
 AFFIRMATIONS_PATH = settings.BASE_DIR / "content" / "wellbeing" / "affirmations.yaml"
 
-# Per-line constraints. The kid is writing a one-liner gratitude jot; we
-# don't want a 1k-char essay sitting in the JSON column. The journal
-# captures the longer-form work and is locked after midnight; this is
-# the soft daily counterpart that stays editable all day.
+# Short-note limits remain for earlier clients. New Today captures use the
+# ordinary journal, whose body can hold both short and longer reflections.
 MAX_LINES = 3
 MAX_LINE_CHARS = 200
 
@@ -155,13 +154,76 @@ class WellbeingService:
         from apps.wellbeing.models import DailyWellbeingEntry
 
         today = timezone.localdate()
-        # select_for_update keeps two concurrent first-mounts from racing
-        # the unique constraint; mirrors DailyChallengeService.
+        # Both writing endpoints use author-before-daily-row lock order,
+        # including when a daily row does not exist yet.
+        get_user_model().objects.select_for_update().get(pk=user.pk)
         entry, _created = DailyWellbeingEntry.objects.select_for_update().get_or_create(
             user=user, date=today,
             defaults={"affirmation_slug": _roll_affirmation_slug(user.pk, today)},
         )
         return entry
+
+    @staticmethod
+    @transaction.atomic
+    def award_daily_writing_coins(user, day):
+        """One verified flat payout per author/day across both clients.
+
+        Commit ledger and sentinel together, or roll both back. A failed
+        attempt leaves eligibility intact for a later real save; journal
+        UUID replays and journal edits never call this helper again.
+        """
+        from apps.rewards.models import CoinLedger
+        from apps.rewards.services import CoinService
+        from apps.wellbeing.models import DailyWellbeingEntry
+
+        get_user_model().objects.select_for_update().get(pk=user.pk)
+        receipt = {"coins_awarded": 0, "coin_status": "unavailable"}
+        try:
+            with transaction.atomic():
+                entry, _ = DailyWellbeingEntry.objects.select_for_update().get_or_create(
+                    user=user, date=day,
+                    defaults={"affirmation_slug": _roll_affirmation_slug(user.pk, day)},
+                )
+                if entry.coin_paid_at is not None:
+                    return {"coins_awarded": 0, "coin_status": "already_received"}
+                ledger = CoinService.award_coins(
+                    user, GRATITUDE_FIRST_OF_DAY_COINS,
+                    CoinLedger.Reason.ADJUSTMENT,
+                    description="Journal — first save of day",
+                )
+                if ledger is not None:
+                    entry.coin_paid_at = timezone.now()
+                    entry.save(update_fields=["coin_paid_at", "updated_at"])
+                    receipt = {"coins_awarded": int(ledger.amount), "coin_status": "awarded"}
+        except Exception:
+            logger.exception("Daily writing coin payout failed for user %s", user.pk)
+        return receipt
+
+    @staticmethod
+    def _sync_daily_note(entry):
+        """Preserve an older client's writing in its own private history row.
+
+        The source binding avoids collisions with a same-day shared journal.
+        Imported short notes do not retroactively trigger XP or game hooks.
+        """
+        from apps.chronicle.models import ChronicleEntry
+
+        ChronicleEntry.objects.update_or_create(
+            daily_note_source=entry,
+            defaults={
+                "user_id": entry.user_id,
+                "kind": ChronicleEntry.Kind.DAILY_NOTE,
+                "occurred_on": entry.date,
+                "chapter_year": entry.date.year if entry.date.month >= 8 else entry.date.year - 1,
+                "title": "Daily note",
+                "summary": "\n\n".join(entry.gratitude_lines),
+                "is_private": True,
+                "metadata": {"reward_receipt": {
+                    "status": "unavailable", "xp_awarded": 0, "skills": [],
+                    "coins_awarded": 0, "coin_status": "unavailable",
+                }},
+            },
+        )
 
     @staticmethod
     @transaction.atomic
@@ -196,43 +258,14 @@ class WellbeingService:
             )
 
         entry = WellbeingService.get_or_create_today(user)
-        already_paid = entry.coin_paid_at is not None
         entry.gratitude_lines = cleaned
-        update_fields = ["gratitude_lines", "updated_at"]
-
-        coin_awarded = 0
-        if not already_paid:
-            from apps.rewards.models import CoinLedger
-            from apps.rewards.services import CoinService
-            # Wrap the coin award in its own atomic block so a half-write
-            # (ledger row committed, ``coin_paid_at`` save failed) can't
-            # leave the entry eligible for a second payout next save.
-            # On any failure the inner block rolls back; the outer
-            # gratitude write still commits and the field stays None,
-            # which is correct — the next save sees ``already_paid=False``
-            # and gets one fair retry.
-            try:
-                with transaction.atomic():
-                    ledger = CoinService.award_coins(
-                        user, GRATITUDE_FIRST_OF_DAY_COINS,
-                        CoinLedger.Reason.ADJUSTMENT,
-                        description="Gratitude — first of day",
-                    )
-                    if ledger is not None:
-                        coin_awarded = int(ledger.amount)
-                        entry.coin_paid_at = timezone.now()
-                        update_fields.append("coin_paid_at")
-            except Exception:
-                # Coin award failure must never lose the gratitude write.
-                # Reset locals so the outer commit doesn't claim a payout
-                # the inner rollback erased.
-                coin_awarded = 0
-                if "coin_paid_at" in update_fields:
-                    update_fields.remove("coin_paid_at")
-                entry.coin_paid_at = None
-                logger.exception("Gratitude coin payout failed")
-
-        entry.save(update_fields=update_fields)
+        entry.save(update_fields=["gratitude_lines", "updated_at"])
+        WellbeingService._sync_daily_note(entry)
+        receipt = WellbeingService.award_daily_writing_coins(user, entry.date)
+        # The payout helper loads its own locked instance; keep the legacy
+        # response's paid flag current without overwriting its sentinel.
+        entry.refresh_from_db(fields=["coin_paid_at"])
+        coin_awarded = receipt["coins_awarded"]
         return {
             "entry": entry,
             "coin_awarded": coin_awarded,

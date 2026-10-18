@@ -17,7 +17,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`apps/chronicle/CLAUDE.md`](apps/chronicle/CLAUDE.md) | Age-aware chronicle · journal entries · chapter transitions · birthdays |
 | [`apps/homework/CLAUDE.md`](apps/homework/CLAUDE.md) | Homework lifecycle · effort scaling · AI planning · anti-farm gate |
 | [`apps/creations/CLAUDE.md`](apps/creations/CLAUDE.md) | Creation log · daily cap · bonus track |
-| [`apps/wellbeing/CLAUDE.md`](apps/wellbeing/CLAUDE.md) | Daily affirmation + gratitude · soft surface |
+| [`apps/wellbeing/CLAUDE.md`](apps/wellbeing/CLAUDE.md) | Daily affirmation · shared daily writing Coins · earlier note history |
 | [`apps/rewards/CLAUDE.md`](apps/rewards/CLAUDE.md) | Coins economy · reward shop · wishlist · money→coins exchange |
 | [`apps/chores/CLAUDE.md`](apps/chores/CLAUDE.md) | Duties · alternating-week schedules · submit-then-approve workflow |
 | [`apps/timecards/CLAUDE.md`](apps/timecards/CLAUDE.md) | Clock-in/out · weekly timecards · auto clock-out · CSV export |

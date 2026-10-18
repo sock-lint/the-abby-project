@@ -7,6 +7,7 @@ import JournalEntryFormModal from './JournalEntryFormModal';
 import { journalDraftKey } from './journalDraft';
 import { buildUser } from '../../test/factories';
 import * as journalApi from '../../api';
+import { PulseContext } from '../../providers/pulseContext';
 
 // Modal portals to document.body — query there, not the RTL container.
 function getDialog() {
@@ -27,6 +28,7 @@ beforeEach(() => {
   speech.current = { supported: true };
   speech.onFinal = null;
   role.user = buildUser();
+  server.use(http.get('*/api/auth/me/', () => HttpResponse.json(role.user)));
 });
 
 // Stub AnimatePresence so close-on-submit renders synchronously.
@@ -36,6 +38,38 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('JournalEntryFormModal', () => {
+  it('shows only committed Coins and XP and refreshes the shared balances after saving', async () => {
+    const refresh = vi.fn();
+    const post = spyHandler('post', /\/api\/chronicle\/journal\/$/, {
+      id: 42, is_private: true, reward_receipt: { status: 'awarded', xp_awarded: 19, coin_status: 'awarded', coins_awarded: 2 },
+    });
+    server.use(post.handler);
+    const user = userEvent.setup();
+    renderWithProviders(<PulseContext.Provider value={{ pulse: null, refresh }}><JournalEntryFormModal onClose={() => {}} /></PulseContext.Provider>);
+    await user.type(screen.getByLabelText(/mind/i), 'A few words');
+    await user.click(screen.getByRole('button', { name: 'Save entry' }));
+    await waitFor(() => expect(post.calls).toHaveLength(1));
+    expect(await screen.findByText('+19 XP earned')).toBeInTheDocument();
+    expect(screen.getByText('+2 Coins earned')).toBeInTheDocument();
+    expect(refresh).toHaveBeenCalledOnce();
+    expect(post.calls[0].body).toEqual({ title: '', summary: 'A few words', is_private: true, client_entry_id: expect.any(String) });
+    expect(post.calls[0].url).toMatch(/\/api\/chronicle\/journal\/$/);
+  });
+
+  it.each(['already_received', 'unavailable', undefined])('never invents a Coin award for receipt status %s', async (coinStatus) => {
+    server.use(http.post('*/api/chronicle/journal/', () => HttpResponse.json({
+      id: 42, is_private: true, reward_receipt: { status: 'awarded', xp_awarded: 15, coins_awarded: 2, coin_status: coinStatus },
+    })));
+    const user = userEvent.setup();
+    renderWithProviders(<JournalEntryFormModal onClose={() => {}} />);
+    await user.type(screen.getByLabelText(/mind/i), 'A thought');
+    await user.click(screen.getByRole('button', { name: 'Save entry' }));
+    await screen.findByRole('dialog', { name: 'Memory saved' });
+    expect(screen.queryByText(/Coins earned/)).toBeNull();
+    if (coinStatus === 'already_received') expect(screen.getByText(/Coins were already received/i)).toBeInTheDocument();
+    if (coinStatus === 'unavailable') expect(screen.getByText(/Coins could not be confirmed/i)).toBeInTheDocument();
+  });
+
   it('keeps every dictated chunk when multiple final results arrive together', async () => {
     renderWithProviders(<JournalEntryFormModal onClose={() => {}} />);
     await act(async () => { speech.onFinal('First '); speech.onFinal('second '); });
@@ -103,7 +137,8 @@ describe('JournalEntryFormModal', () => {
     />);
     expect(screen.getByLabelText(/mind/i)).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /check save/i }));
-    await screen.findByText('+15 XP earned');
+    await screen.findByRole('dialog', { name: 'Memory saved' });
+    expect(screen.queryByText(/XP earned|Coins earned/)).toBeNull();
     expect(requests).toHaveLength(2);
     expect(requests[1]).toEqual(requests[0]);
     expect(localStorage.getItem(journalDraftKey(role.user.id))).toBeNull();
@@ -124,7 +159,7 @@ describe('JournalEntryFormModal', () => {
     await screen.findByRole('dialog', { name: 'Memory saved' });
     expect(screen.queryByText(/XP earned/i)).not.toBeInTheDocument();
     if (status === 'unavailable') expect(screen.getByText(/reward could not be confirmed/i)).toBeInTheDocument();
-    if (status === 'not_eligible') expect(screen.getByText(/without an extra reward/i)).toBeInTheDocument();
+    if (status === 'not_eligible') expect(screen.getByText(/without extra XP/i)).toBeInTheDocument();
   });
 
   it('allows family sharing when saving an entry', async () => {
@@ -394,7 +429,7 @@ describe('JournalEntryFormModal', () => {
     const existing = {
       id: 77,
       kind: 'journal',
-      is_private: true,
+      is_private: false,
       title: 'Earlier today',
       summary: 'Some earlier thoughts.',
       occurred_on: new Date().toLocaleDateString('en-CA'),
@@ -430,6 +465,7 @@ describe('JournalEntryFormModal', () => {
     ).toBeInTheDocument();
     // Friendly 409 error — not a raw status code.
     expect(screen.getByRole('alert').textContent).toMatch(/already wrote today/i);
+    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
     // The in-flight text survives, appended after the existing body.
     expect(screen.getByLabelText(/mind/i).value).toContain('Some earlier thoughts.');
     expect(screen.getByLabelText(/mind/i).value).toContain('New thought I typed');
