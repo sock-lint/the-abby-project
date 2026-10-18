@@ -58,6 +58,41 @@
         "unit": "rate",
         "min_value": 0,
         "max_value": 1
+      },
+      {
+        "key": "expedition_launches_p50",
+        "label": "Median expedition launches",
+        "unit": "trips",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "expedition_items_promised_p50",
+        "label": "Median expedition item promises",
+        "unit": "items",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "expedition_empty_trips_p50",
+        "label": "Median empty expedition trips",
+        "unit": "trips",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "first_mount_day_p50",
+        "label": "First grown companion day, among completing journeys",
+        "unit": "days",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "first_mount_reached_rate",
+        "label": "Journeys reaching a grown companion",
+        "unit": "rate",
+        "min_value": 0,
+        "max_value": 1
       }
     ],
     "proposal": {
@@ -134,7 +169,23 @@
         }
       ]
     },
-    "fingerprint": "e618616ee9a852b49ebb5fa3f810e41ea0036b6bb14c91e51d3fa42467424890"
+    "expedition_budget_defaults": {
+      "daily_launches": null,
+      "daily_items": null
+    },
+    "expedition_budget_limits": {
+      "daily_launches": {
+        "min": 0,
+        "max": 15,
+        "nullable": true
+      },
+      "daily_items": {
+        "min": 0,
+        "max": 45,
+        "nullable": true
+      }
+    },
+    "fingerprint": "4b82dbb3c382f6242fde602b86b3d6c31ea5cd186c43dca1df44b96b54c7890b"
   },
   "experiments": [
     {

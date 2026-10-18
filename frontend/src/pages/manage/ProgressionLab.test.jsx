@@ -62,6 +62,22 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  it('compares shared launch and item limits while preserving Coin rules and routine presets', async () => {
+    const current = { ...metadata, defaults: { ...defaults, reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: { daily_launches: null, daily_items: null } }, expedition_budget_defaults: { daily_launches: null, daily_items: null }, expedition_budget_limits: { daily_launches: { min: 0, max: 15 }, daily_items: { min: 0, max: 45 } } };
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...report, config: body }));
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: '1 launch per child per day' }));
+    await user.click(screen.getByRole('button', { name: 'Use light routine' }));
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('button', { name: 'Keep as comparison' });
+    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, reward_commitment: { enabled: true }, expedition_budget: { daily_launches: 1, daily_items: null } });
+    await user.click(screen.getByRole('button', { name: '3 items per child per day' }));
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await waitFor(() => expect(simulation.calls).toHaveLength(2));
+    expect(simulation.calls[1].body).toMatchObject({ reward_commitment: { enabled: true }, expedition_budget: { daily_launches: null, daily_items: 3 } });
+  });
   it('switches policies explicitly and preserves the commitment choice through routine presets', async () => {
     const current = { ...metadata, defaults: { ...defaults, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }, reward_budget_defaults: { daily_coins: null }, reward_budget_limits: { daily_coins: { min: 0, max: 100000, nullable: true } }, reward_commitment_defaults: { enabled: false } };
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)));

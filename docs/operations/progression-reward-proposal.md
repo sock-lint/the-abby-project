@@ -98,3 +98,28 @@ New reward definitions belong in the revisioned content workbench. Expedition
 allocation, reservation and boost rules require a reviewed code change.
 Independent review, hosted tests and explicit live rollout approval remain
 separate from a notebook decision to proceed with design.
+
+## Compare expedition supply independently
+
+Keep the 100-Coin commitment prototype fixed and compare unlimited expeditions,
+1/2/3 launches per child per day, and 3/6/9 item promises per child per day.
+These allowances are shared across all mounts. The Lab also supports a custom
+combined launch/item limit; each comparison must state both values explicitly.
+Use matching routine, horizon, seeds, purchasing assumptions and catalog.
+
+Evaluate launched trips, promised/claimed/pending item units, direct Coins,
+pouch/salvage commitments, completely empty trip share, first-grown reached rate
+and date, 80% finite-content reached rate/date, all-grown and collector chapter
+completion, discovery gaps and unavailable targets. Companion selection is the
+model's oldest-first policy. Day percentiles without their completion rates
+cannot establish a typical timeline. Fewer obtainable targets do not provide
+more runway.
+
+An item allowance alone leaves subsequent Coin-only or empty launches enabled.
+In a controlled already-grown 15-mount fixture under this Coin prototype, a
+3-item limit permits 15 launches but only the first trip receives items, and
+13 trips promise neither direct Coins nor items. This fixture demonstrates a
+mechanism; it is not a forecast of how often new users reach that situation.
+The seeded routine study and saved experiment evidence measure the practical
+tradeoff before choosing a live policy. Live reservation storage, concurrent
+launches and reward eligibility remain a separate implementation decision.

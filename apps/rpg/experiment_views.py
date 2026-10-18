@@ -29,6 +29,7 @@ def _body(request, keys, *, optional=()):
 
 
 EXPERIMENT_FIELDS = ("name", "hypothesis", "config", "candidate_daily_coins", "targets")
+OPTIONAL_EXPERIMENT_FIELDS = ("candidate_policy", "candidate_expedition_budget")
 
 
 class _ExperimentView(_ProgressionLabView):
@@ -53,7 +54,7 @@ class ExperimentListView(_ExperimentView):
         return Response(list_experiments(request.user))
 
     def post(self, request):
-        return Response(create_experiment(request.user, _body(request, EXPERIMENT_FIELDS, optional=("candidate_policy",))), status=201)
+        return Response(create_experiment(request.user, _body(request, EXPERIMENT_FIELDS, optional=OPTIONAL_EXPERIMENT_FIELDS)), status=201)
 
 
 class ExperimentDetailView(_ExperimentView):
@@ -61,7 +62,7 @@ class ExperimentDetailView(_ExperimentView):
         return Response(get_experiment(request.user, experiment_id))
 
     def patch(self, request, experiment_id):
-        data = _body(request, ("revision", *EXPERIMENT_FIELDS), optional=("candidate_policy",))
+        data = _body(request, ("revision", *EXPERIMENT_FIELDS), optional=OPTIONAL_EXPERIMENT_FIELDS)
         return Response(save_experiment(request.user, experiment_id, data["revision"], data))
 
 

@@ -20,6 +20,11 @@ METRICS = (
     {"key": "priority_purchase_reached_rate", "label": "Journeys purchasing the priority reward", "unit": "rate", "min_value": 0, "max_value": 1},
     {"key": "finite_80_day_p50", "label": "Day reaching 80% of modeled content, among completing journeys", "unit": "days", "min_value": 0, "max_value": 365},
     {"key": "finite_80_reached_rate", "label": "Journeys reaching 80% of modeled content", "unit": "rate", "min_value": 0, "max_value": 1},
+    {"key": "expedition_launches_p50", "label": "Median expedition launches", "unit": "trips", "min_value": 0, "max_value": 1_000_000},
+    {"key": "expedition_items_promised_p50", "label": "Median expedition item promises", "unit": "items", "min_value": 0, "max_value": 1_000_000},
+    {"key": "expedition_empty_trips_p50", "label": "Median empty expedition trips", "unit": "trips", "min_value": 0, "max_value": 1_000_000},
+    {"key": "first_mount_day_p50", "label": "First grown companion day, among completing journeys", "unit": "days", "min_value": 0, "max_value": 365},
+    {"key": "first_mount_reached_rate", "label": "Journeys reaching a grown companion", "unit": "rate", "min_value": 0, "max_value": 1},
 )
 METRIC_BY_KEY = {row["key"]: row for row in METRICS}
 
@@ -75,7 +80,11 @@ PROPOSAL = {
 
 def feedback_metadata():
     """Return detached choices for authoring criteria and planning next actions."""
+    from .expedition_budget import EXPEDITION_BUDGET_DEFAULTS, EXPEDITION_BUDGET_LIMITS
+
     return {"max_targets": MAX_TARGETS, "metrics": deepcopy(list(METRICS)), "proposal": deepcopy(PROPOSAL),
+            "expedition_budget_defaults": deepcopy(EXPEDITION_BUDGET_DEFAULTS),
+            "expedition_budget_limits": deepcopy(EXPEDITION_BUDGET_LIMITS),
             "fingerprint": feedback_fingerprint()}
 
 
@@ -115,7 +124,9 @@ def normalize_targets(supplied):
 
 def _check_pair(control, candidate):
     """Defense in depth; the caller generates both reports from one snapshot."""
-    configs = []
+    from .expedition_budget import normalize_expedition_budget
+
+    configs, quotas, coin_policies = [], [], []
     for report in (control, candidate):
         config = report.get("config")
         if not isinstance(config, dict) or not isinstance(config.get("reward_budget"), dict):
@@ -124,17 +135,31 @@ def _check_pair(control, candidate):
         if (not isinstance(commitment, dict) or set(commitment) != {"enabled"}
                 or type(commitment["enabled"]) is not bool):
             raise ValueError("Comparison requires a normalized commitment policy.")
-        configs.append({key: value for key, value in config.items() if key not in {"reward_budget", "reward_commitment"}})
+        cap = config["reward_budget"].get("daily_coins")
+        if ((cap is not None and (type(cap) is not int or not 0 <= cap <= 100_000))
+                or (commitment["enabled"] and cap is not None)):
+            raise ValueError("Comparison requires one valid Coin policy per report.")
+        quota = config.get("expedition_budget", {})
+        if not isinstance(quota, dict):
+            raise ValueError("Comparison requires normalized expedition quotas.")
+        quotas.append(normalize_expedition_budget(quota))
+        coin_policies.append((cap, commitment["enabled"]))
+        configs.append({key: value for key, value in config.items()
+                        if key not in {"reward_budget", "reward_commitment", "expedition_budget"}})
     if configs[0] != configs[1]:
         raise ValueError("Control and candidate must use the same routine, seeds and purchasing assumptions.")
-    if control["config"]["reward_budget"].get("daily_coins") is not None:
-        raise ValueError("The control reward budget must be uncapped.")
-    if control["config"].get("reward_commitment", {}).get("enabled", False):
-        raise ValueError("The control must use installed reward commitments.")
-    cap = candidate["config"]["reward_budget"].get("daily_coins")
-    committed = candidate["config"].get("reward_commitment", {}).get("enabled", False)
-    if (committed and cap is not None) or (not committed and (type(cap) is not int or not 0 <= cap <= 100_000)):
-        raise ValueError("The candidate requires either a bounded income envelope or the commitment prototype.")
+    unlimited = normalize_expedition_budget({})
+    if quotas[0] != unlimited:
+        raise ValueError("The control must use unlimited expedition quotas.")
+    if quotas[1] != unlimited:
+        if coin_policies[0] != coin_policies[1]:
+            raise ValueError("Quota comparisons must retain the same Coin rules in both reports.")
+    else:
+        if coin_policies[0] != (None, False):
+            raise ValueError("The Coin-policy control must use installed reward rules.")
+        cap, committed = coin_policies[1]
+        if not committed and cap is None:
+            raise ValueError("The candidate requires a Coin hypothesis or expedition quotas.")
     for key in ("schema_version", "engine_version", "rules_fingerprint", "source_commit"):
         if key not in control or control[key] != candidate.get(key):
             raise ValueError("Control and candidate must share the same engine and rule bindings.")
@@ -184,6 +209,15 @@ def _measure(report):
     if _number(summary.get("finite_content_total")) and summary["finite_content_total"] > 0:
         row = next((row for row in report.get("milestones", []) if row.get("key") == "finite_80"), None)
         result["finite_80_day_p50"], result["finite_80_reached_rate"] = _milestone_observations(row, trials, horizon)
+    row = next((row for row in report.get("milestones", []) if row.get("key") == "first_mount"), None)
+    result["first_mount_day_p50"], result["first_mount_reached_rate"] = _milestone_observations(row, trials, horizon)
+    expedition_summary = report.get("expedition_budget", {}).get("summary", {})
+    for metric, counter in (
+        ("expedition_launches_p50", "launched_trips"),
+        ("expedition_items_promised_p50", "slots_promised"),
+        ("expedition_empty_trips_p50", "empty_trips"),
+    ):
+        result[metric] = _observation(expedition_summary.get(counter, {}).get("p50"), trials)
     return result
 
 

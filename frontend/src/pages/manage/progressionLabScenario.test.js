@@ -73,3 +73,19 @@ describe('Reward commitment imports', () => {
     expect(() => importedScenario({ schema_version: 1, config: { seed: 42, reward_commitment: { enabled: true }, reward_budget: { daily_coins: 100 } } }, current)).toThrow();
   });
 });
+
+
+describe('Shared expedition budget imports', () => {
+  const quota = { daily_launches: null, daily_items: null };
+  const current = { ...metadata, defaults: { ...metadata.defaults, expedition_budget: quota }, expedition_budget_defaults: quota, expedition_budget_limits: { daily_launches: { min: 0, max: 15, nullable: true }, daily_items: { min: 0, max: 45, nullable: true } } };
+  it('defaults old reports to unlimited and preserves explicit zero or combined limits', () => {
+    expect(importedScenario({ schema_version: 1, config: { seed: 42 } }, current).expedition_budget).toEqual(quota);
+    const expedition_budget = { daily_launches: 0, daily_items: 6 };
+    expect(importedScenario({ schema_version: 1, config: { seed: 42, expedition_budget } }, current).expedition_budget).toEqual(expedition_budget);
+  });
+  it('rejects incomplete, private or incorrectly typed limits', () => {
+    for (const expedition_budget of [{}, { daily_launches: 1 }, { ...quota, daily_launches: true }, { ...quota, daily_items: 46 }, { ...quota, daily_launches: -1 }, { ...quota, daily_items: '3' }, { ...quota, daily_items: 1.5 }, { ...quota, user_id: 1 }]) {
+      expect(() => importedScenario({ schema_version: 1, config: { seed: 42, expedition_budget } }, current)).toThrow();
+    }
+  });
+});

@@ -27,6 +27,23 @@ the original envelope default, while omitted updates preserve the saved policy.
 The existing progression producer and React consumer above verify both examples;
 they contain synthetic data and change no live reward policy.
 
+`progression-lab-expedition-budget-report.json` and
+`progression-experiment-expedition-budget-comparison.json` cover anonymous
+`expedition_budget: {daily_launches, daily_items}` quotas shared across one
+child's mounts. Null is unlimited, zero prevents new commitments, and complete
+frozen claims remain payable. Reports distinguish requested, eligible,
+launched and prevented trips, promised/withheld/unfilled item slots, pending
+and claimed promises, and limited versus saturated days. Quota comparisons
+use `candidate_policy: expedition_limits`, `candidate_daily_coins: null` and
+an explicit `candidate_expedition_budget` with at least one non-null cap.
+The control clears both quotas; both arms retain the same Coin rules from
+the routine. Existing Coin hypotheses keep their original behavior and reject
+non-null expedition quotas. Omitted update fields preserve the saved policy
+and candidate caps. Fixed feedback criteria include expedition launches, item
+promises, empty trips, and first grown companion days/rates with their actual
+completion denominators. The existing progression producer and React consumer
+above verify these synthetic examples; no household or live rewards change.
+
 `progression-experiment-list.json`, `progression-experiment-comparison.json`
 and `progression-experiment-decided.json` bind the private experiment notebook
 to its real staff-parent endpoints. The server generates immutable control and

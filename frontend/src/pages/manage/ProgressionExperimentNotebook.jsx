@@ -8,12 +8,14 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import SectionHeader from '../../components/SectionHeader';
 import { SelectField, TextAreaField, TextField } from '../../components/form';
-import { scenariosMatch } from './progressionLabScenario';
+import ProgressionExpeditionBudgetControls from './ProgressionExpeditionBudgetControls';
+import { rewardPolicyLabel, scenariosMatch } from './progressionLabScenario';
 import { ExperimentComparison, ProgressionObservations, RewardProposal } from './ProgressionExperimentEvidence';
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const controlRoutine = (routine) => ({ ...clone(routine), reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } });
-const fields = (experiment) => ({ name: experiment.name, hypothesis: experiment.hypothesis, config: clone(experiment.config), candidate_daily_coins: experiment.candidate_daily_coins, candidate_policy: experiment.candidate_policy ?? 'envelope', targets: experiment.targets.map((target) => ({ metric: target.metric, min: target.min ?? '', max: target.max ?? '' })) });
-const freshEditor = (routine) => ({ name: '100-Coin starting experiment', hypothesis: 'Reduce automatic Coin income while preserving reward pacing.', config: controlRoutine(routine), candidate_daily_coins: 100, candidate_policy: 'envelope', targets: [] });
+const unlimited = () => ({ daily_launches: null, daily_items: null });
+const controlRoutine = (routine, policy = 'envelope') => ({ ...clone(routine), expedition_budget: unlimited(), ...(policy === 'expedition_limits' ? {} : { reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }) });
+const fields = (experiment) => ({ name: experiment.name, hypothesis: experiment.hypothesis, config: clone(experiment.config), candidate_daily_coins: experiment.candidate_daily_coins, candidate_policy: experiment.candidate_policy ?? 'envelope', candidate_expedition_budget: clone(experiment.candidate_expedition_budget ?? unlimited()), targets: experiment.targets.map((target) => ({ metric: target.metric, min: target.min ?? '', max: target.max ?? '' })) });
+const freshEditor = (routine) => ({ name: '100-Coin starting experiment', hypothesis: 'Reduce automatic Coin income while preserving reward pacing.', config: controlRoutine(routine), candidate_daily_coins: 100, candidate_policy: 'envelope', candidate_expedition_budget: unlimited(), targets: [] });
 const decisionLabels = { keep_testing: 'Keep testing', revise: 'Revise', ready_for_design: 'Ready for design' };
 const blankDecision = { outcome: 'keep_testing', rationale: '', next_action: '', review_on: '' };
 
@@ -61,6 +63,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const change = (key, value) => setEditor((previous) => ({ ...previous, [key]: value }));
+  const changePolicy = (policy) => setEditor((previous) => ({ ...previous, candidate_policy: policy, config: controlRoutine(policy === 'expedition_limits' ? routine : previous.config, policy), candidate_daily_coins: policy === 'expedition_limits' ? null : 100, candidate_expedition_budget: policy === 'expedition_limits' ? clone(routine.expedition_budget?.daily_launches != null || routine.expedition_budget?.daily_items != null ? routine.expedition_budget : { daily_launches: 3, daily_items: null }) : unlimited() }));
   const remember = (data) => {
     setSaved(data); setEditor(fields(data));
     setMetadata((previous) => ({ ...previous, experiments: [data, ...previous.experiments.filter((entry) => entry.id !== data.id)] }));
@@ -88,7 +91,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
     event.preventDefault();
     const targets = editor.targets.map((target) => ({ metric: target.metric, min: target.min === '' ? null : Number(target.min), max: target.max === '' ? null : Number(target.max) }));
     if (targets.some((target) => target.min === null && target.max === null)) { setError('Each success criterion needs a minimum or maximum. Remove an unused criterion.'); return; }
-    const payload = { ...editor, config: controlRoutine(editor.config), targets };
+    const payload = { ...editor, config: controlRoutine(editor.config, editor.candidate_policy), targets };
     guardDecision(() => run((options) => saved ? updateProgressionExperiment(saved.id, { revision: saved.revision, ...payload }, options) : createProgressionExperiment(payload, options), (data) => { remember(data); setComparison(null); setDecision(blankDecision); setNotice('Experiment saved. Live rewards are unchanged.'); }));
   };
   const compare = () => guardDecision(() => run((options) => compareProgressionExperiment(saved.id, { revision: saved.revision }, options), (data) => {
@@ -107,7 +110,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
   if (denied) return <p role="status">Saved experiments are available to staff parents.</p>;
   return <section aria-label="Progression experiment notebook" className="space-y-4">
     <ParchmentCard className="space-y-4">
-      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare the installed control with a payout envelope or commitment prototype, then record what to do next. No decision here changes live rewards.</SectionHeader>
+      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare Coin policies or shared expedition limits, then record what to do next. No decision here changes live rewards.</SectionHeader>
       <ErrorAlert message={readError} onRetry={read} />
       {loading && <p role="status">Loading saved experiments…</p>}
       {metadata && <>
@@ -116,13 +119,14 @@ export default function ProgressionExperimentNotebook({ routine }) {
           <fieldset disabled={busy} className="min-w-0 space-y-3"><legend className="sr-only">Experiment assumptions</legend>
             <TextField label="Experiment name" value={editor.name} maxLength={100} required onChange={(event) => change('name', event.target.value)} />
             <TextAreaField label="Hypothesis" value={editor.hypothesis} maxLength={2000} required onChange={(event) => change('hypothesis', event.target.value)} helpText="Describe the expected improvement. Use anonymous design notes without child names or private family details." />
-            <SelectField label="Candidate reward policy" value={editor.candidate_policy} onChange={(event) => setEditor((previous) => ({ ...previous, candidate_policy: event.target.value, ...(event.target.value === 'commitment100' ? { candidate_daily_coins: 100 } : {}) }))}>
-              <option value="envelope">Hypothetical payout envelope</option><option value="commitment100">100-Coin commitment prototype (75 / 25)</option>
+            <SelectField label="Candidate reward policy" value={editor.candidate_policy} onChange={(event) => changePolicy(event.target.value)}>
+              <option value="envelope">Hypothetical payout envelope</option><option value="commitment100">100-Coin commitment prototype (75 / 25)</option>{metadata.feedback.expedition_budget_limits && <option value="expedition_limits">Shared expedition limits (same Coin rules)</option>}
             </SelectField>
-            <TextField disabled={editor.candidate_policy === 'commitment100'} label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />
-            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. Control uses installed reward rules. {editor.candidate_policy === 'commitment100' ? 'The candidate reserves new promises before launch or drop, with 75 Coins for expeditions and 25 for random activity pouches. Existing and authored promises pay fully.' : 'The candidate omits excess expedition and pouch payouts in a hypothetical shared daily envelope.'}</p>
-            {!scenariosMatch(controlRoutine(routine), editor.config) && <p role="status" className="text-ember-deep">The routine above differs from this experiment. Use it explicitly to update the saved assumptions.</p>}
-            <Button variant="secondary" onClick={() => change('config', controlRoutine(routine))}>Use current routine</Button>
+            {editor.candidate_policy !== 'expedition_limits' && <TextField disabled={editor.candidate_policy === 'commitment100'} label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />}
+            {editor.candidate_policy === 'expedition_limits' && <ProgressionExpeditionBudgetControls label="Candidate expedition limits" budget={editor.candidate_expedition_budget} limits={metadata.feedback.expedition_budget_limits} onChange={(budget) => change('candidate_expedition_budget', budget)} />}
+            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. {editor.candidate_policy === 'expedition_limits' ? `Control and candidate both use ${rewardPolicyLabel(editor.config)}. The control has unlimited expeditions; only the candidate launch or item limits change.` : 'Control uses installed reward rules.'} {editor.candidate_policy === 'expedition_limits' ? '' : editor.candidate_policy === 'commitment100' ? 'The candidate reserves new promises before launch or drop, with 75 Coins for expeditions and 25 for random activity pouches. Existing and authored promises pay fully.' : 'The candidate omits excess expedition and pouch payouts in a hypothetical shared daily envelope.'}</p>
+            {!scenariosMatch(controlRoutine(routine, editor.candidate_policy), editor.config) && <p role="status" className="text-ember-deep">The routine above differs from this experiment. Use it explicitly to update the saved assumptions.</p>}
+            <Button variant="secondary" onClick={() => change('config', controlRoutine(routine, editor.candidate_policy))}>Use current routine</Button>
             <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Inspect experiment routine</summary><pre className="max-h-64 overflow-auto text-caption">{JSON.stringify(editor.config, null, 2)}</pre></details>
             <section aria-label="Experiment criteria editor" className="space-y-3"><h3 className="font-semibold">Success criteria</h3><p className="text-caption text-ink-secondary">Choose bounds for candidate outcomes. Blank bounds are unset. Day targets need a reached-rate target to protect children who never reach the reward; rates use 0 to 1 and money uses cents.</p>
               {editor.targets.map((row, index) => { const metric = metadata.feedback.metrics.find((entry) => entry.key === row.metric); return <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-end rounded-lg bg-ink-page-aged p-3"><SelectField label={`Criterion ${index + 1} measure`} value={row.metric} onChange={(event) => target(index, 'metric', event.target.value)}>{metadata.feedback.metrics.filter((entry) => entry.key === row.metric || !editor.targets.some((other) => other.metric === entry.key)).map((entry) => <option key={entry.key} value={entry.key}>{entry.label} ({entry.unit})</option>)}</SelectField>{['min', 'max'].map((key) => <TextField key={key} label={`Criterion ${index + 1} ${key === 'min' ? 'minimum' : 'maximum'}`} type="number" step="any" min={metric?.min_value} max={metric?.max_value} value={row[key]} onChange={(event) => target(index, key, event.target.value === '' ? '' : Number(event.target.value))} />)}<Button variant="ghost" onClick={() => change('targets', editor.targets.filter((_, position) => position !== index))}>Remove criterion {index + 1}</Button></div>; })}

@@ -145,6 +145,56 @@ class ProgressionLabResponseFixtureTests(APITestCase):
             self.assertLessEqual(day["reward_commitment_activity_pouch_today_p90"], 25)
         self.assert_response_fixture(response, "progression-lab-commitment-report.json")
 
+    def test_shared_expedition_limits_match_shared_wire_contract(self):
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+            "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+            "reward_commitment": {"enabled": True},
+            "expedition_budget": {"daily_launches": 1, "daily_items": 1},
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        quotas = response.data["expedition_budget"]
+        self.assertEqual(response.data["config"]["expedition_budget"], {"daily_launches": 1, "daily_items": 1})
+        self.assertTrue(response.data["reward_commitment"]["enabled"])
+        self.assertGreater(quotas["summary"]["launched_trips"]["p90"], 0)
+        self.assertGreater(quotas["summary"]["slots_promised"]["p90"], 0)
+        self.assertLessEqual(quotas["summary"]["slots_promised"]["p90"], 30)
+        self.assert_response_fixture(response, "progression-lab-expedition-budget-report.json")
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_quota_comparison_matches_shared_wire_contract(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionExperiment
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "Shared expedition supply", "hypothesis": "Limit new item promises while preserving the same full-promise Coin policy.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+                       "reward_commitment": {"enabled": True}},
+            "candidate_daily_coins": None, "candidate_policy": "expedition_limits",
+            "candidate_expedition_budget": {"daily_launches": 1, "daily_items": 1},
+            "targets": [{"metric": "expedition_items_promised_p50", "max": 30},
+                        {"metric": "first_mount_reached_rate", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000021"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000022"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(
+            self.client.get(detail_url + f"comparisons/{comparison_id}/"),
+            "progression-experiment-expedition-budget-comparison.json",
+        )
+        self.assertEqual(report["inputs"]["candidate_policy"], "expedition_limits")
+        self.assertIsNone(report["inputs"]["candidate_daily_coins"])
+        self.assertEqual(report["control"]["config"]["expedition_budget"], {"daily_launches": None, "daily_items": None})
+        self.assertEqual(report["candidate"]["config"]["expedition_budget"], {"daily_launches": 1, "daily_items": 1})
+        self.assertEqual(report["control"]["config"]["reward_commitment"], report["candidate"]["config"]["reward_commitment"])
+        self.assertEqual(report["control"]["config"]["reward_budget"], report["candidate"]["config"]["reward_budget"])
+
     @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
     def test_saved_commitment_experiment_matches_shared_wire_contract(self, _now):
         from apps.rpg.models import ProgressionComparison, ProgressionExperiment

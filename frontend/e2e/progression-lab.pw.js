@@ -13,6 +13,8 @@ let report;
 let economyReport;
 let budgetReport;
 let commitmentReport;
+let expeditionReport;
+let expeditionComparison;
 let experimentList;
 let experimentComparison;
 let experimentDecided;
@@ -25,6 +27,8 @@ test.beforeAll(async () => {
   economyReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-economy-report.json', import.meta.url), 'utf8'));
   budgetReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-reward-budget-report.json', import.meta.url), 'utf8'));
   commitmentReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-commitment-report.json', import.meta.url), 'utf8'));
+  expeditionReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-expedition-budget-report.json', import.meta.url), 'utf8'));
+  expeditionComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-expedition-budget-comparison.json', import.meta.url), 'utf8'));
   experimentList = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-list.json', import.meta.url), 'utf8'));
   experimentComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-comparison.json', import.meta.url), 'utf8'));
   experimentDecided = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-decided.json', import.meta.url), 'utf8'));
@@ -56,7 +60,8 @@ test.afterAll(async () => {
   }
 });
 
-async function openLab(page, response = report) {
+async function openLab(page, response = report, quotaExperiment = false) {
+  const evidence = quotaExperiment ? expeditionComparison : experimentComparison;
   const requests = [];
   const external = [];
   let savedExperiment = null;
@@ -74,19 +79,26 @@ async function openLab(page, response = report) {
     if (url.pathname === experimentRoot && route.request().method() === 'GET') return route.fulfill({ json: experimentList });
     if (url.pathname === experimentRoot && route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
-      expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
-      expect(input.config).toEqual({ ...response.config, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } });
-      expect(input.candidate_daily_coins).toBe(100);
-      savedExperiment = { ...experimentDecided, latest_decision: null, comparisons: [], decisions: [], observations: [] };
+      expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'candidate_expedition_budget', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
+      if (quotaExperiment) {
+        expect(input.config).toEqual(evidence.control.config);
+        expect(input.candidate_policy).toBe('expedition_limits');
+        expect(input.candidate_daily_coins).toBeNull();
+        expect(input.candidate_expedition_budget).toEqual(evidence.candidate.config.expedition_budget);
+      } else {
+        expect(input.config).toEqual({ ...response.config, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false }, expedition_budget: { daily_launches: null, daily_items: null } });
+        expect(input.candidate_daily_coins).toBe(100);
+      }
+      savedExperiment = { ...experimentDecided, ...input, latest_decision: null, comparisons: [], decisions: [], observations: [] };
       return route.fulfill({ status: 201, json: savedExperiment });
     }
     if (url.pathname === experimentPath) return route.fulfill({ json: savedExperiment ?? experimentDecided });
     if (url.pathname === `${experimentPath}compare/`) {
       expect(route.request().postDataJSON()).toEqual({ revision: 1 });
       savedExperiment = { ...savedExperiment, comparisons: experimentDecided.comparisons };
-      return route.fulfill({ status: 201, json: experimentComparison });
+      return route.fulfill({ status: 201, json: evidence });
     }
-    if (url.pathname === `${experimentPath}comparisons/${experimentComparison.id}/`) return route.fulfill({ json: experimentComparison });
+    if (url.pathname === `${experimentPath}comparisons/${experimentComparison.id}/`) return route.fulfill({ json: evidence });
     if (url.pathname === `${experimentPath}decisions/`) {
       const input = route.request().postDataJSON();
       expect(input).toEqual({ revision: 1, comparison_id: experimentComparison.id, outcome: 'keep_testing', rationale: 'Keep testing reward commitments.', next_action: 'Simulate the expedition table.', review_on: '2099-01-01' });
@@ -111,6 +123,36 @@ async function openLab(page, response = report) {
 }
 
 for (const width of [375, 1280]) {
+  test(`shared expedition limits preserve Coin rules and saved evidence at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { requests, external } = await openLab(page, expeditionReport, true);
+    await expect(page.getByRole('checkbox', { name: 'Test the 100-Coin commitment prototype' })).toBeChecked();
+    await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
+    const result = page.getByRole('region', { name: 'Simulation report', exact: true }).getByRole('region', { name: 'Expedition budget forecast' });
+    await expect(result.getByRole('rowheader', { name: 'New item slots promised' })).toBeVisible();
+    await expect(result.getByRole('rowheader', { name: 'Trips promising no Coins or items' })).toBeVisible();
+    await page.getByRole('button', { name: 'Keep as comparison' }).click();
+    await expect(result.getByRole('columnheader', { name: 'Comparison median' })).toBeVisible();
+    const notebook = page.getByRole('region', { name: 'Progression experiment notebook', exact: true });
+    await chooseDropdown(notebook.getByRole('combobox', { name: 'Candidate reward policy' }), 'expedition_limits');
+    const candidate = notebook.getByRole('region', { name: 'Candidate expedition limits' });
+    await expect(candidate.getByRole('spinbutton', { name: 'Daily expedition launches per child' })).toHaveValue('1');
+    await expect(candidate.getByRole('spinbutton', { name: 'Daily expedition items per child' })).toHaveValue('1');
+    await expect(notebook.getByRole('spinbutton', { name: 'Candidate Coins per child per day' })).toHaveCount(0);
+    await notebook.getByRole('button', { name: 'Save experiment', exact: true }).click();
+    await expect(notebook.getByText('Experiment saved. Live rewards are unchanged.')).toBeVisible();
+    await notebook.getByRole('button', { name: 'Run control and candidate' }).click();
+    const saved = notebook.getByRole('region', { name: 'Saved experiment comparison', exact: true });
+    await expect(saved.getByText(/Control: 100-Coin commitment prototype.*Unlimited expeditions.*Candidate: 100-Coin commitment prototype/)).toBeVisible();
+    await expect(saved.getByRole('region', { name: 'Expedition budget forecast' })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    expect(requests.every((path) => labReads.includes(path) || path.startsWith(`/api/rpg/progression-lab/experiments/${experimentDecided.id}/`))).toBe(true);
+    await result.screenshot({ path: testInfo.outputPath(`progression-expedition-report-${width}.png`) });
+    await candidate.screenshot({ path: testInfo.outputPath(`progression-expedition-controls-${width}.png`) });
+    await page.screenshot({ path: testInfo.outputPath(`progression-expedition-limits-${width}.png`), fullPage: true });
+  });
+
   test(`saved experiment closes the feedback loop at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const { requests, external } = await openLab(page);

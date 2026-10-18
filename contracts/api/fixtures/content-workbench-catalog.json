@@ -23,14 +23,14 @@
         "edit_reason": "",
         "values": {
           "coin_value": 2,
+          "icon": "🍎",
+          "description": "",
           "metadata": {
             "growth": 5
           },
-          "name": "Practice snack",
-          "description": "",
-          "sprite_key": "",
           "rarity": "common",
-          "icon": "🍎"
+          "name": "Practice snack",
+          "sprite_key": ""
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "quest_type": "collection",
+          "is_repeatable": false,
+          "target_value": 2,
+          "name": "Practice challenge",
+          "duration_days": 7,
+          "coin_reward": 10,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "target_value": 2,
-          "xp_reward": 15,
-          "name": "Practice challenge",
-          "is_repeatable": false,
-          "duration_days": 7,
-          "coin_reward": 10,
-          "quest_type": "collection",
           "description": "Complete two approved chores.",
-          "sprite_key": "",
+          "xp_reward": 15,
           "icon": "⚔️",
+          "sprite_key": "",
           "required_badge": null,
           "reward_items": [
             {
@@ -274,6 +274,10 @@
       },
       "reward_commitment": {
         "enabled": false
+      },
+      "expedition_budget": {
+        "daily_launches": null,
+        "daily_items": null
       }
     },
     "limits": {
@@ -371,6 +375,9 @@
         "type": "object"
       },
       "reward_commitment": {
+        "type": "object"
+      },
+      "expedition_budget": {
         "type": "object"
       }
     },
@@ -541,7 +548,37 @@
       "Frozen expeditions, owned pouches and authored challenge pouches pay their full promises. Authored pouches and other Coin sources, including random activity cosmetic salvage, remain outside these allocations.",
       "Commitments, wallet credits and contingent salvage are separate quantities. Late claims or pouch opening can pay more than 100 Coins in one day. Unused contingent salvage is released at claim without restoring a past day's allocation.",
       "Consumables and boosts, including Lucky Coin timing, are unmodeled. This experiment cannot establish a live maximum claim or a rollout-ready reservation protocol.",
-      "Unavailable finite targets are excluded acquisition paths, not extra playable runway. Reachability is source-level potential, not a promise of completion within the horizon."
+      "Unavailable finite targets are excluded acquisition paths, not extra playable runway. Reachability is source-level potential, not a promise of completion within the horizon.",
+      "The installed finite comparator removes only the Coin commitment policy while retaining expedition launch/item quotas. The separate unlimited expedition comparator retains the Coin policy; their unavailable-target counts cannot be added."
+    ],
+    "expedition_budget_defaults": {
+      "daily_launches": null,
+      "daily_items": null
+    },
+    "expedition_budget_limits": {
+      "daily_launches": {
+        "min": 0,
+        "max": 15,
+        "nullable": true
+      },
+      "daily_items": {
+        "min": 0,
+        "max": 45,
+        "nullable": true
+      }
+    },
+    "expedition_budget_assumptions": [
+      "This anonymous experiment changes only new synthetic expedition launches and item promises. No live expedition, reward rule or inventory is changed.",
+      "One child's mounts share the daily launch and item allocations. Null means unlimited, zero prevents the selected new commitments, and unused capacity never banks across calendar days.",
+      "Requested trips are the configured count at each active visit. Eligible trips are the smaller of that request and currently available mounts. Prevented trips are eligible trips withheld by the launch quota; unavailable mounts are reported separately.",
+      "Nominal item slots are counted only for launched trips. Before drawing loot, the remaining item quota bounds whole slots; each successfully selected item consumes one unit, including pouches and cosmetics later salvaged. Empty eligible pools do not consume item capacity.",
+      "Slots requested equal slots promised plus nominal slots withheld by the quota plus permitted slots left unfilled by the eligible pool or Coin commitment policy. Withheld nominal slots are not a counterfactual count of items that would have dropped.",
+      "Item-only quotas still allow later Coin-only trips. The Coin commitment policy may also promise zero direct Coins; zero-item, zero-Coin and fully empty trips remain visible rather than being silently skipped.",
+      "A saturated day exactly uses an allocation on a relevant eligible opportunity; a limited day actually withholds a trip or nominal slot. Zero allocations do not count idle or no-mount days as saturated. Each day counts at most once per measure.",
+      "Frozen loot claims retain their complete item and Coin promises. Claimed and pending items count promised units, including later salvage, not retained inventory. Grandfathered units lack a new-budget reservation marker and are reported separately.",
+      "For new-budget promises, slots promised equal claimed items minus grandfathered claimed items plus pending items minus grandfathered pending items. Claims do not consume a later day's allocation.",
+      "The unlimited finite denominator removes both expedition quotas while retaining the same Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
+      "Authored challenge items, activity drops, boosts and future launch/claim concurrency are outside these expedition slot quotas. This is a design comparison, not a live reservation protocol or retention prediction."
     ],
     "catalog": {
       "fingerprint": "a8f2cc85f285bef9e9cdfb61cf91881efa1b84d5c0318d58fcc3c4ad37c0d7ff",
@@ -563,7 +600,8 @@
         "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
-        "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards"
+        "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards",
+        "Shared optional per-child expedition launch and whole-item promise quotas, independent of the Coin policy"
       ],
       "excluded": [
         "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -666,8 +704,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
-    "engine_version": "2026-10-18.3",
+    "rules_fingerprint": "d9efcbdac035b2d7403830cde8771c12224635f06ad64c20c90e21d584ae6754",
+    "engine_version": "2026-10-18.4",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,
@@ -718,6 +756,10 @@
           },
           "reward_commitment": {
             "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       },
@@ -764,6 +806,10 @@
           },
           "reward_commitment": {
             "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       },
@@ -810,6 +856,10 @@
           },
           "reward_commitment": {
             "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       }

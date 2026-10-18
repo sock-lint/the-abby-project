@@ -36,6 +36,7 @@ ASSUMPTIONS = [
     "Commitments, wallet credits and contingent salvage are separate quantities. Late claims or pouch opening can pay more than 100 Coins in one day. Unused contingent salvage is released at claim without restoring a past day's allocation.",
     "Consumables and boosts, including Lucky Coin timing, are unmodeled. This experiment cannot establish a live maximum claim or a rollout-ready reservation protocol.",
     "Unavailable finite targets are excluded acquisition paths, not extra playable runway. Reachability is source-level potential, not a promise of completion within the horizon.",
+    "The installed finite comparator removes only the Coin commitment policy while retaining expedition launch/item quotas. The separate unlimited expedition comparator retains the Coin policy; their unavailable-target counts cannot be added.",
 ]
 
 

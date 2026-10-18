@@ -10,8 +10,10 @@ recent-child Coin ledger aggregates.
 ## Save findings and act on them
 
 Use the experiment notebook to name a hypothesis and capture the current
-routine, candidate daily allowance (100 Coins initially) and explicit numeric
-targets. The installed control is uncapped. Saved routine edits create a new
+routine, candidate policy and explicit numeric targets. Coin experiments compare
+the installed rules with a payout envelope or the 100-Coin commitment prototype.
+Expedition-limit experiments preserve the selected Coin policy on both sides
+and compare unlimited expeditions with shared per-child launch or item limits. Saved routine edits create a new
 revision; imported reports never become trusted evidence.
 
 Run control and candidate explicitly. The server generates both from one
@@ -42,8 +44,8 @@ co-parents. There is no client-supplied result or decision-edit endpoint.
 Use **Manage challenges and items** for content drafts, preview, simulation
 and explicit publication through the existing workbench. Expedition policy
 requires a reviewed code change. The [concrete reward proposal](progression-reward-proposal.md)
-describes a 75/25 commitment allocation and 10/25/50 expedition table to model
-next. The current envelope does not simulate that proposed issuance policy.
+describes the opt-in 75/25 commitment allocation and 10/25/50 expedition table.
+The separate payout envelope does not simulate that issuance policy.
 
 ## Observe the installed economy
 
@@ -251,7 +253,8 @@ staff child cannot use them. No real-account selector is accepted.
 - `GET /api/rpg/progression-lab/` returns defaults, input bounds, editable
   routine examples, catalog counts, rules fingerprint, coverage and audits.
 - `POST /api/rpg/progression-lab/simulate/` takes an anonymous scenario with
-  optional nested `economy`, `reward_budget` and `reward_commitment` objects and
+  optional nested `economy`, `reward_budget`, `reward_commitment` and
+  `expedition_budget` objects and
   returns the normalized assumptions, milestone ranges, daily aggregates,
   source/consumption totals and example journey.
 
@@ -315,3 +318,58 @@ Saved experiments use `candidate_policy: "envelope"` (legacy/default) or
 `"commitment100"` (requires `candidate_daily_coins: 100`). Their installed control
 has both experiments disabled. Older clients omitting policy on an edit preserve
 the stored policy. A notebook decision never changes content or live rewards.
+
+
+## Compare shared expedition launch and item budgets
+
+`expedition_budget: {"daily_launches": null, "daily_items": null}` leaves
+expeditions unlimited. Independently set whole-number launches (0–15) and item
+units (0–45) per child per calendar day. The UI supplies unlimited, 1/2/3-launch
+and 3/6/9-item examples; custom values may combine both limits. These remain
+Lab assumptions and do not alter live ExpeditionService, drops or content.
+Routine presets preserve the selected limits and Coin policy. Legacy report
+imports default missing limits to unlimited; malformed or incomplete objects
+are rejected rather than silently changing an experiment.
+
+Every mount shares the same daily capacity; unused capacity does not carry.
+The launch limit applies to eligible idle mounts before launch. The item limit
+applies before weighted loot selection, reserving one unit per item actually
+promised. A whole Coin pouch or cosmetic counts as one unit, even if the
+cosmetic is later salvaged. Full item values and previously frozen promises
+remain payable. Direct Coin promises still follow the selected Coin rules:
+after item capacity runs out, Coin-only or completely empty trips can still
+launch. The report explicitly counts these outcomes. Automatic oldest-first
+mount selection is a model assumption, not a simulated child preference.
+
+Trip accounting separates requested opportunities, available mounts, launched
+trips and launches prevented by the limit. Item accounting reconciles nominal
+slots on launched trips = promised units + budget-withheld slots + slots with
+no eligible item. New promises equal claimed plus pending units after subtracting
+grandfathered claims/pending units. Mean totals reconcile; separate percentile
+values can describe different journeys. Zero-direct-Coin and completely empty
+trip percentages use summed counts, never a ratio of independent medians.
+Saturated days (allowance fully used) differ from limited days (an opportunity
+was actually withheld). No-mount days do not imply a binding limit.
+
+Acquisition and challenge capacity use the limits too. Reports compare finite
+targets with an unlimited-expedition denominator under the **same Coin policy**.
+Targets losing their only modeled acquisition path are reported separately;
+removing access cannot count as longer runway. Reached-rate and conditional
+milestone dates still need to be read together.
+
+In the notebook choose `candidate_policy: "expedition_limits"`, with
+`candidate_daily_coins: null` and a complete `candidate_expedition_budget`
+containing at least one non-null limit. Control configuration has unlimited
+expeditions; candidate changes only those limits. Selected Coin and purchasing
+rules are identical. Switching to this policy explicitly captures the current
+Lab routine; use **Use current routine** for later changes. Coin-only candidates
+require unlimited expedition limits to avoid confounded comparisons. New
+criterion options cover launched trips, promised items, empty trips, first-grown
+completion day and first-grown reached rate. All criteria still share the
+six-target maximum, immutable evidence and freshness checks.
+
+Account/family deletion traverses only primary keys and ownership foreign keys
+when fencing and checking collected rows. Saved comparison and observation JSON
+bodies are not decoded by ownership checks, including recursive parent checks.
+Regression tests cover self deletion, parent-managed deletion, family closure
+and a foreign comparison link that must continue to fail closed.

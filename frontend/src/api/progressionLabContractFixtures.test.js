@@ -5,9 +5,11 @@ import report from '../../../contracts/api/fixtures/progression-lab-report.json'
 import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
 import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
 import commitmentReport from '../../../contracts/api/fixtures/progression-lab-commitment-report.json';
+import expeditionBudgetReport from '../../../contracts/api/fixtures/progression-lab-expedition-budget-report.json';
 import experiments from '../../../contracts/api/fixtures/progression-experiment-list.json';
 import comparison from '../../../contracts/api/fixtures/progression-experiment-comparison.json';
 import commitmentComparison from '../../../contracts/api/fixtures/progression-experiment-commitment-comparison.json';
+import expeditionBudgetComparison from '../../../contracts/api/fixtures/progression-experiment-expedition-budget-comparison.json';
 import decided from '../../../contracts/api/fixtures/progression-experiment-decided.json';
 import observations from '../../../contracts/api/fixtures/progression-observations-empty.json';
 import observed from '../../../contracts/api/fixtures/progression-experiment-observed.json';
@@ -128,6 +130,39 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.summary.finite_completed_p50 + response.summary.finite_remaining_p50).toBe(response.summary.finite_content_total);
     expect(response.journey.seed).toBe(report.config.seed);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+  });
+
+  it('transports shared launch and item quotas while retaining their accounting and unchanged Coin hypothesis', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, expeditionBudgetReport);
+    const root = '/api/rpg/progression-lab/experiments/';
+    const create = spyHandler('post', new RegExp(`${root}$`), { id: 'quota-fixture', ...expeditionBudgetComparison.inputs });
+    const compare = spyHandler('post', new RegExp(`${root}quota-fixture/compare/$`), expeditionBudgetComparison);
+    server.use(simulation.handler, create.handler, compare.handler);
+    const response = await simulateProgressionLab(expeditionBudgetReport.config);
+    expect(simulation.calls[0].body.expedition_budget).toEqual({ daily_launches: 1, daily_items: 1 });
+    expect(response.reward_commitment.enabled).toBe(true);
+    for (const day of response.trace) {
+      expect(day.expedition_budget_launches_today_p90).toBeLessThanOrEqual(1);
+      expect(day.expedition_budget_items_today_p90).toBeLessThanOrEqual(1);
+    }
+    const totals = response.expedition_budget.summary;
+    expect(totals.requested_trips.mean).toBeCloseTo(totals.eligible_trips.mean + totals.unavailable_mount_trips.mean, 0);
+    expect(totals.eligible_trips.mean).toBeCloseTo(totals.launched_trips.mean + totals.prevented_trips.mean, 0);
+    expect(totals.slots_requested.mean).toBeCloseTo(totals.slots_promised.mean + totals.slots_withheld_by_budget.mean + totals.slots_unfilled_by_pool.mean, 0);
+    expect(totals.slots_promised.mean).toBeCloseTo(totals.claimed_items.mean - totals.grandfathered_claimed_items.mean + totals.pending_items.mean - totals.grandfathered_pending_items.mean, 0);
+    const input = expeditionBudgetComparison.inputs;
+    await createProgressionExperiment(input);
+    expect(create.calls[0].body).toEqual(input);
+    expect(input.candidate_daily_coins).toBeNull();
+    expect(input.candidate_policy).toBe('expedition_limits');
+    const saved = await compareProgressionExperiment('quota-fixture', { revision: 1 });
+    expect(compare.calls[0].body).toEqual({ revision: 1 });
+    expect(saved.control.config.expedition_budget).toEqual({ daily_launches: null, daily_items: null });
+    expect(saved.control.config.reward_commitment).toEqual(saved.candidate.config.reward_commitment);
+    expect(saved.control.config.reward_budget).toEqual(saved.candidate.config.reward_budget);
+    expect(saved.candidate).toEqual(expeditionBudgetReport);
+    expect(saved.candidate.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    for (const check of saved.evaluation.checks) expect(check.candidate.trials).toBe(input.config.trials);
   });
 
   it('preserves purchase timing, calendar budgets and separate Coin and money flows', async () => {

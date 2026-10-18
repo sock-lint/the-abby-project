@@ -437,10 +437,12 @@ class ProgressionExperiment(TimestampedModel):
     hypothesis = models.TextField()
     revision = models.PositiveIntegerField(default=1)
     config = models.JSONField(default=dict)
-    candidate_daily_coins = models.PositiveIntegerField(default=100)
+    candidate_daily_coins = models.PositiveIntegerField(default=100, null=True)
     candidate_policy = models.CharField(max_length=20, default="envelope", choices=[
         ("envelope", "Daily income envelope"), ("commitment100", "100-Coin commitment prototype"),
+        ("expedition_limits", "Shared expedition limits"),
     ])
+    candidate_expedition_budget = models.JSONField(default=dict)
     targets = models.JSONField(default=list)
 
 

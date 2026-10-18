@@ -71,26 +71,44 @@ def _text(value, label, limit):
     return value.strip()
 
 
-def _candidate_config(config, policy, daily):
+def _candidate_config(config, policy, daily, expedition_budget):
+    if policy == "expedition_limits":
+        return {**config, "expedition_budget": deepcopy(expedition_budget)}
     return {**config, "reward_budget": {"daily_coins": None if policy == "commitment100" else daily},
             "reward_commitment": {"enabled": policy == "commitment100"}}
 
 
-def _inputs(data, *, default_policy="envelope"):
+def _inputs(data, *, default_policy="envelope", default_expedition_budget=None):
+    from .expedition_budget import normalize_expedition_budget
+
     config = normalize_config(data["config"])
     # Persist the installed control independently from any imported scenario.
     # The selected candidate policy establishes the one hypothetical change.
-    config["reward_budget"] = {"daily_coins": None}
-    config["reward_commitment"] = {"enabled": False}
     policy = data.get("candidate_policy", default_policy)
-    if not isinstance(policy, str) or policy not in {"envelope", "commitment100"}:
-        raise ValueError("Candidate policy must be envelope or commitment100.")
+    if not isinstance(policy, str) or policy not in {"envelope", "commitment100", "expedition_limits"}:
+        raise ValueError("Candidate policy must be envelope, commitment100 or expedition_limits.")
+    supplied_budget = (data["candidate_expedition_budget"] if "candidate_expedition_budget" in data
+                       else default_expedition_budget if default_expedition_budget is not None else {})
+    if not isinstance(supplied_budget, dict):
+        raise ValueError("Candidate expedition budget must be an object.")
+    expedition_budget = normalize_expedition_budget(supplied_budget)
+    unlimited = normalize_expedition_budget({})
     daily = data["candidate_daily_coins"]
-    if type(daily) is not int or not 0 <= daily <= 100000:
-        raise ValueError("Candidate daily Coins must be a whole number from 0 to 100000.")
+    if policy == "expedition_limits":
+        if daily is not None or expedition_budget == unlimited:
+            raise ValueError("Expedition-limit comparisons require null candidate daily Coins and at least one quota.")
+    else:
+        if expedition_budget != unlimited or config["expedition_budget"] != unlimited:
+            raise ValueError("Choose expedition_limits to compare quotas separately from Coin rules.")
+        if type(daily) is not int or not 0 <= daily <= 100000:
+            raise ValueError("Candidate daily Coins must be a whole number from 0 to 100000.")
+        config["reward_budget"] = {"daily_coins": None}
+        config["reward_commitment"] = {"enabled": False}
+    # A quota comparison retains the routine's Coin rules in both arms.
+    config["expedition_budget"] = unlimited
     if policy == "commitment100" and daily != 100:
         raise ValueError("The commitment prototype requires exactly 100 candidate daily Coins.")
-    candidate = _candidate_config(config, policy, daily)
+    candidate = _candidate_config(config, policy, daily, expedition_budget)
     normalize_config(candidate)
     if estimate_work(config) + estimate_work(candidate) > MAX_COMPARISON_WORK_UNITS:
         raise ValueError("Paired comparison exceeds its work limit. Reduce trials or activity counts.")
@@ -100,13 +118,14 @@ def _inputs(data, *, default_policy="envelope"):
         "config": config,
         "candidate_daily_coins": daily,
         "candidate_policy": policy,
+        "candidate_expedition_budget": expedition_budget,
         "targets": normalize_targets(data["targets"]),
     }
 
 
 def _snapshot(experiment):
     return {key: deepcopy(getattr(experiment, key)) for key in (
-        "name", "hypothesis", "config", "candidate_daily_coins", "candidate_policy", "targets",
+        "name", "hypothesis", "config", "candidate_daily_coins", "candidate_policy", "candidate_expedition_budget", "targets",
     )}
 
 
@@ -198,7 +217,8 @@ def save_experiment(actor, experiment_id, revision, data):
     _revision(experiment, revision)
     # Older clients omit this new choice. Preserve the stored policy under
     # the experiment lock rather than silently reverting their selection.
-    values = _inputs(data, default_policy=experiment.candidate_policy)
+    values = _inputs(data, default_policy=experiment.candidate_policy,
+                     default_expedition_budget=experiment.candidate_expedition_budget)
     for key, value in values.items():
         setattr(experiment, key, value)
     experiment.revision += 1
@@ -214,7 +234,8 @@ def compare_experiment(actor, experiment_id, revision):
         raise ValueError("This experiment has reached its 20-comparison limit.")
     inputs = _inputs(_snapshot(experiment))
     control_config = inputs["config"]
-    candidate_config = _candidate_config(control_config, inputs["candidate_policy"], inputs["candidate_daily_coins"])
+    candidate_config = _candidate_config(control_config, inputs["candidate_policy"], inputs["candidate_daily_coins"],
+                                         inputs["candidate_expedition_budget"])
     try:
         catalog = load_catalog()
     except ValueError as exc:

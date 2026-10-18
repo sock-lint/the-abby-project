@@ -200,7 +200,7 @@ class ProgressionFeedbackTests(SimpleTestCase):
     def test_metadata_is_detached_and_explicit_about_remaining_live_design_work(self):
         metadata = feedback_metadata()
         self.assertEqual(metadata["max_targets"], 6)
-        self.assertEqual(len(metadata["metrics"]), 7)
+        self.assertEqual(len(metadata["metrics"]), 12)
         proposal = metadata["proposal"]
         self.assertEqual(proposal["status"], "lab_prototype")
         self.assertTrue(proposal["evaluated_by_current_engine"])
@@ -232,6 +232,48 @@ class ProgressionFeedbackTests(SimpleTestCase):
         control["config"]["reward_commitment"] = {"enabled": True}
         with self.assertRaises(ValueError):
             evaluate_comparison(control, candidate, [])
+
+    def test_quota_pair_accepts_each_unchanged_coin_policy_but_rejects_a_mixed_hypothesis(self):
+        for cap, committed in ((None, False), (75, False), (None, True)):
+            control, candidate = report(cap=cap), report(cap=cap)
+            for current in (control, candidate):
+                current["config"]["reward_commitment"] = {"enabled": committed}
+            candidate["config"]["expedition_budget"] = {"daily_launches": 2, "daily_items": 3}
+            self.assertEqual(evaluate_comparison(control, candidate, [])["status"], "unconfigured")
+            candidate["config"]["reward_commitment"]["enabled"] = not committed
+            with self.assertRaises(ValueError):
+                evaluate_comparison(control, candidate, [])
+            candidate["config"]["reward_commitment"]["enabled"] = committed
+            control["config"]["expedition_budget"] = {"daily_items": 1}
+            with self.assertRaises(ValueError):
+                evaluate_comparison(control, candidate, [])
+
+    def test_quota_and_first_grown_criteria_preserve_missing_evidence_and_denominators(self):
+        control, candidate = report(), report()
+        candidate["config"]["expedition_budget"] = {"daily_items": 3}
+        for current in (control, candidate):
+            current["expedition_budget"] = {"summary": {
+                "launched_trips": {"p50": 20}, "slots_promised": {"p50": 40}, "empty_trips": {"p50": 2},
+            }}
+            current["milestones"].append({"key": "first_mount", "trials": 10, "completed_trials": 5, "p50_days": 21})
+        targets = [
+            {"metric": "expedition_launches_p50", "max": 20},
+            {"metric": "expedition_items_promised_p50", "max": 40},
+            {"metric": "expedition_empty_trips_p50", "max": 2},
+            {"metric": "first_mount_day_p50", "max": 21},
+            {"metric": "first_mount_reached_rate", "min": 0.5},
+        ]
+        result = evaluate_comparison(control, candidate, targets)
+        self.assertEqual(result["status"], "pass")
+        self.assertEqual(result["checks"][3]["candidate"], {"value": 21, "completed_trials": 5, "trials": 10})
+        self.assertEqual(result["checks"][4]["candidate"]["value"], 0.5)
+        candidate["expedition_budget"]["summary"].pop("slots_promised")
+        candidate["milestones"][-1]["completed_trials"] = 0
+        candidate["milestones"][-1]["p50_days"] = None
+        result = evaluate_comparison(control, candidate, targets)
+        self.assertEqual(result["checks"][1]["status"], "insufficient")
+        self.assertEqual(result["checks"][3]["status"], "insufficient")
+        self.assertEqual(result["checks"][4]["candidate"]["value"], 0)
 
     def test_native_reports_supply_earned_cost_and_priority_metrics_without_database_access(self):
         from apps.rpg.progression.engine import simulate_progression

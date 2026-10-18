@@ -37,7 +37,7 @@ describe('Progression experiment notebook', () => {
     await user.click(screen.getByRole('button', { name: 'Save experiment' }));
     await screen.findByText('Experiment saved. Live rewards are unchanged.');
     expect(create.calls[0].body).toMatchObject({ config: { ...draft.config, reward_budget: { daily_coins: null } }, candidate_daily_coins: 100, targets: [{ metric: 'coins_earned_p50', min: 0, max: null }] });
-    expect(Object.keys(create.calls[0].body).sort()).toEqual(['candidate_daily_coins', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
+    expect(Object.keys(create.calls[0].body).sort()).toEqual(['candidate_daily_coins', 'candidate_expedition_budget', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
     await user.click(screen.getByRole('button', { name: 'Run control and candidate' }));
     await screen.findByRole('region', { name: 'Saved experiment comparison' });
     expect(run.calls[0].body).toEqual({ revision: 1 });
@@ -54,6 +54,21 @@ describe('Progression experiment notebook', () => {
     await user.click(screen.getByRole('button', { name: 'Save experiment' }));
     await screen.findByText('Experiment saved. Live rewards are unchanged.');
     expect(create.calls[0].body).toMatchObject({ candidate_policy: 'commitment100', candidate_daily_coins: 100, config: { reward_commitment: { enabled: false }, reward_budget: { daily_coins: null } } });
+  });
+  it('saves an expedition-only hypothesis with matching Coin rules and explicit candidate limits', async () => {
+    setup();
+    const quota = { daily_launches: null, daily_items: null };
+    server.use(http.get(`*${root}`, () => HttpResponse.json({ ...listing, feedback: { ...listing.feedback, expedition_budget_defaults: quota, expedition_budget_limits: { daily_launches: { min: 0, max: 15 }, daily_items: { min: 0, max: 45 } } } })));
+    const create = spyHandler('post', new RegExp(`${root}$`), { ...draft, candidate_policy: 'expedition_limits', candidate_daily_coins: null, candidate_expedition_budget: { daily_launches: null, daily_items: 3 } });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<ProgressionExperimentNotebook routine={{ ...draft.config, reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: { daily_launches: 2, daily_items: 6 } }} />);
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Candidate reward policy' }), 'expedition_limits');
+    const limits = screen.getByRole('region', { name: 'Candidate expedition limits' });
+    await user.click(within(limits).getByRole('button', { name: '3 items per child per day' }));
+    expect(screen.queryByRole('spinbutton', { name: 'Candidate Coins per child per day' })).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Save experiment' }));
+    await screen.findByText('Experiment saved. Live rewards are unchanged.');
+    expect(create.calls[0].body).toMatchObject({ candidate_policy: 'expedition_limits', candidate_daily_coins: null, candidate_expedition_budget: { daily_launches: null, daily_items: 3 }, config: { reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: quota } });
   });
   it('updates the exact revision and captures the changed routine explicitly', async () => {
     setup(decided);

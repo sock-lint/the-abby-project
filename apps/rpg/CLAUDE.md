@@ -150,7 +150,11 @@ best-effort policy and leave the quest retryable.
   `candidate_policy` selects the legacy payout envelope or fixed `commitment100`
   prototype. The latter reserves 75 expedition / 25 random-activity-pouch Coins
   before grants and pays established promises fully; boosts remain unmodeled.
-  It is a simulation policy, never a live reward writer.
+  `expedition_budget` independently limits new launches and whole item promises
+  shared across mounts. `expedition_limits` notebook candidates preserve identical
+  Coin rules in both arms; the control has unlimited expedition quotas. Never
+  conflate unavailable targets with additional runway or charge frozen claims
+  against a later allowance. These are simulation policies, never live writers.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.
