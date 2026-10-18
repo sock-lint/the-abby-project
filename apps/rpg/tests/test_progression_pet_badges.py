@@ -1,5 +1,7 @@
 """Detached care must earn the same scoped badges and payouts as live care."""
 from unittest.mock import patch
+from datetime import datetime, timedelta, timezone as dt_timezone
+from uuid import uuid4
 
 from django.db.models import Sum
 from django.test import TestCase, override_settings
@@ -44,6 +46,7 @@ class ProgressionPetBadgeParityTests(TestCase):
         self.mount_badge = self.badge("C first evolution", "mounts_evolved", 35)
         self.meta_badge = self.badge("Z collector", "badges_earned_count", 5, count=2)
         self.coin_badge = Badge.objects.create(name="D unrelated coin badge", criteria_type="total_coins_earned", criteria_value={"amount": 1}, xp_bonus=99)
+        self.now = datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc)
 
     def badge(self, name, kind, xp, count=1):
         return Badge.objects.create(name=name, criteria_type=kind, criteria_value={"count": count}, xp_bonus=xp)
@@ -78,16 +81,23 @@ class ProgressionPetBadgeParityTests(TestCase):
             self.give(item, 2)
             trial.inventory[item.pk] = 2
 
-        PetService.hatch_pet(self.child, self.egg.pk, self.potion.pk)
+        with patch("django.utils.timezone.now", return_value=self.now):
+            incubation, _ = PetService.start_incubation(self.child, self.egg.pk, self.potion.pk, uuid4())
         trial.feed_and_hatch()
+        self.assert_parity(trial, [])
+        with patch("django.utils.timezone.now", return_value=self.now + timedelta(days=1)):
+            PetService.hatch_incubation(self.child, incubation.pk)
+        trial.day = 2
+        trial.claim_incubation()
 
         self.assert_parity(trial, [self.hatch_badge, self.species_badge, self.meta_badge])
         self.assertNotIn(earlier_meta.pk, trial.badges)
         self.assertEqual((trial.coins, trial.total_xp), (21, 145))
         before = (trial.coins, trial.total_xp, trial.event_count)
         trial.feed_and_hatch()
+        self.assertFalse(PetService.hatch_incubation(self.child, incubation.pk)[2])
         with self.assertRaisesRegex(ValueError, "already have"):
-            PetService.hatch_pet(self.child, self.egg.pk, self.potion.pk)
+            PetService.start_incubation(self.child, self.egg.pk, self.potion.pk, uuid4())
         self.assertEqual((trial.coins, trial.total_xp, trial.event_count), before)
         self.assert_parity(trial, [self.hatch_badge, self.species_badge, self.meta_badge])
 
@@ -166,6 +176,6 @@ class ProgressionPetBadgeParityTests(TestCase):
 
     def test_changed_runtime_pet_hooks_invalidate_saved_forecast_rules(self):
         before = rules_fingerprint()
-        for name in ("hatch_pet", "_save_growth", "_evaluate_pet_badges"):
+        for name in ("start_incubation", "hatch_incubation", "incubation_duration_seconds", "_save_growth", "_evaluate_pet_badges"):
             with self.subTest(hook=name), patch.object(PetService, name, alternate_pet_hook):
                 self.assertNotEqual(before, rules_fingerprint())

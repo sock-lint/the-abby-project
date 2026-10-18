@@ -61,6 +61,29 @@ weights, automatic challenge matching, supported badge criteria, hatching,
 food growth and expedition tier rules. Simulated state is held in memory.
 The model never calls award writers inside a rolled-back transaction.
 
+Companion care includes the installed incubation duration, currently 24 elapsed
+hours. Each report records its `pet_incubation_policy`; that snapshot is bound
+to its rules fingerprint. The duration is a server rule, not a scenario control.
+New forecasts use the current setting. Existing report bodies retain their
+original policy, and reports made before this policy was recorded remain
+unrecorded rather than inheriting today's setting.
+
+The first eligible egg and potion are consumed during an active care visit,
+reserving the single unfinished incubation slot. This creates no pet or badge.
+The deadline stays fixed for that egg. Time advances on inactive days too;
+a ready egg continues to occupy the slot until the next active care visit
+claims it. Visits are modeled at the same time each calendar day, so an egg
+started on day 1 can hatch on day 2 under the 24-hour rule, or later if the
+child does not visit. Claiming occurs before that visit's activities and
+feeding. Only a claimed pet can grow, earn companion badges or become a mount.
+Selecting no feeding still permits incubation and hatching.
+
+The daily trace separates waiting eggs from ready, unclaimed eggs. Neither
+counts as an owned companion or a completed finite target. The example journey
+records incubation start, readiness and the actual hatch separately; readiness
+alone grants no rewards. Food already saved in inventory can be used after a
+claim, so subsequent growth timing still depends on that routine's food supply.
+
 Hatching and confirmed evolution evaluate the same pet and badge scopes as
 live care, including their existing Coins and XP. Reachability includes those
 care events when a companion can be obtained, so badge-gated challenges and

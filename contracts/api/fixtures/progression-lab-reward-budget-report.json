@@ -51,8 +51,8 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "84004e6910b81f2d0831bcd6fdccd8d95dc533b6640836d95b835e9fc361fa50",
-  "engine_version": "2026-10-18.pet-badges.1",
+  "rules_fingerprint": "812d6223255b136d771b012c51807b8a252949fda90fd095af158e2d5ae74547",
+  "engine_version": "2026-10-18.incubation.1",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -60,7 +60,7 @@
       "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
-      "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+      "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
       "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
     ],
@@ -76,7 +76,9 @@
       "Day 1 starts an abstract week; visits occur on the first N days of each seven-day block",
       "All configured chores are approved that visit; each habit is a distinct positive habit with one tap/day",
       "Source skills are fixed synthetic tags, reported in activity_skills; absent/locked skills earn no XP",
-      "Care hatches any compatible new pair, opens Coin pouches and feeds all available food to the oldest unevolved pet",
+      "Visits occur at fixed 86400-second intervals; within-visit actions take no modeled time",
+      "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
+      "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
       "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
       "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
       "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -195,9 +197,9 @@
       "completion_rate": 0.3333333333333333,
       "completed_trials": 1,
       "trials": 3,
-      "p10_days": 11,
-      "p50_days": 11,
-      "p90_days": 11
+      "p10_days": 12,
+      "p50_days": 12,
+      "p90_days": 12
     },
     {
       "key": "first_middle",
@@ -205,9 +207,9 @@
       "completion_rate": 0.3333333333333333,
       "completed_trials": 1,
       "trials": 3,
-      "p10_days": 11,
-      "p50_days": 11,
-      "p90_days": 11
+      "p10_days": 12,
+      "p50_days": 12,
+      "p90_days": 12
     },
     {
       "key": "first_mount",
@@ -246,7 +248,7 @@
       "completed_trials": 3,
       "trials": 3,
       "p10_days": 5,
-      "p50_days": 11,
+      "p50_days": 12,
       "p90_days": 12
     },
     {
@@ -320,7 +322,13 @@
       "reward_budget_omitted_coins_p90": 0,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 0,
-      "reward_budget_capped_days_p90": 0
+      "reward_budget_capped_days_p90": 0,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 2,
@@ -371,7 +379,13 @@
       "reward_budget_omitted_coins_p90": 2,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 0,
-      "reward_budget_capped_days_p90": 1
+      "reward_budget_capped_days_p90": 1,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 3,
@@ -422,7 +436,13 @@
       "reward_budget_omitted_coins_p90": 2,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 0,
-      "reward_budget_capped_days_p90": 1
+      "reward_budget_capped_days_p90": 1,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 4,
@@ -473,7 +493,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 0,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 5,
@@ -524,7 +550,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 1,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 6,
@@ -575,7 +607,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 1,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 7,
@@ -626,7 +664,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 1,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 8,
@@ -677,7 +721,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 1,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 9,
@@ -728,7 +778,13 @@
       "reward_budget_omitted_coins_p90": 4,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 1,
-      "reward_budget_capped_days_p90": 2
+      "reward_budget_capped_days_p90": 2,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 10,
@@ -779,7 +835,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 2,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 11,
@@ -795,12 +857,12 @@
       "level_p10": 2,
       "level_p50": 2,
       "level_p90": 2,
-      "inventory_units_p10": 1,
-      "inventory_units_p50": 3,
-      "inventory_units_p90": 4,
+      "inventory_units_p10": 3,
+      "inventory_units_p50": 4,
+      "inventory_units_p90": 5,
       "pets_p10": 0,
       "pets_p50": 0,
-      "pets_p90": 1,
+      "pets_p90": 0,
       "mounts_p10": 0,
       "mounts_p50": 0,
       "mounts_p90": 0,
@@ -814,10 +876,10 @@
       "expired_oneoff_challenges_p50": 0,
       "expired_oneoff_challenges_p90": 0,
       "finite_completed_p10": 2,
-      "finite_completed_p50": 3,
-      "finite_completed_p90": 4,
-      "finite_remaining_p10": 2,
-      "finite_remaining_p50": 3,
+      "finite_completed_p50": 2,
+      "finite_completed_p90": 3,
+      "finite_remaining_p10": 3,
+      "finite_remaining_p50": 4,
       "finite_remaining_p90": 4,
       "reward_budget_raw_coins_p10": 0,
       "reward_budget_raw_coins_p50": 14,
@@ -830,7 +892,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 2,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 1,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 12,
@@ -881,7 +949,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 2,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 13,
@@ -932,7 +1006,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 2,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 14,
@@ -983,7 +1063,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 2,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 15,
@@ -1034,7 +1120,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 0,
       "reward_budget_capped_days_p50": 3,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 16,
@@ -1085,7 +1177,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 3,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 17,
@@ -1136,7 +1234,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 3,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 18,
@@ -1187,7 +1291,13 @@
       "reward_budget_omitted_coins_p90": 6,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 3,
-      "reward_budget_capped_days_p90": 3
+      "reward_budget_capped_days_p90": 3,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 19,
@@ -1238,7 +1348,13 @@
       "reward_budget_omitted_coins_p90": 8,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 4
+      "reward_budget_capped_days_p90": 4,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 20,
@@ -1289,7 +1405,13 @@
       "reward_budget_omitted_coins_p90": 8,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 4
+      "reward_budget_capped_days_p90": 4,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 21,
@@ -1340,7 +1462,13 @@
       "reward_budget_omitted_coins_p90": 8,
       "reward_budget_capped_days_p10": 1,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 4
+      "reward_budget_capped_days_p90": 4,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 22,
@@ -1391,7 +1519,13 @@
       "reward_budget_omitted_coins_p90": 8,
       "reward_budget_capped_days_p10": 2,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 4
+      "reward_budget_capped_days_p90": 4,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 23,
@@ -1442,7 +1576,13 @@
       "reward_budget_omitted_coins_p90": 8,
       "reward_budget_capped_days_p10": 2,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 4
+      "reward_budget_capped_days_p90": 4,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 24,
@@ -1493,7 +1633,13 @@
       "reward_budget_omitted_coins_p90": 10,
       "reward_budget_capped_days_p10": 2,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 5
+      "reward_budget_capped_days_p90": 5,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 25,
@@ -1544,7 +1690,13 @@
       "reward_budget_omitted_coins_p90": 77,
       "reward_budget_capped_days_p10": 3,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 5
+      "reward_budget_capped_days_p90": 5,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 26,
@@ -1595,7 +1747,13 @@
       "reward_budget_omitted_coins_p90": 158,
       "reward_budget_capped_days_p10": 4,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 6
+      "reward_budget_capped_days_p90": 6,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 27,
@@ -1646,7 +1804,13 @@
       "reward_budget_omitted_coins_p90": 158,
       "reward_budget_capped_days_p10": 4,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 6
+      "reward_budget_capped_days_p90": 6,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 28,
@@ -1697,7 +1861,13 @@
       "reward_budget_omitted_coins_p90": 158,
       "reward_budget_capped_days_p10": 4,
       "reward_budget_capped_days_p50": 4,
-      "reward_budget_capped_days_p90": 6
+      "reward_budget_capped_days_p90": 6,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 29,
@@ -1748,7 +1918,13 @@
       "reward_budget_omitted_coins_p90": 238,
       "reward_budget_capped_days_p10": 4,
       "reward_budget_capped_days_p50": 5,
-      "reward_budget_capped_days_p90": 6
+      "reward_budget_capped_days_p90": 6,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     },
     {
       "day": 30,
@@ -1799,7 +1975,13 @@
       "reward_budget_omitted_coins_p90": 315,
       "reward_budget_capped_days_p10": 5,
       "reward_budget_capped_days_p50": 6,
-      "reward_budget_capped_days_p90": 6
+      "reward_budget_capped_days_p90": 6,
+      "incubating_eggs_p10": 0,
+      "incubating_eggs_p50": 0,
+      "incubating_eggs_p90": 0,
+      "ready_eggs_p10": 0,
+      "ready_eggs_p50": 0,
+      "ready_eggs_p90": 0
     }
   ],
   "summary": {
@@ -3544,5 +3726,12 @@
       "Raw Coins are the included awards encountered within each policy's simulated journey, not a paired uncapped counterfactual. Coin-related progression changes can alter later eligibility and rewards.",
       "Summary and source percentiles are calculated independently across alternative trials; use means or individual trial values to reconcile source totals."
     ]
+  },
+  "pet_incubation_policy": {
+    "duration_seconds": 86400,
+    "max_active": 1,
+    "clock": "elapsed_seconds",
+    "start_strategy": "first_compatible_pair_during_care",
+    "claim_strategy": "next_active_care_visit_at_or_after_ready"
   }
 }

@@ -62,6 +62,87 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  const incubationPolicy = { duration_seconds: 86400, max_active: 1, clock: 'elapsed_seconds',
+    start_strategy: 'first_compatible_pair_during_care', claim_strategy: 'next_active_care_visit_at_or_after_ready' };
+
+  it('separates current incubation rules from a completed report’s recorded policy without editing live pets', async () => {
+    setupMetadata();
+    server.use(http.get('*/api/rpg/progression-lab/', () => HttpResponse.json({ ...metadata, pet_incubation_policy: incubationPolicy })));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, {
+      ...report, pet_incubation_policy: { ...incubationPolicy, duration_seconds: 7200 },
+    });
+    const livePets = spyHandler('post', /\/api\/pets\/.*/, {});
+    server.use(simulation.handler, livePets.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByText('Reward and companion assumptions'));
+    expect(within(screen.getByRole('region', { name: 'Current model incubation policy' })).getByText('24 hours')).toBeVisible();
+    expect(simulation.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    const recorded = within(await screen.findByRole('region', { name: 'Recorded incubation policy' }));
+    expect(recorded.getByText('2 hours')).toBeVisible();
+    expect(recorded.queryByText('24 hours')).toBeNull();
+    expect(simulation.calls).toHaveLength(1);
+    expect(simulation.calls[0].body).toEqual(defaults);
+    expect(livePets.calls).toHaveLength(0);
+  });
+
+  it('shows waiting and ready egg percentiles by day and distinguishes start, readiness and the hatch claim', async () => {
+    setupMetadata();
+    const incubationTrace = [
+      { ...report.trace[0], incubating_eggs_p10: 0, incubating_eggs_p50: 1, incubating_eggs_p90: 1, ready_eggs_p10: 0, ready_eggs_p50: 0, ready_eggs_p90: 0 },
+      { ...report.trace[0], day: 2, incubating_eggs_p10: 0, incubating_eggs_p50: 0, incubating_eggs_p90: 0, ready_eggs_p10: 0, ready_eggs_p50: 1, ready_eggs_p90: 1 },
+      { ...report.trace[1], day: 8, incubating_eggs_p10: 0, incubating_eggs_p50: 0, incubating_eggs_p90: 0, ready_eggs_p10: 0, ready_eggs_p50: 0, ready_eggs_p90: 0 },
+    ];
+    const events = [
+      { day: 1, source: 'incubation_started', target: 'Bat', duration_seconds: 86400, ready_day: 2 },
+      { day: 2, source: 'incubation_ready', target: 'Bat' },
+      { day: 8, source: 'hatch', target: 'Bat' },
+    ];
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, {
+      ...report, pet_incubation_policy: incubationPolicy, trace: incubationTrace, journey: { seed: 42, events, truncated: false },
+    });
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: 'Run simulation' }));
+    let table = await screen.findByRole('table', { name: 'Day 1 incubation state across simulated children' });
+    expect(within(table).getByRole('row', { name: /Eggs incubating/ })).toHaveTextContent('0');
+    expect(within(within(table).getByRole('row', { name: /Eggs incubating/ })).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['0', '1', '1']);
+    fireEvent.change(screen.getByRole('slider', { name: 'Inspect calendar day' }), { target: { value: '1' } });
+    table = screen.getByRole('table', { name: 'Day 2 incubation state across simulated children' });
+    expect(within(within(table).getByRole('row', { name: /Ready eggs awaiting hatch/ })).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['0', '1', '1']);
+    const state = screen.getByLabelText('Day 2 median state');
+    expect(within(state).getByText('Hatched companions').nextElementSibling).toHaveTextContent('0');
+    const journey = within(screen.getByRole('list', { name: 'Incubation journey events' }));
+    expect(journey.getAllByRole('listitem')).toHaveLength(3);
+    expect(journey.getByText('Incubation started')).toBeVisible();
+    expect(journey.getByText('Egg ready')).toBeVisible();
+    expect(journey.getByText('Hatch claimed')).toBeVisible();
+    expect(journey.getByText(/Ready from Day 2/)).toBeVisible();
+    expect(journey.getByText(/next active care visit/)).toBeVisible();
+    await user.click(screen.getByText('Show event receipts'));
+    expect(screen.getByText(/"incubation_started"/)).toBeVisible();
+    expect(simulation.calls[0].body).toEqual(defaults);
+  });
+
+  it('leaves historical policy and egg counts unrecorded and labels a legacy hatch without inventing a wait', async () => {
+    setupMetadata();
+    server.use(http.get('*/api/rpg/progression-lab/', () => HttpResponse.json({ ...metadata, pet_incubation_policy: incubationPolicy })));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, {
+      ...report, journey: { seed: 42, events: [{ day: 1, source: 'hatch', target: 'Bat' }], truncated: false },
+    });
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: 'Run simulation' }));
+    const recorded = within(await screen.findByRole('region', { name: 'Recorded incubation policy' }));
+    expect(recorded.getByRole('status')).toHaveTextContent(/did not record an incubation policy/);
+    expect(recorded.queryByText('24 hours')).toBeNull();
+    const table = screen.getByRole('table', { name: 'Day 1 incubation state across simulated children' });
+    expect(within(table).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(Array(6).fill('Unrecorded'));
+    const journey = within(screen.getByRole('list', { name: 'Incubation journey events' }));
+    expect(journey.getByText('Hatched companion')).toBeVisible();
+    expect(journey.queryByText(/24 hours|Hatch claimed|Ready from/)).toBeNull();
+  });
+
   it('compares per-child reward budgets while keeping the completed baseline and preserving exports', async () => {
     const rewardBudgetDefaults = { daily_coins: null };
     const current = { ...metadata, defaults: { ...defaults, reward_budget: rewardBudgetDefaults },
@@ -119,6 +200,11 @@ describe('Progression lab', () => {
     await user.click(await screen.findByRole('button', { name: 'Run simulation' }));
     await screen.findByRole('region', { name: 'Purchasing forecast' });
     expect(simulation.calls[0].body).toEqual(sharedEconomyReport.config);
+    expect(within(screen.getByRole('region', { name: 'Recorded incubation policy' })).getByText('24 hours')).toBeVisible();
+    const eggEvents = within(screen.getByRole('list', { name: 'Incubation journey events' }));
+    expect(eggEvents.getByText('Incubation started')).toBeVisible();
+    expect(eggEvents.getByText('Egg ready')).toBeVisible();
+    expect(eggEvents.getByText('Hatch claimed')).toBeVisible();
     const totals = () => within(screen.getByRole('table', { name: 'Purchasing totals across simulated journeys' }));
     const cost = formatCurrency(sharedEconomyReport.economy.summary.family_cost_cents.p50 / 100);
     expect(totals().getByRole('row', { name: /Estimated reward and print fulfillment cost/ })).toHaveTextContent(cost);

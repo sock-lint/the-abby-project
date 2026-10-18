@@ -403,6 +403,23 @@ anonymous simulation request/response shapes. Both run in the API fixtures
 gate. See [Progression Lab](../../docs/operations/progression-lab.md) for the
 model boundary, conditional milestone percentiles and finite-content subset.
 
+Lab metadata, generated reports and content-workbench simulation metadata add a
+read-only `pet_incubation_policy`: `duration_seconds` (the captured server
+setting, normally 86,400), `max_active: 1`, `clock: "elapsed_seconds"`,
+`start_strategy: "first_compatible_pair_during_care"` and
+`claim_strategy: "next_active_care_visit_at_or_after_ready"`. The captured policy
+belongs to the report's rules fingerprint; changing today's duration cannot
+rewrite an earlier report. It is not a client-supplied scenario setting.
+
+Daily traces distinguish waiting `incubating_eggs_p10/p50/p90` from ready,
+unclaimed `ready_eggs_p10/p50/p90`. Starting consumes the modeled ingredients
+without creating a pet or companion badge. Journey events record
+`incubation_started` with the exact `duration_seconds` and integer `ready_day`,
+then `incubation_ready`; the existing `hatch` event occurs only on the next
+eligible active care visit. `ready_day` is the first modeled calendar day at
+or after the deadline, including inactive days. These are anonymous simulation
+states and never create live incubations or rewards.
+
 `config.tests.test_homework_ai_api_contract_fixtures` produces family Planning AI
 settings through real parent-only reads, saves and resets. The exact response
 contains only `provider`, `model` and `has_api_key`; API keys are write-only and

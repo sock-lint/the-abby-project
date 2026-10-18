@@ -26,6 +26,11 @@ describe('Content workbench shared API contract', () => {
     expect(quest.values.reward_items).toEqual([{ item_id: item.id, quantity: 1 }]);
     expect(item.used_by.quests).toEqual([{ id: quest.id, name: quest.name, quantity: 1 }]);
     expect(response.simulation.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.simulation.pet_incubation_policy).toEqual({
+      duration_seconds: 86400, max_active: 1, clock: 'elapsed_seconds',
+      start_strategy: 'first_compatible_pair_during_care',
+      claim_strategy: 'next_active_care_visit_at_or_after_ready',
+    });
   });
 
   it('renders the real producer response through the challenge and item editors', async () => {

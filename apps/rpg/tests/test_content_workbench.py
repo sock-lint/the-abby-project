@@ -1,7 +1,9 @@
 """Database drafts evaluate and publish exact global content without editing YAML."""
+from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 from django.db import connection
 from django.test import TestCase, override_settings
@@ -13,6 +15,7 @@ from apps.quests.models import Quest, QuestDefinition, QuestRewardItem, QuestSki
 from apps.rpg.content.loader import ContentPack, ContentPackError
 from apps.rpg.content.workbench import create_draft, describe_workbench, save_draft, preview_draft, publish_draft, get_draft, simulate_draft
 from apps.rpg.models import ContentPackEntry, ItemDefinition, RPGContentOverride, UserInventory
+from apps.rpg.progression import simulate_progression
 from config.tests.factories import make_family
 
 
@@ -235,6 +238,57 @@ class ContentWorkbenchTests(TestCase):
         simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], {"horizon_days": 30, "trials": 1})
         with override_settings(COINS_PER_HOUR=999), self.assertRaisesMessage(ContentPackError, "Simulation rules changed"):
             publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
+
+    @override_settings(PET_INCUBATION_DURATION_SECONDS=86400)
+    def test_comparison_freezes_one_incubation_policy_even_if_setting_changes_between_arms(self):
+        draft = self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Pear"}}])
+        plan = preview_draft(self.actor, draft["id"], draft["revision"])["preview"]
+        reports = []
+
+        def run_arm(*args, **kwargs):
+            # Exercise both real simulations; only the installed setting changes.
+            duration = 172800 if reports else 86400
+            with override_settings(PET_INCUBATION_DURATION_SECONDS=duration):
+                report = simulate_progression(*args, **kwargs)
+            reports.append(report)
+            return report
+
+        with patch("apps.rpg.progression.simulate_progression", side_effect=run_arm):
+            comparison = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"],
+                                        {"horizon_days": 30, "trials": 1})
+        baseline, proposed = comparison["baseline"], comparison["proposed"]
+        self.assertEqual(baseline["pet_incubation_policy"]["duration_seconds"], 86400)
+        self.assertEqual(proposed["pet_incubation_policy"], baseline["pet_incubation_policy"])
+        self.assertEqual(proposed["rules_fingerprint"], baseline["rules_fingerprint"])
+        self.assertEqual(comparison["simulation"]["rules_fingerprint"], baseline["rules_fingerprint"])
+
+    @override_settings(PET_INCUBATION_DURATION_SECONDS=86400)
+    def test_duration_drift_requires_resimulation_before_publish_and_preserves_previous_reports(self):
+        draft = self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Pear"}}])
+        plan = preview_draft(self.actor, draft["id"], draft["revision"])["preview"]
+        config = {"horizon_days": 30, "trials": 1}
+        comparison = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], config)
+        original_comparison = deepcopy(comparison)
+        original_fingerprint = comparison["simulation"]["rules_fingerprint"]
+        with override_settings(PET_INCUBATION_DURATION_SECONDS=172800):
+            with self.assertRaisesMessage(ContentPackError, "Simulation rules changed"):
+                publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
+            current = get_draft(self.actor, draft["id"])
+            self.assertIsNone(current["published_at"])
+            self.assertEqual(current["simulation"], comparison["simulation"])
+            self.item.refresh_from_db()
+            self.assertEqual(self.item.name, "Apple")
+            self.assertFalse(RPGContentOverride.objects.exists())
+            fresh = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], config)
+            self.assertNotEqual(fresh["simulation"]["rules_fingerprint"], original_fingerprint)
+            self.assertEqual(fresh["baseline"]["pet_incubation_policy"]["duration_seconds"], 172800)
+            published = publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
+        self.assertTrue(published["published_at"])
+        for report in (comparison["baseline"], comparison["proposed"]):
+            self.assertEqual(report["pet_incubation_policy"]["duration_seconds"], 86400)
+            self.assertEqual(report["rules_fingerprint"], original_fingerprint)
+        self.assertEqual(comparison["simulation"]["rules_fingerprint"], original_fingerprint)
+        self.assertEqual(comparison, original_comparison)
 
     def test_private_templates_and_their_reward_changes_are_outside_global_review(self):
         private = QuestDefinition.objects.create(name="Private homework", description="Private family description",

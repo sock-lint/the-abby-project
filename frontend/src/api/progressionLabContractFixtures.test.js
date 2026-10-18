@@ -8,6 +8,22 @@ import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 
+const incubationPolicy = { duration_seconds: 86400, max_active: 1, clock: 'elapsed_seconds',
+  start_strategy: 'first_compatible_pair_during_care', claim_strategy: 'next_active_care_visit_at_or_after_ready' };
+
+function expectRecordedIncubation(response) {
+  expect(response.pet_incubation_policy).toEqual(incubationPolicy);
+  for (const day of response.trace) {
+    for (const field of ['incubating_eggs', 'ready_eggs']) {
+      for (const quantile of ['p10', 'p50', 'p90']) {
+        expect(day[`${field}_${quantile}`]).toEqual(expect.any(Number));
+        expect(day[`${field}_${quantile}`]).toBeGreaterThanOrEqual(0);
+        expect(day[`${field}_${quantile}`]).toBeLessThanOrEqual(1);
+      }
+    }
+  }
+}
+
 describe('Progression lab shared API fixtures', () => {
   it('reads the server rules, bounds and anonymous initial state through the authenticated client', async () => {
     const requests = [];
@@ -23,6 +39,8 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.coverage.initial_state).toEqual({ coins: 0, xp: 0, pets: 0, mounts: 0, inventory: 0 });
     expect(response.limits.horizon_days.choices).toContain(report.config.horizon_days);
     expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+    expect(response.pet_incubation_policy).toEqual(incubationPolicy);
+    expect(response.defaults).not.toHaveProperty('pet_incubation_policy');
   });
 
   it('posts only the anonymous scenario and preserves completion denominators, missing dates and subset totals', async () => {
@@ -44,6 +62,7 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.summary.finite_completed_p50 + response.summary.finite_remaining_p50).toBe(response.summary.finite_content_total);
     expect(response.journey.seed).toBe(report.config.seed);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
   });
 
   it('preserves purchase timing, calendar budgets and separate Coin and money flows', async () => {
@@ -70,6 +89,17 @@ describe('Progression lab shared API fixtures', () => {
       expect(offer.first_purchase.trials).toBe(economyReport.config.trials);
       expect(offer.first_coin_affordable.trials).toBe(economyReport.config.trials);
     }
+    expectRecordedIncubation(response);
+    const events = response.journey.events;
+    const start = events.find((event) => event.source === 'incubation_started');
+    expect(start).toMatchObject({ source: 'incubation_started', duration_seconds: 86400 });
+    expect(Number.isInteger(start.ready_day)).toBe(true);
+    const ready = events.find((event) => event.source === 'incubation_ready' && event.target === start.target);
+    const hatch = events.find((event) => event.source === 'hatch' && event.target === start.target);
+    expect(ready.day).toBeGreaterThanOrEqual(start.ready_day);
+    expect(hatch.day).toBeGreaterThanOrEqual(ready.day);
+    expect(events.indexOf(start)).toBeLessThan(events.indexOf(ready));
+    expect(events.indexOf(ready)).toBeLessThan(events.indexOf(hatch));
   });
 
   it('propagates a rejected scenario without silently retrying the request', async () => {
@@ -93,5 +123,6 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.trace.at(-1).reward_budget_awarded_coins_p90).toBeLessThanOrEqual(response.summary.active_days * 5);
     expect(response.config.chore_coins).toBe(5);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expectRecordedIncubation(response);
   });
 });

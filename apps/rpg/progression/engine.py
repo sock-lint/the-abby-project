@@ -14,6 +14,7 @@ import json
 import math
 import random
 from types import SimpleNamespace
+from types import MappingProxyType
 
 from django.conf import settings
 
@@ -61,7 +62,8 @@ from .reward_budget import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-18.pet-badges.1"
+ENGINE_VERSION = "2026-10-18.incubation.1"
+SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
     "horizon_days": 90,
@@ -182,11 +184,30 @@ def normalize_config(config=None):
     return result
 
 
-def rules_fingerprint():
+def pet_incubation_policy():
+    """Capture installed care rules once, without mutable runtime settings."""
+    return MappingProxyType({
+        "duration_seconds": PetService.incubation_duration_seconds(),
+        "max_active": 1,
+        "clock": "elapsed_seconds",
+        "start_strategy": "first_compatible_pair_during_care",
+        "claim_strategy": "next_active_care_visit_at_or_after_ready",
+    })
+
+
+def _capture_incubation_policy(policy):
+    if policy is None:
+        return pet_incubation_policy()
+    return policy if isinstance(policy, MappingProxyType) else MappingProxyType(dict(policy))
+
+
+def rules_fingerprint(*, incubation_policy=None):
     # Source digests include the pure helpers so a formula change invalidates
     # saved forecasts even when its constants stay the same.
     rules = {
         "engine": ENGINE_VERSION,
+        "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
+        "seconds_per_day": SECONDS_PER_DAY,
         "xp": XP_THRESHOLDS,
         "drops": BASE_DROP_RATES,
         "max_work_units": MAX_WORK_UNITS,
@@ -229,7 +250,9 @@ def rules_fingerprint():
                 process_daily_bonus,
                 ClockService.clock_out,
                 PetService.feed_pet,
-                PetService.hatch_pet,
+                PetService.start_incubation,
+                PetService.hatch_incubation,
+                PetService.incubation_duration_seconds,
                 PetService._save_growth,
                 PetService._evaluate_pet_badges,
                 ExpeditionService._roll_loot,
@@ -259,7 +282,7 @@ def coverage(catalog):
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
-            "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+            "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
             "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
             "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
         ],
@@ -275,7 +298,9 @@ def coverage(catalog):
             "Day 1 starts an abstract week; visits occur on the first N days of each seven-day block",
             "All configured chores are approved that visit; each habit is a distinct positive habit with one tap/day",
             "Source skills are fixed synthetic tags, reported in activity_skills; absent/locked skills earn no XP",
-            "Care hatches any compatible new pair, opens Coin pouches and feeds all available food to the oldest unevolved pet",
+            "Visits occur at fixed 86400-second intervals; within-visit actions take no modeled time",
+            "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
+            "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
             "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -347,9 +372,21 @@ class SimPet:
     evolved_to_mount: bool = False
 
 
+@dataclass
+class SimIncubation:
+    pair: tuple
+    species: object
+    potion: object
+    duration_seconds: int
+    ready_seconds: int
+    ready_reported: bool = False
+
+
 class Trial:
-    def __init__(self, config, catalog, seed):
+    def __init__(self, config, catalog, seed, *, incubation_policy=None):
         self.config, self.catalog, self.seed = normalize_config(config), catalog, seed
+        self.pet_incubation_policy = _capture_incubation_policy(incubation_policy)
+        self.pending_incubation = None
         self.economy = Economy(self.config["economy"]) if self.config["economy"]["enabled"] else None
         self.reward_budget = RewardBudget(self.config["reward_budget"])
         self.rng = random.Random(seed)
@@ -406,6 +443,34 @@ class Trial:
     @property
     def mounts(self):
         return {pair: pet for pair, pet in self.pets.items() if pet.evolved_to_mount}
+
+    @property
+    def elapsed_seconds(self):
+        return max(0, self.day - 1) * SECONDS_PER_DAY
+
+    @property
+    def incubation_is_ready(self):
+        return self.pending_incubation is not None and self.pending_incubation.ready_seconds <= self.elapsed_seconds
+
+    def mark_incubation_ready(self):
+        pending = self.pending_incubation
+        if self.incubation_is_ready and not pending.ready_reported:
+            pending.ready_reported = True
+            self.record("incubation_ready", target=pending.species.name)
+
+    def claim_incubation(self):
+        """The modeled child explicitly claims at the start of active care."""
+        if (self.day - 1) % 7 >= self.config["active_days_per_week"] or not self.incubation_is_ready:
+            return
+        self.mark_incubation_ready()
+        pending = self.pending_incubation
+        self.pending_incubation = None
+        if pending.pair in self.pets:
+            return
+        self.pets[pending.pair] = SimPet(pending.species, pending.potion)
+        self.milestones.setdefault("first_pet", self.day)
+        self.record("hatch", target=pending.species.name)
+        self.evaluate_badges(scopes={"pet", "badges"})
 
     def _enabled_triggers(self):
         c = self.config
@@ -719,11 +784,11 @@ class Trial:
                     keys.add(f"mount:{pair}")
         return keys
 
-    def record(self, source, *, coins=0, xp=0, items=0, target=""):
+    def record(self, source, *, coins=0, xp=0, items=0, target="", **details):
         self.event_count += 1
         if len(self.events) < 1000:
             self.events.append(
-                {"day": self.day, "source": source, "coins": coins, "xp": xp, "items": items, "target": str(target)}
+                {"day": self.day, "source": source, "coins": coins, "xp": xp, "items": items, "target": str(target), **details}
             )
 
     def coin_award(self, amount, source):
@@ -994,7 +1059,9 @@ class Trial:
                 self.record("badges", xp=each * len(active), target=badge.name)
             self.record("badge_earned", target=badge.name)
 
-    def feed_and_hatch(self):
+    def start_incubation(self):
+        if self.pending_incubation is not None:
+            return
         potion_ids = [
             pk
             for pk, quantity in self.inventory.items()
@@ -1016,11 +1083,16 @@ class Trial:
                     continue
                 self.consume(pk, 1, "hatching")
                 self.consume(potion_id, 1, "hatching")
-                self.pets[pair] = SimPet(*self.catalog.pairs[pair])
-                self.milestones.setdefault("first_pet", self.day)
-                self.record("hatch", target=egg.pet_species.name)
-                self.evaluate_badges(scopes={"pet", "badges"})
-                break
+                duration = self.pet_incubation_policy["duration_seconds"]
+                species, potion_type = self.catalog.pairs[pair]
+                self.pending_incubation = SimIncubation(pair, species, potion_type, duration,
+                                                       self.elapsed_seconds + duration)
+                self.record("incubation_started", target=species.name, duration_seconds=duration,
+                            ready_day=1 + math.ceil(self.pending_incubation.ready_seconds / SECONDS_PER_DAY))
+                return
+
+    def feed_and_hatch(self):
+        self.start_incubation()
         if self.config["feed_strategy"] != "none":
             for pk in sorted(self.inventory):
                 food = self.catalog.items[pk]
@@ -1128,6 +1200,7 @@ class Trial:
 
     def daily(self, day):
         self.day = day
+        self.mark_incubation_ready()
         self.reward_budget.begin_day(day)
         if self.economy:
             self.economy.begin_day(day)
@@ -1136,6 +1209,7 @@ class Trial:
         active = (day - 1) % 7 < c["active_days_per_week"]
         if active:
             self.active_days += 1
+            self.claim_incubation()
             self.claim_expeditions()
             if c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES:
                 self.award_xp(ReadingRewardService.BASE_XP, self.tags["reading"], "reading")
@@ -1232,6 +1306,8 @@ class Trial:
                 "inventory_units": sum(self.inventory.values()),
                 "pets": len(self.pets),
                 "mounts": len(self.mounts),
+                "incubating_eggs": int(self.pending_incubation is not None and not self.incubation_is_ready),
+                "ready_eggs": int(self.incubation_is_ready),
                 "badges": len(self.badges),
                 "challenge_completions": self.counters["quest_completions"],
                 "expired_oneoff_challenges": expired,
@@ -1268,8 +1344,8 @@ class Trial:
         }
 
 
-def run_trial(config, catalog, seed):
-    trial = Trial(config, catalog, seed)
+def run_trial(config, catalog, seed, *, incubation_policy=None):
+    trial = Trial(config, catalog, seed, incubation_policy=_capture_incubation_policy(incubation_policy))
     for day in range(1, trial.config["horizon_days"] + 1):
         trial.daily(day)
     return trial.report()
@@ -1284,9 +1360,11 @@ def percentile(values, fraction):
 
 
 def describe_progression():
+    policy = pet_incubation_policy()
     catalog = load_catalog()
     return {
         "schema_version": SCHEMA_VERSION,
+        "pet_incubation_policy": dict(policy),
         "defaults": deepcopy(DEFAULTS),
         "limits": LIMITS,
         "economy_defaults": deepcopy(ECONOMY_DEFAULTS),
@@ -1298,7 +1376,7 @@ def describe_progression():
         "catalog": catalog.summary(),
         "coverage": coverage(catalog),
         "audit": audit_catalog(catalog),
-        "rules_fingerprint": rules_fingerprint(),
+        "rules_fingerprint": rules_fingerprint(incubation_policy=policy),
         "engine_version": ENGINE_VERSION,
         "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
         "work_budget": {
@@ -1327,10 +1405,11 @@ def describe_progression():
     }
 
 
-def simulate_progression(config=None, *, catalog=None):
+def simulate_progression(config=None, *, catalog=None, incubation_policy=None):
     config = normalize_config(config)
+    policy = _capture_incubation_policy(incubation_policy)
     catalog = load_catalog() if catalog is None else catalog
-    runs = [run_trial(config, catalog, config["seed"] + index) for index in range(config["trials"])]
+    runs = [run_trial(config, catalog, config["seed"] + index, incubation_policy=policy) for index in range(config["trials"])]
     milestones = []
     milestone_labels = {**MILESTONES, **({"first_purchase": "First fulfilled purchase"} if config["economy"]["enabled"] else {})}
     for key, label in milestone_labels.items():
@@ -1427,9 +1506,10 @@ def simulate_progression(config=None, *, catalog=None):
         )
     return {
         "schema_version": SCHEMA_VERSION,
+        "pet_incubation_policy": dict(policy),
         "config": config,
         "catalog": catalog.summary(),
-        "rules_fingerprint": rules_fingerprint(),
+        "rules_fingerprint": rules_fingerprint(incubation_policy=policy),
         "engine_version": ENGINE_VERSION,
         "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
         "coverage": coverage(catalog),
