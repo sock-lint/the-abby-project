@@ -4,11 +4,59 @@ import metadata from '../../../contracts/api/fixtures/progression-lab-metadata.j
 import report from '../../../contracts/api/fixtures/progression-lab-report.json';
 import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
 import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
+import experiments from '../../../contracts/api/fixtures/progression-experiment-list.json';
+import comparison from '../../../contracts/api/fixtures/progression-experiment-comparison.json';
+import decided from '../../../contracts/api/fixtures/progression-experiment-decided.json';
+import observations from '../../../contracts/api/fixtures/progression-observations-empty.json';
+import observed from '../../../contracts/api/fixtures/progression-experiment-observed.json';
+import { listProgressionExperiments, createProgressionExperiment, getProgressionExperiment, updateProgressionExperiment, compareProgressionExperiment, getProgressionComparison, recordProgressionDecision, getProgressionObservations, saveProgressionObservation } from './progressionExperiments';
 import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 
 describe('Progression lab shared API fixtures', () => {
+  it('transports server-owned experiment evidence and decisions without accepting client reports', async () => {
+    const root = '/api/rpg/progression-lab/experiments/';
+    const id = decided.id;
+    server.use(
+      http.get(`*${root}`, () => HttpResponse.json(experiments)),
+      http.get(`*${root}${id}/`, () => HttpResponse.json(decided)),
+      http.get(`*${root}${id}/comparisons/${comparison.id}/`, () => HttpResponse.json(comparison)),
+      http.get('*/api/rpg/progression-lab/observations/', () => HttpResponse.json(observations)),
+    );
+    expect(await listProgressionExperiments()).toEqual(experiments);
+    expect(await getProgressionExperiment(id)).toEqual(decided);
+    expect(await getProgressionComparison(id, comparison.id)).toEqual(comparison);
+    expect(await getProgressionObservations()).toEqual(observations);
+    const create = spyHandler('post', new RegExp(`${root}$`), decided);
+    const save = spyHandler('patch', new RegExp(`${root}${id}/$`), decided);
+    const compare = spyHandler('post', new RegExp(`${root}${id}/compare/$`), comparison);
+    const decide = spyHandler('post', new RegExp(`${root}${id}/decisions/$`), decided);
+    server.use(create.handler, save.handler, compare.handler, decide.handler);
+    const input = comparison.inputs;
+    expect(await createProgressionExperiment(input)).toEqual(decided);
+    expect(create.calls[0].body).toEqual(input);
+    await updateProgressionExperiment(id, { revision: 1, ...input });
+    expect(save.calls[0].body).toEqual({ revision: 1, ...input });
+    expect(await compareProgressionExperiment(id, { revision: 1 })).toEqual(comparison);
+    expect(compare.calls[0].body).toEqual({ revision: 1 });
+    const decision = decided.decisions[0];
+    const payload = { revision: 1, comparison_id: comparison.id, outcome: decision.outcome, rationale: decision.rationale, next_action: decision.next_action, review_on: decision.review_on };
+    expect(await recordProgressionDecision(id, payload)).toEqual(decided);
+    expect(decide.calls[0].body).toEqual(payload);
+    expect(comparison.control.config.reward_budget.daily_coins).toBeNull();
+    expect(comparison.candidate.config.reward_budget.daily_coins).toBe(100);
+    expect(comparison.binding.catalog_fingerprint).toBe(comparison.control.catalog.fingerprint);
+    expect(comparison.evaluation.proposal.evaluated_by_current_engine).toBe(false);
+    expect(observations.policy.is_live_experiment).toBe(false);
+    expect(observations.status).toBe('insufficient_evidence');
+    const capture = spyHandler('post', new RegExp(`${root}${id}/observations/$`), observed);
+    server.use(capture.handler);
+    expect(await saveProgressionObservation(id, { revision: 1 })).toEqual(observed);
+    expect(capture.calls[0].body).toEqual({ revision: 1 });
+    expect(observed.observations[0].payload).toEqual(observations);
+  });
+
   it('reads the server rules, bounds and anonymous initial state through the authenticated client', async () => {
     const requests = [];
     server.use(http.get('*/api/rpg/progression-lab/', ({ request }) => {

@@ -2,8 +2,82 @@
 
 Staff parents open **Manage → Admin → Progression lab** to forecast an
 anonymous new child's progression. The workbench reads the currently loaded
-global content and supported-acquisition policy. It creates no accounts,
-inventory, awards, notifications or household records.
+global content and supported-acquisition policy. Forecasts create no accounts,
+inventory, awards or notifications. The experiment notebook saves private
+design evidence separately; its observation panel reads only your family's
+recent-child Coin ledger aggregates.
+
+## Save findings and act on them
+
+Use the experiment notebook to name a hypothesis and capture the current
+routine, candidate daily allowance (100 Coins initially) and explicit numeric
+targets. The installed control is uncapped. Saved routine edits create a new
+revision; imported reports never become trusted evidence.
+
+Run control and candidate explicitly. The server generates both from one
+detached catalog and matching seeds, then saves immutable reports, inputs,
+criteria, rule/catalog/evaluator fingerprints and deployment source metadata.
+Each forecast retains the existing 10,000-work-unit bound; a paired request
+permits 20,000 combined units and is limited to five per minute. A notebook
+holds at most 20 experiments, each with 20 comparisons and 100 decisions.
+Each paired evidence record is limited to 4 MiB; oversized results are rejected
+without replacing an earlier comparison.
+
+Choose up to six bounded criteria. Costs are whole cents; completion rates
+range from 0 to 1. A day percentile describes only completing journeys, so
+also set a minimum completion rate when most children must reach the reward.
+Disabled purchasing, an empty content denominator or an unreached milestone
+produces insufficient evidence, never a zero-day success. No targets means
+unconfigured, not passing. Targets measure the candidate, with control values
+and differences retained for comparison.
+
+Record keep testing, revise, or ready for design with a reason, concrete next
+action and review date. Ready for design requires fresh, passing simulation
+criteria and grants no publication authority. Edits or changes to rules,
+catalog or criterion evaluation make earlier evidence stale; rerun before
+recording another decision. Earlier reports and decisions remain readable.
+Records are private to their author and current family, including between
+co-parents. There is no client-supplied result or decision-edit endpoint.
+
+Use **Manage challenges and items** for content drafts, preview, simulation
+and explicit publication through the existing workbench. Expedition policy
+requires a reviewed code change. The [concrete reward proposal](progression-reward-proposal.md)
+describes a 75/25 commitment allocation and 10/25/50 expedition table to model
+next. The current envelope does not simulate that proposed issuance policy.
+
+## Observe the installed economy
+
+The separate observations panel uses a fixed last-30-day period in the
+family's current timezone. It includes currently active, nonstaff children
+registered within the last 90 inclusive days, excludes provisioned live-check
+families and accepts no household or child selectors. It reports ledger-active
+children and child-days alongside all eligible child-days. A Coin transaction
+is evidence of ledger activity, not retention or a visit without an award.
+
+New expedition direct, expedition salvage and opened-pouch awards receive
+internal typed attribution without changing their amounts, boosts or timing.
+Historical rows are not rewritten. Mixed unclassified positive adjustments
+remain unknown and make the measured automatic totals a lower bound. The
+panel reconciles opening balance + credits - debits = closing balance;
+activity events and overlapping reward receipts are never added to it.
+No eligible children or ledger entries means insufficient evidence. More than
+100 eligible children or 100,000 ledger rows returns a capacity state with
+unavailable totals, rather than a partial or zero sample.
+
+These observations measure today's installed uncapped rules. They cannot
+validate a 100-Coin policy that has not been deployed, estimate family costs,
+or establish content exhaustion/retention. They do not read journals, report
+child identities or aggregate other households. A saved decision and review
+date provide the manual follow-up; no notification, timer or automatic reward
+change is installed.
+
+**Save observation checkpoint** retains the server's current accounting report
+against the saved experiment revision, with its period, cohort denominators,
+coverage and installed-rule binding. Each experiment permits 20 immutable
+checkpoints. Save a baseline before taking an action and another at review;
+empty samples remain insufficient evidence. Checkpoints never accept posted
+client totals, enroll users in a live treatment or imply that changing cohorts
+form a causal test. The recent-child window does not establish annual retention.
 
 ## Make a forecast
 

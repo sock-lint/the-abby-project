@@ -1,0 +1,293 @@
+"""A bounded private notebook of anonymous forecasts and decisions.
+
+Only this module writes notebook rows. Domain award writers are never called.
+The paired reports share one detached catalog; client reports are not evidence.
+"""
+from copy import deepcopy
+from datetime import date
+import json
+import uuid
+
+from django.conf import settings
+from django.db import transaction
+from django.utils import timezone
+from rest_framework.exceptions import PermissionDenied
+
+from apps.accounts.models import User
+from apps.quests.activity import household_timezone
+from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
+from .catalog import load_catalog
+from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, rules_fingerprint, simulate_progression
+from .feedback import evaluate_comparison, feedback_fingerprint, feedback_metadata, normalize_targets
+
+MAX_EXPERIMENTS = 20
+MAX_COMPARISONS = 20
+MAX_DECISIONS = 100
+MAX_OBSERVATIONS = 20
+MAX_COMPARISON_WORK_UNITS = MAX_WORK_UNITS * 2
+MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
+
+
+class ExperimentConflict(Exception):
+    pass
+
+
+class ExperimentNotFound(Exception):
+    pass
+
+
+class ExperimentUnavailable(Exception):
+    pass
+
+
+def _actor(actor, *, lock=False):
+    queryset = User.objects
+    if lock:
+        queryset = queryset.select_for_update()
+    current = queryset.filter(pk=actor.pk, family_id=actor.family_id, is_active=True, is_staff=True, role="parent").first()
+    if current is None:
+        raise PermissionDenied("Progression experiments are available to active staff parents.")
+    return current
+
+
+def _experiment(actor, experiment_id, *, lock=False):
+    queryset = ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id)
+    if lock:
+        queryset = queryset.select_for_update()
+    experiment = queryset.filter(pk=experiment_id).first()
+    if experiment is None:
+        raise ExperimentNotFound("Experiment not found.")
+    return experiment
+
+
+def _revision(experiment, revision):
+    if type(revision) is not int or experiment.revision != revision:
+        raise ExperimentConflict("Experiment changed. Reload it before continuing.")
+
+
+def _text(value, label, limit):
+    if not isinstance(value, str) or not value.strip() or len(value) > limit:
+        raise ValueError(f"{label} must contain 1–{limit} characters.")
+    return value.strip()
+
+
+def _inputs(data):
+    config = normalize_config(data["config"])
+    # The saved routine always defines the installed, uncapped control. The
+    # candidate differs only by its explicitly entered hypothetical envelope.
+    config["reward_budget"] = {"daily_coins": None}
+    daily = data["candidate_daily_coins"]
+    if type(daily) is not int or not 0 <= daily <= 100000:
+        raise ValueError("Candidate daily Coins must be a whole number from 0 to 100000.")
+    candidate = {**config, "reward_budget": {"daily_coins": daily}}
+    normalize_config(candidate)
+    if estimate_work(config) + estimate_work(candidate) > MAX_COMPARISON_WORK_UNITS:
+        raise ValueError("Paired comparison exceeds its work limit. Reduce trials or activity counts.")
+    return {
+        "name": _text(data["name"], "Name", 100),
+        "hypothesis": _text(data["hypothesis"], "Hypothesis", 2000),
+        "config": config,
+        "candidate_daily_coins": daily,
+        "targets": normalize_targets(data["targets"]),
+    }
+
+
+def _snapshot(experiment):
+    return {key: deepcopy(getattr(experiment, key)) for key in ("name", "hypothesis", "config", "candidate_daily_coins", "targets")}
+
+
+def _binding(catalog):
+    return {"engine_version": ENGINE_VERSION, "rules_fingerprint": rules_fingerprint(),
+            "feedback_fingerprint": feedback_fingerprint(),
+            "catalog_fingerprint": catalog.fingerprint,
+            "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable"}
+
+
+def _current_binding():
+    try:
+        return _binding(load_catalog())
+    except ValueError:
+        # Historical evidence remains readable if today's catalog is invalid.
+        # Unknown freshness can never authorize a new decision.
+        return None
+
+
+def _stale(experiment, comparison, binding=None):
+    return experiment.revision != comparison.experiment_revision or (
+        binding is not None and any(comparison.binding.get(key) != binding.get(key)
+                                   for key in ("engine_version", "rules_fingerprint", "catalog_fingerprint", "feedback_fingerprint"))
+    )
+
+
+def _decision_json(decision):
+    return {"id": str(decision.pk), "comparison_id": str(decision.comparison_id), "outcome": decision.outcome,
+            "rationale": decision.rationale, "next_action": decision.next_action,
+            "review_on": decision.review_on.isoformat(), "created_at": decision.created_at.isoformat()}
+
+
+def _summary(experiment):
+    decision = experiment.decisions.order_by("-created_at", "-id").first()
+    return {"id": str(experiment.pk), "name": experiment.name, "hypothesis": experiment.hypothesis,
+            "revision": experiment.revision, "updated_at": experiment.updated_at.isoformat(),
+            "latest_decision": _decision_json(decision) if decision else None}
+
+
+def _comparison_json(experiment, comparison, *, full=False, binding=None):
+    result = {"id": str(comparison.pk), "experiment_revision": comparison.experiment_revision,
+              "created_at": comparison.created_at.isoformat(), "evaluation": comparison.evaluation,
+              "stale": binding is None or _stale(experiment, comparison, binding),
+              "freshness": "unavailable" if binding is None else "stale" if _stale(experiment, comparison, binding) else "current",
+              "binding": comparison.binding}
+    if full:
+        result.update(inputs=comparison.inputs, control=comparison.control, candidate=comparison.candidate)
+    return result
+
+
+def _detail(experiment):
+    comparisons = list(experiment.comparisons.defer("control", "candidate", "inputs").order_by("-created_at", "-id"))
+    binding = _current_binding() if comparisons else None
+    return {**_summary(experiment), **_snapshot(experiment),
+            "comparisons": [_comparison_json(experiment, row, binding=binding) for row in comparisons],
+            "decisions": [_decision_json(row) for row in experiment.decisions.order_by("-created_at", "-id")],
+            "observations": [{"id": str(row.pk), "created_at": row.created_at.isoformat(),
+                              "experiment_revision": row.experiment_revision, "status": row.payload["status"],
+                              "payload": row.payload, "binding": row.binding}
+                             for row in experiment.observations.order_by("-created_at", "-id")]}
+
+
+def list_experiments(actor):
+    actor = _actor(actor)
+    rows = ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).order_by("-updated_at", "-id")[:MAX_EXPERIMENTS]
+    return {"schema_version": 1, "limits": {"max_experiments": MAX_EXPERIMENTS, "max_comparisons": MAX_COMPARISONS,
+            "max_observations": MAX_OBSERVATIONS,
+            "max_comparison_work_units": MAX_COMPARISON_WORK_UNITS, "max_evidence_bytes": MAX_EVIDENCE_BYTES}, "feedback": feedback_metadata(),
+            "experiments": [_summary(row) for row in rows]}
+
+
+@transaction.atomic
+def create_experiment(actor, data):
+    values = _inputs(data)
+    actor = _actor(actor, lock=True)
+    if ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).count() >= MAX_EXPERIMENTS:
+        raise ValueError("This notebook has reached its 20-experiment limit.")
+    return _detail(ProgressionExperiment.objects.create(actor=actor, family_id=actor.family_id, **values))
+
+
+def get_experiment(actor, experiment_id):
+    return _detail(_experiment(_actor(actor), experiment_id))
+
+
+@transaction.atomic
+def save_experiment(actor, experiment_id, revision, data):
+    values = _inputs(data)
+    actor = _actor(actor, lock=True)
+    experiment = _experiment(actor, experiment_id, lock=True)
+    _revision(experiment, revision)
+    for key, value in values.items():
+        setattr(experiment, key, value)
+    experiment.revision += 1
+    experiment.save(update_fields=[*values, "revision", "updated_at"])
+    return _detail(experiment)
+
+
+def compare_experiment(actor, experiment_id, revision):
+    actor = _actor(actor)
+    experiment = _experiment(actor, experiment_id)
+    _revision(experiment, revision)
+    if experiment.comparisons.count() >= MAX_COMPARISONS:
+        raise ValueError("This experiment has reached its 20-comparison limit.")
+    inputs = _inputs(_snapshot(experiment))
+    control_config = inputs["config"]
+    candidate_config = {**control_config, "reward_budget": {"daily_coins": inputs["candidate_daily_coins"]}}
+    try:
+        catalog = load_catalog()
+    except ValueError as exc:
+        raise ExperimentUnavailable(str(exc)) from exc
+    binding = _binding(catalog)
+    control = simulate_progression(control_config, catalog=catalog)
+    candidate = simulate_progression(candidate_config, catalog=catalog)
+    evaluation = evaluate_comparison(control, candidate, inputs["targets"])
+    if len(json.dumps({"inputs": inputs, "control": control, "candidate": candidate,
+                       "evaluation": evaluation, "binding": binding}).encode()) > MAX_EVIDENCE_BYTES:
+        raise ValueError("Comparison evidence exceeds the 4 MiB storage limit. Simplify the routine or reduce the horizon.")
+    with transaction.atomic():
+        actor = _actor(actor, lock=True)
+        experiment = _experiment(actor, experiment_id, lock=True)
+        _revision(experiment, revision)
+        if experiment.comparisons.count() >= MAX_COMPARISONS:
+            raise ValueError("This experiment has reached its 20-comparison limit.")
+        comparison = ProgressionComparison.objects.create(
+            experiment=experiment, experiment_revision=revision, inputs=inputs,
+            control=control, candidate=candidate, evaluation=evaluation, binding=binding,
+        )
+    return _comparison_json(experiment, comparison, full=True, binding=binding)
+
+
+def get_comparison(actor, experiment_id, comparison_id):
+    experiment = _experiment(_actor(actor), experiment_id)
+    comparison = experiment.comparisons.filter(pk=comparison_id).first()
+    if comparison is None:
+        raise ExperimentNotFound("Comparison not found.")
+    return _comparison_json(experiment, comparison, full=True, binding=_current_binding())
+
+
+@transaction.atomic
+def record_decision(actor, experiment_id, data):
+    actor = _actor(actor, lock=True)
+    experiment = _experiment(actor, experiment_id, lock=True)
+    _revision(experiment, data["revision"])
+    try:
+        comparison_id = uuid.UUID(str(data["comparison_id"]))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError("Choose a saved comparison.") from exc
+    comparison = experiment.comparisons.filter(pk=comparison_id).first()
+    if comparison is None:
+        raise ExperimentNotFound("Comparison not found.")
+    binding = _current_binding()
+    if binding is None:
+        raise ExperimentUnavailable("Current catalog is unavailable. Saved evidence remains readable; retry the decision after the catalog recovers.")
+    if _stale(experiment, comparison, binding):
+        raise ExperimentConflict("Evidence is stale. Run a new comparison before recording a decision.")
+    outcome = data["outcome"]
+    if not isinstance(outcome, str) or outcome not in {"keep_testing", "revise", "ready_for_design"}:
+        raise ValueError("Choose keep testing, revise, or ready for design.")
+    if outcome == "ready_for_design" and comparison.evaluation["status"] != "pass":
+        raise ValueError("Ready for design requires configured, passing simulation targets. It does not approve live changes.")
+    rationale = _text(data["rationale"], "Rationale", 2000)
+    next_action = _text(data["next_action"], "Next action", 2000)
+    try:
+        if not isinstance(data["review_on"], str):
+            raise ValueError()
+        review_on = date.fromisoformat(data["review_on"])
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Choose a review date in YYYY-MM-DD format.") from exc
+    today = timezone.localdate(timezone=household_timezone(actor))
+    if review_on < today:
+        raise ValueError("Review date cannot be in the past.")
+    if experiment.decisions.count() >= MAX_DECISIONS:
+        raise ValueError("This experiment has reached its 100-decision limit.")
+    ProgressionDecision.objects.create(experiment=experiment, comparison=comparison, outcome=outcome,
+                                     rationale=rationale, next_action=next_action, review_on=review_on)
+    return _detail(experiment)
+
+
+def capture_observation(actor, experiment_id, revision):
+    from .observations import economy_observations
+
+    actor = _actor(actor)
+    experiment = _experiment(actor, experiment_id)
+    _revision(experiment, revision)
+    if experiment.observations.count() >= MAX_OBSERVATIONS:
+        raise ValueError("This experiment has reached its 20-observation checkpoint limit.")
+    payload = economy_observations(actor)
+    binding = {"source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
+               "rules_fingerprint": rules_fingerprint(), "feedback_fingerprint": feedback_fingerprint(),
+               "policy": "installed_uncapped", "scope": "own_family_recent_children"}
+    with transaction.atomic():
+        actor = _actor(actor, lock=True)
+        experiment = _experiment(actor, experiment_id, lock=True)
+        _revision(experiment, revision)
+        if experiment.observations.count() >= MAX_OBSERVATIONS:
+            raise ValueError("This experiment has reached its 20-observation checkpoint limit.")
+        ProgressionObservation.objects.create(experiment=experiment, experiment_revision=revision, payload=payload, binding=binding)
+        return _detail(experiment)

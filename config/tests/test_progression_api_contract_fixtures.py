@@ -1,4 +1,6 @@
 """Raw designer endpoints over fixed, synthetic global content."""
+from datetime import datetime, timezone as dt_timezone
+from unittest.mock import patch
 from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APITestCase
@@ -124,3 +126,45 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertGreater(budget["omitted_coins"]["p50"], 0)
         self.assertLessEqual(budget["awarded_coins"]["p90"], 5 * response.data["summary"]["active_days"])
         self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_experiment_feedback_contracts(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "100-Coin starting experiment", "hypothesis": "Test income and first-reward pacing before changing live grants.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 1,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False},
+            "candidate_daily_coins": 100, "targets": [{"metric": "closing_coins_p50", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000001"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        self.assert_response_fixture(self.client.get(url), "progression-experiment-list.json")
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000002"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(self.client.get(detail_url + f"comparisons/{comparison_id}/"), "progression-experiment-comparison.json")
+        self.assertEqual(report["control"]["config"]["seed"], report["candidate"]["config"]["seed"])
+        self.assertEqual(report["candidate"]["config"]["reward_budget"]["daily_coins"], 100)
+        self.assertFalse(report["evaluation"]["proposal"]["live_ready"])
+        decision = self.client.post(detail_url + "decisions/", {
+            "revision": 1, "comparison_id": comparison_id, "outcome": "keep_testing",
+            "rationale": "This envelope does not yet model promise-safe commitments.",
+            "next_action": "Simulate the proposed expedition table and reserve full pouch value before new grants.",
+            "review_on": "2099-01-01",
+        }, format="json")
+        self.assertEqual(decision.status_code, 201, decision.content)
+        ProgressionDecision.objects.filter(pk=decision.json()["decisions"][0]["id"]).update(id="00000000-0000-4000-8000-000000000003")
+        self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-decided.json")
+        empty = self.assert_response_fixture(self.client.get("/api/rpg/progression-lab/observations/"), "progression-observations-empty.json")
+        self.assertEqual(empty["status"], "insufficient_evidence")
+        self.assertEqual(empty["cohort"]["eligible_children"], 0)
+        observation = self.client.post(detail_url + "observations/", {"revision": 1}, format="json")
+        self.assertEqual(observation.status_code, 201, observation.content)
+        ProgressionObservation.objects.filter(pk=observation.json()["observations"][0]["id"]).update(id="00000000-0000-4000-8000-000000000004")
+        snapshot = self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-observed.json")
+        self.assertEqual(snapshot["observations"][0]["status"], "insufficient_evidence")

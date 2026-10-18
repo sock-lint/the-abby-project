@@ -425,3 +425,54 @@ class RPGContentOverride(TimestampedModel):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["model_label", "object_id"], name="rpg_content_override_object")]
+
+
+class ProgressionExperiment(TimestampedModel):
+    """Private design assumptions; selecting them never changes live rewards."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    hypothesis = models.TextField()
+    revision = models.PositiveIntegerField(default=1)
+    config = models.JSONField(default=dict)
+    candidate_daily_coins = models.PositiveIntegerField(default=100)
+    targets = models.JSONField(default=list)
+
+
+class ProgressionComparison(CreatedAtModel):
+    """Immutable server-generated paired evidence, retained across later edits."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    experiment = models.ForeignKey(ProgressionExperiment, on_delete=models.CASCADE, related_name="comparisons")
+    experiment_revision = models.PositiveIntegerField()
+    inputs = models.JSONField()
+    control = models.JSONField()
+    candidate = models.JSONField()
+    evaluation = models.JSONField()
+    binding = models.JSONField()
+
+
+class ProgressionDecision(CreatedAtModel):
+    """Append-only rationale and follow-up, not permission to publish or deploy."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    experiment = models.ForeignKey(ProgressionExperiment, on_delete=models.CASCADE, related_name="decisions")
+    comparison = models.ForeignKey(ProgressionComparison, on_delete=models.CASCADE, related_name="decisions")
+    outcome = models.CharField(max_length=24, choices=[
+        ("keep_testing", "Keep testing"), ("revise", "Revise"), ("ready_for_design", "Ready for design"),
+    ])
+    rationale = models.TextField()
+    next_action = models.TextField()
+    review_on = models.DateField()
+
+
+class ProgressionObservation(CreatedAtModel):
+    """Immutable, scoped accounting checkpoint, separate from forecast evidence."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    experiment = models.ForeignKey(ProgressionExperiment, on_delete=models.CASCADE, related_name="observations")
+    experiment_revision = models.PositiveIntegerField()
+    payload = models.JSONField()
+    binding = models.JSONField()

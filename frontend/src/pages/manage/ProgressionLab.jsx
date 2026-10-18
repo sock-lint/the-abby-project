@@ -17,6 +17,7 @@ import ProgressionEconomyControls from './ProgressionEconomyControls';
 import ProgressionEconomyReport from './ProgressionEconomyReport';
 import ProgressionRewardBudgetControls from './ProgressionRewardBudgetControls';
 import ProgressionRewardBudgetReport from './ProgressionRewardBudgetReport';
+import ProgressionExperimentNotebook from './ProgressionExperimentNotebook';
 import { importedScenario, rewardBudgetLabel, scenariosMatch } from './progressionLabScenario';
 
 const ROUTINE_FIELDS = [
@@ -215,6 +216,7 @@ function AccountProgressionLab() {
             {!scenariosMatch(config, resultInputs ?? result.config) && <p role="status" className="text-body text-ember-deep">Inputs have changed. The report below still shows the last completed scenario.</p>}
             <Report key={`${result.config.seed}:${result.config.horizon_days}:${result.config.trials}`} report={result} baseline={baseline} onBaseline={() => setBaseline(result)} onClearBaseline={() => setBaseline(null)} />
           </>}
+          <ProgressionExperimentNotebook routine={config} />
           <Coverage coverage={(result ?? metadata).coverage} audit={(result ?? metadata).audit} catalog={(result ?? metadata).catalog} />
         </>}
       </>}

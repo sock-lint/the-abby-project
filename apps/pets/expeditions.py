@@ -376,6 +376,7 @@ class ExpeditionService:
         if coins_planned > 0:
             entry = CoinService.award_coins(
                 user, coins_planned, CoinLedger.Reason.EXPEDITION,
+                source=CoinLedger.Source.EXPEDITION,
                 description=(
                     f"{expedition.mount.species.name} returned from a "
                     f"{expedition.tier} expedition"
@@ -415,6 +416,7 @@ class ExpeditionService:
                 # Salvage to coins.
                 CoinService.award_coins(
                     user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
+                    source=CoinLedger.Source.EXPEDITION_SALVAGE,
                     description=f"Salvaged duplicate from expedition: {item.display_name}",
                 )
                 slot["salvaged_to_coins"] = item.coin_value

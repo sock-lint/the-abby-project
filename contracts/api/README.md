@@ -18,6 +18,18 @@ including expedition salvage, without altering parent-authored chore rewards
 or any live economy rule. Metadata publishes the nullable whole-Coin bound;
 legacy routines omit the field and retain uncapped behavior.
 
+`progression-experiment-list.json`, `progression-experiment-comparison.json`
+and `progression-experiment-decided.json` bind the private experiment notebook
+to its real staff-parent endpoints. The server generates immutable control and
+candidate evidence with matching seeds and one catalog, then retains criteria,
+fingerprints, decisions, next actions and review dates. Ready for design is
+never authority to change live rewards. `progression-observations-empty.json`
+keeps a family cohort with no eligible children as insufficient evidence;
+simulated outcomes never become observed behavior. The same progression
+producer and React consumer modules above verify these contracts.
+`progression-experiment-observed.json` adds an immutable server-captured
+observation checkpoint; even saved empty evidence remains insufficient.
+
 `completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
 `completion-timing-homework-reviewed.json` and
 `completion-timing-homework-assignment.json` come from the real submission/read

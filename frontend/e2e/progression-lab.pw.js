@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
+import { chooseDropdown } from './dropdown-helpers.js';
 
 let devServer;
 let origin;
@@ -11,12 +12,21 @@ let metadata;
 let report;
 let economyReport;
 let budgetReport;
+let experimentList;
+let experimentComparison;
+let experimentDecided;
+let emptyObservations;
+const labReads = ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/', '/api/rpg/progression-lab/experiments/', '/api/rpg/progression-lab/observations/'];
 
 test.beforeAll(async () => {
   metadata = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-metadata.json', import.meta.url), 'utf8'));
   report = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-report.json', import.meta.url), 'utf8'));
   economyReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-economy-report.json', import.meta.url), 'utf8'));
   budgetReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-reward-budget-report.json', import.meta.url), 'utf8'));
+  experimentList = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-list.json', import.meta.url), 'utf8'));
+  experimentComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-comparison.json', import.meta.url), 'utf8'));
+  experimentDecided = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-decided.json', import.meta.url), 'utf8'));
+  emptyObservations = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-observations-empty.json', import.meta.url), 'utf8'));
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
@@ -47,6 +57,9 @@ test.afterAll(async () => {
 async function openLab(page, response = report) {
   const requests = [];
   const external = [];
+  let savedExperiment = null;
+  const experimentRoot = '/api/rpg/progression-lab/experiments/';
+  const experimentPath = `${experimentRoot}${experimentDecided.id}/`;
   await page.addInitScript(() => localStorage.setItem('abby_auth_token', 'synthetic-progression-fixture'));
   await page.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -55,6 +68,34 @@ async function openLab(page, response = report) {
     requests.push(url.pathname);
     if (url.pathname === '/api/auth/me/') return route.fulfill({ json: { id: 1, username: 'synthetic-staff', role: 'parent', is_staff: true, theme: 'hyrule', family: { id: 1 } } });
     if (url.pathname === '/api/rpg/progression-lab/') return route.fulfill({ json: { ...metadata, defaults: response.config } });
+    if (url.pathname === '/api/rpg/progression-lab/observations/') return route.fulfill({ json: emptyObservations });
+    if (url.pathname === experimentRoot && route.request().method() === 'GET') return route.fulfill({ json: experimentList });
+    if (url.pathname === experimentRoot && route.request().method() === 'POST') {
+      const input = route.request().postDataJSON();
+      expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'config', 'hypothesis', 'name', 'targets']);
+      expect(input.config).toEqual({ ...response.config, reward_budget: { daily_coins: null } });
+      expect(input.candidate_daily_coins).toBe(100);
+      savedExperiment = { ...experimentDecided, latest_decision: null, comparisons: [], decisions: [], observations: [] };
+      return route.fulfill({ status: 201, json: savedExperiment });
+    }
+    if (url.pathname === experimentPath) return route.fulfill({ json: savedExperiment ?? experimentDecided });
+    if (url.pathname === `${experimentPath}compare/`) {
+      expect(route.request().postDataJSON()).toEqual({ revision: 1 });
+      savedExperiment = { ...savedExperiment, comparisons: experimentDecided.comparisons };
+      return route.fulfill({ status: 201, json: experimentComparison });
+    }
+    if (url.pathname === `${experimentPath}comparisons/${experimentComparison.id}/`) return route.fulfill({ json: experimentComparison });
+    if (url.pathname === `${experimentPath}decisions/`) {
+      const input = route.request().postDataJSON();
+      expect(input).toEqual({ revision: 1, comparison_id: experimentComparison.id, outcome: 'keep_testing', rationale: 'Keep testing reward commitments.', next_action: 'Simulate the expedition table.', review_on: '2099-01-01' });
+      savedExperiment = { ...experimentDecided, observations: savedExperiment?.observations ?? [] };
+      return route.fulfill({ status: 201, json: savedExperiment });
+    }
+    if (url.pathname === `${experimentPath}observations/`) {
+      expect(route.request().postDataJSON()).toEqual({ revision: 1 });
+      savedExperiment = { ...savedExperiment, observations: [{ id: 'checkpoint-1', created_at: '2026-10-18T12:00:00Z', status: emptyObservations.status, payload: emptyObservations, binding: experimentComparison.binding, experiment_revision: 1 }] };
+      return route.fulfill({ status: 201, json: savedExperiment });
+    }
     if (url.pathname === '/api/rpg/progression-lab/simulate/') {
       expect(route.request().postDataJSON()).toEqual(response.config);
       return route.fulfill({ json: response });
@@ -68,6 +109,36 @@ async function openLab(page, response = report) {
 }
 
 for (const width of [375, 1280]) {
+  test(`saved experiment closes the feedback loop at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { requests, external } = await openLab(page);
+    const notebook = page.getByRole('region', { name: 'Progression experiment notebook', exact: true });
+    await expect(notebook.getByRole('combobox', { name: 'Open experiment' })).toBeVisible();
+    await notebook.getByRole('button', { name: 'Add criterion', exact: true }).click();
+    await notebook.getByRole('spinbutton', { name: 'Criterion 1 minimum' }).fill('0');
+    await notebook.getByRole('button', { name: 'Save experiment', exact: true }).click();
+    await expect(notebook.getByText('Experiment saved. Live rewards are unchanged.')).toBeVisible();
+    await notebook.getByRole('button', { name: 'Run control and candidate' }).click();
+    await expect(notebook.getByRole('table', { name: 'Experiment success criteria' })).toBeVisible();
+    await notebook.getByRole('textbox', { name: 'Decision reason' }).fill('Keep testing reward commitments.');
+    await notebook.getByRole('textbox', { name: 'Next action', exact: true }).fill('Simulate the expedition table.');
+    await notebook.getByLabel('Review on', { exact: true }).fill('2099-01-01');
+    await notebook.getByRole('button', { name: 'Record decision' }).click();
+    await expect(notebook.getByText('Decision recorded. No live changes were approved.')).toBeVisible();
+    await notebook.getByRole('button', { name: 'Save observation checkpoint' }).click();
+    await expect(notebook.getByText(/Observation checkpoint saved/)).toBeVisible();
+    await notebook.getByRole('button', { name: 'Reload saved experiment' }).click();
+    await expect(notebook.getByText('Saved experiment loaded.')).toBeVisible();
+    await expect(notebook.getByText(experimentDecided.decisions[0].next_action)).toBeVisible();
+    await chooseDropdown(notebook.getByRole('combobox', { name: 'Saved comparison' }), experimentComparison.id);
+    await expect(notebook.getByRole('region', { name: 'Saved experiment comparison' })).toBeVisible();
+    await expect(notebook.getByText(/This reward table has not been simulated/)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    expect(requests.every((path) => labReads.includes(path) || path.startsWith(`/api/rpg/progression-lab/experiments/${experimentDecided.id}/`))).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`progression-feedback-${width}.png`), fullPage: true });
+  });
+
   test(`per-child reward budget comparison remains readable at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const { requests, external } = await openLab(page, budgetReport);
@@ -84,7 +155,7 @@ for (const width of [375, 1280]) {
     expect(requests.filter((path) => path.endsWith('/simulate/'))).toHaveLength(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(external).toEqual([]);
-    expect(requests.every((path) => ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/'].includes(path))).toBe(true);
+    expect(requests.every((path) => labReads.includes(path))).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`progression-budget-${width}.png`), fullPage: true });
   });
 
@@ -102,7 +173,7 @@ for (const width of [375, 1280]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(external).toEqual([]);
     expect(requests.filter((path) => path.endsWith('/simulate/'))).toHaveLength(1);
-    expect(requests.every((path) => ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/'].includes(path))).toBe(true);
+    expect(requests.every((path) => labReads.includes(path))).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`progression-economy-${width}.png`), fullPage: true });
   });
 
@@ -125,7 +196,7 @@ for (const width of [375, 1280]) {
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(external).toEqual([]);
-    expect(requests.every((path) => ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/'].includes(path))).toBe(true);
+    expect(requests.every((path) => labReads.includes(path))).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`progression-lab-${width}.png`), fullPage: true });
   });
 }

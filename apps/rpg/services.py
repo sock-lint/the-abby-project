@@ -1270,6 +1270,7 @@ class InventoryItemService:
             amount,
             CoinLedger.Reason.ADJUSTMENT,
             description=f"Opened coin pouch: {item.display_name}",
+            source=CoinLedger.Source.COIN_POUCH,
         )
         return {
             "item_id": item.pk,
