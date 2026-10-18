@@ -625,7 +625,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "84004e6910b81f2d0831bcd6fdccd8d95dc533b6640836d95b835e9fc361fa50",
+    "rules_fingerprint": "c086ff8e22a48cb3947279602f8e5c1adb3f561e07db3d283fadc5a2a104f9c9",
     "engine_version": "2026-10-18.pet-badges.1",
     "source_commit": "unavailable",
     "work_budget": {
