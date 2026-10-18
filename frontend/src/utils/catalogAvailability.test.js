@@ -12,4 +12,8 @@ describe('catalog availability', () => {
     const actions = [{ id: 'hatch', to: '/bestiary?tab=hatchery' }, { id: 'equip', to: '/sigil' }, { id: 'open' }];
     expect(availableInventoryActions({ item: { catalog_available: false }, available_actions: actions })).toEqual([{ id: 'open' }]);
   });
+  it.each([true, false])('omits a retired breeding action from older responses with catalog availability %s', (catalogAvailable) => {
+    const actions = [{ id: 'breed', to: '/bestiary?tab=hatchery' }, { id: 'open' }];
+    expect(availableInventoryActions({ item: { catalog_available: catalogAvailable }, available_actions: actions })).toEqual([{ id: 'open' }]);
+  });
 });

@@ -6,10 +6,6 @@ import { renderWithProviders } from '../../test/render';
 import PetCeremonyModal from './PetCeremonyModal';
 import presentation from '../../storybook/presentation.json';
 import { getLicensedRpgSprite, resolveLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
-import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
-import rosterBreed from '../../../../contracts/api/fixtures/mount-breed-roster.json';
-
-vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn(() => null) }));
 
 vi.mock('../../storybook/licensedRpgSprites', async () => {
   const actual = await vi.importActual('../../storybook/licensedRpgSprites');
@@ -18,7 +14,6 @@ vi.mock('../../storybook/licensedRpgSprites', async () => {
 
 beforeEach(() => {
   getLicensedRpgSprite.mockReset().mockReturnValue(null);
-  resolveCatalogIcon.mockReset().mockReturnValue(null);
 });
 
 const pet = {
@@ -27,42 +22,7 @@ const pet = {
   potion: { name: 'Cosmic', slug: 'cosmic' },
 };
 
-const breedParents = [
-  { id: 10, species: { name: 'Wolf', sprite_key: 'wolf', icon: '🐺' }, potion: { name: 'Fire', slug: 'fire' } },
-  { id: 11, species: { name: 'Dragon', sprite_key: 'dragon', icon: '🐉' }, potion: { name: 'Ice', slug: 'ice' } },
-];
-
-const breedResult = {
-  egg_item_id: 99,
-  egg_item_name: 'Wolf Egg',
-  egg_item_icon: '🥚',
-  egg_item_sprite_key: 'big-egg',
-  potion_item_id: 100,
-  potion_item_name: 'Fire Potion',
-  potion_item_icon: '🧪',
-  potion_item_sprite_key: '',
-  picked_species: 'Wolf',
-  picked_species_slug: 'wolf',
-  picked_potion: 'Fire',
-  picked_potion_slug: 'fire',
-  chromatic: false,
-  cooldown_days: 7,
-};
-
 describe('PetCeremonyModal', () => {
-  it('reveals the exact catalog potion artwork returned by breeding alongside the awarded egg', () => {
-    resolveCatalogIcon.mockImplementation((id) => id === 'item-base-potion' ? { url: '/synthetic/base-potion.png' } : null);
-    renderWithProviders(<PetCeremonyModal mode="breed" parents={breedParents} result={rosterBreed} reducedMotion onDismiss={() => {}} />);
-    expect(screen.getByRole('img', { name: 'Base Potion' })).toHaveAttribute('src', '/synthetic/base-potion.png');
-    expect(screen.getByRole('img', { name: 'Bat Egg' })).toBeInTheDocument();
-  });
-
-  it.each([undefined, null, 'unknown-potion-art'])('retains the legacy potion fallback when its catalog artwork is %s', (assetId) => {
-    renderWithProviders(<PetCeremonyModal mode="breed" parents={breedParents}
-      result={{ ...breedResult, potion_item_catalog_icon: assetId }} reducedMotion onDismiss={() => {}} />);
-    expect(screen.getByRole('img', { name: 'Fire Potion' })).toHaveTextContent('🧪');
-  });
-
   it('renders hatch headline + dismiss button (mode=hatch)', () => {
     renderWithProviders(
       <PetCeremonyModal mode="hatch" pet={pet} onDismiss={() => {}} />,
@@ -84,35 +44,6 @@ describe('PetCeremonyModal', () => {
     );
     expect(screen.getByText(/cosmic phoenix/i)).toBeInTheDocument();
     expect(screen.getByText(/ready to explore/i)).toBeInTheDocument();
-  });
-
-  it('renders breed alertdialog with the result egg name (mode=breed)', () => {
-    renderWithProviders(
-      <PetCeremonyModal
-        mode="breed"
-        parents={breedParents}
-        result={breedResult}
-        onDismiss={() => {}}
-      />,
-    );
-    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-    expect(screen.getByText(/wolf egg/i)).toBeInTheDocument();
-    expect(screen.getByText(/paired with fire potion/i)).toBeInTheDocument();
-    expect(screen.getByText(/parents resting for 7 days/i)).toBeInTheDocument();
-    expect(screen.getByText(/a new egg/i)).toBeInTheDocument();
-  });
-
-  it('shows chromatic kicker on chromatic breed', () => {
-    renderWithProviders(
-      <PetCeremonyModal
-        mode="breed"
-        parents={breedParents}
-        result={{ ...breedResult, chromatic: true, picked_potion_slug: 'cosmic', potion_item_name: 'Cosmic Potion' }}
-        onDismiss={() => {}}
-      />,
-    );
-    expect(screen.getByText(/a rare cosmic potion/i)).toBeInTheDocument();
-    expect(screen.getByText(/with a cosmic potion from this pairing/i)).toBeInTheDocument();
   });
 
   it('renders the expedition_return shell with mount headline + dismiss CTA', () => {
@@ -312,38 +243,6 @@ describe('PetCeremonyModal — licensed Chick portraits', () => {
     expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
     expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
     expect(screen.getByText(/is ready to explore/i)).toBeInTheDocument();
-  });
-
-  it('shows the Chick parent as a Bird mount while keeping the other parent on its own species', async () => {
-    renderWithProviders(
-      <PetCeremonyModal
-        mode="breed"
-        parents={[chickPet, breedParents[0]]}
-        result={{
-          ...breedResult,
-          egg_item_name: 'Chick Egg',
-          potion_item_name: 'Base Potion',
-          picked_species: 'Chick',
-          picked_species_slug: 'cute-chick',
-          picked_potion: 'Base',
-          picked_potion_slug: 'base',
-        }}
-        onDismiss={() => {}}
-      />,
-      { withAuth: false },
-    );
-    expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', birdPortrait);
-    expect(screen.getByRole('img', { name: 'Wolf' })).toHaveTextContent('🐺');
-    expect(document.querySelector(`img[src="${chickPortrait}"]`)).toBeNull();
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2600);
-    });
-    expect(screen.queryByRole('img', { name: 'Chick' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('img', { name: 'Wolf' })).not.toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Chick Egg' })).toHaveTextContent('🥚');
-    expect(screen.getByRole('img', { name: 'Base Potion' })).toHaveTextContent('🧪');
-    expect(document.querySelector(`img[src="${birdPortrait}"]`)).toBeNull();
   });
 
   it('keeps the returning Chick on its Bird mount portrait through the loot reveal', async () => {

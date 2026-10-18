@@ -1,20 +1,18 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { breedMounts, getInventory, getStable, hatchPet } from '../../../api';
+import { getInventory, getStable, hatchPet } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
 import ErrorAlert from '../../../components/ErrorAlert';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
-import RuneBadge from '../../../components/journal/RuneBadge';
-import { EggIcon, DragonIcon } from '../../../components/icons/JournalIcons';
+import { EggIcon } from '../../../components/icons/JournalIcons';
 import { normalizeList } from '../../../utils/api';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import Button from '../../../components/Button';
 import { SelectField } from '../../../components/form';
 import ChapterRubric from '../../../components/atlas/ChapterRubric';
 import IncipitBand from '../../../components/atlas/IncipitBand';
-import { BREEDING_COOLDOWN_DAYS, daysUntilReady } from '../party/party.constants';
 import PetCeremonyModal from '../PetCeremonyModal';
 import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
@@ -25,15 +23,6 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import EggCollection from './EggCollection';
 import usePetMutationGuard from '../party/usePetMutationGuard';
 
-const CHROMATIC_UPGRADE_RATE = '1 in 50';
-
-/**
- * Hatchery — dedicated tab for the two ritual flows that used to live as
- * modals on the Party tab. Stacks Hatch a New Pet + Breed Two Mounts as
- * inline panels, surfaces breeding cooldowns inline (replaces the
- * "rest 7 days" copy with concrete per-mount countdowns), and prints
- * the chromatic-upgrade odds so the wildcard outcome isn't a surprise.
- */
 export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const {
     data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
@@ -48,9 +37,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const [hatchPotion, setHatchPotion] = useState('');
   const [hatchSuccess, setHatchSuccess] = useState(null);
   const [hatchCeremony, setHatchCeremony] = useState(null);
-  const [breedA, setBreedA] = useState('');
-  const [breedB, setBreedB] = useState('');
-  const [breedCeremony, setBreedCeremony] = useState(null);
   const beginMutation = usePetMutationGuard();
 
   if (loadingStable || loadingInventory) return <Loader />;
@@ -67,7 +53,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const alreadyOwned = selectedEggSpecies?.slug && selectedPotion.slug
     && [...(stableData?.pets || []), ...mounts].some((pet) =>
       pet.species?.slug === selectedEggSpecies.slug && pet.potion?.slug === selectedPotion.slug);
-  const breedingAvailable = stableData?.breeding_available !== false && mounts.some((mount) => mount.can_breed !== false);
 
   const refresh = () => { reloadStable(); reloadInventory(); };
   const changed = onChanged || refresh;
@@ -76,9 +61,8 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   // yet — drops fall from clocked work…", which reads as "you own nothing"
   // rather than "we couldn't load it", with no way to retry.
   const fetchError = stableError || inventoryError;
-  // Both panels need both feeds — the hatch ritual reads the satchel, the
-  // breed ritual reads the stable — so either one missing means the page
-  // can't tell the truth about what you own.
+  // Inventory supplies the ingredients and the stable prevents duplicate
+  // hatches. Both reads are needed to show the available choices.
   if (fetchError && (!inventoryData || !stableData)) {
     return (
       <div className="space-y-3 max-w-xl mx-auto">
@@ -89,12 +73,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
       </div>
     );
   }
-
-  const mountReadiness = mounts.filter((mount) => mount.can_breed !== false).map((m) => ({
-    mount: m,
-    cooldownDaysLeft: daysUntilReady(m.last_bred_at),
-  }));
-  const readyMounts = mountReadiness.filter((m) => m.cooldownDaysLeft === null);
 
   const handleHatch = async () => {
     if (!selectedEggItem || !selectedPotionItem || alreadyOwned) return;
@@ -117,30 +95,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
 
-  const handleBreed = async () => {
-    if (!breedA || !breedB || breedA === breedB) return;
-    const request = beginMutation();
-    if (!request) return;
-    setWorking(true);
-    setError('');
-    // Capture the parent mount objects BEFORE refresh — the dropdowns
-    // clear and reloadStable swaps the array, so we'd lose the species/
-    // potion data the celebration needs.
-    const parentA = mounts.find((m) => String(m.id) === String(breedA));
-    const parentB = mounts.find((m) => String(m.id) === String(breedB));
-    try {
-      const result = await breedMounts(breedA, breedB);
-      if (!request.isCurrent()) return;
-      if (parentA && parentB) {
-        setBreedCeremony({ parents: [parentA, parentB], result });
-      }
-      setBreedA('');
-      setBreedB('');
-      changed();
-    } catch (e) { if (request.isCurrent()) setError(e.message); }
-    finally { if (request.isCurrent()) setWorking(false); request.finish(); }
-  };
-
   return (
     <div className="space-y-6">
       {hatchCeremony && (
@@ -150,27 +104,10 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
           onDismiss={() => setHatchCeremony(null)}
         />
       )}
-      {breedCeremony && (
-        <PetCeremonyModal
-          mode="breed"
-          parents={breedCeremony.parents}
-          result={breedCeremony.result}
-          onDismiss={() => setBreedCeremony(null)}
-        />
-      )}
       <IncipitBand
         letter="H"
         title="Hatchery"
         kicker="Your eggs and future companions"
-        meta={
-          breedingAvailable && mountReadiness.length >= 2 ? (
-            <>
-              <span className="tabular-nums">{readyMounts.length}</span>
-              <span>grown pets ready to breed</span>
-            </>
-          ) : null
-        }
-        progressPct={breedingAvailable && mountReadiness.length >= 2 ? (readyMounts.length / mounts.length) * 100 : 0}
       />
 
       <p className="font-script text-sm text-ink-whisper -mt-2 max-w-xl">
@@ -267,89 +204,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
             ✨ You hatched a {hatchSuccess.potionName} {hatchSuccess.speciesName}!
           </div>
         )}
-      </ParchmentCard>
-
-      <ParchmentCard flourish>
-        <ChapterRubric index={1} name="Breeding" icon="👑" />
-        {!breedingAvailable ? <p className="mt-3 font-body text-body text-ink-secondary">Breeding is not available with the current pet collection. Your grown pets can still explore and bring back finds.</p> : <>
-        <p className="font-script text-sm text-ink-whisper">
-          Get an egg and potion for a new pet. Each grown pet needs {BREEDING_COOLDOWN_DAYS} days between pairings.
-        </p>
-        <div className="font-script text-tiny text-gold-leaf mt-1">
-          ✨ Each pairing has a {CHROMATIC_UPGRADE_RATE} chance of a Cosmic potion when the chosen species supports it.
-        </div>
-
-        {mountReadiness.length < 2 ? (
-          <div className="mt-4">
-            <EmptyState icon={<DragonIcon size={28} />}>
-              You need at least two compatible grown pets to breed.
-            </EmptyState>
-          </div>
-        ) : (
-          <div className="mt-4 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <RuneBadge tone="teal" size="sm">{readyMounts.length} ready to breed</RuneBadge>
-              {mountReadiness.length - readyMounts.length > 0 && (
-                <RuneBadge tone="ink" size="sm">
-                  {mountReadiness.length - readyMounts.length} resting
-                </RuneBadge>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <SelectField
-                id="breed-a"
-                label="First grown pet"
-                value={breedA}
-                onChange={(e) => setBreedA(e.target.value)}
-              >
-                <option value="">Select a mount…</option>
-                {mountReadiness.map(({ mount, cooldownDaysLeft }) => (
-                  <option
-                    key={mount.id}
-                    value={mount.id}
-                    disabled={cooldownDaysLeft !== null}
-                  >
-                    {mount.species.icon} {mount.potion.name} {companionFormName(mount.species, mount.potion, 'grown')}
-                    {cooldownDaysLeft !== null
-                      ? ` · resting ${cooldownDaysLeft}d`
-                      : ' · ready'}
-                  </option>
-                ))}
-              </SelectField>
-              <SelectField
-                id="breed-b"
-                label="Second grown pet"
-                value={breedB}
-                onChange={(e) => setBreedB(e.target.value)}
-              >
-                <option value="">Select a mount…</option>
-                {mountReadiness
-                  .filter(({ mount }) => String(mount.id) !== String(breedA))
-                  .map(({ mount, cooldownDaysLeft }) => (
-                    <option
-                      key={mount.id}
-                      value={mount.id}
-                      disabled={cooldownDaysLeft !== null}
-                    >
-                    {mount.species.icon} {mount.potion.name} {companionFormName(mount.species, mount.potion, 'grown')}
-                      {cooldownDaysLeft !== null
-                        ? ` · resting ${cooldownDaysLeft}d`
-                        : ' · ready'}
-                    </option>
-                  ))}
-              </SelectField>
-            </div>
-            <Button
-              onClick={handleBreed}
-              disabled={!breedA || !breedB || breedA === breedB || working}
-              className="w-full"
-            >
-              {working ? 'Breeding…' : 'Breed pets'}
-            </Button>
-          </div>
-        )}
-        </>}
       </ParchmentCard>
     </div>
   );

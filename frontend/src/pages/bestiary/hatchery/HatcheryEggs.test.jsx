@@ -15,7 +15,7 @@ const egg = inventory.find(({ item }) => item.slug === 'meshtint-bat-egg');
 const potion = inventory.find(({ item }) => item.slug === 'base-potion');
 const savedEgg = inventory.find(({ item }) => item.slug === 'cat-egg');
 
-function setup(rows, stable = { pets: [], mounts: [], breeding_available: false }, props = {}) {
+function setup(rows, stable = { pets: [], mounts: [] }, props = {}) {
   server.use(
     http.get('*/api/pets/stable/', () => HttpResponse.json(stable)),
     http.get('*/api/inventory/', () => HttpResponse.json(rows)),
@@ -48,8 +48,8 @@ describe('Hatchery egg collection', () => {
   });
 
   it.each(['pets', 'mounts'])('explains an already owned pair in %s before consuming any ingredients', async (kind) => {
-    const stable = { pets: [], mounts: [], breeding_available: false };
-    stable[kind] = [{ id: 7, species: { slug: 'meshtint-bat', name: 'Bat' }, potion: { slug: 'base' }, evolved_to_mount: true, can_breed: false }];
+    const stable = { pets: [], mounts: [] };
+    stable[kind] = [{ id: 7, species: { slug: 'meshtint-bat', name: 'Bat' }, potion: { slug: 'base' }, evolved_to_mount: true }];
     const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, {});
     server.use(hatch.handler);
     setup([egg, potion], stable);

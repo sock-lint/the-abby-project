@@ -132,34 +132,35 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.client.get("/api/pets/stable/").json(), stable)
         self.assertEqual(list(UserPet.objects.filter(user=self.child).values()), before)
 
-    def test_namespaced_roster_breeding_returns_the_registered_parent_egg_and_base_potion(self):
+    def test_namespaced_roster_mounts_cannot_breed_or_change_owned_inventory(self):
         bat = next(species for species in self.roster_species if species.slug == "meshtint-bat")
         bee = next(species for species in self.roster_species if species.slug == "meshtint-bee")
-        egg = ItemDefinition.objects.create(
+        ItemDefinition.objects.create(
             id=91, slug="meshtint-bat-egg", name="Bat Egg", icon="🥚", item_type="egg",
             pet_species=bat, rarity=bat.rarity, metadata={"species": bat.slug},
         )
-        parents = [UserMount.objects.create(id=81 + index, user=self.child, species=species, potion=self.base)
-                   for index, species in enumerate((bat, bee))]
-        with patch("apps.pets.services.random.choice", side_effect=lambda options: options[0]), patch("apps.pets.services.random.random", return_value=0):
-            response = self.client.post("/api/mounts/breed/", {
-                "mount_a_id": parents[0].pk, "mount_b_id": parents[1].pk,
-            }, format="json")
-        self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["egg_item_catalog_icon"], "bat-egg-portrait")
-        self.assertEqual(response.json()["potion_item_catalog_icon"], "item-base-potion")
-        body = self.assert_response_fixture(response, "mount-breed-roster.json", status=201)
-        self.assertEqual(body["picked_species_slug"], bat.slug)
-        self.assertEqual(body["picked_potion_slug"], "base")
-        self.assertFalse(body["chromatic"])
-        self.assertEqual((body["egg_item_id"], body["egg_lifecycle_stage"], body["egg_item_catalog_icon"]),
-                         (egg.pk, "egg", "bat-egg-portrait"))
-        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
-        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.potion).quantity, 2)
-        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
-        for parent in parents:
-            parent.refresh_from_db()
-            self.assertEqual(parent.last_bred_at, shared.FIXED_NOW)
+        mounts = [UserMount.objects.create(id=81 + index, user=self.child, species=species, potion=self.base)
+                  for index, species in enumerate((bat, bee))]
+        before = (
+            list(UserInventory.objects.order_by("pk").values()),
+            list(UserMount.objects.order_by("pk").values()),
+            list(UserPet.objects.order_by("pk").values()),
+        )
+        response = self.client.post("/api/mounts/breed/", {
+            "mount_a_id": mounts[0].pk, "mount_b_id": mounts[1].pk,
+        }, format="json")
+        self.assert_response_fixture(response, "mount-breed-retired.json", status=410)
+        stable = self.client.get("/api/pets/stable/").json()
+        self.assertFalse(stable["breeding_available"])
+        self.assertEqual({row["id"] for row in stable["mounts"]}, {81, 82})
+        for mount in stable["mounts"]:
+            self.assertTrue(mount["catalog_available"])
+            self.assertEqual((mount["can_breed"], mount["breeding_cooldown_seconds"]), (False, 0))
+        self.assertEqual(before, (
+            list(UserInventory.objects.order_by("pk").values()),
+            list(UserMount.objects.order_by("pk").values()),
+            list(UserPet.objects.order_by("pk").values()),
+        ))
 
     def test_owned_appearance_inventory_routes_to_each_features_editor(self):
         cover = ItemDefinition.objects.create(

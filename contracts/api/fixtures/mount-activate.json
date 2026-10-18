@@ -34,7 +34,7 @@
   "last_bred_at": "2026-10-08T12:00:00-07:00",
   "active_expedition": null,
   "can_breed": false,
-  "breeding_cooldown_seconds": 432000,
+  "breeding_cooldown_seconds": 0,
   "expedition_available": true,
   "expedition_available_at": null,
   "expedition_available_in_seconds": 0,

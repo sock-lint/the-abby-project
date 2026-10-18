@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Crown, Sparkles, Egg, Map as MapIcon } from 'lucide-react';
+import { Crown, Sparkles, Map as MapIcon } from 'lucide-react';
 import { CoinIcon } from '../../components/icons/JournalIcons';
 
 import Button from '../../components/Button';
@@ -37,11 +37,10 @@ function usePrefersReducedMotion() {
 // "earned moment" surfaces all read at the same intensity.
 const HATCH_PHASES = [800, 400, 1200];   // wobble → flash → reveal
 const EVOLVE_PHASES = [400, 800, 300];   // hold → charge → flash (then settle)
-const BREED_PHASES = [800, 400, 1200];   // converge → flash → reveal
 const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loot
 
 /**
- * PetCeremonyModal — one-shot reveal for hatch, evolve, and breed moments.
+ * PetCeremonyModal — one-shot reveal for hatching, evolution, and expedition returns.
  *
  *  mode="hatch":   shows the new pet emerging from a wobbling egg.
  *                  Pass `pet={{species:{name,sprite_key,icon}, potion:{name,slug}}}`.
@@ -49,11 +48,6 @@ const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loo
  *  mode="evolve":  shows the base pet charging up, flashing, and
  *                  resolving into its mount form with a gold sparkle.
  *                  Pass `species={{name,sprite_key,icon}}`, `potion={{name,slug}}`.
- *
- *  mode="breed":   shows the two parent mounts converging, then the
- *                  resulting egg + potion appearing in their place.
- *                  Pass `parents=[{species,potion}, {species,potion}]` and
- *                  `result={egg_item_*, potion_item_*, chromatic, ...}`.
  *
  * Tap anywhere or the dismiss button to close. Respects
  * ``prefers-reduced-motion``: the phased sequence collapses to its
@@ -63,26 +57,23 @@ const EXPEDITION_PHASES = [600, 400, 1200]; // approach → flash → reveal loo
  * The component is presentational — no API calls. Callers handle
  * success bookkeeping (refetch, refresh, etc.) before mounting it.
  */
-export default function PetCeremonyModal({ mode, pet, species, potion, fromStage, parents, result, expedition, reducedMotion = false, onDismiss }) {
+export default function PetCeremonyModal({ mode, pet, species, potion, fromStage, expedition, reducedMotion = false, onDismiss }) {
   const titleId = useId();
   const prefersReducedMotion = usePrefersReducedMotion();
   const reduced = reducedMotion || prefersReducedMotion;
 
   const isHatch = mode === 'hatch';
   const isEvolve = mode === 'evolve';
-  const isBreed = mode === 'breed';
   const isExpedition = mode === 'expedition_return';
   // Hooks must run unconditionally — phases falls back to HATCH for unknown
   // modes; the unknown branch returns null below after the hook calls.
   const phases = isEvolve
     ? EVOLVE_PHASES
-    : isBreed
-      ? BREED_PHASES
-      : isExpedition
-        ? EXPEDITION_PHASES
-        : HATCH_PHASES;
+    : isExpedition
+      ? EXPEDITION_PHASES
+      : HATCH_PHASES;
   const phase = usePhasedSequence(phases, { reduced });
-  if (!isHatch && !isEvolve && !isBreed && !isExpedition) return null;
+  if (!isHatch && !isEvolve && !isExpedition) return null;
 
   const content = (
     <div
@@ -115,16 +106,6 @@ export default function PetCeremonyModal({ mode, pet, species, potion, fromStage
             species={species}
             potion={potion}
             fromStage={fromStage}
-            phase={phase}
-            reduced={reduced}
-            titleId={titleId}
-            onDismiss={onDismiss}
-          />
-        )}
-        {isBreed && (
-          <BreedSequence
-            parents={parents}
-            result={result}
             phase={phase}
             reduced={reduced}
             titleId={titleId}
@@ -321,141 +302,6 @@ function EvolveSequence({ species, potion, fromStage, phase, reduced, titleId, o
         {headline}
       </h2>
       <p className="mt-1 font-script text-sm text-ink-whisper">is ready to explore.</p>
-      <div className="mt-6">
-        <Button variant="primary" onClick={onDismiss}>
-          Continue →
-        </Button>
-      </div>
-    </>
-  );
-}
-
-// ─── Breed ───────────────────────────────────────────────────────────────
-
-function BreedSequence({ parents, result, phase, reduced, titleId, onDismiss }) {
-  const [parentA, parentB] = parents || [];
-  const eggSpriteKey = result?.egg_item_sprite_key;
-  const eggIcon = result?.egg_item_icon || '🥚';
-  const potionSpriteKey = result?.potion_item_sprite_key;
-  const potionIcon = result?.potion_item_icon || '🧪';
-  const eggName = result?.egg_item_name;
-  const potionItemName = result?.potion_item_name;
-  const chromatic = !!result?.chromatic;
-  const resultPotionSlug = chromatic ? 'cosmic' : (result?.picked_potion_slug || null);
-
-  // phase semantics:  0 = converge, 1 = flash, 2 = reveal, 3 = settled
-  const showParents = phase < 2 && !reduced;
-  const showFlash = phase === 1 && !reduced;
-  const showResult = reduced || phase >= 2;
-
-  return (
-    <>
-      <div className="flex items-center justify-center gap-2 text-sheikah-teal-deep">
-        <Egg size={18} className="text-gold-leaf" aria-hidden="true" />
-        <div className="font-script text-base">
-          {chromatic ? 'A rare Cosmic potion!' : 'A new egg!'}
-        </div>
-      </div>
-      <div className="relative mt-4 flex items-center justify-center" style={{ minHeight: 140 }}>
-        {showParents && parentA && parentB && (
-          <>
-            <motion.div
-              initial={reduced ? {} : { x: -90, opacity: 0 }}
-              animate={{ x: phase === 0 ? -10 : 0, opacity: 1 }}
-              transition={reduced ? { duration: 0 } : { duration: 0.7, ease: 'easeOut' }}
-              className="absolute"
-            >
-              <RpgSprite
-                {...petSpriteKeys(parentA, 'mount')}
-                icon={parentA?.species?.icon}
-                size={72}
-                alt={companionFormName(parentA?.species, parentA?.potion, 'grown') || 'parent'}
-                potionSlug={parentA?.potion?.slug}
-              />
-            </motion.div>
-            <motion.div
-              initial={reduced ? {} : { x: 90, opacity: 0 }}
-              animate={{ x: phase === 0 ? 10 : 0, opacity: 1 }}
-              transition={reduced ? { duration: 0 } : { duration: 0.7, ease: 'easeOut' }}
-              className="absolute"
-            >
-              <RpgSprite
-                {...petSpriteKeys(parentB, 'mount')}
-                icon={parentB?.species?.icon}
-                size={72}
-                alt={companionFormName(parentB?.species, parentB?.potion, 'grown') || 'parent'}
-                potionSlug={parentB?.potion?.slug}
-              />
-            </motion.div>
-          </>
-        )}
-        {showFlash && (
-          <div
-            className="animate-cosmic-burst absolute inset-0 m-auto pointer-events-none"
-            style={{
-              width: 200, height: 200,
-              borderRadius: '50%',
-              background: chromatic
-                ? 'radial-gradient(circle, rgba(220,200,255,0.95) 0%, rgba(170,130,255,0.5) 35%, transparent 75%)'
-                : 'radial-gradient(circle, rgba(255,250,225,0.9) 0%, rgba(255,220,160,0.4) 40%, transparent 75%)',
-            }}
-            aria-hidden="true"
-          />
-        )}
-        {showResult && (
-          <>
-            {!reduced && (
-              <PotionAura potionSlug={resultPotionSlug} size={170} intensity={chromatic ? 1 : 0.7} />
-            )}
-            <motion.div
-              initial={reduced ? {} : { scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={reduced ? { duration: 0 } : { duration: 0.55, type: 'spring', bounce: 0.4 }}
-              className="relative flex items-center gap-4"
-            >
-              <CatalogIcon
-                assetId={result?.egg_item_catalog_icon}
-                spriteKey={eggSpriteKey || 'big-egg'}
-                icon={eggIcon}
-                size={72}
-                alt={eggName || 'egg'}
-              />
-              <CatalogIcon
-                assetId={result?.potion_item_catalog_icon}
-                spriteKey={potionSpriteKey}
-                icon={potionIcon}
-                size={72}
-                alt={potionItemName || 'potion'}
-                potionSlug={resultPotionSlug}
-              />
-            </motion.div>
-            {!reduced && (
-              <SparkleBurst
-                count={chromatic ? 14 : 8}
-                radius={chromatic ? 130 : 100}
-                duration={chromatic ? 1.6 : 1.2}
-                color={chromatic ? 'rgba(190,150,255,0.95)' : 'var(--color-gold-leaf)'}
-              />
-            )}
-          </>
-        )}
-      </div>
-      <h2
-        id={titleId}
-        className="mt-3 font-display italic text-2xl text-ink-primary leading-tight"
-      >
-        {eggName}
-      </h2>
-      <p className="mt-1 font-script text-sm text-ink-whisper">
-        {chromatic
-          ? `With a Cosmic potion from this pairing`
-          : `paired with ${potionItemName}`}
-      </p>
-      {result?.cooldown_days != null && (
-        <p className="mt-1 font-script text-tiny text-ink-whisper">
-          parents resting for {result.cooldown_days} days
-        </p>
-      )}
       <div className="mt-6">
         <Button variant="primary" onClick={onDismiss}>
           Continue →

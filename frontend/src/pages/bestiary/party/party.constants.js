@@ -1,25 +1,6 @@
-// Mirrors apps/pets/services.py:MOUNT_BREEDING_COOLDOWN_DAYS. Stable
-// game-design constant — safe to live client-side. Imported by both
-// Mounts.jsx (filter pills) and Hatchery.jsx (breed-rest copy).
 import { companionRarity } from '../../../companion/rarity';
 import { companionStage, lifecycleStageLabel } from '../../../companion/lifecycle';
 import lifecycle from '../../../../../shared/catalog/companion-lifecycle.json';
-
-export const BREEDING_COOLDOWN_DAYS = 7;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Returns null when the mount is ready to breed again, otherwise the
-// integer days remaining (rounded up so "less than a day" still reads as 1).
-export function daysUntilReady(lastBredAt) {
-  if (!lastBredAt) return null;
-  const last = new Date(lastBredAt).getTime();
-  if (Number.isNaN(last)) return null;
-  const elapsedMs = Date.now() - last;
-  const cooldownMs = BREEDING_COOLDOWN_DAYS * DAY_MS;
-  if (elapsedMs >= cooldownMs) return null;
-  return Math.max(1, Math.ceil((cooldownMs - elapsedMs) / DAY_MS));
-}
 
 // Higher number = rarer = sorts first in default order.
 const RARITY_ORDER = {
@@ -76,8 +57,6 @@ export const MOUNT_FILTERS = [
   { key: 'all',      label: 'All',             icon: '🐎', match: () => true },
   { key: 'active',   label: 'Active',          icon: '⭐', match: (m) => !!m.is_active },
   { key: 'on_expedition', label: 'Out exploring', icon: '🗺', match: (m) => !!m.active_expedition && m.active_expedition.status === 'active' },
-  { key: 'ready',    label: 'Ready to breed',  icon: '💞', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) === null },
-  { key: 'cooldown', label: 'On cooldown',     icon: '⏳', match: (m) => m.can_breed !== false && daysUntilReady(m.last_bred_at) !== null },
 ];
 
 // Format remaining time for an out-on-expedition mount card. Returns

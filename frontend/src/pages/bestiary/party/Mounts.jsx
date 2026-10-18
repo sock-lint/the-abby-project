@@ -27,12 +27,6 @@ import {
   compareByRarityThenName,
 } from './party.constants';
 
-/**
- * Mounts — owned, evolved companions you can ride. Lifted from the old
- * Stable.jsx "mounts" branch and given filter pills (All / Active /
- * Ready to breed / On cooldown). Cooldown info is computed from the
- * `last_bred_at` field added to UserMountSerializer.
- */
 export default function Mounts({ refreshRevision = 0, onChanged } = {}) {
   const { data: stableData, loading, error: stableError, reload } = useApi(getStable, [refreshRevision]);
   const [filter, setFilter] = useState('all');

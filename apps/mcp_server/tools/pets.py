@@ -1,15 +1,13 @@
-"""Pets / Mounts / Breeding MCP tools.
+"""Pets / Mounts MCP tools.
 
 Wraps PetService — hatch, feed, evolve (auto on growth >= 100), set
-active, and breed. Mirrors the REST endpoints under ``/api/pets/`` and
+active. Mirrors the REST endpoints under ``/api/pets/`` and
 ``/api/mounts/``.
 
 Gotchas (see CLAUDE.md "Pets & mounts" section):
 - (user, species, potion) is unique — can't hatch a duplicate combo.
 - Only one active pet AND one active mount per user; activate
   deactivates the prior in the same transaction.
-- Breeding: 7-day per-mount cooldown, 2% chromatic upgrade chance,
-  same-mount pair raises ValueError.
 """
 from __future__ import annotations
 
@@ -23,7 +21,6 @@ from ..errors import safe_tool
 from ..schemas import (
     ActivateMountIn,
     ActivatePetIn,
-    BreedMountsIn,
     FeedPetIn,
     GetPetStableIn,
     HatchPetIn,
@@ -114,17 +111,3 @@ def activate_mount(params: ActivateMountIn) -> dict[str, Any]:
     target = resolve_target_user(user, params.user_id)
     mount = PetService.set_active_mount(target, params.mount_id)
     return user_mount_to_dict(mount)
-
-
-@tool()
-@safe_tool
-def breed_mounts(params: BreedMountsIn) -> dict[str, Any]:
-    """Combine two mounts to yield a hybrid egg + potion pair.
-
-    Per-mount 7-day cooldown; 1-in-50 chance to override the picked
-    potion with Cosmic (legendary). Same-mount pairs raise an error.
-    Returns the roll summary with cooldown info.
-    """
-    user = get_current_user()
-    target = resolve_target_user(user, params.user_id)
-    return PetService.breed_mounts(target, params.mount_a_id, params.mount_b_id)

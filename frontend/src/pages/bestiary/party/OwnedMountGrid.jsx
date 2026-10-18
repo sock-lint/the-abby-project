@@ -9,14 +9,13 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
 import { creatureLabel } from '../../../companion/appearance';
 import { companionFormName } from '../../../companion/lifecycle';
-import { daysUntilReady, formatExpeditionRemaining } from './party.constants';
+import { formatExpeditionRemaining } from './party.constants';
 import { companionRarity } from '../../../companion/rarity';
 
 export default function OwnedMountGrid({ mounts, working, onActivate, onPreview, onClaim, onLaunch, label = 'Your grown pets' }) {
   return (
         <div role="list" aria-label={label} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {mounts.map((mount) => {
-            const cooldownDaysLeft = daysUntilReady(mount.last_bred_at);
             const expedition = mount.active_expedition;
             const isOut = !!expedition && expedition.status === 'active';
             const isReady = isOut && expedition.is_ready;
@@ -75,16 +74,6 @@ export default function OwnedMountGrid({ mounts, working, onActivate, onPreview,
                           path: '/bestiary?tab=mounts',
                         }}
                       />
-                    </div>
-                  )}
-                  {!isOut && mount.can_breed !== false && cooldownDaysLeft !== null && (
-                    <div className="mt-1 font-script text-tiny text-ink-whisper">
-                      resting · {cooldownDaysLeft}d
-                    </div>
-                  )}
-                  {!isOut && mount.can_breed !== false && cooldownDaysLeft === null && (
-                    <div className="mt-1 font-script text-tiny text-moss">
-                      ready to breed
                     </div>
                   )}
                   {mount.is_active ? (

@@ -19,22 +19,18 @@ beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
 });
 
-const RECENT_BRED = new Date(Date.now() - 1000).toISOString();
-
 const MOUNTS = [
   {
     id: 9,
     species: { name: 'Griffon', sprite_key: 'griffon', icon: '🦅' },
     potion: { name: 'Sky', slug: 'sky', rarity: 'rare' },
     is_active: true,
-    last_bred_at: null,
   },
   {
     id: 10,
     species: { name: 'Wolf', sprite_key: 'wolf', icon: '🐺' },
     potion: { name: 'Earth', slug: 'earth', rarity: 'common' },
     is_active: false,
-    last_bred_at: RECENT_BRED,
   },
 ];
 
@@ -105,38 +101,6 @@ describe('Mounts tab', () => {
     await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
     expect(screen.getByRole('tab', { name: /All \(2\)/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /Active \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Ready to breed \(1\)/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /On cooldown \(1\)/ })).toBeInTheDocument();
-  });
-
-  it('Ready to breed filter shows only mounts off cooldown', async () => {
-    const user = userEvent.setup();
-    renderPage([
-      http.get('*/api/pets/stable/', () =>
-        HttpResponse.json({ pets: [], mounts: MOUNTS, total_possible: 48 }),
-      ),
-    ]);
-    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: /Ready to breed/ }));
-    await waitFor(() => {
-      expect(collection().getByText(/Griffon/)).toBeInTheDocument();
-      expect(collection().queryByText(/Wolf/)).toBeNull();
-    });
-  });
-
-  it('On cooldown filter shows only mounts within breeding window', async () => {
-    const user = userEvent.setup();
-    renderPage([
-      http.get('*/api/pets/stable/', () =>
-        HttpResponse.json({ pets: [], mounts: MOUNTS, total_possible: 48 }),
-      ),
-    ]);
-    await waitFor(() => expect(collection().getByText(/Griffon/)).toBeInTheDocument());
-    await user.click(screen.getByRole('tab', { name: /On cooldown/ }));
-    await waitFor(() => {
-      expect(collection().queryByText(/Griffon/)).toBeNull();
-      expect(collection().getByText(/Wolf/)).toBeInTheDocument();
-    });
   });
 
   it('Set active POSTs to mount activate endpoint', async () => {

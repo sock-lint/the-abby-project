@@ -14,7 +14,6 @@ from django.utils import timezone
 
 from apps.pets.expeditions import ExpeditionService
 from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount
-from apps.pets.services import PetService
 from apps.quests.goals import ingest_activity
 from apps.quests.models import (
     ChallengeContribution, ChallengeEnrollment, ChallengeOccurrence,
@@ -210,30 +209,6 @@ class InventoryGrantConcurrencyTests(TransactionTestCase):
         retried = ExpeditionService.claim(self.child, expedition.pk)
         self.assertFalse(retried["freshly_claimed"])
         self.assertEqual(UserInventory.objects.get(user=self.child, item=food).quantity, 3)
-
-    def test_breeding_preserves_concurrent_drop_and_sets_cooldown_once(self):
-        chick = PetSpecies.objects.create(slug="grant-chick", sprite_key="grant-chick", name="Chick")
-        fox = PetSpecies.objects.create(slug="grant-fox", sprite_key="grant-fox", name="Fox")
-        potion = PotionType.objects.create(slug="base", name="Base")
-        for species in (chick, fox):
-            species.available_potions.add(potion)
-        mounts = [UserMount.objects.create(user=self.child, species=species, potion=potion) for species in (chick, fox)]
-        egg = ItemDefinition.objects.create(name="Breeding egg", item_type="egg", pet_species=chick)
-        potion_item = ItemDefinition.objects.create(name="Breeding potion", item_type="potion", potion_type=potion)
-        UserInventory.objects.create(user=self.child, item=egg, quantity=1)
-
-        with patch("apps.pets.services.random.choice", side_effect=lambda options: options[0]):
-            result = self.with_drop(egg, lambda: PetService.breed_mounts(self.child, mounts[0].pk, mounts[1].pk))
-
-        self.assertEqual((result["egg_item_id"], result["potion_item_id"]), (egg.pk, potion_item.pk))
-        self.assertEqual(UserInventory.objects.get(user=self.child, item=potion_item).quantity, 1)
-        for mount in mounts:
-            mount.refresh_from_db()
-            self.assertIsNotNone(mount.last_bred_at)
-        with self.assertRaisesMessage(ValueError, "still resting"):
-            PetService.breed_mounts(self.child, mounts[0].pk, mounts[1].pk)
-        self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 3)
-        self.assertEqual(UserInventory.objects.get(user=self.child, item=potion_item).quantity, 1)
 
     def make_goal_reward(self):
         food = ItemDefinition.objects.create(name="Challenge food", item_type="food")

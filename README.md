@@ -139,7 +139,7 @@ the-abby-project/
 │   │                        #   StreakService, DropService, CosmeticService,
 │   │                        #   ConsumableService, GameLoopService (orchestrator),
 │   ├── pets/                # PetSpecies, PotionType, UserPet, UserMount, PetService
-│   │                        #   (hatch, feed, evolve, breed mounts, happiness)
+│   │                        #   (hatch, feed, grow, expeditions, happiness)
 │   ├── quests/              # QuestDefinition, Quest, QuestParticipant, QuestRewardItem,
 │   │                        #   QuestService, DailyChallenge (one-per-day micro-quests)
 │   ├── google_integration/  # OAuth2, GoogleAccount, CalendarEventMapping
@@ -156,7 +156,7 @@ the-abby-project/
 │   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 30 tool modules / 223 tools
+│   └── mcp_server/          # FastMCP server with 30 tool modules / 222 tools
 │                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
@@ -262,7 +262,7 @@ Homework pays **no money and no coins** — it's positioned as school duty, not 
 - **PetSpecies** — Base creature (17 species shipped — original 8 plus dragon, fox, owl, cat, bear, phoenix, unicorn, koi, companion, etc.) with `food_preference` FK and `available_potions` M2M for valid hatch combos.
 - **PotionType** — Variant modifier (Base, Fire, Ice, Shadow, Golden, Cosmic) with rarity and color. 17 species × 6 potions = up to 102 hatchable combinations.
 - **UserPet** — `unique_together=(user, species, potion)`. Tracks `growth_points` (0-100), `is_active`, `evolved_to_mount`, `last_fed_at` (drives the visual happiness state), and `consumable_growth_today` / `consumable_growth_date` (per-day cap on direct-grant growth from `growth_surge` / `feast_platter` consumables — see `CONSUMABLE_GROWTH_DAILY_CAP` in pet services).
-- **UserMount** — Evolved form created at 100 growth. Tracks `last_bred_at` for the breeding cooldown (`MOUNT_BREEDING_COOLDOWN_DAYS=7`).
+- **UserMount** — Evolved form created at 100 growth. Supports activation and daily expeditions. Historical `last_bred_at` values are retained after breeding retirement.
 
 ### Chronicle, Creations, Daily Challenges, Sprites
 
@@ -584,10 +584,10 @@ header sent) are exempt — they surface the 401 as a normal error.
 | GET | `/api/cosmetics/` | Owned cosmetics grouped by slot |
 | GET | `/api/cosmetics/catalog/` | Every authored cosmetic (for the Frontispiece's locked intaglios) |
 
-### Mounts (breeding)
+### Retired mount operation
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/mounts/breed/` | Breed two owned mounts → hybrid egg + potion (body: `{mount_a_id, mount_b_id}`); 7-day per-mount cooldown |
+| POST | `/api/mounts/breed/` | Retired: authenticated requests return HTTP 410 without changing saved state |
 
 ### Consumables
 | Method | Endpoint | Description |
@@ -687,7 +687,7 @@ Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets
 The [AI and Google data disclosure inventory](docs/operations/google-ai-disclosure.md) maps remaining LLM calls, Google-selected PDF inference, external MCP clients, browser dictation, retention, consent limits and reviewer evidence. It does not claim Google approval. In-app AI image/sprite generation is retired; existing prepared artwork remains available.
 
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp`. **30 tool modules / 223 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
+FastMCP server mounted inside Django ASGI at `/mcp`. **30 tool modules / 222 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
 Grouped by domain:
 
@@ -811,7 +811,7 @@ Habitica-inspired RPG system layered on top of existing productivity features. E
 - **Perfect Day** — Nightly Celery task awards `perfect_days_count += 1` and 15 bonus coins to any child who was active AND completed all daily chores. Gentle-nudge design: missed days dim the streak flame visually but never destroy earned rewards.
 - **Habits** — `/api/habits/` — Micro-behaviors distinct from chores (no approval, multiple taps/day allowed). `strength` increments on `+1` taps, decrements on `-1`, and decays by 1 daily if untapped (Celery task at 00:05 local). Strength drives a color scale (red → yellow → green → blue). Positive habit taps trigger the full game loop (drops, quest progress).
 - **Drops & Inventory** — Every task completion rolls against `BASE_DROP_RATES[trigger_type]` (e.g., clock_out 40%, chore 30%, milestone 80%, badge 100%) + streak bonus (`+5%/day`, capped at +50%). Weighted random from `DropTable` entries filtered by `min_level`. 23+ items across eggs, potions, food, cosmetics, and coin pouches. Already-owned cosmetics auto-salvage to coins. Frontend `useDropToasts` hook polls every 20s and emits rarity-colored toast celebrations via `DropToastStack`.
-- **Pets & Mounts** — `/bestiary` (split across **Companions**, **Mounts**, and **Hatchery** tabs) — 17 species × 6 potion variants (gated per species via `available_potions`). Lifecycle: hatch on the Hatchery tab (consumes 1 egg + 1 potion, species/potion looked up from typed FKs on `ItemDefinition`) → feed food items on Companions (+15 growth for preferred food, +5 otherwise; mounts can also be **bred** for hybrid eggs after a 7-day per-mount cooldown) → auto-evolve at 100 growth into a matching `UserMount`. Each tab carries filter pills (Companions: `All / Active / Hungry / Ready to evolve`; Mounts: `All / Active / Ready to breed / On cooldown`). Direct-grant growth from consumables is daily-capped per pet (`CONSUMABLE_GROWTH_DAILY_CAP=50`). A purely visual `happiness_for_pet` state (`happy`/`bored`/`stale`/`away`, derived from `last_fed_at`) dims the sprite without penalizing rewards. Only one active pet and one active mount at a time.
+- **Pets & Mounts** — `/bestiary` (split across **Companions**, **Mounts**, and **Hatchery** tabs) — 15 supported Base-potion families, with retained earlier ownership. Lifecycle: hatch on the Hatchery tab (consumes 1 egg + 1 potion, species/potion looked up from typed FKs on `ItemDefinition`) → feed food items on Companions (rarity/authored food growth plus a preferred-food bonus) → auto-evolve at 100 growth into a matching `UserMount`. Each tab carries filter pills (Companions: `All / Active / Baby / Middle / Hungry / Almost grown`; Grown pets: `All / Active / Out exploring`). Direct-grant growth from consumables is daily-capped per pet (`CONSUMABLE_GROWTH_DAILY_CAP=50`). A purely visual `happiness_for_pet` state (`happy`/`bored`/`stale`/`away`, derived from `last_fed_at`) dims the sprite without penalizing rewards. Only one active pet and one active mount at a time.
 - **Quests** — `/quests` — Two types: **boss** (damage-based HP pool) and **collection** (item count target). One active quest per user at a time. Damage scales per trigger (clock_out 10/hr, chore 15, homework 25, milestone 50, badge 30, project 75, habit 5). `QuestDefinition.trigger_filter` supports filtering by `allowed_triggers`, `project_id`, `skill_category_id`, `chore_ids`, `savings_goal_id`, `streak_target`, `perfect_day_target`. Rage mechanic: if no participant makes progress in a full day, the boss gains a 20-point shield (visual urgency, easily recoverable). On completion: coin + XP + item rewards auto-distributed; status → `completed`. Past end_date without completion → `expired` (no rewards, no penalty). Parents can create custom quests or assign to children.
 - **Cosmetics** — `/character` — 4 equip slots (frame, title, theme, pet accessory). `CharacterProfile` has nullable FKs with `limit_choices_to` enforcing type safety. Cosmetics are NOT consumed on equip (unlike eggs/potions/food). Drop from high-value triggers (milestone, badge, perfect day, quest complete). Duplicates salvage for coins. Avatar frame renders as a colored border; title renders as a chip under the display name.
 
@@ -837,7 +837,7 @@ The app organizes pages into five "chapter" hubs plus utility routes. The legacy
 | Project Ingest | `/quests/ventures/ingest` | AI import preview — edit milestones, steps, materials before commit |
 | Trials | `/trials` | Time-boxed boss/collection quests overlay (separate from the regular-cadence Quests hub) |
 | Atlas Hub | `/atlas` | Tabs: Skills (Illuminated Atlas tome shelf), Badges (Reliquary Codex sigil case), Sketchbook (project + homework gallery), Yearbook (lifelong chronicle timeline) |
-| Bestiary Hub | `/bestiary` | Tabs: Companions (active pets + feeding), Mounts (evolved + breeding), Codex (species browse), Hatchery (egg + potion → pet, mount breeding) |
+| Bestiary Hub | `/bestiary` | Tabs: Companions (active pets + feeding), Grown pets (evolved + expeditions), Codex (species browse), Hatchery (owned eggs + egg/potion hatching) |
 | Treasury Hub | `/treasury` | Tabs: Coffers (Payments), Wages (Timecards), Bazaar (Rewards + coin balance + exchange), Satchel (Inventory — drops, cosmetics, consumables), Hoards (Savings goals) |
 | Sigil (Character) | `/sigil` | Frontispiece — illuminated initial, trophy badge picker, four cosmetic chapters with locked intaglios + live theme preview |
 | Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
@@ -969,6 +969,4 @@ Hardcoded in `apps/rpg/services.py`, `apps/pets/services.py`, and `apps/quests/s
 | `GROWTH_NEUTRAL_FOOD` | `pets/services.py` | `5` | Growth points from non-preferred food |
 | `EVOLUTION_THRESHOLD` | `pets/services.py` | `100` | Growth points to evolve pet into mount |
 | `CONSUMABLE_GROWTH_DAILY_CAP` | `pets/services.py` | `50` | Per-pet per-local-day cap on direct-grant growth from `growth_surge` / `feast_platter` |
-| `MOUNT_BREEDING_COOLDOWN_DAYS` | `pets/services.py` | `7` | Per-mount cooldown between breeding pairings |
-| `CHROMATIC_UPGRADE_CHANCE` | `pets/services.py` | `0.02` | Probability a bred egg overrides parent potion to Cosmic (legendary) |
 | `TRIGGER_DAMAGE` | `quests/services.py` | dict by trigger | Per-trigger boss damage (clock_out scales by hours) |

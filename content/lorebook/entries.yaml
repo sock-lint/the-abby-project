@@ -513,7 +513,6 @@ entries:
     mechanics:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
-      - "Breeding requires two distinct available grown pets and available output ingredients, with a seven-day cooldown per parent. Current prepared families use Base; breeding does not unlock unsupported potion artwork."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
       - "Each mount can start one expedition per local day, lasting 2, 4, or 8 hours. Collect a returned trip before starting another; the Pets screen shows when the mount can explore again."
       - "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw."

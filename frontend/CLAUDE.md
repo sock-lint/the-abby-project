@@ -284,7 +284,7 @@ Icon-prefixed text input used to filter long catalog lists. Fully controlled —
 
 The app surfaces reveal/toast components mounted near the top of [`App.jsx`](src/App.jsx) so big-moment notifications don't sit lost in the bell. These respect the global `prefers-reduced-motion` rule in [`index.css`](src/index.css):
 - [`CelebrationModal`](src/components/CelebrationModal.jsx) — full-screen reveal for `streak_milestone` (3/7/14/30/60/100) + `perfect_day`. At App boot it polls `GET /api/notifications/pending-celebration/` (returns the most recent unread streak/perfect-day notification — sister to `/api/chronicle/pending-celebration/`); dismissing fires `markNotificationRead`.
-- [`PetCeremonyModal`](src/pages/bestiary/PetCeremonyModal.jsx) — sequenced reveals for `hatch_pet` (sparkle) and `evolve` (crown halo), launched from `Hatchery` and `Companions`. Tap-anywhere dismiss. See `apps/pets/CLAUDE.md` for the four modes (hatch/evolve/breed/expedition_return).
+- [`PetCeremonyModal`](src/pages/bestiary/PetCeremonyModal.jsx) — sequenced reveals for `hatch_pet` (sparkle) and `evolve` (crown halo), launched from `Hatchery` and `Companions`. Tap-anywhere dismiss. See `apps/pets/CLAUDE.md` for the three modes (hatch/evolve/expedition_return).
 - [`RareDropReveal`](src/components/RareDropReveal.jsx) + [`rareDropTiers.js`](src/components/rareDropTiers.js) — escalates `rare`/`epic`/`legendary` drops out of the slide-in [`DropToastStack`](src/components/DropToastStack.jsx) into a center-screen card with rarity glow, queued so multiple rares don't collide.
 - [`DailyChallengeCard`](src/components/dashboard/DailyChallengeCard.jsx) shows Today's automatic bonus with actual paid Coins/XP and no Claim action. `PinnedChallengeCard` features the chosen goal without controlling whether work counts. The old claim modal is retained only as a legacy component.
 - [`ApprovalToastStack`](src/components/ApprovalToastStack.jsx) + [`useApprovalToasts`](src/hooks/useApprovalToasts.js) — child-side toasts for chore/homework/creation/exchange/redemption approvals + rejections, polled from notifications. Seen-IDs persist in `localStorage` per the keys in [`constants/storage.js`](src/constants/storage.js) so a refresh doesn't re-show them.
@@ -411,9 +411,7 @@ native take with its own rig on demand and disposes replaced takes.
 ownership or progression. Hatching's `PetEvolutionGuide` resolves family form
 labels only for exact registered egg identities and the selected potion's
 `metadata.variant`; unknown/conflicting eggs keep generic stage labels and
-the egg stage stays highlighted before hatching. Breeding ceremonies use the
-receipt's `potion_item_catalog_icon` through `CatalogIcon`, preserving its
-sprite/emoji fallback. The existing Chick/Bird and pedestal pins remain
+the egg stage stays highlighted before hatching. Hatching and evolution preserve the exact saved companion identity. The existing Chick/Bird and pedestal pins remain
 intact; seven retained portraits use the inventory-pinned private supplemental
 import. Dummy is separate future training art with no product binding. Read
 [the adoption runbook](../docs/operations/companion-lifecycle.md) for intake,

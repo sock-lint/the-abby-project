@@ -7,8 +7,9 @@ export function isCatalogAvailable(entity) {
 }
 
 export function availableInventoryActions(entry) {
-  if (isCatalogAvailable(entry.item)) return entry.available_actions || [];
+  const actions = (entry.available_actions || []).filter((action) => action.id !== 'breed');
+  if (isCatalogAvailable(entry.item)) return actions;
   // Stored items cannot start another acquisition or equip unsupported art.
-  return (entry.available_actions || []).filter((action) => !['equip', 'hatch', 'breed'].includes(action.id)
+  return actions.filter((action) => !['equip', 'hatch'].includes(action.id)
     && !['/sigil', '/profile', '/bestiary?tab=hatchery'].includes(action.to));
 }

@@ -367,7 +367,7 @@ def reset_day_counters(user, *, kind: str = "all") -> dict[str, Any]:
 #     access via ``get_child_or_404`` at the view layer, but the op stays
 #     defensive in case a future caller skips the view.
 #   * The pre-positioning ops (set_pet_growth, grant_hatch_ingredients,
-#     clear_mount_breed_cooldowns) intentionally do NOT trigger the
+#     seed_companion_growth) intentionally do NOT trigger the
 #     resulting ceremony themselves — the modal is launched from the
 #     child's UI tap. The op seeds state; the tester verifies.
 # --------------------------------------------------------------------------
@@ -606,22 +606,6 @@ def grant_hatch_ingredients(
         "egg": {"id": egg.pk, "slug": egg.slug, "name": egg.name},
         "potion": {"id": potion_item.pk, "slug": potion_item.slug, "name": potion_item.name},
     }
-
-
-def clear_mount_breed_cooldowns(
-    user, *, mount_id: int | None = None,
-) -> dict[str, Any]:
-    """Set ``last_bred_at = None`` on one mount or all of the user's mounts."""
-    from apps.pets.models import UserMount
-
-    qs = UserMount.objects.filter(user=user)
-    if mount_id is not None:
-        qs = qs.filter(pk=mount_id)
-        if not qs.exists():
-            raise OperationError("Mount not found in this user's stable.")
-
-    count = qs.update(last_bred_at=None)
-    return {"user": user.username, "mounts_reset": count}
 
 
 def seed_companion_growth(

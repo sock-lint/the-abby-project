@@ -384,19 +384,23 @@ class ToastCeremonyEndpointTests(APITestCase):
         }, format="json")
         self.assertEqual(r.status_code, 400)
 
-    def test_clear_breed_cooldowns_returns_count(self):
+    def test_retired_breeding_helper_cannot_change_saved_mount_history(self):
         from apps.pets.models import PetSpecies, PotionType, UserMount
+        from django.utils import timezone
 
         species = PetSpecies.objects.create(slug="fox", name="Fox", icon="🦊")
         potion = PotionType.objects.create(slug="ember", name="Ember")
-        UserMount.objects.create(
+        last_bred_at = timezone.now()
+        mount = UserMount.objects.create(
             user=self.child, species=species, potion=potion,
+            last_bred_at=last_bred_at,
         )
         r = self.client.post("/api/dev/clear-breed-cooldowns/", {
             "user_id": self.child.id,
         }, format="json")
-        self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual(r.data["mounts_reset"], 1)
+        self.assertEqual(r.status_code, 404)
+        mount.refresh_from_db()
+        self.assertEqual(mount.last_bred_at, last_bred_at)
 
     def test_seed_companion_growth_requires_species_seed(self):
         # No PetSpecies(slug=companion) → 400

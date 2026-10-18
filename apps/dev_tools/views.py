@@ -516,27 +516,6 @@ class GrantHatchIngredientsView(_Base):
         return Response(result)
 
 
-class _ClearBreedCooldownsSerializer(serializers.Serializer):
-    user_id = serializers.IntegerField()
-    mount_id = serializers.IntegerField(required=False, allow_null=True)
-
-
-class ClearBreedCooldownsView(_Base):
-    def post(self, request):
-        s = _ClearBreedCooldownsSerializer(data=request.data)
-        s.is_valid(raise_exception=True)
-        target, err = _resolve_target(request, s.validated_data["user_id"])
-        if err:
-            return err
-        try:
-            result = ops.clear_mount_breed_cooldowns(
-                target, mount_id=s.validated_data.get("mount_id"),
-            )
-        except ops.OperationError as e:
-            return _operation_error(str(e))
-        return Response(result)
-
-
 class _SeedCompanionGrowthSerializer(serializers.Serializer):
     user_id = serializers.IntegerField()
     ticks = serializers.IntegerField(default=3, min_value=1, max_value=10)

@@ -4,7 +4,6 @@ import EmptyState from '../../components/EmptyState';
 import Loader from '../../components/Loader';
 import { TextField, SelectField, CheckboxField } from '../../components/form';
 import {
-  devClearBreedCooldowns,
   devForceApprovalNotification,
   devForceCelebration,
   devForceDrop,
@@ -119,7 +118,6 @@ export default function TestSection() {
                 petSpecies={petSpecies}
                 potionTypes={potionTypes}
               />
-              <ClearBreedCooldownsCard kids={children} />
               <SeedCompanionGrowthCard kids={children} />
               <MarkExpeditionReadyCard kids={children} />
             </div>
@@ -616,45 +614,6 @@ function GrantHatchIngredientsCard({ kids, petSpecies, potionTypes }) {
           : potionTypes.map((p) => (
               <option key={p.slug} value={p.slug}>{p.name} ({p.rarity})</option>
             ))}
-      </SelectField>
-    </DevToolCard>
-  );
-}
-
-function ClearBreedCooldownsCard({ kids }) {
-  const [form, set] = useFormFields({
-    user_id: kids[0]?.id || '', mount_id: '',
-  });
-  const kid = useMemo(
-    () => kids.find((k) => String(k.id) === String(form.user_id)),
-    [kids, form.user_id],
-  );
-  const mounts = kid?.mounts || [];
-
-  return (
-    <DevToolCard
-      title="Clear mount breed cooldowns"
-      description="Sets last_bred_at=None on one or all mounts so the kid can breed immediately in the Hatchery → PetCeremonyModal (mode=breed) fires."
-      buttonLabel="Clear"
-      checklistId="clear-breed-cooldowns"
-      buildAction={() =>
-        devClearBreedCooldowns({
-          user_id: Number(form.user_id),
-          ...(form.mount_id !== '' && { mount_id: Number(form.mount_id) }),
-        })
-      }
-      formatResult={(r) => `✓ ${r.mounts_reset} mount(s) reset`}
-    >
-      <SelectField label="Target" value={form.user_id} onChange={set('user_id')}>
-        <KidOptions kids={kids} />
-      </SelectField>
-      <SelectField label="Mount (optional)" value={form.mount_id} onChange={set('mount_id')}>
-        <option value="">— all of this kid&apos;s mounts —</option>
-        {mounts.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.species_name} ({m.potion_name})
-          </option>
-        ))}
       </SelectField>
     </DevToolCard>
   );

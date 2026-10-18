@@ -68,7 +68,7 @@ reported assumptions. Expedition rewards are rolled at launch and claimed
 at the next active visit after their return.
 
 Homework, completed projects and milestones, private shops and parent goals,
-weekly payment settlement, birthdays, grades, consumable use/boosts, breeding,
+weekly payment settlement, birthdays, grades, consumable use/boosts,
 Perfect Day and legacy/co-op campaigns remain outside the model. Unmodeled badge criteria
 are listed individually. The workbench does not verify production deployment
 or artwork delivery and does not inspect existing children's progress.

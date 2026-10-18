@@ -1,0 +1,303 @@
+{
+  "pets": [
+    {
+      "id": 51,
+      "species": {
+        "id": 41,
+        "slug": "fixture-fox",
+        "name": "Fox",
+        "icon": "🦊",
+        "sprite_key": "fox",
+        "description": "A synthetic woodland friend.",
+        "rarity": "common",
+        "food_preference": "berries",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 43,
+        "slug": "fire",
+        "name": "Fire",
+        "sprite_key": "fire-potion",
+        "color_hex": "#E75A3A",
+        "rarity": "uncommon",
+        "description": "A warm synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "uncommon",
+      "name": "Sprout {a} \"friend\"",
+      "growth_points": 20,
+      "is_active": true,
+      "evolved_to_mount": false,
+      "is_fully_grown": false,
+      "happiness_level": "happy",
+      "last_fed_at": null,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "baby"
+    },
+    {
+      "id": 53,
+      "species": {
+        "id": 41,
+        "slug": "fixture-fox",
+        "name": "Fox",
+        "icon": "🦊",
+        "sprite_key": "fox",
+        "description": "A synthetic woodland friend.",
+        "rarity": "common",
+        "food_preference": "berries",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 44,
+        "slug": "ice",
+        "name": "Ice",
+        "sprite_key": "ice-potion",
+        "color_hex": "#91D9F2",
+        "rarity": "rare",
+        "description": "A cool synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "rare",
+      "name": "",
+      "growth_points": 100,
+      "is_active": false,
+      "evolved_to_mount": true,
+      "is_fully_grown": true,
+      "happiness_level": "happy",
+      "last_fed_at": null,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "grown"
+    },
+    {
+      "id": 52,
+      "species": {
+        "id": 42,
+        "slug": "fixture-wolf",
+        "name": "Wolf",
+        "icon": "🐺",
+        "sprite_key": "wolf",
+        "description": "A synthetic trail companion.",
+        "rarity": "common",
+        "food_preference": "meat",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 43,
+        "slug": "fire",
+        "name": "Fire",
+        "sprite_key": "fire-potion",
+        "color_hex": "#E75A3A",
+        "rarity": "uncommon",
+        "description": "A warm synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "uncommon",
+      "name": "",
+      "growth_points": 90,
+      "is_active": false,
+      "evolved_to_mount": false,
+      "is_fully_grown": false,
+      "happiness_level": "stale",
+      "last_fed_at": "2026-10-01T12:00:00-07:00",
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "middle"
+    }
+  ],
+  "mounts": [
+    {
+      "id": 61,
+      "species": {
+        "id": 41,
+        "slug": "fixture-fox",
+        "name": "Fox",
+        "icon": "🦊",
+        "sprite_key": "fox",
+        "description": "A synthetic woodland friend.",
+        "rarity": "common",
+        "food_preference": "berries",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 44,
+        "slug": "ice",
+        "name": "Ice",
+        "sprite_key": "ice-potion",
+        "color_hex": "#91D9F2",
+        "rarity": "rare",
+        "description": "A cool synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "rare",
+      "is_active": true,
+      "last_bred_at": null,
+      "active_expedition": {
+        "id": 103,
+        "mount_id": 61,
+        "tier": "short",
+        "status": "active",
+        "started_at": "2026-10-10T11:00:00-07:00",
+        "returns_at": "2026-10-10T13:00:00-07:00",
+        "claimed_at": null,
+        "is_ready": false,
+        "seconds_remaining": 3600,
+        "species_name": "Fox",
+        "species_slug": "fixture-fox",
+        "species_sprite_key": "fox",
+        "species_icon": "🦊",
+        "potion_name": "Ice",
+        "potion_slug": "ice",
+        "loot": {
+          "coins": 15,
+          "items": []
+        }
+      },
+      "can_breed": false,
+      "breeding_cooldown_seconds": 0,
+      "expedition_available": false,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": null,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "grown"
+    },
+    {
+      "id": 63,
+      "species": {
+        "id": 41,
+        "slug": "fixture-fox",
+        "name": "Fox",
+        "icon": "🦊",
+        "sprite_key": "fox",
+        "description": "A synthetic woodland friend.",
+        "rarity": "common",
+        "food_preference": "berries",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 43,
+        "slug": "fire",
+        "name": "Fire",
+        "sprite_key": "fire-potion",
+        "color_hex": "#E75A3A",
+        "rarity": "uncommon",
+        "description": "A warm synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "uncommon",
+      "is_active": false,
+      "last_bred_at": "2026-10-03T12:00:00-07:00",
+      "active_expedition": null,
+      "can_breed": false,
+      "breeding_cooldown_seconds": 0,
+      "expedition_available": true,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": 0,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "grown"
+    },
+    {
+      "id": 62,
+      "species": {
+        "id": 42,
+        "slug": "fixture-wolf",
+        "name": "Wolf",
+        "icon": "🐺",
+        "sprite_key": "wolf",
+        "description": "A synthetic trail companion.",
+        "rarity": "common",
+        "food_preference": "meat",
+        "catalog_available": true,
+        "catalog_icon": null,
+        "grown_catalog_icon": null,
+        "lifecycle_stages": [
+          "egg",
+          "baby",
+          "middle",
+          "grown"
+        ]
+      },
+      "potion": {
+        "id": 44,
+        "slug": "ice",
+        "name": "Ice",
+        "sprite_key": "ice-potion",
+        "color_hex": "#91D9F2",
+        "rarity": "rare",
+        "description": "A cool synthetic variant.",
+        "catalog_available": true
+      },
+      "rarity": "rare",
+      "is_active": false,
+      "last_bred_at": "2026-10-08T12:00:00-07:00",
+      "active_expedition": null,
+      "can_breed": false,
+      "breeding_cooldown_seconds": 0,
+      "expedition_available": true,
+      "expedition_available_at": null,
+      "expedition_available_in_seconds": 0,
+      "created_at": "2026-10-10T12:00:00-07:00",
+      "updated_at": "2026-10-10T12:00:00-07:00",
+      "catalog_available": true,
+      "evolution_stage": null,
+      "lifecycle_stage": "grown"
+    }
+  ],
+  "total_pets": 3,
+  "total_mounts": 3,
+  "total_possible": 4,
+  "breeding_available": false
+}

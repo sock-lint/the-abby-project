@@ -1,7 +1,6 @@
 """New acquisitions use prepared art; saved companions remain fully owned."""
 
 from datetime import timedelta
-from unittest.mock import patch
 
 from django.test import override_settings
 from django.utils import timezone
@@ -117,27 +116,10 @@ class AssetSupportedAcquisitionTests(APITestCase):
         second = UserMount.objects.create(user=self.child, species=self.fox, potion=self.fire)
         before = self.state()
         response = self.client.post("/api/mounts/breed/", {"mount_a_id": first.pk, "mount_b_id": second.pk}, format="json")
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 410)
+        self.assertEqual(response.json(), {"error": "Pet breeding has been removed."})
         self.assertEqual(self.state(), before)
         self.assertFalse(self.client.get("/api/pets/stable/").data["breeding_available"])
-
-    def test_scoped_supported_pair_breeds_without_an_unapproved_chromatic_upgrade(self):
-        policy = {"schema_version": 1, "pets": [
-            {"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["base"]},
-            {"species_slug": "fox", "sprite_key": "fox", "potion_slugs": ["base"]},
-        ], "potion_slugs": ["base"], "disabled_item_types": ["cosmetic_pet_accessory"]}
-        first = UserMount.objects.create(user=self.child, species=self.chick, potion=self.base)
-        second = UserMount.objects.create(user=self.child, species=self.fox, potion=self.base)
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=policy), patch("apps.pets.services.random.random", return_value=0):
-            stable = self.client.get("/api/pets/stable/").data
-            self.assertTrue(stable["breeding_available"])
-            self.assertTrue(all(row["can_breed"] for row in stable["mounts"]))
-            response = self.client.post("/api/mounts/breed/", {"mount_a_id": first.pk, "mount_b_id": second.pk}, format="json")
-            self.assertEqual(response.status_code, 201)
-            self.assertFalse(response.data["chromatic"])
-            self.assertEqual(response.data["picked_potion_slug"], "base")
-            first.refresh_from_db()
-            self.assertIsNotNone(first.last_bred_at)
 
     def test_new_expedition_loot_filters_unsupported_tables_but_honors_previously_locked_loot(self):
         mount = UserMount.objects.create(user=self.child, species=self.fox, potion=self.fire)

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { breedMounts, equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
+import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
@@ -18,7 +18,6 @@ import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterHatch from '../../../contracts/api/fixtures/pet-hatch-roster.json';
-import rosterBreed from '../../../contracts/api/fixtures/mount-breed-roster.json';
 import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
 import { getBadges, getEarnedBadges } from './index';
@@ -149,19 +148,4 @@ describe('current owned-art API contracts', () => {
     expect(equip.calls[0].body).toEqual({ item_id: 53 });
   });
 
-  it('preserves the registered parent family’s exact egg portrait and global Base breeding output', async () => {
-    const calls = [];
-    server.use(http.post('*/api/mounts/breed/', async ({ request }) => {
-      calls.push(await request.json());
-      return HttpResponse.json(rosterBreed, { status: 201 });
-    }));
-    const receipt = await breedMounts(81, 82);
-    expect(receipt).toEqual(rosterBreed);
-    expect(receipt).toMatchObject({
-      picked_species_slug: 'meshtint-bat', picked_potion_slug: 'base', chromatic: false,
-      egg_item_id: 91, egg_lifecycle_stage: 'egg', egg_item_catalog_icon: 'bat-egg-portrait',
-      potion_item_catalog_icon: 'item-base-potion',
-    });
-    expect(calls).toEqual([{ mount_a_id: 81, mount_b_id: 82 }]);
-  });
 });

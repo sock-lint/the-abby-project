@@ -93,13 +93,11 @@ centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
-The Collection and Hatching tabs advertise only Base Chick. Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
+The Collection and Hatchery tabs advertise the 15 supported Base-potion families. Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
 also render earlier unsupported rows under Saved collection in their respective
 tabs, retaining feeding/evolution, activation, expedition launch/history/claim
 and recovery controls. `catalog_available: false` describes new catalog
-eligibility, not permission to erase or disable saved care. Breeding controls
-require server-confirmed supported partners; the single Base Chick pair does
-not provide two distinct supported mounts. Missing models keep DOM/2D controls
+eligibility, not permission to erase or disable saved care. Breeding is retired; the Hatchery manages eggs and hatching, and grown pets explore through expeditions. Missing models keep DOM/2D controls
 available, without substituting a bird for another saved species.
 
 `pages/meadow/meadow.constants.js` adapts generated

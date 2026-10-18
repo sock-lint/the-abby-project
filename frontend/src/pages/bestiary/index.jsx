@@ -13,8 +13,7 @@ import { useRole } from '../../hooks/useRole';
  *
  * Companions (owned, growing) · Mounts (evolved, rideable) · Codex
  *   (every species, discovered or silhouetted, with lore + per-potion
- *   evolution preview) · Hatchery (hatch eggs + breed mounts; cooldown
- *   ticker + chromatic odds)
+ *   evolution preview) · Hatchery (owned eggs and hatching)
  *
  * Companions + Mounts replaced the single "Party" tab — see
  * pages/bestiary/party/. The Satchel moved to /treasury?tab=satchel.

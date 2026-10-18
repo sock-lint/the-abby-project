@@ -31,7 +31,6 @@ urlpatterns = [
     path("mark-daily-challenge-ready/", views.MarkDailyChallengeReadyView.as_view()),
     path("set-pet-growth/", views.SetPetGrowthView.as_view()),
     path("grant-hatch-ingredients/", views.GrantHatchIngredientsView.as_view()),
-    path("clear-breed-cooldowns/", views.ClearBreedCooldownsView.as_view()),
     path("seed-companion-growth/", views.SeedCompanionGrowthView.as_view()),
     path("mark-expedition-ready/", views.MarkExpeditionReadyView.as_view()),
 ]

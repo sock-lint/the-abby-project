@@ -76,7 +76,7 @@ describe('BestiaryHub', () => {
     const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, () => { hatched = true; return HttpResponse.json(pet, { status: 201 }); });
     stubAll();
     server.use(
-      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: hatched ? [pet] : [], mounts: [], total_possible: 1, breeding_available: false })),
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: hatched ? [pet] : [], mounts: [], total_possible: 1 })),
       http.get('*/api/inventory/', () => HttpResponse.json([
         { id: 1, quantity: hatched ? 0 : 1, item: { id: 11, slug: 'chick-egg', name: 'Chick Egg', icon: '🥚', item_type: 'egg', pet_species_slug: 'chick', pet_species_name: 'Chick', metadata: { species: 'chick' }, catalog_available: true } },
         { id: 2, quantity: 1, item: { id: 22, slug: 'base-potion', name: 'Base Potion', item_type: 'potion', metadata: { variant: 'base' }, catalog_available: true } },
@@ -117,7 +117,7 @@ describe('BestiaryHub', () => {
     const potion = { id: 41, slug: 'base', name: 'Base', rarity: 'common', catalog_available: true };
     let growth = 49;
     const currentPet = () => ({ id: 1, species, potion, name: 'Peep', lifecycle_stage: growth < 50 ? 'baby' : growth < 100 ? 'middle' : 'grown', evolution_stage: growth < 50 ? 'chick' : growth < 100 ? 'fledgling' : 'bird', growth_points: growth, evolved_to_mount: growth === 100, is_active: true, catalog_available: true });
-    const mount = { id: 5, species, potion, catalog_available: true, lifecycle_stage: 'grown', expedition_available: true, can_breed: false };
+    const mount = { id: 5, species, potion, catalog_available: true, lifecycle_stage: 'grown', expedition_available: true };
     const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, () => {
       growth = growth === 49 ? 50 : 100;
       return { new_growth: growth, growth_added: growth === 50 ? 1 : 50, evolved: growth === 100, lifecycle_stage: currentPet().lifecycle_stage, evolution_stage: currentPet().evolution_stage };

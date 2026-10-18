@@ -1,11 +1,9 @@
 import logging
-import random
-from datetime import timedelta
 
 from django.db import transaction
 from django.utils import timezone
 from apps.rpg.catalog_support import (
-    available_items, available_pet_variants, egg_species, item_is_available,
+    available_pet_variants, egg_species, item_is_available,
     pet_is_available, potion_type_for_item,
 )
 from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage, growth_thresholds
@@ -32,15 +30,6 @@ CONSUMABLE_GROWTH_DAILY_CAP = 50
 # longer with streak breaks. Grows the slow-burn-bonding feel.
 COMPANION_DAILY_GROWTH = 2
 COMPANION_SPECIES_SLUG = "companion"
-
-# Pet breeding — added 2026-04-23. Each mount can only be bred once per
-# cooldown window. The chromatic-upgrade chance is the wildcard reward
-# path: 1-in-50 rolls hand out the legendary Cosmic potion regardless
-# of parent potions, so rare potion variants are earnable via stable
-# husbandry in addition to drops.
-MOUNT_BREEDING_COOLDOWN_DAYS = 7
-CHROMATIC_UPGRADE_CHANCE = 0.02
-CHROMATIC_POTION_SLUG = "cosmic"
 
 # Pet happiness thresholds — days since last feed. Values are tuned so a
 # kid who feeds their pet weekly never drops below 'bored', and a hard
@@ -441,161 +430,6 @@ class PetService:
         return mount
 
     @staticmethod
-    @transaction.atomic
-    def breed_mounts(user, mount_a_id, mount_b_id):
-        """Combine two mature mounts to yield a hybrid egg + potion pair.
-
-        Each parent mount enters a cooldown (``MOUNT_BREEDING_COOLDOWN_DAYS``)
-        after breeding. The result is an egg of ONE parent's species (50/50)
-        plus one compatible parental potion. If neither parent's potion is
-        supported, use a supported type with a registered potion item. Both
-        ingredients are deposited into the user's inventory. A
-        ``CHROMATIC_UPGRADE_CHANCE`` (1-in-50) wildcard can upgrade to Cosmic
-        only when the selected species supports it. Legacy species without
-        compatibility data retain unrestricted parental and Cosmic choices.
-
-        Same-mount pairs raise ``ValueError`` (can't breed with yourself).
-        Returns a dict summarizing the roll.
-        """
-        from apps.pets.models import UserMount
-        from apps.rpg.models import ItemDefinition
-        from apps.rpg.inventory import grant_item
-        from apps.rpg.catalog_icons import item_catalog_icon
-
-        if mount_a_id == mount_b_id:
-            raise ValueError("A mount can't breed with itself — pick two different mounts")
-
-        try:
-            mounts = list(
-                UserMount.objects.select_for_update().select_related(
-                    "species", "potion",
-                ).filter(pk__in=[mount_a_id, mount_b_id], user=user)
-            )
-        except UserMount.DoesNotExist:
-            raise ValueError("One or both mounts not found")
-        if len(mounts) != 2:
-            raise ValueError("One or both mounts not found")
-        if not all(pet_is_available(mount.species, mount.potion) for mount in mounts):
-            raise ValueError("Breeding is not available for these saved companions with the current artwork.")
-
-        now = timezone.now()
-        cooldown = timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS)
-        for m in mounts:
-            if m.last_bred_at is not None and (now - m.last_bred_at) < cooldown:
-                remaining = cooldown - (now - m.last_bred_at)
-                days_left = max(1, remaining.days + (1 if remaining.seconds else 0))
-                raise ValueError(
-                    f"{m.species.name} is still resting — "
-                    f"{days_left} day(s) until it can breed again"
-                )
-
-        picked_species = random.choice([mounts[0].species, mounts[1].species])
-        supported_potions = list(available_pet_variants(picked_species))
-        supported_ids = {potion.pk for potion in supported_potions}
-        registered_items = available_items(ItemDefinition.objects.filter(
-            item_type=ItemDefinition.ItemType.POTION, potion_type__in=supported_potions,
-        ).select_related("potion_type"))
-        if prepared_family(picked_species):
-            registered_items = [item for item in registered_items if prepared_base_potion(item)]
-        registered_ids = {item.potion_type_id for item in registered_items}
-        potion_options = [
-            mount.potion for mount in mounts
-            if mount.potion_id in supported_ids and mount.potion_id in registered_ids
-        ]
-        if not potion_options:
-            # Owned mounts may predate a catalog compatibility correction.
-            # Keep their breeding path usable without granting an invalid pair.
-            potion_options = [potion for potion in supported_potions if potion.pk in registered_ids]
-            if not potion_options:
-                raise ValueError(
-                    f"No compatible potion item registered for {picked_species.name} — "
-                    "content seed may be incomplete"
-                )
-        picked_potion = random.choice(potion_options)
-
-        chromatic = False
-        if random.random() < CHROMATIC_UPGRADE_CHANCE:
-            from apps.pets.models import PotionType
-            cosmic = PotionType.objects.filter(slug=CHROMATIC_POTION_SLUG).first()
-            if cosmic and cosmic.pk in supported_ids and cosmic.pk in registered_ids and pet_is_available(picked_species, cosmic):
-                picked_potion = cosmic
-                chromatic = True
-
-        egg_items = available_items(ItemDefinition.objects.filter(
-            item_type=ItemDefinition.ItemType.EGG,
-            pet_species=picked_species,
-        ).select_related("pet_species"))
-        if not egg_items:
-            raise ValueError(
-                f"No egg item registered for {picked_species.name} — content seed may be incomplete"
-            )
-        egg_item = egg_items[0]
-        potion_item = next((item for item in registered_items if item.potion_type_id == picked_potion.pk), None)
-        if potion_item is None:
-            raise ValueError(
-                f"No potion item registered for {picked_potion.name} — content seed may be incomplete"
-            )
-        if not pet_is_available(picked_species, picked_potion) or not item_is_available(egg_item) or not item_is_available(potion_item):
-            raise ValueError("No art-supported offspring is available for this pair. Your companions and inventory are unchanged.")
-
-        for item in (egg_item, potion_item):
-            grant_item(user, item)
-
-        for m in mounts:
-            m.last_bred_at = now
-            m.save(update_fields=["last_bred_at", "updated_at"])
-
-        logger.info(
-            "User %s bred mounts %s + %s → %s-%s egg%s",
-            user.username, mounts[0].pk, mounts[1].pk,
-            picked_species.slug, picked_potion.slug,
-            " (chromatic!)" if chromatic else "",
-        )
-
-        try:
-            from apps.notifications.services import notify, notify_parents
-            chrome_tag = " (Cosmic!)" if chromatic else ""
-            title = f"Bred a {picked_potion.name} {picked_species.name} egg{chrome_tag}"
-            msg = (
-                f"{egg_item.name} and {potion_item.name} are in your inventory. "
-                "Hatch them to meet your hybrid."
-            )
-            notify(
-                user, title=title, message=msg,
-                notification_type="mount_bred",
-                link="/bestiary?tab=hatchery",
-            )
-            notify_parents(
-                title=f"{user.display_name or user.username} bred mounts",
-                message=msg,
-                notification_type="mount_bred",
-                about_user=user,
-                link="/bestiary?tab=hatchery",
-            )
-        except Exception:
-            logger.exception("Notification hook failed in breed_mounts")
-
-        return {
-            "egg_item_id": egg_item.pk,
-            "egg_item_name": egg_item.name,
-            "egg_item_icon": egg_item.icon,
-            "egg_item_sprite_key": egg_item.sprite_key,
-            "egg_item_catalog_icon": item_catalog_icon(egg_item),
-            "egg_lifecycle_stage": "egg",
-            "potion_item_id": potion_item.pk,
-            "potion_item_name": potion_item.name,
-            "potion_item_icon": potion_item.icon,
-            "potion_item_sprite_key": potion_item.sprite_key,
-            "potion_item_catalog_icon": item_catalog_icon(potion_item),
-            "picked_species": picked_species.name,
-            "picked_species_slug": picked_species.slug,
-            "picked_potion": picked_potion.name,
-            "picked_potion_slug": picked_potion.slug,
-            "chromatic": chromatic,
-            "cooldown_days": MOUNT_BREEDING_COOLDOWN_DAYS,
-        }
-
-    @staticmethod
     def get_stable(user):
         """Return all pets and mounts for a user, plus collection stats."""
         from django.db.models import Prefetch
@@ -619,9 +453,6 @@ class PetService:
             ))
         )
         total_possible = sum(available_pet_variants(species).count() for species in PetSpecies.objects.all())
-        now = timezone.now()
-        ready_supported_mounts = [mount for mount in mounts if pet_is_available(mount.species, mount.potion)
-                                  and (mount.last_bred_at is None or now - mount.last_bred_at >= timedelta(days=MOUNT_BREEDING_COOLDOWN_DAYS))]
 
         return {
             "pets": pets,
@@ -629,5 +460,5 @@ class PetService:
             "total_pets": len(pets),
             "total_mounts": len(mounts),
             "total_possible": total_possible,
-            "breeding_available": len(ready_supported_mounts) >= 2,
+            "breeding_available": False,
         }
