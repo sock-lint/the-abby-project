@@ -38,6 +38,24 @@ class LorebookViewTests(APITestCase):
         resp = self.client.get("/api/lorebook/")
         self.assertEqual(resp.status_code, 401)
 
+    def test_saved_daily_notes_do_not_create_a_new_chronicle_guide_unlock(self):
+        from apps.wellbeing.services import WellbeingService
+
+        WellbeingService.submit_gratitude(self.child, ["A thought from my day."])
+        self.client.force_authenticate(self.child)
+        entries = self.client.get("/api/lorebook/").json()["entries"]
+        self.assertFalse(next(entry for entry in entries if entry["slug"] == "chronicle")["unlocked"])
+        self.assertNotIn("chronicle", newly_unlocked_entries(self.child))
+
+        # A genuine timeline milestone still introduces its guide.
+        today = timezone.localdate()
+        ChronicleEntry.objects.create(
+            user=self.child, kind=ChronicleEntry.Kind.MILESTONE,
+            occurred_on=today, chapter_year=today.year if today.month >= 8 else today.year - 1,
+            title="A milestone to remember",
+        )
+        self.assertIn("chronicle", newly_unlocked_entries(self.child))
+
     def test_catalog_contains_expected_entries(self):
         slugs = {entry["slug"] for entry in load_lorebook_catalog()}
         self.assertEqual(slugs, EXPECTED_ENTRY_SLUGS)

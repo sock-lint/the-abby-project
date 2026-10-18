@@ -218,7 +218,9 @@ def compute_lorebook_unlocks(user) -> dict[str, dict[str, Any]]:
     mark(
         "chronicle",
         ChronicleEntry.objects.filter(user=user)
-        .exclude(kind__in=[ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.CREATION])
+        .exclude(kind__in=[
+            ChronicleEntry.Kind.JOURNAL, ChronicleEntry.Kind.DAILY_NOTE, ChronicleEntry.Kind.CREATION,
+        ])
         .exists(),
         "first_chronicle_entry",
     )
