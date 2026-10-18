@@ -103,12 +103,14 @@ export async function disconnectPushSession(token = getToken(), {
   }
 }
 
-export async function replaceSessionToken(token) {
-  const previous = getToken();
+export async function replaceSessionToken(token, { expectedToken = getToken(), isCurrent = () => true } = {}) {
+  const previous = expectedToken;
+  const current = () => getToken() === previous && isCurrent();
+  if (!current()) throw new Error('The session changed. Please try signing in again.');
   if (previous !== token) {
     let result;
     const stopped = await disconnectPushSession(previous, { stopSession: true, onResult: (value) => { result = value; } });
-    if (!stopped || getToken() !== previous) throw new Error('The session changed. Please try signing in again.');
+    if (!stopped || !current()) throw new Error('The session changed. Please try signing in again.');
     if (previous) {
       try {
         await postPush('/auth/', {
@@ -119,7 +121,7 @@ export async function replaceSessionToken(token) {
           throw new Error('Could not stop notifications on this device. Reconnect and try again before switching accounts.');
         }
       }
-      if (getToken() !== previous) throw new Error('The session changed. Please try signing in again.');
+      if (!current()) throw new Error('The session changed. Please try signing in again.');
     }
   }
   stoppingSessions.delete(token);

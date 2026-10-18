@@ -90,6 +90,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
+| `google-auth-busy.json` | Google authorization start rejected with HTTP 503 at retained-transaction capacity, without saving another verifier or changing the user's credential |
 | `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; disconnected family Planning AI connection |
 | `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
@@ -861,3 +862,17 @@ catalog artwork. Unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+Google sign-in/linking uses `google-auth-config.json` (public configuration),
+`google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
+(proof-verified login with the existing shared DRF token and UserSerializer),
+`google-auth-linked.json` (confirmed link), and `google-auth-busy.json`
+(HTTP 503 capacity refusal). The producer is
+`config.tests.test_google_auth_api_contract_fixtures`; the React consumer is
+`src/api/googleAuthContracts.test.js`. All tokens, Google identities and URLs
+are synthetic. The browser sends the verifier only in the exchange POST;
+callback URLs contain an opaque expiring ticket, never a DRF/Google token.
+The global bound includes spent and expired rows until bounded cleanup removes
+them. At capacity, a new start returns `code: authorization_busy` without saving
+another verifier; retry requires capacity to become available.
+See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).

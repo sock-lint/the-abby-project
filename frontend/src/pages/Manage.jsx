@@ -15,7 +15,7 @@ import {
   listOAuthApplications, revokeOAuthApplication,
   listOAuthTokens, revokeOAuthToken,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
-  getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
+  getCategories, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
 import GuideSection from './manage/GuideSection';
@@ -25,6 +25,7 @@ import ResetPasswordModal from './manage/ResetPasswordModal';
 import DeleteMemberAccountAction from './manage/DeleteMemberAccountAction';
 import { useApi, useAuth } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
+import useGoogleAuthorization from '../hooks/useGoogleAuthorization';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -309,6 +310,8 @@ function CreateChildModal({ onClose, onCreated }) {
 }
 
 function EditChildModal({ child, onClose, onSaved, onRemoved }) {
+  const { user } = useAuth();
+  const googleAuthorization = useGoogleAuthorization({ mode: 'link', actor: user, forUserId: child.id });
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
@@ -334,17 +337,6 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
       setError(err.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleLinkGoogle = async () => {
-    try {
-      const data = await getGoogleAuthUrl(child.id);
-      if (data?.authorization_url) {
-        window.location.href = data.authorization_url;
-      }
-    } catch {
-      setError('Could not start Google linking.');
     }
   };
 
@@ -385,6 +377,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
         </SelectField>
         <div>
           <label className="block text-caption text-ink-whisper mb-1">Google Account</label>
+          <ErrorAlert message={googleAuthorization.error} />
           {child.google_linked ? (
             <Button
               type="button"
@@ -400,7 +393,8 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={handleLinkGoogle}
+              onClick={googleAuthorization.start}
+              disabled={googleAuthorization.busy}
               className="!text-ink-whisper hover:!text-sheikah-teal-deep inline-flex items-center gap-2"
             >
               <Link2 size={14} /> Link Google Account

@@ -224,3 +224,10 @@ def send_daily_reminders_task():
             reminders_sent += 1
 
     return f"Daily reminders sent: {reminders_sent}"
+
+
+@shared_task
+def prune_google_oauth_transactions():
+    """Erase at most 200 expired encrypted handoffs per scheduled invocation."""
+    from .oauth_exchange import prune_expired
+    return prune_expired()
