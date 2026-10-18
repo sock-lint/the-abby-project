@@ -17,6 +17,7 @@ import PetCeremonyModal from '../PetCeremonyModal';
 import PedestalPreview from '../../../pedestal/PedestalPreview';
 import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
+import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
@@ -84,6 +85,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
       const pet = await hatchPet(hatchEgg, hatchPotion);
       if (!request.isCurrent()) return;
       setHatchSuccess({
+        petId: pet?.id,
         speciesName: companionFormName(pet?.species, pet?.potion, 'baby'),
         potionName: pet?.potion?.name,
       });
@@ -190,6 +192,8 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
           </div>
         )}
 
+        {(eggs.length === 0 || potions.length === 0) && <div className="mt-3"><PetSuppliesGuide /></div>}
+
         {selectedEggSpecies && <section className="mt-4 space-y-2" aria-label="Selected egg family">
           <h4 className="text-body font-semibold text-ink-primary">{selectedEggSpecies.name} family</h4>
           {selectedEggItem.rarity && <p className={`text-caption ${RARITY_TEXT_COLORS[selectedEggItem.rarity] || ''}`}>
@@ -200,8 +204,12 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         </section>}
 
         {hatchSuccess && (
-          <div role="status" className="mt-3 font-body text-body text-moss">
-            ✨ You hatched a {hatchSuccess.potionName} {hatchSuccess.speciesName}!
+          <div className="mt-3 space-y-2 font-body text-body">
+            <p role="status" className="text-moss">✨ You hatched a {hatchSuccess.potionName} {hatchSuccess.speciesName}!</p>
+            <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep"
+              to={`/bestiary?tab=companions${hatchSuccess.petId != null ? `&pet=${encodeURIComponent(hatchSuccess.petId)}` : ''}`}>
+              Care for your new pet
+            </Link>
           </div>
         )}
       </ParchmentCard>

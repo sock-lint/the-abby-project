@@ -6,6 +6,7 @@ import BottomSheet from '../../components/BottomSheet';
 import AddToCalendar from '../../components/AddToCalendar';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
 import RewardItem from '../../components/rpg/RewardItem';
+import EarnedPetItemActions from '../../components/rpg/EarnedPetItemActions';
 import AchievementCard from '../../components/cards/AchievementCard';
 import { goalActionPath, goalNumber, goalProgress, goalUnit } from './goalDisplay';
 
@@ -21,7 +22,7 @@ function timingDate(value, timezone, withTime = false) {
   }
 }
 
-function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = false }) {
+function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = false, allowRewardActions = true, onRewardNavigate }) {
   const completed = goal.status === 'completed';
   const awarded = completed && goal.reward_receipt?.status === 'awarded';
   const rewards = awarded ? { coins: goal.reward_receipt.coins_awarded, xp: goal.reward_receipt.xp_awarded } : goal.rewards;
@@ -62,6 +63,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = f
       {deliveredItems.length > 0 && <ul aria-label="Completion reward items" className="space-y-2">
         {deliveredItems.map((item, index) => <li key={item.item_id || item.item || index}><RewardItem item={item} /></li>)}
       </ul>}
+      {awarded && allowRewardActions && <EarnedPetItemActions items={deliveredItems} onNavigate={onRewardNavigate} />}
     </div>
   );
 }
@@ -80,7 +82,7 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, bus
             </div>
             {goal.pinned && <span className="inline-flex shrink-0 items-center gap-1 text-caption text-sheikah-teal-deep"><Pin size={14} aria-hidden="true" /> Pinned</span>}
           </div>
-          <GoalBody goal={goal} timezone={timezone} />
+          <GoalBody goal={goal} timezone={timezone} allowRewardActions={!isParent} />
           <div className="flex flex-wrap gap-2">
             <Button data-challenge-view={goal.id} className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]" variant="secondary" size="sm" onClick={() => onSelect(goal)}>View {goal.name}</Button>
             {onPin && goal.status === 'active' && <Button variant="ghost" size="sm" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>
@@ -112,7 +114,7 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, busy, canA
       <div className="space-y-4">
         {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={64} alt={goal.name} />}
         {goal.description && <p className="font-body text-body text-ink-secondary">{goal.description}</p>}
-        <GoalBody goal={goal} timezone={timezone} showWhatCounts={false} showExactDeadline />
+        <GoalBody goal={goal} timezone={timezone} showWhatCounts={false} showExactDeadline allowRewardActions={canAct} onRewardNavigate={onClose} />
         {goal.participants?.length > 1 && <section className="space-y-2">
           <h3 className="font-body font-bold text-body text-ink-primary">Shared progress</h3>
           <ul className="space-y-1 font-body text-body text-ink-secondary">{goal.participants.map((participant) => <li key={participant.user}>{participant.user_name} · {goalNumber(participant.contribution)} {goalUnit(goal.unit, participant.contribution)}</li>)}</ul>

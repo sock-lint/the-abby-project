@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { getStable, getInventory, feedPet, activatePet, claimExpedition } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
@@ -17,6 +17,7 @@ import { COMPANION_FILTERS, compareByRarityThenName } from './party.constants';
 import BadgeRarity from '../../../components/atlas/BadgeRarity';
 import PetCeremonyModal from '../PetCeremonyModal';
 import CompanionPreview from '../../../components/companion/CompanionPreview';
+import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { creatureLabel } from '../../../companion/appearance';
 import { birdStage } from '../../../companion/birdEvolution';
 import { companionFormName, companionStage } from '../../../companion/lifecycle';
@@ -49,6 +50,12 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
   const [launchMount, setLaunchMount] = useState(null);
   const [claimedExpedition, setClaimedExpedition] = useState(null);
   const [reaction, setReaction] = useState(null);
+  const [middleMilestone, setMiddleMilestone] = useState(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const careLocation = useRef(null);
+  useLayoutEffect(() => {
+    careLocation.current = { searchParams, setSearchParams };
+  }, [searchParams, setSearchParams]);
   const presentation = useRef(null);
   const updatePresentation = useCallback((value) => { presentation.current = value; }, []);
   const receiptCounter = useRef(0);
@@ -75,12 +82,34 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
     const f = COMPANION_FILTERS.find((x) => x.key === filter) || COMPANION_FILTERS[0];
     return [...supportedPets.filter(f.match)].sort(compareByRarityThenName);
   }, [supportedPets, filter]);
-  const homePet = supportedPets.find((pet) => pet.id === viewPetId) || supportedPets.find((pet) => pet.is_active) || supportedPets[0];
+  const requestedPetId = searchParams.get('pet');
+  // A link chooses only from the signed-in account's server-confirmed stable.
+  const requestedPet = (searchParams.get('tab') || 'companions') === 'companions'
+    ? pets.find((pet) => String(pet.id) === requestedPetId) : null;
+  const homePet = supportedPets.find((pet) => pet.id === requestedPet?.id)
+    || supportedPets.find((pet) => pet.id === viewPetId) || supportedPets.find((pet) => pet.is_active) || supportedPets[0];
   const homeMount = homePet?.evolved_to_mount && homePet.species.id != null && homePet.potion.id != null ? stableData?.mounts?.find((mount) =>
     mount.species.id === homePet.species.id && mount.potion.id === homePet.potion.id) : null;
   const explorePath = `/bestiary?tab=mounts${homeMount ? `&mount=${homeMount.id}` : ''}`;
 
-  const carePet = pets.find((pet) => pet.id === selectedPet?.id);
+  const carePet = requestedPet || pets.find((pet) => pet.id === selectedPet?.id);
+
+  const clearCareRequest = () => {
+    // Visited tabs stay mounted. A delayed feed must not restore its old URL
+    // after navigation; React Router's updater also captures render-time params.
+    const current = careLocation.current;
+    if (!requestedPetId || current.searchParams.get('pet') !== requestedPetId
+      || (current.searchParams.get('tab') || 'companions') !== 'companions') return;
+    const next = new URLSearchParams(current.searchParams);
+    next.delete('pet');
+    current.setSearchParams(next, { replace: true });
+  };
+  const closeCare = () => { setSelectedPet(null); clearCareRequest(); };
+  const openCare = (pet) => {
+    setSelectedPet(pet);
+    setMiddleMilestone(null);
+    clearCareRequest();
+  };
 
   if (loadingStable || loadingInventory) return <Loader />;
 
@@ -112,7 +141,10 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
     try {
       const result = await feedPet(pet.id, foodItemId);
       if (!request.isCurrent()) return;
-      setSelectedPet(null);
+      closeCare();
+      setMiddleMilestone(result?.lifecycle_stage === 'middle' && companionStage(pet) === 'baby' && !result?.evolved
+        ? `${pet.name?.trim() || companionFormName(pet.species, pet.potion, 'middle')} reached the Middle stage! Keep caring for your companion to help them grow.`
+        : null);
       const currentPresentation = presentation.current?.creatureId === pet.id ? presentation.current : null;
       if (result?.evolved && !(currentPresentation?.sharedBirdReady && currentPresentation.evolutionMotionEnabled)) {
         setEvolveCeremony({ species: pet.species, potion: pet.potion, fromStage: birdStage(pet) || companionStage(pet), reducedMotion: currentPresentation?.evolutionMotionEnabled === false });
@@ -174,7 +206,7 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
         onPresentationChange={updatePresentation}
       >
         <div className="companion-preview-actions">
-          {!homePet.evolved_to_mount && <Button disabled={working} onClick={() => setSelectedPet(homePet)}>Feed your companion</Button>}
+          {!homePet.evolved_to_mount && <Button disabled={working} onClick={() => openCare(homePet)}>Feed your companion</Button>}
           {homePet.evolved_to_mount && !homeMount && <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to={explorePath}>Visit grown pets →</Link>}
           <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/bestiary?tab=hatchery">Hatch a pet →</Link>
         </div>
@@ -196,6 +228,8 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
         }
         progressPct={totalPossible ? (supportedPets.length / totalPossible) * 100 : 0}
       />
+
+      {middleMilestone && <p role="status" className="rounded-xl border border-moss/30 bg-moss/10 p-3 text-body text-moss">{middleMilestone}</p>}
 
       <p className="font-script text-body text-ink-whisper -mt-2 max-w-xl">
         Every companion starts as an egg. Hatch a baby, help it reach its middle stage at 50 growth, then its grown form at 100 growth, ready to explore.
@@ -235,15 +269,15 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
           No companions match this filter.
         </EmptyState>
       ) : (
-        <OwnedPetGrid pets={visiblePets} selectedPetId={selectedPet?.id} onSelect={(pet) => { setReaction(null); setViewPetId(pet.id); setSelectedPet(pet); }} />
+        <OwnedPetGrid pets={visiblePets} selectedPetId={carePet?.id} onSelect={(pet) => { setReaction(null); setViewPetId(pet.id); openCare(pet); }} />
       )}
       {savedPets.length > 0 && <section className="space-y-3" aria-label="Saved collection">
         <div><h2 className="font-body font-bold text-lede text-ink-primary">Saved collection</h2>
           <p className="font-body text-caption text-ink-secondary">{savedPets.length} earlier {savedPets.length === 1 ? 'pet' : 'pets'}. Your saved pets keep their care and progress.</p></div>
-        <OwnedPetGrid pets={savedPets} selectedPetId={selectedPet?.id} onSelect={setSelectedPet} label="Saved companions" />
+        <OwnedPetGrid pets={savedPets} selectedPetId={carePet?.id} onSelect={openCare} label="Saved companions" />
       </section>}
       {carePet && (
-        <BottomSheet title={`Care for ${carePet.name?.trim() || creatureLabel(carePet)}`} onClose={() => setSelectedPet(null)} disabled={working}>
+        <BottomSheet title={`Care for ${carePet.name?.trim() || creatureLabel(carePet)}`} onClose={closeCare} disabled={working}>
           <ErrorAlert message={error || inventoryError} onRetry={inventoryError ? reloadInventory : undefined} />
           <p className="text-body text-ink-secondary mb-3">{carePet.evolved_to_mount ? 'Your companion is fully grown. Visit Grown pets to explore and collect expedition rewards.' : `${companionStage(carePet) ? `${companionFormName(carePet.species, carePet.potion, companionStage(carePet))} · ` : ''}${carePet.growth_points}/100 growth${carePet.species.food_preference ? ` · Prefers ${carePet.species.food_preference}` : ''}`}</p>
           {!carePet.is_active && (
@@ -304,7 +338,10 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
               </div>
             </div>
           )}
-          {!carePet.evolved_to_mount && foods.length === 0 && !inventoryError && <p className="text-caption text-ink-secondary">No food in your inventory yet. Food you collect will appear here.</p>}
+          {!carePet.evolved_to_mount && foods.length === 0 && !inventoryError && <div className="mt-3 space-y-3">
+            <p className="text-caption text-ink-secondary">No food in your inventory yet. Food you collect will appear here.</p>
+            <PetSuppliesGuide food />
+          </div>}
         </BottomSheet>
       )}
     </div>

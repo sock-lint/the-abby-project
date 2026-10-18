@@ -103,7 +103,14 @@ class CompanionConsumableProgressionTests(TestCase):
             ConsumableService.use(self.child, feast.pk)
         chronicle.assert_called_once()
         self.assertEqual(chronicle.call_args.kwargs["event_slug"], "first_mount_evolved")
-        child_notice.assert_called_once()
+        self.assertEqual(sum(
+            call.kwargs.get("notification_type") == "pet_evolved"
+            for call in child_notice.call_args_list
+        ), 1)
+        self.assertTrue(all(
+            call.kwargs.get("notification_type") in {"pet_evolved", "badge_earned"}
+            for call in child_notice.call_args_list
+        ))
         parent_notice.assert_called_once()
 
     def test_feast_mount_failure_rolls_back_growth_cap_and_inventory(self):

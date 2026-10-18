@@ -66,6 +66,19 @@ badge activity record share a transaction so a failed payout remains retryable.
 Badge XP keeps the existing active-skill eligibility (`unlocked`, `level > 0`),
 floor division and minimum-one award, then evaluates prerequisite unlocks.
 
+Pet hatching and confirmed evolution call `BadgeService.evaluate_badges` with
+`{"pet", "badges"}` inside their ownership transaction, after the new pet or
+mount exists. Hatching takes the user gate before its ingredient locks; growth
+callers already hold that gate before profile, pet and inventory locks. The
+shared pet growth transition covers food, direct consumables and passive
+growth. Existing earned markers and payout transactions make repeats harmless;
+a failed payout rolls back the ownership change and consumed ingredients too.
+The pet service sends `badge_earned` notifications only for the newly returned
+awards, using the shared self-scoped notifier and a best-effort savepoint with
+push deferred until commit. Notification failures preserve the committed award;
+retries do not repeat earned markers, payouts or successful notifications.
+See `apps/pets/tests/test_badge_milestones.py`.
+
 `tests/test_xp_transactions.py` checks rollback, retry, division, levels, and
 unlocks. `tests/test_xp_concurrency.py` requires PostgreSQL and uses independent
 connections plus controlled overlapping saves to catch lost awards, duplicate
