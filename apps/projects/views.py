@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 
 from django.contrib.auth import authenticate
 from django.db import transaction
@@ -74,11 +75,22 @@ class AuthView(APIView):
                 # a parallel request from the same user could see "no
                 # token" mid-rotation and 401 unnecessarily).
                 with transaction.atomic():
-                    Token.objects.filter(user=user).delete()
-                    token = Token.objects.create(user=user)
-                data = UserSerializer(user).data
-                data["token"] = token.key
-                return Response(data)
+                    from apps.families.models import Family
+
+                    # Authentication may precede a lifecycle transaction.
+                    # Recheck under its family→user lock order so an old
+                    # password result cannot resurrect a deleted/deactivated
+                    # account or mint a credential after a password reset.
+                    family = Family.objects.select_for_update(no_key=True).filter(pk=user.family_id).first()
+                    fresh = User.objects.select_for_update(no_key=True).filter(
+                        pk=user.pk, family=family, is_active=True,
+                    ).first() if family else None
+                    if fresh is not None and fresh.check_password(password):
+                        Token.objects.filter(user=fresh).delete()
+                        token = Token.objects.create(user=fresh)
+                        data = UserSerializer(fresh).data
+                        data["token"] = token.key
+                        return Response(data)
             return Response(
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -149,6 +161,18 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
 
+def _locked_member_write(method):
+    @wraps(method)
+    def wrapped(self, request, *args, **kwargs):
+        from apps.accounts.lifecycle import locked_family_members, require_parent
+
+        with locked_family_members(request, require_token=False) as (_family, actor, _members):
+            require_parent(actor)
+            request.user = actor
+            return method(self, request, *args, **kwargs)
+    return wrapped
+
+
 class _UserManagementActionsMixin:
     """Shared ``reset_password`` / ``deactivate`` / ``reactivate`` actions.
 
@@ -159,7 +183,43 @@ class _UserManagementActionsMixin:
     ``perform_destroy`` so DELETE shares the same checks.
     """
 
+    @_locked_member_write
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @_locked_member_write
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @_locked_member_write
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        target = serializer.instance
+        active = serializer.validated_data.get("is_active", target.is_active)
+        if not active and target.is_active:
+            self._deactivate_member(target)
+        serializer.save()
+
+    def _deactivate_member(self, target):
+        from apps.families.services import (
+            MemberRemovalError, assert_safe_to_remove, promote_next_primary_parent,
+        )
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            assert_safe_to_remove(target, self.request.user, mode="deactivate")
+        except MemberRemovalError as exc:
+            raise ValidationError({"error": str(exc)})
+        target.is_active = False
+        target.save(update_fields=["is_active"])
+        Token.objects.filter(user=target).delete()
+        if target.role == "parent":
+            promote_next_primary_parent(target.family, target)
+
     @action(detail=True, methods=["post"], url_path="reset-password")
+    @_locked_member_write
     def reset_password(self, request, pk=None):
         from django.contrib.auth.password_validation import (
             ValidationError as PasswordValidationError,
@@ -190,26 +250,15 @@ class _UserManagementActionsMixin:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def deactivate(self, request, pk=None):
-        from apps.families.services import (
-            MemberRemovalError, assert_safe_to_remove,
-            promote_next_primary_parent,
-        )
         target = self.get_object()
-        try:
-            assert_safe_to_remove(target, request.user, mode="deactivate")
-        except MemberRemovalError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        with transaction.atomic():
-            target.is_active = False
-            target.save(update_fields=["is_active"])
-            Token.objects.filter(user=target).delete()
-            if target.role == "parent":
-                promote_next_primary_parent(target.family, target)
+        self._deactivate_member(target)
         serializer = self.get_serializer(target)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def reactivate(self, request, pk=None):
         target = self.get_object()
         if not target.is_active:
@@ -232,6 +281,8 @@ class _UserManagementActionsMixin:
             except MemberRemovalError as exc:
                 from rest_framework import serializers as drf_serializers
                 raise drf_serializers.ValidationError({"error": str(exc)})
+            from apps.accounts.lifecycle import collect_safe_deletion
+            collect_safe_deletion(instance, instance.family)
             if instance.role == "parent":
                 promote_next_primary_parent(instance.family, instance)
             instance.delete()

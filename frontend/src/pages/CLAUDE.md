@@ -413,6 +413,25 @@ chore and habit rows use their existing endpoints and refresh the dashboard.
 
 **Parity gate**: [`notifications.constants.test.js`](/frontend/src/components/notifications.constants.test.js) hardcodes the backend `NotificationType` enum; the test fails CI when a new value lands on the backend without an entry here, so the bell can't silently degrade to the generic Bell + no-route fallback. Unknown types still fall back gracefully to `BellRing` + null route — but the parity test is what makes that a fail-loud rather than fail-silent path.
 
+## Account lifecycle in Settings
+
+Settings → Account details embeds `settings/AccountLifecycle.jsx`. A fresh,
+account/family/credential-bound preview controls contact handoff, self-deletion
+and last-active-parent family closure. Contact handoff changes only the display
+contact; all parents retain equal access. Parent self-deletion requires an
+active same-family successor for shared authored work; personal assignments
+and private journals are deleted rather than transferred.
+Child-authored shared homework assignments, chores and habits stay with an
+active family parent automatically; the child has no successor picker or
+parent-only actions. Without an active parent to keep shared work, the preview
+blocks deletion until one is active.
+Confirmation uses the current Abby password and exact username or family
+identifier, held only in memory. Busy forms block repeated writes and dismissal, failures retain the
+form, and delayed reads/writes cannot affect a replacement session. A closure
+conflict requires a fresh member-count/version review and a new confirmation.
+Successful deletion uses `signOutDeletedAccount(capturedToken)` for conditional
+local sign-out, without sending a logout request with a deleted credential.
+
 ## Profile pictures and characters
 
 `accounts.User.avatar` ImageField → `upload_to="avatars/"`. Self-uploaded through Profile's page-specific `ProfilePictureEditor` component, labeled “Profile picture”; the saved avatar is labeled separately from the profile picture. The hidden file picker has an accessible name and an Upload/Change picture button. Remove picture opens `ConfirmDialog` and sends `PATCH /api/auth/me/ {avatar: ""}`. Upload runs `downscaleImage` (`maxDim: 512`) before multipart delivery. Late preprocessing and responses are fenced by account identity, credential and mounted state. `SigilFrontispiece` and `AvatarMenu` show the saved picture with an initial fallback; the selected frame decorates the Profile picture. `MeView.patch` accepts multipart/JSON; a file replaces the old image, and the empty-string sentinel clears it. `AuthProvider.setUser` refreshes Profile and navigation after the confirmed response.

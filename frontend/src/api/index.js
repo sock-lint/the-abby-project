@@ -34,6 +34,12 @@ export const logout = async () => {
 export const getMe = () => api.get('/auth/me/');
 export const updateMe = (data) => api.patch('/auth/me/', data);
 
+// Account lifecycle — current-password confirmation; never target another account.
+export const getAccountLifecycle = (options) => api.get('/account/lifecycle/', options);
+export const transferFamilyContact = (data, options) => api.post('/account/lifecycle/transfer/', data, options);
+export const deleteOwnAccount = (data, options) => api.post('/account/lifecycle/delete/', data, options);
+export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/close-family/', data, options);
+
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
 // One heartbeat for every background poller — see PulseProvider.

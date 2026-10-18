@@ -41,6 +41,9 @@ export const handlers = [
     HttpResponse.json({ detail: 'Authentication credentials were not provided.' }, { status: 401 }),
   ),
   http.patch('*/api/auth/me/', ok),
+  // A lifecycle preview must match the exact mounted account/family. Tests
+  // exercising this feature supply their own preview and mutation spies.
+  http.get('*/api/account/lifecycle/', () => HttpResponse.json({ error: 'Account lifecycle preview is not configured in this fixture.' }, { status: 503 })),
   http.get('*/api/auth/google/', () => HttpResponse.json({ authorization_url: '' })),
   http.get('*/api/auth/google/login/', () => HttpResponse.json({ authorization_url: '' })),
   http.get('*/api/auth/google/account/', () => HttpResponse.json({ linked: false })),
