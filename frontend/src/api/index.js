@@ -39,6 +39,12 @@ export const logout = async () => {
 export const getMe = () => api.get('/auth/me/');
 export const updateMe = (data) => api.patch('/auth/me/', data);
 
+// Account lifecycle — current-password confirmation; never target another account.
+export const getAccountLifecycle = (options) => api.get('/account/lifecycle/', options);
+export const transferFamilyContact = (data, options) => api.post('/account/lifecycle/transfer/', data, options);
+export const deleteOwnAccount = (data, options) => api.post('/account/lifecycle/delete/', data, options);
+export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/close-family/', data, options);
+
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
 // One heartbeat for every background poller — see PulseProvider.
@@ -562,6 +568,11 @@ export const updateReadingSession = (id, data) => api.patch(`/reading-sessions/$
 export const deleteReadingSession = (id) => api.delete(`/reading-sessions/${id}/`);
 export const getReadingSummary = (params = {}, options) => api.get(`/reading/summary/${readingQuery(params)}`, options);
 export const getReadingRecommendations = (params = {}, options) => api.get(`/reading/recommendations/${readingQuery(params)}`, options);
+export const listReadingDiscoveryFeedback = (params = {}, options) => api.get(`/reading/discovery-feedback/${readingQuery(params)}`, options);
+export const saveReadingDiscoveryFeedback = (data) => api.post('/reading/discovery-feedback/', data);
+export const listReadingFamilySuggestions = (params = {}, options) => api.get(`/reading-family-suggestions/${readingQuery(params)}`, options);
+export const createReadingFamilySuggestion = (data) => api.post('/reading-family-suggestions/', data);
+export const updateReadingFamilySuggestion = (id, data) => api.patch(`/reading-family-suggestions/${id}/`, data);
 
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');
@@ -692,9 +703,6 @@ export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
 // Parent-only sprite admin surface (powers the /manage → Codex → Sprites panel).
 export const fetchSpriteAdminList = (pack) =>
   api.get(`/sprites/admin/${pack ? `?pack=${encodeURIComponent(pack)}` : ''}`);
-export const generateSprite = (body) => api.post('/sprites/admin/generate/', body);
-export const rerollSprite = (slug, opts = {}) =>
-  api.post(`/sprites/admin/${encodeURIComponent(slug)}/reroll/`, opts);
 export const updateSpriteMeta = (slug, body) =>
   api.patch(`/sprites/admin/${encodeURIComponent(slug)}/`, body);
 export const deleteSprite = (slug) =>

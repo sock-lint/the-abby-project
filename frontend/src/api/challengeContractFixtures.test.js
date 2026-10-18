@@ -108,7 +108,13 @@ describe('automatic challenge responses through the shared React API client', ()
     const saved = await getChallenges();
     expect(saved).toEqual(body);
     expect(saved.results[0].reward_receipt).toMatchObject({ status: 'awarded', items, coins_awarded: coins });
-    expect(saved.recent_receipts[0].reward_receipt.items).toEqual(items);
+    const receivedItems = saved.recent_receipts[0].reward_receipt.items;
+    expect(receivedItems).toHaveLength(items.length);
+    expect(receivedItems).toMatchObject(items);
+    for (const item of receivedItems) {
+      expect(item).toMatchObject({ item_id: expect.any(Number), item_rarity: 'common', item_effect_summary: expect.any(String) });
+      expect(item.item_catalog_available).toBe(_label !== 'promised before retirement');
+    }
   });
 
   it('keeps an accepted legacy item promise visible through active quest, challenge and completed history reads', async () => {

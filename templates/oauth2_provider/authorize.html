@@ -32,7 +32,7 @@
   <div class="card">
     {% csrf_token %}
     <h1>Authorize <em>{{ application.name }}</em>?</h1>
-    <p class="kicker">It wants to act on the Abby MCP server using your account.</p>
+    <p class="kicker">It wants to use the permissions below through your Abby account. Read access is the default; writing family records and publishing global content require separate permissions.</p>
 
     <div class="scopes">
       <strong>Permissions requested</strong>
@@ -40,10 +40,14 @@
         {% for scope in scopes_descriptions %}
           <li>{{ scope }}</li>
         {% empty %}
-          <li>Access the MCP server on your behalf</li>
+          <li>No permissions requested</li>
         {% endfor %}
       </ul>
     </div>
+
+    <p>Only connect an assistant you trust. Permitted records can be sent to its AI provider.
+      Private child journals remain private. Destructive tools require the assistant
+      to ask for your confirmation. Revoke connections from Manage → Admin → OAuth clients.</p>
 
     <dl class="meta">
       <dt>Redirect URI</dt><dd>{{ redirect_uri }}</dd>
@@ -57,8 +61,9 @@
       </div>
     {% endif %}
 
+    <input type="hidden" name="resource" value="{{ mcp_resource }}">
     {% for field in form %}
-      {% if field.is_hidden %}{{ field }}{% endif %}
+      {% if field.is_hidden and field.name != "resource" %}{{ field }}{% endif %}
     {% endfor %}
 
     <div class="row">

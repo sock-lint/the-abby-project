@@ -7,6 +7,7 @@
     "icon": "🐺",
     "sprite_key": "wolf",
     "description": "A synthetic trail companion.",
+    "rarity": "common",
     "food_preference": "meat",
     "catalog_available": true,
     "catalog_icon": null,
@@ -28,6 +29,7 @@
     "description": "A warm synthetic variant.",
     "catalog_available": true
   },
+  "rarity": "uncommon",
   "name": "",
   "growth_points": 90,
   "is_active": true,

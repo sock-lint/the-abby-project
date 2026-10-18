@@ -14,10 +14,10 @@ function LocationProbe() {
 }
 
 describe('Pinned challenge on Today', () => {
-  it('shows card artwork as decoration while keeping the saved goal and fractional progress', () => {
-    resolvePedestalImage.mockReturnValue({ url: '/synthetic/light-card.png', width: 512, height: 512, assetId: 'card-front-light', variantId: 'web' });
+  it('keeps the saved goal and fractional progress inside the tall kit canvas', () => {
     const { container } = renderWithProviders(<PinnedChallengeCard goal={buildChallengeGoal()} />, { withAuth: false });
-    expect(container.querySelector('img')).toHaveAttribute('alt', '');
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-pedestal-image="card-front-light"]')).toBeNull();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Run 2 miles this week' })).toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0.75');

@@ -9,6 +9,7 @@ import { mountSpriteKey } from './bestiary.constants';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import { companionFormName } from '../../../companion/lifecycle';
+import { acquisitionRarity } from '../../../companion/rarity';
 
 /**
  * BottomSheet detail view for a single species. Shows lore, food
@@ -75,13 +76,14 @@ export default function SpeciesDetailSheet({ species, onClose }) {
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {eligible.map((potion) => {
                 const owned = ownedPotionIds.has(potion.id);
+                const rarity = acquisitionRarity(species, potion);
                 return (
                   <div
                     key={potion.id}
                     className={`text-center rounded-xl p-2 border transition-all ${
                       owned
                         ? `bg-ink-page-aged border-ink-page-shadow ${
-                            RARITY_HALO[potion.rarity] || RARITY_HALO.common
+                            RARITY_HALO[rarity] || RARITY_HALO.common
                           }`
                         : 'bg-ink-page-shadow/30 border-ink-page-shadow opacity-70'
                     }`}
@@ -107,10 +109,10 @@ export default function SpeciesDetailSheet({ species, onClose }) {
                     </div>
                     <div
                       className={`font-script text-micro uppercase tracking-wider ${
-                        RARITY_TEXT_COLORS[potion.rarity] || ''
+                        RARITY_TEXT_COLORS[rarity] || ''
                       }`}
                     >
-                      {potion.rarity}
+                      {rarity}
                     </div>
                     {!owned && (
                       <div className="mt-1 inline-flex items-center gap-0.5 font-script text-micro text-ink-whisper">

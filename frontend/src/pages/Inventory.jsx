@@ -20,9 +20,10 @@ import { EggIcon } from '../components/icons/JournalIcons';
 import CatalogIcon from '../components/rpg/CatalogIcon';
 import BoostStrip from '../components/rpg/BoostStrip';
 import CatalogSearch from '../components/CatalogSearch';
+import { SelectField } from '../components/form';
 import PageShell from '../components/layout/PageShell';
 import TomeShelf from '../components/atlas/TomeShelf';
-import { PROGRESS_TIER } from '../components/atlas/mastery.constants';
+import { PROGRESS_TIER, RARITY_ORDER } from '../components/atlas/mastery.constants';
 import { normalizeList } from '../utils/api';
 import { itemDisplayName } from '../utils/itemDisplayName';
 import { availableInventoryActions, isCatalogAvailable } from '../utils/catalogAvailability';
@@ -60,19 +61,29 @@ export default function Inventory() {
   const [busyId, setBusyId] = useState(null);
   const [flash, setFlash] = useState(null);
   const [filter, setFilter] = useState('');
+  const [rarityFilter, setRarityFilter] = useState('all');
+  const [sort, setSort] = useState('updated');
   // Per-entry pending "use N" amount, keyed by inventory row id.
   // Defaults to 1; only matters for stack-safe consumables with qty > 1.
   const [bulkAmounts, setBulkAmounts] = useState({});
 
   const filteredItems = useMemo(() => {
     const q = filter.trim().toLowerCase();
-    if (!q) return items;
     return items.filter((entry) => {
+      if (rarityFilter === 'rare' && (RARITY_ORDER[entry.item?.rarity] ?? -1) < RARITY_ORDER.rare) return false;
       const name = itemDisplayName(entry.item).toLowerCase();
       const desc = (entry.item?.description || '').toLowerCase();
-      return name.includes(q) || desc.includes(q);
+      return !q || name.includes(q) || desc.includes(q);
+    }).sort((a, b) => {
+      if (sort === 'rarity') {
+        const difference = (RARITY_ORDER[b.item?.rarity] ?? -1) - (RARITY_ORDER[a.item?.rarity] ?? -1);
+        if (difference) return difference;
+      }
+      // Inventory timestamps describe the latest update, including use. Do not
+      // present this as the item's original acquisition date.
+      return (Date.parse(b.updated_at) || 0) - (Date.parse(a.updated_at) || 0);
     });
-  }, [items, filter]);
+  }, [items, filter, rarityFilter, sort]);
 
   const setBulk = (entryId, value) =>
     setBulkAmounts((prev) => ({ ...prev, [entryId]: value }));
@@ -174,7 +185,7 @@ export default function Inventory() {
     );
   }
 
-  const filterActive = filter.trim().length > 0;
+  const filterActive = filter.trim().length > 0 || rarityFilter !== 'all';
   const activeCompartment =
     populatedCompartments.find((c) => c.id === activeCompartmentId) || populatedCompartments[0];
 
@@ -231,19 +242,26 @@ export default function Inventory() {
       )}
 
       {items.length > 0 && (
-        <CatalogSearch
-          value={filter}
-          onChange={setFilter}
-          placeholder="Search inventory…"
-          ariaLabel="Filter inventory items"
-        />
+        <div className="space-y-3">
+          <CatalogSearch value={filter} onChange={setFilter} placeholder="Search inventory…" ariaLabel="Filter inventory items" />
+          <div className="flex flex-wrap gap-3">
+            <SelectField label="Rarity" variant="filter" value={rarityFilter} onChange={(event) => setRarityFilter(event.target.value)}>
+              <option value="all">All</option>
+              <option value="rare">Rare+</option>
+            </SelectField>
+            <SelectField label="Sort items" variant="filter" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="updated">Recently updated</option>
+              <option value="rarity">Rarest</option>
+            </SelectField>
+          </div>
+        </div>
       )}
 
       {populatedCompartments.length === 0 ? (
         filterActive ? (
           <FilteredEmptyState
-            query={filter.trim()}
-            onClear={() => setFilter('')}
+            query={[filter.trim(), rarityFilter === 'rare' ? 'Rare+' : ''].filter(Boolean).join(' · ')}
+            onClear={() => { setFilter(''); setRarityFilter('all'); }}
             icon={<EggIcon size={36} />}
           />
         ) : (
@@ -310,9 +328,10 @@ export default function Inventory() {
                           RARITY_PILL_COLORS[entry.item.rarity] || ''
                         }`}
                       >
-                        {entry.item.rarity_display}
+                        {entry.item.rarity_display || entry.item.rarity}
                       </span>
                     </div>
+                    {(entry.item.effect_summary || entry.item.description) && <p className="mt-2 font-body text-caption text-ink-secondary break-words">{entry.item.effect_summary || entry.item.description}</p>}
                     {(!isCatalogAvailable(entry.item) || entry.item.item_type === 'cosmetic_pet_accessory') && <p className="mt-2 font-body text-caption text-ink-secondary">Kept in your saved collection.</p>}
                     {(entry.item.item_type === 'cosmetic_pet_accessory' ? [] : availableInventoryActions(entry)).map((action) => {
                       const effect = entry.item.metadata?.effect;

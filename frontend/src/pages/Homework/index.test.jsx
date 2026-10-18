@@ -584,7 +584,7 @@ describe('Homework', () => {
       await user.click(screen.getByRole('button', { name: /create assignment/i }));
 
       await waitFor(() =>
-        expect(screen.getByText(/non-JSON response/i)).toBeInTheDocument(),
+        expect(screen.getByText(/Abby is temporarily unavailable/i)).toBeInTheDocument(),
       );
       const tagged = Sentry.captureException.mock.calls.find(
         ([, ctx]) => ctx?.tags?.area === 'homework.create',

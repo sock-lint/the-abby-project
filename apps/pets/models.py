@@ -3,6 +3,7 @@ from django.db import models
 from django.utils import timezone
 
 from config.base_models import TimestampedModel
+from .rarity import RARITY_CHOICES
 
 
 class PetSpecies(TimestampedModel):
@@ -16,6 +17,7 @@ class PetSpecies(TimestampedModel):
         help_text="Optional bundled pixel-art sprite slug; falls back to icon when empty.",
     )
     description = models.TextField(blank=True)
+    rarity = models.CharField(max_length=20, choices=RARITY_CHOICES, default="common")
     food_preference = models.CharField(max_length=30, blank=True)
     available_potions = models.ManyToManyField(
         "pets.PotionType",

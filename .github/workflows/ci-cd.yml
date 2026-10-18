@@ -44,7 +44,9 @@ jobs:
   frontend-test:
     needs: current-main
     if: needs.current-main.outputs.current == 'true'
-    runs-on: [self-hosted, deploy-platform]
+    # Dedicated account/tool cache; can overlap backend tests without sharing
+    # the deployment runner's Docker access or fixed PostgreSQL/Redis ports.
+    runs-on: [self-hosted, abby-frontend]
     defaults:
       run:
         working-directory: frontend

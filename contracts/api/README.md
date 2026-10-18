@@ -1,5 +1,17 @@
 # Shared API response fixtures
 
+`badges-rarity-bonuses.json` and `badges-earned-rarity-bonuses.json` verify real catalog/earned responses, opt-outs and family isolation.
+
+Rarity responses include server-derived badge `coin_bonus` (base, before a
+Lucky Coin boost), item `effect_summary` and authenticated `acquisition_sources`
+(`kind`, `name`, internal `path`). Companion species expose acquisition `rarity`;
+owned pets/mounts expose the higher species/saved-potion tier. New goal promises
+and receipts include item rarity, artwork, type and effect details; historical
+sparse receipts remain valid and are not rewritten. Recent drops include item
+details and nullable `salvage_coins`: null means the older exact payout was not
+recorded, rather than zero. Availability reflects today's action eligibility
+independently of preserved ownership and accepted item promises.
+
 `fixtures/*.json` contains raw Django response bodies shared by the React tests
 and retained Unity reference checks. Unity is retired and is not an active release
 gate. Keep the files here rather than copying sample
@@ -8,6 +20,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `lifecycle-preview.json`, `lifecycle-child-preview.json`, `lifecycle-close-preview.json` | Self-scoped Settings impact review, active parent successors, shared ownership counts and a membership fingerprint; child privacy and sole-active-parent closure remain distinct |
+| `template-skills.json` | Parent `GET /api/templates/1/`; reusable plans preserve weighted project skill tags and fixed milestone XP tags |
 | `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |
 | `catalog-icons-drops.json`, `catalog-icons-goals.json` | Recent drops, automatic goals and reward previews retain verified image IDs while same-name parent goals keep null |
 | `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |
@@ -744,8 +758,8 @@ consumer preserves that ordinary habit response and the restart error through
 ## Reading books and reflections
 
 `config.tests.test_reading_api_contract_fixtures` produces shelf, session,
-correction, pagination, summary and validation responses through authenticated
-Django endpoints. The React consumer is
+correction, pagination, summary, discovery, family-suggestion and validation
+responses through authenticated Django endpoints. The React consumer is
 `frontend/src/api/readingContractFixtures.test.js`. All book titles, authors,
 families and reflections in these fixtures are synthetic.
 
@@ -773,13 +787,59 @@ without adding it to balances locally. Replays, corrections, deletion and
 historical logging never rearm the reward; retained daily progress and request
 identities survive deleted logs. The producer checks the real XP and Coins
 ledger after retries, corrections, deletion and a replacement log.
-Recommendations use a bundled publisher-sourced catalog, optional topic,
-birthday age guidance when available and saved book interests/reactions. The
-ranking reads no reflection text and makes no runtime external requests.
+Saved book responses add `catalog_entry` or null. Catalog recognition normalizes
+title/author case and whitespace; a blank legacy author is accepted only when
+the title is unique. Recommendations use 64 bundled publisher-sourced books,
+birthday age guidance when available and saved book interests/reactions.
+Enriched entries include ISBN, nullable edition page count, verified formats,
+moods/styles/themes, source links, cover URL and nullable
+`series: {id, title, position}`. Ranking reads no reflections or invitation
+messages and makes no runtime external metadata requests. Only the browser
+loads Open Library covers, with no referrer and a missing-image fallback.
+WorldCat links are catalog searches, not availability claims.
+
+`GET /api/reading/recommendations/` accepts `interest`, `mood`, `style`,
+`book_format`, `length`, `theme`, `q` (at most 160 characters), `similar_to`
+(catalog ID), and `rotation` (0–1000). `book_format` avoids DRF's `format`
+renderer parameter. Length boundaries are short ≤200, medium 201–349 and long
+≥350 pages; unknown page counts are excluded by length filters. Search matches
+catalog titles/authors/tags/series. Filters intersect, preserve age and shelf
+boundaries, and series continuations require every earlier catalog volume to
+be recognized on the reader's finished shelf. Rotation wraps through eligible
+picks six at a time. Responses include `results`, `basis`, `total`, `has_more`
+and `rotation`; each result includes `reason` and `reason_kind`.
+
+`GET/POST /api/reading/discovery-feedback/` reads or updates preferences unique
+to a reader/catalog ID. POST `choice` is `not_interested`, `already_read`, or
+empty to clear the preference for Undo. Both nonempty choices hide the title
+without creating shelf history, sessions or rewards. Parent calls select a
+same-family child using `user_id`; child calls remain self-scoped.
+
+`/api/reading-family-suggestions/` supports parent-only POST with child
+`user_id`, `catalog_id`, optional `message` (500 characters maximum), and UUID
+`client_request_id`. Identical retries return the existing invitation; changed
+payloads or another sender reusing that child/UUID conflict. Responses include
+the saved author-name snapshot in `suggested_by: {id, display_name}` (ID becomes
+null if that parent is deleted),
+`catalog_entry`, `status` and `on_shelf`. Access stays within the child's family;
+surviving senders must still be parents in that family. GET lists only pending
+invitations with standard pagination. PATCH accepts `status: dismissed` only.
+Saving remains an explicit `/api/reading-books/` create: it changes `on_shelf`
+without changing the pending invitation or awarding a reward.
+
+`reading-discovery-picks.json`, `reading-discovery-book.json` and
+`reading-discovery-feedback.json` cover metadata, filtered queries, catalog
+recognition and preferences. `reading-family-suggestion.json`,
+`reading-family-suggestions.json`, `reading-family-suggestions-saved.json` and
+`reading-family-suggestion-dismissed.json` cover attribution, pending lists,
+the child's explicit save, and dismissal. The existing Django producer and
+React consumer above validate these synthetic responses together.
 
 `inventory-roster-hatching.json`, `pet-hatch-roster.json` and
 `mount-breed-roster.json` cover real namespaced Base-only inventory, hatch and
-breed producers/consumers. Breed receipts add nullable `egg_item_catalog_icon`;
-newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
+breed producers/consumers. Breed receipts include nullable `egg_item_catalog_icon`
+and `potion_item_catalog_icon` so both granted ingredients use their exact
+catalog artwork. Unrecognized item identities retain null and their existing
+sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).

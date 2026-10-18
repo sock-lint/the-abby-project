@@ -1,3 +1,4 @@
+import AchievementCard from '../cards/AchievementCard';
 import { RARITY_HALO, isRecentlyEarned } from './mastery.constants';
 import BadgeArtwork from './BadgeArtwork';
 import BadgeRarity from './BadgeRarity';
@@ -19,16 +20,18 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
   const visibleHint = earned ? '' : hint;
   const xp = Number(badge.xp_bonus) || 0;
 
-  const earnedShell = `${RARITY_HALO[rarity] || RARITY_HALO.common} bg-ink-page-rune-glow/95 border border-ink-page-shadow`;
+  const earnedShell = `${RARITY_HALO[rarity] || RARITY_HALO.common}`;
   const unearnedShell =
-    'border border-dashed border-ink-page-shadow bg-ink-page/70 text-ink-whisper';
+    'text-ink-whisper';
 
   const accessibleName = earned
     ? `${badge.name} · ${rarity}`
     : `${badge.name} · ${rarity} · not yet earned`;
 
   return (
-    <button
+    <AchievementCard
+      as="button"
+      variant="tall"
       type="button"
       onClick={() =>
         onSelect?.({
@@ -39,20 +42,21 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
       }
       aria-label={accessibleName}
       aria-pressed={selected}
-      className="min-w-0 max-w-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-3xl"
+      className="w-full h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep"
+      contentClassName="flex h-full flex-col"
     >
       <div
         data-sigil="true"
         data-earned={earned ? 'true' : 'false'}
         data-rarity={rarity}
-        className={`relative rounded-3xl p-3 flex flex-col items-center gap-2 min-h-[136px] transition-transform active:scale-[0.98] ${
+        className={`relative rounded-2xl flex flex-1 flex-col items-center gap-2 min-w-0 min-h-[136px] transition-transform active:scale-[0.98] ${
           earned ? earnedShell : unearnedShell
         } ${recent ? 'animate-gilded-glint' : ''}`}
       >
         <BadgeArtwork badge={badge} earned={earned} />
 
         <div
-          className={`min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-body text-center font-bold leading-tight line-clamp-2 ${
+          className={`min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-body text-center font-bold leading-tight ${
             earned ? 'text-ink-primary' : 'text-ink-whisper'
           }`}
         >
@@ -67,7 +71,7 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
         {!earned && visibleHint && (
           <div
             data-sigil-hint="true"
-            className="mt-0.5 min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-caption font-body text-center leading-snug text-ink-whisper line-clamp-2 px-1"
+            className="mt-0.5 min-w-0 max-w-full break-words [overflow-wrap:anywhere] text-caption font-body text-center leading-snug text-ink-whisper px-1"
           >
             {visibleHint}
           </div>
@@ -81,11 +85,12 @@ export default function BadgeSigil({ badge, earned, earnedAt, hint = '', onSelec
             +{xp} XP
           </div>
         )}
+        {badge.coin_bonus > 0 && <div className="font-body text-caption font-semibold text-gold-leaf">+{badge.coin_bonus} coins base</div>}
         {selected !== undefined && <span data-sigil-selection={selected ? 'true' : 'false'}
           className="min-h-6 max-w-full break-words [overflow-wrap:anywhere] font-body text-caption font-semibold text-sheikah-teal-deep">
           {selected ? selectionLabel : null}
         </span>}
       </div>
-    </button>
+    </AchievementCard>
   );
 }

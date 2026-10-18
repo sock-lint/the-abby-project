@@ -261,15 +261,14 @@ class AutomaticGoalsTests(_GoalFixture, TestCase):
         self.assertEqual(snapshot["items"][0]["item_id"], egg.pk)
         # The default registry no longer offers the synthetic wolf, while the
         # accepted window keeps the preview and exact original item promise.
-        self.assertEqual(list_goals(self.child)["results"][0]["rewards"]["items"], first["rewards"]["items"])
+        expected_item = {**first["rewards"]["items"][0], "item_catalog_available": False}
+        self.assertEqual(list_goals(self.child)["results"][0]["rewards"]["items"], [expected_item])
         occurrence.refresh_from_db()
         self.assertEqual(occurrence.snapshot, snapshot)
         self.fact("first")
         self.fact("second")
         occurrence.refresh_from_db()
-        self.assertEqual(occurrence.reward_receipt, {"coins": 5, "xp": 10, "items": [
-            {"item_name": egg.name, "item_catalog_icon": None, "quantity": 1},
-        ]})
+        self.assertEqual(occurrence.reward_receipt, {"coins": 5, "xp": 10, "items": [expected_item]})
         self.fact("third")
         self.assertEqual(UserInventory.objects.get(user=self.child, item=egg).quantity, 1)
     def test_approval_after_cutoff_counts_catalog_and_keeps_performed_week(self):

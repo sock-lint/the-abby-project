@@ -29,7 +29,7 @@ export default function CollectionFolio({
 
   return (
     <ParchmentCard as="section" variant="plain" tone="default" aria-labelledby={headingId}>
-      <header className="flex items-start gap-4">
+      <header className="flex flex-wrap items-start gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <ChapterMarker>{collection.rubric}</ChapterMarker>
           <IlluminatedVersal
@@ -41,11 +41,11 @@ export default function CollectionFolio({
           <div className="min-w-0">
             <h2
               id={headingId}
-              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight truncate"
+              className="font-display italic text-xl md:text-2xl text-ink-primary leading-tight break-words [overflow-wrap:anywhere]"
             >
               {collection.name}
             </h2>
-            <div className="font-script text-caption text-ink-whisper leading-snug truncate">
+            <div className="font-script text-caption text-ink-whisper leading-snug break-words [overflow-wrap:anywhere]">
               {collection.kicker}
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function CollectionFolio({
           No badges in this collection yet.
         </p>
       ) : (
-        <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-4 list-none p-0 m-0">
+        <ul className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3 md:gap-4 list-none p-0 m-0">
           {badges.map((item, i) => (
             <motion.li
               key={item.badge.id}

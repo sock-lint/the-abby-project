@@ -32,19 +32,20 @@ urlpatterns = [
         sprite_admin_views.SpriteAdminListView.as_view(),
         name="sprite-admin-list",
     ),
+    # Tombstones prevent old clients receiving a misleading SPA HTML response.
     path(
         "sprites/admin/generate/",
-        sprite_admin_views.SpriteGenerateView.as_view(),
-        name="sprite-admin-generate",
+        sprite_admin_views.SpriteGenerationRetiredView.as_view(),
+        name="sprite-admin-generate-retired",
+    ),
+    path(
+        "sprites/admin/<slug:slug>/reroll/",
+        sprite_admin_views.SpriteGenerationRetiredView.as_view(),
+        name="sprite-admin-reroll-retired",
     ),
     path(
         "sprites/admin/<slug:slug>/",
         sprite_admin_views.SpriteAdminDetailView.as_view(),
         name="sprite-admin-detail",
-    ),
-    path(
-        "sprites/admin/<slug:slug>/reroll/",
-        sprite_admin_views.SpriteRerollView.as_view(),
-        name="sprite-admin-reroll",
     ),
 ]

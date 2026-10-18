@@ -96,3 +96,44 @@ class ReadingRewardCredit(models.Model):
             models.UniqueConstraint(fields=["user", "client_request_id"], name="reading_credit_user_request_once"),
             models.CheckConstraint(condition=models.Q(minutes__lte=10), name="reading_credit_minutes_at_most_10"),
         ]
+
+
+class ReadingDiscoveryFeedback(TimestampedModel):
+    """An explicit discovery preference, never a reading log or reward."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reading_discovery_feedback")
+    catalog_id = models.CharField(max_length=80)
+    choice = models.CharField(max_length=20, choices=[
+        ("not_interested", "Not interested"), ("already_read", "Already read"),
+    ])
+
+    class Meta:
+        ordering = ["catalog_id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "catalog_id"], name="reading_feedback_user_catalog_once"),
+        ]
+
+
+class ReadingFamilySuggestion(TimestampedModel):
+    """A parent's invitation; saving the book remains the reader's choice."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Suggested"
+        DISMISSED = "dismissed", "Dismissed"
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="reading_family_suggestions")
+    suggested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="sent_reading_suggestions",
+    )
+    author_name = models.CharField(max_length=150)
+    catalog_id = models.CharField(max_length=80)
+    message = models.CharField(max_length=500, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.PENDING)
+    client_request_id = models.UUIDField(editable=False)
+    create_payload = models.JSONField(editable=False)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "client_request_id"], name="reading_suggestion_user_request_once"),
+        ]

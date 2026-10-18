@@ -2,11 +2,12 @@ import { selectDropdown, openDropdown } from '../../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import Hatchery from './Hatchery.jsx';
 import { server } from '../../../test/server.js';
 import { spyHandler } from '../../../test/spy.js';
+import rosterInventory from '../../../../../contracts/api/fixtures/inventory-roster-hatching.json';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -26,6 +27,67 @@ function renderHatchery() {
 }
 
 describe('Hatchery', () => {
+  it('shows the selected egg acquisition rarity and keeps it separate from growth', async () => {
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        { quantity: 1, item: { id: 11, name: 'Dragon Spark Egg', item_type: 'egg', rarity: 'legendary', pet_species_slug: 'meshtint-dragon', pet_species_name: 'Dragon Spark' } },
+        { quantity: 1, item: { id: 12, name: 'Base Potion', item_type: 'potion', rarity: 'common' } },
+      ])),
+    );
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
+    expect(screen.getByText('legendary companion · rarity stays the same as it grows')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Dragon Spark family' })).toBeInTheDocument();
+  });
+
+  it.each([
+    [{ id: 11, slug: 'chick-egg', name: 'Chick Egg', item_type: 'egg', pet_species_slug: 'chick', pet_species_name: 'Chick', metadata: { species: 'chick' } }, ['Chick', 'Fledgling', 'Bird']],
+    [rosterInventory.find(({ item }) => item.slug === 'meshtint-bat-egg').item, ['Bat', 'Vampire Bat', 'Bat Lord']],
+  ])('names the selected $name family forms for its selected Base potion without hatching', async (egg, forms) => {
+    const base = rosterInventory.find(({ item }) => item.slug === 'base-potion');
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([{ id: 1, quantity: 1, item: egg }, base])),
+    );
+    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, {});
+    server.use(hatch.handler);
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(base.item.id));
+    const steps = within(screen.getByRole('list', { name: 'Pet growth stages' })).getAllByRole('listitem');
+    expect(steps[0]).toHaveAttribute('aria-current', 'step');
+    for (const [index, form] of forms.entries()) {
+      expect(steps[index + 1]).toHaveTextContent(`${['Baby', 'Middle', 'Grown'][index]} · ${form}`);
+      expect(steps[index + 1]).not.toHaveAttribute('aria-current');
+    }
+    expect(hatch.calls).toHaveLength(0);
+  });
+
+  it('does not borrow family form names for a conflicting egg identity or incompatible potion', async () => {
+    const chick = { id: 11, slug: 'chick-egg', name: 'Chick Egg', item_type: 'egg', pet_species_slug: 'chick', pet_species_name: 'Chick', metadata: { species: 'chick' } };
+    const conflict = { ...chick, id: 12, name: 'Fledgling Egg', metadata: { species: 'meshtint-bat' } };
+    const base = rosterInventory.find(({ item }) => item.slug === 'base-potion');
+    const fire = { id: 53, slug: 'fire-potion', name: 'Base Potion', item_type: 'potion', metadata: { variant: 'fire' } };
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),
+      http.get('*/api/inventory/', () => HttpResponse.json([
+        ...[chick, conflict, fire].map((item) => ({ id: item.id, quantity: 1, item })), base,
+      ])),
+    );
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(conflict.id));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(base.item.id));
+    const guide = screen.getByRole('list', { name: 'Pet growth stages' });
+    expect(within(guide).queryByText(/Chick|Fledgling|Bird|Vampire Bat|Bat Lord/)).toBeNull();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Egg' }), String(chick.id));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(fire.id));
+    expect(within(guide).queryByText(/Chick|Fledgling|Bird/)).toBeNull();
+  });
+
   it('connects the selected egg to its four-stage family and previews hatching into a baby without consuming anything', async () => {
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], breeding_available: false })),

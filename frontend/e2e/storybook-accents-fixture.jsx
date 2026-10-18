@@ -1,3 +1,4 @@
+import '../src/index.css';
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
@@ -21,16 +22,16 @@ import BadgeDetailSheet from '../src/pages/achievements/BadgeDetailSheet';
 import TrophyBadgePicker from '../src/pages/character/TrophyBadgePicker';
 import SigilFrontispiece from '../src/pages/character/SigilFrontispiece';
 import CoinBalanceCard from '../src/pages/rewards/CoinBalanceCard';
+import AssignmentCard from '../src/pages/Homework/AssignmentCard';
 import { SpriteCatalogContext } from '../src/providers/spriteCatalog.context';
 import { applyTheme } from '../src/themes';
 import { AuthProvider } from '../src/hooks/useApi';
-import '../src/index.css';
 
 const params = new URLSearchParams(window.location.search);
 localStorage.setItem('abby_auth_token', 'synthetic-storybook-acceptance');
 applyTheme(params.get('theme') || 'hyrule');
 if (params.get('large') === '1') {
-  // Enlarge type without growing the ornament or its reserved inset. This is
+  // Enlarge type independently of artwork and layout dimensions. This is
   // deliberately stricter than scaling the entire layout with browser zoom.
   const sizes = { micro: 20, tiny: 22, caption: 24, body: 28, lede: 36, sm: 28, base: 32, lg: 36, xl: 40, '2xl': 48, '3xl': 60, '4xl': 72 };
   for (const [token, size] of Object.entries(sizes)) {
@@ -92,7 +93,7 @@ export function ComposedAccentsFixture() {
         <section aria-label="Composed profile">
           <SigilFrontispiece profile={{ display_name: long ? 'A thoughtful woodland maker and family helper' : 'Synthetic maker', level: 5, xp_in_level: 35, xp_needed_for_level: 100, active_trophy_badge: badges.find(item => item.id === currentTrophyId) || null }} onOpenTrophyPicker={() => setPickerOpen(true)} />
         </section>
-        <section aria-label="Badge collection" className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <section aria-label="Badge collection" className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
           {badges.map((item, index) => <BadgeSigil key={item.id} badge={item} earned={index < 2} earnedAt={index < 2 ? '2026-10-01T12:00:00Z' : null} hint={description} onSelect={setDetail} />)}
         </section>
         <section aria-label="Shared empty states" className="space-y-4">
@@ -100,12 +101,12 @@ export function ComposedAccentsFixture() {
           <FilteredEmptyState query={title} onClear={() => setEvent('Clear synthetic filter')} />
         </section>
         <ParchmentCard flourish className="space-y-4" data-rhythm-panel>
-          <h2 data-rhythm-child className="font-body font-bold text-lede">A decorated panel with ordinary content flow</h2>
+          <h2 data-rhythm-child className="font-body font-bold text-lede">A shared panel with ordinary content flow</h2>
           <p data-rhythm-child className="font-body text-body">{description}</p>
           <Button data-rhythm-child className="block" onClick={() => setEvent('Continue synthetic panel')}>Continue</Button>
         </ParchmentCard>
-        <ParchmentCard seal="top-right" data-decor-kind="seal"><h2 className="text-lede">A single corner accent</h2><p className="text-body">{description}</p></ParchmentCard>
-        <ParchmentCard flourish seal="bottom-left" data-decor-kind="combined"><h2 className="text-lede">One shared decoration treatment</h2><p className="text-body">{description}</p></ParchmentCard>
+        <ParchmentCard seal="top-right" className="py-3" data-decor-kind="seal"><h2 className="text-lede">A panel with custom vertical spacing</h2><p className="text-body">{description}</p></ParchmentCard>
+        <ParchmentCard flourish seal="bottom-left" className="!p-4" data-decor-kind="combined"><h2 className="text-lede">A compact shared panel</h2><p className="text-body">{description}</p></ParchmentCard>
         <section aria-label="Parent Today"><HeroPrimaryCard role="parent" ctx={{ pendingCount: 3, hideDate: true }} /></section>
         <section aria-label="Composed rewards" className="space-y-4"><CoinBalanceCard coinBalance={50} isParent={false} onOpenExchange={() => setEvent('Open synthetic exchange')} /><RewardShop rewards={rewards} isParent={false} coinBalance={50} onRedeem={() => setEvent('Request synthetic reward')} /></section>
       </PageShell>
@@ -145,6 +146,7 @@ export function StorybookAccentsFixture() {
       <p className="flex flex-wrap items-center gap-2 text-body">Project difficulty <StarRating value={3} /></p>
     </section>
     <section aria-label="Parent Today"><HeroPrimaryCard role="parent" ctx={{ ...date, pendingCount: 3 }} /></section>
+    <section aria-label="Homework task"><AssignmentCard assignment={{ id: 72, title: 'Sketch', subject: 'art', due_date: null, effort_level: 3, description, submission_status: null, has_project: false }} onSubmit={() => record('Submit synthetic homework')} /></section>
     <section aria-label="Profile trophy" className="space-y-4">
       <div data-trophy-example="compact"><TrophySlot compact badge={badge} onOpen={() => record('Open compact trophy picker')} /></div>
       <div data-trophy-example="full"><TrophySlot badge={badge} onOpen={() => record('Open trophy picker')} /></div>

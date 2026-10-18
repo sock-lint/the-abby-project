@@ -25,7 +25,13 @@
             "item_name": "Fixture Wolf Egg",
             "item_icon": "",
             "item_sprite_key": "",
-            "item_catalog_icon": null
+            "item_catalog_icon": null,
+            "item_rarity": "common",
+            "item_type": "egg",
+            "item_description": "",
+            "item_metadata": {},
+            "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+            "item_catalog_available": true
           }
         ]
       },
@@ -44,8 +50,17 @@
         "awarded_at": "2026-10-14T19:00:00+00:00",
         "items": [
           {
+            "item_id": 63,
             "item_name": "Fixture Wolf Egg",
+            "item_icon": "",
+            "item_sprite_key": "",
             "item_catalog_icon": null,
+            "item_rarity": "common",
+            "item_type": "egg",
+            "item_description": "",
+            "item_metadata": {},
+            "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+            "item_catalog_available": true,
             "quantity": 1,
             "salvaged_to_coins": 25
           }
@@ -80,7 +95,13 @@
             "item_name": "Fixture Wolf Egg",
             "item_icon": "",
             "item_sprite_key": "",
-            "item_catalog_icon": null
+            "item_catalog_icon": null,
+            "item_rarity": "common",
+            "item_type": "egg",
+            "item_description": "",
+            "item_metadata": {},
+            "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+            "item_catalog_available": true
           }
         ]
       },
@@ -99,8 +120,17 @@
         "awarded_at": "2026-10-14T19:00:00+00:00",
         "items": [
           {
+            "item_id": 63,
             "item_name": "Fixture Wolf Egg",
+            "item_icon": "",
+            "item_sprite_key": "",
             "item_catalog_icon": null,
+            "item_rarity": "common",
+            "item_type": "egg",
+            "item_description": "",
+            "item_metadata": {},
+            "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+            "item_catalog_available": true,
             "quantity": 1,
             "salvaged_to_coins": 25
           }
@@ -124,8 +154,17 @@
             "xp": 10,
             "items": [
               {
+                "item_id": 63,
                 "item_name": "Fixture Wolf Egg",
+                "item_icon": "",
+                "item_sprite_key": "",
                 "item_catalog_icon": null,
+                "item_rarity": "common",
+                "item_type": "egg",
+                "item_description": "",
+                "item_metadata": {},
+                "item_effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+                "item_catalog_available": true,
                 "quantity": 1,
                 "salvaged_to_coins": 25
               }

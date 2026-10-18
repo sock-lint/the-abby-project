@@ -7,6 +7,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-bat",
       "description": "",
+      "rarity": "uncommon",
       "food_preference": "",
       "available_potions": [
         {
@@ -37,6 +38,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-bee",
       "description": "",
+      "rarity": "common",
       "food_preference": "",
       "available_potions": [
         {
@@ -67,6 +69,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-bomb",
       "description": "",
+      "rarity": "rare",
       "food_preference": "",
       "available_potions": [
         {
@@ -97,6 +100,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-blossom",
       "description": "",
+      "rarity": "uncommon",
       "food_preference": "",
       "available_potions": [
         {
@@ -127,6 +131,7 @@
       "icon": "C",
       "sprite_key": "cute-chick",
       "description": "",
+      "rarity": "common",
       "food_preference": "",
       "available_potions": [
         {
@@ -159,6 +164,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-dragon",
       "description": "",
+      "rarity": "legendary",
       "food_preference": "",
       "available_potions": [
         {
@@ -189,6 +195,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-shadow",
       "description": "",
+      "rarity": "epic",
       "food_preference": "",
       "available_potions": [
         {
@@ -219,6 +226,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-ghost",
       "description": "",
+      "rarity": "rare",
       "food_preference": "",
       "available_potions": [
         {
@@ -249,6 +257,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-mushroom",
       "description": "",
+      "rarity": "common",
       "food_preference": "",
       "available_potions": [
         {
@@ -279,6 +288,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-potted-plant",
       "description": "",
+      "rarity": "common",
       "food_preference": "",
       "available_potions": [
         {
@@ -309,6 +319,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-hermit-crab",
       "description": "",
+      "rarity": "uncommon",
       "food_preference": "",
       "available_potions": [
         {
@@ -339,6 +350,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-snake",
       "description": "",
+      "rarity": "uncommon",
       "food_preference": "",
       "available_potions": [
         {
@@ -369,6 +381,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-spider",
       "description": "",
+      "rarity": "uncommon",
       "food_preference": "",
       "available_potions": [
         {
@@ -399,6 +412,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-sunflower",
       "description": "",
+      "rarity": "common",
       "food_preference": "",
       "available_potions": [
         {
@@ -429,6 +443,7 @@
       "icon": "🐾",
       "sprite_key": "meshtint-wolf",
       "description": "",
+      "rarity": "rare",
       "food_preference": "",
       "available_potions": [
         {

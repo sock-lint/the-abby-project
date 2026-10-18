@@ -16,7 +16,7 @@
 macros:
   # Eggs, potions, coin pouches drop from all the frequent triggers.
   # Only currently supported, canonically bound eggs/potions materialize.
-  # The 15 common family eggs have source weight 10 each (150 total);
+  # The 15 family eggs use their acquisition rarity (83 total source weight);
   # companion_drop_weights shares the previous effective egg budget of 10
   # across them. Other item weights and trigger drop rates remain unchanged.
   # Weight-by-rarity: common 10 → legendary 1 (mirrors _create_item_catalog).

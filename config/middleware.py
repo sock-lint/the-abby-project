@@ -54,8 +54,7 @@ class HealthCheckMiddleware:
             # spam the sprite bucket with HEADs. Manual operator probe
             # (``curl https://abby.bos.lol/health?deep=true``) surfaces
             # Ceph / Cloudflare-edge outages that the cheap default path
-            # would otherwise miss — the bug shape that burned Gemini
-            # budget before we added a pre-flight to sprite generation.
+            # would otherwise miss before an artwork upload fails.
             if request.GET.get("deep", "").lower() in ("1", "true", "yes"):
                 from apps.rpg.storage import probe_storage
                 ok, msg = probe_storage()

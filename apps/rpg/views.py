@@ -138,8 +138,8 @@ class InventoryView(APIView):
     def get(self, request):
         entries = UserInventory.objects.filter(
             user=request.user,
-        ).select_related("item").order_by("item__item_type", "item__name")
-        return Response(UserInventorySerializer(entries, many=True).data)
+        ).select_related("item__pet_species", "item__potion_type", "item__food_species").order_by("item__item_type", "item__name")
+        return Response(UserInventorySerializer(entries, many=True, context={"request": request}).data)
 
 
 class RecentDropsView(APIView):
@@ -149,7 +149,7 @@ class RecentDropsView(APIView):
     def get(self, request):
         drops = DropLog.objects.filter(
             user=request.user,
-        ).select_related("item")[:10]
+        ).select_related("item__pet_species", "item__potion_type")[:10]
         return Response(DropLogSerializer(drops, many=True).data)
 
 
@@ -163,7 +163,7 @@ class CosmeticsView(APIView):
 
         owned = CosmeticService.list_owned_cosmetics(request.user)
         return Response({
-            slot: ItemDefinitionSerializer(items, many=True).data
+            slot: ItemDefinitionSerializer(items, many=True, context={"request": request}).data
             for slot, items in owned.items()
         })
 
@@ -229,7 +229,7 @@ class CosmeticCatalogView(APIView):
             grouped[slot].append(item)
 
         return Response({
-            slot: ItemDefinitionSerializer(items, many=True).data
+            slot: ItemDefinitionSerializer(items, many=True, context={"request": request}).data
             for slot, items in grouped.items()
         })
 

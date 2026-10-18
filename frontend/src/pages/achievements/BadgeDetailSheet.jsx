@@ -82,6 +82,13 @@ export default function BadgeDetailSheet({ entry, onClose, allBadges = [], earne
           </div>
         )}
 
+        {badge.coin_bonus > 0 && (
+          <div className="flex items-center justify-center gap-2 rounded-xl border border-gold-leaf/30 bg-gold-leaf/5 px-3 py-2">
+            <span className="font-body text-caption font-semibold text-ink-secondary">Base coin bonus</span>
+            <span className="font-body text-lede font-bold text-gold-leaf">+{badge.coin_bonus} coins</span>
+          </div>
+        )}
+
         <div className="text-center">
           {earned ? (
             <>

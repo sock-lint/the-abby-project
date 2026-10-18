@@ -3,6 +3,7 @@ import { Lock } from 'lucide-react';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { loreOneLiner } from './bestiary.constants';
+import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 
 /**
  * Single tile in the Codex grid. Discovered species show their sprite +
@@ -64,6 +65,9 @@ export default function SpeciesTile({ species, totalPotions, onSelect }) {
         <div className="font-display text-sm text-ink-primary font-medium leading-tight">
           {species.name}
         </div>
+        {species.rarity && <div className={`font-script text-tiny uppercase tracking-wider ${RARITY_TEXT_COLORS[species.rarity] || ''}`}>
+          {species.rarity}
+        </div>}
         <div className="font-script text-micro text-ink-whisper mt-1 line-clamp-2 min-h-[1.6em]">
           {loreOneLiner(species.description) || ' '}
         </div>

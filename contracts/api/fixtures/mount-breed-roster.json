@@ -9,6 +9,7 @@
   "potion_item_name": "Base Potion",
   "potion_item_icon": "P",
   "potion_item_sprite_key": "",
+  "potion_item_catalog_icon": "item-base-potion",
   "picked_species": "Bat",
   "picked_species_slug": "meshtint-bat",
   "picked_potion": "Base",

@@ -53,4 +53,44 @@ describe('RareDropReveal', () => {
     );
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
   });
+
+  it.each([
+    ['cosmetic_frame', {}, 'Choose profile frame', '/sigil'],
+    ['cosmetic_theme', {}, 'Change color theme', '/settings#appearance'],
+    ['egg', {}, 'Go to hatching', '/bestiary?tab=hatchery'],
+    ['food', {}, 'Feed a pet', '/bestiary?tab=companions'],
+    ['coin_pouch', { coins: 75 }, 'Open in inventory', '/treasury?tab=satchel'],
+    ['consumable', { effect: 'drop_boost' }, 'Use in inventory', '/treasury?tab=satchel'],
+  ])('explains a %s and links to its next action without consuming it', async (item_type, item_metadata, label, path) => {
+    const onDismiss = vi.fn();
+    const { user } = renderWithProviders(<RareDropReveal drop={{
+      ...legendaryDrop, item_type, item_metadata,
+      item_description: 'A useful reward from your progress.', item_catalog_available: true,
+      item_effect_summary: 'Server-confirmed reward effect.',
+    }} onDismiss={onDismiss} />);
+    expect(screen.getByText('A useful reward from your progress.')).toBeInTheDocument();
+    expect(screen.getByText('Server-confirmed reward effect.')).toBeInTheDocument();
+    const action = screen.getByRole('link', { name: label });
+    expect(action).toHaveAttribute('href', path);
+    await user.click(action);
+    expect(onDismiss).toHaveBeenCalledWith(legendaryDrop.id);
+  });
+
+  it.each([0, 25])('shows the exact confirmed salvage amount (%s) without an equip action', (salvage_coins) => {
+    renderWithProviders(<RareDropReveal drop={{ ...legendaryDrop, item_type: 'cosmetic_frame', was_salvaged: true, salvage_coins }} />);
+    expect(screen.getByText(`Already in your collection · exchanged for ${salvage_coins} coins.`)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Choose profile frame' })).toBeNull();
+  });
+
+  it('keeps historical unknown salvage amounts unknown and unavailable items view-only', () => {
+    renderWithProviders(<RareDropReveal drop={{ ...legendaryDrop, item_type: 'cosmetic_frame', item_catalog_available: false, salvage_coins: null }} />);
+    expect(screen.queryByRole('link', { name: 'Choose profile frame' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'View inventory' })).toHaveAttribute('href', '/treasury?tab=satchel');
+  });
+
+  it('does not invent an amount for a historical salvage receipt', () => {
+    renderWithProviders(<RareDropReveal drop={{ ...legendaryDrop, was_salvaged: true, salvage_coins: null }} />);
+    expect(screen.getByText('Already in your collection — salvaged for coins.')).toBeInTheDocument();
+    expect(screen.queryByText(/exchanged for \d+ coins/)).toBeNull();
+  });
 });

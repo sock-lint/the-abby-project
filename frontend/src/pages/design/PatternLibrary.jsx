@@ -28,6 +28,7 @@ import { RARITY_KEYS } from '../../components/atlas/mastery.constants';
 import { TextField, TextAreaField, SelectField, DateField, CheckboxField, ToggleField, IconPicker } from '../../components/form';
 import { DesignPreviewContext } from './preview.context';
 import PedestalShowcase from './PedestalShowcase';
+import AchievementCardShowcase from './AchievementCardShowcase';
 
 function Specimen({ id, title, children, imports, guidance, consumers, status = 'Established' }) {
   return (
@@ -235,5 +236,5 @@ function AtlasExamples() {
 }
 
 export default function PatternLibrary() {
-  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /><AttachmentExample /><AtlasExamples /><PedestalShowcase /></div>;
+  return <div className="space-y-10"><DataStates /><FormsAndDialogs /><PageRecipes /><OutcomeExamples /><FamilyExamples /><NotificationExamples /><AttachmentExample /><AtlasExamples /><AchievementCardShowcase /><PedestalShowcase /></div>;
 }

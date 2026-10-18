@@ -13,12 +13,13 @@ const reward = {
 };
 
 describe('RewardShop', () => {
-  it('adds a decorative treasure introduction without replacing the real offer or its request', async () => {
+  it('keeps a quiet introduction above tall offers with their real request and stock', async () => {
     resolvePedestalImage.mockReturnValue({ url: '/synthetic/treasure-card.png', width: 512, height: 512, assetId: 'card-front-treasure', variantId: 'web' });
     const onRedeem = vi.fn();
     const user = userEvent.setup();
     const { container } = render(<RewardShop rewards={[reward]} isParent={false} coinBalance={60} onRedeem={onRedeem} />);
-    expect(container.querySelector('img')).toHaveAttribute('alt', '');
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-pedestal-image="card-front-treasure"]')).toBeNull();
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Choose something to work toward' })).toBeInTheDocument();
     expect(screen.getByText('🍦')).toBeInTheDocument();
@@ -31,7 +32,8 @@ describe('RewardShop', () => {
   it('keeps the parent shop focused on managing real offers', () => {
     resolvePedestalImage.mockReturnValue({ url: '/synthetic/treasure-card.png', width: 512, height: 512, assetId: 'card-front-treasure', variantId: 'web' });
     const { container } = render(<RewardShop rewards={[reward]} isParent coinBalance={0} onEdit={vi.fn()} onDelete={vi.fn()} />);
-    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('[data-pedestal-image="card-front-treasure"]')).toBeNull();
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Choose something to work toward' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Edit reward' })).toBeEnabled();
   });

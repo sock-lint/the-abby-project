@@ -1,0 +1,33 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 102,
+      "name": "Fixture honor badge",
+      "description": "",
+      "icon": "",
+      "subject": null,
+      "criteria_type": "first_project",
+      "criteria_value": {},
+      "xp_bonus": 0,
+      "rarity": "legendary",
+      "catalog_available": true,
+      "coin_bonus": 0
+    },
+    {
+      "id": 101,
+      "name": "Fixture rare achievement",
+      "description": "",
+      "icon": "",
+      "subject": null,
+      "criteria_type": "first_project",
+      "criteria_value": {},
+      "xp_bonus": 30,
+      "rarity": "rare",
+      "catalog_available": true,
+      "coin_bonus": 35
+    }
+  ]
+}

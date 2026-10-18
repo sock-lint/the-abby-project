@@ -1,10 +1,8 @@
 import { forwardRef } from 'react';
-import PedestalImage from '../../pedestal/PedestalImage';
-import '../../pedestal/storybook-accents.css';
 
 /**
- * Shared storybook panel. Legacy variant/decoration props remain compatible
- * with existing pages; every surface now has rounded edges and soft accents.
+ * Shared Meadow panel. Legacy decoration props remain accepted, but artwork
+ * belongs in dedicated content areas rather than the panel's corners.
  */
 const ParchmentCard = forwardRef(function ParchmentCard(
   {
@@ -33,35 +31,17 @@ const ParchmentCard = forwardRef(function ParchmentCard(
 
   const base =
     'relative p-5 shadow-[0_8px_24px_-12px_var(--color-modal-shadow-strong)]';
-  const decorated = Boolean(flourish || seal);
+  const contentLayout = flourish || seal ? 'min-w-0 [overflow-wrap:anywhere]' : '';
 
   return (
     <Tag
       ref={ref}
-      className={`${base} ${toneClasses} ${variantClasses} ${decorated ? 'storybook-panel' : ''} ${className}`}
-      data-storybook-panel={decorated ? 'true' : undefined}
+      className={`${base} ${toneClasses} ${variantClasses} ${contentLayout} ${className}`}
       {...props}
     >
-      {decorated && <StorybookCorners flourish={flourish} seal={seal} />}
       {children}
     </Tag>
   );
 });
-
-function StorybookCorners({ flourish, seal }) {
-  const positions = {
-    'top-left': 'top-2 left-2',
-    'top-right': 'top-2 right-2 storybook-corner--right',
-    'bottom-left': 'bottom-2 left-2 storybook-corner--bottom',
-    'bottom-right': 'bottom-2 right-2 storybook-corner--end',
-  };
-  // Combined legacy props request the same two accents, never extra ornaments.
-  const corners = flourish ? ['top-left', 'bottom-right'] : [positions[seal] ? seal : 'top-right'];
-  return <>
-    {corners.map(position => <span key={position} className={`storybook-corner ${positions[position]}`} aria-hidden="true" data-storybook-corner>
-      <PedestalImage assetId="corner-decor-01" fallback="" />
-    </span>)}
-  </>;
-}
 
 export default ParchmentCard;

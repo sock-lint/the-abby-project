@@ -22,6 +22,7 @@ import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
 import PrintingSection from './manage/PrintingSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
+import DeleteMemberAccountAction from './manage/DeleteMemberAccountAction';
 import { useApi, useAuth } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
 import BottomSheet from '../components/BottomSheet';
@@ -416,7 +417,6 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
       </form>
       <UserManagementActions
         user={child}
-        kind="child"
         api={{
           resetPassword: resetChildPassword,
           deactivate: deactivateChild,
@@ -439,12 +439,11 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
  * EditChildModal and EditParentModal so the two paths stay in lockstep.
  */
 function UserManagementActions({
-  user, kind, api, canDelete, canReset = true, canDeactivate = true,
+  user, api, canDelete, canReset = true, canDeactivate = true,
   onChanged, onRemoved,
 }) {
   const [resetting, setResetting] = useState(false);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [actionError, setActionError] = useState(null);
 
   const inactive = user.is_active === false;
@@ -460,17 +459,6 @@ function UserManagementActions({
         await api.deactivate(user.id);
       }
       onChanged();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  };
-
-  const handleDeleteConfirmed = async () => {
-    setConfirmingDelete(false);
-    setActionError(null);
-    try {
-      await api.remove(user.id);
-      onRemoved();
     } catch (err) {
       setActionError(err.message);
     }
@@ -507,15 +495,7 @@ function UserManagementActions({
           </Button>
         )}
         {canDelete && (
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => setConfirmingDelete(true)}
-            className="flex items-center justify-center gap-1.5"
-          >
-            <Trash2 size={14} /> Delete account
-          </Button>
+          <DeleteMemberAccountAction member={user} remove={api.remove} onRemoved={onRemoved} />
         )}
       </div>
 
@@ -543,60 +523,7 @@ function UserManagementActions({
           onCancel={() => setConfirmingDeactivate(false)}
         />
       )}
-      {confirmingDelete && (
-        <DeleteAccountConfirm
-          user={user}
-          kind={kind}
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setConfirmingDelete(false)}
-        />
-      )}
     </div>
-  );
-}
-
-/**
- * Type-to-confirm dialog for hard-delete. Built on BottomSheet rather
- * than ConfirmDialog because we need a text input that gates the
- * destructive button — a single confirm-label dialog can't carry that.
- */
-function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
-  const phrase = `delete ${user.username}`;
-  const [typed, setTyped] = useState('');
-  const matches = typed.trim() === phrase;
-  const label = user.display_name || user.username;
-
-  return (
-    <BottomSheet title={`Delete ${label}'s account?`} onClose={onCancel}>
-      <div className="space-y-3">
-        <p className="text-body text-ink-secondary">
-          This permanently removes <span className="font-semibold">{label}</span>{' '}
-          and all their {kind === 'parent' ? 'family-admin records' : 'history (projects, badges, photos, ledger entries)'}. This cannot be undone.
-        </p>
-        <p className="text-body text-ink-whisper">
-          To confirm, type <code className="px-1 bg-ink-page-shadow/60 rounded">{phrase}</code> below.
-        </p>
-        <TextField
-          label="Type to confirm"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          autoComplete="off"
-        />
-        <div className="flex gap-2 justify-end pt-2">
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            disabled={!matches}
-            onClick={onConfirm}
-          >
-            Delete account
-          </Button>
-        </div>
-      </div>
-    </BottomSheet>
   );
 }
 
@@ -887,7 +814,7 @@ function FamilySection() {
                 )}
                 {parent.is_primary && (
                   <span className="text-tiny px-1.5 py-0.5 rounded bg-sheikah-teal/20 text-sheikah-teal-deep font-normal">
-                    Founder
+                    Family contact
                   </span>
                 )}
                 {inactive && (
@@ -1045,7 +972,6 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
       </form>
       <UserManagementActions
         user={parent}
-        kind="parent"
         api={{
           resetPassword: resetParentPassword,
           deactivate: deactivateParent,

@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
-import Button from '../../components/Button';
+import { Search } from 'lucide-react';
 import EmptyState from '../../components/EmptyState';
 import RpgSprite from '../../components/rpg/RpgSprite';
 
@@ -11,15 +10,8 @@ function groupByPack(list) {
   }, {});
 }
 
-/**
- * SpritesBlock — parent-only master catalog of every registered sprite.
- *
- * Renders a search box + "Create sprite" button above a grouped grid
- * (one section per pack). Clicking a tile fires `onSelect(sprite)` so the
- * parent CodexSection can open the SpriteDetailSheet; clicking Create fires
- * `onCreate()` so the parent can open SpriteGenerateModal in create mode.
- */
-export default function SpritesBlock({ sprites, onSelect, onCreate }) {
+/** Browse prepared artwork in the shared sprite catalog. */
+export default function SpritesBlock({ sprites, onSelect }) {
   const [query, setQuery] = useState('');
 
   const filtered = useMemo(() => {
@@ -48,15 +40,11 @@ export default function SpritesBlock({ sprites, onSelect, onCreate }) {
             aria-label="Search sprites by slug"
           />
         </div>
-        <Button variant="primary" size="sm" onClick={onCreate}>
-          <Plus size={14} aria-hidden className="mr-1" />
-          Create sprite
-        </Button>
       </div>
 
       {sprites.length === 0 ? (
         <EmptyState>
-          No sprites registered yet. Click "Create sprite" to author the first one.
+          No sprites registered yet.
         </EmptyState>
       ) : filtered.length === 0 ? (
         <EmptyState>No sprites match "{query}".</EmptyState>

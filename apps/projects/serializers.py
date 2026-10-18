@@ -11,6 +11,7 @@ from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
     TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
+    TemplateSkillTag, TemplateMilestoneSkillTag,
     User,
 )
 from .planning_serializers import ProjectPlanSerializer
@@ -62,7 +63,14 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
-class ChildSerializer(serializers.ModelSerializer):
+class MemberPasswordUpdateGuard:
+    def validate_password(self, value):
+        if self.instance is not None:
+            raise serializers.ValidationError("Use the reset-password action to change a password.")
+        return value
+
+
+class ChildSerializer(MemberPasswordUpdateGuard, serializers.ModelSerializer):
     google_linked = serializers.SerializerMethodField()
     age_years = serializers.IntegerField(read_only=True, allow_null=True)
     current_grade = serializers.IntegerField(read_only=True, allow_null=True)
@@ -103,14 +111,13 @@ class ChildSerializer(serializers.ModelSerializer):
         return User.objects.create_user(password=password, **validated_data)
 
 
-class ParentSerializer(serializers.ModelSerializer):
+class ParentSerializer(MemberPasswordUpdateGuard, serializers.ModelSerializer):
     """Read/write shape for parents within a family.
 
     Mirrors ChildSerializer but drops earnings-side fields (``hourly_rate``,
     ``date_of_birth``, ``grade_entry_year``) since parents don't earn or
-    have a school chapter, and exposes ``is_active`` so the existing PATCH
-    surface can flip it (the ``deactivate`` / ``reactivate`` actions are the
-    canonical write path though).
+    have a school chapter. The existing ``is_active`` PATCH surface applies
+    the same lifecycle guards and token revocation as the dedicated actions.
     """
 
     google_linked = serializers.SerializerMethodField()
@@ -405,10 +412,24 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         return project
 
 
+class TemplateSkillTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateSkillTag
+        fields = ["skill_id", "xp_weight"]
+
+
+class TemplateMilestoneSkillTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateMilestoneSkillTag
+        fields = ["skill_id", "xp_amount"]
+
+
 class TemplateMilestoneSerializer(serializers.ModelSerializer):
+    skill_tags = TemplateMilestoneSkillTagSerializer(many=True, read_only=True)
+
     class Meta:
         model = TemplateMilestone
-        fields = ["id", "title", "description", "order", "bonus_amount"]
+        fields = ["id", "title", "description", "order", "bonus_amount", "skill_tags"]
 
 
 class TemplateMaterialSerializer(serializers.ModelSerializer):
@@ -432,6 +453,7 @@ class TemplateStepSerializer(serializers.ModelSerializer):
 
 
 class ProjectTemplateSerializer(serializers.ModelSerializer):
+    skill_tags = TemplateSkillTagSerializer(many=True, read_only=True)
     milestones = TemplateMilestoneSerializer(many=True, read_only=True)
     materials = TemplateMaterialSerializer(many=True, read_only=True)
     steps = TemplateStepSerializer(many=True, read_only=True)
@@ -449,7 +471,7 @@ class ProjectTemplateSerializer(serializers.ModelSerializer):
             "id", "title", "description", "instructables_url", "difficulty",
             "category", "category_id", "bonus_amount", "materials_budget",
             "source_project", "created_by", "is_public", "created_at",
-            "milestones", "materials", "steps", "resources",
+            "milestones", "materials", "steps", "resources", "skill_tags",
         ]
         read_only_fields = ["created_by", "created_at"]
 

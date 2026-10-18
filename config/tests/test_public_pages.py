@@ -45,7 +45,7 @@ class PublicInformationPagesTests(SimpleTestCase):
     def test_privacy_discloses_permission_storage_and_disconnect_limits(self):
         response = self.client.get(reverse("public-privacy"))
         for disclosure in (
-            "October 13, 2026",
+            "October 17, 2026",
             "https://www.googleapis.com/auth/calendar.events.owned",
             "encrypted credentials",
             "does not revoke Google's authorization grant",
@@ -54,6 +54,34 @@ class PublicInformationPagesTests(SimpleTestCase):
             "https://myaccount.google.com/connections",
             "private by default",
             "copies in deployment backups",
+            "scheduled for storage cleanup",
+            "Failed cleanup is recorded and retried",
+            "not comprehensive anonymization",
+            "device drafts may also remain",
+            "password-confirmed self-deletion",
+            "Private journals are deleted with their owner and never transferred",
+            "The last active parent",
+            "parents keep equal access",
+            "remove or redact structurally linked activity",
+            "a child's shared homework, chores and habits automatically pass to an active parent in their family",
+            "If no active parent is available, that shared work must be resolved before self-deletion",
+        ):
+            with self.subTest(disclosure=disclosure):
+                self.assertContains(response, disclosure)
+
+    def test_privacy_discloses_ai_recipients_and_google_derived_transfers(self):
+        response = self.client.get(reverse("public-privacy"))
+        for disclosure in (
+            'id="ai"',
+            "Anthropic",
+            "OpenAI",
+            "12,000 characters",
+            "before you review",
+            "Google-derived text",
+            "External assistants through MCP",
+            "external speech service",
+            "Removing that connection stops new family planning requests",
+            "no longer provides AI sprite or image generation",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)
