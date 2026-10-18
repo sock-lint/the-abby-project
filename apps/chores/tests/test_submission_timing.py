@@ -287,4 +287,3 @@ class ChoreSubmissionTimingTests(TestCase):
                 row = next(item for item in response.json()["results"] if item["id"] == completion.pk)
                 self.assertEqual(row["timing_snapshot"]["due_on"], "2026-10-18")
                 self.assertEqual(row["current_due_date"], current_due.isoformat() if current_due else None)
-
