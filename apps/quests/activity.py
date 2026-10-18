@@ -1,5 +1,6 @@
 """Resolve persisted work to retryable challenge facts, without private prose."""
 import logging
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.apps import apps
@@ -19,6 +20,20 @@ def household_timezone(user):
 
 def _tags(manager, weight="xp_weight"):
     return [{"skill_id": tag.skill_id, "xp_weight": getattr(tag, weight, 1)} for tag in manager.all()]
+
+
+def _homework_work_day(submission):
+    snapshot = submission.timing_snapshot
+    if (isinstance(snapshot, dict) and snapshot.get("version") == 1
+            and snapshot.get("schedule") == "homework"):
+        try:
+            return date.fromisoformat(snapshot.get("submitted_on"))
+        except (TypeError, ValueError):
+            pass
+    # Older homework used the configured Django day when submitted. Its
+    # original household timezone was not saved; today's family/request zone
+    # cannot recover it. Existing challenge facts keep their already saved day.
+    return timezone.localdate(submission.created_at, timezone=timezone.get_default_timezone())
 
 
 def resolve_activity(user, trigger_type, context):
@@ -59,7 +74,7 @@ def resolve_activity(user, trigger_type, context):
         occurred_on = source.completed_date
         safe_context = {"chore_id": source.chore_id, "skill_tags": _tags(source.chore.skill_tags)}
     elif trigger == "homework_complete":
-        occurred_on = timezone.localdate(source.created_at, timezone=household_timezone(user))
+        occurred_on = _homework_work_day(source)
         occurred_at = source.decided_at or occurred_at
         safe_context = {"assignment_id": source.assignment_id, "on_time": source.timeliness in ("early", "on_time"),
                         "skill_tags": _tags(source.assignment.skill_tags, "xp_amount")}
@@ -187,8 +202,14 @@ def backfill_goal_activity(goal):
     goal, without replaying historical catalog, daily, drop or XP awards.
     """
     from .models import ChallengeActivity
-    start_day = timezone.localdate(goal.starts_at, timezone=household_timezone(goal.user))
-    end_day = timezone.localdate(goal.ends_at, timezone=household_timezone(goal.user))
+    zone = ZoneInfo(goal.timezone_name)
+    start_day = timezone.localdate(goal.starts_at, timezone=zone)
+    end_day = timezone.localdate(goal.ends_at, timezone=zone)
+    # Homework can have been submitted in a different household timezone.
+    # Bound the scan to this calendar range plus one UTC day on each side,
+    # covering every source offset, then compare its frozen work day below.
+    homework_start = datetime.combine(start_day - timedelta(days=1), time.min, tzinfo=UTC)
+    homework_end = datetime.combine(end_day + timedelta(days=1), time.min, tzinfo=UTC)
     allowed = goal.trigger_filter.get("allowed_triggers") or []
     scans = {
         "movement_session": ("movement.MovementSession", "session_id", {
@@ -196,7 +217,7 @@ def backfill_goal_activity(goal):
         "chore_complete": ("chores.ChoreCompletion", "completion_id", {
             "user": goal.user, "status": "approved", "completed_date__gte": start_day, "completed_date__lt": end_day}),
         "homework_complete": ("homework.HomeworkSubmission", "submission_id", {
-            "user": goal.user, "status": "approved", "created_at__gte": goal.starts_at, "created_at__lt": goal.ends_at}),
+            "user": goal.user, "status": "approved", "created_at__gte": homework_start, "created_at__lt": homework_end}),
         "clock_out": ("timecards.TimeEntry", "time_entry_id", {
             "user": goal.user, "status": "completed", "clock_out__gte": goal.starts_at, "clock_out__lt": goal.ends_at}),
         "homework_created": ("homework.HomeworkAssignment", "assignment_id", {
@@ -222,6 +243,8 @@ def backfill_goal_activity(goal):
             filters["movement_type_id"] = goal.movement_type_id
         for source in apps.get_model(model).objects.filter(**filters).iterator(chunk_size=100):
             data = resolve_activity(goal.user, trigger, {key: source.pk})
+            if trigger == "homework_complete" and data and not start_day <= data["occurred_on"] < end_day:
+                continue
             if data:
                 identity = {field: data[field] for field in ("source_type", "source_id", "trigger_type")}
                 ChallengeActivity.objects.get_or_create(user=goal.user, **identity, defaults={
