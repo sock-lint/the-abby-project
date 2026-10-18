@@ -97,9 +97,15 @@ class BadgeSerializer(serializers.ModelSerializer):
         return max(0, int(getattr(settings, "COINS_PER_BADGE_RARITY", {}).get(obj.rarity, 0)))
 
     def get_catalog_available(self, obj):
-        from .availability import badge_goal_is_available
+        from .availability import BadgeGoalAvailability, availability_for_request
         request = self.context.get("request")
-        return badge_goal_is_available(obj, getattr(request, "user", None))
+        if request is not None:
+            availability = availability_for_request(request)
+        else:
+            if "badge_goal_availability" not in self.context:
+                self.context["badge_goal_availability"] = BadgeGoalAvailability()
+            availability = self.context["badge_goal_availability"]
+        return availability.is_available(obj)
 
     class Meta:
         model = Badge

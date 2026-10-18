@@ -23,6 +23,14 @@ lower a badge requirement. Generic engine tests can use explicit scoped
 synthetic catalog bindings. Regression coverage is in
 `apps/rpg/tests/test_catalog_consumers.py`.
 
+Badge catalog, earned-list and summary reads share lazy availability inputs
+within one request, including supported companion pairs and that account's
+saved collections. `available_pet_pairs` batches authored compatibility reads;
+an empty compatibility relation keeps its existing unrestricted meaning.
+Standalone service checks and later requests recompute availability after
+ownership or catalog changes. Query-growth and account-isolation regressions
+live in `tests/test_badge_availability_queries.py`.
+
 ## Models
 - `SkillCategory → Subject → Skill → Badge` — full hierarchy.
 - `SkillPrerequisite` — allows cross-category and cross-subject requirements.
