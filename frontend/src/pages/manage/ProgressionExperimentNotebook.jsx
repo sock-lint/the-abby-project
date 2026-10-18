@@ -11,9 +11,9 @@ import { SelectField, TextAreaField, TextField } from '../../components/form';
 import { scenariosMatch } from './progressionLabScenario';
 import { ExperimentComparison, ProgressionObservations, RewardProposal } from './ProgressionExperimentEvidence';
 const clone = (value) => JSON.parse(JSON.stringify(value));
-const controlRoutine = (routine) => ({ ...clone(routine), reward_budget: { daily_coins: null } });
-const fields = (experiment) => ({ name: experiment.name, hypothesis: experiment.hypothesis, config: clone(experiment.config), candidate_daily_coins: experiment.candidate_daily_coins, targets: experiment.targets.map((target) => ({ metric: target.metric, min: target.min ?? '', max: target.max ?? '' })) });
-const freshEditor = (routine) => ({ name: '100-Coin starting experiment', hypothesis: 'Reduce automatic Coin income while preserving reward pacing.', config: controlRoutine(routine), candidate_daily_coins: 100, targets: [] });
+const controlRoutine = (routine) => ({ ...clone(routine), reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } });
+const fields = (experiment) => ({ name: experiment.name, hypothesis: experiment.hypothesis, config: clone(experiment.config), candidate_daily_coins: experiment.candidate_daily_coins, candidate_policy: experiment.candidate_policy ?? 'envelope', targets: experiment.targets.map((target) => ({ metric: target.metric, min: target.min ?? '', max: target.max ?? '' })) });
+const freshEditor = (routine) => ({ name: '100-Coin starting experiment', hypothesis: 'Reduce automatic Coin income while preserving reward pacing.', config: controlRoutine(routine), candidate_daily_coins: 100, candidate_policy: 'envelope', targets: [] });
 const decisionLabels = { keep_testing: 'Keep testing', revise: 'Revise', ready_for_design: 'Ready for design' };
 const blankDecision = { outcome: 'keep_testing', rationale: '', next_action: '', review_on: '' };
 
@@ -107,7 +107,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
   if (denied) return <p role="status">Saved experiments are available to staff parents.</p>;
   return <section aria-label="Progression experiment notebook" className="space-y-4">
     <ParchmentCard className="space-y-4">
-      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare the uncapped control with a per-child daily Coin candidate, then record what to do next. No decision here changes live rewards.</SectionHeader>
+      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare the installed control with a payout envelope or commitment prototype, then record what to do next. No decision here changes live rewards.</SectionHeader>
       <ErrorAlert message={readError} onRetry={read} />
       {loading && <p role="status">Loading saved experiments…</p>}
       {metadata && <>
@@ -116,8 +116,11 @@ export default function ProgressionExperimentNotebook({ routine }) {
           <fieldset disabled={busy} className="min-w-0 space-y-3"><legend className="sr-only">Experiment assumptions</legend>
             <TextField label="Experiment name" value={editor.name} maxLength={100} required onChange={(event) => change('name', event.target.value)} />
             <TextAreaField label="Hypothesis" value={editor.hypothesis} maxLength={2000} required onChange={(event) => change('hypothesis', event.target.value)} helpText="Describe the expected improvement. Use anonymous design notes without child names or private family details." />
-            <TextField label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />
-            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. Control is uncapped; the candidate differs only by the shared expedition and pouch Coin allowance.</p>
+            <SelectField label="Candidate reward policy" value={editor.candidate_policy} onChange={(event) => setEditor((previous) => ({ ...previous, candidate_policy: event.target.value, ...(event.target.value === 'commitment100' ? { candidate_daily_coins: 100 } : {}) }))}>
+              <option value="envelope">Hypothetical payout envelope</option><option value="commitment100">100-Coin commitment prototype (75 / 25)</option>
+            </SelectField>
+            <TextField disabled={editor.candidate_policy === 'commitment100'} label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />
+            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. Control uses installed reward rules. {editor.candidate_policy === 'commitment100' ? 'The candidate reserves new promises before launch or drop, with 75 Coins for expeditions and 25 for random activity pouches. Existing and authored promises pay fully.' : 'The candidate omits excess expedition and pouch payouts in a hypothetical shared daily envelope.'}</p>
             {!scenariosMatch(controlRoutine(routine), editor.config) && <p role="status" className="text-ember-deep">The routine above differs from this experiment. Use it explicitly to update the saved assumptions.</p>}
             <Button variant="secondary" onClick={() => change('config', controlRoutine(routine))}>Use current routine</Button>
             <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Inspect experiment routine</summary><pre className="max-h-64 overflow-auto text-caption">{JSON.stringify(editor.config, null, 2)}</pre></details>

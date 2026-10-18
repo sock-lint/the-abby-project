@@ -35,7 +35,7 @@ from django.db.models import F
 from django.utils import timezone
 from apps.rpg.catalog_icons import item_catalog_icon
 
-from .catalog_support import available_items, item_is_available
+from .catalog_support import available_random_items, item_is_available, random_item_is_available
 
 from apps.rpg.constants import TriggerType
 from apps.rpg.models import CharacterProfile
@@ -359,7 +359,7 @@ class DropService:
         entries = [entry for entry in DropTable.objects.filter(
             trigger_type=trigger_type,
             min_level__lte=user_level,
-        ).select_related("item", "item__pet_species", "item__potion_type") if item_is_available(entry.item)]
+        ).select_related("item", "item__pet_species", "item__potion_type") if random_item_is_available(entry.item)]
 
         if not entries:
             return []
@@ -1072,7 +1072,7 @@ class ConsumableService:
             # previous drop; "open the box and see what you got" reads well.
             from apps.rpg.models import ItemDefinition
             from apps.rpg.inventory import grant_item
-            eligible = available_items(
+            eligible = available_random_items(
                 ItemDefinition.objects.filter(
                     rarity__in=meta.get("rarities", ["common", "uncommon"]),
                 ).exclude(
@@ -1102,7 +1102,7 @@ class ConsumableService:
             from apps.rewards.models import CoinLedger
             from apps.rewards.services import CoinService
             from apps.rpg.models import ItemDefinition, UserInventory
-            eligible = available_items(
+            eligible = available_random_items(
                 ItemDefinition.objects.filter(
                     rarity__in=meta.get("rarities", ["uncommon", "rare", "epic"]),
                     item_type__startswith="cosmetic_",
@@ -1210,7 +1210,7 @@ class ConsumableService:
             # kids who want to build up a feeding stockpile.
             from apps.rpg.models import ItemDefinition, UserInventory
             count = int(meta.get("count", 2))
-            foods = available_items(ItemDefinition.objects.filter(
+            foods = available_random_items(ItemDefinition.objects.filter(
                 item_type=ItemDefinition.ItemType.FOOD,
             ))
             if not foods:

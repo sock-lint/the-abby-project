@@ -700,6 +700,8 @@ class ContentPack:
                         ) from exc
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
                         continue
+                    if isinstance(item.metadata, dict) and item.metadata.get("no_random_drop") is True:
+                        continue
                     _, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": weight, "min_level": min_level},
@@ -734,6 +736,10 @@ class ContentPack:
             for trigger in triggers:
                 for item in qs:
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
+                        continue
+                    # Earned-only cosmetics must not enter global macros on a
+                    # later seed reload, before their chapter is completed.
+                    if isinstance(item.metadata, dict) and item.metadata.get("no_random_drop") is True:
                         continue
                     w = int(
                         weight_by_rarity.get(item.rarity, 0) if weight_by_rarity else (flat_weight or 1)

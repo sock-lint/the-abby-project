@@ -21,6 +21,10 @@ export function withPrintQuotes(economy) {
   };
 }
 
+export function rewardPolicyLabel(config) {
+  return config?.reward_commitment?.enabled ? '100-Coin commitment prototype (75 expeditions / 25 activity pouches)' : rewardBudgetLabel(config?.reward_budget);
+}
+
 export function rewardBudgetLabel(budget) {
   return budget?.daily_coins == null ? 'Uncapped per child' : `${budget.daily_coins} Coins per child per day`;
 }
@@ -71,8 +75,8 @@ export function importedScenario(saved, metadata) {
   const config = saved?.config;
   if (saved?.schema_version !== 1 || !isObject(config)) throw new Error('The report must contain a complete supported routine.');
   const defaults = metadata.defaults;
-  const flatKeys = Object.keys(defaults).filter((key) => !['economy', 'reward_budget'].includes(key));
-  if (Object.keys(config).some((key) => !flatKeys.includes(key) && !['economy', 'reward_budget'].includes(key)) || flatKeys.some((key) => !(key in config))) throw new Error('The report must contain a complete supported routine.');
+  const flatKeys = Object.keys(defaults).filter((key) => !['economy', 'reward_budget', 'reward_commitment'].includes(key));
+  if (Object.keys(config).some((key) => !flatKeys.includes(key) && !['economy', 'reward_budget', 'reward_commitment'].includes(key)) || flatKeys.some((key) => !(key in config))) throw new Error('The report must contain a complete supported routine.');
   for (const key of flatKeys) validateValue(config[key], metadata.limits[key], defaults[key], key.replaceAll('_', ' '));
   const result = clone(config);
   if ('economy' in config) result.economy = validateEconomy(config.economy, metadata);
@@ -84,5 +88,13 @@ export function importedScenario(saved, metadata) {
     for (const key of Object.keys(budgetDefaults)) validateValue(config.reward_budget[key], metadata.reward_budget_limits[key], budgetDefaults[key], `reward budget ${key.replaceAll('_', ' ')}`);
     result.reward_budget = clone(config.reward_budget);
   } else if (budgetDefaults) result.reward_budget = { ...clone(budgetDefaults), daily_coins: null };
+  const commitmentDefaults = metadata.reward_commitment_defaults ?? defaults.reward_commitment;
+  if ('reward_commitment' in config) {
+    if (!commitmentDefaults) throw new Error('Reward commitments are not supported by these rules.');
+    exactKeys(config.reward_commitment, ['enabled'], 'The report must contain a supported commitment policy.');
+    if (typeof config.reward_commitment.enabled !== 'boolean') throw new Error('Commitment enabled must be a boolean.');
+    result.reward_commitment = clone(config.reward_commitment);
+  } else if (commitmentDefaults) result.reward_commitment = { enabled: false };
+  if (result.reward_commitment?.enabled && result.reward_budget?.daily_coins != null) throw new Error('Choose either a payout envelope or the commitment prototype.');
   return result;
 }

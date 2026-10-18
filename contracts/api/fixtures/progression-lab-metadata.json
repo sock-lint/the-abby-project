@@ -38,6 +38,9 @@
     },
     "reward_budget": {
       "daily_coins": null
+    },
+    "reward_commitment": {
+      "enabled": false
     }
   },
   "limits": {
@@ -132,6 +135,9 @@
       "type": "object"
     },
     "reward_budget": {
+      "type": "object"
+    },
+    "reward_commitment": {
       "type": "object"
     }
   },
@@ -272,6 +278,38 @@
     "expeditions_salvage",
     "coin_pouches"
   ],
+  "reward_commitment_defaults": {
+    "enabled": false
+  },
+  "reward_commitment_policy": {
+    "daily_coins": 100,
+    "expedition_daily_coins": 75,
+    "activity_pouch_daily_coins": 25,
+    "tiers": {
+      "short": {
+        "direct_coins": 10,
+        "item_slots": 1
+      },
+      "standard": {
+        "direct_coins": 25,
+        "item_slots": 2
+      },
+      "long": {
+        "direct_coins": 50,
+        "item_slots": 3
+      }
+    }
+  },
+  "reward_commitment_assumptions": [
+    "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+    "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
+    "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
+    "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",
+    "Frozen expeditions, owned pouches and authored challenge pouches pay their full promises. Authored pouches and other Coin sources, including random activity cosmetic salvage, remain outside these allocations.",
+    "Commitments, wallet credits and contingent salvage are separate quantities. Late claims or pouch opening can pay more than 100 Coins in one day. Unused contingent salvage is released at claim without restoring a past day's allocation.",
+    "Consumables and boosts, including Lucky Coin timing, are unmodeled. This experiment cannot establish a live maximum claim or a rollout-ready reservation protocol.",
+    "Unavailable finite targets are excluded acquisition paths, not extra playable runway. Reachability is source-level potential, not a promise of completion within the horizon."
+  ],
   "catalog": {
     "fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
     "skills": 5,
@@ -291,7 +329,8 @@
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
-      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
+      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
+      "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards"
     ],
     "excluded": [
       "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -394,8 +433,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "fd145d741282c6cf5368c896a3a349eedce904e865b1e41e1c25b4b352986ef5",
-  "engine_version": "2026-10-18.2",
+  "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
+  "engine_version": "2026-10-18.3",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,
@@ -443,6 +482,9 @@
         },
         "reward_budget": {
           "daily_coins": null
+        },
+        "reward_commitment": {
+          "enabled": false
         }
       }
     },
@@ -486,6 +528,9 @@
         },
         "reward_budget": {
           "daily_coins": null
+        },
+        "reward_commitment": {
+          "enabled": false
         }
       }
     },
@@ -529,6 +574,9 @@
         },
         "reward_budget": {
           "daily_coins": null
+        },
+        "reward_commitment": {
+          "enabled": false
         }
       }
     }

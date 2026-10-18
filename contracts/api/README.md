@@ -18,6 +18,15 @@ including expedition salvage, without altering parent-authored chore rewards
 or any live economy rule. Metadata publishes the nullable whole-Coin bound;
 legacy routines omit the field and retain uncapped behavior.
 
+`progression-lab-commitment-report.json` and
+`progression-experiment-commitment-comparison.json` cover the separate hypothetical
+`reward_commitment.enabled` policy. It reserves new promises before synthetic
+grants and remains mutually exclusive with the payout envelope. Saved experiment
+`candidate_policy` selects `envelope` or `commitment100`; omitted creates retain
+the original envelope default, while omitted updates preserve the saved policy.
+The existing progression producer and React consumer above verify both examples;
+they contain synthetic data and change no live reward policy.
+
 `progression-experiment-list.json`, `progression-experiment-comparison.json`
 and `progression-experiment-decided.json` bind the private experiment notebook
 to its real staff-parent endpoints. The server generates immutable control and
@@ -844,6 +853,17 @@ without adding it to balances locally. Replays, corrections, deletion and
 historical logging never rearm the reward; retained daily progress and request
 identities survive deleted logs. The producer checks the real XP and Coins
 ledger after retries, corrections, deletion and a replacement log.
+
+`challenge-reading-goal-created.json`, `challenge-reading-threshold-session.json`
+and `challenges-reading-completed.json` bind a parent-authored Reading Adventure
+count goal to real four-plus-six-minute reading logs. The durable daily reward
+receipt advances that explicit goal once; individual sessions and extra minutes
+cannot grant extra goal credit. The ordinary reading reward remains separate
+from the goal's zero-Coin/zero-XP receipt and does not qualify for the project or
+movement daily bonus. The producer is
+`config.tests.test_challenge_api_contract_fixtures`; its React consumer is
+`frontend/src/api/challengeContractFixtures.test.js`.
+
 Saved book responses add `catalog_entry` or null. Catalog recognition normalizes
 title/author case and whitespace; a blank legacy author is accepted only when
 the title is unique. Recommendations use 64 bundled publisher-sourced books,

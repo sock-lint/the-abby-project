@@ -126,6 +126,55 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_parent_reading_goal_counts_the_daily_reward_receipt_after_real_threshold(self):
+        from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession
+
+        self.catalog.is_system = False
+        self.catalog.save(update_fields=["is_system"])
+        category = SkillCategory.objects.create(id=23, name="Language Arts")
+        skill = Skill.objects.create(id=24, name="Reading Comprehension", category=category)
+        book = ReadingBook.objects.create(
+            id=101, user=self.child, title="Fixture reading adventure", create_payload={},
+            client_request_id="77777777-7777-4777-8777-777777777777",
+        )
+        with connection.cursor() as cursor:
+            for sql in connection.ops.sequence_reset_sql(no_style(), [ReadingSession, ReadingDailyReward]):
+                cursor.execute(sql)
+        created = self.assert_response_fixture(self.client.post("/api/challenges/goals/", {
+            "request_id": "44444444-4444-4444-8444-444444444444",
+            "user_id": self.child.pk, "name": "One Reading Adventure",
+            "trigger_type": "reading_logged", "metric": "count", "target": "1", "unit": "actions",
+            "period": "from_today", "coin_reward": 0, "xp_reward": 0,
+        }, format="json"), "challenge-reading-goal-created.json", status=201)
+        self.assertEqual((created["origin"], created["what_counts"]),
+                         ("parent", "daily Reading Adventures (ten newly logged minutes, once per day)"))
+        self.authenticate(self.child)
+        first = self.client.post("/api/reading-sessions/", {
+            "book": book.pk, "duration_minutes": 4,
+            "client_request_id": "88888888-8888-4888-8888-888888888888",
+        }, format="json")
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertIsNone(first.data["reading_reward"])
+        self.assertEqual(self.client.get("/api/challenges/").json()["results"][0]["progress"], "0")
+        threshold_payload = {
+            "book": book.pk, "duration_minutes": 6, "format": "audiobook",
+            "client_request_id": "99999999-9999-4999-8999-999999999999",
+        }
+        threshold = self.assert_response_fixture(self.client.post(
+            "/api/reading-sessions/", threshold_payload, format="json",
+        ), "challenge-reading-threshold-session.json", status=201)
+        self.assertEqual(threshold["reading_reward"], {"day": "2026-10-14", "xp_awarded": 15, "coins_awarded": 5})
+        completed = self.assert_response_fixture(self.client.get("/api/challenges/"), "challenges-reading-completed.json")
+        self.assertEqual(len(completed["results"]), 1)
+        self.assertEqual((completed["results"][0]["progress"], completed["results"][0]["status"]), ("1", "completed"))
+        self.assertEqual(completed["results"][0]["reward_receipt"]["coins_awarded"], 0)
+        self.assertFalse(completed["daily_bonus"]["awarded"])
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=skill).xp_points, 15)
+        paid = self.state()
+        self.assertEqual(self.client.post("/api/reading-sessions/", threshold_payload, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+        self.assertEqual(self.state(), paid)
+
     def test_parent_goal_pin_and_two_real_runs_preserve_automatic_rewards(self):
         created = self.assert_response_fixture(self.create_goal(), "challenge-goal-created.json", status=201)
         self.assertEqual(created["origin"], "parent")

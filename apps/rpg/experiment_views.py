@@ -20,9 +20,11 @@ class ComparisonThrottle(UserRateThrottle):
     rate = "5/min"
 
 
-def _body(request, keys):
-    if not isinstance(request.data, dict) or set(request.data) != set(keys):
-        raise ValidationError({"detail": f"Supply exactly {', '.join(keys)}."})
+def _body(request, keys, *, optional=()):
+    if (not isinstance(request.data, dict) or set(keys) - set(request.data)
+            or set(request.data) - set(keys) - set(optional)):
+        optional_text = f" Optional: {', '.join(optional)}." if optional else ""
+        raise ValidationError({"detail": f"Supply exactly {', '.join(keys)}.{optional_text}"})
     return request.data
 
 
@@ -51,7 +53,7 @@ class ExperimentListView(_ExperimentView):
         return Response(list_experiments(request.user))
 
     def post(self, request):
-        return Response(create_experiment(request.user, _body(request, EXPERIMENT_FIELDS)), status=201)
+        return Response(create_experiment(request.user, _body(request, EXPERIMENT_FIELDS, optional=("candidate_policy",))), status=201)
 
 
 class ExperimentDetailView(_ExperimentView):
@@ -59,7 +61,7 @@ class ExperimentDetailView(_ExperimentView):
         return Response(get_experiment(request.user, experiment_id))
 
     def patch(self, request, experiment_id):
-        data = _body(request, ("revision", *EXPERIMENT_FIELDS))
+        data = _body(request, ("revision", *EXPERIMENT_FIELDS), optional=("candidate_policy",))
         return Response(save_experiment(request.user, experiment_id, data["revision"], data))
 
 

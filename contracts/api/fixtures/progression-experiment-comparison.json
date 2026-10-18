@@ -27,11 +27,11 @@
       }
     ],
     "proposal": {
-      "status": "design_outline_only",
+      "status": "lab_prototype",
       "live_ready": false,
       "blocks_live_change": true,
-      "evaluated_by_current_engine": false,
-      "title": "100-Coin daily commitment design to investigate",
+      "evaluated_by_current_engine": true,
+      "title": "100-Coin daily commitment prototype",
       "daily_new_commitment_coins": 100,
       "allocations": {
         "expeditions": 75,
@@ -76,26 +76,26 @@
       "blockers": [
         {
           "key": "commitment_model",
-          "title": "Simulate commitments before implementing them",
-          "detail": "The current 100-Coin experiment omits payout excess after synthetic claims and pouch opening. It does not simulate this proposed 75/25 allocation, reward table or reservation policy.",
-          "next_action": "Implement a separate Lab commitment model, then compare 90-day and 365-day outcomes with the installed economy and the current income-envelope experiment."
+          "title": "Evaluate the prototype against explicit targets",
+          "detail": "The Lab now separately models the 75/25 allocation, fixed expedition rewards and full-value pouch reservations. The income-envelope candidate remains a separate policy that omits payout excess.",
+          "next_action": "Save paired 90-day and 365-day comparisons with income, purchasing and content-access targets; record the design decision and affected acquisition paths before implementing live rules."
         },
         {
           "key": "promised_rewards",
           "title": "Preserve every established reward",
-          "detail": "Owned pouch values, frozen expedition loot and authored challenge rewards cannot be reduced at claim or opening. Existing pouch stacks read shared item definitions rather than a per-unit face-value snapshot.",
+          "detail": "The in-memory model pays established rewards fully. Production has no corresponding reservation protocol; existing pouch stacks read shared item definitions rather than a per-unit face-value snapshot.",
           "next_action": "Specify versioned reward definitions and reservation records; test full redemption, late claims, retries, concurrent launches and the accounting of outstanding promises."
         },
         {
           "key": "coin_boosts",
           "title": "Specify Lucky Coin timing",
-          "detail": "Live Lucky Coin can double direct expedition Coins at claim. Consumable effects are excluded from the current Lab, so its 100-Coin envelope does not prove a live maximum payout.",
+          "detail": "Live Lucky Coin can double direct expedition Coins at claim. Consumable effects are excluded from both Lab policies, so neither candidate proves a live maximum payout.",
           "next_action": "Decide when boosted value is established and reserved, then simulate and test activation, expiry and delayed claims without changing prior promises."
         },
         {
           "key": "content_reachability",
           "title": "Check pouch and collection access",
-          "detail": "Filtering unaffordable pouch or salvage-bearing item grants can change item probabilities and make some rewards unavailable. Missing acquisition paths are not additional playable runway.",
+          "detail": "The prototype reports filtered grants and unavailable finite targets because full-value reservations change acquisition paths. Missing paths are not additional playable runway, and source-level availability does not guarantee timely completion.",
           "next_action": "Audit every affected acquisition path, first-reward pacing, empty returns and collection milestones; use the content workbench for new reward versions and a reviewed code change for expedition policy."
         }
       ]
@@ -104,9 +104,9 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-18.2",
-    "rules_fingerprint": "fd145d741282c6cf5368c896a3a349eedce904e865b1e41e1c25b4b352986ef5",
-    "feedback_fingerprint": "c83bc8ff90d9ecb9e87d94b77d0c379020d47a39453b36d8f01e41fb7c519374",
+    "engine_version": "2026-10-18.3",
+    "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
+    "feedback_fingerprint": "e618616ee9a852b49ebb5fa3f810e41ea0036b6bb14c91e51d3fa42467424890",
     "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
     "source_commit": "unavailable"
   },
@@ -151,9 +151,13 @@
       },
       "reward_budget": {
         "daily_coins": null
+      },
+      "reward_commitment": {
+        "enabled": false
       }
     },
     "candidate_daily_coins": 100,
+    "candidate_policy": "envelope",
     "targets": [
       {
         "metric": "closing_coins_p50",
@@ -202,6 +206,9 @@
       },
       "reward_budget": {
         "daily_coins": null
+      },
+      "reward_commitment": {
+        "enabled": false
       }
     },
     "catalog": {
@@ -215,8 +222,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "fd145d741282c6cf5368c896a3a349eedce904e865b1e41e1c25b4b352986ef5",
-    "engine_version": "2026-10-18.2",
+    "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
+    "engine_version": "2026-10-18.3",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -226,7 +233,8 @@
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
-        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
+        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
+        "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards"
       ],
       "excluded": [
         "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -1984,11 +1992,11 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "badge": 1,
-        "quest": 1,
-        "middle": 1,
         "pet": 1,
         "cosmetic": 1,
-        "mount": 1
+        "quest": 1,
+        "mount": 1,
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 10,
@@ -3709,6 +3717,9 @@
         "Raw Coins are the included awards encountered within each policy's simulated journey, not a paired uncapped counterfactual. Coin-related progression changes can alter later eligibility and rewards.",
         "Summary and source percentiles are calculated independently across alternative trials; use means or individual trial values to reconcile source totals."
       ]
+    },
+    "reward_commitment": {
+      "enabled": false
     }
   },
   "candidate": {
@@ -3751,6 +3762,9 @@
       },
       "reward_budget": {
         "daily_coins": 100
+      },
+      "reward_commitment": {
+        "enabled": false
       }
     },
     "catalog": {
@@ -3764,8 +3778,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "fd145d741282c6cf5368c896a3a349eedce904e865b1e41e1c25b4b352986ef5",
-    "engine_version": "2026-10-18.2",
+    "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
+    "engine_version": "2026-10-18.3",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -3775,7 +3789,8 @@
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
-        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
+        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
+        "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards"
       ],
       "excluded": [
         "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -5533,11 +5548,11 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "badge": 1,
-        "quest": 1,
-        "middle": 1,
         "pet": 1,
         "cosmetic": 1,
-        "mount": 1
+        "quest": 1,
+        "mount": 1,
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 10,
@@ -7263,6 +7278,9 @@
         "Raw Coins are the included awards encountered within each policy's simulated journey, not a paired uncapped counterfactual. Coin-related progression changes can alter later eligibility and rewards.",
         "Summary and source percentiles are calculated independently across alternative trials; use means or individual trial values to reconcile source totals."
       ]
+    },
+    "reward_commitment": {
+      "enabled": false
     }
   }
 }

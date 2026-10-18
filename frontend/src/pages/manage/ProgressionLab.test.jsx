@@ -62,6 +62,24 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  it('switches policies explicitly and preserves the commitment choice through routine presets', async () => {
+    const current = { ...metadata, defaults: { ...defaults, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }, reward_budget_defaults: { daily_coins: null }, reward_budget_limits: { daily_coins: { min: 0, max: 100000, nullable: true } }, reward_commitment_defaults: { enabled: false } };
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...report, config: body }));
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: '100 Coins per child per day' }));
+    const toggle = screen.getByRole('checkbox', { name: 'Test the 100-Coin commitment prototype' });
+    await user.click(toggle);
+    expect(screen.getByRole('spinbutton', { name: 'Daily reward budget per child (Coins)' })).toHaveValue(null);
+    await user.click(screen.getByRole('button', { name: 'Use light routine' }));
+    expect(toggle).toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('button', { name: 'Keep as comparison' });
+    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, reward_budget: { daily_coins: null }, reward_commitment: { enabled: true } });
+    await user.click(screen.getByRole('button', { name: '50 Coins per child per day' }));
+    expect(toggle).not.toBeChecked();
+  });
   it('compares per-child reward budgets while keeping the completed baseline and preserving exports', async () => {
     const rewardBudgetDefaults = { daily_coins: null };
     const current = { ...metadata, defaults: { ...defaults, reward_budget: rewardBudgetDefaults },

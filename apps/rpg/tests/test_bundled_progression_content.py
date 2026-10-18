@@ -1,0 +1,173 @@
+"""Normal deployment loads additive first-party paths without editing the seed."""
+from io import StringIO
+from datetime import timedelta
+from pathlib import Path
+from unittest.mock import patch
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.test import TestCase
+from django.utils import timezone
+
+from apps.achievements.models import Badge
+from apps.quests.models import Quest, QuestDefinition, QuestRewardItem
+from apps.rpg.content.loader import ContentPackError
+from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition, UserInventory
+from apps.rpg.progression.catalog import snapshot_catalog
+from apps.rpg.progression.engine import Trial
+from apps.rpg.services import ConsumableService, DropService
+from apps.pets.expeditions import ExpeditionService
+from config.tests.factories import make_family
+
+
+class BundledProgressionContentTests(TestCase):
+    def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
+        calls = []
+        class Pack:
+            def __init__(self, path, namespace):
+                calls.append((Path(path).name, namespace))
+            def load(self, **kwargs):
+                pass
+        with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
+            call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(calls, [("initial", ""), ("reading-adventures", "reading-adventures-"),
+                                 ("collector-reading-2026", "collector-reading-2026-")])
+
+    def test_explicit_pack_remains_single_and_does_not_inject_default_extras(self):
+        calls = []
+        class Pack:
+            def __init__(self, path, namespace):
+                calls.append((Path(path).name, namespace))
+            def load(self, **kwargs):
+                pass
+        with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
+            call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
+        self.assertEqual(calls, [("initial", "")])
+
+    def test_later_pack_failure_rolls_back_the_entire_default_batch(self):
+        class Pack:
+            def __init__(self, path, namespace):
+                self.name = Path(path).name
+            def load(self, **kwargs):
+                if self.name == "collector-reading-2026":
+                    raise ContentPackError("invalid final pack")
+                ItemDefinition.objects.create(slug=self.name, name=self.name, item_type="food")
+        with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
+            with self.assertRaises(CommandError):
+                call_command("loadrpgcontent", stdout=StringIO())
+        self.assertFalse(ItemDefinition.objects.exists())
+
+    def test_real_default_reload_installs_paths_once_with_their_cross_pack_gates(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        names = {"Reading Companion", "Reading Routine", "Reading Voyager", "Collector's Reading: Fresh Pages",
+                 "Collector's Reading: Far Horizons", "Collector's Reading: Living Atlas"}
+        definitions = dict(QuestDefinition.objects.filter(name__in=names).values_list("name", "pk"))
+        self.assertEqual(set(definitions), names)
+        items = dict(ItemDefinition.objects.filter(slug__startswith="collector-reading-2026-").values_list("slug", "pk"))
+        self.assertEqual(set(items), {"collector-reading-2026-title-pagefinder", "collector-reading-2026-frame-far-horizons",
+                                      "collector-reading-2026-title-living-atlas"})
+        badges = dict(Badge.objects.filter(name__startswith="Collector's Reading:").values_list("name", "pk"))
+        self.assertEqual(len(badges), 3)
+        original_drop_count = DropTable.objects.count()
+        self.assertFalse(DropTable.objects.filter(item_id__in=items.values()).exists())
+        call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(dict(QuestDefinition.objects.filter(name__in=names).values_list("name", "pk")), definitions)
+        self.assertEqual(dict(ItemDefinition.objects.filter(slug__startswith="collector-reading-2026-").values_list("slug", "pk")), items)
+        self.assertEqual(dict(Badge.objects.filter(name__startswith="Collector's Reading:").values_list("name", "pk")), badges)
+        self.assertEqual(DropTable.objects.count(), original_drop_count)
+        self.assertFalse(DropTable.objects.filter(item_id__in=items.values()).exists())
+        first = QuestDefinition.objects.get(name="Collector's Reading: Fresh Pages")
+        self.assertEqual(first.required_badge_id, Badge.objects.get(name="Full Ark").pk)
+
+    def test_drop_macro_exclusion_preserves_other_pack_cosmetics(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        ordinary = ItemDefinition.objects.create(
+            slug="other-pack-ordinary-frame", name="Other pack frame", item_type="cosmetic_frame",
+        )
+        call_command("loadrpgcontent", stdout=StringIO())
+        self.assertTrue(DropTable.objects.filter(item=ordinary).exists())
+        self.assertFalse(DropTable.objects.filter(item__slug__startswith="collector-reading-2026-").exists())
+
+    def test_real_default_dry_run_preserves_legacy_promises_and_household_state(self):
+        # Start with the seed only: the dry run must not leave additive rows.
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
+        child = make_family("Dry-run reader", children=[{"username": "dry-reader", "theme": "winter"}]).children[0]
+        definition = QuestDefinition.objects.get(name="Dragon Slayer")
+        quest = Quest.objects.create(definition=definition, end_date=timezone.now() + timedelta(days=7))
+        original_links = list(QuestRewardItem.objects.filter(quest_definition=definition).values("id", "item_id", "quantity"))
+        original_item_ids = list(ItemDefinition.objects.values_list("pk", flat=True))
+        original_quest_ids = list(QuestDefinition.objects.values_list("pk", flat=True))
+        original_badge_ids = list(Badge.objects.values_list("pk", flat=True))
+        original_profile = CharacterProfile.objects.get(user=child)
+        original_theme = original_profile.active_theme_id
+        original_inventory = list(UserInventory.objects.filter(user=child).values("pk", "item_id", "quantity"))
+
+        call_command("loadrpgcontent", dry_run=True, stdout=StringIO())
+
+        quest.refresh_from_db()
+        child.refresh_from_db()
+        original_profile.refresh_from_db()
+        self.assertIsNone(quest.reward_items_snapshot)
+        self.assertEqual(list(QuestRewardItem.objects.filter(quest_definition=definition).values("id", "item_id", "quantity")), original_links)
+        self.assertEqual(list(ItemDefinition.objects.values_list("pk", flat=True)), original_item_ids)
+        self.assertEqual(list(QuestDefinition.objects.values_list("pk", flat=True)), original_quest_ids)
+        self.assertEqual(list(Badge.objects.values_list("pk", flat=True)), original_badge_ids)
+        self.assertEqual(list(UserInventory.objects.filter(user=child).values("pk", "item_id", "quantity")), original_inventory)
+        self.assertEqual((child.theme, original_profile.active_theme_id), ("winter", original_theme))
+        self.assertFalse(QuestDefinition.objects.filter(name="Reading Companion").exists())
+
+    def test_actual_default_reload_freezes_existing_legacy_item_promises_before_new_content(self):
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
+        definition = QuestDefinition.objects.get(name="Dragon Slayer")
+        quest = Quest.objects.create(definition=definition, end_date=timezone.now() + timedelta(days=7))
+        promised = list(definition.reward_items.values_list("item_id", "quantity"))
+        old_updated_at = quest.updated_at
+
+        call_command("loadrpgcontent", stdout=StringIO())
+
+        quest.refresh_from_db()
+        self.assertEqual([(row["item_id"], row["quantity"]) for row in quest.reward_items_snapshot], promised)
+        self.assertEqual(quest.updated_at, old_updated_at)
+        self.assertEqual((quest.status, quest.current_progress), ("active", 0))
+
+    def test_finite_targets_require_a_reachable_full_collection_before_reading_coda(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        catalog = snapshot_catalog()
+        config = {"reading_minutes": 10, "project_minutes": 0, "chores_per_day": 0,
+                  "habits_per_day": 0, "journal_per_day": False, "creations_per_day": 0,
+                  "movement_sessions_per_day": 0, "expeditions_per_day": 0}
+        grounded = Trial(config, catalog, 42)
+        traveling = Trial({**config, "expeditions_per_day": 1, "journal_per_day": True}, catalog, 42)
+        initial = QuestDefinition.objects.get(name="Reading Companion")
+        self.assertIn(f"quest:{initial.pk}", grounded.finite_keys)
+        chapters = QuestDefinition.objects.filter(name__startswith="Collector's Reading:")
+        for chapter in chapters:
+            with self.subTest(chapter=chapter.name):
+                self.assertNotIn(f"quest:{chapter.pk}", grounded.finite_keys)
+                self.assertIn(f"quest:{chapter.pk}", traveling.finite_keys)
+                for reward in chapter.reward_items.all():
+                    self.assertNotIn(f"cosmetic:{reward.item_id}", grounded.finite_keys)
+                    self.assertIn(f"cosmetic:{reward.item_id}", traveling.finite_keys)
+
+    def test_chapter_cosmetics_cannot_be_randomly_granted_or_consume_a_lucky_dip(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        child = make_family("No chapter shortcuts", children=[{"username": "no-shortcut-reader"}]).children[0]
+        ItemDefinition.objects.filter(item_type__startswith="cosmetic_").exclude(
+            slug__startswith="collector-reading-2026-",
+        ).delete()
+        dip = ItemDefinition.objects.create(
+            slug="fixture-chapter-lucky-dip", name="Lucky dip", item_type="consumable", metadata={"effect": "lucky_dip"},
+        )
+        inventory = UserInventory.objects.create(user=child, item=dip)
+        with self.assertRaisesRegex(ValueError, "no eligible cosmetics"):
+            ConsumableService.use(child, dip.pk)
+        inventory.refresh_from_db()
+        self.assertEqual(inventory.quantity, 1)
+        self.assertFalse(UserInventory.objects.filter(user=child, item__slug__startswith="collector-reading-2026-").exists())
+        DropTable.objects.all().delete()
+        item = ItemDefinition.objects.get(slug="collector-reading-2026-title-pagefinder")
+        for trigger in ("clock_out", "expedition_returned"):
+            DropTable.objects.create(trigger_type=trigger, item=item)
+        with patch("apps.rpg.services.random.random", return_value=0):
+            self.assertEqual(DropService.process_drops(child, "clock_out"), [])
+        self.assertEqual(ExpeditionService._roll_loot(child, "long")["items"], [])

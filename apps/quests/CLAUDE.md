@@ -74,11 +74,20 @@ challenge tools do not create current measurable parent goals.
 
 ## Preserved legacy behavior
 
-Reading Adventure's `reading_logged` event can advance saved legacy quests
+Reading Adventure's `reading_logged` event advances explicitly filtered
+automatic goals using the awarded `ReadingDailyReward` primary key as its
+durable source. The resolver checks the owner and saved award; arbitrary
+session IDs, minute quantities and prose grant no credit. Its saved award day
+survives session corrections/deletion, and current-week parent count goals can
+backfill that earned receipt without replaying source rewards. Reading stays
+outside unfiltered default effort and the daily bonus. New bundled reading
+goals add a deterministic supported Chick acquisition and Birdseed care path
+with zero authored Coins.
+
+The same event can advance saved legacy quests
 when their trigger filters match (5 base boss damage or one collection step).
 It fires at most once per family-local day after ten reading minutes. Reading
-is not an automatic challenge activity source and does not qualify the daily
-bonus; its own reading reward receipt is separate.
+does not qualify the daily bonus; its own reading reward receipt is separate.
 
 The following model/service notes describe the existing `Quest` and `DailyChallenge` promises. Do not apply their one-active-slot or claim requirements to automatic goals and the daily bonus.
 

@@ -202,7 +202,8 @@ class ProgressionFeedbackTests(SimpleTestCase):
         self.assertEqual(metadata["max_targets"], 6)
         self.assertEqual(len(metadata["metrics"]), 7)
         proposal = metadata["proposal"]
-        self.assertEqual(proposal["status"], "design_outline_only")
+        self.assertEqual(proposal["status"], "lab_prototype")
+        self.assertTrue(proposal["evaluated_by_current_engine"])
         self.assertFalse(proposal["live_ready"])
         self.assertTrue(proposal["blocks_live_change"])
         self.assertEqual(proposal["daily_new_commitment_coins"], 100)
@@ -213,6 +214,24 @@ class ProgressionFeedbackTests(SimpleTestCase):
         metadata["metrics"][0]["label"] = "edited"
         proposal["expedition_tiers"][0]["coins"] = 0
         self.assertNotEqual(feedback_metadata(), metadata)
+
+    def test_commitment_prototype_is_an_alternative_to_the_income_envelope(self):
+        control, candidate = report(), report()
+        candidate["config"]["reward_commitment"] = {"enabled": True}
+        result = evaluate_comparison(control, candidate, [])
+        self.assertEqual(result["status"], "unconfigured")
+        for invalid in ({"enabled": 1}, {"enabled": []}, {"enabled": True, "daily_coins": 50}):
+            candidate["config"]["reward_commitment"] = invalid
+            with self.assertRaises(ValueError):
+                evaluate_comparison(control, candidate, [])
+        candidate["config"]["reward_commitment"] = {"enabled": True}
+        candidate["config"]["reward_budget"]["daily_coins"] = 100
+        with self.assertRaises(ValueError):
+            evaluate_comparison(control, candidate, [])
+        candidate["config"]["reward_budget"]["daily_coins"] = None
+        control["config"]["reward_commitment"] = {"enabled": True}
+        with self.assertRaises(ValueError):
+            evaluate_comparison(control, candidate, [])
 
     def test_native_reports_supply_earned_cost_and_priority_metrics_without_database_access(self):
         from apps.rpg.progression.engine import simulate_progression

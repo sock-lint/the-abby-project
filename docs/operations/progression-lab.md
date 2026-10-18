@@ -251,7 +251,7 @@ staff child cannot use them. No real-account selector is accepted.
 - `GET /api/rpg/progression-lab/` returns defaults, input bounds, editable
   routine examples, catalog counts, rules fingerprint, coverage and audits.
 - `POST /api/rpg/progression-lab/simulate/` takes an anonymous scenario with
-  optional nested `economy` and `reward_budget` objects and
+  optional nested `economy`, `reward_budget` and `reward_commitment` objects and
   returns the normalized assumptions, milestone ranges, daily aggregates,
   source/consumption totals and example journey.
 
@@ -274,3 +274,44 @@ disposable records, reject simulator writes and household reads, check seeded
 repeatability and exercise permissions and input limits. Shared synthetic API
 fixtures connect the producing endpoints to React consumers. Keep those checks
 and coverage notes current when live progression rules change.
+
+
+## Acting on reading and collection gaps
+
+Default `loadrpgcontent` loads the initial seed, `reading-adventures` and
+`collector-reading-2026` in one transaction. Explicit `--pack` loads only that
+pack; dry runs roll back the complete default batch. The initial pack is unchanged.
+Three daily Reading Adventures within 14 days grant a supported Chick egg, Base
+potion and two Birdseed. A repeating five-in-seven-days goal provides care food;
+a twenty-in-45-days goal offers the existing Bookworm title. These goals author
+no Coins. Existing general quest/badge bonuses still apply and are modeled.
+
+After Full Ark (15 species), three sequential chapters require 5, 10 and 20 new
+daily Reading Adventures and grant a title, frame and title. These six new
+finite quest/cosmetic targets require 35 reading days after the gate, with
+365-day chapter windows. Their three recognition badges author no Coins or XP.
+Only explicit reading goals consume daily awarded receipts; reading does not
+advance unfiltered effort goals or daily effort bonuses. Saved source dates,
+family ownership, corrections, deletion and retries preserve the daily limit.
+
+## Promise-preserving commitment prototype
+
+`reward_commitment: {"enabled": true}` selects the fixed 100-Coin design:
+75 for new expedition commitments across all a child's mounts and 25 for random
+activity pouches per day. It cannot be combined with a non-null payout envelope.
+Short/standard/long tiers establish 10/25/50 direct Coins and 1/2/3 item slots.
+Direct promises are reduced only before launch when allocation is low. Candidate
+items must fit their full pouch value or worst positive duplicate salvage before
+weighted selection; established promises are never rerolled or partially paid.
+
+Reports separate commitments, payments, pending direct Coins, unopened/pending
+pouches and contingent salvage. Authored pouches remain outside these allocations.
+Empty trips/slots and filtered paths are explicit. Unavailable finite targets
+are excluded paths, never extra content runway. Delayed claims can exceed 100
+Coins per day; boosts and live concurrent reservation storage remain unmodeled.
+This is not a live hard payout limit or a rollout-ready economy.
+
+Saved experiments use `candidate_policy: "envelope"` (legacy/default) or
+`"commitment100"` (requires `candidate_daily_coins: 100`). Their installed control
+has both experiments disabled. Older clients omitting policy on an edit preserve
+the stored policy. A notebook decision never changes content or live rewards.

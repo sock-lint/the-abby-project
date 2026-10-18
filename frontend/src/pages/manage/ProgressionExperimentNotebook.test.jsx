@@ -37,12 +37,23 @@ describe('Progression experiment notebook', () => {
     await user.click(screen.getByRole('button', { name: 'Save experiment' }));
     await screen.findByText('Experiment saved. Live rewards are unchanged.');
     expect(create.calls[0].body).toMatchObject({ config: { ...draft.config, reward_budget: { daily_coins: null } }, candidate_daily_coins: 100, targets: [{ metric: 'coins_earned_p50', min: 0, max: null }] });
-    expect(Object.keys(create.calls[0].body).sort()).toEqual(['candidate_daily_coins', 'config', 'hypothesis', 'name', 'targets']);
+    expect(Object.keys(create.calls[0].body).sort()).toEqual(['candidate_daily_coins', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
     await user.click(screen.getByRole('button', { name: 'Run control and candidate' }));
     await screen.findByRole('region', { name: 'Saved experiment comparison' });
     expect(run.calls[0].body).toEqual({ revision: 1 });
     expect(screen.getByText('No eligible new-user Coin observations yet.')).toBeVisible();
-    expect(screen.getByText(/This reward table has not been simulated/)).toBeVisible();
+    expect(screen.getByText(/Available as an opt-in Lab prototype/)).toBeVisible();
+  });
+  it('saves the fixed commitment candidate and resets both control policies', async () => {
+    setup();
+    const create = spyHandler('post', new RegExp(`${root}$`), { ...draft, candidate_policy: 'commitment100' });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<ProgressionExperimentNotebook routine={{ ...draft.config, reward_commitment: { enabled: true }, reward_budget: { daily_coins: 50 } }} />);
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Candidate reward policy' }), 'commitment100');
+    expect(screen.getByRole('spinbutton', { name: 'Candidate Coins per child per day' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Save experiment' }));
+    await screen.findByText('Experiment saved. Live rewards are unchanged.');
+    expect(create.calls[0].body).toMatchObject({ candidate_policy: 'commitment100', candidate_daily_coins: 100, config: { reward_commitment: { enabled: false }, reward_budget: { daily_coins: null } } });
   });
   it('updates the exact revision and captures the changed routine explicitly', async () => {
     setup(decided);

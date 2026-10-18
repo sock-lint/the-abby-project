@@ -52,6 +52,9 @@ def resolve_activity(user, trigger_type, context):
         "journal_entry": ("entry_id", "chronicle.ChronicleEntry", {"user": user, "kind": "journal"}),
         "savings_goal_complete": ("savings_goal_id", "projects.SavingsGoal", {"user": user, "completed_at__isnull": False}),
         "expedition_returned": ("expedition_id", "pets.MountExpedition", {"mount__user": user, "status": "claimed"}),
+        "reading_logged": ("reading_reward_id", "reading.ReadingDailyReward", {
+            "user": user, "awarded_at__isnull": False,
+        }),
     }
     if trigger not in sources:
         return None
@@ -98,6 +101,12 @@ def resolve_activity(user, trigger_type, context):
         safe_context = {"savings_goal_id": source.pk}
     elif trigger == "expedition_returned":
         occurred_at = source.claimed_at or occurred_at
+    elif trigger == "reading_logged":
+        # The earned daily receipt is immutable even if its source log is
+        # corrected or deleted. Arbitrary session IDs and minute claims do
+        # not establish another opportunity or expose private reading prose.
+        occurred_at = source.awarded_at
+        occurred_on = source.day
     # Keep the actual saved timestamp for enrollment/cutover, alongside the
     # source's calendar date for household weekly goals and late approvals.
     zone = household_timezone(user)
@@ -234,6 +243,8 @@ def backfill_goal_activity(goal):
             "user": goal.user, "kind": "journal", "occurred_on__gte": start_day, "occurred_on__lt": end_day}),
         "savings_goal_complete": ("projects.SavingsGoal", "savings_goal_id", {
             "user": goal.user, "completed_at__gte": goal.starts_at, "completed_at__lt": goal.ends_at}),
+        "reading_logged": ("reading.ReadingDailyReward", "reading_reward_id", {
+            "user": goal.user, "awarded_at__isnull": False, "day__gte": start_day, "day__lt": end_day}),
     }
     for trigger in allowed:
         if trigger not in scans:

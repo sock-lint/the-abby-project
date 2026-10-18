@@ -38,6 +38,9 @@
     },
     "reward_budget": {
       "daily_coins": null
+    },
+    "reward_commitment": {
+      "enabled": false
     }
   },
   "catalog": {
@@ -51,8 +54,8 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "fd145d741282c6cf5368c896a3a349eedce904e865b1e41e1c25b4b352986ef5",
-  "engine_version": "2026-10-18.2",
+  "rules_fingerprint": "b11c222f325f0845912a7168519d4d5bcaee20d51390e6a188dcc7b70fb03e38",
+  "engine_version": "2026-10-18.3",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -62,7 +65,8 @@
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
-      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
+      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
+      "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards"
     ],
     "excluded": [
       "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -1819,12 +1823,12 @@
     "longest_novelty_gap_p50": 18,
     "eligible_challenges": 1,
     "finite_breakdown": {
-      "cosmetic": 1,
-      "middle": 1,
-      "quest": 1,
+      "badge": 1,
       "pet": 1,
+      "cosmetic": 1,
+      "quest": 1,
       "mount": 1,
-      "badge": 1
+      "middle": 1
     },
     "level_p50": 4,
     "inventory_units_p50": 10,
@@ -3545,5 +3549,8 @@
       "Raw Coins are the included awards encountered within each policy's simulated journey, not a paired uncapped counterfactual. Coin-related progression changes can alter later eligibility and rewards.",
       "Summary and source percentiles are calculated independently across alternative trials; use means or individual trial values to reconcile source totals."
     ]
+  },
+  "reward_commitment": {
+    "enabled": false
   }
 }

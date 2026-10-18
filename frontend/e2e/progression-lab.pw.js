@@ -12,6 +12,7 @@ let metadata;
 let report;
 let economyReport;
 let budgetReport;
+let commitmentReport;
 let experimentList;
 let experimentComparison;
 let experimentDecided;
@@ -23,6 +24,7 @@ test.beforeAll(async () => {
   report = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-report.json', import.meta.url), 'utf8'));
   economyReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-economy-report.json', import.meta.url), 'utf8'));
   budgetReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-reward-budget-report.json', import.meta.url), 'utf8'));
+  commitmentReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-commitment-report.json', import.meta.url), 'utf8'));
   experimentList = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-list.json', import.meta.url), 'utf8'));
   experimentComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-comparison.json', import.meta.url), 'utf8'));
   experimentDecided = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-decided.json', import.meta.url), 'utf8'));
@@ -72,8 +74,8 @@ async function openLab(page, response = report) {
     if (url.pathname === experimentRoot && route.request().method() === 'GET') return route.fulfill({ json: experimentList });
     if (url.pathname === experimentRoot && route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
-      expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'config', 'hypothesis', 'name', 'targets']);
-      expect(input.config).toEqual({ ...response.config, reward_budget: { daily_coins: null } });
+      expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
+      expect(input.config).toEqual({ ...response.config, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } });
       expect(input.candidate_daily_coins).toBe(100);
       savedExperiment = { ...experimentDecided, latest_decision: null, comparisons: [], decisions: [], observations: [] };
       return route.fulfill({ status: 201, json: savedExperiment });
@@ -132,11 +134,30 @@ for (const width of [375, 1280]) {
     await expect(notebook.getByText(experimentDecided.decisions[0].next_action)).toBeVisible();
     await chooseDropdown(notebook.getByRole('combobox', { name: 'Saved comparison' }), experimentComparison.id);
     await expect(notebook.getByRole('region', { name: 'Saved experiment comparison' })).toBeVisible();
-    await expect(notebook.getByText(/This reward table has not been simulated/)).toBeVisible();
+    await expect(notebook.getByText(/Available as an opt-in Lab prototype/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     expect(external).toEqual([]);
     expect(requests.every((path) => labReads.includes(path) || path.startsWith(`/api/rpg/progression-lab/experiments/${experimentDecided.id}/`))).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`progression-feedback-${width}.png`), fullPage: true });
+  });
+
+  test(`commitment promises and outstanding rewards are readable at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    const { requests, external } = await openLab(page, commitmentReport);
+    await expect(page.getByRole('checkbox', { name: 'Test the 100-Coin commitment prototype' })).toBeChecked();
+    await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
+    const results = page.getByRole('region', { name: 'Reward commitment forecast', exact: true });
+    await expect(results.getByText('New Coins committed', { exact: true })).toBeVisible();
+    await expect(results.getByText('Direct Coins awaiting claim', { exact: true })).toBeVisible();
+    await expect(results.getByText(/Removing access is not additional content runway/)).toBeVisible();
+    await results.getByText('Pouch promises by source', { exact: true }).click();
+    await expect(results.getByRole('table', { name: 'Mean pouch Coins per child', exact: true })).toBeVisible();
+    await results.getByText('Commitment model assumptions', { exact: true }).click();
+    await expect(results.getByText(/Consumables and boosts/)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    expect(requests.every((path) => labReads.includes(path))).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`progression-commitments-${width}.png`), fullPage: true });
   });
 
   test(`per-child reward budget comparison remains readable at ${width}px`, async ({ page }, testInfo) => {

@@ -127,6 +127,56 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertLessEqual(budget["awarded_coins"]["p90"], 5 * response.data["summary"]["active_days"])
         self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")
 
+    def test_full_value_commitments_match_shared_wire_contract(self):
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+            "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+            "reward_commitment": {"enabled": True},
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        commitment = response.data["reward_commitment"]
+        self.assertTrue(commitment["enabled"])
+        self.assertIsNone(response.data["config"]["reward_budget"]["daily_coins"])
+        self.assertEqual(commitment["policy"]["daily_coins"], 100)
+        self.assertGreater(commitment["summary"]["activity_pouch_committed"]["p50"], 0)
+        self.assertGreater(commitment["summary"]["expedition_launches"]["p90"], 0)
+        for day in response.data["trace"]:
+            self.assertLessEqual(day["reward_commitment_expedition_today_p90"], 75)
+            self.assertLessEqual(day["reward_commitment_activity_pouch_today_p90"], 25)
+        self.assert_response_fixture(response, "progression-lab-commitment-report.json")
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_commitment_experiment_matches_shared_wire_contract(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionExperiment
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "Full-promise commitment prototype",
+            "hypothesis": "Reserve full new grants before launch, keeping every established payout intact.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False},
+            "candidate_daily_coins": 100, "candidate_policy": "commitment100",
+            "targets": [{"metric": "closing_coins_p50", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000011"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000012"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(
+            self.client.get(detail_url + f"comparisons/{comparison_id}/"),
+            "progression-experiment-commitment-comparison.json",
+        )
+        self.assertEqual(report["inputs"]["candidate_policy"], "commitment100")
+        self.assertFalse(report["control"]["config"]["reward_commitment"]["enabled"])
+        self.assertTrue(report["candidate"]["config"]["reward_commitment"]["enabled"])
+        self.assertIsNone(report["candidate"]["config"]["reward_budget"]["daily_coins"])
+        self.assertTrue(report["evaluation"]["proposal"]["evaluated_by_current_engine"])
+        self.assertFalse(report["evaluation"]["proposal"]["live_ready"])
+
     @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
     def test_saved_experiment_feedback_contracts(self, _now):
         from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation

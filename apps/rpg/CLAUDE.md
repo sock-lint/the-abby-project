@@ -147,6 +147,10 @@ best-effort policy and leave the quest retryable.
   reads bounded own-family recent-child ledger aggregates, with typed future
   attribution, incomplete-history coverage and insufficient empty cohorts.
   Preserve this separation from anonymous forecasts and MCP catalog scopes.
+  `candidate_policy` selects the legacy payout envelope or fixed `commitment100`
+  prototype. The latter reserves 75 expedition / 25 random-activity-pouch Coins
+  before grants and pays established promises fully; boosts remain unmodeled.
+  It is a simulation policy, never a live reward writer.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.
@@ -166,8 +170,12 @@ normal streak/Drop Charm bonuses, using authored existing food and coin-pouch
 pools. The service calls `GameLoopService.on_task_completed(..., strict=True)`
 inside its outer transaction: any pipeline failure propagates so all reward
 writes roll back. Existing callers retain the default independent-step
-failure isolation. Reading's new trigger is not an automatic Challenges
-source; saved legacy quests retain filtering and 5 base boss damage.
+failure isolation. Awarded daily receipts provide explicit `reading_logged` Challenge facts keyed by
+`reading_reward_id`, with the saved family-local day and award timestamp. Reading
+does not count toward unfiltered effort goals or the daily effort bonus. Deleted
+sessions retain their earned fact. Saved legacy quests retain filtering and
+5 base boss damage. Default content loading installs the additive reading starter
+and post-Full-Ark reading chapters atomically after the unchanged initial pack.
 
 ## Gotchas
 

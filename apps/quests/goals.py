@@ -22,9 +22,11 @@ FACT_TRIGGERS = {
     "clock_out", "chore_complete", "homework_complete", "homework_created",
     "milestone_complete", "project_complete", "habit_log", "journal_entry",
     "creation_logged", "movement_session", "savings_goal_complete",
-    "expedition_returned",
+    "expedition_returned", "reading_logged",
 }
-EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned"}
+# Reading has its own once-daily receipt and explicit reading goals. Existing
+# unfiltered promises keep their original qualifying activities and pacing.
+EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned", "reading_logged"}
 CONTEXT_KEYS = {
     "project_id", "skill_category_id", "chore_id", "savings_goal_id", "on_time",
     "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags",
@@ -38,6 +40,7 @@ ACTION_PATHS = {
     "movement_session": ("Log movement", "/quests?tab=movement"),
     "journal_entry": ("Write in your journal", "/yearbook"),
     "creation_logged": ("Log a creation", "/quests?tab=creations"),
+    "reading_logged": ("Read for ten minutes", "/quests?tab=reading"),
 }
 TRIGGER_LABELS = {
     "clock_out": "tracked project work", "chore_complete": "approved chores",
@@ -47,6 +50,7 @@ TRIGGER_LABELS = {
     "journal_entry": "journal entries", "creation_logged": "logged creations",
     "savings_goal_complete": "completed savings goals", "badge_earned": "earned badges",
     "perfect_day": "Perfect Days", "expedition_returned": "returned expeditions",
+    "reading_logged": "daily Reading Adventures (ten newly logged minutes, once per day)",
 }
 
 

@@ -8,8 +8,10 @@ income hypothesis; it does not simulate a policy suitable for live claims.
 
 ## Concrete next candidate
 
-The following table is a design outline to simulate next. It has not been
-implemented in the Lab or the live economy.
+The following fixed table is implemented as the opt-in Lab commitment prototype.
+It is not implemented in the live economy. Choose `commitment100` in the saved
+experiment notebook or enable `reward_commitment.enabled` in an anonymous run.
+The installed control and the earlier payout envelope remain separate modes.
 
 | Expedition | Duration | Proposed direct Coins | Item slots |
 | --- | --- | --- | --- |
@@ -56,7 +58,7 @@ There are no free-form report paths or expressions.
 
 Only server-generated paired reports are evidence. Keep the routine, seeds,
 horizon, offers, purchasing policy, rules and catalog fixed while comparing an
-uncapped control with the selected daily income envelope. A report imported
+installed control with the selected envelope or commitment prototype. A report imported
 from a file is useful for exploration, but does not establish trusted saved
 comparison evidence. A passing comparison can support a decision to continue
 design work; it cannot authorize publication or live reward changes.
@@ -78,8 +80,9 @@ remain unavailable rather than becoming zero costs or successful retention.
 
 ## Work required before live implementation
 
-1. Implement a separate commitment simulation and compare 90-day and 365-day
-   outcomes against both installed rules and the current income envelope.
+1. Review the commitment simulation against installed rules and the earlier
+   payout envelope across 90-day and 365-day routines. Configure explicit pacing
+   and cost criteria and record a dated decision against fresh paired evidence.
 2. Specify versioned definitions and reservation records that preserve owned
    pouches, frozen expeditions and authored challenge promises. Check retries,
    concurrent launches, delayed claims and outstanding liability accounting.

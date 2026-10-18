@@ -34,6 +34,20 @@ describe('Parent measurable challenges', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
+  it('creates a daily reading count goal and explains the receipt threshold', async () => {
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    const { user } = renderForm();
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await selectDropdown(user, screen.getByLabelText('Activity'), 'reading_logged');
+    expect(screen.getByText(/once per family day after 10 cumulative reading minutes/)).toBeVisible();
+    await user.click(screen.getByLabelText('Measure'));
+    expect(screen.queryByRole('option', { name: 'Total minutes' })).toBeNull();
+    await user.keyboard('{Escape}');
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({ trigger_type: 'reading_logged', metric: 'count', target: '2' });
+  });
   it('submits chosen dates, clears incompatible weekly recurrence, and retains inputs on server rejection', async () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json({ target: ['Choose a valid target.'] }, { status: 400 }));
     server.use(create.handler);

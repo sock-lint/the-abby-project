@@ -4,8 +4,10 @@ import metadata from '../../../contracts/api/fixtures/progression-lab-metadata.j
 import report from '../../../contracts/api/fixtures/progression-lab-report.json';
 import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
 import budgetReport from '../../../contracts/api/fixtures/progression-lab-reward-budget-report.json';
+import commitmentReport from '../../../contracts/api/fixtures/progression-lab-commitment-report.json';
 import experiments from '../../../contracts/api/fixtures/progression-experiment-list.json';
 import comparison from '../../../contracts/api/fixtures/progression-experiment-comparison.json';
+import commitmentComparison from '../../../contracts/api/fixtures/progression-experiment-commitment-comparison.json';
 import decided from '../../../contracts/api/fixtures/progression-experiment-decided.json';
 import observations from '../../../contracts/api/fixtures/progression-observations-empty.json';
 import observed from '../../../contracts/api/fixtures/progression-experiment-observed.json';
@@ -47,7 +49,10 @@ describe('Progression lab shared API fixtures', () => {
     expect(comparison.control.config.reward_budget.daily_coins).toBeNull();
     expect(comparison.candidate.config.reward_budget.daily_coins).toBe(100);
     expect(comparison.binding.catalog_fingerprint).toBe(comparison.control.catalog.fingerprint);
-    expect(comparison.evaluation.proposal.evaluated_by_current_engine).toBe(false);
+    expect(comparison.inputs.candidate_policy).toBe('envelope');
+    expect(comparison.candidate.config.reward_commitment.enabled).toBe(false);
+    expect(comparison.evaluation.proposal.evaluated_by_current_engine).toBe(true);
+    expect(comparison.evaluation.proposal.live_ready).toBe(false);
     expect(observations.policy.is_live_experiment).toBe(false);
     expect(observations.status).toBe('insufficient_evidence');
     const capture = spyHandler('post', new RegExp(`${root}${id}/observations/$`), observed);
@@ -71,6 +76,37 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.coverage.initial_state).toEqual({ coins: 0, xp: 0, pets: 0, mounts: 0, inventory: 0 });
     expect(response.limits.horizon_days.choices).toContain(report.config.horizon_days);
     expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('transports the separate full-promise prototype and its saved server comparison', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, commitmentReport);
+    const root = '/api/rpg/progression-lab/experiments/';
+    const create = spyHandler('post', new RegExp(`${root}$`), { id: 'commitment-fixture', ...commitmentComparison.inputs });
+    const compare = spyHandler('post', new RegExp(`${root}commitment-fixture/compare/$`), commitmentComparison);
+    server.use(simulation.handler, create.handler, compare.handler);
+    const response = await simulateProgressionLab(commitmentReport.config);
+    expect(simulation.calls[0].body.reward_commitment).toEqual({ enabled: true });
+    expect(response.config.reward_budget.daily_coins).toBeNull();
+    expect(response.reward_commitment).toEqual(commitmentReport.reward_commitment);
+    expect(response.reward_commitment.policy.daily_coins).toBe(100);
+    expect(response.reward_commitment.policy.expedition_daily_coins).toBe(75);
+    expect(response.reward_commitment.policy.activity_pouch_daily_coins).toBe(25);
+    for (const day of response.trace) {
+      expect(day.reward_commitment_expedition_today_p90).toBeLessThanOrEqual(75);
+      expect(day.reward_commitment_activity_pouch_today_p90).toBeLessThanOrEqual(25);
+    }
+    await createProgressionExperiment(commitmentComparison.inputs);
+    expect(create.calls[0].body.candidate_policy).toBe('commitment100');
+    const saved = await compareProgressionExperiment('commitment-fixture', { revision: 1 });
+    expect(compare.calls[0].body).toEqual({ revision: 1 });
+    expect(saved.inputs.candidate_policy).toBe('commitment100');
+    expect(saved.control.config.reward_commitment.enabled).toBe(false);
+    expect(saved.candidate.config.reward_commitment.enabled).toBe(true);
+    expect(saved.candidate.config.reward_budget.daily_coins).toBeNull();
+    expect(saved.candidate).toEqual(commitmentReport);
+    expect(saved.candidate.reward_commitment.summary.activity_pouch_committed.p50).toBeGreaterThan(0);
+    expect(saved.candidate.rules_fingerprint).toBe(metadata.rules_fingerprint);
+    expect(saved.evaluation.proposal.live_ready).toBe(false);
   });
 
   it('posts only the anonymous scenario and preserves completion denominators, missing dates and subset totals', async () => {

@@ -58,3 +58,18 @@ describe('Progression scenario preservation', () => {
     expect(() => validateEconomy(economy, metadata)).toThrow();
   });
 });
+
+
+describe('Reward commitment imports', () => {
+  const current = { ...metadata, defaults: { ...metadata.defaults, reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }, reward_budget_defaults: { daily_coins: null }, reward_budget_limits: { daily_coins: { min: 0, max: 100000, nullable: true } }, reward_commitment_defaults: { enabled: false } };
+  it('keeps legacy imports disabled and restores the explicit prototype', () => {
+    expect(importedScenario({ schema_version: 1, config: { seed: 42 } }, current).reward_commitment).toEqual({ enabled: false });
+    expect(importedScenario({ schema_version: 1, config: { seed: 42, reward_commitment: { enabled: true } } }, current).reward_commitment).toEqual({ enabled: true });
+  });
+  it('rejects mixed or malformed policies instead of silently changing promises', () => {
+    for (const reward_commitment of [{ enabled: 'true' }, {}, { enabled: true, coins: 100 }, []]) {
+      expect(() => importedScenario({ schema_version: 1, config: { seed: 42, reward_commitment } }, current)).toThrow();
+    }
+    expect(() => importedScenario({ schema_version: 1, config: { seed: 42, reward_commitment: { enabled: true }, reward_budget: { daily_coins: 100 } } }, current)).toThrow();
+  });
+});

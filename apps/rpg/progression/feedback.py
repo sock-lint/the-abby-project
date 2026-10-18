@@ -1,8 +1,8 @@
-"""Bounded criteria for paired Lab reports and an explicit future-design outline.
+"""Bounded criteria for paired Lab reports and an explicit design prototype.
 
 These functions inspect detached, server-generated simulation reports only. A
 passing check is evidence for further design work, never a publication grant
-or proof that the proposed commitment policy has been simulated.
+or proof that the simulated commitment prototype is ready for live rewards.
 """
 from copy import deepcopy
 import hashlib
@@ -24,11 +24,11 @@ METRICS = (
 METRIC_BY_KEY = {row["key"]: row for row in METRICS}
 
 PROPOSAL = {
-    "status": "design_outline_only",
+    "status": "lab_prototype",
     "live_ready": False,
     "blocks_live_change": True,
-    "evaluated_by_current_engine": False,
-    "title": "100-Coin daily commitment design to investigate",
+    "evaluated_by_current_engine": True,
+    "title": "100-Coin daily commitment prototype",
     "daily_new_commitment_coins": 100,
     "allocations": {"expeditions": 75, "activity_pouches": 25},
     "expedition_tiers": [
@@ -47,26 +47,26 @@ PROPOSAL = {
     "blockers": [
         {
             "key": "commitment_model",
-            "title": "Simulate commitments before implementing them",
-            "detail": "The current 100-Coin experiment omits payout excess after synthetic claims and pouch opening. It does not simulate this proposed 75/25 allocation, reward table or reservation policy.",
-            "next_action": "Implement a separate Lab commitment model, then compare 90-day and 365-day outcomes with the installed economy and the current income-envelope experiment.",
+            "title": "Evaluate the prototype against explicit targets",
+            "detail": "The Lab now separately models the 75/25 allocation, fixed expedition rewards and full-value pouch reservations. The income-envelope candidate remains a separate policy that omits payout excess.",
+            "next_action": "Save paired 90-day and 365-day comparisons with income, purchasing and content-access targets; record the design decision and affected acquisition paths before implementing live rules.",
         },
         {
             "key": "promised_rewards",
             "title": "Preserve every established reward",
-            "detail": "Owned pouch values, frozen expedition loot and authored challenge rewards cannot be reduced at claim or opening. Existing pouch stacks read shared item definitions rather than a per-unit face-value snapshot.",
+            "detail": "The in-memory model pays established rewards fully. Production has no corresponding reservation protocol; existing pouch stacks read shared item definitions rather than a per-unit face-value snapshot.",
             "next_action": "Specify versioned reward definitions and reservation records; test full redemption, late claims, retries, concurrent launches and the accounting of outstanding promises.",
         },
         {
             "key": "coin_boosts",
             "title": "Specify Lucky Coin timing",
-            "detail": "Live Lucky Coin can double direct expedition Coins at claim. Consumable effects are excluded from the current Lab, so its 100-Coin envelope does not prove a live maximum payout.",
+            "detail": "Live Lucky Coin can double direct expedition Coins at claim. Consumable effects are excluded from both Lab policies, so neither candidate proves a live maximum payout.",
             "next_action": "Decide when boosted value is established and reserved, then simulate and test activation, expiry and delayed claims without changing prior promises.",
         },
         {
             "key": "content_reachability",
             "title": "Check pouch and collection access",
-            "detail": "Filtering unaffordable pouch or salvage-bearing item grants can change item probabilities and make some rewards unavailable. Missing acquisition paths are not additional playable runway.",
+            "detail": "The prototype reports filtered grants and unavailable finite targets because full-value reservations change acquisition paths. Missing paths are not additional playable runway, and source-level availability does not guarantee timely completion.",
             "next_action": "Audit every affected acquisition path, first-reward pacing, empty returns and collection milestones; use the content workbench for new reward versions and a reviewed code change for expedition policy.",
         },
     ],
@@ -120,14 +120,21 @@ def _check_pair(control, candidate):
         config = report.get("config")
         if not isinstance(config, dict) or not isinstance(config.get("reward_budget"), dict):
             raise ValueError("Comparison requires normalized server-generated reports.")
-        configs.append({key: value for key, value in config.items() if key != "reward_budget"})
+        commitment = config.get("reward_commitment", {"enabled": False})
+        if (not isinstance(commitment, dict) or set(commitment) != {"enabled"}
+                or type(commitment["enabled"]) is not bool):
+            raise ValueError("Comparison requires a normalized commitment policy.")
+        configs.append({key: value for key, value in config.items() if key not in {"reward_budget", "reward_commitment"}})
     if configs[0] != configs[1]:
         raise ValueError("Control and candidate must use the same routine, seeds and purchasing assumptions.")
     if control["config"]["reward_budget"].get("daily_coins") is not None:
         raise ValueError("The control reward budget must be uncapped.")
+    if control["config"].get("reward_commitment", {}).get("enabled", False):
+        raise ValueError("The control must use installed reward commitments.")
     cap = candidate["config"]["reward_budget"].get("daily_coins")
-    if type(cap) is not int or not 0 <= cap <= 100_000:
-        raise ValueError("The candidate requires a bounded daily reward budget.")
+    committed = candidate["config"].get("reward_commitment", {}).get("enabled", False)
+    if (committed and cap is not None) or (not committed and (type(cap) is not int or not 0 <= cap <= 100_000)):
+        raise ValueError("The candidate requires either a bounded income envelope or the commitment prototype.")
     for key in ("schema_version", "engine_version", "rules_fingerprint", "source_commit"):
         if key not in control or control[key] != candidate.get(key):
             raise ValueError("Control and candidate must share the same engine and rule bindings.")

@@ -285,7 +285,7 @@ class ExpeditionService:
         """Pre-roll the expedition's payout. Returns the JSON-serializable shape."""
         from apps.rpg.constants import TriggerType
         from apps.rpg.models import CharacterProfile, DropTable
-        from apps.rpg.catalog_support import item_is_available
+        from apps.rpg.catalog_support import random_item_is_available
         from apps.rpg.catalog_icons import item_catalog_icon
 
         config = TIER_CONFIG[tier]
@@ -305,7 +305,7 @@ class ExpeditionService:
             DropTable.objects
             .filter(trigger_type=TriggerType.EXPEDITION_RETURNED, min_level__lte=user_level)
             .select_related("item")
-        ) if item_is_available(entry.item)]
+        ) if random_item_is_available(entry.item)]
         if not entries:
             # Fallback: borrow from clock_out + chore_complete pools so a
             # fresh deployment without expedition-specific drops still
@@ -320,7 +320,7 @@ class ExpeditionService:
                     min_level__lte=user_level,
                 )
                 .select_related("item")
-            ) if item_is_available(entry.item)]
+            ) if random_item_is_available(entry.item)]
 
         items = []
         if entries:

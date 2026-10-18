@@ -71,15 +71,26 @@ def _text(value, label, limit):
     return value.strip()
 
 
-def _inputs(data):
+def _candidate_config(config, policy, daily):
+    return {**config, "reward_budget": {"daily_coins": None if policy == "commitment100" else daily},
+            "reward_commitment": {"enabled": policy == "commitment100"}}
+
+
+def _inputs(data, *, default_policy="envelope"):
     config = normalize_config(data["config"])
-    # The saved routine always defines the installed, uncapped control. The
-    # candidate differs only by its explicitly entered hypothetical envelope.
+    # Persist the installed control independently from any imported scenario.
+    # The selected candidate policy establishes the one hypothetical change.
     config["reward_budget"] = {"daily_coins": None}
+    config["reward_commitment"] = {"enabled": False}
+    policy = data.get("candidate_policy", default_policy)
+    if not isinstance(policy, str) or policy not in {"envelope", "commitment100"}:
+        raise ValueError("Candidate policy must be envelope or commitment100.")
     daily = data["candidate_daily_coins"]
     if type(daily) is not int or not 0 <= daily <= 100000:
         raise ValueError("Candidate daily Coins must be a whole number from 0 to 100000.")
-    candidate = {**config, "reward_budget": {"daily_coins": daily}}
+    if policy == "commitment100" and daily != 100:
+        raise ValueError("The commitment prototype requires exactly 100 candidate daily Coins.")
+    candidate = _candidate_config(config, policy, daily)
     normalize_config(candidate)
     if estimate_work(config) + estimate_work(candidate) > MAX_COMPARISON_WORK_UNITS:
         raise ValueError("Paired comparison exceeds its work limit. Reduce trials or activity counts.")
@@ -88,12 +99,15 @@ def _inputs(data):
         "hypothesis": _text(data["hypothesis"], "Hypothesis", 2000),
         "config": config,
         "candidate_daily_coins": daily,
+        "candidate_policy": policy,
         "targets": normalize_targets(data["targets"]),
     }
 
 
 def _snapshot(experiment):
-    return {key: deepcopy(getattr(experiment, key)) for key in ("name", "hypothesis", "config", "candidate_daily_coins", "targets")}
+    return {key: deepcopy(getattr(experiment, key)) for key in (
+        "name", "hypothesis", "config", "candidate_daily_coins", "candidate_policy", "targets",
+    )}
 
 
 def _binding(catalog):
@@ -179,10 +193,12 @@ def get_experiment(actor, experiment_id):
 
 @transaction.atomic
 def save_experiment(actor, experiment_id, revision, data):
-    values = _inputs(data)
     actor = _actor(actor, lock=True)
     experiment = _experiment(actor, experiment_id, lock=True)
     _revision(experiment, revision)
+    # Older clients omit this new choice. Preserve the stored policy under
+    # the experiment lock rather than silently reverting their selection.
+    values = _inputs(data, default_policy=experiment.candidate_policy)
     for key, value in values.items():
         setattr(experiment, key, value)
     experiment.revision += 1
@@ -198,7 +214,7 @@ def compare_experiment(actor, experiment_id, revision):
         raise ValueError("This experiment has reached its 20-comparison limit.")
     inputs = _inputs(_snapshot(experiment))
     control_config = inputs["config"]
-    candidate_config = {**control_config, "reward_budget": {"daily_coins": inputs["candidate_daily_coins"]}}
+    candidate_config = _candidate_config(control_config, inputs["candidate_policy"], inputs["candidate_daily_coins"])
     try:
         catalog = load_catalog()
     except ValueError as exc:
