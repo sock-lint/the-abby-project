@@ -42,8 +42,10 @@ ABBY_ASSETS_S3_PREFIX=releases npm --prefix frontend run assets:import
 npm --prefix frontend run assets:verify
 ```
 
-The transactional importer verifies four releases and 339 runtime files. This
-family adds six GLBs and 35 PNGs, **35,246,574 bytes**. All runtime payloads,
+The original four-family integration verified 339 runtime files. The current
+transactional importer verifies seven pinned families and 1,127 runtime files,
+plus the separately pinned supplemental portraits. This family contributes
+six GLBs and 35 PNGs, **35,246,574 bytes**. All runtime payloads,
 handoffs, original packs, derivatives, screenshots and verification receipts
 stay outside Git. Source backup for this workshop work remains **pending**;
 the portable verification workspace is not an editable source backup.
@@ -57,23 +59,27 @@ reserved gutters are removed; legacy flourish/seal props remain compatible
 without rendering decoration. Direct content children retain the caller's
 layout and spacing rhythm. The corner asset remains available in the design
 library's complete source gallery for reference.
-The daily bonus star follows the server's award state, and the featured
-earned badge and earned badge detail use one measured gold-frame component.
-Badge tiles retain quiet artwork; rarity labels and icon fallbacks are shared.
+The daily bonus star follows the server's award state. The featured Profile
+achievement now uses the matching wide base and gold overlay from the
+[achievement card kit](achievement-card-kit.md), with the actual badge artwork
+beside its live name inside the safe content area. The earned badge detail sheet
+retains its existing measured frame treatment. Badge artwork, rarity labels, and icon fallbacks remain
+shared; the three new generic icons receive no inferred badge assignments.
 Existing difficulty stars use lit/unlit art with their original glyph fallback and a numeric
 accessible label. Equipped profile cosmetics stay independent.
 
-Child challenge cards use the Light illustration; the child Shop uses one
-Treasure introduction while individual offers retain their actual art,
-prices, stock and controls. Complete image canvases sit above content on
-cards with limited room or beside a readable text column when the card's own
-width allows it. This includes challenge tiles inside the full desktop folio,
-where a wide viewport can still leave a narrow card. Missing/failed decorative
-art collapses its column. These choices create no new gameplay mappings.
+Collections, child challenge cards, and reward offers now use the achievement
+kit's matching tall base and gold overlay, retaining their actual artwork,
+prices, stock, progress, and controls as live content. The original Light,
+Treasure, and other complete illustrated fronts remain available in the design
+library's source gallery. They are no longer the generic challenge or Shop
+introduction artwork. Their baked emblems receive no inferred catalog or earning
+bindings. Missing or failed kit artwork preserves the readable card and actions.
 
-The `storybook-accents.pw.js` fixture checks actual components at phone and
-desktop widths with long/enlarged text, both light and dark covers, and
-failed artwork. Private PNG acceptance requires the imported release;
+The `storybook-accents.pw.js` fixture checks the retained Storybook components;
+`achievement-card-kit.pw.js` checks the new card composition at phone and desktop
+widths with long/enlarged text, light and dark backgrounds, and failed artwork.
+Private PNG acceptance requires the imported releases;
 screenshots stay outside Git and hosted artifacts.
 
 The existing Hatching screen uses a neutral Normal Egg on the Trunk Pedestal
@@ -99,12 +105,15 @@ Visibility, background and reduced-motion gates pause playback; disposal and
 aborted selection cancel owned loads. WebGL/asset failures retain DOM fallbacks
 and hatch controls.
 
-PNG rendering resolves actual manifest object paths and defaults to the 512px
-web variants. The 16 native 1024px variants require an explicit review choice;
+This family's PNG rendering resolves actual manifest object paths and defaults
+to the 512px web variants. The 16 native 1024px variants require an explicit review choice;
 the three web-only images retain their 512px source. Full square canvases and
 transparent margins remain proportional. Emblems are already part of the card
 faces; live content is beside the art. No blank card slot, rating system or
-nine-slice border is inferred. The frame example uses the guide's measured
+nine-slice border is inferred for these finished square canvases. The separate
+achievement kit explicitly supplies its own 64px corner slices and 96px safe
+insets; its family-specific image resolver preserves wide/tall dimensions and
+variants. The pedestal frame example uses the guide's measured
 common presentation opening with intentional padding, preserving the source's
 very low alpha noise. Image failure restores an accessible fallback.
 
