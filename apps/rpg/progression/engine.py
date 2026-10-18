@@ -5,7 +5,7 @@ award writers are called. Missing activity types remain visible exclusions.
 """
 
 from collections import Counter, defaultdict
-from copy import copy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from decimal import Decimal
 import hashlib
@@ -30,8 +30,10 @@ from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
 from apps.quests.services import TRIGGER_DAMAGE
 from apps.quests.models import DailyBonus
 from apps.quests.daily_bonus import process_daily_bonus
-from apps.timecards.services import ClockService
+from apps.timecards.services import ClockService, TimecardService
+from apps.printing.pricing import quote_print_coins
 from apps.reading.services import ReadingRewardService
+from apps.rewards.services import ExchangeService
 from apps.rpg.companion_catalog import companion_drop_weights
 from apps.rpg.item_effects import FOOD_GROWTH_BY_RARITY, MAX_AUTHORED_FOOD_GROWTH, PREFERRED_FOOD_BONUS, food_base_growth
 from apps.rpg.rarity import (
@@ -47,10 +49,14 @@ from apps.rpg.services import (
 )
 
 from .catalog import load_catalog
+from .economy import (
+    ECONOMY_DEFAULTS, ECONOMY_LIMITS, OFFER_DEFAULTS, Economy,
+    aggregate_economy, normalize_economy, project_money_cents, exchange_quote_cents,
+)
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-17.2"
+ENGINE_VERSION = "2026-10-18.1"
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
     "horizon_days": 90,
@@ -72,6 +78,7 @@ DEFAULTS = {
     "feed_strategy": "feed_all",
     "expeditions_per_day": 1,
     "expedition_tier": "long",
+    "economy": deepcopy(ECONOMY_DEFAULTS),
 }
 LIMITS = {
     "horizon_days": {"choices": [30, 90, 180, 365]},
@@ -93,6 +100,7 @@ LIMITS = {
     "feed_strategy": {"choices": ["feed_all", "none"]},
     "expeditions_per_day": {"min": 0, "max": 15},
     "expedition_tier": {"choices": ["short", "standard", "long"]},
+    "economy": {"type": "object"},
 }
 MILESTONES = {
     "first_reward": "First XP or Coins",
@@ -135,6 +143,7 @@ def estimate_work(config):
         + config["creations_per_day"]
         + int(config["journal_per_day"])
         + config["expeditions_per_day"]
+        + (len(config.get("economy", {}).get("offers", [])) + 1 if config.get("economy", {}).get("enabled") else 0)
     )
     return config["trials"] * (config["horizon_days"] + visits * sources)
 
@@ -144,7 +153,10 @@ def normalize_config(config=None):
     if not isinstance(supplied, dict) or set(supplied) - set(DEFAULTS):
         raise ValueError("Unknown Progression Lab configuration fields.")
     result = {**DEFAULTS, **supplied}
+    result["economy"] = normalize_economy(supplied.get("economy"))
     for key, value in result.items():
+        if key == "economy":
+            continue
         limit = LIMITS[key]
         if limit.get("type") == "boolean":
             valid = type(value) is bool
@@ -157,7 +169,7 @@ def normalize_config(config=None):
     work = estimate_work(result)
     if work > MAX_WORK_UNITS:
         raise ValueError(
-            f"Scenario needs {work:,} work units; the limit is {MAX_WORK_UNITS:,}. Reduce trials, horizon, activities or expedition launches."
+            f"Scenario needs {work:,} work units; the limit is {MAX_WORK_UNITS:,}. Reduce trials, horizon, activities, expedition launches or offers."
         )
     return result
 
@@ -177,6 +189,10 @@ def rules_fingerprint():
         "tiers": TIER_CONFIG,
         "damage": TRIGGER_DAMAGE,
         "coins_per_hour": settings.COINS_PER_HOUR,
+        "coins_per_dollar": settings.COINS_PER_DOLLAR,
+        "economy_defaults": ECONOMY_DEFAULTS,
+        "economy_limits": ECONOMY_LIMITS,
+        "economy_source": inspect.getsource(inspect.getmodule(Economy)),
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
         "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS],
@@ -208,6 +224,13 @@ def rules_fingerprint():
                 BadgeService._award_badge_coins,
                 BadgeService.evaluate_badges,
                 ReadingRewardService.credit_new_session,
+                TimecardService.generate_weekly_timecard,
+                quote_print_coins,
+                normalize_economy,
+                project_money_cents,
+                exchange_quote_cents,
+                ExchangeService.request_exchange,
+                ExchangeService.approve,
             )
         ],
         "engine_source": inspect.getsource(Trial),
@@ -223,10 +246,11 @@ def coverage(catalog):
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
             "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+            "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         ],
         "excluded": [
-            "Homework, completed projects/milestones, savings, money, birthdays and grade progression",
-            "Private family chores, habits, reward shop, redemptions, parent goals and co-op/legacy quests",
+            "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
+            "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
             "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
             "Breeding, Perfect Day, manual grants, time-of-day and approval-delay effects",
             "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
@@ -311,6 +335,7 @@ class SimPet:
 class Trial:
     def __init__(self, config, catalog, seed):
         self.config, self.catalog, self.seed = normalize_config(config), catalog, seed
+        self.economy = Economy(self.config["economy"]) if self.config["economy"]["enabled"] else None
         self.rng = random.Random(seed)
         self.day = self.active_days = self.streak = self.last_active = 0
         self.coins = self.total_xp = self.earned_coins = 0
@@ -1053,7 +1078,7 @@ class Trial:
             self.record("expedition_launch", target=self.pets[pair].species.name)
 
     def update_progress(self):
-        if self.coins > 0 or self.total_xp > 0:
+        if self.earned_coins > 0 or self.total_xp > 0:
             self.milestones.setdefault("first_reward", self.day)
         for level in (1, 3, 6):
             if self.level >= level:
@@ -1078,6 +1103,8 @@ class Trial:
 
     def daily(self, day):
         self.day = day
+        if self.economy:
+            self.economy.begin_day(day)
         c = self.config
         self.counters["qualifying_minutes_today"] = 0
         active = (day - 1) % 7 < c["active_days_per_week"]
@@ -1155,9 +1182,13 @@ class Trial:
                 self.event("journal_entry")
             self.feed_and_hatch()
             self.launch_expeditions()
+            if self.economy:
+                self.economy.visit(self)
         else:
             self.habit_strength = [max(0, s - 1) for s in self.habit_strength]
         self.update_progress()
+        if self.economy:
+            self.economy.close_day(self)
         expired = sum(
             not q.is_repeatable
             and q.pk in self.quest_windows
@@ -1180,6 +1211,14 @@ class Trial:
                 "expired_oneoff_challenges": expired,
                 "finite_completed": len(self.completed_finite),
                 "finite_remaining": len(self.finite_keys) - len(self.completed_finite),
+                **({
+                    "coins_earned": self.economy.totals["coins_earned"],
+                    "coins_exchanged": self.economy.totals["coins_exchanged"],
+                    "coins_spent": self.economy.totals["coins_spent"],
+                    "money_remaining_cents": self.economy.money,
+                    "family_cost_cents": self.economy.totals["family_cost_cents"],
+                    "purchases": self.economy.totals["purchases"],
+                } if self.economy else {}),
             }
         )
 
@@ -1197,6 +1236,7 @@ class Trial:
             "event_count": self.event_count,
             "longest_novelty_gap": max(self.longest_novelty_gap, self.day - self.last_novelty_day),
             "eligible_challenges": len(self.quests),
+            "economy": self.economy.report() if self.economy else {"enabled": False},
         }
 
 
@@ -1219,8 +1259,11 @@ def describe_progression():
     catalog = load_catalog()
     return {
         "schema_version": SCHEMA_VERSION,
-        "defaults": dict(DEFAULTS),
+        "defaults": deepcopy(DEFAULTS),
         "limits": LIMITS,
+        "economy_defaults": deepcopy(ECONOMY_DEFAULTS),
+        "economy_offer_defaults": dict(OFFER_DEFAULTS),
+        "economy_limits": deepcopy(ECONOMY_LIMITS),
         "catalog": catalog.summary(),
         "coverage": coverage(catalog),
         "audit": audit_catalog(catalog),
@@ -1230,7 +1273,7 @@ def describe_progression():
         "work_budget": {
             "max_units": MAX_WORK_UNITS,
             "default_units": estimate_work(DEFAULTS),
-            "description": "trials × (calendar days + active visits × requested daily activity/expedition sources); conservative, before catalog reads",
+            "description": "trials × (calendar days + active visits × requested daily activity/expedition sources and enabled offer/cash-policy evaluations); conservative, before catalog reads",
         },
         "presets": [
             {
@@ -1258,7 +1301,8 @@ def simulate_progression(config=None, *, catalog=None):
     catalog = load_catalog() if catalog is None else catalog
     runs = [run_trial(config, catalog, config["seed"] + index) for index in range(config["trials"])]
     milestones = []
-    for key, label in MILESTONES.items():
+    milestone_labels = {**MILESTONES, **({"first_purchase": "First fulfilled purchase"} if config["economy"]["enabled"] else {})}
+    for key, label in milestone_labels.items():
         values = [run["milestones"][key] for run in runs if key in run["milestones"]]
         milestones.append(
             {
@@ -1318,6 +1362,10 @@ def simulate_progression(config=None, *, catalog=None):
         "percentile_basis": "Calendar days among trials completing within the horizon; completion_rate includes every trial",
     }
     audit = audit_catalog(catalog)
+    if config["economy"]["enabled"]:
+        audit = [row for row in audit if row["code"] != "no_coin_spending"]
+        audit.append({"severity": "info", "code": "hypothetical_purchasing",
+                      "message": "Purchases, wages and costs use entered synthetic assumptions. No household offers, prices, budget records or money balances are read."})
     for key, label in (("first_pet", "First companion"), ("first_mount", "First grown companion")):
         rate = next(row["completion_rate"] for row in milestones if row["key"] == key)
         if rate < 0.9:
@@ -1362,4 +1410,5 @@ def simulate_progression(config=None, *, catalog=None):
             "event_count": runs[0]["event_count"],
             "truncated": runs[0]["event_count"] > len(runs[0]["events"]),
         },
+        "economy": aggregate_economy(runs, config["economy"]),
     }
