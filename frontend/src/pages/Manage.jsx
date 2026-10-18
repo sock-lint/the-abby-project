@@ -1084,24 +1084,32 @@ function OAuthClientsCard() {
 
   return (
     <ParchmentCard>
-      <div className="font-display font-semibold text-ink-primary mb-1">
+      <h2 className="font-display font-semibold text-ink-primary mb-1">
         OAuth clients
-      </div>
+      </h2>
       <p className="text-body text-ink-whisper mb-3">
-        Apps connected to the Abby MCP server via OAuth 2.1. Revoke an app
-        to invalidate every token it has issued; revoke a single token to
-        disconnect just that session. Connect a new client by pointing it
-        at <code>{window.location.origin}/.well-known/oauth-protected-resource</code>.
+        Connect from your MCP client using <code>{window.location.origin}/mcp</code>.
+        The client discovers Abby&apos;s OAuth sign-in settings automatically.
       </p>
-      <ErrorAlert message={error} />
+      <p className="text-body text-ink-whisper mb-3">
+        Confirm success in the Codex terminal and with an authenticated tool listing.
+        A browser&apos;s “Authentication complete” message alone does not confirm
+        that Codex accepted the callback.
+      </p>
+      <ErrorAlert message={error} onRetry={refresh} />
       {loading ? (
         <Loader />
-      ) : (
+      ) : !error && (
         <div className="space-y-4">
-          <div>
-            <div className="font-display text-body text-ink-primary mb-1">
-              Registered applications ({apps.length})
-            </div>
+          <section aria-label="Registered clients">
+            <h3 className="font-display text-body text-ink-primary mb-1">
+              Registered clients ({apps.length})
+            </h3>
+            <p className="text-body text-ink-whisper mb-2">
+              All registered clients are listed here, including unfinished sign-in attempts
+              and clients used by other users. Registration happens before sign-in and
+              does not confirm that a user authorized access.
+            </p>
             {apps.length === 0 ? (
               <EmptyState>No OAuth clients have registered yet.</EmptyState>
             ) : (
@@ -1123,13 +1131,22 @@ function OAuthClientsCard() {
                 ))}
               </ul>
             )}
-          </div>
-          <div>
-            <div className="font-display text-body text-ink-primary mb-1">
-              Your active tokens ({tokens.length})
-            </div>
+          </section>
+          <section aria-label="Your active access tokens">
+            <h3 className="font-display text-body text-ink-primary mb-1">
+              Your active access tokens ({tokens.length})
+            </h3>
+            <p className="text-body text-ink-whisper mb-2">
+              These unexpired access tokens were issued to your Abby account after
+              authorization. Other users&apos; tokens are not shown. Revoke a token
+              to disconnect the client using it.
+            </p>
             {tokens.length === 0 ? (
-              <EmptyState>You don&apos;t have any active OAuth tokens.</EmptyState>
+              <EmptyState>
+                No unexpired access tokens were found for your Abby account.
+                Sign-in may be unfinished, or an earlier token may have expired
+                or been revoked. A registered client alone does not mean sign-in completed.
+              </EmptyState>
             ) : (
               <ul className="space-y-2">
                 {tokens.map((t) => (
@@ -1152,7 +1169,7 @@ function OAuthClientsCard() {
                 ))}
               </ul>
             )}
-          </div>
+          </section>
         </div>
       )}
       {confirm && (
@@ -1160,7 +1177,7 @@ function OAuthClientsCard() {
           title={confirm.kind === 'app' ? `Revoke all tokens for "${confirm.name}"?` : `Revoke this token?`}
           message={
             confirm.kind === 'app'
-              ? 'Every active session for this client will immediately stop working.'
+              ? 'All access and refresh tokens for this client will be revoked for every user. The client registration will remain.'
               : 'This will immediately disconnect the client using this token.'
           }
           confirmLabel="Revoke"

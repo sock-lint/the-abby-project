@@ -17,7 +17,7 @@ async function removeFixture(directory) {
   await rm(directory, { recursive: true, force: true });
 }
 
-export async function buildReleases() {
+export async function buildReleases({ legacyOAuthReleaseA = false } = {}) {
   await mkdir(cacheRoot, { recursive: true });
   const directory = await mkdtemp(join(cacheRoot, 'abby-pwa-'));
   const releases = {};
@@ -59,6 +59,7 @@ export async function buildReleases() {
       await runFile(process.execPath, [join(frontendRoot, 'e2e', 'build-release.js'),
         sourceDirectory, join(releaseDirectory, 'frontend_dist'),
         process.env.PWA_VITE_CONFIG || join(frontendRoot, 'vite.config.js'),
+        ...(legacyOAuthReleaseA && label === 'A' ? ['--legacy-oauth-navigation'] : []),
       ]);
       const html = await readFile(join(releaseDirectory, 'frontend_dist', 'index.html'), 'utf8');
       releases[label] = {
