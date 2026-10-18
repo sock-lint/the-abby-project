@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_value": 2,
           "icon": "🍎",
           "name": "Practice snack",
+          "coin_value": 2,
           "sprite_key": "",
           "description": "",
-          "rarity": "common",
           "metadata": {
             "growth": 5
-          }
+          },
+          "rarity": "common"
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "is_repeatable": false,
-          "coin_reward": 10,
-          "quest_type": "collection",
-          "name": "Practice challenge",
-          "sprite_key": "",
+          "duration_days": 7,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "duration_days": 7,
-          "xp_reward": 15,
           "icon": "⚔️",
           "target_value": 2,
           "description": "Complete two approved chores.",
+          "is_repeatable": false,
+          "xp_reward": 15,
+          "quest_type": "collection",
+          "name": "Practice challenge",
+          "sprite_key": "",
+          "coin_reward": 10,
           "required_badge": null,
           "reward_items": [
             {
@@ -250,7 +250,23 @@
       "journal_per_day": true,
       "feed_strategy": "feed_all",
       "expeditions_per_day": 1,
-      "expedition_tier": "long"
+      "expedition_tier": "long",
+      "economy": {
+        "enabled": false,
+        "start_date": "2026-01-01",
+        "purchase_strategy": "save_for_priority",
+        "monthly_family_budget_cents": null,
+        "chore_money_cents": 0,
+        "project_hourly_money_cents": 0,
+        "exchange_shortfalls": false,
+        "monthly_exchange_limit_cents": null,
+        "printing": {
+          "minutes_per_coin": null,
+          "monthly_minutes": null,
+          "monthly_grams": null
+        },
+        "offers": []
+      }
     },
     "limits": {
       "horizon_days": {
@@ -339,6 +355,131 @@
           "standard",
           "long"
         ]
+      },
+      "economy": {
+        "type": "object"
+      }
+    },
+    "economy_defaults": {
+      "enabled": false,
+      "start_date": "2026-01-01",
+      "purchase_strategy": "save_for_priority",
+      "monthly_family_budget_cents": null,
+      "chore_money_cents": 0,
+      "project_hourly_money_cents": 0,
+      "exchange_shortfalls": false,
+      "monthly_exchange_limit_cents": null,
+      "printing": {
+        "minutes_per_coin": null,
+        "monthly_minutes": null,
+        "monthly_grams": null
+      },
+      "offers": []
+    },
+    "economy_offer_defaults": {
+      "key": "reward",
+      "label": "New reward",
+      "kind": "real_world",
+      "coin_price": 100,
+      "repeat_every_days": 0,
+      "stock": null,
+      "family_cost_cents": 0,
+      "print_minutes": 0,
+      "print_grams": 0
+    },
+    "economy_limits": {
+      "max_offers": 12,
+      "fields": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "start_date": {
+          "min": "2000-01-01",
+          "max": "2100-12-31"
+        },
+        "purchase_strategy": {
+          "choices": [
+            "save_for_priority",
+            "buy_affordable"
+          ]
+        },
+        "monthly_family_budget_cents": {
+          "min": 0,
+          "max": 1000000,
+          "nullable": true
+        },
+        "chore_money_cents": {
+          "min": 0,
+          "max": 1000000
+        },
+        "project_hourly_money_cents": {
+          "min": 0,
+          "max": 100000
+        },
+        "exchange_shortfalls": {
+          "type": "boolean"
+        },
+        "monthly_exchange_limit_cents": {
+          "min": 0,
+          "max": 1000000,
+          "nullable": true
+        }
+      },
+      "printing": {
+        "minutes_per_coin": {
+          "min": 1,
+          "max": 10000,
+          "nullable": true
+        },
+        "monthly_minutes": {
+          "min": 0,
+          "max": 44640,
+          "nullable": true
+        },
+        "monthly_grams": {
+          "min": 0,
+          "max": 100000,
+          "nullable": true
+        }
+      },
+      "offer": {
+        "key": {
+          "max_length": 40
+        },
+        "label": {
+          "max_length": 80
+        },
+        "kind": {
+          "choices": [
+            "real_world",
+            "printing"
+          ]
+        },
+        "coin_price": {
+          "min": 0,
+          "max": 1000000
+        },
+        "repeat_every_days": {
+          "min": 0,
+          "max": 365
+        },
+        "stock": {
+          "min": 0,
+          "max": 1000,
+          "nullable": true
+        },
+        "family_cost_cents": {
+          "min": 0,
+          "max": 1000000
+        },
+        "print_minutes": {
+          "min": 0,
+          "max": 10080
+        },
+        "print_grams": {
+          "min": 0,
+          "max": 10000
+        }
       }
     },
     "catalog": {
@@ -358,11 +499,12 @@
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
-        "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance"
+        "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+        "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups"
       ],
       "excluded": [
-        "Homework, completed projects/milestones, savings, money, birthdays and grade progression",
-        "Private family chores, habits, reward shop, redemptions, parent goals and co-op/legacy quests",
+        "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
+        "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
         "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
         "Breeding, Perfect Day, manual grants, time-of-day and approval-delay effects",
         "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
@@ -461,13 +603,13 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "ef2d1c58bc695c3e7554c5acee893e47d16620358c68f5d12f020a74a34694bc",
-    "engine_version": "2026-10-17.2",
+    "rules_fingerprint": "58ad519a579250eecf222e059c0eb9639efee554f048b4b807038c40e1eae73e",
+    "engine_version": "2026-10-18.1",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,
       "default_units": 9600,
-      "description": "trials × (calendar days + active visits × requested daily activity/expedition sources); conservative, before catalog reads"
+      "description": "trials × (calendar days + active visits × requested daily activity/expedition sources and enabled offer/cash-policy evaluations); conservative, before catalog reads"
     },
     "presets": [
       {
@@ -491,7 +633,23 @@
           "journal_per_day": false,
           "feed_strategy": "feed_all",
           "expeditions_per_day": 1,
-          "expedition_tier": "long"
+          "expedition_tier": "long",
+          "economy": {
+            "enabled": false,
+            "start_date": "2026-01-01",
+            "purchase_strategy": "save_for_priority",
+            "monthly_family_budget_cents": null,
+            "chore_money_cents": 0,
+            "project_hourly_money_cents": 0,
+            "exchange_shortfalls": false,
+            "monthly_exchange_limit_cents": null,
+            "printing": {
+              "minutes_per_coin": null,
+              "monthly_minutes": null,
+              "monthly_grams": null
+            },
+            "offers": []
+          }
         }
       },
       {
@@ -515,7 +673,23 @@
           "journal_per_day": true,
           "feed_strategy": "feed_all",
           "expeditions_per_day": 1,
-          "expedition_tier": "long"
+          "expedition_tier": "long",
+          "economy": {
+            "enabled": false,
+            "start_date": "2026-01-01",
+            "purchase_strategy": "save_for_priority",
+            "monthly_family_budget_cents": null,
+            "chore_money_cents": 0,
+            "project_hourly_money_cents": 0,
+            "exchange_shortfalls": false,
+            "monthly_exchange_limit_cents": null,
+            "printing": {
+              "minutes_per_coin": null,
+              "monthly_minutes": null,
+              "monthly_grams": null
+            },
+            "offers": []
+          }
         }
       },
       {
@@ -539,7 +713,23 @@
           "journal_per_day": true,
           "feed_strategy": "feed_all",
           "expeditions_per_day": 1,
-          "expedition_tier": "long"
+          "expedition_tier": "long",
+          "economy": {
+            "enabled": false,
+            "start_date": "2026-01-01",
+            "purchase_strategy": "save_for_priority",
+            "monthly_family_budget_cents": null,
+            "chore_money_cents": 0,
+            "project_hourly_money_cents": 0,
+            "exchange_shortfalls": false,
+            "monthly_exchange_limit_cents": null,
+            "printing": {
+              "minutes_per_coin": null,
+              "monthly_minutes": null,
+              "monthly_grams": null
+            },
+            "offers": []
+          }
         }
       }
     ]

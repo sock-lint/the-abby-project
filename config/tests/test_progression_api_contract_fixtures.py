@@ -74,3 +74,35 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertEqual(len(report["trace"]), 30)
         self.assertTrue(report["journey"]["events"])
         self.assertEqual(report["coverage"]["initial_state"]["coins"], 0)
+
+    def test_purchases_and_money_match_shared_wire_contract(self):
+        response = self.client.post(
+            "/api/rpg/progression-lab/simulate/",
+            {
+                "horizon_days": 30, "trials": 3, "seed": 17,
+                "chores_per_day": 1, "chore_coins": 5,
+                "habits_per_day": 0, "journal_per_day": False,
+                "project_minutes": 20,
+                "economy": {
+                    "enabled": True, "start_date": "2026-01-20",
+                    "purchase_strategy": "buy_affordable",
+                    "monthly_family_budget_cents": 600,
+                    "chore_money_cents": 25, "project_hourly_money_cents": 800,
+                    "exchange_shortfalls": True, "monthly_exchange_limit_cents": 100,
+                    "printing": {"minutes_per_coin": 10, "monthly_minutes": 30, "monthly_grams": 20},
+                    "offers": [
+                        {"key": "outing", "label": "Practice outing", "kind": "real_world",
+                         "coin_price": 50, "repeat_every_days": 7, "stock": 2,
+                         "family_cost_cents": 500, "print_minutes": 0, "print_grams": 0},
+                        {"key": "print", "label": "Practice print", "kind": "printing",
+                         "coin_price": 0, "repeat_every_days": 7, "stock": None,
+                         "family_cost_cents": 25, "print_minutes": 21, "print_grams": 10},
+                    ],
+                },
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200, response.data)
+        report = self.assert_response_fixture(response, "progression-lab-economy-report.json")
+        self.assertTrue(report["economy"]["enabled"])
+        self.assertEqual(report["config"]["economy"]["start_date"], "2026-01-20")

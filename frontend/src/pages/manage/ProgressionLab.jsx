@@ -13,6 +13,9 @@ import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
 import AttachmentField from '../../components/attachments/AttachmentField';
 import { CheckboxField, SelectField, TextField } from '../../components/form';
+import ProgressionEconomyControls from './ProgressionEconomyControls';
+import ProgressionEconomyReport from './ProgressionEconomyReport';
+import { importedScenario, scenariosMatch } from './progressionLabScenario';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -53,6 +56,7 @@ function AccountProgressionLab() {
   const [revision, setRevision] = useState(0);
   const [config, setConfig] = useState(null);
   const [result, setResult] = useState(null);
+  const [resultInputs, setResultInputs] = useState(null);
   const [baseline, setBaseline] = useState(null);
   const [busy, setBusy] = useState(false);
   const [runError, setRunError] = useState(null);
@@ -65,7 +69,7 @@ function AccountProgressionLab() {
   const active = useRef(false);
   const request = useRef(null);
   const token = getToken();
-  const dirty = Boolean(config && metadata && JSON.stringify(config) !== JSON.stringify(metadata.defaults));
+  const dirty = Boolean(config && metadata && !scenariosMatch(config, metadata.defaults));
   usePwaUpdateGuard(dirty || busy || importBusy);
 
   useEffect(() => {
@@ -125,9 +129,10 @@ function AccountProgressionLab() {
     setBusy(true);
     setRunError(null);
     setFieldErrors({});
+    const submitted = JSON.parse(JSON.stringify(config));
     try {
-      const response = await simulateProgressionLab(config, { signal: controller.signal });
-      if (active.current && token === getToken()) setResult(response);
+      const response = await simulateProgressionLab(submitted, { signal: controller.signal });
+      if (active.current && token === getToken()) { setResult(response); setResultInputs(submitted); }
     } catch (error) {
       if (!active.current || token !== getToken() || error.name === 'AbortError') return;
       if (error.status === 401 || error.status === 403) {
@@ -163,11 +168,12 @@ function AccountProgressionLab() {
                 </details>
                 {metadata.presets?.length > 0 && <div className="space-y-2">
                   <p className="text-caption text-ink-secondary">Starting routines are editable examples, not observed player groups.</p>
-                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig(preset.config); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
+                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
+                  {config.economy && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing assumptions.</p>}
                 </div>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <ChoiceField name="horizon_days" label="Forecast horizon" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
-                  <NumericField name="trials" label="Simulated children" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} help="Longer or busier routines may need fewer simulated children. Requests over the model budget are rejected; counts are never silently reduced." />
+                  <NumericField name="trials" label="Simulated children" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} help="Longer or busier routines and additional reward offers may need fewer simulated children. Requests over the model budget are rejected; counts are never silently reduced." />
                   <NumericField name="seed" label="Random seed" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} help="Use the same seed to reproduce a report." />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -184,6 +190,15 @@ function AccountProgressionLab() {
                   </div>
                   <p className="text-caption text-ink-secondary mt-3">These values change this scenario only. Parent approvals are assumed complete. See model coverage below for the exact companion and reward behavior included.</p>
                 </details>
+                {metadata.economy_defaults && metadata.economy_limits && <ProgressionEconomyControls economy={config.economy ?? metadata.economy_defaults} metadata={metadata}
+                  onChange={(economy) => change('economy', economy)}
+                  onExample={() => {
+                    const economy = JSON.parse(JSON.stringify(metadata.economy_defaults));
+                    economy.enabled = true;
+                    economy.offers = [{ ...metadata.economy_offer_defaults, key: 'example-outing', label: 'Example outing', coin_price: 100, repeat_every_days: 7, family_cost_cents: 500 }];
+                    setConfig((previous) => ({ ...previous, horizon_days: 90, trials: 10, economy }));
+                    setFieldErrors({});
+                  }} />}
               </fieldset>
               <ErrorAlert message={runError} />
               <div className="flex flex-wrap items-center gap-3">
@@ -193,7 +208,7 @@ function AccountProgressionLab() {
             </form>
           </ParchmentCard>
           {result && <>
-            {JSON.stringify(config) !== JSON.stringify(result.config) && <p role="status" className="text-body text-ember-deep">Inputs have changed. The report below still shows the last completed scenario.</p>}
+            {!scenariosMatch(config, resultInputs ?? result.config) && <p role="status" className="text-body text-ember-deep">Inputs have changed. The report below still shows the last completed scenario.</p>}
             <Report key={`${result.config.seed}:${result.config.horizon_days}:${result.config.trials}`} report={result} baseline={baseline} onBaseline={() => setBaseline(result)} onClearBaseline={() => setBaseline(null)} />
           </>}
           <Coverage coverage={(result ?? metadata).coverage} audit={(result ?? metadata).audit} catalog={(result ?? metadata).catalog} />
@@ -213,22 +228,7 @@ async function readSavedRoutine(file, metadata) {
   });
   let saved;
   try { saved = JSON.parse(text); } catch { throw new Error('Choose a valid JSON report.'); }
-  const config = saved?.config;
-  const keys = Object.keys(metadata.defaults);
-  if (saved?.schema_version !== 1 || !config || typeof config !== 'object' || Array.isArray(config)
-      || Object.keys(config).length !== keys.length || Object.keys(config).some((key) => !keys.includes(key))) {
-    throw new Error('The report must contain a complete supported routine.');
-  }
-  for (const key of keys) {
-    const value = config[key];
-    const limit = metadata.limits[key];
-    if (typeof value !== typeof metadata.defaults[key] || (typeof value === 'number' && !Number.isInteger(value))
-        || (limit.choices && !limit.choices.includes(value))
-        || (limit.min != null && value < limit.min) || (limit.max != null && value > limit.max)) {
-      throw new Error(`The saved value for ${key.replaceAll('_', ' ')} is outside the current supported values.`);
-    }
-  }
-  return config;
+  return importedScenario(saved, metadata);
 }
 
 function NumericField({ name, label, help, config, limits, onChange, errors }) {
@@ -263,6 +263,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     </SectionHeader>
     {baseline && <div className="flex flex-wrap items-center gap-3 text-body text-ink-secondary" role="status">Comparing with {baseline.config.horizon_days} days, {baseline.config.trials} children, seed {baseline.config.seed}, {number(baseline.summary.finite_content_total)} finite targets. Changing activities can change that denominator.<Button variant="ghost" onClick={onClearBaseline}>Clear comparison</Button></div>}
     {baseline && !versionsMatch && <p role="status" className="text-body text-ember-deep">Comparison versions: unavailable or different. Numeric differences may include changes to the model, rules or catalog. Treat these as separate forecasts.</p>}
+    {baseline && <p className="text-caption text-ink-secondary">Purchasing is {report.economy?.enabled ? 'on' : 'off'} in this report and {baseline.economy?.enabled ? 'on' : 'off'} in the comparison. {!scenariosMatch(report.config.economy, baseline.config.economy) && 'Purchasing assumptions differ; review their offers, budgets and earned-money assumptions alongside the totals.'}</p>}
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Modeled runway at a glance">Finite targets include eligible modeled badges, one-time challenges, obtainable cosmetics and companion stages. They describe a subset of Abby’s content, not total app exhaustion.</SectionHeader>
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -293,14 +294,15 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
         <RunwayChart rows={snapshots} />
         <TextField label="Inspect calendar day" type="range" min="0" max={snapshots.length - 1} step="1" value={index} onChange={(event) => setIndex(Number(event.target.value))} helpText={`Day ${snapshot.day}`} />
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label={`Day ${snapshot.day} median state`}>
-          {[['Discovered', snapshot.finite_completed_p50], ['Modeled targets not completed', snapshot.finite_remaining_p50], ['Coins saved', snapshot.coins_p50], ['Total XP', snapshot.total_xp_p50], ['Character level', snapshot.level_p50], ['Inventory units held', snapshot.inventory_units_p50], ['Hatched companions', snapshot.pets_p50], ['Grown companions', snapshot.mounts_p50], ['Expired unfinished challenges', snapshot.expired_oneoff_challenges_p50]].map(([label, value]) => <div key={label} className="rounded-lg bg-ink-page-aged p-3"><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold text-ink-primary">{number(value)}</dd></div>)}
+          {[['Discovered', snapshot.finite_completed_p50], ['Modeled targets not completed', snapshot.finite_remaining_p50], [report.economy?.enabled ? 'Coins available' : 'Coins saved', snapshot.coins_p50], ['Total XP', snapshot.total_xp_p50], ['Character level', snapshot.level_p50], ['Inventory units held', snapshot.inventory_units_p50], ['Hatched companions', snapshot.pets_p50], ['Grown companions', snapshot.mounts_p50], ['Expired unfinished challenges', snapshot.expired_oneoff_challenges_p50]].map(([label, value]) => <div key={label} className="rounded-lg bg-ink-page-aged p-3"><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold text-ink-primary">{number(value)}</dd></div>)}
         </dl>
       </> : <p>No timeline is available for this report.</p>}
     </ParchmentCard>
     <ParchmentCard className="space-y-3">
-      <SectionHeader as="h3" title="Reward sources and consumption">Mean totals per child across all {report.config.trials} simulated children and {report.config.horizon_days} calendar days. Coins remain savings in this model. Household shops, real-world rewards and purchasing decisions are excluded; this is not a spending forecast.</SectionHeader>
+      <SectionHeader as="h3" title="Reward sources and consumption">Mean totals per child across all {report.config.trials} simulated children and {report.config.horizon_days} calendar days. {report.economy?.enabled ? 'This report includes only the anonymous reward offers and purchasing assumptions below. Live household shops are not read.' : 'Coins remain savings in this model. Household shops, real-world rewards and purchasing decisions are excluded; this is not a spending forecast.'}</SectionHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FlowTable title="Sources" rows={report.flows?.sources ?? []} /><FlowTable title="Sinks and consumption" rows={report.flows?.sinks ?? []} /></div>
     </ParchmentCard>
+    <ProgressionEconomyReport economy={report.economy} baseline={baseline?.economy} config={report.config.economy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Inspect a reproducible journey">Representative trial seed: {report.journey?.seed ?? report.config.seed}. This event log describes one child; the summaries above describe the whole group.</SectionHeader>
       <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show event receipts</summary>
