@@ -202,7 +202,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
               {selectedEggItem?.slug ? <FamilyStagePreview key={selectedEggItem.id} item={selectedEggItem} /> : <PedestalPreview />}
               <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
                 <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
-                Egg artwork preview
+                Family artwork preview
               </figcaption>
             </figure>
             <div className="min-w-0">
