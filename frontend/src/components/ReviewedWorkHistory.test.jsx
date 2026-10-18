@@ -22,6 +22,38 @@ function authenticate() {
 }
 
 describe('Reviewed work history', () => {
+  it('uses the current family timezone for legacy work and updates it without reopening history', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({
+        family: { id: 1, timezone: 'America/New_York' },
+      }))),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([row(1, {
+        chore_title: 'Water plants', completed_date: '2026-10-16', timing_snapshot: null,
+        created_at: '2026-10-17T01:30:00Z', decided_at: '2026-10-19T01:30:00Z',
+      })])),
+    );
+    function Workspace() {
+      const { setUser } = useAuth();
+      return <><button onClick={() => setUser(buildParent({
+        family: { id: 1, timezone: 'Asia/Tokyo' },
+      }))}>Update family timezone</button><ReviewedWorkHistory kind="chore" childId={7} /></>;
+    }
+    const { user } = renderWithProviders(<Workspace />);
+    await user.click(await screen.findByText('Reviewed chores'));
+    await screen.findByText('Abby · Water plants');
+    const doneOn = screen.getByText('Done on').parentElement;
+    const approved = screen.getByText('Approved', { selector: 'dt' }).parentElement;
+    expect(doneOn.querySelector('time')).toHaveAttribute('datetime', '2026-10-16');
+    expect(approved).toHaveTextContent('Oct 18');
+    expect(approved).toHaveTextContent('EDT');
+    await user.click(screen.getByRole('button', { name: 'Update family timezone' }));
+    expect(doneOn.querySelector('time')).toHaveAttribute('datetime', '2026-10-17');
+    expect(approved).toHaveTextContent('Oct 19');
+    expect(approved).toHaveTextContent('GMT+9');
+    expect(doneOn).not.toHaveTextContent('UTC');
+    expect(screen.getByText('Reviewed chores').closest('details')).toHaveAttribute('open');
+  });
+
   it.each([
     ['chore', 'Reviewed chores', '/api/chore-completions/', 'approve', approveChoreCompletion, null],
     ['homework', 'Reviewed homework', '/api/homework-submissions/', 'reject', rejectHomeworkSubmission, { notes: '' }],

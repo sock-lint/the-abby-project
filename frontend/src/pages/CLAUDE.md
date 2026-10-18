@@ -460,14 +460,25 @@ optional links, with no invented completion claims.
 
 ### Submission dates and reviewed work
 
-`SubmissionTiming` separates the saved deadline/recurrence period, the child's
-submission (or Marked complete) timestamp, and the later parent decision. New
-homework and chore rows consume server-owned `timing_snapshot` v1 values in the
-saved household timezone. A changed `current_due_date` is labelled Current due;
-it never replaces the original deadline. Weekly `completed_date` is a Monday
-period identifier, not the day the child did the work. Legacy rows identify
-missing timing evidence explicitly; saved undated chores say No due date.
-Timing badges report labels only, without obsolete reward percentages.
+`SubmissionTiming` gives chores two primary dates: Scheduled for (the saved
+schedule's `due_on`) and Done on (the saved household `submitted_on`). Chore
+rows do not add timing/status badges to this pair or rewrite historical timing
+classifications or rewards. Daily
+chores use their scheduled day; weekly chores retain the existing Sunday end of
+their scheduled week. One-time forms call their single optional date Scheduled
+date; unscheduled chores say No scheduled date.
+
+Completion details keeps exact submission timestamps, parent decisions, changed
+one-time schedules and legacy recorded periods out of the primary date pair.
+Weekly `completed_date` is a Monday period identifier, not evidence of the
+original deadline or the day the child did the work. Legacy rows say Not recorded and never infer the original scheduled date. Saved snapshot
+timezones take precedence; older timestamps use the current household timezone,
+with the app's Phoenix default when it is unavailable.
+
+Homework retains its saved deadline, submission and parent decision, with a
+changed `current_due_date` labelled Current due. Neither client rewrites the
+server-owned `timing_snapshot` v1 values. Timing labels do not show reward
+percentages.
 
 Parent homework and chore pages expose `ReviewedWorkHistory` after a child is
 verified by the current roster. It loads known endpoint pages, shows approved

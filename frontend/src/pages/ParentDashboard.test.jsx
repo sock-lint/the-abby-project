@@ -34,6 +34,23 @@ const emptyDashboard = {
 };
 
 describe('ParentDashboard', () => {
+  it('shows a legacy chore marked complete on the family-local day in the approval queue', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({
+        family: { id: 1, timezone: 'Asia/Tokyo' },
+      }))),
+      http.get('*/api/dashboard/', () => HttpResponse.json(emptyDashboard)),
+      http.get('*/api/chore-completions/', () => HttpResponse.json([{
+        id: 11, chore_title: 'Dishes', user: 2, user_name: 'Abby', status: 'pending',
+        completed_date: '2026-10-17', created_at: '2026-10-17T23:30:00Z',
+        timing_snapshot: null, reward_amount_snapshot: '1.00', coin_reward_snapshot: 0,
+      }])),
+    ]);
+    const doneOn = (await screen.findByText('Done on')).parentElement;
+    expect(doneOn).not.toHaveTextContent('UTC');
+    expect(doneOn.querySelector('time')).toHaveAttribute('datetime', '2026-10-18');
+  });
+
   it('keeps the daily gratitude pad off the parent Today screen', async () => {
     const wellbeing = spyHandler('get', /\/api\/wellbeing\/today\/$/, {});
     renderDashboard([
