@@ -24,6 +24,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `template-skills.json` | Parent `GET /api/templates/1/`; reusable plans preserve weighted project skill tags and fixed milestone XP tags |
 | `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |
 | `catalog-icons-drops.json`, `catalog-icons-goals.json` | Recent drops, automatic goals and reward previews retain verified image IDs while same-name parent goals keep null |
+| `artwork-categories.json`, `artwork-subjects.json`, `artwork-skills.json`, `artwork-tree.json`, `artwork-progress.json` | Skill catalog, nested tree and saved progress expose exact artwork identities with category/subject context; equally named custom skills retain null |
+| `artwork-badges.json`, `artwork-summary.json`, `artwork-character.json`, `artwork-dashboard.json` | Exact final badge criteria select artwork across catalog, earned summary, trophy and dashboard; changed criteria retain null |
 | `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |
 | `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
 | `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |

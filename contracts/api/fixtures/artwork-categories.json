@@ -1,0 +1,23 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 101,
+      "name": "Coding",
+      "icon": "CODE",
+      "catalog_icon": "category-coding",
+      "color": "#123456",
+      "description": ""
+    },
+    {
+      "id": 102,
+      "name": "Custom Coding",
+      "icon": "CUSTOM",
+      "catalog_icon": null,
+      "color": "#D97706",
+      "description": ""
+    }
+  ]
+}

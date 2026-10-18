@@ -1,0 +1,46 @@
+{
+  "category": {
+    "id": 101,
+    "name": "Coding",
+    "icon": "CODE",
+    "catalog_icon": "category-coding",
+    "color": "#123456"
+  },
+  "summary": {
+    "level": 1,
+    "total_xp": 150
+  },
+  "subjects": [
+    {
+      "id": 201,
+      "name": "Languages & Apps",
+      "icon": "APPS",
+      "catalog_icon": "subject-coding-languages-apps",
+      "category_name": "Coding",
+      "description": "",
+      "order": 0,
+      "summary": {
+        "level": 1,
+        "total_xp": 150
+      },
+      "skills": [
+        {
+          "id": 301,
+          "name": "Python",
+          "icon": "PYTHON",
+          "catalog_icon": "skill-coding-python",
+          "category_name": "Coding",
+          "subject_name": "Languages & Apps",
+          "description": "",
+          "is_locked_by_default": false,
+          "level_names": {},
+          "xp_points": 150,
+          "level": 1,
+          "unlocked": true,
+          "xp_to_next_level": 150,
+          "prerequisites": []
+        }
+      ]
+    }
+  ]
+}

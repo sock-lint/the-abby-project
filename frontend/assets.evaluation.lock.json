@@ -1,0 +1,11 @@
+{
+  "releases": [
+    {
+      "directory": "abby-bird-accessory-pilot/1.0.0/432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720",
+      "family_id": "abby-bird-accessory-pilot",
+      "manifest_sha256": "432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720",
+      "release_version": "1.0.0"
+    }
+  ],
+  "schema_version": 1
+}

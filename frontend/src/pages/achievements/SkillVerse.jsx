@@ -1,6 +1,7 @@
 import { motion, useReducedMotion } from 'framer-motion';
 import { ChevronRight, Lock } from 'lucide-react';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import ArtworkImage from '../../components/rpg/ArtworkImage';
 import PrereqChain from './PrereqChain';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
@@ -59,7 +60,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
     >
       {waypoint ? (
         <span aria-hidden="true" className="flex size-11 shrink-0 items-center justify-center rounded-full border border-ink-page-shadow bg-ink-page-rune-glow text-2xl">
-          {skill.icon || skill.name?.[0] || '✦'}
+          <ArtworkImage assetId={skill.catalog_icon} fallback={skill.icon || skill.name?.[0] || '✦'} size={32} />
         </span>
       ) : <IlluminatedVersal
         letter={skill.name?.[0] || '✦'}
@@ -76,9 +77,9 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
           {!skill.unlocked && (
             <Lock size={13} className="text-ink-whisper shrink-0" aria-hidden="true" />
           )}
-          {skill.icon && !waypoint && (
+          {(skill.icon || skill.catalog_icon) && !waypoint && (
             <span aria-hidden="true" className="text-sm leading-none opacity-70 shrink-0">
-              {skill.icon}
+              <ArtworkImage assetId={skill.catalog_icon} fallback={skill.icon || null} size={16} />
             </span>
           )}
         </span>
