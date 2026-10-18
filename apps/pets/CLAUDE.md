@@ -1,6 +1,6 @@
 # apps/pets/
 
-Collectible pets + growth/evolution + offline expeditions. Every species has the lifecycle **Egg → Baby → Middle → Grown**. Eggs are existing inventory ingredients; egg + potion hatches a baby, 50 saved growth reaches middle, and confirmed evolution at 100 reaches grown (the existing mount). See [companion lifecycle](../../docs/operations/companion-lifecycle.md).
+Collectible pets + timed incubation + growth/evolution + offline expeditions. Every species has the lifecycle **Egg → Baby → Middle → Grown**. An owned egg + potion starts incubation; after its server deadline an explicit hatch creates a baby. 50 saved growth reaches middle, and confirmed evolution at 100 reaches grown (the existing mount). See [companion lifecycle](../../docs/operations/companion-lifecycle.md).
 
 ## Active asset policy (October 2026)
 
@@ -36,6 +36,7 @@ Compatibility fields are inert: `can_breed` and `breeding_available` are always
 false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ## Models
+- `PetIncubation` saves one accepted ingredient pair, request UUID, frozen display identities and start/ready timestamps. One unfinished row per account includes ready eggs awaiting explicit hatch. Completed rows retain their request receipt and hatch marker; deleting a saved pet cannot make that receipt award it again. User deletion cascades the row; ingredient deletion clears its optional FK while retaining its snapshot. Species/potion deletion is protected so accepted identities remain fulfillable; ordinary catalog retirement never prevents claim.
 - `PetSpecies.rarity` is its acquisition tier, shared with the canonical egg.
   Owned pet/mount responses expose the higher of species rarity and a saved
   potion rarity, preserving legacy variants. Growth stages never change rarity.
@@ -44,19 +45,35 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 - `MountExpedition` (offline adventure rows; `status`, `tier`, `started_at`, `ready_at`, `loot` JSON).
 
 ## Services
-- `PetService` — `hatch_pet`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
+- `PetService` — `start_incubation`, `current_incubation`, `hatch_incubation`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
 ### Growth transactions
 
+Incubation starts acquire the achievements user gate before inventory writes,
+validate the current pair and ownership, and consume exactly one egg + potion.
+They create no pet, growth, badge, XP, Coins or Chronicle hatch. Replaying the
+same request UUID and pair returns the saved row, including after completion;
+changing the pair for that UUID conflicts. Another unfinished egg conflicts.
+`PET_INCUBATION_DURATION_SECONDS` defaults to 7200 and is frozen into `ready_at`.
+Reads report server time, rounded-up remaining seconds and readiness without
+writing. Only an explicit ready hatch creates ownership and its existing rewards,
+under the same user-first lock and a lock on the incubation row itself. Catalog
+availability/compatibility changes after acceptance do not revoke that paid pair.
+Claim retries return the original pet with `freshly_hatched: false`; a payout
+failure rolls back the claim while retaining its already reserved ingredients.
+No worker, browser timer, GET or instant service can hatch an egg early.
+`tests/test_incubation.py` and the PostgreSQL concurrency tests cover these rules.
+
 Hatching and confirmed evolution evaluate the existing `pet` and `badges`
 achievement scopes immediately, in the same transaction as ownership and item
-consumption. Hatching acquires the achievements user gate before inventory
-locks. Food, Growth Surge, Feast and passive growth all reach evolution's
+reservation. Starting and hatching acquire the achievements user gate before
+inventory or incubation locks. Food, Growth Surge, Feast and passive growth all reach evolution's
 badge evaluation through `PetService._save_growth`; intermediate growth grants
 no new badge rule or reward. Existing badge criteria, XP and Coin values stay
-authoritative. A failed badge payout rolls back the pet/mount, consumed items
-and payout together so a retry cannot lose ingredients or duplicate awards.
+authoritative. A failed badge payout rolls back the pet/mount and payout together;
+food consumption rolls back, while a previously accepted egg remains reserved
+for its claim retry.
 Only newly earned badges create self-scoped `badge_earned` notifications linking
 to Badges. Their rows use a best-effort savepoint, and external push waits for
 the ownership transaction to commit; a notification failure retains progression
@@ -125,6 +142,10 @@ returns, snapshot consistency and sibling isolation. No new play counters,
 check-in rewards, XP or growth rules are introduced by these interactions.
 
 ## Endpoints
+- `GET /api/pets/incubations/` — self-scoped unfinished incubation or null, configured duration and server time.
+- `POST /api/pets/incubations/ {egg_item_id,potion_item_id,request_id}` — start (201) or replay the same request (200). Invalid pairs return 400; conflicting unfinished eggs or UUID reuse return 409.
+- `POST /api/pets/incubations/<id>/hatch/` — explicit ready hatch (201) or completed retry (200), with `pet` and `freshly_hatched`. Early hatch returns 409; foreign/missing IDs return 404. All envelopes carry `server_now` and frozen incubation display fields. Remaining seconds and readiness share that server snapshot.
+- Authenticated legacy `POST /api/pets/hatch/` returns 410 with `{"error":"Instant hatching has been removed. Start an egg incubation in the Hatchery."}` and performs no writes. There is no public instant-hatch service.
 - `POST /api/mounts/<id>/expedition/ {tier}` — start an expedition.
 - `GET /api/expeditions/[?ready=true]` — list user's expeditions.
 - `POST /api/expeditions/<id>/claim/` — claim returned loot.
@@ -134,13 +155,13 @@ check-in rewards, XP or growth rules are introduced by these interactions.
 
 - **Potion compatibility** (October 2026): hatching checks a species's nonempty `available_potions` before consuming ingredients. The loader populates omitted lists with all current potion types; an empty legacy relation means unrestricted authored compatibility, still intersected with the active asset policy for new hatching. Chick accepts Base only and prefers Birdseed food. Its licensed Chick / Fledgling / Bird appearances describe one species with server-derived growth stages, not three ownership identities. Fledgling at 50 adds no reward or mount; the existing 100-growth evolution remains authoritative. Existing species, owned pets, mounts and inventory remain intact on repeated content loads. [`test_cute_chick_catalog.py`](tests/test_cute_chick_catalog.py) covers the additive catalog, preservation and lifecycle rules.
 
-- **Pets & mounts**: Lifecycle is **Egg + Potion → Baby → Middle → Grown → Expeditions**. `PetService.hatch_pet` consumes one egg item and one potion item from `UserInventory`, reads `egg.pet_species` and `potion.potion_type` FKs (registered production eggs require canonical metadata agreement; only retained nonregistered legacy rows may use metadata fallback), enforces one pet per `(user, species, potion)` combo, and creates a `UserPet` with `growth_points=0`. `PetSpecies.available_potions` M2M declares which species × potion combos are valid (defaults to all potions when unspecified in a content pack). `PetService.feed_pet` consumes a food item, stamps `UserPet.last_fed_at`, and adds the food rarity/authored base plus 10 if `food.food_species == pet.species` (preferred, FK-driven); tonic doubles the total. **Consumable growth daily cap** (2026-04-23): direct-grant consumables `growth_surge` (+30 to active pet) and `feast_platter` (+10 to every unevolved pet) route through `UserPet.apply_consumable_growth(amount)` which enforces `CONSUMABLE_GROWTH_DAILY_CAP=50` per pet per local day. `growth_surge` returns `{growth_requested, growth_added, growth_capped, ...}` so callers can see when the cap clamped the boost; `feast_platter` returns a per-pet array. Tonic-doubled feeds are NOT capped — they require food items to exist, which is a natural limiter. Without the cap, hoarded consumables could fully evolve a pet (0 → 100) in a single sitting; the design intent is real-world weeks of bonding. Pinned by `ConsumableGrowthDailyCapTests` in [`apps/rpg/tests/test_new_consumable_effects.py`](/apps/rpg/tests/test_new_consumable_effects.py). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
+- **Pets & mounts**: Lifecycle is **Egg + Potion → Baby → Middle → Grown → Expeditions**. `PetService.start_incubation` consumes one egg item and one potion item from `UserInventory`, reads `egg.pet_species` and `potion.potion_type` FKs (registered production eggs require canonical metadata agreement; only retained nonregistered legacy rows may use metadata fallback), enforces one pet per `(user, species, potion)` combo, and reserves the accepted pair until its saved deadline. `PetService.hatch_incubation` explicitly creates a `UserPet` with `growth_points=0` when ready. `PetSpecies.available_potions` M2M declares which species × potion combos are valid (defaults to all potions when unspecified in a content pack). `PetService.feed_pet` consumes a food item, stamps `UserPet.last_fed_at`, and adds the food rarity/authored base plus 10 if `food.food_species == pet.species` (preferred, FK-driven); tonic doubles the total. **Consumable growth daily cap** (2026-04-23): direct-grant consumables `growth_surge` (+30 to active pet) and `feast_platter` (+10 to every unevolved pet) route through `UserPet.apply_consumable_growth(amount)` which enforces `CONSUMABLE_GROWTH_DAILY_CAP=50` per pet per local day. `growth_surge` returns `{growth_requested, growth_added, growth_capped, ...}` so callers can see when the cap clamped the boost; `feast_platter` returns a per-pet array. Tonic-doubled feeds are NOT capped — they require food items to exist, which is a natural limiter. Without the cap, hoarded consumables could fully evolve a pet (0 → 100) in a single sitting; the design intent is real-world weeks of bonding. Pinned by `ConsumableGrowthDailyCapTests` in [`apps/rpg/tests/test_new_consumable_effects.py`](/apps/rpg/tests/test_new_consumable_effects.py). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
 
 - **Companion species** (`slug=companion`) is a slow-burn pet that grows passively via `PetService.auto_grow_companions` on daily check-in; [`Companions.jsx`](/frontend/src/pages/bestiary/party/Companions.jsx) surfaces a "grows on its own — every daily check-in adds a little" line on the pet card so the mechanic isn't invisible. **Companion auto-grow surface** (2026-05-09): `auto_grow_companions` returns an `events` list (one entry per pet with `growth_added`, `new_growth`, `evolved`, `mount_id`, plus species/potion display metadata) and persists the same events to `CharacterProfile.pending_companion_growth` (JSONField — accumulates across un-seen ticks so a returning user catches up on every day they missed). Two endpoints expose the queue: `GET /api/pets/companion-growth/recent/` returns it, `POST /api/pets/companion-growth/seen/` clears it (idempotent). Frontend [`useCompanionGrowthToasts`](/frontend/src/hooks/useCompanionGrowthToasts.js) polls every 20s mirroring `useDropToasts`; [`CompanionGrowthToastStack`](/frontend/src/components/CompanionGrowthToastStack.jsx) renders non-evolved ticks as moss-tinted slide-in toasts and **escalates evolved events to the full `PetCeremonyModal mode="evolve"`** so the silent path gets the same celebration as the explicit feed-evolve flow. Mounted globally via [`JournalShell`](/frontend/src/components/layout/JournalShell.jsx). Pinned by [`apps/pets/tests/test_companion_growth.py`](tests/test_companion_growth.py) and [`frontend/src/components/CompanionGrowthToastStack.test.jsx`](/frontend/src/components/CompanionGrowthToastStack.test.jsx).
 
 - **Mount sprite convention:** evolved mounts use `{species.sprite_key}-mount`; [`Mounts.jsx`](/frontend/src/pages/bestiary/party/Mounts.jsx) passes `spriteKey="${species}-mount"` + `fallbackSpriteKey={species}` to `RpgSprite`, which falls back to the base pet sprite when the mount tile isn't drawn yet. The 17 species preceding Chick had Ceph mount sprites confirmed on 2026-04-23 via `mcp__abby__list_sprites`. Chick uses the new `cute-chick` / `cute-chick-mount` presentation keys. These asset keys do not change species identity; a new mount presentation requires matching art through the existing sprite catalog or licensed portrait support, without a schema or serializer change.
 
-- **Pets UI:** Companions keeps All / Active / Baby / Middle / Hungry / Almost grown filters. Grown pets keeps All / Active / Out exploring. Both use `TomeShelf` and preserve saved collections. Hatchery manages existing eggs and explicit egg + potion hatching. Confirmed mutations refresh all visited Pets tabs without remounting filters or forms. The `/stable` redirect and inventory action routes remain unchanged.
+- **Pets UI:** Companions keeps All / Active / Baby / Middle / Hungry / Almost grown filters. Grown pets keeps All / Active / Out exploring. Both use `TomeShelf` and preserve saved collections. Hatchery starts existing egg + potion incubations, shows the server wait, and explicitly hatches ready eggs. Confirmed mutations refresh all visited Pets tabs without remounting filters or forms. The `/stable` redirect and inventory action routes remain unchanged.
 
 - **Bestiary codex alignment** (2026-05-16): all four Bestiary sub-tabs share the Meadow collection and progress primitives used by the Atlas / Sketchbook / SigilCodex hubs.
   - Every sub-tab (Companions, Mounts, [`BestiaryCodex`](/frontend/src/pages/bestiary/codex/BestiaryCodex.jsx), [`Hatchery`](/frontend/src/pages/bestiary/hatchery/Hatchery.jsx)) opens with an `<IncipitBand>` hero (gilt drop-cap + script kicker + meta + progress bar) instead of a bespoke `<header>`. The standalone "pets X/Y" / "mounts X/Y" / "species X/Y" `RuneBadge` chips were retired — that count is now in `IncipitBand.meta`.

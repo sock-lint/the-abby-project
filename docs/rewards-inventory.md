@@ -93,7 +93,9 @@ flowchart TD
     PET[UserPet 0-100 growth]:::loot
     MOUNT[UserMount]:::loot
     ITEMS --> EGG
-    EGG -- PetService.hatch_pet --> PET
+    INCUBATION[PetIncubation ready_at]:::loot
+    EGG -- start_incubation consumes ingredients --> INCUBATION
+    INCUBATION -- explicit hatch_incubation when ready --> PET
     ITEMS -- food +15/+5 --> PET
     PET -- growth >= 100 --> MOUNT
 
@@ -225,10 +227,11 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 
 ### Pets → Mounts
 **Purpose:** Collectible companions that evolve. Long-tail goal that makes egg/potion/food drops meaningful.
-**Model:** [apps/pets/models.py:64](../apps/pets/models.py) — `UserPet` (growth 0–100), `UserMount` (evolved).
+**Model:** [apps/pets/models.py](../apps/pets/models.py) — `PetIncubation` (accepted egg/potion and deadline), `UserPet` (growth 0–100), `UserMount` (evolved).
 **Service:** `PetService` — [apps/pets/services.py:77](../apps/pets/services.py)
 **Paths:**
-- **Hatch:** consume 1 egg + 1 potion (`PetService.hatch_pet`). Species × potion combo gated by `PetSpecies.available_potions` M2M.
+- **Incubate:** `PetService.start_incubation` consumes 1 egg + 1 compatible potion and freezes a server deadline (two hours by default). One unfinished incubation per account; accepted species/potion promises survive later catalog retirement.
+- **Hatch:** explicit `PetService.hatch_incubation` after readiness creates the baby and evaluates existing pet badges. Replaying the same claim grants nothing twice; reading the timer grants nothing. See [timed incubation](operations/pet-incubation.md).
 - **Feed:** consume food → rarity floors 5/8/10/12/15, raised by valid authored growth up to 30, plus 10 for a preferred species match; Growth Tonic doubles the total. The food chooser shows the server effect.
 - **Evolve:** auto at `growth_points >= 100` → `UserMount` created; pet retained in stable.
 - **Activate:** one active pet + one active mount per user.

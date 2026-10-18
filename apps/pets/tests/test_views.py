@@ -58,7 +58,7 @@ class StableViewTests(_Fixture):
 
 
 class HatchPetTests(_Fixture):
-    def test_hatch_pet_success(self):
+    def test_instant_hatch_is_retired_without_spending_owned_ingredients(self):
         UserInventory.objects.create(user=self.child, item=self.egg_item, quantity=1)
         UserInventory.objects.create(user=self.child, item=self.potion_item, quantity=1)
         self.client.force_authenticate(self.child)
@@ -66,10 +66,9 @@ class HatchPetTests(_Fixture):
             "egg_item_id": self.egg_item.pk,
             "potion_item_id": self.potion_item.pk,
         }, format="json")
-        self.assertIn(resp.status_code, (200, 201))
-        self.assertTrue(
-            UserPet.objects.filter(user=self.child, species=self.species).exists()
-        )
+        self.assertEqual(resp.status_code, 410)
+        self.assertFalse(UserPet.objects.filter(user=self.child).exists())
+        self.assertEqual(UserInventory.objects.filter(user=self.child).count(), 2)
 
     def test_hatch_without_inventory_fails(self):
         self.client.force_authenticate(self.child)
@@ -77,7 +76,7 @@ class HatchPetTests(_Fixture):
             "egg_item_id": self.egg_item.pk,
             "potion_item_id": self.potion_item.pk,
         }, format="json")
-        self.assertIn(resp.status_code, (400, 409))
+        self.assertEqual(resp.status_code, 410)
 
 
 class FeedPetTests(_Fixture):

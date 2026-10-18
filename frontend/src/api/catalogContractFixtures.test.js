@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, hatchPet } from './index';
+import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, startIncubation, hatchIncubation } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
@@ -17,7 +17,8 @@ import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json
 import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
-import rosterHatch from '../../../contracts/api/fixtures/pet-hatch-roster.json';
+import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
+import rosterHatch from '../../../contracts/api/fixtures/pet-incubation-roster-hatched.json';
 import badgeCatalog from '../../../contracts/api/fixtures/badges-rarity-bonuses.json';
 import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-bonuses.json';
 import { getBadges, getEarnedBadges } from './index';
@@ -118,8 +119,12 @@ describe('current owned-art API contracts', () => {
     const calls = [];
     server.use(
       http.get('*/api/inventory/', () => HttpResponse.json(rosterInventory)),
-      http.post('*/api/pets/hatch/', async ({ request }) => {
+      http.post('*/api/pets/incubations/', async ({ request }) => {
         calls.push(await request.json());
+        return HttpResponse.json(rosterIncubation, { status: 201 });
+      }),
+      http.post('*/api/pets/incubations/1/hatch/', async ({ request }) => {
+        calls.push(await request.text());
         return HttpResponse.json(rosterHatch, { status: 201 });
       }),
     );
@@ -129,22 +134,26 @@ describe('current owned-art API contracts', () => {
       lifecycle_stage: 'egg', pet_species_slug: 'meshtint-bat',
       metadata: { species: 'meshtint-bat' }, catalog_available: true, catalog_icon: 'bat-egg-portrait',
     } });
-    const pet = await hatchPet(91, 52);
-    expect(pet).toEqual(rosterHatch);
+    const requestId = '01234567-89ab-4cde-8012-3456789abcde';
+    const accepted = await startIncubation(91, 52, requestId);
+    expect(accepted.incubation).toMatchObject({ status: 'incubating', pet_id: null, egg: { catalog_icon: 'bat-egg-portrait' } });
+    const receipt = await hatchIncubation(accepted.incubation.id);
+    expect(receipt).toEqual(rosterHatch);
+    const pet = receipt.pet;
     expect(pet).toMatchObject({
       species: { slug: 'meshtint-bat', catalog_icon: 'bat-baby-portrait', rarity: 'uncommon' }, potion: { slug: 'base', rarity: 'common' }, rarity: 'uncommon',
       lifecycle_stage: 'baby', growth_points: 0, evolved_to_mount: false, catalog_available: true,
     });
-    expect(calls).toEqual([{ egg_item_id: 91, potion_item_id: 52 }]);
+    expect(calls).toEqual([{ egg_item_id: 91, potion_item_id: 52, request_id: requestId }, '']);
   });
 
   it('retains server rejection details for unsupported hatch and accessory requests', async () => {
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, HttpResponse.json(hatchUnavailable, { status: 400 }));
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/$/, HttpResponse.json(hatchUnavailable, { status: 400 }));
     const equip = spyHandler('post', /\/api\/character\/equip\/$/, HttpResponse.json(equipUnavailable, { status: 400 }));
     server.use(hatch.handler, equip.handler);
-    await expect(hatchPet(51, 52)).rejects.toMatchObject({ status: 400, response: hatchUnavailable });
+    await expect(startIncubation(51, 52, '01234567-89ab-4cde-8012-3456789abcde')).rejects.toMatchObject({ status: 400, response: hatchUnavailable });
     await expect(equipCosmetic(53)).rejects.toMatchObject({ status: 400, response: equipUnavailable });
-    expect(hatch.calls[0].body).toEqual({ egg_item_id: 51, potion_item_id: 52 });
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: 51, potion_item_id: 52, request_id: '01234567-89ab-4cde-8012-3456789abcde' });
     expect(equip.calls[0].body).toEqual({ item_id: 53 });
   });
 

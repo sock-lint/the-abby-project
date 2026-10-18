@@ -64,6 +64,29 @@ class PotionType(TimestampedModel):
         return self.name
 
 
+class PetIncubation(TimestampedModel):
+    """An accepted ingredient pair waiting for an explicit, server-timed hatch."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="pet_incubations")
+    request_id = models.UUIDField()
+    species = models.ForeignKey(PetSpecies, on_delete=models.PROTECT, related_name="incubations")
+    potion_type = models.ForeignKey(PotionType, on_delete=models.PROTECT, related_name="incubations")
+    egg_item = models.ForeignKey("rpg.ItemDefinition", on_delete=models.SET_NULL, null=True, related_name="egg_incubations")
+    potion_item = models.ForeignKey("rpg.ItemDefinition", on_delete=models.SET_NULL, null=True, related_name="potion_incubations")
+    accepted_pair = models.JSONField(help_text="Frozen ingredient, species and potion display identities accepted at start.")
+    started_at = models.DateTimeField()
+    ready_at = models.DateTimeField()
+    hatched_at = models.DateTimeField(null=True, blank=True)
+    pet = models.ForeignKey("UserPet", on_delete=models.SET_NULL, null=True, blank=True, related_name="incubations")
+
+    class Meta:
+        ordering = ["-started_at", "-pk"]
+        constraints = [
+            models.UniqueConstraint(fields=["user", "request_id"], name="pet_incubation_request_once"),
+            models.UniqueConstraint(fields=["user"], condition=models.Q(hatched_at__isnull=True), name="one_unfinished_pet_incubation"),
+        ]
+
+
 class UserPet(TimestampedModel):
     """A pet owned by a user, hatched from an egg + potion."""
 

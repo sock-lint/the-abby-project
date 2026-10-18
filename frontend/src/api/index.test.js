@@ -331,7 +331,9 @@ const CASES = [
   ['getRecentDrops', [], /\/api\/drops\/recent\/$/, 'GET'],
 
   ['getStable', [], /\/api\/pets\/stable\/$/, 'GET'],
-  ['hatchPet', [1, 2], /\/api\/pets\/hatch\/$/, 'POST'],
+  ['getIncubation', [], /\/api\/pets\/incubations\/$/, 'GET'],
+  ['startIncubation', [1, 2, '01234567-89ab-4cde-8012-3456789abcde'], /\/api\/pets\/incubations\/$/, 'POST'],
+  ['hatchIncubation', [3], /\/api\/pets\/incubations\/3\/hatch\/$/, 'POST'],
   ['feedPet', [1, 2], /\/api\/pets\/1\/feed\/$/, 'POST'],
   ['activatePet', [1], /\/api\/pets\/1\/activate\/$/, 'POST'],
   ['getMounts', [], /\/api\/mounts\/$/, 'GET'],

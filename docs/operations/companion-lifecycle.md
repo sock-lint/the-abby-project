@@ -9,7 +9,7 @@ identify one ownership path; stages never create four separate species.
 
 | Stage | Saved authority | Existing interaction |
 | --- | --- | --- |
-| Egg | Species-linked egg `ItemDefinition` and owned inventory quantity | Choose an egg and compatible potion in Hatching |
+| Egg | Species-linked egg inventory, then accepted `PetIncubation` | Choose ingredients, start incubation, explicitly hatch when ready |
 | Baby | Owned `UserPet`, below 50 saved growth, not evolved | Existing care, activation and growth |
 | Middle | Owned `UserPet`, at least 50 saved growth, not evolved | Same care; no additional award or ownership |
 | Grown | Confirmed `evolved_to_mount` or owned `UserMount` | Existing activation and expeditions |
@@ -20,17 +20,24 @@ Available eggs can be selected and their family artwork and four-stage guide
 inspected even without a potion. Selecting or previewing an egg changes no
 inventory or progress. The hatch form explains an already owned species/potion
 pair before submission, including pets that have already grown; the server
-still validates ownership, availability and compatibility for every hatch.
+validates ownership, availability and compatibility before accepting incubation.
 
-An egg remains in inventory until the existing explicit hatch action consumes
-one egg and one potion and creates a baby at zero growth. It is not an active
-companion, incubation timer or new pet row. Multiple eggs are inventory
-quantities; a hatched species/potion pair retains the existing unique ownership
-constraint. Breeding is retired. Existing eggs, pets and grown companions are preserved.
+Starting incubation consumes one egg and one compatible potion and saves their
+accepted identity and server deadline, two hours by default. One unfinished
+incubation is allowed per account, including an egg already ready to hatch.
+The egg remains in the Egg stage until an explicit ready hatch creates a Baby
+at zero growth. It gains no care, activation, badge or pet ownership while
+waiting. The server continues tracking time while the app is closed; read-only
+refreshes never hatch an egg. See [timed incubation](pet-incubation.md) for
+readiness, retry and compatibility behavior. Multiple unstarted eggs remain
+inventory quantities, and a hatched species/potion pair retains the existing
+unique ownership constraint. Breeding is retired. Existing eggs, pets and grown
+companions are preserved.
 
 Existing pets retain their IDs, names, growth, feeding dates, activation,
 evolution, mounts and expedition history. The lifecycle is a read-only
-projection, requiring no data migration or backfill. An old unevolved row at
+projection. Incubation adds a separate table without backfilling existing pets
+or changing their growth. An old unevolved row at
 100 growth remains Middle until evolution is confirmed. Stage reads, art loads,
 preview controls and local greetings award no XP, Coins, food or growth.
 

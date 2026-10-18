@@ -1,12 +1,15 @@
 """Owned Cute Series content uses real RPG identities and lifecycle rules."""
 from io import StringIO
+from uuid import uuid4
 
 from django.core.management import call_command
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.services import PetService
+from apps.pets.tests.helpers import hatch_ready_pet
 from apps.rpg.models import DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
@@ -30,7 +33,7 @@ class CuteChickCatalogTests(TestCase):
     def hatch(self):
         self.give(self.egg)
         self.give(self.base_potion)
-        return PetService.hatch_pet(self.child, self.egg.pk, self.base_potion.pk)
+        return hatch_ready_pet(self.child, self.egg.pk, self.base_potion.pk)
 
     def test_catalog_wires_ingredients_and_existing_drop_macros(self):
         self.assertEqual(list(self.chick.available_potions.values_list("slug", flat=True)), ["base"])
@@ -82,7 +85,7 @@ class CuteChickCatalogTests(TestCase):
         egg_inventory = self.give(self.egg, quantity=2)
         potion_inventory = self.give(self.base_potion, quantity=2)
 
-        pet = PetService.hatch_pet(self.child, self.egg.pk, self.base_potion.pk)
+        pet = hatch_ready_pet(self.child, self.egg.pk, self.base_potion.pk)
 
         self.assertEqual((pet.user, pet.species, pet.potion), (self.child, self.chick, self.base))
         self.assertEqual(pet.growth_points, 0)
@@ -106,13 +109,18 @@ class CuteChickCatalogTests(TestCase):
             self.assertEqual(body["potion"]["slug"], "base")
             self.assertEqual(body["evolution_stage"], stage)
 
-        hatch = client.post("/api/pets/hatch/", {
+        start = client.post("/api/pets/incubations/", {
             "egg_item_id": self.egg.pk,
             "potion_item_id": self.base_potion.pk,
+            "request_id": str(uuid4()),
         }, format="json")
+        self.assertEqual(start.status_code, 201)
+        incubation_id = start.json()["incubation"]["id"]
+        PetIncubation.objects.filter(pk=incubation_id).update(ready_at=timezone.now())
+        hatch = client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json")
         self.assertEqual(hatch.status_code, 201)
-        assert_chick_identity(hatch.json())
-        pet_id = hatch.json()["id"]
+        assert_chick_identity(hatch.json()["pet"])
+        pet_id = hatch.json()["pet"]["id"]
         activate = client.post(f"/api/pets/{pet_id}/activate/")
         self.assertEqual(activate.status_code, 200)
         assert_chick_identity(activate.json())
@@ -152,7 +160,7 @@ class CuteChickCatalogTests(TestCase):
         potion_inventory = self.give(self.fire_potion, quantity=3)
 
         with self.assertRaisesMessage(ValueError, "Chick cannot hatch with a Fire potion"):
-            PetService.hatch_pet(self.child, self.egg.pk, self.fire_potion.pk)
+            hatch_ready_pet(self.child, self.egg.pk, self.fire_potion.pk)
 
         egg_inventory.refresh_from_db()
         potion_inventory.refresh_from_db()
@@ -196,7 +204,7 @@ class CuteChickCatalogTests(TestCase):
         self.give(self.egg)
         self.give(cosmic_item)
 
-        pet = PetService.hatch_pet(self.child, self.egg.pk, cosmic_item.pk)
+        pet = hatch_ready_pet(self.child, self.egg.pk, cosmic_item.pk)
 
         self.assertEqual((pet.species, pet.potion), (self.chick, cosmic))
         self.assertFalse(UserInventory.objects.filter(user=self.child).exists())

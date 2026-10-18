@@ -20,7 +20,7 @@ from rest_framework.test import APITestCase
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
-from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, MountExpedition, PetSpecies, PotionType, UserMount, UserPet
 from apps.projects.models import Project
 from apps.quests.models import DailyChallenge
 from apps.rewards.models import CoinLedger
@@ -31,6 +31,7 @@ from config.tests.factories import make_family
 
 FIXTURE_DIR = Path(settings.BASE_DIR) / "contracts" / "api" / "fixtures"
 FIXED_NOW = datetime(2026, 10, 10, 19, 0, tzinfo=datetime_timezone.utc)
+INCUBATION_REQUEST_ID = "01234567-89ab-4cde-8012-3456789abcde"
 SYNTHETIC_TOKEN = "0123456789012345678901234567890123456789"
 
 
@@ -49,6 +50,7 @@ SYNTHETIC_TOKEN = "0123456789012345678901234567890123456789"
         "disabled_item_types": ["cosmetic_pet_accessory"],
         "features": {},
     },
+    PET_INCUBATION_DURATION_SECONDS=7200,
     ALLOWED_HOSTS=["testserver"],
     TIME_ZONE="America/Phoenix",
     USE_TZ=True,
@@ -302,8 +304,23 @@ class SharedApiResponseFixtureTests(APITestCase):
                 for sql in connection.ops.sequence_reset_sql(no_style(), [UserPet]):
                     cursor.execute(sql)
 
+    def pin_next_incubation_identity(self):
+        with connection.cursor() as cursor:
+            if connection.vendor == "sqlite":
+                cursor.execute("UPDATE sqlite_sequence SET seq = (SELECT COALESCE(MAX(id), 0) FROM pets_petincubation) WHERE name = 'pets_petincubation'")
+            else:
+                for sql in connection.ops.sequence_reset_sql(no_style(), [PetIncubation]):
+                    cursor.execute(sql)
+
+    def start_fixture_incubation(self, submitted=None):
+        return self.client.post("/api/pets/incubations/", {
+            "request_id": INCUBATION_REQUEST_ID,
+            **({"egg_item_id": 73, "potion_item_id": 75} if submitted is None else submitted),
+        }, format="json")
+
     def hatching_state(self):
         return (
+            list(PetIncubation.objects.order_by("pk").values()),
             list(UserInventory.objects.order_by("pk").values_list("pk", "user_id", "item_id", "quantity", "updated_at")),
             list(UserPet.objects.order_by("pk").values_list("pk", "user_id", "species_id", "potion_id", "growth_points", "is_active", "evolved_to_mount")),
         )
@@ -321,22 +338,49 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual((egg["item"]["lifecycle_stage"], egg["item"]["pet_species_slug"]), ("egg", "fox"))
         self.assertIsNone(potion["item"]["lifecycle_stage"])
 
-    def test_hatch_consumes_exactly_one_pair_and_returns_a_new_inactive_pet(self):
+    def test_incubation_consumes_once_but_only_an_explicit_ready_claim_creates_the_pet(self):
         from apps.chronicle.models import ChronicleEntry
 
         self.seed_hatching()
         self.pin_next_hatched_pet_identity()
+        self.pin_next_incubation_identity()
         foreign_inventory = list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at"))
-        response = self.client.post("/api/pets/hatch/", {
+        self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-empty.json")
+        started = self.assert_response_fixture(self.start_fixture_incubation({
             "egg_item_id": 73, "potion_item_id": 75, "user_id": self.outsider.pk,
-        }, format="json")
-        body = self.assert_response_fixture(response, "pet-hatch.json", status=201)
+        }), "pet-incubation-start.json", status=201)
+        incubation_id = started["incubation"]["id"]
+        self.assertEqual(started["incubation"]["remaining_seconds"], 7200)
+        self.assertEqual(started["incubation"]["status"], "incubating")
+        self.assertIsNone(started["incubation"]["pet_id"])
+        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 1)
+        self.assertFalse(ChronicleEntry.objects.filter(user=self.child, event_slug="first_pet_hatched").exists())
+        after_start = self.hatching_state()
+        self.assert_response_fixture(self.start_fixture_incubation(), "pet-incubation-start.json")
+        self.assertEqual(self.hatching_state(), after_start)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=1)):
+            progress = self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-progress.json")
+            self.assertEqual(progress["incubation"]["remaining_seconds"], 3600)
+            self.assert_response_fixture(self.client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json"), "pet-incubation-too-early.json", status=409)
+        self.assertEqual(self.hatching_state(), after_start)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2)):
+            ready = self.assert_response_fixture(self.client.get("/api/pets/incubations/"), "pet-incubation-ready.json")
+            self.assertEqual((ready["incubation"]["status"], ready["incubation"]["is_ready"], ready["incubation"]["remaining_seconds"]), ("ready", True, 0))
+            self.assertEqual(self.hatching_state(), after_start)
+            claimed = self.assert_response_fixture(self.client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json"), "pet-incubation-hatched.json", status=201)
+            self.assertTrue(claimed["freshly_hatched"])
+            body = claimed["pet"]
+            after_claim = self.hatching_state()
+            repeated = self.assert_response_fixture(self.client.post(f"/api/pets/incubations/{incubation_id}/hatch/", {}, format="json"), "pet-incubation-hatch-retry.json")
+            self.assertFalse(repeated["freshly_hatched"])
+            self.assertEqual(repeated["pet"], body)
+            self.assertEqual(self.hatching_state(), after_claim)
+            stable = self.client.get("/api/pets/stable/").json()
+            self.assertEqual(next(row for row in stable["pets"] if row["id"] == body["id"]), body)
         pet = UserPet.objects.get(pk=body["id"])
         self.assertEqual((pet.user_id, pet.species_id, pet.potion_id), (self.child.pk, 41, 44))
         self.assertEqual((pet.growth_points, pet.is_active, pet.evolved_to_mount), (0, False, False))
-        self.assertFalse(body["is_fully_grown"])
-        self.assertEqual(body["lifecycle_stage"], "baby")
-        self.assertEqual(body["happiness_level"], "happy")
+        self.assertEqual((body["is_fully_grown"], body["lifecycle_stage"], body["happiness_level"]), (False, "baby", "happy"))
         self.assertIsNone(pet.last_fed_at)
         self.assertIsNone(body["last_fed_at"])
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.hatch_egg).quantity, 1)
@@ -350,23 +394,31 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertFalse(UserMount.objects.filter(user=self.child).exists())
         self.assertEqual(foreign_inventory, list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at")))
         self.assertEqual(ChronicleEntry.objects.filter(user=self.child, event_slug="first_pet_hatched").count(), 1)
-        stable = self.client.get("/api/pets/stable/").json()
-        self.assertEqual(next(row for row in stable["pets"] if row["id"] == pet.pk), body)
+
+    def test_legacy_instant_hatch_is_gone_without_consuming_inventory(self):
+        self.seed_hatching()
+        before = self.hatching_state()
+        for submitted in ({}, {"egg_item_id": 73, "potion_item_id": 75}):
+            self.assert_response_fixture(self.client.post("/api/pets/hatch/", submitted, format="json"), "pet-hatch-retired.json", status=410)
+        self.assertEqual(self.hatching_state(), before)
 
     def test_hatch_rejects_missing_unavailable_and_inventory_row_ids_without_writes(self):
         self.seed_hatching()
         before = self.hatching_state()
         for submitted in ({}, {"egg_item_id": 73}, {"potion_item_id": 75}):
             with self.subTest(submitted=submitted):
-                response = self.client.post("/api/pets/hatch/", submitted, format="json")
-                self.assert_response_fixture(response, "pet-hatch-missing-ingredients.json", status=400)
+                response = self.start_fixture_incubation(submitted)
+                if not submitted:
+                    self.assert_response_fixture(response, "pet-incubation-missing-ingredients.json", status=400)
+                else:
+                    self.assertEqual(response.status_code, 400)
         for egg_id in (77, 83, 999):
             with self.subTest(egg_item_id=egg_id):
-                response = self.client.post("/api/pets/hatch/", {"egg_item_id": egg_id, "potion_item_id": 75}, format="json")
+                response = self.start_fixture_incubation({"egg_item_id": egg_id, "potion_item_id": 75})
                 self.assert_response_fixture(response, "pet-hatch-unavailable-egg.json", status=400)
         for potion_id in (78, 85, 999):
             with self.subTest(potion_item_id=potion_id):
-                response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": potion_id}, format="json")
+                response = self.start_fixture_incubation({"egg_item_id": 73, "potion_item_id": potion_id})
                 self.assert_response_fixture(response, "pet-hatch-unavailable-potion.json", status=400)
         self.assertEqual(self.hatching_state(), before)
 
@@ -378,7 +430,7 @@ class SharedApiResponseFixtureTests(APITestCase):
                 self.existing_hatch_pet.growth_points = 100 if evolved else 20
                 self.existing_hatch_pet.save(update_fields=["evolved_to_mount", "growth_points"])
                 before = self.hatching_state()
-                response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": 76}, format="json")
+                response = self.start_fixture_incubation({"egg_item_id": 73, "potion_item_id": 76})
                 self.assert_response_fixture(response, "pet-hatch-duplicate.json", status=400)
                 self.assertEqual(self.hatching_state(), before)
 
@@ -390,7 +442,7 @@ class SharedApiResponseFixtureTests(APITestCase):
             ({"egg_item_id": 73, "potion_item_id": 71}, "That item is not a potion"),
         ):
             with self.subTest(submitted=submitted):
-                response = self.client.post("/api/pets/hatch/", submitted, format="json")
+                response = self.start_fixture_incubation(submitted)
                 self.assertEqual(response.status_code, 400)
                 self.assertEqual(response.json(), {"error": expected})
         self.assertEqual(self.hatching_state(), before)
@@ -399,7 +451,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.seed_hatching()
         before = self.hatching_state()
         self.client.credentials()
-        response = self.client.post("/api/pets/hatch/", {"egg_item_id": 73, "potion_item_id": 75}, format="json")
+        response = self.start_fixture_incubation()
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.hatching_state(), before)
 

@@ -2,13 +2,15 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+from uuid import uuid4
 
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase, override_settings, skipUnlessDBFeature
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.achievements.models import Badge, UserBadge
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
@@ -43,28 +45,49 @@ class SupportedPetConcurrencyTests(TransactionTestCase):
         finally:
             connection.close()
 
-    def competing_posts(self, path, body):
+    def competing_posts(self, path, body, distinct_requests=False):
         start = Barrier(2)
         with ThreadPoolExecutor(max_workers=2) as executor:
-            futures = [executor.submit(self.post, path, body, start) for _ in range(2)]
+            futures = [executor.submit(self.post, path, {**body, "request_id": str(uuid4())} if distinct_requests else body, start) for _ in range(2)]
             return [future.result(timeout=15) for future in futures]
 
-    def test_two_same_companion_hatches_create_one_pet_and_consume_one_pair(self):
+    def test_competing_start_retries_reserve_one_pair_then_ready_claims_hatch_and_pay_once(self):
         badge = Badge.objects.create(name="First concurrent hatch", criteria_type="pets_hatched", criteria_value={"count": 1})
         for item in (self.egg, self.potion):
             UserInventory.objects.create(user=self.child, item=item, quantity=2)
-        results = self.competing_posts("/api/pets/hatch/", {
-            "egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk,
+        starts = self.competing_posts("/api/pets/incubations/", {
+            "egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk, "request_id": str(uuid4()),
         })
-        self.assertEqual(sorted(status for status, _ in results), [201, 400])
-        self.assertEqual(UserPet.objects.filter(user=self.child, species=self.chick, potion=self.base).count(), 1)
+        self.assertEqual(sorted(status for status, _ in starts), [200, 201])
+        self.assertEqual(PetIncubation.objects.filter(user=self.child).count(), 1)
+        self.assertFalse(UserPet.objects.exists())
+        self.assertFalse(UserBadge.objects.exists())
         for item in (self.egg, self.potion):
             self.assertEqual(UserInventory.objects.get(user=self.child, item=item).quantity, 1)
+        incubation = PetIncubation.objects.get(user=self.child)
+        PetIncubation.objects.filter(pk=incubation.pk).update(ready_at=timezone.now())
+        results = self.competing_posts(f"/api/pets/incubations/{incubation.pk}/hatch/", {})
+        self.assertEqual(sorted(status for status, _ in results), [200, 201])
+        self.assertEqual(UserPet.objects.filter(user=self.child, species=self.chick, potion=self.base).count(), 1)
         success = next(body for status, body in results if status == 201)
-        self.assertTrue(success["catalog_available"])
-        self.assertEqual(success["growth_points"], 0)
+        self.assertTrue(success["freshly_hatched"])
+        self.assertTrue(success["pet"]["catalog_available"])
+        self.assertEqual(success["pet"]["growth_points"], 0)
+        self.assertFalse(next(body for status, body in results if status == 200)["freshly_hatched"])
         self.assertEqual(UserBadge.objects.filter(user=self.child, badge=badge).count(), 1)
         self.assertEqual(list(CoinLedger.objects.filter(user=self.child, reason="badge_bonus").values_list("amount", flat=True)), [7])
+
+    def test_competing_distinct_start_requests_accept_only_one_unfinished_egg(self):
+        for item in (self.egg, self.potion):
+            UserInventory.objects.create(user=self.child, item=item, quantity=2)
+        results = self.competing_posts("/api/pets/incubations/", {
+            "egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk,
+        }, distinct_requests=True)
+        self.assertEqual(sorted(status for status, _ in results), [201, 409])
+        self.assertEqual(PetIncubation.objects.filter(user=self.child).count(), 1)
+        self.assertFalse(UserPet.objects.exists())
+        for item in (self.egg, self.potion):
+            self.assertEqual(UserInventory.objects.get(user=self.child, item=item).quantity, 1)
 
     def test_competing_final_feeds_consume_once_and_create_one_confirmed_mount(self):
         badge = Badge.objects.create(name="First concurrent evolution", criteria_type="mounts_evolved", criteria_value={"count": 1})

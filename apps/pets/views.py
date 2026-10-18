@@ -1,4 +1,5 @@
-from rest_framework import permissions, status
+from django.utils import timezone
+from rest_framework import permissions, serializers, status
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,13 +11,15 @@ from .expeditions import ExpeditionError, ExpeditionNotFound, ExpeditionService
 from .models import PetSpecies, PotionType, UserPet, UserMount
 from .serializers import (
     MountExpeditionSerializer,
+    PetIncubationSerializer,
     PetCodexEntrySerializer,
     PetSpeciesCatalogSerializer,
     PotionTypeSerializer,
     UserMountSerializer,
     UserPetSerializer,
+    StartIncubationSerializer,
 )
-from .services import PetService
+from .services import IncubationError, IncubationNotFound, PetService
 
 
 class StableView(APIView):
@@ -36,22 +39,58 @@ class StableView(APIView):
 
 
 class HatchPetView(APIView):
-    """POST /api/pets/hatch/ — hatch egg + potion into a new pet."""
+    """Retired instant-hatch route; authentication still precedes retirement."""
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        egg_id = request.data.get("egg_item_id")
-        potion_id = request.data.get("potion_item_id")
-        if not egg_id or not potion_id:
-            return Response(
-                {"error": "egg_item_id and potion_item_id are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        return Response({"error": "Instant hatching has been removed. Start an egg incubation in the Hatchery."}, status=status.HTTP_410_GONE)
+
+
+class PetIncubationsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        incubation = PetService.current_incubation(request.user)
+        now = timezone.now()
+        return Response({
+            "incubation": PetIncubationSerializer(incubation, context={"as_of": now}).data if incubation else None,
+            "duration_seconds": PetService.incubation_duration_seconds(),
+            "server_now": serializers.DateTimeField().to_representation(now),
+        })
+
+    def post(self, request):
+        body = StartIncubationSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
         try:
-            pet = PetService.hatch_pet(request.user, egg_id, potion_id)
+            incubation, freshly_started = PetService.start_incubation(request.user, **body.validated_data)
+        except IncubationError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_409_CONFLICT)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(UserPetSerializer(pet).data, status=status.HTTP_201_CREATED)
+        now = timezone.now()
+        return Response({
+            "incubation": PetIncubationSerializer(incubation, context={"as_of": now}).data,
+            "server_now": serializers.DateTimeField().to_representation(now),
+        }, status=status.HTTP_201_CREATED if freshly_started else status.HTTP_200_OK)
+
+
+class HatchIncubationView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            incubation, pet, freshly_hatched = PetService.hatch_incubation(request.user, pk)
+        except IncubationNotFound as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+        except IncubationError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_409_CONFLICT)
+        now = timezone.now()
+        return Response({
+            "incubation": PetIncubationSerializer(incubation, context={"as_of": now}).data,
+            "pet": UserPetSerializer(pet).data,
+            "freshly_hatched": freshly_hatched,
+            "server_now": serializers.DateTimeField().to_representation(now),
+        }, status=status.HTTP_201_CREATED if freshly_hatched else status.HTTP_200_OK)
 
 
 class FeedPetView(APIView):

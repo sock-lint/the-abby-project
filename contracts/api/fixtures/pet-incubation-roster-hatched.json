@@ -1,0 +1,108 @@
+{
+  "incubation": {
+    "id": 1,
+    "egg": {
+      "id": 91,
+      "slug": "meshtint-bat-egg",
+      "name": "Bat Egg",
+      "icon": "🥚",
+      "sprite_key": "",
+      "rarity": "uncommon",
+      "item_type": "egg",
+      "catalog_icon": "bat-egg-portrait"
+    },
+    "potion": {
+      "id": 52,
+      "slug": "base-potion",
+      "name": "Base Potion",
+      "icon": "P",
+      "sprite_key": "",
+      "rarity": "common",
+      "item_type": "potion",
+      "catalog_icon": "item-base-potion"
+    },
+    "species": {
+      "id": 142,
+      "slug": "meshtint-bat",
+      "name": "Bat",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bat",
+      "description": "",
+      "rarity": "uncommon",
+      "food_preference": "",
+      "catalog_available": true,
+      "catalog_icon": "bat-baby-portrait",
+      "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    "potion_type": {
+      "id": 41,
+      "slug": "base",
+      "name": "Base",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "common",
+      "description": "",
+      "catalog_available": true
+    },
+    "started_at": "2026-10-10T12:00:00-07:00",
+    "ready_at": "2026-10-10T14:00:00-07:00",
+    "remaining_seconds": 0,
+    "is_ready": false,
+    "status": "hatched",
+    "hatched_at": "2026-10-10T14:00:00-07:00",
+    "pet_id": 63
+  },
+  "pet": {
+    "id": 63,
+    "species": {
+      "id": 142,
+      "slug": "meshtint-bat",
+      "name": "Bat",
+      "icon": "🐾",
+      "sprite_key": "meshtint-bat",
+      "description": "",
+      "rarity": "uncommon",
+      "food_preference": "",
+      "catalog_available": true,
+      "catalog_icon": "bat-baby-portrait",
+      "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    "potion": {
+      "id": 41,
+      "slug": "base",
+      "name": "Base",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "common",
+      "description": "",
+      "catalog_available": true
+    },
+    "rarity": "uncommon",
+    "name": "",
+    "growth_points": 0,
+    "is_active": false,
+    "evolved_to_mount": false,
+    "is_fully_grown": false,
+    "happiness_level": "happy",
+    "last_fed_at": null,
+    "created_at": "2026-10-10T14:00:00-07:00",
+    "updated_at": "2026-10-10T14:00:00-07:00",
+    "catalog_available": true,
+    "evolution_stage": null,
+    "lifecycle_stage": "baby"
+  },
+  "freshly_hatched": true,
+  "server_now": "2026-10-10T14:00:00-07:00"
+}

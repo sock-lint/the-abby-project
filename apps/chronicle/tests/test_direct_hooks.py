@@ -1,8 +1,10 @@
 """Hooks for flows that don't route through GameLoopService.on_task_completed."""
 from decimal import Decimal
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.chronicle.models import ChronicleEntry
 
@@ -133,10 +135,19 @@ class PetServiceHookTests(TestCase):
         UserInventory.objects.create(user=self.user, item=self.potion_item, quantity=1)
         UserInventory.objects.create(user=self.user, item=self.food_item, quantity=10)
 
-    def test_hatching_first_pet_emits_first_pet_hatched(self):
+    def hatch_after_incubation(self):
+        from apps.pets.models import PetIncubation, UserPet
         from apps.pets.services import PetService
 
-        pet = PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+        incubation, _ = PetService.start_incubation(self.user, self.egg_item.id, self.potion_item.id, uuid4())
+        self.assertFalse(UserPet.objects.filter(user=self.user).exists())
+        self.assertFalse(ChronicleEntry.objects.filter(user=self.user, event_slug="first_pet_hatched").exists())
+        PetIncubation.objects.filter(pk=incubation.pk).update(ready_at=timezone.now())
+        _, pet, _ = PetService.hatch_incubation(self.user, incubation.pk)
+        return pet
+
+    def test_hatching_first_pet_emits_first_pet_hatched(self):
+        pet = self.hatch_after_incubation()
         self.assertEqual(pet.species_id, self.species.pk)
         self.assertEqual(pet.potion_id, self.potion_type.pk)
 
@@ -151,7 +162,7 @@ class PetServiceHookTests(TestCase):
     def test_evolving_pet_emits_first_mount_evolved(self):
         from apps.pets.services import PetService
 
-        pet = PetService.hatch_pet(self.user, self.egg_item.id, self.potion_item.id)
+        pet = self.hatch_after_incubation()
 
         # Force growth to 99 — one preferred-food feed (+15, capped at 100) triggers evolution.
         pet.growth_points = 99

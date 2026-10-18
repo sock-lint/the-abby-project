@@ -233,13 +233,15 @@ for (const [theme, width] of [['hyrule', 320], ['vigil', 375]]) {
     await page.setViewportSize({ width, height: 812 });
     await syntheticApp(page, theme);
     const mutations = [];
-    await page.route((url) => ['/api/inventory/', '/api/pets/stable/', '/api/pets/hatch/'].includes(url.pathname), async (route) => {
+    await page.route((url) => ['/api/inventory/', '/api/pets/stable/', '/api/pets/incubations/'].includes(url.pathname), async (route) => {
       const request = route.request(), path = new URL(request.url()).pathname;
       if (request.method() !== 'GET') {
         mutations.push({ path, method: request.method(), body: request.postDataJSON() });
         return route.fulfill({ status: 400, json: { detail: 'Preview must not hatch a pet.' } });
       }
-      return route.fulfill({ json: path === '/api/inventory/' ? rosterInventory : { pets: [], mounts: [], total_possible: 15 } });
+      return route.fulfill({ json: path === '/api/inventory/' ? rosterInventory
+        : path === '/api/pets/incubations/' ? { incubation: null, duration_seconds: 7200, server_now: '2026-10-18T10:00:00Z' }
+          : { pets: [], mounts: [], total_possible: 15 } });
     });
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -253,6 +255,8 @@ for (const [theme, width] of [['hyrule', 320], ['vigil', 375]]) {
     const steps = guide.getByRole('listitem');
     await expect(steps.first()).toHaveAttribute('aria-current', 'step');
     await expect(steps.nth(1)).not.toHaveAttribute('aria-current');
+    await expect(page.getByRole('button', { name: 'Start incubation', exact: true })).toBeEnabled();
+    await expect(page.getByRole('button', { name: 'Hatch pet', exact: true })).toHaveCount(0);
     expect(mutations).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
     expect(errors).toEqual([]);

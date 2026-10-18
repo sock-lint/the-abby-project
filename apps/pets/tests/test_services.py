@@ -2,6 +2,7 @@ from django.test import TestCase, override_settings
 
 from apps.pets.models import PetSpecies, PotionType, UserPet, UserMount
 from apps.pets.services import PetService
+from apps.pets.tests.helpers import hatch_ready_pet
 from apps.projects.models import User
 from apps.rpg.models import ItemDefinition, UserInventory
 
@@ -45,7 +46,7 @@ class HatchPetTest(PetServiceTestBase):
         egg_inv = UserInventory.objects.create(user=self.child, item=self.egg_item, quantity=2)
         potion_inv = UserInventory.objects.create(user=self.child, item=self.potion_item, quantity=1)
 
-        pet = PetService.hatch_pet(self.child, self.egg_item.pk, self.potion_item.pk)
+        pet = hatch_ready_pet(self.child, self.egg_item.pk, self.potion_item.pk)
 
         self.assertEqual(pet.species, self.species)
         self.assertEqual(pet.potion, self.potion_type)
@@ -61,15 +62,15 @@ class HatchPetTest(PetServiceTestBase):
         # No egg in inventory
         UserInventory.objects.create(user=self.child, item=self.potion_item, quantity=1)
         with self.assertRaises(ValueError):
-            PetService.hatch_pet(self.child, self.egg_item.pk, self.potion_item.pk)
+            hatch_ready_pet(self.child, self.egg_item.pk, self.potion_item.pk)
 
     def test_hatch_duplicate_pet(self):
         UserInventory.objects.create(user=self.child, item=self.egg_item, quantity=2)
         UserInventory.objects.create(user=self.child, item=self.potion_item, quantity=2)
 
-        PetService.hatch_pet(self.child, self.egg_item.pk, self.potion_item.pk)
+        hatch_ready_pet(self.child, self.egg_item.pk, self.potion_item.pk)
         with self.assertRaises(ValueError):
-            PetService.hatch_pet(self.child, self.egg_item.pk, self.potion_item.pk)
+            hatch_ready_pet(self.child, self.egg_item.pk, self.potion_item.pk)
 
 
 class FeedPetTest(PetServiceTestBase):
@@ -77,7 +78,7 @@ class FeedPetTest(PetServiceTestBase):
         super().setUp()
         UserInventory.objects.create(user=self.child, item=self.egg_item, quantity=1)
         UserInventory.objects.create(user=self.child, item=self.potion_item, quantity=1)
-        self.pet = PetService.hatch_pet(self.child, self.egg_item.pk, self.potion_item.pk)
+        self.pet = hatch_ready_pet(self.child, self.egg_item.pk, self.potion_item.pk)
 
     def test_feed_pet_preferred_food(self):
         UserInventory.objects.create(user=self.child, item=self.preferred_food, quantity=1)
