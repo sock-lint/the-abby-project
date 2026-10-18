@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { UserPlus, CalendarDays, Settings2, Box } from 'lucide-react';
+import { UserPlus, CalendarDays, Settings2, Box, Gift } from 'lucide-react';
 import HeroPrimaryCard from '../components/dashboard/HeroPrimaryCard';
 import OnboardingChecklist from '../components/dashboard/OnboardingChecklist';
 import ApprovalQueueList from '../components/dashboard/ApprovalQueueList';
@@ -15,7 +15,7 @@ import useParentDashboard from '../hooks/useParentDashboard';
 import { inkBleed } from '../motion/variants';
 import PageShell from '../components/layout/PageShell';
 import PageHeader from '../components/layout/PageHeader';
-import { formatCurrency } from '../utils/format';
+import ParentFamilyOverview from './dashboard/ParentFamilyOverview';
 import { normalizeList } from '../utils/api';
 import { formatWeekdayDate } from './_dashboardShared';
 
@@ -46,20 +46,21 @@ function NoChildrenWelcome() {
 export default function ParentDashboard() {
   const { user } = useAuth();
   const {
-    pending, pendingPrintCount = 0, weekByKid, dashboard, reload, loading, failedSources = [], error,
+    pending, pendingPrintCount = 0, pendingDeliveryCount = 0, attentionCount, isShared = false,
+    weekByKid, dashboard, reload, loading, failedSources = [], error,
   } = useParentDashboard();
   const {
     data: childrenData, loading: childrenLoading, error: childrenError, reload: reloadChildren,
   } = useApi(getChildren);
   const children = normalizeList(childrenData);
   const navigate = useNavigate();
-  const { weekday, dateStr } = formatWeekdayDate();
+  const householdDate = dashboard?.family_overview?.date;
+  const { weekday, dateStr } = formatWeekdayDate(householdDate ? new Date(`${householdDate}T12:00:00`) : undefined);
   const failureMessage = failedSources.length > 0
     ? `Couldn't load ${failedSources.join(', ')} — pending items from those queues may be missing.`
     : error;
   const incomplete = Boolean(failureMessage);
-  const pendingTimecards = Number(dashboard?.pending_timecards) || 0;
-  const attentionCount = pending.length + pendingTimecards + pendingPrintCount;
+  const pendingTimecards = (Number(dashboard?.pending_timecards) || 0) + (Number(dashboard?.disputed_timecards) || 0);
   const weekUnavailable = failedSources.includes('week summary');
 
   // children_count is exposed by the parent dashboard payload. While the
@@ -103,6 +104,15 @@ export default function ParentDashboard() {
               the whole multi-second round trip — a glance-and-leave parent
               reads that as an all-clear and misses the queue entirely. */}
           <section id="approval-queue" aria-label="Needs your attention" className="space-y-3 scroll-mt-28">
+            {pendingDeliveryCount > 0 && (
+              <ParchmentCard>
+                <Link to="/treasury?tab=bazaar#reward-deliveries"
+                  className="flex min-h-11 items-center gap-3 text-sheikah-teal-deep font-body font-semibold text-body hover:underline">
+                  <Gift size={20} className="shrink-0" aria-hidden="true" />
+                  Deliver {pendingDeliveryCount} approved reward{pendingDeliveryCount !== 1 ? 's' : ''}
+                </Link>
+              </ParchmentCard>
+            )}
             {pendingTimecards > 0 && (
               <ParchmentCard>
                 <Link
@@ -129,50 +139,25 @@ export default function ParentDashboard() {
               items={pending}
               loading={loading}
               incomplete={incomplete}
-              showEmpty={pendingTimecards === 0 && pendingPrintCount === 0}
-              onDone={reload}
+              showEmpty={pendingTimecards === 0 && pendingPrintCount === 0 && pendingDeliveryCount === 0}
+              onDone={isShared ? undefined : reload}
             />
           </section>
 
           <section aria-label="Family overview" className="space-y-3">
-            <SectionHeader title="Family overview" kicker="Clocked activity this week" />
-            {childrenLoading ? (
+            <SectionHeader title="Family overview" kicker="Schoolwork, chores, goals and things to celebrate" />
+            {childrenLoading && !dashboard?.family_overview ? (
               <p className="font-body text-caption text-ink-secondary">Loading...</p>
-            ) : childrenError ? (
+            ) : childrenError && !dashboard?.family_overview ? (
               <ErrorAlert message="Couldn't load your family. Please try again." onRetry={reloadChildren} />
-            ) : children.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {children.map((child) => {
-                  const kidWeek = weekByKid.find((w) => w.kid_id === child.id);
-                  const name = child.display_name || child.username;
-                  return (
-                    // Button OUTSIDE the card (the Next Up pattern on
-                    // ChildDashboard) so the whole tile is the tap target and
-                    // the card pads once instead of p-5 + px-3 py-3.
-                    <button
-                      key={child.id}
-                      type="button"
-                      onClick={() => navigate(`/chronicle?tab=yearbook&child=${child.id}`)}
-                      aria-label={`View ${name}'s timeline`}
-                      className="min-w-0 text-left"
-                    >
-                      <ParchmentCard className="h-full space-y-1">
-                        <span className="font-display text-body text-ink-primary block break-words [overflow-wrap:anywhere]">
-                          {name}
-                        </span>
-                        <span className="font-body text-caption text-ink-secondary block">
-                          {weekUnavailable ? 'Weekly activity unavailable.'
-                            : loading ? 'Updating weekly activity…'
-                            : kidWeek
-                              ? `${kidWeek.hours ?? 0}h clocked · ${formatCurrency(kidWeek.earnings)} clocked earnings`
-                              : 'No clocked time this week.'}
-                        </span>
-                        <span className="font-body text-caption text-sheikah-teal-deep block">View timeline</span>
-                      </ParchmentCard>
-                    </button>
-                  );
-                })}
-              </div>
+            ) : (dashboard?.family_overview?.children?.length ?? children.length) > 0 ? (
+              <ParentFamilyOverview
+                overview={dashboard?.family_overview}
+                children={children}
+                weekByKid={weekByKid}
+                loading={loading}
+                unavailable={weekUnavailable}
+              />
             ) : (
               <p className="font-body text-caption text-ink-secondary">Open Manage family to see your children.</p>
             )}

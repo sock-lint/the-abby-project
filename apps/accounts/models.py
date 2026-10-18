@@ -3,8 +3,30 @@ from decimal import Decimal
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models, transaction
+from django.utils import timezone
+
+from config.base_models import TimestampedModel
 
 from .managers import CustomUserManager
+
+
+class PendingFileDeletion(TimestampedModel):
+    """Private storage outbox, independent of the account rows being removed.
+
+    A delete signal writes this row inside the same database transaction as
+    its source deletion. Failed storage calls never discard the only remaining
+    pointer. Keys are private operational data and must not be serialized or
+    included in task arguments/logs.
+    """
+
+    storage_key = models.CharField(max_length=1000, unique=True)
+    attempts = models.PositiveIntegerField(default=0)
+    retry_at = models.DateTimeField(default=timezone.now, db_index=True)
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.CharField(max_length=32, blank=True)
+
+    class Meta:
+        ordering = ["retry_at", "pk"]
 
 
 class User(AbstractUser):

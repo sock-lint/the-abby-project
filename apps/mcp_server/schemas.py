@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # ---------------------------------------------------------------------------
@@ -1389,9 +1389,8 @@ class GetSpriteIn(_Base):
     ``list_sprites`` deliberately stays lean (slug + url + structural
     metadata only). This tool returns the additional authoring inputs
     (``prompt``, ``original_intent``, ``motion``, ``style_hint``,
-    ``tile_size``, ``reference_image_url``) so a chat-side meta-prompt
-    loop can read what was sent to Gemini and critique it against the
-    rendered image at ``url``.
+    ``tile_size``, ``reference_image_url``) as read-only historical metadata.
+    Sprite generation has been retired.
     """
 
     slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
@@ -1433,155 +1432,6 @@ class UpdateSpriteMetadataIn(_Base):
                 "update would silently succeed with no effect",
             )
         return self
-
-
-SPRITE_TILE_SIZES = (32, 64, 128)
-SpriteMotion = Literal[
-    "idle", "walk", "bounce",
-    "bubble", "flicker", "glow", "wobble", "sway",
-]
-
-
-class GenerateSpriteSheetIn(_Base):
-    """Input to the ``generate_sprite_sheet`` MCP tool.
-
-    Frame-count / fps cross-validation mirrors ``SpriteAsset.clean()`` so
-    invalid combinations fail fast at pydantic construction, before the
-    tool ever runs and before the Gemini SDK is loaded.
-
-    ``motion`` selects which 4-phase cyclic template drives per-frame
-    poses (see ``sprite_generation.MOTION_TEMPLATES``) — silently
-    ignored when ``frame_count == 1``. Default is ``"idle"`` because
-    (a) it's the most common pose on a tile-grid RPG map and (b) small
-    per-frame deltas make it the most forgiving for Gemini.
-    """
-
-    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
-    prompt: str = Field(min_length=3, max_length=500)
-    frame_count: int = Field(default=1, ge=1, le=8)
-    tile_size: int = Field(default=128)
-    fps: int = Field(default=0, ge=0, le=30)
-    pack: str = Field(default="ai-generated", max_length=40)
-    style_hint: str = Field(default="", max_length=200)
-    motion: SpriteMotion = "idle"
-    # Optional style + character anchor. When provided, the service
-    # downloads this URL and passes the bytes to Gemini alongside the
-    # text prompt. The generated sprite must match the reference
-    # image's character design, palette, and style — enables the
-    # self-anchored bulk-animation workflow (animate an existing
-    # static sprite by passing its own URL here).
-    reference_image_url: Optional[str] = Field(default=None, max_length=500)
-    # Optional plain-English description of what the parent originally
-    # asked for. Persisted on ``SpriteAsset.original_intent`` alongside
-    # the refined ``prompt`` so a future reroll can re-refine from the
-    # same starting intent (different Claude output each time) instead
-    # of just replaying the stored prompt verbatim. Empty string by
-    # default — refined prompts authored directly via this tool don't
-    # need to fill it in.
-    original_intent: str = Field(default="", max_length=1000)
-    # Debug-only: when True, also save the raw Gemini output and the
-    # post-chroma-key output to the sprites bucket under a debug/
-    # prefix, and include their URLs in the response. Useful for
-    # diagnosing pipeline issues — inspect what Gemini actually
-    # produced before our post-processing touched it.
-    return_debug_raw: bool = False
-    overwrite: bool = False
-
-    @field_validator("tile_size")
-    @classmethod
-    def _tile_size_in_scale(cls, v: int) -> int:
-        if v not in SPRITE_TILE_SIZES:
-            raise ValueError(f"tile_size must be one of {SPRITE_TILE_SIZES}")
-        return v
-
-    @model_validator(mode="after")
-    def _frames_and_fps(self) -> "GenerateSpriteSheetIn":
-        if self.frame_count == 1 and self.fps != 0:
-            raise ValueError("static sprites (frame_count == 1) require fps == 0")
-        if self.frame_count > 1 and self.fps < 1:
-            raise ValueError("animated sprites (frame_count > 1) require fps >= 1")
-        return self
-
-
-class RerollSpriteIn(_Base):
-    """Re-run ``generate_sprite_sheet`` with the inputs stored on the existing
-    ``SpriteAsset`` row. Mirrors ``POST /api/sprites/admin/<slug>/reroll/``.
-
-    Optional override fields layer on top of the stored row, supporting the
-    chat-side critique loop: Claude critiques a rendered sprite, calls
-    ``propose_sprite_reroll`` to get a refined prompt, then calls THIS tool
-    with the refined inputs. The generation service writes whatever inputs
-    it ran with back onto the SpriteAsset row at the end of the pipeline,
-    so a subsequent reroll resumes from the refined state without any
-    additional plumbing.
-
-    Fails when the sprite's stored ``prompt`` is empty (e.g. legacy
-    ``register_sprite`` uploads). The caller should re-author with
-    ``generate_sprite_sheet`` directly in that case.
-    """
-
-    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
-    return_debug_raw: bool = False
-    prompt: Optional[str] = Field(
-        default=None,
-        min_length=3,
-        max_length=500,
-        description="Override the stored prompt for this reroll.",
-    )
-    motion: Optional[SpriteMotion] = Field(
-        default=None,
-        description="Override the stored motion for this reroll.",
-    )
-    style_hint: Optional[str] = Field(
-        default=None,
-        max_length=200,
-        description="Override the stored style hint for this reroll.",
-    )
-    tile_size: Optional[int] = Field(
-        default=None,
-        description="Override the stored tile_size for this reroll.",
-    )
-
-    @field_validator("tile_size")
-    @classmethod
-    def _tile_size_in_scale_optional(cls, v: Optional[int]) -> Optional[int]:
-        if v is not None and v not in SPRITE_TILE_SIZES:
-            raise ValueError(f"tile_size must be one of {SPRITE_TILE_SIZES}")
-        return v
-
-
-class ProposeSpriteRerollIn(_Base):
-    """Inputs to the ``propose_sprite_reroll`` MCP tool.
-
-    Pure prompt construction — does NOT call Gemini. The chat agent feeds
-    its vision-based critique of an existing sprite (free-form English),
-    and the tool returns a refined ``generate_sprite_sheet`` prompt plus
-    proposed overrides for ``motion`` / ``style_hint`` / ``tile_size``.
-    The chat then passes those into ``reroll_sprite``.
-    """
-
-    slug: str = Field(min_length=1, max_length=64, pattern=SPRITE_SLUG_PATTERN)
-    critique: str = Field(
-        min_length=3,
-        max_length=2000,
-        description="Free-form description of what's wrong with the current "
-                    "sprite. Keywords like 'too small', 'wrong pose', 'wrong "
-                    "colors', 'edges cut off', 'too much empty space' map to "
-                    "specific refinement rules.",
-    )
-    target_changes: list[str] = Field(
-        default_factory=list,
-        max_length=10,
-        description="Optional explicit refinement levers — overrides keyword "
-                    "detection. Accepted values: 'larger_subject', "
-                    "'switch_motion', 'strengthen_style', 'drop_reference', "
-                    "'bigger_tile'.",
-    )
-
-
-class GetSpritePromptingPlaybookIn(_Base):
-    """No payload — the playbook is a single static document. Empty schema
-    keeps the MCP tool callable without requiring any parameters."""
 
 
 # ---------------------------------------------------------------------------

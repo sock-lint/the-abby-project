@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 
 from django.contrib.auth import authenticate
 from django.db import transaction
@@ -23,8 +24,7 @@ from config.viewsets import (
 from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
-    TemplateMaterial, TemplateMilestone, TemplateResource,
-    TemplateStep, User,
+    User,
 )
 from .serializers import (
     ChildSerializer, MaterialItemSerializer, ParentSerializer,
@@ -103,18 +103,26 @@ class AuthView(APIView):
             password = request.data.get("password")
             user = authenticate(request, username=username, password=password)
             if user:
-                from apps.google_integration.oauth_exchange import invalidate_google_flows, lock_users
+                from apps.google_integration.oauth_exchange import invalidate_google_flows
                 with transaction.atomic():
-                    fresh = lock_users([user.pk]).get(user.pk)
-                    if not fresh or not fresh.is_active or not fresh.check_password(password):
-                        return Response({"error": "Invalid credentials"}, status=401)
-                    user = fresh
-                    invalidate_google_flows(user.pk)
-                    Token.objects.filter(user=user).delete()
-                    token = Token.objects.create(user=user)
-                data = UserSerializer(user).data
-                data["token"] = token.key
-                return Response(data)
+                    from apps.families.models import Family
+
+                    # Authentication may precede a lifecycle transaction.
+                    # Recheck under its family→user lock order so an old
+                    # password result cannot resurrect a deleted/deactivated
+                    # account or mint a credential after a password reset.
+                    family = Family.objects.select_for_update(no_key=True).filter(pk=user.family_id).first()
+                    fresh = User.objects.select_for_update(no_key=True).filter(
+                        pk=user.pk, family=family, is_active=True,
+                    ).first() if family else None
+                    if fresh is not None and fresh.check_password(password):
+                        # Holds the User row lock, as Google flow invalidation requires.
+                        invalidate_google_flows(fresh.pk)
+                        Token.objects.filter(user=fresh).delete()
+                        token = Token.objects.create(user=fresh)
+                        data = UserSerializer(fresh).data
+                        data["token"] = token.key
+                        return Response(data)
             return Response(
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -169,6 +177,18 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
 
+def _locked_member_write(method):
+    @wraps(method)
+    def wrapped(self, request, *args, **kwargs):
+        from apps.accounts.lifecycle import locked_family_members, require_parent
+
+        with locked_family_members(request, require_token=False) as (_family, actor, _members):
+            require_parent(actor)
+            request.user = actor
+            return method(self, request, *args, **kwargs)
+    return wrapped
+
+
 class _UserManagementActionsMixin:
     """Shared ``reset_password`` / ``deactivate`` / ``reactivate`` actions.
 
@@ -179,7 +199,43 @@ class _UserManagementActionsMixin:
     ``perform_destroy`` so DELETE shares the same checks.
     """
 
+    @_locked_member_write
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @_locked_member_write
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @_locked_member_write
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        target = serializer.instance
+        active = serializer.validated_data.get("is_active", target.is_active)
+        if not active and target.is_active:
+            self._deactivate_member(target)
+        serializer.save()
+
+    def _deactivate_member(self, target):
+        from apps.families.services import (
+            MemberRemovalError, assert_safe_to_remove, promote_next_primary_parent,
+        )
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            assert_safe_to_remove(target, self.request.user, mode="deactivate")
+        except MemberRemovalError as exc:
+            raise ValidationError({"error": str(exc)})
+        target.is_active = False
+        target.save(update_fields=["is_active"])
+        Token.objects.filter(user=target).delete()
+        if target.role == "parent":
+            promote_next_primary_parent(target.family, target)
+
     @action(detail=True, methods=["post"], url_path="reset-password")
+    @_locked_member_write
     def reset_password(self, request, pk=None):
         from django.contrib.auth.password_validation import (
             ValidationError as PasswordValidationError,
@@ -210,26 +266,15 @@ class _UserManagementActionsMixin:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def deactivate(self, request, pk=None):
-        from apps.families.services import (
-            MemberRemovalError, assert_safe_to_remove,
-            promote_next_primary_parent,
-        )
         target = self.get_object()
-        try:
-            assert_safe_to_remove(target, request.user, mode="deactivate")
-        except MemberRemovalError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        with transaction.atomic():
-            target.is_active = False
-            target.save(update_fields=["is_active"])
-            Token.objects.filter(user=target).delete()
-            if target.role == "parent":
-                promote_next_primary_parent(target.family, target)
+        self._deactivate_member(target)
         serializer = self.get_serializer(target)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def reactivate(self, request, pk=None):
         target = self.get_object()
         if not target.is_active:
@@ -243,16 +288,20 @@ class _UserManagementActionsMixin:
             MemberRemovalError, assert_safe_to_remove,
             promote_next_primary_parent,
         )
-        try:
-            assert_safe_to_remove(instance, self.request.user, mode="delete")
-        except MemberRemovalError as exc:
-            # Re-raise as DRF ValidationError so the framework returns 400
-            # with the message — same shape as our serializer-validation 400s.
-            from rest_framework import serializers as drf_serializers
-            raise drf_serializers.ValidationError({"error": str(exc)})
-        if instance.role == "parent":
-            promote_next_primary_parent(instance.family, instance)
-        instance.delete()
+        # The founder handoff and the file-cleanup outbox must commit with
+        # the cascade. A failed delete must leave the account and family
+        # pointer intact so the same explicit action can be retried.
+        with transaction.atomic():
+            try:
+                assert_safe_to_remove(instance, self.request.user, mode="delete")
+            except MemberRemovalError as exc:
+                from rest_framework import serializers as drf_serializers
+                raise drf_serializers.ValidationError({"error": str(exc)})
+            from apps.accounts.lifecycle import collect_safe_deletion
+            collect_safe_deletion(instance, instance.family)
+            if instance.role == "parent":
+                promote_next_primary_parent(instance.family, instance)
+            instance.delete()
 
 
 class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
@@ -763,15 +812,7 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], url_path="create-project")
     def create_project_from_template(self, request, pk=None):
         """Create a new project from this template."""
-        from django.db.models import prefetch_related_objects
-
         template = self.get_object()
-        # Prefetch the four related sets we iterate below so the clone
-        # doesn't fire 4 + N queries (one per .all() + one per nested
-        # step.resources.all()).
-        prefetch_related_objects(
-            [template], "milestones", "materials", "steps", "resources",
-        )
         assigned_to_id = request.data.get("assigned_to_id")
         # Cross-family safety: a parent can only spin a template for a child
         # in their own family. ``get_child_or_404`` returns None on miss
@@ -784,58 +825,13 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
             if assigned_to is None:
                 return child_not_found_response()
 
-        project = Project.objects.create(
-            title=template.title,
-            description=template.description,
-            instructables_url=template.instructables_url,
-            difficulty=template.difficulty,
-            category=template.category,
-            bonus_amount=template.bonus_amount,
-            materials_budget=template.materials_budget,
-            created_by=request.user,
-            assigned_to=assigned_to,
-            status="in_progress",
-        )
-
-        # Map template-milestone pk -> real ProjectMilestone so steps can
-        # rebind their FK to the new project's milestones (not the template's).
-        ms_id_map = {}
-        for ms in template.milestones.all():
-            pm = ProjectMilestone.objects.create(
-                project=project, title=ms.title,
-                description=ms.description, order=ms.order,
-                bonus_amount=ms.bonus_amount,
+        from .template_services import instantiate_project_template
+        try:
+            project = instantiate_project_template(
+                template, parent=request.user, assignee=assigned_to, allow_public=True,
             )
-            ms_id_map[ms.id] = pm
-
-        for mat in template.materials.all():
-            MaterialItem.objects.create(
-                project=project, name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-
-        # Clone steps first so we can map template-step ids to real step pks
-        # when copying step-scoped resources. Preserve the step→milestone
-        # linkage by resolving through ms_id_map.
-        step_id_map = {}
-        for ts in template.steps.all():
-            ps = ProjectStep.objects.create(
-                project=project, title=ts.title,
-                description=ts.description, order=ts.order,
-                milestone=ms_id_map.get(ts.milestone_id) if ts.milestone_id else None,
-            )
-            step_id_map[ts.id] = ps
-
-        for tr in template.resources.all():
-            ProjectResource.objects.create(
-                project=project,
-                step=step_id_map.get(tr.step_id) if tr.step_id else None,
-                title=tr.title,
-                url=tr.url,
-                resource_type=tr.resource_type,
-                order=tr.order,
-            )
+        except ProjectTemplate.DoesNotExist:
+            return Response({"error": "Template not found"}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(ProjectDetailSerializer(project).data, status=status.HTTP_201_CREATED)
 
@@ -864,56 +860,16 @@ class ProjectTemplateViewSet(ParentWritePermissionMixin, viewsets.ModelViewSet):
         if project.is_homework:
             return Response({"error": "Homework plans cannot become paid project templates."}, status=status.HTTP_400_BAD_REQUEST)
 
-        template = ProjectTemplate.objects.create(
-            title=project.title,
-            description=project.description,
-            instructables_url=project.instructables_url,
-            difficulty=project.difficulty,
-            category=project.category,
-            bonus_amount=project.bonus_amount,
-            materials_budget=project.materials_budget,
-            source_project=project,
-            created_by=request.user,
-            family=request.user.family,
-            is_public=request.data.get("is_public", False),
-        )
-
-        # Map project-milestone pk -> TemplateMilestone so cloned steps point
-        # at the template's milestones, not the source project's.
-        ms_id_map = {}
-        for ms in project.milestones.all():
-            tm = TemplateMilestone.objects.create(
-                template=template, title=ms.title,
-                description=ms.description, order=ms.order,
-                bonus_amount=ms.bonus_amount,
+        from .template_services import save_project_template
+        try:
+            template = save_project_template(
+                project, parent=request.user,
+                is_public=request.data.get("is_public", False),
             )
-            ms_id_map[ms.id] = tm
-
-        for mat in project.materials.all():
-            TemplateMaterial.objects.create(
-                template=template, name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-
-        step_id_map = {}
-        for ps in project.steps.all():
-            ts = TemplateStep.objects.create(
-                template=template, title=ps.title,
-                description=ps.description, order=ps.order,
-                milestone=ms_id_map.get(ps.milestone_id) if ps.milestone_id else None,
-            )
-            step_id_map[ps.id] = ts
-
-        for pr in project.resources.all():
-            TemplateResource.objects.create(
-                template=template,
-                step=step_id_map.get(pr.step_id) if pr.step_id else None,
-                title=pr.title,
-                url=pr.url,
-                resource_type=pr.resource_type,
-                order=pr.order,
-            )
+        except Project.DoesNotExist:
+            return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(ProjectTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
 

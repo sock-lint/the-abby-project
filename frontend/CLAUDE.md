@@ -77,8 +77,8 @@ frontend/src/
     index.js         All endpoint functions (single import surface)
   hooks/             useApi.js (useAuth, useApi),
                      useParentDashboard.js (parallel-fetch merge of
-                     chore + homework + redemption pending queues for
-                     parent Today view),
+                     all parent review and delivery sources, shared by
+                     ParentReviewProvider with Today/header/navigation),
                      useDropToasts.js, useCompanionGrowthToasts.js,
                      useQuestProgressToasts.js, useApprovalToasts.js,
                      useSpeechDictation.js, useInstallPrompt.js
@@ -183,6 +183,17 @@ The October 2026 Meadow refresh shares bundled Nunito, cream/lavender/mint surfa
 The replaceable Meadow presentation also supplies the welcome screen. Its licensed chick is a generic artwork preview, not evidence of an account's owned species or growth. Today and Bestiary render actual server-confirmed companions through their species `sprite_key`. Exact Base Chick and the 14 registered Meshtint families use their pinned stage portraits when the private releases and retained Chick supplemental portraits are installed. Missing or failed portraits recover through the runtime sprite catalog and labelled icon; legacy species retain their own artwork. Saved cover keys and cosmetic ownership stay unchanged: `hyrule`/`vigil`/`sunlit`/`snowquill`/`verdant`/`harvest` now display as Memory/Twilight/Honey/Cloud/Clover/Peach Meadow. Django and React share these labels and seasonal aliases through `shared/catalog/theme-presentation.json`, copied into React by `scripts/storybook/sync_presentation.py`. Baseline art/palette data remains in `shared/storybook/presentation.json`; `themes.js` adds semantic shades for readable UI.
 
 `RpgSprite` defaults to smooth image scaling; use `rendering="pixelated"` explicitly for artwork that needs crisp pixel edges. Today and Companions use `petSpriteKeys` for retained pet rows. The shared pure-data `companion/birdEvolution.js` resolves the exact Chick/Base identity from server-confirmed `evolution_stage` and `evolved_to_mount`, never growth alone, for 2D portraits, 3D selection, form names and the existing Bird motion adapter. The generic `companion/lifecycle.js` and four-stage `PetEvolutionGuide` use `shared/catalog/companion-lifecycle.json` for Egg → Baby → Middle → Grown across every species; `lifecycle_stage` comes from the server. Egg is the pre-hatch inventory stage, with family art names kept separate from stage IDs. See `docs/operations/companion-lifecycle.md`. Nicknames remain separate from stage names; saved species/potion identities do not change. Missing or failed portraits try `fallbackSpriteKey` before a labelled icon. Failures belong to the image URL, so a fresh catalog URL can recover. `JournalIcons` keeps its named exports with rounded Meadow SVG drawings, readable current-color outlines and soft cover-token fills. Use its shared chapter icons in navigation and `CoinIcon` for progression currency; real money keeps its dollar icon. `ChapterMarker` replaces manuscript section marks with decorative rounded number badges; `chapterMark` returns one-based Arabic labels for headings, chapter taxonomies and shelf medallions. Shared `TabList` uses one tab stop, Left/Right arrows with wrapping, Home/End, automatic selection and reduced-motion-aware active-tab scrolling.
+
+**Achievement card artwork:** private family `abby-achievement-card-kit` 1.0.0
+adds matching wide (1024×512) and tall (1024×1280) base/overlay pairs plus three
+512px icons. `avatar/achievementCardKit.js` resolves their explicit `wide`,
+`tall`, and `icon-512` variants through image URLs; the older pedestal resolver
+assumes square canvases, and `loadAsset` accepts GLBs only. Use the shared
+`AchievementCard` surface for wide Profile achievements and tall collection,
+challenge, and reward cards. Preserve 64px corner slices, scaled 96px safe
+insets, alpha, and live text/state/actions. Existing catalog artwork stays
+distinct; generic book/heart/compass icons establish no badge assignment or
+entitlement. See [the integration runbook](../docs/operations/achievement-card-kit.md).
 
 **Supported offers and saved collections:** use Django's read-only
 `catalog_available` fields through `utils/catalogAvailability.js`; React does

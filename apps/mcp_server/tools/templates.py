@@ -6,37 +6,26 @@ any child in one call (``create_project_from_template``).
 """
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 from typing import Any
 
 from django.db import transaction
 
+from apps.achievements.models import Skill, SkillCategory
 from apps.projects.models import (
-    MaterialItem,
-    Project,
-    ProjectMilestone,
-    ProjectResource,
-    ProjectStep,
-    ProjectTemplate,
-    TemplateMaterial,
-    TemplateMilestone,
-    TemplateResource,
-    TemplateStep,
-    User,
+    Project, ProjectTemplate, TemplateAuthoringReceipt, TemplateMaterial,
+    TemplateMilestone, TemplateMilestoneSkillTag, TemplateResource, TemplateSkillTag,
+    TemplateStep, User,
 )
-from apps.achievements.models import SkillCategory
+from apps.projects.template_services import instantiate_project_template, save_project_template
 
-from ..context import (
-    get_current_user, get_in_family, require_parent, resolve_target_user,
-)
+from ..context import get_current_user, get_in_family, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
-from ..schemas import (
-    CreateProjectFromTemplateIn,
-    CreateTemplateIn,
-    DeleteTemplateIn,
-    GetTemplateIn,
-    ListTemplatesIn,
-    SaveProjectAsTemplateIn,
-    UpdateTemplateIn,
+from ..template_schemas import (
+    CreateProjectFromTemplateIn, CreateTemplateIn, DeleteTemplateIn, GetTemplateIn,
+    ListTemplatesIn, SaveProjectAsTemplateIn, UpdateTemplateIn,
 )
 from ..server import tool
 from ..shapes import project_detail_to_dict
@@ -118,152 +107,149 @@ def get_template(params: GetTemplateIn) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _validate_content(params):
+    """Validate every external reference before changing any saved rows."""
+    if params.category_id is not None and not SkillCategory.objects.filter(pk=params.category_id).exists():
+        raise MCPValidationError(f"category_id {params.category_id} does not match any category.")
+    all_tags = [params.skill_tags or []]
+    if params.milestones is not None:
+        all_tags.extend(milestone.skill_tags for milestone in params.milestones)
+    for tags in all_tags:
+        ids = [tag.skill_id for tag in tags]
+        if len(ids) != len(set(ids)):
+            raise MCPValidationError("A skill may appear only once in each skill_tags list.")
+        missing = set(ids) - set(Skill.objects.filter(pk__in=ids).values_list("pk", flat=True))
+        if missing:
+            raise MCPValidationError(f"Unknown skill IDs: {sorted(missing)}")
+    if params.steps is None:
+        return
+    for index, step in enumerate(params.steps):
+        if step.order < 0 or (step.milestone_index is not None and not 0 <= step.milestone_index < len(params.milestones)):
+            raise MCPValidationError(f"steps[{index}].milestone_index or order out of range.")
+    for index, resource in enumerate(params.resources):
+        if resource.order < 0 or (resource.step_index is not None and not 0 <= resource.step_index < len(params.steps)):
+            raise MCPValidationError(f"resources[{index}].step_index or order out of range.")
+    if any(milestone.order < 0 for milestone in params.milestones):
+        raise MCPValidationError("Milestone order cannot be negative.")
+
+
+def _replace_skill_tags(template, tags):
+    template.skill_tags.all().delete()
+    TemplateSkillTag.objects.bulk_create([
+        TemplateSkillTag(template=template, **tag.model_dump()) for tag in tags
+    ])
+
+
+def _write_structure(template, params):
+    milestones = []
+    for entry in params.milestones:
+        milestone = TemplateMilestone.objects.create(template=template, **entry.model_dump(exclude={"skill_tags"}))
+        milestones.append(milestone)
+        TemplateMilestoneSkillTag.objects.bulk_create([
+            TemplateMilestoneSkillTag(milestone=milestone, **tag.model_dump()) for tag in entry.skill_tags
+        ])
+    for entry in params.materials:
+        TemplateMaterial.objects.create(template=template, **entry.model_dump())
+    steps = []
+    for entry in params.steps:
+        steps.append(TemplateStep.objects.create(
+            template=template,
+            milestone=milestones[entry.milestone_index] if entry.milestone_index is not None else None,
+            **entry.model_dump(exclude={"milestone_index"}),
+        ))
+    for entry in params.resources:
+        TemplateResource.objects.create(
+            template=template,
+            step=steps[entry.step_index] if entry.step_index is not None else None,
+            **entry.model_dump(exclude={"step_index"}),
+        )
+
+
+def _create_once(parent, params, operation, create):
+    """Serialize actor retries, retaining immutable responses even after deletion."""
+    payload = params.model_dump(mode="json", exclude={"request_id"})
+    fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    with transaction.atomic():
+        User.objects.select_for_update().get(pk=parent.pk)
+        if params.request_id is not None:
+            receipt = TemplateAuthoringReceipt.objects.filter(
+                actor=parent, operation=operation, request_id=params.request_id,
+            ).first()
+            if receipt:
+                if receipt.family_id != parent.family_id or receipt.fingerprint != fingerprint:
+                    raise MCPValidationError("request_id was already used with different inputs or family.")
+                return copy.deepcopy(receipt.response)
+        response = create()
+        if params.request_id is not None:
+            TemplateAuthoringReceipt.objects.create(
+                actor=parent, family=parent.family, operation=operation,
+                request_id=params.request_id, fingerprint=fingerprint, response=response,
+            )
+        return response
+
+
 @tool()
 @safe_tool
 def create_template(params: CreateTemplateIn) -> dict[str, Any]:
-    """Create a new project template from scratch (parent-only).
+    """Create a family template with skill wiring and linked nested content.
 
-    Pass inline ``milestones``, ``materials``, ``steps`` (with optional
-    ``milestone_index``), and ``resources`` (with optional ``step_index``)
-    to author a full template in one call. Indexes are resolved to FKs
-    after the parent rows are inserted.
+    Supply a stable request_id for duplicate-safe retries. Step milestone_index
+    and resource step_index refer to zero-based positions in this payload.
     """
+    params = CreateTemplateIn.model_validate(params.model_dump())
     parent = require_parent()
-    family = getattr(parent, "family", None)
-    if family is None:
+    if parent.family_id is None:
         raise MCPValidationError("Calling parent has no family attached.")
 
-    category = None
-    if params.category_id is not None:
-        try:
-            category = SkillCategory.objects.get(pk=params.category_id)
-        except SkillCategory.DoesNotExist:
-            raise MCPValidationError(
-                f"category_id {params.category_id} does not match any category.",
-            )
-
-    # Pre-validate indexes before writes.
-    step_count = len(params.steps)
-    milestone_count = len(params.milestones)
-    for idx, step in enumerate(params.steps):
-        if step.milestone_index is not None and not (
-            0 <= step.milestone_index < milestone_count
-        ):
-            raise MCPValidationError(
-                f"steps[{idx}].milestone_index out of range.",
-            )
-    for idx, res in enumerate(params.resources):
-        if res.step_index is not None and not (
-            0 <= res.step_index < step_count
-        ):
-            raise MCPValidationError(
-                f"resources[{idx}].step_index out of range.",
-            )
-
-    with transaction.atomic():
-        # Audit C8: stamp ``family`` from the calling parent so the
-        # template lands in the right per-family bucket.
+    def create():
+        _validate_content(params)
         template = ProjectTemplate.objects.create(
-            title=params.title,
-            description=params.description,
-            instructables_url=params.instructables_url,
-            difficulty=params.difficulty,
-            category=category,
-            bonus_amount=params.bonus_amount,
-            materials_budget=params.materials_budget,
-            created_by=parent,
-            is_public=params.is_public,
-            family=family,
+            **params.model_dump(exclude={"request_id", "skill_tags", "milestones", "materials", "steps", "resources"}),
+            family=parent.family, created_by=parent,
         )
-        created_milestones: list[TemplateMilestone] = []
-        for ms in params.milestones:
-            created_milestones.append(TemplateMilestone.objects.create(
-                template=template,
-                title=ms.title,
-                description=ms.description,
-                order=ms.order,
-                bonus_amount=ms.bonus_amount,
-            ))
-        for mat in params.materials:
-            TemplateMaterial.objects.create(
-                template=template,
-                name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-        created_steps: list[TemplateStep] = []
-        for step in params.steps:
-            ms = (
-                created_milestones[step.milestone_index]
-                if step.milestone_index is not None
-                else None
-            )
-            created_steps.append(TemplateStep.objects.create(
-                template=template,
-                milestone=ms,
-                title=step.title,
-                description=step.description,
-                order=step.order,
-            ))
-        for res in params.resources:
-            step_fk = (
-                created_steps[res.step_index]
-                if res.step_index is not None
-                else None
-            )
-            TemplateResource.objects.create(
-                template=template,
-                step=step_fk,
-                title=res.title,
-                url=res.url,
-                resource_type=res.resource_type,
-                order=res.order,
-            )
-    template.refresh_from_db()
-    return _template_to_dict(template)
+        _replace_skill_tags(template, params.skill_tags)
+        _write_structure(template, params)
+        return _template_to_dict(template)
+    return _create_once(parent, params, "create_template", create)
 
 
 @tool()
 @safe_tool
 def update_template(params: UpdateTemplateIn) -> dict[str, Any]:
-    """Edit top-level template fields (parent-only).
+    """Edit template metadata and skill wiring or atomically replace its plan.
 
-    This tool does NOT edit nested milestones/steps/materials/resources —
-    delete and recreate the template for structural changes, or edit the
-    source project and call ``save_project_as_template`` again.
+    For structural edits provide all four arrays (milestones, materials, steps,
+    resources); [] explicitly clears a section. Omitted metadata is preserved.
+    Only this template changes; previously instantiated projects are unchanged.
     """
+    params = UpdateTemplateIn.model_validate(params.model_dump(exclude_unset=True))
     parent = require_parent()
-    # Audit C8: per-family content; scope by ProjectTemplate.family.
-    template = get_in_family(
-        ProjectTemplate, params.template_id, actor=parent,
-        family_path="family",
-    )
-    data = params.model_dump(exclude={"template_id"}, exclude_unset=True)
-    if "category_id" in data and data["category_id"] is not None:
-        try:
-            SkillCategory.objects.get(pk=data["category_id"])
-        except SkillCategory.DoesNotExist:
-            raise MCPValidationError(
-                f"category_id {data['category_id']} does not match any category.",
-            )
-    for field, value in data.items():
-        setattr(template, field, value)
-    template.save()
-    return _template_to_dict(template)
+    with transaction.atomic():
+        User.objects.select_for_update().get(pk=parent.pk)
+        template = get_in_family(ProjectTemplate, params.template_id, actor=parent, family_path="family")
+        template = ProjectTemplate.objects.select_for_update().get(pk=template.pk, family_id=parent.family_id)
+        _validate_content(params)
+        data = params.model_dump(exclude={"template_id", "skill_tags", "milestones", "materials", "steps", "resources"}, exclude_unset=True)
+        for field, value in data.items():
+            setattr(template, field, value)
+        template.save()
+        if params.skill_tags is not None:
+            _replace_skill_tags(template, params.skill_tags)
+        if params.milestones is not None:
+            template.resources.all().delete()
+            template.steps.all().delete()
+            template.milestones.all().delete()
+            template.materials.all().delete()
+            _write_structure(template, params)
+        return _template_to_dict(template)
 
 
 @tool()
 @safe_tool
 def delete_template(params: DeleteTemplateIn) -> dict[str, Any]:
-    """Delete a template and all its nested rows (parent-only).
-
-    Audit C8: per-family content; scope by ProjectTemplate.family.
-    """
+    """Delete a family template and its nested rows (parent-only)."""
     parent = require_parent()
-    template = get_in_family(
-        ProjectTemplate, params.template_id, actor=parent,
-        family_path="family",
-    )
+    template = get_in_family(ProjectTemplate, params.template_id, actor=parent, family_path="family")
     template_id = template.pk
     template.delete()
     return {"template_id": template_id, "deleted": True}
@@ -272,146 +258,43 @@ def delete_template(params: DeleteTemplateIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def save_project_as_template(params: SaveProjectAsTemplateIn) -> dict[str, Any]:
-    """Clone an existing project into a new reusable template (parent-only).
+    """Save a family project as a reusable template, preserving all skill tags.
 
-    Copies milestones, materials, steps, and resources verbatim, preserving
-    the step→milestone linkage via an internal ID map.
+    Homework plans cannot become paid project templates. A stable request_id
+    makes retries return the original saved response without another template.
     """
+    params = SaveProjectAsTemplateIn.model_validate(params.model_dump())
     parent = require_parent()
-    family = getattr(parent, "family", None)
-    if family is None:
+    if parent.family_id is None:
         raise MCPValidationError("Calling parent has no family attached.")
-    # Audit C8: source project must be in the calling parent's family;
-    # template is stamped with that family too.
-    project = get_in_family(
-        Project, params.project_id, actor=parent,
-        family_path="assigned_to__family",
-    )
-    if project.is_homework:
-        raise MCPValidationError("Homework plans cannot become paid project templates.")
 
-    with transaction.atomic():
-        template = ProjectTemplate.objects.create(
-            title=project.title,
-            description=project.description,
-            instructables_url=project.instructables_url,
-            difficulty=project.difficulty,
-            category=project.category,
-            bonus_amount=project.bonus_amount,
-            materials_budget=project.materials_budget,
-            source_project=project,
-            created_by=parent,
-            is_public=params.is_public,
-            family=family,
-        )
-        ms_id_map: dict[int, TemplateMilestone] = {}
-        for ms in project.milestones.all():
-            ms_id_map[ms.id] = TemplateMilestone.objects.create(
-                template=template,
-                title=ms.title,
-                description=ms.description,
-                order=ms.order,
-                bonus_amount=ms.bonus_amount,
-            )
-        for mat in project.materials.all():
-            TemplateMaterial.objects.create(
-                template=template,
-                name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-        step_id_map: dict[int, TemplateStep] = {}
-        for ps in project.steps.all():
-            step_id_map[ps.id] = TemplateStep.objects.create(
-                template=template,
-                milestone=ms_id_map.get(ps.milestone_id) if ps.milestone_id else None,
-                title=ps.title,
-                description=ps.description,
-                order=ps.order,
-            )
-        for pr in project.resources.all():
-            TemplateResource.objects.create(
-                template=template,
-                step=step_id_map.get(pr.step_id) if pr.step_id else None,
-                title=pr.title,
-                url=pr.url,
-                resource_type=pr.resource_type,
-                order=pr.order,
-            )
-
-    return _template_to_dict(template)
+    def create():
+        project = get_in_family(Project, params.project_id, actor=parent, family_path="assigned_to__family")
+        if project.is_homework:
+            raise MCPValidationError("Homework plans cannot become paid project templates.")
+        return _template_to_dict(save_project_template(project, parent=parent, is_public=params.is_public))
+    return _create_once(parent, params, "save_project_as_template", create)
 
 
 @tool()
 @safe_tool
-def create_project_from_template(
-    params: CreateProjectFromTemplateIn,
-) -> dict[str, Any]:
-    """Spawn a new Project for a child from this template (parent-only).
+def create_project_from_template(params: CreateProjectFromTemplateIn) -> dict[str, Any]:
+    """Instantiate a family template for a child, with skill wiring preserved.
 
-    The new project starts in ``in_progress`` status. Pass ``title_override``
-    to rename the instance (e.g. "Birdhouse (Abby's)").
+    status=draft supports review before starting; the compatible default remains
+    in_progress. A stable request_id prevents duplicate projects on retries.
     """
+    params = CreateProjectFromTemplateIn.model_validate(params.model_dump())
     parent = require_parent()
-    # Audit C8: scope template lookup to caller's family — without this
-    # a parent could spawn a project for their own child from another
-    # family's private template.
-    template = get_in_family(
-        ProjectTemplate, params.template_id, actor=parent,
-        family_path="family",
-    )
-    # Cross-family safety: only spawn a project for a child in this
-    # parent's family. resolve_target_user raises MCPNotFoundError on
-    # cross-family without leaking existence.
-    assignee = resolve_target_user(parent, params.assigned_to_id)
 
-    with transaction.atomic():
-        project = Project.objects.create(
-            title=params.title_override or template.title,
-            description=template.description,
-            instructables_url=template.instructables_url,
-            difficulty=template.difficulty,
-            category=template.category,
-            bonus_amount=template.bonus_amount,
-            materials_budget=template.materials_budget,
-            created_by=parent,
-            assigned_to=assignee,
-            status="in_progress",
+    def create():
+        template = get_in_family(ProjectTemplate, params.template_id, actor=parent, family_path="family")
+        assignee = resolve_target_user(parent, params.assigned_to_id)
+        if assignee.role != "child":
+            raise MCPValidationError("assigned_to_id must identify a child in your family.")
+        project = instantiate_project_template(
+            template, parent=parent, assignee=assignee,
+            title=params.title_override, status=params.status,
         )
-        ms_id_map: dict[int, ProjectMilestone] = {}
-        for ms in template.milestones.all():
-            ms_id_map[ms.id] = ProjectMilestone.objects.create(
-                project=project,
-                title=ms.title,
-                description=ms.description,
-                order=ms.order,
-                bonus_amount=ms.bonus_amount,
-            )
-        for mat in template.materials.all():
-            MaterialItem.objects.create(
-                project=project,
-                name=mat.name,
-                description=mat.description,
-                estimated_cost=mat.estimated_cost,
-            )
-        step_id_map: dict[int, ProjectStep] = {}
-        for ts in template.steps.all():
-            step_id_map[ts.id] = ProjectStep.objects.create(
-                project=project,
-                title=ts.title,
-                description=ts.description,
-                order=ts.order,
-                milestone=ms_id_map.get(ts.milestone_id) if ts.milestone_id else None,
-            )
-        for tr in template.resources.all():
-            ProjectResource.objects.create(
-                project=project,
-                step=step_id_map.get(tr.step_id) if tr.step_id else None,
-                title=tr.title,
-                url=tr.url,
-                resource_type=tr.resource_type,
-                order=tr.order,
-            )
-
-    project.refresh_from_db()
-    return project_detail_to_dict(project)
+        return project_detail_to_dict(project)
+    return _create_once(parent, params, "create_project_from_template", create)

@@ -1,0 +1,50 @@
+{
+  "badges_earned": [
+    {
+      "id": 601,
+      "user": 7,
+      "badge": {
+        "id": 501,
+        "name": "10-Hour Club",
+        "description": "Synthetic ten-hour badge",
+        "icon": "TEN",
+        "catalog_icon": "badge-10-hour-club",
+        "subject": null,
+        "criteria_type": "hours_worked",
+        "criteria_value": {
+          "hours": 10
+        },
+        "xp_bonus": 25,
+        "rarity": "common",
+        "catalog_available": true,
+        "coin_bonus": 5
+      },
+      "earned_at": "2026-10-10T12:00:00-07:00"
+    }
+  ],
+  "total_badges": 2,
+  "skill_categories": {
+    "Coding": {
+      "category_id": 101,
+      "icon": "CODE",
+      "catalog_icon": "category-coding",
+      "color": "#123456",
+      "skills": [
+        {
+          "id": 401,
+          "user": 7,
+          "skill": 301,
+          "skill_name": "Python",
+          "skill_icon": "PYTHON",
+          "skill_catalog_icon": "skill-coding-python",
+          "category_name": "Coding",
+          "subject_name": "Languages & Apps",
+          "xp_points": 150,
+          "level": 1,
+          "unlocked": true,
+          "xp_to_next_level": 150
+        }
+      ]
+    }
+  }
+}

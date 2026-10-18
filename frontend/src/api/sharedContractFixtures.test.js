@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import apiNotFound from '../../../contracts/api/fixtures/api-not-found.json';
 import idleClock from '../../../contracts/api/fixtures/clock-idle.json';
 import activeClock from '../../../contracts/api/fixtures/clock-active.json';
 import loginResponse from '../../../contracts/api/fixtures/auth-login-child.json';
@@ -98,6 +99,19 @@ import {
 // These are the raw response files checked against Django views and loaded
 // directly by Unity. Do not replace them with a second client-specific factory.
 describe('shared Django response fixtures through the React API client', () => {
+  it('keeps a missing endpoint as a JSON 404 without retrying the read', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/missing-endpoint/', () => {
+      requests += 1;
+      return HttpResponse.json(apiNotFound, { status: 404 });
+    }));
+
+    await expect(api.get('/missing-endpoint/')).rejects.toMatchObject({
+      status: 404, message: 'Not found.', response: apiNotFound,
+    });
+    expect(requests).toBe(1);
+  });
+
   it('reads JSON null as an idle clock and preserves the active entry', async () => {
     let clock = idleClock;
     server.use(http.get('*/api/clock/', () => HttpResponse.json(clock)));

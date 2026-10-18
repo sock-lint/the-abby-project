@@ -16,8 +16,8 @@ Live ``Quest`` instances for a specific child are spawned via
 from __future__ import annotations
 
 from typing import Any
+from django.db.models import Q
 
-from django.utils import timezone
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 
@@ -25,7 +25,7 @@ from django.db import transaction
 
 from apps.achievements.models import Badge
 from apps.accounts.models import User
-from apps.quests.models import Quest, QuestDefinition, QuestParticipant, QuestSkillTag
+from apps.quests.models import Quest, QuestDefinition, QuestSkillTag
 from apps.quests.services import QuestService
 from apps.quests.validators import validate_trigger_filter
 
@@ -135,8 +135,10 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
     ``assign_quest``. Filter with ``quest_type`` to narrow to boss or
     collection quests.
     """
-    require_parent()
-    qs = QuestDefinition.objects.prefetch_related("reward_items__item")
+    actor = require_parent()
+    qs = QuestDefinition.objects.filter(
+        Q(is_system=True) | Q(created_by__family_id=actor.family_id),
+    ).prefetch_related("reward_items__item")
     if params.quest_type:
         qs = qs.filter(quest_type=params.quest_type)
     qs = qs.order_by("quest_type", "name")

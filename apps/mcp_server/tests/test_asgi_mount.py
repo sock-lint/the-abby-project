@@ -270,9 +270,9 @@ class MountedMcpAuthenticatedHandshakeTests(TransactionTestCase):
     def setUp(self) -> None:
         _reset_mcp_session_manager()
         self.user = User.objects.create_user(
-            username="mounted-mcp-client", password="pw", role="parent",
+            username="mounted-mcp-client", password="pw", role="parent", is_staff=True,
         )
-        _, self.auth_header = make_oauth_token(self.user, resource="")
+        _, self.auth_header = make_oauth_token(self.user)
 
     def test_authenticated_initialize_does_not_500(self) -> None:
         from asgiref.sync import sync_to_async

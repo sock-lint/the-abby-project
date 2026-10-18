@@ -178,6 +178,7 @@ export default function SkillTreeView({ categories = [] }) {
         {!skill && <WayfinderHeading
           title={path.view === 'skill' ? (metadataSkill?.name || 'Skill') : subject?.name || activeCategory.name}
           icon={path.view === 'skill' ? metadataSkill?.icon : subject?.icon || activeCategory.icon}
+          assetId={path.view === 'skill' ? metadataSkill?.catalog_icon : subject ? subject.catalog_icon : activeCategory.catalog_icon}
           description={subject?.description || (path.view === 'category' ? activeCategory.description : '')}
           meta={subject ? `${subject.skills?.length || 0} skills · ${activeCategory.name}`
             : tree?.summary ? `Level ${tree.summary.level} · ${(tree.summary.total_xp || 0).toLocaleString()} total XP` : ''}

@@ -1,0 +1,35 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 301,
+      "name": "Python",
+      "category": 101,
+      "category_name": "Coding",
+      "subject": 201,
+      "subject_name": "Languages & Apps",
+      "description": "",
+      "icon": "PYTHON",
+      "catalog_icon": "skill-coding-python",
+      "level_names": {},
+      "is_locked_by_default": false,
+      "order": 0
+    },
+    {
+      "id": 302,
+      "name": "Python",
+      "category": 102,
+      "category_name": "Custom Coding",
+      "subject": 202,
+      "subject_name": "Languages & Apps",
+      "description": "",
+      "icon": "OTHER",
+      "catalog_icon": null,
+      "level_names": {},
+      "is_locked_by_default": true,
+      "order": 0
+    }
+  ]
+}

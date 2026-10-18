@@ -1,4 +1,5 @@
 import PedestalImage from '../../pedestal/PedestalImage';
+import ArtworkImage from '../rpg/ArtworkImage';
 import { RARITY_HALO } from './mastery.constants';
 import './badge-artwork.css';
 
@@ -14,7 +15,7 @@ export default function BadgeArtwork({ badge, earned = false, variant = 'tile', 
   const iconText = badge.icon || '🏅';
   const iconLength = iconSegmenter ? [...iconSegmenter.segment(iconText)].length : Array.from(iconText).length;
   const icon = <span className={`badge-artwork__glyph ${earned ? '' : 'grayscale opacity-50'}`}>
-    {iconText}
+    <ArtworkImage assetId={badge.catalog_icon} fallback={iconText} size={framed ? '37.5cqw' : '50cqw'} />
   </span>;
 
   return <span aria-hidden="true" data-badge-artwork={framed ? 'featured' : 'tile'}

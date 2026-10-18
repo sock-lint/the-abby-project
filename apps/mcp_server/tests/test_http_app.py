@@ -119,9 +119,9 @@ class MCPInitializeHandshakeTests(TransactionTestCase):
         anything but 500.
         """
         user = User.objects.create_user(
-            username="mcp-client", password="pw", role="parent",
+            username="mcp-client", password="pw", role="parent", is_staff=True,
         )
-        _, auth_header = make_oauth_token(user, resource="")  # no resource binding to skip
+        _, auth_header = make_oauth_token(user)
 
         app = build_http_app()
         with TestClient(app) as client:
@@ -201,9 +201,9 @@ class DnsRebindingProtectionRequestTests(TransactionTestCase):
     def setUp(self) -> None:
         _reset_mcp_session_manager()
         self.user = User.objects.create_user(
-            username="mcp-host-test", password="pw", role="parent",
+            username="mcp-host-test", password="pw", role="parent", is_staff=True,
         )
-        _, self.auth_header = make_oauth_token(self.user, resource="")
+        _, self.auth_header = make_oauth_token(self.user)
 
     def _post(self, client: TestClient) -> Any:
         return client.post(

@@ -5,7 +5,7 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { AUTH_CHANGED_EVENT, getToken, OFFLINE_MESSAGE } from '../api/client';
+import { AUTH_CHANGED_EVENT, clearTokenIfCurrent, getToken, OFFLINE_MESSAGE } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
 import { purgePrivateApiCaches } from '../pwa/privacy';
 import { disconnectPushSession } from '../pwa/pushSession';
@@ -311,7 +311,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const value = { user, loading, offline, sessionError, login, signup, logout, setUser };
+  const signOutDeletedAccount = useCallback((token) => {
+    // The server has already removed this credential and its push bindings.
+    // A delayed deletion response must never sign out a replacement account.
+    if (!token || !clearTokenIfCurrent(token)) return false;
+    writeCachedUser(null);
+    setUser(null);
+    setOffline(false);
+    Sentry.setUser(null);
+    // Removing the local browser subscription is best effort: delivery for
+    // the deleted account has already stopped at the database boundary.
+    void disconnectPushSession(token, { stopSession: true }).catch(() => false);
+    return true;
+  }, []);
+
+  const value = { user, loading, offline, sessionError, login, signup, logout, signOutDeletedAccount, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

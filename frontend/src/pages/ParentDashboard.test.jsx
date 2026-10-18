@@ -96,9 +96,9 @@ describe('ParentDashboard', () => {
     await waitFor(() =>
       expect(screen.getByText(/3 things to review today/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/dishes/i)).toBeInTheDocument();
-    expect(screen.getByText(/math packet/i)).toBeInTheDocument();
-    expect(screen.getByText(/screen time/i)).toBeInTheDocument();
+    expect(screen.getByText(/^dishes$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^math packet$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^screen time$/i)).toBeInTheDocument();
   });
 
   it('approving a chore fires /chore-completions/{id}/approve/', async () => {
@@ -179,7 +179,7 @@ describe('ParentDashboard', () => {
     const setup = screen.getByText('Getting started');
     expect(approval.compareDocumentPosition(family) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(family.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole('button', { name: /view abby's timeline/i })).toBeVisible();
+    expect(screen.getByRole('link', { name: /view abby's timeline/i })).toBeVisible();
     expect(screen.queryByRole('button', { name: /add a child to your family/i })).toBeNull();
   });
 
@@ -332,7 +332,7 @@ describe('ParentDashboard', () => {
       http.get('*/api/redemptions/', () => HttpResponse.json([])),
       http.get('*/api/children/', () => HttpResponse.json([{ id: 2, username: 'abby', display_name: 'Abby' }])),
     ]);
-    const child = await screen.findByRole('button', { name: /view abby's timeline/i });
+    const child = (await screen.findByRole('link', { name: /view abby's timeline/i })).closest('article');
     expect(child).toHaveTextContent(/1.5h clocked/);
     expect(child).toHaveTextContent(/\$15.00 clocked earnings/);
     expect(screen.getAllByText(/\$15.00/)).toHaveLength(1);
@@ -372,7 +372,7 @@ describe('ParentDashboard', () => {
     await waitFor(() => expect(screen.getByText('Trash')).toBeInTheDocument());
   });
 
-  it('makes the whole Family overview tile a single tap target', async () => {
+  it('links the child timeline from the Family overview card', async () => {
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
       http.get('*/api/dashboard/', () =>
@@ -386,13 +386,45 @@ describe('ParentDashboard', () => {
       ),
     ]);
 
-    const tile = await screen.findByRole('button', { name: /view abby's timeline/i });
-    // The card is INSIDE the button (the Next Up pattern) — previously the
-    // button sat inside the card, leaving its 20px padded ring inert.
-    expect(tile.querySelector('.rounded-xl')).not.toBeNull();
-    expect(tile).toHaveTextContent('Abby');
+    const tile = await screen.findByRole('link', { name: /view abby's timeline/i });
+    expect(tile.closest('article')).toHaveTextContent('Abby');
     await userEvent.setup().click(tile);
     expect(screen.getByLabelText('Current location')).toHaveTextContent('/chronicle?tab=yearbook&child=2');
+  });
+
+  it('shows the server household summary with child-specific task links before clocked earnings', async () => {
+    renderDashboard([
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({
+        ...emptyDashboard, children_count: 1,
+        family_overview: {
+          date: '2026-10-18', timezone: 'America/Phoenix', children: [{
+            kid_id: 2, name: 'Abby', homework: { due_today: 2, overdue: 1, pending_review: 3 },
+            chores: { remaining: 2, pending_review: 1, approved: 3, total: 6 },
+            parent_goals: { active_count: 4, items: [{
+              id: 'goal:8', name: 'Read together', progress: '7.500', target: '20.000', unit: 'minutes',
+            }] },
+            recent_accomplishment: { kind: 'badge', title: 'Steady learner', occurred_at: '2026-10-18T20:00:00Z' },
+            clocked_week: { hours: 1.5, earnings: 15 },
+          }],
+        },
+      })),
+      http.get('*/api/children/', () => HttpResponse.json([])),
+    ]);
+    const family = await screen.findByRole('region', { name: 'Family overview' });
+    expect(await within(family).findByText(/2 due today · 1 overdue/)).toBeVisible();
+    expect(within(family).getByText('3 awaiting your review')).toBeVisible();
+    expect(within(family).getByText('2 remaining · 1 awaiting review · 3 approved')).toBeVisible();
+    expect(within(family).getByText('7.5 / 20 minutes')).toBeVisible();
+    expect(within(family).getByRole('progressbar', { name: 'Read together progress' })).toHaveAttribute('aria-valuenow', '7.5');
+    expect(within(family).getByText('Earned a badge: Steady learner')).toBeVisible();
+    expect(within(family).getByText(/household day \(America\/Phoenix\)/)).toBeVisible();
+    expect(within(family).getByRole('link', { name: "View Abby's homework" })).toHaveAttribute('href', '/quests?tab=study&child=2');
+    expect(within(family).getByRole('link', { name: "View Abby's chores" })).toHaveAttribute('href', '/quests?tab=duties&child=2');
+    expect(within(family).getByRole('link', { name: "View Abby's goals" })).toHaveTextContent('View all 4 goals');
+    const accomplished = within(family).getByText('Earned a badge: Steady learner');
+    const earnings = within(family).getByText(/1.5h clocked/);
+    expect(accomplished.compareDocumentPosition(earnings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('approving a redemption fires /redemptions/{id}/approve/ with notes body', async () => {

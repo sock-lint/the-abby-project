@@ -41,6 +41,9 @@ export const handlers = [
     HttpResponse.json({ detail: 'Authentication credentials were not provided.' }, { status: 401 }),
   ),
   http.patch('*/api/auth/me/', ok),
+  // A lifecycle preview must match the exact mounted account/family. Tests
+  // exercising this feature supply their own preview and mutation spies.
+  http.get('*/api/account/lifecycle/', () => HttpResponse.json({ error: 'Account lifecycle preview is not configured in this fixture.' }, { status: 503 })),
   http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: false })),
   http.get('*/api/auth/google/', () => HttpResponse.json({ authorization_url: '', state: '', expires_in: 600 })),
   http.get('*/api/auth/google/login/', () => HttpResponse.json({ authorization_url: '', state: '', expires_in: 600 })),
@@ -437,12 +440,6 @@ export const handlers = [
     HttpResponse.json({ sprites: {}, etag: 'test-default-empty' }),
   ),
   http.get('*/api/sprites/admin/', empty),
-  http.post('*/api/sprites/admin/generate/', () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }, { status: 201 }),
-  ),
-  http.post(/\/api\/sprites\/admin\/[^/]+\/reroll\/$/, () =>
-    HttpResponse.json({ slug: 'x', frame_count: 1, frame_width_px: 64, frame_height_px: 64, fps: 0 }),
-  ),
   http.patch(/\/api\/sprites\/admin\/[^/]+\/$/, ok),
   http.delete(/\/api\/sprites\/admin\/[^/]+\/$/, () => HttpResponse.json({ deleted: true })),
 

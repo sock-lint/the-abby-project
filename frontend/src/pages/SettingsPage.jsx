@@ -26,6 +26,7 @@ import { ToggleField } from '../components/form';
 import InstallCard from '../pwa/InstallCard';
 import PushNotificationsCard from '../pwa/PushNotificationsCard';
 import HomeworkAISettings from './settings/HomeworkAISettings';
+import AccountLifecycle from './settings/AccountLifecycle';
 import useGoogleAuthorization from '../hooks/useGoogleAuthorization';
 import { takeGoogleLinkResult } from '../auth/googleOAuth';
 
@@ -291,6 +292,7 @@ export default function SettingsPage() {
           <Link to="/sigil" className="inline-flex min-h-11 items-center text-body underline underline-offset-4 text-sheikah-teal-deep">
             View profile
           </Link>
+          <AccountLifecycle />
         </div>
       </ParchmentCard>
 

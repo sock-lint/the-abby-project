@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
-import { setToken } from '../api/client.js';
+import { getToken, setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
 import { prepareGoogleCallback } from '../test/googleAuthorization';
 import {
@@ -166,6 +166,66 @@ describe('useApi', () => {
 });
 
 describe('AuthProvider + useAuth', () => {
+  it('clears only the deleted session and its cached identity without another logout request', async () => {
+    setToken('deleted-account-session');
+    const user = buildUser();
+    const logout = vi.spyOn(apiIndex, 'logout');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(user));
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('deleted-account-session'); });
+    expect(cleared).toBe(true);
+    expect(getToken()).toBe('');
+    expect(result.current.user).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+    expect(logout).not.toHaveBeenCalled();
+    logout.mockRestore();
+  });
+
+  it('ignores deletion completion after a different account signs in', async () => {
+    const newer = buildUser({ id: 702, username: 'replacement-account' });
+    setToken('replacement-session');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(newer)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(newer));
+    const cached = localStorage.getItem(STORAGE_KEYS.CACHED_USER);
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('old-deleted-session'); });
+    expect(cleared).toBe(false);
+    expect(getToken()).toBe('replacement-session');
+    expect(result.current.user).toEqual(newer);
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBe(cached);
+  });
+
+  it('does not unsubscribe a replacement account when deleted-session push teardown is delayed', async () => {
+    const originalWorker = navigator.serviceWorker;
+    let finishRegistration;
+    const registration = new Promise((resolve) => { finishRegistration = resolve; });
+    const getRegistration = vi.fn(() => registration);
+    const unsubscribe = vi.fn(async () => true);
+    const subscription = { endpoint: 'https://push.example.invalid/new-session', unsubscribe };
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration } });
+    try {
+      setToken('deleted-push-session');
+      const user = buildUser();
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+      const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+      await waitFor(() => expect(result.current.user).toEqual(user));
+      act(() => result.current.signOutDeletedAccount('deleted-push-session'));
+      await waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(1));
+      act(() => setToken('replacement-push-session'));
+      await act(async () => {
+        finishRegistration({ pushManager: { getSubscription: async () => subscription } });
+        await registration;
+      });
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(getToken()).toBe('replacement-push-session');
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+    }
+  });
+
   it('throws if used outside the provider', () => {
     // renderHook's wrapper defaults to a no-op; useAuth should throw inside
     // the hook body.

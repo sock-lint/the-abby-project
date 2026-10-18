@@ -1,4 +1,5 @@
 import ChapterMarker from './ChapterMarker';
+import ArtworkImage from '../rpg/ArtworkImage';
 
 /**
  * ChapterRubric — a Meadow section heading with a numbered waypoint,
@@ -8,17 +9,18 @@ import ChapterMarker from './ChapterMarker';
  * surfaces, or the legacy `subject` object shape used by Skills'
  * FolioSpread. Direct props win when both are present.
  */
-export default function ChapterRubric({ index, subject, name, icon, summary }) {
+export default function ChapterRubric({ index, subject, name, icon, assetId, summary }) {
   const displayName = name ?? subject?.name;
   const displayIcon = icon ?? subject?.icon;
+  const displayArt = assetId ?? (icon == null ? subject?.catalog_icon : null);
   const displaySummary = summary ?? subject?.summary;
   return (
     <header className="pt-4 pb-1">
       <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         <ChapterMarker index={index} />
-        {displayIcon && (
+        {(displayIcon || displayArt) && (
           <span aria-hidden="true" className="text-xl leading-none">
-            {displayIcon}
+            <ArtworkImage assetId={displayArt} fallback={displayIcon || null} size={24} />
           </span>
         )}
         <h3 className="font-display font-bold text-lede md:text-xl text-ink-primary leading-tight break-words min-w-0 flex-1">

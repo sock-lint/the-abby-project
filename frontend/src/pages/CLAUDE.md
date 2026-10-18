@@ -380,7 +380,7 @@ The inside-cover plate of the journal — personal author-portrait rather than a
 - [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled saved avatar preview, compact trophy and real streak statistics. “Customize avatar” opens the dedicated `/profile/customize` screen; Profile does not contain wardrobe editing controls.
 - [`avatar-customize/`](/frontend/src/pages/avatar-customize/) — the live preview remains beside the options on desktop and above them on phones, with a separately scrolling options panel and Save/Undo actions. Layout measures the marked shell header and bottom navigation. The authenticated avatar catalog supplies base-specific appearance controls and compatible shared accessory choices. Base identity and equipment are saved separately in `avatar_configuration`: a Knight can reuse the same bow/quiver IDs as an Archer when its attachment bindings are prepared; source pack is provenance, not an equipment restriction. Only prepared base avatars are offered. Current Archer configuration maps to the existing private renderer, including fitted hood hair and saved ordinary hair under a crown. Drafts remain in memory for the same account and credential; Save adopts the confirmed server configuration, failed saves retain the draft, Undo restores the saved look, and the editor Back action asks before discarding. Wardrobe changes do not acquire inventory, grant XP/Coins or change earned cosmetics.
   A reviewed private v2 release renders the 2,880 identity combinations with supplied Idle and requires empty wardrobe slots. Schema 3 adds all wardrobe modules to each complete matching rig, with source-derived rigid bone attachments and palette texture aliases; the frontend can resolve 276,480 combined selections after that release is verified and reviewed. Only the selected pieces render. The hood uses supplied fitted hat hair while retaining the saved underlying hairstyle; the crown retains that hairstyle. Equipment never changes identity-based framing. Older static releases retain the original 64 appearances, and older releases never omit an unsupported saved piece just to render a different look. Missing private models/textures or renderer failure keeps customization and existing Profile controls usable. Idle pauses offscreen, in background tabs and for reduced motion; costume and wardrobe changes reset loading and local playback.
-- [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — empty slot is a debossed intaglio ("choose from your reliquary"); filled slot wears full `RARITY_HALO`. Picker is a `BottomSheet` that passes earned badges through `groupBadgesByCollection` — clicking a seal sets the trophy; clicking the current trophy clears it (null payload).
+- [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — a wide `AchievementCard` pairs the kit's blank base and gold overlay around the real badge artwork, live name, rarity, and chooser action. The empty slot says "Choose an earned badge"; absent or failed private art preserves the same readable controls. The `BottomSheet` groups earned badges through `groupBadgesByCollection` and displays them in matching tall cards: selecting a badge sets the trophy, and selecting the current trophy clears it (null payload). Generic kit icons do not replace actual badge identities. The older measured frame remains in earned badge details and design examples.
 - Two [`CosmeticChapter.jsx`](/frontend/src/pages/character/CosmeticChapter.jsx) folios offer Frames and Titles through the existing DOM presentation. Each [`CosmeticSigil.jsx`](/frontend/src/pages/character/CosmeticSigil.jsx) is equipped, owned or locked; locked supported offers remain noninteractive until owned. Counts exclude unavailable items. [`SavedCosmetics.jsx`](/frontend/src/pages/character/SavedCosmetics.jsx) keeps earlier accessories and unavailable items under Saved collection, with a button to remove a previous active selection. New accessories and accessory equip are unavailable; saved avatar preferences remain independent from earned cosmetics.
 - **Color themes**: Profile shows the current Meadow palette name and links to `/settings#appearance`; Settings owns the only selector. The palette stays selected when clicked again. Inventory theme actions use the same destination; saved cover keepsakes cannot expose a second remove control. Theme display names derive from `themes.js` while saved catalog names and ownership remain compatible.
 - Per-area shared logic lives in [`character.constants.js`](/frontend/src/pages/character/character.constants.js) — `COSMETIC_CHAPTERS` (slot → rubric/letter/name/kicker), `STREAK_TIERS` + `streakTier(days)` (flame sizing ladder aligned with backend milestone thresholds 1/7/30/100), `mergeSlotCosmetics(slot, owned, catalog, activeId)` (dedupe + sort: equipped → owned → locked, each sub-sorted by rarity then name), `slotRarityCounts` (feeds the strand), `cosmeticLockHint` (server acquisition source, then description, then a neutral ownership hint). Locked cosmetic tiles link to a supplied internal activity/challenge path without equipping or pinning it.
@@ -404,18 +404,45 @@ savings and badges follow. Saved accordion preferences remain honored.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 
-Parent Today puts failed-source feedback before the summary and review queue.
-`useParentDashboard` unifies pending chores, homework, redemptions, creations,
-proposals and coin exchanges. `pending_timecards` adds a linked review row and
-counts toward the same attention summary. An incomplete read cannot produce an
-all-clear. `ApprovalQueueList` retains inline evidence, approve/reject, optional
-rejection notes and per-child bulk actions; the parent owns its scroll anchor.
-Family overview is visible without opening a disclosure, combines per-child
-clocked hours and clocked earnings, and has its own roster retry. These weekly
-figures are time-entry estimates, not total family earnings. Assign homework and
-New chore open the existing creation forms. Optional Getting started links
-follow that overview and make no unverified setup-completion claims;
-`children_count` is a flat dashboard field. Manual corrections remain collapsed.
+Parent Today shares one account-bound `ParentReviewProvider` with header and
+navigation. `useParentDashboard` aggregates chores, homework, redemptions,
+creations, proposals, exchanges, prints, pending/disputed timecards and approved
+real-world rewards awaiting delivery. A failed source stays unavailable;
+loading or partial reads never claim an all-clear. Successful review mutations
+invalidate the shared source, and Pulse's body-free family revision catches
+co-parent decisions, work changes and household-day rollover. The provider
+clears previous-account results and ignores late responses.
+
+`ApprovalQueueList` keeps inline evidence and optional rejection notes. Rows
+show waiting age, default to oldest first within each child, and support explicit
+selection. Every selected batch shows its work/reward/exchange consequences
+before confirmation; proposals and delivery requests cannot be bulk approved.
+
+The always-visible family overview uses `/dashboard/`'s additive
+`family_overview`: household-local homework due/overdue/review counts, scheduled
+chore status, parent goal progress, recent confirmed accomplishments and
+secondary clocked estimates. Its server projection uses bounded family-scoped
+queries and never reads journal/reflection bodies. Child links select the same
+verified context used by Homework, Chores, Habits, Challenges, Shop, Reading and
+Memories. Shared chores are explicitly labelled All children. Parent task/roster
+lists read bounded known-endpoint pages before filtering; a failed page cannot
+look like an empty child workspace. Child/account changes reset forms and fence
+late callbacks.
+
+Parent quick actions lead with Assign homework, New chore and Create goal;
+manual corrections and the available Clock follow. New chore/habit sheets lead
+with task, child and schedule; rewards are optional and advanced XP, skill,
+icon and order controls stay in Advanced. Alternating-week chores preview their
+reference week without changing schedule eligibility. Setup suggestions remain
+optional links, with no invented completion claims.
+
+Timecards show saved work notes and automatic clock-out warnings. A disputed
+card offers Resolve and approve with a parent note. Mark as paid opens the
+existing Greenlight completed-transfer form with the exact child and week;
+no money is sent by Abby. Real-world/combined reward approval stays approved
+until the parent explicitly confirms handover in Shop's separate delivery queue.
+Digital inventory is credited once at approval; delivery never spends more
+coins or grants another item. Old fulfilled histories remain unchanged.
 
 ## Global header + FAB
 
@@ -436,6 +463,25 @@ chore and habit rows use their existing endpoints and refresh the dashboard.
 [`components/NotificationBell.jsx`](/frontend/src/components/NotificationBell.jsx) renders a type-specific lucide icon and falls back to a sensible default route when the backend `link` field is empty, via the `NOTIFICATION_TYPE_META` map in [`components/notifications.constants.js`](/frontend/src/components/notifications.constants.js) (`{icon, accent, route}` per type — e.g. `badge_earned` → Award icon, gold accent, `/atlas?tab=badges`). The default route is the safety net: notifiers that forget to set `link` still navigate to a relevant page rather than no-op'ing the click.
 
 **Parity gate**: [`notifications.constants.test.js`](/frontend/src/components/notifications.constants.test.js) hardcodes the backend `NotificationType` enum; the test fails CI when a new value lands on the backend without an entry here, so the bell can't silently degrade to the generic Bell + no-route fallback. Unknown types still fall back gracefully to `BellRing` + null route — but the parity test is what makes that a fail-loud rather than fail-silent path.
+
+## Account lifecycle in Settings
+
+Settings → Account details embeds `settings/AccountLifecycle.jsx`. A fresh,
+account/family/credential-bound preview controls contact handoff, self-deletion
+and last-active-parent family closure. Contact handoff changes only the display
+contact; all parents retain equal access. Parent self-deletion requires an
+active same-family successor for shared authored work; personal assignments
+and private journals are deleted rather than transferred.
+Child-authored shared homework assignments, chores and habits stay with an
+active family parent automatically; the child has no successor picker or
+parent-only actions. Without an active parent to keep shared work, the preview
+blocks deletion until one is active.
+Confirmation uses the current Abby password and exact username or family
+identifier, held only in memory. Busy forms block repeated writes and dismissal, failures retain the
+form, and delayed reads/writes cannot affect a replacement session. A closure
+conflict requires a fresh member-count/version review and a new confirmation.
+Successful deletion uses `signOutDeletedAccount(capturedToken)` for conditional
+local sign-out, without sending a logout request with a deleted credential.
 
 ## Profile pictures and characters
 

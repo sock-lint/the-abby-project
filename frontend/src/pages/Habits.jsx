@@ -1,15 +1,19 @@
 import { useMemo, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
   getHabitHistory, getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
-  listMyHabitProposals, listPendingHabitProposals, approveHabitProposal,
-  getChildren, getSkills,
+  listMyHabitProposals, approveHabitProposal,
+  getSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import useMountedRef from '../hooks/useMountedRef';
 import { useFormState } from '../hooks/useFormState';
-import { useRole } from '../hooks/useRole';
+import useChildContext from '../hooks/useChildContext';
+import ChildContext from '../components/family/ChildContext';
+import { getFamilyHabits, getFamilyHabitProposals } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import EmptyState from '../components/EmptyState';
@@ -72,17 +76,19 @@ function HabitHistoryBars({ series }) {
   );
 }
 
-function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSaved }) {
+function HabitFormModal({ habit, children, skills, isParent, initialChildId, mode, onClose, onSaved }) {
+  const mounted = useMountedRef();
   const resolvedMode = mode || (habit ? 'edit' : 'create');
   const isApprove = resolvedMode === 'approve';
   const isEdit = resolvedMode === 'edit';
   const canSetRewards = isParent;
+  const [advanced, setAdvanced] = useState(resolvedMode !== 'create');
 
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     name: habit?.name || '',
     icon: habit?.icon || '',
     habit_type: habit?.habit_type || 'positive',
-    user: habit?.user ?? '',
+    user: habit?.user ?? initialChildId ?? '',
     xp_reward: habit?.xp_reward ?? 5,
     max_taps_per_day: habit?.max_taps_per_day ?? 1,
     skill_tags: (habit?.skill_tags || []).map((t) => ({
@@ -95,6 +101,10 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isParent && !children?.some((child) => String(child.id) === String(form.user))) {
+      setError('Choose a child from your family before creating a habit.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -118,7 +128,8 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
       } else {
         await createHabit(payload);
       }
-      onSaved();
+      if (!mounted.current) return;
+      onSaved(isParent ? form.user : undefined);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -137,7 +148,7 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
     : isParent ? 'Create habit' : 'Send to parent';
 
   return (
-    <BottomSheet title={title} onClose={onClose} disabled={saving}>
+    <BottomSheet title={title} onClose={onClose} disabled={saving} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && habit?.created_by_name && (
@@ -152,40 +163,22 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        <IconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} options={HABIT_ICONS} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {canSetRewards && <SelectField label="Child" value={form.user} onChange={onField('user')} required>
+          <option value="">Choose a child…</option>
+          {children?.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
+        </SelectField>}
+        <TextField label="Times per day" type="number" min="1" max="50" value={form.max_taps_per_day} onChange={onField('max_taps_per_day')} helpText="Positive logs allowed each day." />
+        {isParent && <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>}
+        {(!isParent || advanced) && <div className="space-y-3">
+          <IconPicker value={form.icon} onChange={(icon) => set({ icon })} disabled={saving} options={HABIT_ICONS} />
           <SelectField label="Type" value={form.habit_type} onChange={onField('habit_type')}>
-            <option value="positive">Build a habit (+)</option>
-            <option value="negative">Reduce a habit (−)</option>
-            <option value="both">Both</option>
+            <option value="positive">Build a habit (+)</option><option value="negative">Reduce a habit (−)</option><option value="both">Both</option>
           </SelectField>
-          <TextField
-            label="Max taps / day"
-            type="number"
-            min="1"
-            max="50"
-            value={form.max_taps_per_day}
-            onChange={onField('max_taps_per_day')}
-          />
-        </div>
-        {canSetRewards && children?.length > 0 && (
-          <SelectField label="Child" value={form.user} onChange={onField('user')}>
-            <option value="">-- Select child --</option>
-            {children.map((c) => (
-              <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-            ))}
-          </SelectField>
-        )}
-        {canSetRewards && (
-          <>
+          {canSetRewards && <>
             <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
-            <SkillTagEditor
-              skills={skills}
-              value={form.skill_tags}
-              onChange={(tags) => set({ skill_tags: tags })}
-            />
-          </>
-        )}
+            <SkillTagEditor skills={skills} value={form.skill_tags} onChange={(tags) => set({ skill_tags: tags })} />
+          </>}
+        </div>}
         {/* Cancel + submit pair, matching the sibling Duties sheet
             (ChoreFormModal) and every other domain form modal. */}
         <ModalActions
@@ -199,18 +192,20 @@ function HabitFormModal({ habit, children, skills, isParent, mode, onClose, onSa
 }
 
 export default function Habits() {
-  const { isParent } = useRole();
-  const { data: rawHabits, loading, refreshing, error: habitsError, reload } = useApi(getHabits);
+  const context = useChildContext();
+  if (!context.user?.id || context.loading) return <Loader />;
+  if (context.error) return <ErrorAlert message={context.error} onRetry={context.reload} />;
+  return <HabitsWorkspace key={`${context.scope}:${context.targetUserId}`} context={context} />;
+}
+
+function HabitsWorkspace({ context }) {
+  const mounted = useMountedRef();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
+  const { data: rawHabits, loading, refreshing, error: habitsError, reload } = useApi(isParent ? getFamilyHabits : getHabits, [isParent]);
   const { data: tapHistory, error: historyError, reload: reloadHistory } = useApi(getHabitHistory);
   const { data: rawProposals, error: proposalsError, reload: reloadProposals } = useApi(
-    isParent ? listPendingHabitProposals : listMyHabitProposals,
-    [isParent],
-  );
-  // Match the fallback pattern used in Chores.jsx — passing `null` to
-  // useApi would crash when it tries to call apiFn(signal); a promise
-  // that resolves to `[]` short-circuits cleanly for non-parents.
-  const { data: rawChildren, error: childrenError, reload: reloadChildren } = useApi(
-    isParent ? getChildren : () => Promise.resolve([]),
+    isParent ? getFamilyHabitProposals : listMyHabitProposals,
     [isParent],
   );
   const { data: rawSkills, error: skillsError, reload: reloadSkills } = useApi(
@@ -234,7 +229,7 @@ export default function Habits() {
   // refetch lands; on error we also clear so we don't ghost a phantom.
   const [tapDeltas, setTapDeltas] = useState({});
 
-  const habitsRaw = normalizeList(rawHabits);
+  const habitsRaw = normalizeList(rawHabits).filter((habit) => !isParent || String(habit.user) === String(targetUserId));
   const habits = habitsRaw.map((h) => {
     const d = tapDeltas[h.id];
     if (!d) return h;
@@ -251,8 +246,7 @@ export default function Habits() {
     return habits.filter((h) => (h.name || '').toLowerCase().includes(q));
   }, [habits, search]);
 
-  const proposals = normalizeList(rawProposals);
-  const children = normalizeList(rawChildren);
+  const proposals = normalizeList(rawProposals).filter((proposal) => !isParent || String(proposal.user) === String(targetUserId));
   const skills = normalizeList(rawSkills);
 
   const refreshAll = () => {
@@ -271,6 +265,19 @@ export default function Habits() {
     setShowForm(false);
     setEditingHabit(null);
     setProposeParam('');
+  };
+  const handleSaved = (childId) => {
+    if (isParent && String(childId) !== String(targetUserId) && children.some((child) => String(child.id) === String(childId))) {
+      setShowForm(false);
+      setEditingHabit(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('propose');
+      next.set('child', String(childId));
+      setSearchParams(next, { replace: true });
+    } else {
+      closeForm();
+      refreshAll();
+    }
   };
   const openEdit = (habit) => {
     setEditingHabit(habit);
@@ -303,6 +310,7 @@ export default function Habits() {
     });
     try {
       await logHabitTap(habit.id, direction);
+      if (!mounted.current) return;
       // Reconcile with the server — clear our optimistic delta for this
       // habit and refetch the canonical row.
       setTapDeltas((prev) => {
@@ -328,6 +336,7 @@ export default function Habits() {
     setError('');
     try {
       await deleteHabit(confirmDelete.id);
+      if (!mounted.current) return;
       setConfirmDelete(null);
       refreshAll();
     } catch (err) {
@@ -366,7 +375,7 @@ export default function Habits() {
         letter="H"
         title="Habits"
         kicker="Build everyday habits"
-        meta="Log your habits each day. Habit strength moves toward zero on missed days."
+        meta={isParent ? 'Review this child’s daily habits and manage their routine.' : 'Log your habits each day. Habit strength moves toward zero on missed days.'}
         stats={versoStats}
         progressPct={versoProgressPct}
         progressLabel={versoProgressLabel}
@@ -375,10 +384,10 @@ export default function Habits() {
         <ErrorAlert message={habitsError && `${rawHabits === null ? "Couldn't load habits." : "Couldn't update habits. Showing the last loaded list."} ${habitsError}`} onRetry={reload} />
         <ErrorAlert message={proposalsError && `Couldn't load habit proposals. ${proposalsError}`} onRetry={reloadProposals} />
         <ErrorAlert message={historyError && `Couldn't load habit history. ${historyError}`} onRetry={reloadHistory} />
-        <ErrorAlert message={childrenError && `Couldn't load children for assignment. ${childrenError}`} onRetry={reloadChildren} />
         <ErrorAlert message={skillsError && `Couldn't load skills for habits. ${skillsError}`} onRetry={reloadSkills} />
         {refreshing && <p role="status" className="text-caption text-ink-secondary">Updating habits…</p>}
 
+        {isParent && <ChildContext children={children} selectedChildId={targetUserId} onSelect={selectChild} />}
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -482,6 +491,7 @@ export default function Habits() {
                           {habit.name}
                         </span>
                       </div>
+                      {isParent && <p className="font-body text-caption text-ink-secondary">For {selectedChild?.display_name || selectedChild?.username}</p>}
                       <div className="font-script text-caption text-ink-whisper mt-0.5">
                         {habit.xp_reward > 0 && <span>{habit.xp_reward} XP</span>}
                         {habit.xp_reward > 0 && habit.max_taps_per_day > 0 && <span> · </span>}
@@ -498,7 +508,7 @@ export default function Habits() {
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-ink-page-shadow/70">
                     <div className="flex gap-2">
-                      {(habit.habit_type === 'positive' || habit.habit_type === 'both') && (() => {
+                      {!isParent && (habit.habit_type === 'positive' || habit.habit_type === 'both') && (() => {
                         const atCap = (habit.taps_today ?? 0) >= (habit.max_taps_per_day ?? 1);
                         return (
                           <Button
@@ -513,7 +523,7 @@ export default function Habits() {
                           </Button>
                         );
                       })()}
-                      {(habit.habit_type === 'negative' || habit.habit_type === 'both') && (
+                      {!isParent && (habit.habit_type === 'negative' || habit.habit_type === 'both') && (
                         <Button
                           variant="danger"
                           size="sm"
@@ -555,12 +565,13 @@ export default function Habits() {
       {showForm && (
         <HabitFormModal
           habit={editingHabit}
+          initialChildId={isParent ? targetUserId : undefined}
           children={isParent ? children : null}
           skills={skills}
           isParent={isParent}
           mode={formMode}
           onClose={closeForm}
-          onSaved={() => { closeForm(); refreshAll(); }}
+          onSaved={handleSaved}
         />
       )}
 

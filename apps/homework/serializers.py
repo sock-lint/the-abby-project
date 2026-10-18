@@ -135,7 +135,7 @@ class HomeworkAssignmentSerializer(serializers.ModelSerializer):
 
 class HomeworkAssignmentWriteSerializer(serializers.ModelSerializer):
     skill_tags = serializers.ListField(
-        child=serializers.DictField(), required=False, default=list,
+        child=serializers.DictField(), required=False, default=list, write_only=True,
     )
 
     class Meta:

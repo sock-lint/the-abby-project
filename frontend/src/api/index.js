@@ -1,6 +1,11 @@
 import { api, getToken, clearTokenIfCurrent, getBlob } from './client';
 import { disconnectPushSession, replaceSessionToken } from '../pwa/pushSession';
 import { apiUrl } from './urls';
+export {
+  getFamilyChildren, getFamilyChores, getFamilyChoreProposals,
+  getFamilyChoreCompletions, getFamilyHabits, getFamilyHabitProposals,
+} from './taskLists';
+import { withParentReviewRefresh } from './parentReviewRefresh';
 
 // Auth
 export const login = async (username, password) => {
@@ -33,6 +38,12 @@ export const logout = async () => {
 };
 export const getMe = () => api.get('/auth/me/');
 export const updateMe = (data) => api.patch('/auth/me/', data);
+
+// Account lifecycle — current-password confirmation; never target another account.
+export const getAccountLifecycle = (options) => api.get('/account/lifecycle/', options);
+export const transferFamilyContact = (data, options) => api.post('/account/lifecycle/transfer/', data, options);
+export const deleteOwnAccount = (data, options) => api.post('/account/lifecycle/delete/', data, options);
+export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/close-family/', data, options);
 
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
@@ -133,9 +144,9 @@ export const discardIngestJob = (id) => api.delete(`/projects/ingest/${id}/`);
 // Clock
 export const getClockStatus = () => api.get('/clock/');
 export const clockIn = (project_id) =>
-  api.post('/clock/', { action: 'in', project_id });
+  withParentReviewRefresh(api.post('/clock/', { action: 'in', project_id }));
 export const clockOut = (notes) =>
-  api.post('/clock/', { action: 'out', notes });
+  withParentReviewRefresh(api.post('/clock/', { action: 'out', notes }));
 
 // Time Entries
 export const getTimeEntries = () => api.get('/time-entries/');
@@ -145,11 +156,11 @@ export const voidTimeEntry = (id) => api.post(`/time-entries/${id}/void/`);
 export const getTimecards = ({ page } = {}) => api.get(`/timecards/${page ? `?page=${encodeURIComponent(page)}` : ''}`);
 export const getTimecard = (id) => api.get(`/timecards/${id}/`);
 export const approveTimecard = (id, notes) =>
-  api.post(`/timecards/${id}/approve/`, { notes });
-export const disputeTimecard = (id) => api.post(`/timecards/${id}/dispute/`);
-export const closeTimecard = (id) => api.post(`/timecards/${id}/close/`, {});
+  withParentReviewRefresh(api.post(`/timecards/${id}/approve/`, { notes }));
+export const disputeTimecard = (id) => withParentReviewRefresh(api.post(`/timecards/${id}/dispute/`));
+export const closeTimecard = (id) => withParentReviewRefresh(api.post(`/timecards/${id}/close/`, {}));
 export const markTimecardPaid = (id, amount) =>
-  api.post(`/timecards/${id}/mark-paid/`, { amount });
+  withParentReviewRefresh(api.post(`/timecards/${id}/mark-paid/`, { amount }));
 export const downloadTimecardsCsv = () => getBlob('/export/timecards/');
 
 // Payments
@@ -200,13 +211,13 @@ export const adjustPayment = (user_id, amount, description = '') =>
 export const getGreenlightOverview = (user_id, signal) =>
   api.get(`/payments/greenlight/overview/?user_id=${encodeURIComponent(user_id)}`, { signal });
 export const recordGreenlightPayout = (payload) =>
-  api.post('/payments/greenlight/payout/', payload);
+  withParentReviewRefresh(api.post('/payments/greenlight/payout/', payload));
 export const saveGreenlightSnapshot = (payload) =>
   api.post('/payments/greenlight/snapshot/', payload);
 export const previewGreenlightCsv = (payload) =>
   api.post('/payments/greenlight/preview/', payload);
 export const reconcileGreenlightCsv = (payload) =>
-  api.post('/payments/greenlight/reconcile/', payload);
+  withParentReviewRefresh(api.post('/payments/greenlight/reconcile/', payload));
 
 // RPG Codex — parent-only catalog of YAML-authored content
 export const getItemCatalog = () => api.get('/items/catalog/');
@@ -309,11 +320,16 @@ export const redeemReward = (id) => api.post(`/rewards/${id}/redeem/`, {});
 export const getRedemptions = () => api.get('/redemptions/');
 export const getPendingRedemptions = () =>
   getAllApprovalPages(() => api.get('/redemptions/?status=pending'));
+export const getAwaitingRedemptions = () =>
+  getAllApprovalPages(() => api.get('/redemptions/?status=approved'));
 export const approveRedemption = (id, notes = '') =>
-  api.post(`/redemptions/${id}/approve/`, { notes });
+  withParentReviewRefresh(api.post(`/redemptions/${id}/approve/`, { notes }));
 export const rejectRedemption = (id, notes = '') =>
-  api.post(`/redemptions/${id}/reject/`, { notes });
-export const getCoinBalance = () => api.get('/coins/');
+  withParentReviewRefresh(api.post(`/redemptions/${id}/reject/`, { notes }));
+export const deliverRedemption = (id) => withParentReviewRefresh(api.post(`/redemptions/${id}/deliver/`, {}));
+// useApi may supply an AbortSignal as the first argument. Only an explicit
+// user_id selects a child; never serialize that signal into a query string.
+export const getCoinBalance = (params = {}) => api.get(`/coins/${params?.user_id ? `?user_id=${encodeURIComponent(params.user_id)}` : ''}`);
 export const getCoinSummaryByDay = (days = 30) =>
   api.get(`/coins/summary-by-day/?days=${days}`);
 export const adjustCoins = (user_id, amount, description = '') =>
@@ -322,14 +338,14 @@ export const adjustCoins = (user_id, amount, description = '') =>
 // Coin Exchange
 export const getExchangeRate = () => api.get('/coins/exchange/rate/');
 export const requestExchange = (dollar_amount) =>
-  api.post('/coins/exchange/', { dollar_amount });
+  withParentReviewRefresh(api.post('/coins/exchange/', { dollar_amount }));
 export const getExchangeRequests = () => api.get('/coins/exchange/list/');
 export const getPendingExchangeRequests = () =>
   getAllApprovalPages(() => api.get('/coins/exchange/list/?status=pending'));
 export const approveExchange = (id, notes = '') =>
-  api.post(`/coins/exchange/${id}/approve/`, { notes });
+  withParentReviewRefresh(api.post(`/coins/exchange/${id}/approve/`, { notes }));
 export const rejectExchange = (id, notes = '') =>
-  api.post(`/coins/exchange/${id}/reject/`, { notes });
+  withParentReviewRefresh(api.post(`/coins/exchange/${id}/reject/`, { notes }));
 
 // Portfolio
 export const getPortfolio = () => api.get('/portfolio/');
@@ -408,13 +424,13 @@ export const addCollaborator = (projectId, user_id, pay_split_percent) =>
 
 // Children (parent-only)
 export const getChildren = () => api.get('/children/');
-export const createChild = (data) => api.post('/children/', data);
-export const updateChild = (id, data) => api.patch(`/children/${id}/`, data);
-export const deleteChild = (id) => api.delete(`/children/${id}/`);
+export const createChild = (data) => withParentReviewRefresh(api.post('/children/', data));
+export const updateChild = (id, data) => withParentReviewRefresh(api.patch(`/children/${id}/`, data));
+export const deleteChild = (id) => withParentReviewRefresh(api.delete(`/children/${id}/`));
 export const resetChildPassword = (id, password) =>
   api.post(`/children/${id}/reset-password/`, { password });
-export const deactivateChild = (id) => api.post(`/children/${id}/deactivate/`);
-export const reactivateChild = (id) => api.post(`/children/${id}/reactivate/`);
+export const deactivateChild = (id) => withParentReviewRefresh(api.post(`/children/${id}/deactivate/`));
+export const reactivateChild = (id) => withParentReviewRefresh(api.post(`/children/${id}/reactivate/`));
 
 // Parents / co-parents (parent-only — same family)
 export const getParents = () => api.get('/parents/');
@@ -441,28 +457,28 @@ export const revokeOAuthToken = (tokenId) =>
 // Chores
 export const getChores = () => api.get('/chores/');
 export const getChore = (id) => api.get(`/chores/${id}/`);
-export const createChore = (data) => api.post('/chores/', data);
-export const updateChore = (id, data) => api.patch(`/chores/${id}/`, data);
-export const deleteChore = (id) => api.delete(`/chores/${id}/`);
+export const createChore = (data) => withParentReviewRefresh(api.post('/chores/', data));
+export const updateChore = (id, data) => withParentReviewRefresh(api.patch(`/chores/${id}/`, data));
+export const deleteChore = (id) => withParentReviewRefresh(api.delete(`/chores/${id}/`));
 export const completeChore = (id, notes = '') =>
-  api.post(`/chores/${id}/complete/`, { notes });
+  withParentReviewRefresh(api.post(`/chores/${id}/complete/`, { notes }));
 export const getChoreCompletions = (status) => {
   const qs = status ? `?status=${status}` : '';
   return api.get(`/chore-completions/${qs}`);
 };
 export const approveChoreCompletion = (id) =>
-  api.post(`/chore-completions/${id}/approve/`);
+  withParentReviewRefresh(api.post(`/chore-completions/${id}/approve/`));
 export const rejectChoreCompletion = (id, notes = '') =>
-  api.post(`/chore-completions/${id}/reject/`, { notes });
+  withParentReviewRefresh(api.post(`/chore-completions/${id}/reject/`, { notes }));
 export const withdrawChoreCompletion = (id) =>
-  api.post(`/chore-completions/${id}/withdraw/`);
+  withParentReviewRefresh(api.post(`/chore-completions/${id}/withdraw/`));
 // Chore proposals (child-authored, parent-gated rewards).
 export const listPendingChoreProposals = () =>
   api.get('/chores/?pending=true');
 export const listMyChoreProposals = () =>
   api.get('/chores/?pending=true');
 export const approveChoreProposal = (id, payload) =>
-  api.post(`/chores/${id}/approve/`, payload);
+  withParentReviewRefresh(api.post(`/chores/${id}/approve/`, payload));
 
 // Greenlight Import
 // Compatibility preview only; committing requires explicit reconciliation.
@@ -509,11 +525,11 @@ export const deleteHomeworkAISettings = () => api.delete('/homework/ai-settings/
 export const getHomeworkDashboard = () => api.get('/homework/dashboard/');
 export const getHomework = () => api.get('/homework/');
 export const getHomeworkDetail = (id) => api.get(`/homework/${id}/`);
-export const createHomework = (data) => api.post('/homework/', data);
-export const updateHomework = (id, data) => api.patch(`/homework/${id}/`, data);
-export const deleteHomework = (id) => api.delete(`/homework/${id}/`);
+export const createHomework = (data) => withParentReviewRefresh(api.post('/homework/', data));
+export const updateHomework = (id, data) => withParentReviewRefresh(api.patch(`/homework/${id}/`, data));
+export const deleteHomework = (id) => withParentReviewRefresh(api.delete(`/homework/${id}/`));
 export const submitHomework = (id, formData) =>
-  api.upload(`/homework/${id}/submit/`, formData);
+  withParentReviewRefresh(api.upload(`/homework/${id}/submit/`, formData));
 export const saveHomeworkTemplate = (id) =>
   api.post(`/homework/${id}/save-template/`);
 export const planHomework = (id) =>
@@ -523,11 +539,11 @@ export const getHomeworkSubmissions = (status) => {
   return api.get(`/homework-submissions/${qs}`);
 };
 export const approveHomeworkSubmission = (id) =>
-  api.post(`/homework-submissions/${id}/approve/`);
+  withParentReviewRefresh(api.post(`/homework-submissions/${id}/approve/`));
 export const rejectHomeworkSubmission = (id, notes = '') =>
-  api.post(`/homework-submissions/${id}/reject/`, { notes });
+  withParentReviewRefresh(api.post(`/homework-submissions/${id}/reject/`, { notes }));
 export const withdrawHomeworkSubmission = (id) =>
-  api.post(`/homework-submissions/${id}/withdraw/`);
+  withParentReviewRefresh(api.post(`/homework-submissions/${id}/withdraw/`));
 export const getHomeworkTemplates = () => api.get('/homework-templates/');
 export const createHomeworkTemplate = (data) => api.post('/homework-templates/', data);
 export const deleteHomeworkTemplate = (id) => api.delete(`/homework-templates/${id}/`);
@@ -567,14 +583,14 @@ export const updateReadingFamilySuggestion = (id, data) => api.patch(`/reading-f
 // Creations — child-authored "I made a thing" entry type.
 export const listCreations = () => api.get('/creations/');
 export const getCreationTodayStatus = () => api.get('/creations/today_status/');
-export const createCreation = (formData) => api.upload('/creations/', formData);
+export const createCreation = (formData) => withParentReviewRefresh(api.upload('/creations/', formData));
 export const deleteCreation = (id) => api.delete(`/creations/${id}/`);
-export const submitCreation = (id) => api.post(`/creations/${id}/submit/`);
-export const withdrawCreation = (id) => api.post(`/creations/${id}/withdraw/`);
+export const submitCreation = (id) => withParentReviewRefresh(api.post(`/creations/${id}/submit/`));
+export const withdrawCreation = (id) => withParentReviewRefresh(api.post(`/creations/${id}/withdraw/`));
 export const approveCreation = (id, payload = {}) =>
-  api.post(`/creations/${id}/approve/`, payload);
+  withParentReviewRefresh(api.post(`/creations/${id}/approve/`, payload));
 export const rejectCreation = (id, notes = '') =>
-  api.post(`/creations/${id}/reject/`, { notes });
+  withParentReviewRefresh(api.post(`/creations/${id}/reject/`, { notes }));
 export const listPendingCreations = () => api.get('/creations/pending/');
 
 // RPG
@@ -586,9 +602,9 @@ export const getStreaks = () => api.get('/streaks/');
 export const getHabits = () => api.get('/habits/');
 export const getHabitHistory = (days = 14) =>
   api.get(`/habits/history/?days=${days}`);
-export const createHabit = (data) => api.post('/habits/', data);
-export const updateHabit = (id, data) => api.patch(`/habits/${id}/`, data);
-export const deleteHabit = (id) => api.delete(`/habits/${id}/`);
+export const createHabit = (data) => withParentReviewRefresh(api.post('/habits/', data));
+export const updateHabit = (id, data) => withParentReviewRefresh(api.patch(`/habits/${id}/`, data));
+export const deleteHabit = (id) => withParentReviewRefresh(api.delete(`/habits/${id}/`));
 export const logHabitTap = (id, direction) =>
   api.post(`/habits/${id}/log/`, { direction });
 // Habit proposals (child-authored, parent-gated rewards).
@@ -597,7 +613,7 @@ export const listPendingHabitProposals = () =>
 export const listMyHabitProposals = () =>
   api.get('/habits/?pending=true');
 export const approveHabitProposal = (id, payload) =>
-  api.post(`/habits/${id}/approve/`, payload);
+  withParentReviewRefresh(api.post(`/habits/${id}/approve/`, payload));
 // Reward wishlist — child taps "notify me" on an out-of-stock or
 // any reward; parent restock fans out a notification.
 export const addRewardToWishlist = (rewardId) =>
@@ -653,7 +669,7 @@ export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 
 // Automatic challenge goals and the child's saved focus.
 export const getChallenges = (userId) => api.get(`/challenges/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`);
-export const createChallengeGoal = (data) => api.post('/challenges/goals/', data);
+export const createChallengeGoal = (data) => withParentReviewRefresh(api.post('/challenges/goals/', data));
 export const pinChallenge = (id) => api.post(`/challenges/${id}/pin/`, {});
 export const unpinChallenge = (id) => api.delete(`/challenges/${id}/pin/`);
 
@@ -693,9 +709,6 @@ export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
 // Parent-only sprite admin surface (powers the /manage → Codex → Sprites panel).
 export const fetchSpriteAdminList = (pack) =>
   api.get(`/sprites/admin/${pack ? `?pack=${encodeURIComponent(pack)}` : ''}`);
-export const generateSprite = (body) => api.post('/sprites/admin/generate/', body);
-export const rerollSprite = (slug, opts = {}) =>
-  api.post(`/sprites/admin/${encodeURIComponent(slug)}/reroll/`, opts);
 export const updateSpriteMeta = (slug, body) =>
   api.patch(`/sprites/admin/${encodeURIComponent(slug)}/`, body);
 export const deleteSprite = (slug) =>
@@ -766,9 +779,9 @@ export const createPrintRequest = (data) =>
 export const updatePrintRequest = (id, data) => api.patch(`/print-requests/${id}/`, data);
 export const deletePrintRequest = (id) => api.delete(`/print-requests/${id}/`);
 export const approvePrintRequest = (id, data) =>
-  api.post(`/print-requests/${id}/approve/`, data);
+  withParentReviewRefresh(api.post(`/print-requests/${id}/approve/`, data));
 export const rejectPrintRequest = (id, notes = '') =>
-  api.post(`/print-requests/${id}/reject/`, { notes });
+  withParentReviewRefresh(api.post(`/print-requests/${id}/reject/`, { notes }));
 export const cancelPrintRequest = (id) => api.post(`/print-requests/${id}/cancel/`);
 export const exchangePrintRequest = (id) => api.post(`/print-requests/${id}/exchange/`, {});
 export const previewPrintLink = (url) => api.post('/print-requests/preview/', { url });

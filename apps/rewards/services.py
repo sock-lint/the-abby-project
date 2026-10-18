@@ -223,12 +223,13 @@ class RewardService:
         )
 
         if not reward.requires_parent_approval:
-            # Auto-fulfill: no parent decision, so decided_by stays null.
+            # Digital delivery is immediate. A real-world promise still needs
+            # a parent's separate handover receipt, even without pre-approval.
             finalize_decision(
-                redemption, RewardRedemption.Status.FULFILLED, None,
+                redemption, RewardService._approved_status(redemption), None,
                 activity_category="approval",
                 activity_event_type="reward.approve",
-                activity_summary=f"Redemption auto-fulfilled: {reward.name}",
+                activity_summary=f"Redemption automatically approved: {reward.name}",
                 activity_subject=user,
                 activity_extras={"reward_id": reward.pk, "auto": True},
             )
@@ -245,6 +246,14 @@ class RewardService:
         return redemption
 
     @staticmethod
+    def _approved_status(redemption):
+        return (
+            RewardRedemption.Status.FULFILLED
+            if redemption.fulfillment_kind_snapshot == Reward.FulfillmentKind.DIGITAL_ITEM
+            else RewardRedemption.Status.APPROVED
+        )
+
+    @staticmethod
     @transaction.atomic
     def approve(redemption, parent, notes=""):
         User.objects.select_for_update(no_key=True).get(pk=redemption.user_id)
@@ -252,7 +261,7 @@ class RewardService:
         if redemption.status != RewardRedemption.Status.PENDING:
             return redemption
         finalize_decision(
-            redemption, RewardRedemption.Status.FULFILLED, parent, notes,
+            redemption, RewardService._approved_status(redemption), parent, notes,
             activity_category="approval",
             activity_event_type="reward.approve",
             activity_summary=f"Redemption approved: {redemption.reward.name}",
@@ -266,11 +275,54 @@ class RewardService:
         return redemption
 
     @staticmethod
+    @transaction.atomic
+    def deliver(redemption, parent):
+        """Confirm real-world handover once without repeating a saved payment.
+
+        Approval owns digital delivery, the Coin debit, and the saved promise.
+        This transition owns only its own audit receipt; past fulfilled rows
+        stay untouched rather than acquiring an invented handover date.
+        """
+        from django.utils import timezone
+        from apps.activity.services import ActivityLogService
+
+        child = User.objects.select_for_update(no_key=True).get(pk=redemption.user_id)
+        if (
+            getattr(parent, "role", None) != "parent"
+            or not parent.family_id
+            or parent.family_id != child.family_id
+        ):
+            raise PermissionDenied("Only a parent in this family can confirm delivery.")
+        _lock_decision(redemption)
+        if redemption.user_id != child.pk:
+            raise PermissionDenied("This request changed. Refresh it before confirming delivery.")
+        if redemption.status == RewardRedemption.Status.FULFILLED:
+            return redemption
+        if (
+            redemption.status != RewardRedemption.Status.APPROVED
+            or redemption.fulfillment_kind_snapshot not in (
+                Reward.FulfillmentKind.REAL_WORLD, Reward.FulfillmentKind.BOTH,
+            )
+        ):
+            raise RewardUnavailableError("Approve this real-world reward before confirming delivery.")
+        redemption.status = RewardRedemption.Status.FULFILLED
+        redemption.delivered_at = timezone.now()
+        redemption.delivered_by = parent
+        redemption.save(update_fields=["status", "delivered_at", "delivered_by"])
+        ActivityLogService.record(
+            category="approval", event_type="reward.deliver",
+            summary=f"Reward delivered: {redemption.reward.name}",
+            actor=parent, subject=child, target=redemption,
+            extras={"reward_id": redemption.reward_id, "status": redemption.status},
+        )
+        return redemption
+
+    @staticmethod
     def _maybe_credit_digital_item(redemption):
         """Credit the requested ItemDefinition, independently of offer edits.
 
-        Called once within the locked transition into ``FULFILLED`` (or
-        the initial auto-fulfillment transaction). A noop for ``real_world``
+        Called once within the locked approval transition (or
+        the initial auto-approval transaction). A noop for ``real_world``
         rewards. An earlier misconfigured digital promise with no recoverable
         item remains pending for correction or denial; it cannot be silently
         fulfilled without delivering the promised inventory.

@@ -14,6 +14,7 @@ import StatusBadge from '../components/StatusBadge';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import RuneBadge from '../components/journal/RuneBadge';
 import ChapterRubric from '../components/atlas/ChapterRubric';
+import ArtworkImage from '../components/rpg/ArtworkImage';
 import { InkwellIcon } from '../components/icons/JournalIcons';
 import { useRole } from '../hooks/useRole';
 import Button from '../components/Button';
@@ -199,7 +200,7 @@ export default function Projects() {
           <div className="flex flex-wrap items-center gap-3 font-script text-caption text-ink-whisper mb-3">
             {p.category && (
               <span className="min-w-0 break-words flex items-center gap-1">
-                {p.category.icon} {p.category.name}
+                <ArtworkImage assetId={p.category.catalog_icon} fallback={p.category.icon || null} size={20} /> {p.category.name}
               </span>
             )}
             <StarRating value={p.difficulty} />

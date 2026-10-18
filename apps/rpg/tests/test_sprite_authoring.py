@@ -1,9 +1,13 @@
 import base64
 import io
 from unittest.mock import patch
+from tempfile import TemporaryDirectory
 
 import requests
 from PIL import Image
+from django.core.exceptions import ValidationError
+from django.core.files.storage import FileSystemStorage, InMemoryStorage
+from django.db import IntegrityError
 from django.test import TestCase
 from apps.accounts.models import User
 from apps.rpg.models import SpriteAsset
@@ -136,6 +140,82 @@ class RegisterSpriteValidationTests(TestCase):
                 actor=self.parent,
             )
         self.assertIn("divisible", str(ctx.exception))
+
+
+class SpriteReplacementSafetyTests(TestCase):
+    def setUp(self):
+        self.enterContext(patch.object(SpriteAsset._meta.get_field("image"), "storage", InMemoryStorage()))
+        register_sprite(slug="retained", image_b64=base64.b64encode(_png_bytes()).decode())
+        self.asset = SpriteAsset.objects.get(slug="retained")
+        self.old_name = self.asset.image.name
+        self.storage = self.asset.image.storage
+        self.old_bytes = self.storage.open(self.old_name).read()
+        self.replacement = base64.b64encode(_png_bytes(color=(0, 255, 0, 255))).decode()
+
+    def assert_original_preserved(self):
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.image.name, self.old_name)
+        self.assertTrue(self.storage.exists(self.old_name))
+        self.assertEqual(self.storage.open(self.old_name).read(), self.old_bytes)
+
+    def test_invalid_replacement_keeps_saved_image(self):
+        with self.assertRaises((SpriteAuthoringError, ValidationError)):
+            register_sprite(slug="retained", image_b64=self.replacement, fps=8, overwrite=True)
+        self.assert_original_preserved()
+
+    def test_failed_upload_keeps_saved_image(self):
+        with patch.object(self.storage, "save", side_effect=OSError("storage unavailable")):
+            with self.assertRaises(OSError):
+                register_sprite(slug="retained", image_b64=self.replacement, overwrite=True)
+        self.assert_original_preserved()
+
+    def test_failed_database_save_keeps_saved_image_and_removes_new_upload(self):
+        original_save = self.storage.save
+        uploaded_names = []
+
+        def upload(*args, **kwargs):
+            name = original_save(*args, **kwargs)
+            uploaded_names.append(name)
+            return name
+
+        with patch.object(self.storage, "save", side_effect=upload):
+            with patch.object(SpriteAsset, "save", side_effect=OSError("database unavailable")):
+                with self.assertRaises(OSError):
+                    register_sprite(slug="retained", image_b64=self.replacement, overwrite=True)
+        self.assert_original_preserved()
+        self.assertEqual(len(uploaded_names), 1)
+        self.assertFalse(self.storage.exists(uploaded_names[0]))
+
+    def test_successful_replacement_deletes_previous_blob_after_commit(self):
+        with self.captureOnCommitCallbacks(execute=True):
+            result = register_sprite(slug="retained", image_b64=self.replacement, overwrite=True)
+            self.assertTrue(self.storage.exists(self.old_name))
+        self.asset.refresh_from_db()
+        self.assertEqual(self.asset.image.url, result["url"])
+        self.assertTrue(self.storage.exists(self.asset.image.name))
+        self.assertFalse(self.storage.exists(self.old_name))
+
+    def test_losing_first_creation_cannot_delete_concurrent_winners_image(self):
+        # Both creators passed their lookup/uniqueness check before the
+        # winner committed. S3-style storage overwrites matching keys; the
+        # losing insert hits the real database's unique constraint.
+        with TemporaryDirectory() as media_root:
+            storage = FileSystemStorage(location=media_root, allow_overwrite=True)
+            with patch.object(SpriteAsset._meta.get_field("image"), "storage", storage):
+                image_b64 = base64.b64encode(_png_bytes()).decode()
+                register_sprite(slug="concurrent-create", image_b64=image_b64)
+                winner = SpriteAsset.objects.get(slug="concurrent-create")
+                winner_name = winner.image.name
+                winner_bytes = storage.open(winner_name).read()
+                with patch.object(SpriteAsset.objects, "select_for_update") as lookup:
+                    lookup.return_value.filter.return_value.first.return_value = None
+                    with patch.object(SpriteAsset, "validate_unique", return_value=None):
+                        with self.assertRaises(IntegrityError):
+                            register_sprite(slug="concurrent-create", image_b64=image_b64)
+                winner.refresh_from_db()
+                self.assertEqual(winner.image.name, winner_name)
+                self.assertTrue(storage.exists(winner_name))
+                self.assertEqual(storage.open(winner_name).read(), winner_bytes)
 
 
 class RegisterSpriteAnimatedTests(TestCase):
@@ -344,7 +424,6 @@ class DeleteSpriteTests(TestCase):
         self.assertIn("not found", str(ctx.exception))
 
     def test_delete_calls_blob_before_row(self):
-        from unittest.mock import patch
         b64 = base64.b64encode(_png_bytes()).decode()
         register_sprite(slug="order", image_b64=b64, actor=self.parent)
         asset = SpriteAsset.objects.get(slug="order")

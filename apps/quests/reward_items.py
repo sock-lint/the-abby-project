@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from django.db import transaction
 
 
-def reward_item_details(item, *, snapshot=None):
+def reward_item_details(item, *, snapshot=None, cache=None):
     """Describe a reward without changing its accepted identity or payout.
 
     New promises freeze presentation and effects. Availability always reflects
@@ -16,16 +16,27 @@ def reward_item_details(item, *, snapshot=None):
     from apps.rpg.catalog_support import item_is_available
     from apps.rpg.item_effects import effect_summary
 
-    details = {
-        "item_name": item.display_name, "item_icon": item.icon,
-        "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item),
-        "item_rarity": item.rarity, "item_type": item.item_type,
-        "item_description": item.description, "item_metadata": deepcopy(item.metadata),
-        "item_effect_summary": effect_summary(item),
-    }
+    # A challenge list can show the same accepted item in many occurrences
+    # and again in recent receipts. Legacy egg metadata may need a database
+    # lookup, so reuse its current details only within this one list read.
+    if cache is not None and item.pk in cache:
+        details = deepcopy(cache[item.pk])
+    else:
+        details = {
+            "item_name": item.display_name, "item_icon": item.icon,
+            "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item),
+            "item_rarity": item.rarity, "item_type": item.item_type,
+            "item_description": item.description, "item_metadata": deepcopy(item.metadata),
+            "item_effect_summary": effect_summary(item),
+            "item_catalog_available": item_is_available(item),
+        }
+        if cache is not None:
+            cache[item.pk] = deepcopy(details)
     if snapshot:
-        details.update({key: deepcopy(snapshot[key]) for key in details if key in snapshot})
-    details["item_catalog_available"] = item_is_available(item)
+        details.update({
+            key: deepcopy(snapshot[key]) for key in details
+            if key in snapshot and key != "item_catalog_available"
+        })
     return details
 
 
@@ -66,13 +77,16 @@ def accepted_reward_items(quest, *, item_catalog=None):
 
 
 @transaction.atomic
-def freeze_legacy_quest_promises(*, dry_run=False):
+def freeze_legacy_quest_promises(*, dry_run=False, definition_ids=None):
     """Capture retained links once before catalog config can update them."""
     from .models import Quest
 
-    quests = list(Quest.objects.select_for_update(of=("self",)).filter(
+    queryset = Quest.objects.select_for_update(of=("self",)).filter(
         status=Quest.Status.ACTIVE, reward_items_snapshot__isnull=True,
-    ).select_related("definition").order_by("pk"))
+    )
+    if definition_ids is not None:
+        queryset = queryset.filter(definition_id__in=definition_ids)
+    quests = list(queryset.select_related("definition").order_by("pk"))
     if not dry_run:
         for quest in quests:
             # Deliberately preserve updated_at and every progression field.

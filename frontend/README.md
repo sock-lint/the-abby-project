@@ -14,6 +14,14 @@ npm run test:coverage  # Run tests with v8 coverage report → coverage/
 npm run test:pwa       # Chromium: real Django static routing, two releases, offline
 ```
 
+## Private artwork
+
+Application imports and builds use only `assets.lock.json`. The separate
+`assets.evaluation.lock.json` records the Crown fitting pilot for private
+evaluation outside the app checkout; its GLBs are excluded from web/native
+bundles. See the [artwork adoption runbook](../docs/operations/artwork-completion.md)
+for the separate import command and equipment boundaries.
+
 ## Testing
 
 Tests live next to source as `*.test.{js,jsx}`. The shared scaffolding in

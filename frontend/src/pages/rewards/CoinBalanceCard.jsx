@@ -3,12 +3,12 @@ import { ArrowRightLeft } from 'lucide-react';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { CoinIcon } from '../../components/icons/JournalIcons';
 
-export default function CoinBalanceCard({ coinBalance, isParent, onOpenExchange }) {
+export default function CoinBalanceCard({ coinBalance, isParent, ownerName, onOpenExchange }) {
   return (
     <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
       <ParchmentCard flourish tone="bright" className="text-center py-7">
         <div className="font-script text-sheikah-teal-deep text-sm uppercase tracking-widest flex items-center justify-center gap-1.5">
-          <CoinIcon size={16} className="text-gold-leaf" /> coin balance
+          <CoinIcon size={16} className="text-gold-leaf" /> {ownerName ? `${ownerName}'s coin balance` : 'coin balance'}
         </div>
         <div className="font-display font-semibold text-5xl md:text-6xl text-gold-leaf tabular-nums mt-1">
           {coinBalance}
