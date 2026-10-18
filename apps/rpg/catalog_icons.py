@@ -9,11 +9,48 @@ from pathlib import Path
 
 
 BINDINGS_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/icon-bindings.json"
+ARTWORK_BINDINGS_PATH = BINDINGS_PATH.with_name("artwork-bindings.json")
 
 
 @lru_cache(maxsize=1)
 def bindings():
     return json.loads(BINDINGS_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def artwork_bindings():
+    return json.loads(ARTWORK_BINDINGS_PATH.read_text(encoding="utf-8"))
+
+
+def badge_catalog_icon(badge):
+    if badge is None:
+        return None
+    entry = artwork_bindings()["badges"].get(badge.name)
+    criterion = {"criteria_type": badge.criteria_type, "criteria_value": badge.criteria_value}
+    if entry and json.dumps(criterion, sort_keys=True) == json.dumps(entry["expected_criterion"], sort_keys=True):
+        return entry["asset_id"]
+    return None
+
+
+def category_catalog_icon(category):
+    entry = artwork_bindings()["categories"].get(category.name) if category is not None else None
+    return entry["asset_id"] if entry else None
+
+
+def subject_catalog_icon(subject):
+    if subject is None or subject.category is None:
+        return None
+    entry = artwork_bindings()["subjects"].get(subject.category.name, {}).get(subject.name)
+    return entry["asset_id"] if entry else None
+
+
+def skill_catalog_icon(skill):
+    if skill is None or skill.category is None or skill.subject is None:
+        return None
+    entry = artwork_bindings()["skills"].get(skill.category.name, {}).get(skill.name)
+    if entry and skill.subject.category_id == skill.category_id and skill.subject.name == entry["subject"]:
+        return entry["asset_id"]
+    return None
 
 
 def item_catalog_icon(item):
@@ -29,6 +66,9 @@ def item_catalog_icon(item):
     entry = bindings()["items"].get(item.slug)
     if entry and item.name == entry["name"] and item.item_type == entry["item_type"]:
         return entry["asset_id"]
+    entry = artwork_bindings()["items"].get(item.slug)
+    if entry and item.name == entry["identity"]["name"] and item.item_type == entry["identity"]["item_type"]:
+        return entry["asset_id"]
     return None
 
 
@@ -36,6 +76,9 @@ def challenge_catalog_icon(definition):
     if definition is None or not definition.is_system:
         return None
     entry = bindings()["challenges"].get(definition.name)
+    if entry and definition.quest_type == entry["quest_type"]:
+        return entry["asset_id"]
+    entry = artwork_bindings()["challenges"].get(definition.name)
     if entry and definition.quest_type == entry["quest_type"]:
         return entry["asset_id"]
     return None

@@ -6,6 +6,8 @@ import Button from './Button'
 import { markChronicleViewed } from '../api'
 import { hapticSuccess } from '../utils/haptics'
 import candlePng from '../assets/birthday-candle-placeholder.png'
+import ArtworkImage from './rpg/ArtworkImage'
+import { BIRTHDAY_ARTWORK_ID } from '../catalog/sharedArtwork'
 
 function usePrefersReducedMotion() {
   const [pref, setPref] = useState(() =>
@@ -64,7 +66,10 @@ export default function BirthdayCelebrationModal({ entry, onDismiss }) {
         className="relative parchment-bg-aged p-8 text-center max-w-sm w-full rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <img src={candlePng} alt="" aria-hidden="true" className="mx-auto h-16 w-16" />
+        <div className="mx-auto h-16 w-16">
+          <ArtworkImage assetId={BIRTHDAY_ARTWORK_ID} size={64}
+            fallback={<img src={candlePng} alt="" aria-hidden="true" className="h-16 w-16" />} />
+        </div>
         <h2 id={titleId} className="mt-4 font-serif text-2xl text-ink-primary">
           Happy birthday
         </h2>

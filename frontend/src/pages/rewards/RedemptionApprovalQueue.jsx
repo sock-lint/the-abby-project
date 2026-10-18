@@ -18,6 +18,11 @@ export default function RedemptionApprovalQueue({ pending, onApprove, onReject }
             <div className="font-script text-caption text-ink-whisper">
               {r.coin_cost_snapshot} coins • {formatDateTime(r.requested_at)}
             </div>
+            <p className="text-caption text-ink-secondary mt-1">
+              {r.reward.fulfillment_kind === 'digital_item' ? 'Approval adds this item to inventory.'
+                : r.reward.fulfillment_kind === 'both' ? 'Approval adds the digital item. Confirm real-world delivery separately.'
+                  : 'Approve now, then confirm delivery after handing it over.'}
+            </p>
           </div>
           {actions}
         </ParchmentCard>

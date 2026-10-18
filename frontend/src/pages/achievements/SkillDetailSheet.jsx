@@ -1,6 +1,7 @@
 import BottomSheet from '../../components/BottomSheet';
 import QuillProgress from '../../components/QuillProgress';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
+import ArtworkImage from '../../components/rpg/ArtworkImage';
 import PrereqChain from './PrereqChain';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
@@ -40,12 +41,12 @@ export default function SkillDetailSheet({ skill, onClose }) {
             tier={tier}
             size="xl"
           />
-          {skill.icon && (
+          {(skill.icon || skill.catalog_icon) && (
             <div
               aria-hidden="true"
               className="mt-2 text-3xl leading-none opacity-80"
             >
-              {skill.icon}
+              <ArtworkImage assetId={skill.catalog_icon} fallback={skill.icon || null} size={32} />
             </div>
           )}
           {skill.description && (

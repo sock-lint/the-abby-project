@@ -5,10 +5,11 @@ import {
 import {
   getMe, login as apiLogin, logout as apiLogout, signup as apiSignup,
 } from '../api';
-import { AUTH_CHANGED_EVENT, getToken, OFFLINE_MESSAGE } from '../api/client';
+import { AUTH_CHANGED_EVENT, clearTokenIfCurrent, getToken, OFFLINE_MESSAGE } from '../api/client';
 import { STORAGE_KEYS } from '../constants/storage';
 import { purgePrivateApiCaches } from '../pwa/privacy';
-import { disconnectPushSession, replaceSessionToken } from '../pwa/pushSession';
+import { disconnectPushSession } from '../pwa/pushSession';
+import { completeGoogleAuthorization } from '../auth/googleOAuth';
 
 // A fetch that never reaches the server rejects with browser-internal text —
 // "Failed to fetch" in Chrome, the even more cryptic "Load failed" in Safari —
@@ -156,6 +157,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [sessionError, setSessionError] = useState('');
   const oauthSessionRef = useRef(null);
+  const oauthMountedRef = useRef(true);
   // True only when the session was hydrated from the CACHED_USER snapshot
   // because boot-time getMe() failed with a network error. Cleared by any
   // successful live auth (boot fetch, login, signup) and by logout.
@@ -191,28 +193,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let cancelled = false;
-    // Handle token from Google OAuth callback redirect
-    const params = new URLSearchParams(window.location.search);
-    // An offline PWA navigation can reach retired Play bookmarks without
-    // Django's redirect. Drop their old parameters before any OAuth exchange.
-    const retiredPlay = /^\/play(?:\/|$)/.test(window.location.pathname);
-    if (retiredPlay && (window.location.search || window.location.hash)) {
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-    const oauthToken = retiredPlay ? null : params.get('token');
-    if (oauthToken) {
-      writeCachedUser(null);
-      // Clean the URL so the token isn't visible / bookmarkable
-      window.history.replaceState({}, '', window.location.pathname);
-      // StrictMode replays this effect after the token is removed from the
-      // URL. Both passes must await the same asynchronous replacement.
-      if (!oauthSessionRef.current) oauthSessionRef.current = replaceSessionToken(oauthToken);
-    }
+    oauthMountedRef.current = true;
+    // main.jsx scrubbed the callback before telemetry initialized. Both real
+    // StrictMode passes await the same proof exchange and push replacement.
+    if (!oauthSessionRef.current) oauthSessionRef.current = completeGoogleAuthorization({ isCurrent: () => oauthMountedRef.current });
 
     const boot = async () => {
       if (oauthSessionRef.current) {
         try {
-          await oauthSessionRef.current;
+          const result = await oauthSessionRef.current;
+          if (!cancelled && result?.error) setSessionError(result.error);
+          if (result?.stopBoot) {
+            if (!cancelled) setLoading(false);
+            return;
+          }
         } catch (error) {
           if (!cancelled) {
             setSessionError(error.message);
@@ -269,7 +263,7 @@ export function AuthProvider({ children }) {
       .finally(() => { if (!cancelled) setLoading(false); });
     };
     void boot();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; oauthMountedRef.current = false; };
   }, []);
 
   const login = useCallback(async (username, password) => {
@@ -317,7 +311,21 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const value = { user, loading, offline, sessionError, login, signup, logout, setUser };
+  const signOutDeletedAccount = useCallback((token) => {
+    // The server has already removed this credential and its push bindings.
+    // A delayed deletion response must never sign out a replacement account.
+    if (!token || !clearTokenIfCurrent(token)) return false;
+    writeCachedUser(null);
+    setUser(null);
+    setOffline(false);
+    Sentry.setUser(null);
+    // Removing the local browser subscription is best effort: delivery for
+    // the deleted account has already stopped at the database boundary.
+    void disconnectPushSession(token, { stopSession: true }).catch(() => false);
+    return true;
+  }, []);
+
+  const value = { user, loading, offline, sessionError, login, signup, logout, signOutDeletedAccount, setUser };
   return createElement(AuthContext.Provider, { value }, children);
 }
 

@@ -54,6 +54,17 @@ class PublicInformationPagesTests(SimpleTestCase):
             "https://myaccount.google.com/connections",
             "private by default",
             "copies in deployment backups",
+            "scheduled for storage cleanup",
+            "Failed cleanup is recorded and retried",
+            "not comprehensive anonymization",
+            "device drafts may also remain",
+            "password-confirmed self-deletion",
+            "Private journals are deleted with their owner and never transferred",
+            "The last active parent",
+            "parents keep equal access",
+            "remove or redact structurally linked activity",
+            "a child's shared homework, chores and habits automatically pass to an active parent in their family",
+            "If no active parent is available, that shared work must be resolved before self-deletion",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)

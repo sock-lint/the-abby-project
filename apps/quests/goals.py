@@ -504,7 +504,7 @@ def _what_counts(snapshot, *, catalog=False):
     return text
 
 
-def _reward_preview(snapshot, item_catalog=None):
+def _reward_preview(snapshot, item_catalog=None, item_details_cache=None):
     """Show the accepted promise; new snapshots apply acquisition policy."""
     from apps.rpg.models import ItemDefinition
     from .reward_items import reward_item_details
@@ -517,11 +517,11 @@ def _reward_preview(snapshot, item_catalog=None):
     for row in rows:
         item = item_catalog.get(row["item_id"])
         if item is not None:
-            available.append({**row, **reward_item_details(item, snapshot=row)})
+            available.append({**row, **reward_item_details(item, snapshot=row, cache=item_details_cache)})
     return available
 
 
-def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None):
+def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None):
     snapshot = occurrence.snapshot
     allowed = snapshot.get("filter", {}).get("allowed_triggers") or []
     action = None
@@ -547,7 +547,7 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None):
         "unit": snapshot["unit"], "status": status,
         "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
         "timezone": occurrence.goal.timezone_name,
-        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot, item_catalog)},
+        "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot, item_catalog, item_details_cache)},
         "action": action, "pinned": pin_id == f"goal:{occurrence.pk}", "repeat_weekly": occurrence.goal.repeat_weekly,
         "legacy": False, "reward_receipt": {"id": f"goal:{occurrence.pk}", "status": "awarded" if occurrence.awarded_at else "pending",
             "coins_awarded": receipt.get("coins", 0), "xp_awarded": receipt.get("xp", 0),
@@ -564,12 +564,15 @@ def _pin_id(pin):
     return None
 
 
-def _legacy_payload(quest, pin_id, *, item_catalog=None):
+def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None):
     definition = quest.definition
     key = f"legacy:{quest.pk}"
     from .serializers import QuestRewardItemSerializer
     from .reward_items import accepted_reward_items
-    items = QuestRewardItemSerializer(accepted_reward_items(quest, item_catalog=item_catalog), many=True).data
+    items = QuestRewardItemSerializer(
+        accepted_reward_items(quest, item_catalog=item_catalog), many=True,
+        context={"reward_item_details_cache": item_details_cache},
+    ).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
         "origin": "legacy",
@@ -644,10 +647,13 @@ def list_goals(user):
     item_ids = {item["item_id"] for row in unique.values() for item in row.snapshot.get("items", [])}
     item_ids.update(item["item_id"] for row in legacy_rows for item in (row.reward_items_snapshot or []))
     item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(item_ids)
-    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog) for row in unique.values()]
-    rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog) for row in legacy_rows]
+    item_details_cache = {}
+    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
+            for row in unique.values()]
+    rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
+             for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
-    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog) for row in recent],
+    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts]}
 
 

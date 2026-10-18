@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import useSearchParamState from '../hooks/useSearchParamState';
+import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Check, Plus, Pencil, Trash2,
@@ -9,12 +10,15 @@ import {
   getChores, createChore, updateChore, deleteChore, completeChore,
   getChoreCompletions, approveChoreCompletion, rejectChoreCompletion,
   withdrawChoreCompletion,
-  listMyChoreProposals, listPendingChoreProposals, approveChoreProposal,
-  getChildren, getSkills,
+  listMyChoreProposals, approveChoreProposal,
+  getSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
+import useMountedRef from '../hooks/useMountedRef';
 import { useFormState } from '../hooks/useFormState';
-import { useRole } from '../hooks/useRole';
+import useChildContext from '../hooks/useChildContext';
+import ChildContext from '../components/family/ChildContext';
+import { getFamilyChores, getFamilyChoreProposals, getFamilyChoreCompletions } from '../api';
 import ApprovalQueue from '../components/ApprovalQueue';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
@@ -37,7 +41,7 @@ import ModalActions from '../components/ModalActions';
 import AddToCalendar from '../components/AddToCalendar';
 import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from '../components/form';
 import QuestFolio from './quests/QuestFolio';
-import { choreReminderEvent, validateChoreReminderDate } from './choresCalendar';
+import { choreReminderEvent, validateChoreReminderDate, nextChoreReminderDate } from './choresCalendar';
 
 const RECURRENCE_LABELS = { daily: 'Daily', weekly: 'Weekly', one_time: 'One-time' };
 const WEEK_SCHEDULE_LABELS = { every_week: 'Every week', alternating: 'Alternating weeks' };
@@ -53,15 +57,18 @@ const STATUS_TONE = {
   rejected: 'ember',
 };
 
-function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSaved }) {
+function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mode, onClose, onSaved }) {
   // mode: 'create' | 'edit' | 'approve'. Resolved by caller so labels + submit
   // routing are unambiguous (approve has its own endpoint).
+  const mounted = useMountedRef();
   const resolvedMode = mode || (chore ? 'edit' : 'create');
   const isApprove = resolvedMode === 'approve';
   const isEdit = resolvedMode === 'edit';
   const canSetRewards = isParent;
+  const [advanced, setAdvanced] = useState(resolvedMode !== 'create');
+  const [offerReward, setOfferReward] = useState(Number(chore?.reward_amount) > 0 || Number(chore?.coin_reward) > 0);
 
-  const { form, set, saving, setSaving, error, setError } = useFormState({
+  const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     title: chore?.title || '',
     description: chore?.description || '',
     icon: chore?.icon || '',
@@ -71,7 +78,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
     recurrence: chore?.recurrence || 'daily',
     week_schedule: chore?.week_schedule || 'every_week',
     schedule_start_date: chore?.schedule_start_date || '',
-    assigned_to: chore?.assigned_to ?? '',
+    assigned_to: chore ? chore.assigned_to ?? '' : initialChildId ?? '',
     is_active: chore?.is_active ?? true,
     order: chore?.order ?? 0,
     skill_tags: (chore?.skill_tags || []).map((t) => ({
@@ -87,6 +94,10 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isParent && form.assigned_to && !children.some((child) => String(child.id) === String(form.assigned_to))) {
+      setError('Choose a child from your family or All children.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -100,8 +111,8 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
           ? form.schedule_start_date || null : null,
       };
       const parentExtras = canSetRewards ? {
-        reward_amount: form.reward_amount,
-        coin_reward: parseInt(form.coin_reward) || 0,
+        reward_amount: offerReward ? form.reward_amount : '0.00',
+        coin_reward: offerReward ? parseInt(form.coin_reward) || 0 : 0,
         xp_reward: parseInt(form.xp_reward) || 0,
         assigned_to: form.assigned_to ? parseInt(form.assigned_to) : null,
         is_active: form.is_active,
@@ -117,7 +128,8 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
       } else {
         await createChore(payload);
       }
-      onSaved();
+      if (!mounted.current) return;
+      onSaved(isParent ? form.assigned_to : undefined);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -125,6 +137,8 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
     }
   };
 
+  const schedulePreview = form.week_schedule === 'alternating' && form.schedule_start_date
+    ? nextChoreReminderDate(form) : null;
   const showSchedule = form.recurrence !== 'one_time';
   const title = isApprove
     ? 'Approve chore proposal'
@@ -136,7 +150,7 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
     : isParent ? 'Create' : 'Send to parent';
 
   return (
-    <BottomSheet title={title} onClose={onClose} disabled={saving}>
+    <BottomSheet title={title} onClose={onClose} disabled={saving} dirty={dirty}>
       <ErrorAlert message={error} />
       <form onSubmit={handleSubmit} className="space-y-3">
         {isApprove && chore?.created_by_name && (
@@ -151,53 +165,42 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
           </div>
         )}
         <TextField label="Title" value={form.title} onChange={onField('title')} required />
-        <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
-        <IconPicker value={form.icon} onChange={(icon) => set({ icon })} placeholder="🧹" disabled={saving} />
+        {isParent && <SelectField label="Assign to" value={form.assigned_to} onChange={onField('assigned_to')}>
+          <option value="">All children</option>
+          {children.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
+        </SelectField>}
         <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
-          {Object.entries(RECURRENCE_LABELS).map(([v, l]) => (
-            <option key={v} value={v}>{l}</option>
-          ))}
+          {Object.entries(RECURRENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </SelectField>
-        {canSetRewards && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
-              <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
-              <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <SelectField label="Assign to" value={form.assigned_to} onChange={onField('assigned_to')}>
-                <option value="">All children</option>
-                {children.map((c) => (
-                  <option key={c.id} value={c.id}>{c.display_name || c.username}</option>
-                ))}
-              </SelectField>
-              <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
-            </div>
-            {showSchedule && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
-                  {Object.entries(WEEK_SCHEDULE_LABELS).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </SelectField>
-                {form.week_schedule === 'alternating' && (
-                  <TextField label="Start date (on-week)" type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} />
-                )}
-              </div>
-            )}
-            <CheckboxField
-              label="Active"
-              checked={form.is_active}
-              onChange={onField('is_active')}
-            />
-            <SkillTagEditor
-              skills={skills}
-              value={form.skill_tags}
-              onChange={(tags) => set({ skill_tags: tags })}
-            />
-          </>
-        )}
+        {isParent && showSchedule && <>
+          <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
+            {Object.entries(WEEK_SCHEDULE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </SelectField>
+          {form.week_schedule === 'alternating' && <>
+            <TextField label="Start date (on-week)" type="date" value={form.schedule_start_date} onChange={onField('schedule_start_date')} required />
+            <p className="text-caption text-ink-secondary" role="status">{schedulePreview
+              ? `Available in alternating weeks matching ${formatDate(form.schedule_start_date)}. Next available day: ${formatDate(schedulePreview)}.`
+              : 'Choose any day in an on-week to preview the schedule.'}</p>
+          </>}
+        </>}
+        {canSetRewards && <>
+          <CheckboxField label="Offer money or coins (optional)" checked={offerReward} onChange={(event) => setOfferReward(event.target.checked)} />
+          {offerReward && <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TextField label="Reward ($)" type="number" min="0" step="0.25" value={form.reward_amount} onChange={onField('reward_amount')} />
+            <TextField label="Coins" type="number" min="0" value={form.coin_reward} onChange={onField('coin_reward')} />
+          </div>}
+          <Button variant="ghost" aria-expanded={advanced} onClick={() => setAdvanced((value) => !value)}>Advanced options</Button>
+        </>}
+        {(!isParent || advanced) && <div className="space-y-3">
+          <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
+          <IconPicker value={form.icon} onChange={(icon) => set({ icon })} placeholder="🧹" disabled={saving} />
+          {canSetRewards && <>
+            <TextField label="XP pool" type="number" min="0" value={form.xp_reward} onChange={onField('xp_reward')} />
+            <TextField label="Order" type="number" value={form.order} onChange={onField('order')} />
+            <CheckboxField label="Active" checked={form.is_active} onChange={onField('is_active')} />
+            <SkillTagEditor skills={skills} value={form.skill_tags} onChange={(tags) => set({ skill_tags: tags })} />
+          </>}
+        </div>}
         <ModalActions
           onClose={onClose}
           submitLabel={submitLabel}
@@ -209,21 +212,29 @@ function ChoreFormModal({ chore, children, skills, isParent, mode, onClose, onSa
 }
 
 export default function Chores() {
-  const { isParent } = useRole();
+  const context = useChildContext();
+  if (!context.user?.id || context.loading) return <Loader />;
+  if (context.error) return <ErrorAlert message={context.error} onRetry={context.reload} />;
+  return <ChoresWorkspace key={`${context.scope}:${context.targetUserId}`} context={context} />;
+}
+
+function ChoresWorkspace({ context }) {
+  const mounted = useMountedRef();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
 
   const {
     data: choresData, loading: loadingChores, refreshing: refreshingChores, error: choresError, reload: reloadChores,
     setData: setChoresData,
-  } = useApi(getChores);
+  } = useApi(isParent ? getFamilyChores : getChores, [isParent]);
   const { data: completionsData, loading: loadingCompletions, refreshing: refreshingCompletions, error: completionsError, reload: reloadCompletions } = useApi(
-    isParent ? () => getChoreCompletions('pending') : () => getChoreCompletions(),
+    isParent ? getFamilyChoreCompletions : () => getChoreCompletions(),
     [isParent],
   );
   const { data: proposalsData, error: proposalsError, reload: reloadProposals } = useApi(
-    isParent ? listPendingChoreProposals : listMyChoreProposals,
+    isParent ? getFamilyChoreProposals : listMyChoreProposals,
     [isParent],
   );
-  const { data: childrenData, error: childrenError, reload: reloadChildren } = useApi(isParent ? getChildren : () => Promise.resolve([]), [isParent]);
   const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
 
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
@@ -238,7 +249,8 @@ export default function Chores() {
 
   const loading = loadingChores && loadingCompletions;
 
-  const choresList = useMemo(() => normalizeList(choresData), [choresData]);
+  const choresList = useMemo(() => normalizeList(choresData).filter((chore) => !isParent
+    || chore.assigned_to == null || String(chore.assigned_to) === String(targetUserId)), [choresData, isParent, targetUserId]);
   const filteredChores = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return choresList;
@@ -261,17 +273,17 @@ export default function Chores() {
     setError('');
     try {
       await completeChore(choreId);
-      refresh();
+      if (mounted.current) refresh();
     } catch (e) { setError(e.message); }
   };
 
   const handleApprove = async (id) => {
-    try { await approveChoreCompletion(id); refresh(); }
+    try { await approveChoreCompletion(id); if (mounted.current) refresh(); }
     catch (e) { setError(e.message); }
   };
 
   const handleReject = async (id) => {
-    try { await rejectChoreCompletion(id); refresh(); }
+    try { await rejectChoreCompletion(id); if (mounted.current) refresh(); }
     catch (e) { setError(e.message); }
   };
 
@@ -303,6 +315,7 @@ export default function Chores() {
     );
     try {
       await withdrawChoreCompletion(completionId);
+      if (!mounted.current) return;
       refresh();
     } catch (e) {
       // Rollback to whatever the card looked like before the click.
@@ -316,6 +329,7 @@ export default function Chores() {
   const handleDelete = async (id) => {
     try {
       await deleteChore(id);
+      if (!mounted.current) return;
       setDeleteConfirm(null);
       refresh();
     } catch (e) { setError(e.message); }
@@ -324,9 +338,8 @@ export default function Chores() {
   if (loading) return <Loader />;
 
   const chores = choresList;
-  const completions = normalizeList(completionsData);
-  const proposals = normalizeList(proposalsData);
-  const children = normalizeList(childrenData);
+  const completions = normalizeList(completionsData).filter((completion) => !isParent || String(completion.user) === String(targetUserId));
+  const proposals = normalizeList(proposalsData).filter((proposal) => !isParent || String(proposal.assigned_to ?? proposal.created_by) === String(targetUserId));
   const skills = normalizeList(skillsData);
   const pendingCompletions = completions.filter((c) => c.status === 'pending');
 
@@ -340,6 +353,19 @@ export default function Chores() {
   const closeForm = () => {
     setShowForm(false);
     setProposeParam('');
+  };
+  const handleSaved = (childId) => {
+    if (isParent && String(childId) !== String(targetUserId) && children.some((child) => String(child.id) === String(childId))) {
+      setShowForm(false);
+      setEditingChore(null);
+      const next = new URLSearchParams(searchParams);
+      next.delete('propose');
+      next.set('child', String(childId));
+      setSearchParams(next, { replace: true });
+    } else {
+      closeForm();
+      refresh();
+    }
   };
   const openEdit = (chore) => {
     setEditingChore(chore);
@@ -390,13 +416,13 @@ export default function Chores() {
         <ErrorAlert message={choresError && `${choresData === null ? "Couldn't load chores." : "Couldn't update chores. Showing the last loaded list."} ${choresError}`} onRetry={reloadChores} />
         <ErrorAlert message={completionsError && `Couldn't load chore completions. ${completionsError}`} onRetry={reloadCompletions} />
         <ErrorAlert message={proposalsError && `Couldn't load chore proposals. ${proposalsError}`} onRetry={reloadProposals} />
-        <ErrorAlert message={childrenError && `Couldn't load children for assignment. ${childrenError}`} onRetry={reloadChildren} />
         <ErrorAlert message={skillsError && `Couldn't load skills for chores. ${skillsError}`} onRetry={reloadSkills} />
         {(refreshingChores || refreshingCompletions) && <p role="status" className="text-caption text-ink-secondary">Updating chores and completions…</p>}
         {loadingCompletions && <p role="status" className="text-caption text-ink-secondary">Loading chore completions…</p>}
 
         {/* New / Propose action lives at the top of the recto so it stays
             reachable when the folio body is empty. */}
+        {isParent && <ChildContext children={children} selectedChildId={targetUserId} onSelect={selectChild} />}
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -562,9 +588,7 @@ export default function Chores() {
                             <CalendarDays size={10} />alt. weeks
                           </span>
                         )}
-                        {isParent && chore.assigned_to_name && (
-                          <span>{chore.assigned_to_name}</span>
-                        )}
+                        {isParent && <span>{chore.assigned_to == null ? 'All children' : `For ${chore.assigned_to_name || selectedChild?.display_name || selectedChild?.username}`}</span>}
                       </div>
                     </div>
                     <div className="shrink-0">
@@ -672,12 +696,13 @@ export default function Chores() {
       {showForm && (
         <ChoreFormModal
           chore={editingChore}
+          initialChildId={isParent ? targetUserId : undefined}
           children={children}
           skills={skills}
           isParent={isParent}
           mode={formMode}
           onClose={closeForm}
-          onSaved={() => { closeForm(); refresh(); }}
+          onSaved={handleSaved}
         />
       )}
 

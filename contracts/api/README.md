@@ -27,9 +27,13 @@ The login token and all identities are synthetic and exist only in the test DB.
 
 | Fixture | Endpoint / scenario |
 | --- | --- |
+| `api-not-found.json` | Unknown `/api/` paths return JSON 404s instead of the SPA's HTML/200; routing and React client checks preserve the generic error without retries or echoed request values |
+| `lifecycle-preview.json`, `lifecycle-child-preview.json`, `lifecycle-close-preview.json` | Self-scoped Settings impact review, active parent successors, shared ownership counts and a membership fingerprint; child privacy and sole-active-parent closure remain distinct |
 | `template-skills.json` | Parent `GET /api/templates/1/`; reusable plans preserve weighted project skill tags and fixed milestone XP tags |
 | `catalog-icons-items.json`, `catalog-icons-challenges.json`, `catalog-icons-species.json` | Parent catalog responses expose server-verified image asset IDs; shared sprite keys and equally named custom challenges stay distinct |
 | `catalog-icons-drops.json`, `catalog-icons-goals.json` | Recent drops, automatic goals and reward previews retain verified image IDs while same-name parent goals keep null |
+| `artwork-categories.json`, `artwork-subjects.json`, `artwork-skills.json`, `artwork-tree.json`, `artwork-progress.json` | Skill catalog, nested tree and saved progress expose exact artwork identities with category/subject context; equally named custom skills retain null |
+| `artwork-badges.json`, `artwork-summary.json`, `artwork-character.json`, `artwork-dashboard.json` | Exact final badge criteria select artwork across catalog, earned summary, trophy and dashboard; changed criteria retain null |
 | `clock-idle.json`, `clock-active.json` | Authenticated `GET /api/clock/`; JSON `null` when idle and the self-scoped serialized entry while running, both HTTP 200 with `application/json` |
 | `printing-budget-configured.json` | Parent enables a per-child print exchange rate of one minute per coin |
 | `printing-request-quoted.json`, `printing-requests-quoted.json` | Parent reviews 61 estimated minutes; the child sees the frozen 61-coin quote in the detail and list responses |
@@ -78,6 +82,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `google-drive-sources-page-1.json`, `google-drive-sources-page-2.json` | Parent-only stored project-photo source list, scoped and paginated without media/storage URLs |
 | `google-drive-sources-empty.json` | Parent's empty imported-PDF source list |
 | `google-drive-uploaded-file.json` | Confirmed copy of an authorized Abby photo in My Drive, using the existing resource metadata shape |
+| `google-auth-busy.json` | Google authorization start rejected with HTTP 503 at retained-transaction capacity, without saving another verifier or changing the user's credential |
 | `homework-ai-default.json` | Parent `GET`/`PUT`/`DELETE /api/homework/ai-settings/`; disconnected family Planning AI connection |
 | `homework-ai-openai.json`, `homework-ai-anthropic.json` | Parent-saved family provider and model; only saved-key presence is returned |
 | `project-ai-plan-new.json` | Parent `POST /api/projects/plan/`; reviewable milestones, steps and materials without creating a project |
@@ -91,6 +96,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
 | `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
 | `material-not-owned.json` | Another family's readiness write is rejected with HTTP 404 without changing the material |
+| `parent-family-overview.json` | Parent dashboard with household-local homework, chores, goals, safe accomplishments and clocked estimates; no private journal/submission bodies |
+| `parent-reward-approved.json`, `parent-reward-delivered.json` | Distinct real-world approval and handover receipts, preserving approval audit and recording explicit delivery without another reward/payment |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
@@ -857,3 +864,17 @@ catalog artwork. Unrecognized item identities retain null and their existing
 sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`. Previously saved loot
 and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+Google sign-in/linking uses `google-auth-config.json` (public configuration),
+`google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
+(proof-verified login with the existing shared DRF token and UserSerializer),
+`google-auth-linked.json` (confirmed link), and `google-auth-busy.json`
+(HTTP 503 capacity refusal). The producer is
+`config.tests.test_google_auth_api_contract_fixtures`; the React consumer is
+`src/api/googleAuthContracts.test.js`. All tokens, Google identities and URLs
+are synthetic. The browser sends the verifier only in the exchange POST;
+callback URLs contain an opaque expiring ticket, never a DRF/Google token.
+The global bound includes spent and expired rows until bounded cleanup removes
+them. At capacity, a new start returns `code: authorization_busy` without saving
+another verifier; retry requires capacity to become available.
+See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).

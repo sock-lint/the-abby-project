@@ -39,7 +39,7 @@ export function spyHandler(method, urlPattern, response) {
     }
     const url = request.url.replace(/([?&])_abby_session=[^&]+(&|$)/, (_match, start, end) => end ? start : '');
     calls.push({ url, method: request.method, body });
-    const value = typeof response === 'function' ? response({ request, body }) : response;
+    const value = await (typeof response === 'function' ? response({ request, body }) : response);
     if (value instanceof HttpResponse) return value;
     return HttpResponse.json(value ?? { ok: true });
   });

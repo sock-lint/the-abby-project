@@ -61,6 +61,9 @@ class ShopPromiseMigrationTests(unittest.TestCase):
                 upgraded = new_apps.get_model(models[name]._meta.app_label, name)
                 assert list(upgraded.objects.order_by("pk").values(*rows[0])) == rows, name
             Redemption = new_apps.get_model("rewards", "RewardRedemption")
+            assert list(Redemption.objects.order_by("pk").values_list(
+                "delivered_at", "delivered_by_id",
+            )) == [(None, None)] * len(cases), "Historical delivery dates must remain unknown"
             snapshots = list(Redemption.objects.order_by("pk").values_list(
                 "fulfillment_kind_snapshot", "item_definition_snapshot_id", "stock_reserved",
             ))

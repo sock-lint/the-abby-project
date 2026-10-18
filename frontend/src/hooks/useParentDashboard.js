@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ParentReviewContext } from '../providers/parentReviewContext';
+import { getToken } from '../api/client';
 import {
   getChoreCompletions, getHomeworkDashboard, getPendingRedemptions, getDashboard,
   listPendingCreations, listPendingChoreProposals, listPendingHabitProposals,
-  getPendingExchangeRequests, getAllApprovalPages, listPrintRequests,
+  getPendingExchangeRequests, getAllApprovalPages, listPrintRequests, getAwaitingRedemptions,
 } from '../api';
 import { normalizeList } from '../utils/api';
 
@@ -88,7 +90,9 @@ function unifyRedemption(r) {
     title: r.reward?.name || 'Reward',
     subtitle: r.coin_cost_snapshot != null ? `${r.coin_cost_snapshot} coins` : null,
     reward: null,
-    submittedAt: r.requested_at || null,
+    submittedAt: r.requested_at || r.created_at || null,
+    coinCost: r.coin_cost_snapshot ?? null,
+    fulfillmentKind: r.fulfillment_kind_snapshot || r.reward?.fulfillment_kind || 'real_world',
   };
 }
 
@@ -124,6 +128,7 @@ const SOURCES = [
   { key: 'choreProposals', label: 'chore proposals',      fn: () => getAllApprovalPages(listPendingChoreProposals), fallback: [] },
   { key: 'habitProposals', label: 'habit proposals',      fn: () => getAllApprovalPages(listPendingHabitProposals), fallback: [] },
   { key: 'exchanges',      label: 'coin exchanges',       fn: getPendingExchangeRequests,            fallback: [] },
+  { key: 'deliveries', label: 'reward deliveries', fn: getAwaitingRedemptions, fallback: [] },
   { key: 'prints',         label: 'print approvals',      fn: () => getAllApprovalPages(() => listPrintRequests({ status: 'pending' })), fallback: [] },
 ];
 
@@ -135,70 +140,68 @@ const SOURCES = [
  * dropping rows from the queue. Prints need slicer estimates and a reviewed
  * quote, so `pendingPrintCount` is separate from inline/bulk approval rows.
  */
-export default function useParentDashboard() {
-  const [data, setData] = useState({
-    pending: [],
-    pendingPrintCount: 0,
-    weekByKid: [],
-    dashboard: null,
-    loading: true,
-    error: null,
-    failedSources: [],
-  });
+export const EMPTY_PARENT_REVIEW = {
+  pending: [], pendingPrintCount: 0, pendingDeliveryCount: 0, deliveries: [],
+  weekByKid: [], dashboard: null, loading: true, error: null, failedSources: [],
+  attentionCount: 0,
+};
+
+export function useParentDashboardData({ enabled = true, accountScope } = {}) {
+  const token = getToken();
+  const scope = accountScope ?? token;
+  const [saved, setSaved] = useState(null);
+  const sequence = useRef(0);
+  const mounted = useRef(false);
+  const data = saved?.scope === scope ? saved.data : EMPTY_PARENT_REVIEW;
 
   const load = useCallback(async () => {
-    setData((d) => ({ ...d, loading: true, error: null }));
-    try {
-      const settled = await Promise.allSettled(SOURCES.map((s) => s.fn()));
-      const failedSources = [];
-      const values = {};
-      settled.forEach((res, i) => {
-        const source = SOURCES[i];
-        if (res.status === 'fulfilled') {
-          values[source.key] = res.value;
-        } else {
-          values[source.key] = source.fallback;
-          failedSources.push(source.label);
-        }
-      });
-
-      const {
-        chores, homework: hw, redemptions: reds, dashboard: dashboardRes,
-        creations, choreProposals, habitProposals, exchanges, prints,
-      } = values;
-
-      const unified = [
-        ...normalizeList(chores).map(unifyChore),
-        ...normalizeList(hw?.pending_submissions).map(unifyHomework),
-        ...normalizeList(reds).filter((r) => r.status === 'pending').map(unifyRedemption),
-        ...normalizeList(creations).map(unifyCreation),
-        ...normalizeList(choreProposals).map(unifyChoreProposal),
-        ...normalizeList(habitProposals).map(unifyHabitProposal),
-        ...normalizeList(exchanges).filter((e) => e.status === 'pending').map(unifyExchange),
-      ].sort(byRecent);
-
-      // Week stats — if the dashboard payload has per-kid data in the future,
-      // use it; otherwise leave the list empty and the UI hides the block.
-      const weekByKid = dashboardRes?.this_week_by_kid ?? [];
-      const pendingPrintCount = normalizeList(prints).filter((request) => request.status === 'pending').length;
-
-      setData({
-        pending: unified,
-        pendingPrintCount,
-        weekByKid,
-        dashboard: dashboardRes,
-        loading: false,
-        error: null,
-        failedSources,
-      });
-    } catch (err) {
-      setData((d) => ({ ...d, loading: false, error: err?.message || 'Could not load.' }));
-    }
-  }, []);
+    if (!enabled) return;
+    const request = ++sequence.current;
+    const current = () => mounted.current && sequence.current === request && getToken() === token;
+    setSaved((previous) => ({ scope, data: { ...(previous?.scope === scope ? previous.data : EMPTY_PARENT_REVIEW), loading: true, error: null } }));
+    const settled = await Promise.allSettled(SOURCES.map((source) => source.fn()));
+    if (!current()) return;
+    const failedSources = [];
+    const values = {};
+    settled.forEach((result, index) => {
+      const source = SOURCES[index];
+      if (result.status === 'fulfilled') values[source.key] = result.value;
+      else { values[source.key] = source.fallback; failedSources.push(source.label); }
+    });
+    const { chores, homework: hw, redemptions: reds, dashboard: dashboardRes,
+      creations, choreProposals, habitProposals, exchanges, prints, deliveries } = values;
+    const pending = [
+      ...normalizeList(chores).map(unifyChore),
+      ...normalizeList(hw?.pending_submissions).map(unifyHomework),
+      ...normalizeList(reds).filter((row) => row.status === 'pending').map(unifyRedemption),
+      ...normalizeList(creations).map(unifyCreation),
+      ...normalizeList(choreProposals).map(unifyChoreProposal),
+      ...normalizeList(habitProposals).map(unifyHabitProposal),
+      ...normalizeList(exchanges).filter((row) => row.status === 'pending').map(unifyExchange),
+    ].sort(byRecent);
+    const pendingPrintCount = normalizeList(prints).filter((row) => row.status === 'pending').length;
+    const awaiting = normalizeList(deliveries).filter((row) => row.status === 'approved'
+      && ['real_world', 'both'].includes(row.fulfillment_kind_snapshot || row.reward?.fulfillment_kind));
+    const timecards = (Number(dashboardRes?.pending_timecards) || 0) + (Number(dashboardRes?.disputed_timecards) || 0);
+    setSaved({ scope, data: {
+      pending, pendingPrintCount, pendingDeliveryCount: awaiting.length, deliveries: awaiting,
+      weekByKid: dashboardRes?.this_week_by_kid ?? [], dashboard: dashboardRes,
+      loading: false, error: null, failedSources,
+      attentionCount: pending.length + pendingPrintCount + awaiting.length + timecards,
+    } });
+  }, [enabled, scope, token]);
 
   useEffect(() => {
-    load();
+    mounted.current = true;
+    const initialSequence = sequence.current;
+    void Promise.resolve().then(() => { if (mounted.current && sequence.current === initialSequence) return load(); });
+    return () => { mounted.current = false; sequence.current += 1; };
   }, [load]);
-
   return { ...data, reload: load };
+}
+
+export default function useParentDashboard({ enabled = true } = {}) {
+  const shared = useContext(ParentReviewContext);
+  const local = useParentDashboardData({ enabled: enabled && shared === null });
+  return shared ? { ...shared, isShared: true } : local;
 }

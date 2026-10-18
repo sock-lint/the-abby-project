@@ -11,6 +11,7 @@
         "name": "Fixture rare achievement",
         "description": "",
         "icon": "",
+        "catalog_icon": null,
         "subject": null,
         "criteria_type": "first_project",
         "criteria_value": {},

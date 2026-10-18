@@ -124,12 +124,12 @@ turning sync off. Avoid recording real private family information or tokens.
 
 | Symptom | Check |
 | --- | --- |
-| Google button absent | Runtime ID/secret configuration and login-init response |
+| Google button absent | Runtime ID/secret configuration and public config response |
 | `redirect_uri_mismatch` | Exact web-client callback and runtime redirect |
 | `access_denied` | Test-user list, Google consent choice, and Workspace controls |
 | `No linked Google account found` | Link from Settings after password sign-in |
-| `invalid_state` | Ten-minute OAuth state expiry and shared Redis cache |
-| `exchange_failed` | Client/secret mismatch or Google exchange logs; redact credentials |
+| `invalid_state` | Ten-minute state expiry, completed callback, and database availability |
+| `token_exchange_failed` | Client/secret mismatch or provider availability; logs deliberately omit provider details |
 
 ## Google review remains separate
 
@@ -162,3 +162,106 @@ $env:DJANGO_SETTINGS_MODULE = 'config.settings_test'
 python manage.py test config.tests.test_public_pages config.tests.test_pwa_urls
 python -m ruff check config/urls.py config/tests/test_public_pages.py
 ```
+
+
+## Browser-bound return exchange
+
+The server's Google authorization-code/PKCE flow and Calendar scopes are
+unchanged. A separate browser proof now protects the return to Abby:
+
+1. The browser generates a fresh random verifier with Web Crypto and stores it
+   temporarily in sessionStorage, scoped to the API/client origin and captured
+   Abby credential fingerprint. No DRF or Google token is stored with it.
+2. `GET /api/auth/google/login/` (sign-in) or authenticated
+   `GET /api/auth/google/` (linking, optionally `for_user=<child id>`) requires
+   `code_challenge=<base64url SHA256(verifier)>` and
+   `code_challenge_method=S256`. It returns `{authorization_url, state,
+   expires_in: 600}`. Public `GET /api/auth/google/config/` returns
+   `{configured}` without creating an authorization.
+3. The callback atomically claims the hashed state once, exchanges Google's
+   code outside database locks, and stages the encrypted result. It redirects
+   to `/#google_exchange=<opaque ticket>&google_state=<state>`. Errors use
+   allowlisted `google_error` values, never provider text. No GoogleAccount
+   changes or DRF token issuance happen at callback time.
+4. The browser removes the fragment before Sentry initialization and POSTs
+   `{exchange_code, code_verifier}` to `/api/auth/google/exchange/`, with the
+   exact initiating Abby token for authenticated flows. The server checks
+   proof, expiry, fresh account/family/role state and revocations, then consumes
+   the ticket atomically. A wrong proof does not consume the legitimate ticket.
+   Login returns `{mode: "login", token, user}`; linking returns
+   `{mode: "link", linked: true}`. Errors return HTTP 400 `{error, code}`.
+
+The initial authorization expires after ten minutes; the return ticket expires
+90 seconds after callback and never outlives that initial window. Replays fail.
+The browser coalesces StrictMode completion and rejects results after account
+switching or another authorization. It never automatically retries an uncertain
+exchange POST: restart Google sign-in if the response was lost. A confirmed
+link may already exist; review Settings before reconnecting. Legacy `?token=`
+URLs are removed and never accepted as login credentials.
+
+Logout/token revocation, password changes, deactivation/reactivation,
+membership/role changes and Google unlink/relink fence pending authorizations.
+Durable per-user invalidation timestamps also cover anonymous sign-ins whose
+Google identity is unknown at initiation. User and family deletion remove
+related pending authenticated flows; fresh checks prevent anonymous flows from
+resurrecting deleted accounts. Application auth changes must use `User.save`,
+normal token deletion and GoogleAuthService link/unlink; raw database updates
+bypass model hooks and are not a supported revocation interface.
+
+The locking order is ordered User rows (`NO KEY UPDATE`), initiating Token,
+transaction, GoogleAccount. Password login/logout follow the same User/Token
+order. Logout releases User before waiting for an in-flight push binding, then
+revalidates its exact token under fresh User/Token locks. Exchange locks on
+subordinate rows use NOWAIT so a concurrent legacy account cascade cannot
+deadlock them. A changed authorization returns the safe
+exchange error; competing ordinary auth mutations may return HTTP 409 and
+roll back so they can be retried. Family IDs in the transaction are scalar
+snapshots, not new Family foreign keys. Never hold these locks during a Google network request.
+
+Transactions store only hashed state/tickets and encrypted provider material.
+Claim, failure and successful consumption erase their previous encrypted
+payload immediately. Celery Beat runs `prune_google_oauth_transactions` every
+five minutes and erases at most 200 expired rows per run, including expired
+90-second return payloads. A stopped worker or backlog can retain encrypted
+expired material longer; expiry still rejects it immediately. Monitor the
+existing Beat/worker health and expired-row backlog; operators may invoke the
+same bounded task to drain it. Database backups can retain prior encrypted
+rows under the operator's backup retention; this is not immediate backup
+erasure. Invalidation rows live until user deletion. Initiation/exchange are
+throttled at ten requests/minute and at most ten live transactions per caller.
+Authenticated callers use their user ID. Anonymous callers use the transport
+peer by default: forwarded headers cannot invent a new identity. Behind an
+unconfigured reverse proxy, anonymous clients share that peer's bucket.
+`GOOGLE_OAUTH_TRUSTED_PROXY_NETWORKS` may list explicitly verified proxy CIDRs;
+only then does Google authorization walk X-Forwarded-For from right to left,
+stopping at the first untrusted hop. Configure only proxies that replace or
+append the actual transport caller, and include every trusted hop needed for
+client attribution. Private address ranges receive no automatic trust. Missing,
+malformed or oversized chains fall back to the transport peer. Other API
+throttle contracts are unchanged.
+
+A singleton database admission lock also limits **all retained transaction
+rows to 1,000**, independent of IPs, headers, accounts and cache availability.
+Spent and expired rows still count until bounded erasure removes them. At
+capacity, initiation returns HTTP 503 `{error, code: "authorization_busy"}`
+without storing another verifier. Completion of an existing flow is allowed.
+An unavailable worker therefore stops new admission rather than allowing
+unbounded retained rows. Monitor both the expired backlog and admission
+capacity; do not raise the bound to conceal failed erasure.
+OAuth error envelopes retain exception types and code coordinates but strip
+request secrets, exception locals and provider messages. OAuth performance
+traces are omitted.
+
+Password login still rotates the user's one shared DRF token; Google sign-in
+still reuses or creates that token. Logout revokes that shared credential, and
+self password reset retains it as documented. Independent browser/device
+sessions remain a separate migration. Drive's transient `drive.file` grant,
+Picker referrer policy and upload workflows remain separate from sign-in and
+Calendar credentials.
+
+This return supports same-origin browser/PWA navigation. The client checks the
+actual provider `redirect_uri` against its own origin, including when a dev
+proxy hides a different backend origin. Packaged clients and cross-origin
+returns fail with a useful message before leaving Abby; a native system-browser
+return bridge and device acceptance remain separate work. No arbitrary return
+URL is accepted.

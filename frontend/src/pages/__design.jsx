@@ -25,6 +25,7 @@ import DesignEnvironment from './design/DesignEnvironment';
 import PatternLibrary from './design/PatternLibrary';
 import TasksShowcase from './design/TasksShowcase';
 import DropdownShowcase from './design/DropdownShowcase';
+import ArtworkShowcase from './design/ArtworkShowcase';
 
 export default function DesignShowcase() {
   const hasRouter = useInRouterContext();
@@ -348,6 +349,7 @@ function DesignShowcaseContent() {
       </section>
 
       <PatternLibrary />
+      <ArtworkShowcase />
 
       <DeckleDivider glyph="dragon-crest" />
 

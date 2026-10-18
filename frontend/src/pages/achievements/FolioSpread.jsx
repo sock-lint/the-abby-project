@@ -3,6 +3,7 @@ import ChapterRubric from '../../components/atlas/ChapterRubric';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import RuneBadge from '../../components/journal/RuneBadge';
 import SkillVerse from './SkillVerse';
+import ArtworkImage from '../../components/rpg/ArtworkImage';
 import { countIlluminated, tierForProgress, TIER_BADGE_TONE } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
 
@@ -92,9 +93,9 @@ export default function FolioSpread({ tree, onSelectSkill }) {
               <h2
                 className="font-display font-bold text-ink-primary text-lede leading-tight break-words"
               >
-                {category?.icon ? (
+                {category?.icon || category?.catalog_icon ? (
                   <span aria-hidden="true" className="mr-1 opacity-80 not-italic">
-                    {category.icon}
+                    <ArtworkImage assetId={category.catalog_icon} fallback={category.icon || null} size={20} />
                   </span>
                 ) : null}
                 {category?.name}
@@ -156,9 +157,9 @@ export default function FolioSpread({ tree, onSelectSkill }) {
               data-folio-title="true"
               className="font-display font-bold text-ink-primary text-xl md:text-2xl leading-tight break-words"
             >
-              {category?.icon ? (
+              {category?.icon || category?.catalog_icon ? (
                 <span aria-hidden="true" className="mr-1 opacity-80 not-italic">
-                  {category.icon}
+                  <ArtworkImage assetId={category.catalog_icon} fallback={category.icon || null} size={24} />
                 </span>
               ) : null}
               {category?.name}

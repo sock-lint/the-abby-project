@@ -8,6 +8,21 @@ React's `Abby Nunito` face uses the bundled variable TTF with real weights 200â€
 
 The licensed Meadow/welcome companion is a replaceable artwork preview. It does not represent an owned account species, an evolution unlock or earned progression. Use the server's species `sprite_key` for owned companions and preserve their potion and happiness presentation.
 
+`cards/AchievementCard` composes the private achievement kit's matching base and
+gold overlay: `variant="wide"` for Profile and `variant="tall"` for badge
+collections, challenges and rewards. Its `as`, `className`, `contentClassName`
+and DOM props preserve consumer semantics and live controls. Put flex/grid
+content layout in `contentClassName`; the outer element owns the canvas.
+The 64px source corners and 96px content-safe insets scale from the card width,
+while content determines height. Both images must load before the pair appears;
+missing/failed art keeps a readable Meadow surface. Loaded parchment scopes
+readable light-surface tokens even on dark covers. Keep actual badge/catalog
+identity artwork; `AchievementCardIcon` offers explicit book/heart/compass
+illustrations, without assigning them to badges or earning rules. The
+`/__design#design-achievement-cards` section previews both shapes and all three
+icons at 24/32/40/64/96 CSS pixels. See
+[the release contract](../../../docs/operations/achievement-card-kit.md).
+
 ## Conventions
 
 ### Design library and adoption
@@ -305,8 +320,10 @@ function ArtworkExample() {
 Images default to the 512px web variant. Request `variantId="native"`
 explicitly for the 16 available 1024px variants; the three web-only originals
 retain their 512px image. Preserve full proportions, transparent margins and
-alpha. Card faces already contain their emblems; keep live content beside
-them. There are no supplied blank card slots or authored nine-slice borders.
+alpha. These older card faces already contain their emblems; keep live content
+beside them. This pedestal family supplies no blank card slots or authored
+nine-slice borders; the separate achievement kit supplies explicit blank bases,
+gold overlays, and resizing guides.
 
 Each native animation take keeps its own complete mesh, rig and common root.
 Playback respects reduced motion, visibility and background state.
@@ -324,12 +341,14 @@ accepted without drawing decorations. Children stay direct so caller layout,
 padding overrides and `space-y-*` rhythm continue to apply.
 The daily bonus lights a star only after `awarded`;
 `StarRating` retains the existing difficulty scale and accessible numeric label.
-Featured earned badges on Profile and in badge details share `BadgeArtwork`
-and its measured frame opening. Badge tiles use the same icon fallback in a
-quiet well; all badge views share `BadgeRarity` labels. Equipped profile
-cosmetics remain independent.
-Challenges use Light card art and the child Shop uses Treasure as decoration,
-without catalog, ownership, rarity or progression bindings.
+Profile's featured badge uses the achievement kit's matching wide base and gold
+overlay, with its actual `BadgeArtwork`, live title, and `BadgeRarity` inside the
+safe content area. Badge collections, child challenge cards, and reward offers
+use matching tall pairs. Badge artwork retains its distinct icon fallback in a
+quiet well; equipped profile cosmetics remain independent. The earned badge
+detail sheet and pedestal design examples retain the older measured gold frame.
+Light, Treasure, and the other finished illustrated fronts remain in the design
+gallery without automatic catalog, ownership, rarity, or progression bindings.
 Keep paid PNGs, GLBs and derived previews in the private asset workflow outside
 Git and public preview hosting.
 
@@ -368,3 +387,22 @@ Use empty `alt` for a decorative image whose adjacent label already describes it
 Keep creature/gameplay presentation on its existing renderer and equipped frames
 on their existing overlays. Never infer catalog image identity from a shared
 legacy sprite key or a parent-authored challenge name.
+
+### ArtworkImage
+
+`<ArtworkImage assetId={record.catalog_icon} fallback={record.icon} size={32} />`
+
+Use this decorative image primitive for badge and skill artwork. Django checks
+the semantic identity; `catalog/sharedArtwork.js` resolves its exact release,
+variant and PNG digest. The image has empty alt text and is hidden from assistive
+technology; retain the adjacent readable name. Missing or failed URLs return
+the full caller-supplied glyph or placeholder. `BadgeArtwork` keeps its rarity,
+locked state and featured frame around the illustration. The birthday caller
+uses the explicit candle slot and its existing 64px placeholder.
+
+Catalog items and challenges continue to use `CatalogIcon`, which also resolves
+the new family. The synthetic `/__design` artwork gallery shows every new
+identity and the five supported inspection sizes. Artwork never enables packs,
+rewards or equipment; the separate Crown fitting pilot remains evaluation-only
+and is excluded from application imports and web/native bundles.
+See [the adoption runbook](../../../docs/operations/artwork-completion.md).

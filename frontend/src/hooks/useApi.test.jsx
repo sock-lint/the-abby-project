@@ -5,8 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import * as apiIndex from '../api/index.js';
-import { setToken } from '../api/client.js';
+import { getToken, setToken } from '../api/client.js';
 import { STORAGE_KEYS } from '../constants/storage.js';
+import { prepareGoogleCallback } from '../test/googleAuthorization';
 import {
   AuthProvider, OFFLINE_MESSAGE, useApi, useAuth,
 } from './useApi.js';
@@ -165,6 +166,66 @@ describe('useApi', () => {
 });
 
 describe('AuthProvider + useAuth', () => {
+  it('clears only the deleted session and its cached identity without another logout request', async () => {
+    setToken('deleted-account-session');
+    const user = buildUser();
+    const logout = vi.spyOn(apiIndex, 'logout');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(user));
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('deleted-account-session'); });
+    expect(cleared).toBe(true);
+    expect(getToken()).toBe('');
+    expect(result.current.user).toBeNull();
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
+    expect(logout).not.toHaveBeenCalled();
+    logout.mockRestore();
+  });
+
+  it('ignores deletion completion after a different account signs in', async () => {
+    const newer = buildUser({ id: 702, username: 'replacement-account' });
+    setToken('replacement-session');
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(newer)));
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.user).toEqual(newer));
+    const cached = localStorage.getItem(STORAGE_KEYS.CACHED_USER);
+    let cleared;
+    act(() => { cleared = result.current.signOutDeletedAccount('old-deleted-session'); });
+    expect(cleared).toBe(false);
+    expect(getToken()).toBe('replacement-session');
+    expect(result.current.user).toEqual(newer);
+    expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBe(cached);
+  });
+
+  it('does not unsubscribe a replacement account when deleted-session push teardown is delayed', async () => {
+    const originalWorker = navigator.serviceWorker;
+    let finishRegistration;
+    const registration = new Promise((resolve) => { finishRegistration = resolve; });
+    const getRegistration = vi.fn(() => registration);
+    const unsubscribe = vi.fn(async () => true);
+    const subscription = { endpoint: 'https://push.example.invalid/new-session', unsubscribe };
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { getRegistration } });
+    try {
+      setToken('deleted-push-session');
+      const user = buildUser();
+      server.use(http.get('*/api/auth/me/', () => HttpResponse.json(user)));
+      const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+      await waitFor(() => expect(result.current.user).toEqual(user));
+      act(() => result.current.signOutDeletedAccount('deleted-push-session'));
+      await waitFor(() => expect(getRegistration).toHaveBeenCalledTimes(1));
+      act(() => setToken('replacement-push-session'));
+      await act(async () => {
+        finishRegistration({ pushManager: { getSubscription: async () => subscription } });
+        await registration;
+      });
+      expect(unsubscribe).not.toHaveBeenCalled();
+      expect(getToken()).toBe('replacement-push-session');
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+    }
+  });
+
   it('throws if used outside the provider', () => {
     // renderHook's wrapper defaults to a no-op; useAuth should throw inside
     // the hook body.
@@ -326,7 +387,8 @@ describe('AuthProvider + useAuth', () => {
     it('clears the old parent identity before replacing it with an offline OAuth child token', async () => {
       setToken('parent-session');
       localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'parent-session', user: cached }));
-      window.history.pushState({}, '', '/?token=child-session');
+      await prepareGoogleCallback();
+      server.use(http.post('*/api/auth/google/exchange/', () => HttpResponse.json({ mode: 'login', token: 'child-session', user: buildUser({ id: 2 }) })));
       server.use(http.get('*/api/auth/me/', ({ request }) => {
         expect(request.headers.get('authorization')).toBe('Token child-session');
         expect(localStorage.getItem(STORAGE_KEYS.CACHED_USER)).toBeNull();
@@ -344,7 +406,8 @@ describe('AuthProvider + useAuth', () => {
     it('finishes OAuth boot with a visible cleanup error when the old push endpoint cannot stop', async () => {
       setToken('oauth-push-account-a');
       localStorage.setItem(STORAGE_KEYS.CACHED_USER, JSON.stringify({ version: 2, token: 'oauth-push-account-a', user: cached }));
-      window.history.pushState({}, '', '/?token=oauth-push-account-b');
+      await prepareGoogleCallback();
+      server.use(http.post('*/api/auth/google/exchange/', () => HttpResponse.json({ mode: 'login', token: 'oauth-push-account-b', user: buildUser({ id: 2 }) })));
       const originalWorker = navigator.serviceWorker;
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
         getRegistration: vi.fn().mockResolvedValue({ pushManager: {
@@ -576,7 +639,7 @@ describe('AuthProvider + useAuth', () => {
     });
   });
 
-  it('consumes ?token= from the URL and cleans history', async () => {
+  it('rejects the legacy token URL and keeps the current credential while cleaning history', async () => {
     const replaceState = vi.spyOn(window.history, 'replaceState');
     // Seed the URL with a token query param. jsdom allows this via
     // window.history.pushState.
@@ -587,15 +650,52 @@ describe('AuthProvider + useAuth', () => {
     const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(localStorage.getItem('abby_auth_token')).toBe('from-oauth');
+    expect(localStorage.getItem('abby_auth_token')).toBe('test-session');
+    expect(result.current.sessionError).toMatch(/start again/i);
     expect(replaceState).toHaveBeenCalled();
     setToken(null);
     replaceState.mockRestore();
   });
 
+  it('does not replace credentials or log out after unmount during Google push cleanup', async () => {
+    setToken('unmount-account-a');
+    await prepareGoogleCallback();
+    const originalWorker = navigator.serviceWorker;
+    let finish;
+    const unsubscribe = vi.fn(() => new Promise(resolve => { finish = resolve; }));
+    Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: {
+      getRegistration: vi.fn().mockResolvedValue({ pushManager: {
+        getSubscription: vi.fn().mockResolvedValue({ endpoint: 'https://push.example/unmount', unsubscribe }),
+      } }),
+    } });
+    const logouts = [];
+    server.use(
+      http.post('*/api/auth/google/exchange/', () => HttpResponse.json({ mode: 'login', token: 'unmount-account-b', user: buildUser({ id: 22 }) })),
+      http.post('*/api/push/unsubscribe/', () => HttpResponse.json({ ok: true, removed: 1 })),
+      http.post('*/api/auth/', () => { logouts.push(true); return HttpResponse.json({ ok: true }); }),
+    );
+    try {
+      const wrapper = ({ children }) => <AuthProvider>{children}</AuthProvider>;
+      const view = renderHook(() => useAuth(), { wrapper });
+      await waitFor(() => expect(unsubscribe).toHaveBeenCalledOnce());
+      view.unmount();
+      await act(async () => { finish(true); });
+      await waitFor(() => expect(sessionStorage.getItem('abby_google_authorization_v1')).toBeNull());
+      expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('unmount-account-a');
+      expect(logouts).toEqual([]);
+    } finally {
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });
+    }
+  });
+
   it('awaits one OAuth replacement during the real StrictMode effect replay', async () => {
     setToken('strict-account-a');
-    window.history.pushState({}, '', '/?token=strict-account-b');
+    await prepareGoogleCallback();
+    const exchanges = [];
+    server.use(http.post('*/api/auth/google/exchange/', ({ request }) => {
+      exchanges.push(request);
+      return HttpResponse.json({ mode: 'login', token: 'strict-account-b', user: buildUser({ id: 22, role: 'child' }) });
+    }));
     const originalWorker = navigator.serviceWorker;
     let finish;
     const removal = new Promise((resolve) => { finish = resolve; });
@@ -623,6 +723,9 @@ describe('AuthProvider + useAuth', () => {
       expect(result.current.user?.id).toBe(22);
       expect(result.current.user?.role).toBe('child');
       expect(profiles).toEqual(['Token strict-account-b']);
+      expect(exchanges).toHaveLength(1);
+      expect(exchanges[0].headers.get('authorization')).toBeNull();
+      expect(window.location.hash).toBe('');
       expect(localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN)).toBe('strict-account-b');
     } finally {
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: originalWorker });

@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createChallengeGoal, getSkills, listMovementTypes } from '../../api';
 import { useApi } from '../../hooks/useApi';
+import useMountedRef from '../../hooks/useMountedRef';
 import { normalizeList, fieldErrors } from '../../utils/api';
 import Button from '../../components/Button';
 import BottomSheet from '../../components/BottomSheet';
@@ -22,7 +23,8 @@ const INITIAL = {
   start_date: '', end_date: '', repeat_weekly: false, coin_reward: '10', xp_reward: '0', skill_tags: [],
 };
 
-export default function CreateGoalForm({ children = [], initialChildId, onCreated }) {
+export default function CreateGoalForm({ children = [], initialChildId, onCreated, requestOpen = false, onRequestConsumed }) {
+  const mounted = useMountedRef();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(INITIAL);
   const [saving, setSaving] = useState(false);
@@ -30,6 +32,13 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
   const [errors, setErrors] = useState({});
   const [savedConflict, setSavedConflict] = useState(false);
   const [requestId, setRequestId] = useState(createRequestId);
+  useEffect(() => {
+    if (!requestOpen || !children.length) return;
+    const child = children.find((row) => String(row.id) === String(initialChildId)) || children[0];
+    setForm((previous) => ({ ...previous, user_id: String(child.id) }));
+    setOpen(true);
+    onRequestConsumed?.();
+  }, [requestOpen, children, initialChildId, onRequestConsumed]);
   const fetchTypes = useCallback(() => open ? listMovementTypes() : Promise.resolve([]), [open]);
   const fetchSkills = useCallback(() => open ? getSkills() : Promise.resolve([]), [open]);
   const { data: typesData, loading: typesLoading, error: typesError, reload: reloadTypes } = useApi(fetchTypes, [open]);
@@ -66,12 +75,14 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
         payload.end_date = form.end_date;
       }
       const created = await createChallengeGoal(payload);
+      if (!mounted.current) return;
       setOpen(false);
       setForm(INITIAL);
       setRequestId(createRequestId());
       setSavedConflict(false);
       onCreated?.(created, form.user_id);
     } catch (err) {
+      if (!mounted.current) return;
       const fields = fieldErrors(err);
       setErrors(fields);
       if (err.status === 409) {

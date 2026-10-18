@@ -1,0 +1,27 @@
+{
+  "count": 2,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 201,
+      "name": "Languages & Apps",
+      "category": 101,
+      "category_name": "Coding",
+      "description": "",
+      "icon": "APPS",
+      "catalog_icon": "subject-coding-languages-apps",
+      "order": 0
+    },
+    {
+      "id": 202,
+      "name": "Languages & Apps",
+      "category": 102,
+      "category_name": "Custom Coding",
+      "description": "",
+      "icon": "ALT",
+      "catalog_icon": null,
+      "order": 0
+    }
+  ]
+}

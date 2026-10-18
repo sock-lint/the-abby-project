@@ -15,19 +15,22 @@ import {
   listOAuthApplications, revokeOAuthApplication,
   listOAuthTokens, revokeOAuthToken,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
-  getCategories, getGoogleAuthUrl, unlinkGoogleAccount,
+  getCategories, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
 import GuideSection from './manage/GuideSection';
 import TestSection from './manage/TestSection';
 import PrintingSection from './manage/PrintingSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
+import DeleteMemberAccountAction from './manage/DeleteMemberAccountAction';
 import { useApi, useAuth } from '../hooks/useApi';
 import { useFormState } from '../hooks/useFormState';
+import useGoogleAuthorization from '../hooks/useGoogleAuthorization';
 import BottomSheet from '../components/BottomSheet';
 import ParchmentCard from '../components/journal/ParchmentCard';
 import ConfirmDialog from '../components/ConfirmDialog';
 import StarRating from '../components/StarRating';
+import ArtworkImage from '../components/rpg/ArtworkImage';
 import EmptyState from '../components/EmptyState';
 import ErrorAlert from '../components/ErrorAlert';
 import Loader from '../components/Loader';
@@ -307,6 +310,8 @@ function CreateChildModal({ onClose, onCreated }) {
 }
 
 function EditChildModal({ child, onClose, onSaved, onRemoved }) {
+  const { user } = useAuth();
+  const googleAuthorization = useGoogleAuthorization({ mode: 'link', actor: user, forUserId: child.id });
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     display_name: child.display_name || '',
     hourly_rate: child.hourly_rate || '',
@@ -332,17 +337,6 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
       setError(err.message);
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleLinkGoogle = async () => {
-    try {
-      const data = await getGoogleAuthUrl(child.id);
-      if (data?.authorization_url) {
-        window.location.href = data.authorization_url;
-      }
-    } catch {
-      setError('Could not start Google linking.');
     }
   };
 
@@ -383,6 +377,7 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
         </SelectField>
         <div>
           <label className="block text-caption text-ink-whisper mb-1">Google Account</label>
+          <ErrorAlert message={googleAuthorization.error} />
           {child.google_linked ? (
             <Button
               type="button"
@@ -398,7 +393,8 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={handleLinkGoogle}
+              onClick={googleAuthorization.start}
+              disabled={googleAuthorization.busy}
               className="!text-ink-whisper hover:!text-sheikah-teal-deep inline-flex items-center gap-2"
             >
               <Link2 size={14} /> Link Google Account
@@ -416,7 +412,6 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
       </form>
       <UserManagementActions
         user={child}
-        kind="child"
         api={{
           resetPassword: resetChildPassword,
           deactivate: deactivateChild,
@@ -439,12 +434,11 @@ function EditChildModal({ child, onClose, onSaved, onRemoved }) {
  * EditChildModal and EditParentModal so the two paths stay in lockstep.
  */
 function UserManagementActions({
-  user, kind, api, canDelete, canReset = true, canDeactivate = true,
+  user, api, canDelete, canReset = true, canDeactivate = true,
   onChanged, onRemoved,
 }) {
   const [resetting, setResetting] = useState(false);
   const [confirmingDeactivate, setConfirmingDeactivate] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [actionError, setActionError] = useState(null);
 
   const inactive = user.is_active === false;
@@ -460,17 +454,6 @@ function UserManagementActions({
         await api.deactivate(user.id);
       }
       onChanged();
-    } catch (err) {
-      setActionError(err.message);
-    }
-  };
-
-  const handleDeleteConfirmed = async () => {
-    setConfirmingDelete(false);
-    setActionError(null);
-    try {
-      await api.remove(user.id);
-      onRemoved();
     } catch (err) {
       setActionError(err.message);
     }
@@ -507,15 +490,7 @@ function UserManagementActions({
           </Button>
         )}
         {canDelete && (
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => setConfirmingDelete(true)}
-            className="flex items-center justify-center gap-1.5"
-          >
-            <Trash2 size={14} /> Delete account
-          </Button>
+          <DeleteMemberAccountAction member={user} remove={api.remove} onRemoved={onRemoved} />
         )}
       </div>
 
@@ -543,60 +518,7 @@ function UserManagementActions({
           onCancel={() => setConfirmingDeactivate(false)}
         />
       )}
-      {confirmingDelete && (
-        <DeleteAccountConfirm
-          user={user}
-          kind={kind}
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setConfirmingDelete(false)}
-        />
-      )}
     </div>
-  );
-}
-
-/**
- * Type-to-confirm dialog for hard-delete. Built on BottomSheet rather
- * than ConfirmDialog because we need a text input that gates the
- * destructive button — a single confirm-label dialog can't carry that.
- */
-function DeleteAccountConfirm({ user, kind, onConfirm, onCancel }) {
-  const phrase = `delete ${user.username}`;
-  const [typed, setTyped] = useState('');
-  const matches = typed.trim() === phrase;
-  const label = user.display_name || user.username;
-
-  return (
-    <BottomSheet title={`Delete ${label}'s account?`} onClose={onCancel}>
-      <div className="space-y-3">
-        <p className="text-body text-ink-secondary">
-          This permanently removes <span className="font-semibold">{label}</span>{' '}
-          and all their {kind === 'parent' ? 'family-admin records' : 'history (projects, badges, photos, ledger entries)'}. This cannot be undone.
-        </p>
-        <p className="text-body text-ink-whisper">
-          To confirm, type <code className="px-1 bg-ink-page-shadow/60 rounded">{phrase}</code> below.
-        </p>
-        <TextField
-          label="Type to confirm"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          autoComplete="off"
-        />
-        <div className="flex gap-2 justify-end pt-2">
-          <Button type="button" variant="secondary" onClick={onCancel}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            disabled={!matches}
-            onClick={onConfirm}
-          >
-            Delete account
-          </Button>
-        </div>
-      </div>
-    </BottomSheet>
   );
 }
 
@@ -650,7 +572,7 @@ function TemplatesSection() {
             <div>
               <div className="font-semibold text-ink-primary">{t.title}</div>
               <div className="flex items-center gap-3 text-caption text-ink-whisper mt-1">
-                {t.category && <span>{t.category.icon} {t.category.name}</span>}
+                {t.category && <span><ArtworkImage assetId={t.category.catalog_icon} fallback={t.category.icon || null} size={20} /> {t.category.name}</span>}
                 <StarRating value={t.difficulty} />
                 {t.milestones?.length > 0 && <span>{t.milestones.length} milestones</span>}
                 {t.steps?.length > 0 && <span>{t.steps.length} steps</span>}
@@ -887,7 +809,7 @@ function FamilySection() {
                 )}
                 {parent.is_primary && (
                   <span className="text-tiny px-1.5 py-0.5 rounded bg-sheikah-teal/20 text-sheikah-teal-deep font-normal">
-                    Founder
+                    Family contact
                   </span>
                 )}
                 {inactive && (
@@ -1045,7 +967,6 @@ function EditParentModal({ parent, onClose, onSaved, onRemoved }) {
       </form>
       <UserManagementActions
         user={parent}
-        kind="parent"
         api={{
           resetPassword: resetParentPassword,
           deactivate: deactivateParent,

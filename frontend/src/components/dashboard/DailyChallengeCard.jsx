@@ -4,7 +4,7 @@ import { getChallenges } from '../../api';
 import { getToken } from '../../api/client';
 import { useApi } from '../../hooks/useApi';
 import { useRole } from '../../hooks/useRole';
-import ParchmentCard from '../journal/ParchmentCard';
+import AchievementCard from '../cards/AchievementCard';
 import ProgressBar from '../ProgressBar';
 import Button from '../Button';
 import { goalDeadline } from '../../pages/trials/goalDisplay';
@@ -21,10 +21,10 @@ export default function DailyChallengeCard({ refreshKey, challenge }) {
   const { data, error, reload } = useApi(fetch, [account, isChild, refreshKey, challenge]);
   const bonus = challenge === undefined ? data?._bonusAccount === account ? data : null : challenge;
   if (!isChild) return null;
-  if (error) return <ParchmentCard><p role="alert" className="font-body text-body text-ink-secondary">{error}</p><Button variant="secondary" onClick={reload}>Retry today&apos;s bonus</Button></ParchmentCard>;
+  if (error) return <AchievementCard variant="tall"><p role="alert" className="font-body text-body text-ink-secondary">{error}</p><Button variant="secondary" onClick={reload}>Retry today&apos;s bonus</Button></AchievementCard>;
   if (!bonus?.date) return null;
   return (
-    <ParchmentCard tone="bright" className="space-y-2">
+    <AchievementCard variant="tall" contentClassName="space-y-2">
       <div className="flex items-center gap-3">
         <span className="shrink-0" data-bonus-star={bonus.awarded ? 'awarded' : 'pending'} aria-hidden="true">
           <PedestalImage assetId={bonus.awarded ? 'star-lit' : 'star-unlit'} fallback={bonus.awarded ? '★' : '☆'} className="storybook-star storybook-bonus-star text-gold-leaf" />
@@ -43,6 +43,6 @@ export default function DailyChallengeCard({ refreshKey, challenge }) {
       {!bonus.awarded && <p className="font-body text-caption text-ink-secondary">Automatically earns {bonus.coin_reward} coins and {bonus.xp_reward} XP.</p>}
       {bonus.ends_at && <p className="font-body text-caption text-ink-secondary">Ends {goalDeadline(bonus.ends_at, bonus.timezone)} · {bonus.timezone}</p>}
       {!bonus.completed && <Button variant="ghost" size="sm" onClick={() => navigate('/quests')}>View tasks</Button>}
-    </ParchmentCard>
+    </AchievementCard>
   );
 }

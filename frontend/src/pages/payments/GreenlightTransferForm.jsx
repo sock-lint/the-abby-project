@@ -10,13 +10,14 @@ import { formatCurrency, formatDate } from '../../utils/format';
 import { readPendingTransfer, savePendingTransfer } from './greenlightDraft';
 import { usePwaUpdateGuard } from '../../pwa/usePwaUpdateGuard';
 
-export default function GreenlightTransferForm({ userId, kidName, overview, ownerKey, onClose, onSaved }) {
+export default function GreenlightTransferForm({ userId, kidName, overview, ownerKey, initialTimecardId, onClose, onSaved }) {
+  const initialCard = overview.approved_timecards?.find((card) => String(card.id) === String(initialTimecardId));
   const [pending] = useState(() => readPendingTransfer(ownerKey, userId));
   const [form, setForm] = useState(() => pending?.payload ? {
     ...pending.payload, timecard_id: pending.payload.timecard_id || '',
   } : {
-    amount: Number(overview.approved_payable) > 0 ? overview.approved_payable : '',
-    transferred_on: toISODate(new Date()), reference: '', memo: '', timecard_id: '',
+    amount: initialCard?.total_earnings ?? (Number(overview.approved_payable) > 0 ? overview.approved_payable : ''),
+    transferred_on: toISODate(new Date()), reference: '', memo: '', timecard_id: initialCard?.id || '',
   });
   const [confirmed, setConfirmed] = useState(!!pending);
   const [requestKey, setRequestKey] = useState(() => pending?.payload.idempotency_key || crypto.randomUUID());

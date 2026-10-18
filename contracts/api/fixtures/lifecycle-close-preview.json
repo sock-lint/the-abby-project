@@ -1,0 +1,28 @@
+{
+  "user": {
+    "id": 610,
+    "username": "fixture-parent"
+  },
+  "family": {
+    "id": 601,
+    "name": "Lifecycle Fixture Family",
+    "slug": "lifecycle-fixture-family",
+    "primary_parent_id": 610
+  },
+  "family_members": {
+    "parents": 2,
+    "children": 1
+  },
+  "family_version": "b5f93b765e49d354eddc6082c9a041ebee62d812dc9a46ef62be98086e192521",
+  "successors": [],
+  "shared_work": {
+    "projects": 1,
+    "project_templates": 0,
+    "homework_assignments": 0,
+    "homework_templates": 0,
+    "chores": 0,
+    "habits": 1
+  },
+  "can_delete_account": false,
+  "can_close_family": true
+}

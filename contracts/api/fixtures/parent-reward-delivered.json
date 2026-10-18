@@ -1,0 +1,31 @@
+{
+  "id": 902,
+  "user": 7,
+  "user_name": "delivery-child",
+  "reward": {
+    "id": 901,
+    "name": "Park afternoon",
+    "description": "",
+    "icon": "",
+    "image": null,
+    "cost_coins": 20,
+    "rarity": "common",
+    "stock": null,
+    "requires_parent_approval": true,
+    "is_active": true,
+    "order": 0,
+    "fulfillment_kind": "real_world",
+    "item_definition": null,
+    "item_definition_detail": null,
+    "on_my_wishlist": false,
+    "catalog_available": true
+  },
+  "status": "fulfilled",
+  "coin_cost_snapshot": 20,
+  "requested_at": "2026-10-18T19:00:00-07:00",
+  "decided_at": "2026-10-18T19:00:00-07:00",
+  "decided_by": 6,
+  "parent_notes": "Saturday after lunch",
+  "delivered_at": "2026-10-18T19:00:00-07:00",
+  "delivered_by": 6
+}

@@ -247,7 +247,7 @@ class RewardRedemptionViewSetTests(_Fixture):
         resp = self.client.post(f"/api/redemptions/{self.redemption.pk}/approve/")
         self.assertEqual(resp.status_code, 200)
         self.redemption.refresh_from_db()
-        self.assertEqual(self.redemption.status, RewardRedemption.Status.FULFILLED)
+        self.assertEqual(self.redemption.status, RewardRedemption.Status.APPROVED)
 
     def test_parent_reject_action(self):
         self.client.force_authenticate(self.parent)

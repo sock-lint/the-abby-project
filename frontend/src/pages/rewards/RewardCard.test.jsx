@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RewardCard from './RewardCard.jsx';
+import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
+
+vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn() }));
+beforeEach(() => { resolveCatalogIcon.mockReturnValue(null); });
 
 function buildReward(over = {}) {
   return {
@@ -18,6 +22,35 @@ function buildReward(over = {}) {
 }
 
 describe('RewardCard', () => {
+  it('keeps a digital reward’s exact catalog artwork and live content inside its tall canvas', async () => {
+    resolveCatalogIcon.mockImplementation((id) => id === 'item-meat' ? { url: '/synthetic/meat.png' } : null);
+    const name = 'An extraordinarily long reward name for the whole family';
+    const reward = buildReward({
+      name,
+      rarity: 'epic',
+      fulfillment_kind: 'digital_item',
+      item_definition_detail: { name: 'Meat', catalog_icon: 'item-meat', icon: '🍗' },
+    });
+    const onRedeem = vi.fn();
+    const onToggleWishlist = vi.fn();
+    const user = userEvent.setup();
+    const { container } = render(<RewardCard reward={reward} isParent={false} coinBalance={50} onRedeem={onRedeem} onToggleWishlist={onToggleWishlist} />);
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Meat' })).toHaveAttribute('src', '/synthetic/meat.png');
+    expect(screen.getByText(name)).toBeInTheDocument();
+    expect(screen.getByText('epic')).toBeInTheDocument();
+    expect(screen.getByText('Adds Meat to inventory')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: `Add ${name} to wishlist` }));
+    expect(onToggleWishlist).toHaveBeenCalledWith(reward);
+    await user.click(screen.getByRole('button', { name: 'Request reward' }));
+    expect(onRedeem).toHaveBeenCalledWith(reward);
+  });
+
+  it('keeps a pending request disabled inside the card', () => {
+    render(<RewardCard reward={buildReward()} isParent={false} coinBalance={50} pending onRedeem={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Requesting…' })).toBeDisabled();
+  });
+
   it('labels rarity in text so the tier is not conveyed only by card color', () => {
     render(<RewardCard reward={buildReward({ rarity: 'epic' })} isParent coinBalance={100} />);
     expect(screen.getByText('epic')).toBeInTheDocument();

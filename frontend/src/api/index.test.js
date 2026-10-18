@@ -237,11 +237,15 @@ const CASES = [
   ['deleteReward', [5], /\/api\/rewards\/5\/$/, 'DELETE'],
   ['redeemReward', [5], /\/api\/rewards\/5\/redeem\/$/, 'POST'],
   ['getRedemptions', [], /\/api\/redemptions\/$/, 'GET'],
+  ['getAwaitingRedemptions', [], /\/api\/redemptions\/\?status=approved$/, 'GET'],
   ['approveRedemption', [5, 'ok'], /\/api\/redemptions\/5\/approve\/$/, 'POST'],
   ['approveRedemption', [5], /\/api\/redemptions\/5\/approve\/$/, 'POST'],
   ['rejectRedemption', [5, 'nope'], /\/api\/redemptions\/5\/reject\/$/, 'POST'],
   ['rejectRedemption', [5], /\/api\/redemptions\/5\/reject\/$/, 'POST'],
+  ['deliverRedemption', [5], /\/api\/redemptions\/5\/deliver\/$/, 'POST'],
   ['getCoinBalance', [], /\/api\/coins\/$/, 'GET'],
+  ['getCoinBalance', [{ user_id: 7 }], /\/api\/coins\/\?user_id=7$/, 'GET'],
+  ['getCoinBalance', [new AbortController().signal], /\/api\/coins\/$/, 'GET'],
   ['adjustCoins', [1, 5, 'd'], /\/api\/coins\/adjust\/$/, 'POST'],
   ['adjustCoins', [1, 5], /\/api\/coins\/adjust\/$/, 'POST'],
 
@@ -488,18 +492,18 @@ describe('getInstructablesPreview', () => {
 
 describe('google oauth endpoints', () => {
   it('getGoogleAuthUrl without id', async () => {
-    await api.getGoogleAuthUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/$/);
+    await api.getGoogleAuthUrl(undefined, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAuthUrl with id', async () => {
-    await api.getGoogleAuthUrl(7);
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?for_user=7$/);
+    await api.getGoogleAuthUrl(7, 'challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/\?code_challenge=challenge&code_challenge_method=S256&for_user=7$/);
   });
 
   it('getGoogleLoginUrl', async () => {
-    await api.getGoogleLoginUrl();
-    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/$/);
+    await api.getGoogleLoginUrl('challenge');
+    expect(lastCall().url).toMatch(/\/api\/auth\/google\/login\/\?code_challenge=challenge&code_challenge_method=S256$/);
   });
 
   it('getGoogleAccount without id', async () => {

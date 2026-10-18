@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 
 from django.contrib.auth import authenticate
 from django.db import transaction
@@ -37,6 +38,40 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _logout_current_credential(user_id, key, endpoint):
+    """Wait for push binding without holding User against a concurrent cascade."""
+    from django.db import OperationalError
+    from apps.google_integration.oauth_exchange import AuthorizationBusy, is_lock_conflict, lock_users
+    from apps.notifications.models import PushSubscription
+
+    for attempt in range(3):
+        try:
+            with transaction.atomic():
+                if user_id not in lock_users([user_id]):
+                    return
+                credential = Token.objects.select_for_update(nowait=True).filter(user_id=user_id, key=key).first()
+                if credential:
+                    if endpoint:
+                        list(PushSubscription.objects.select_for_update(nowait=True).filter(
+                            user_id=user_id, endpoint=endpoint,
+                        ))
+                        PushSubscription.objects.filter(user_id=user_id, endpoint=endpoint).delete()
+                    credential.delete()
+            return
+        except OperationalError as exc:
+            if not is_lock_conflict(exc):
+                raise
+            if attempt == 2:
+                raise AuthorizationBusy() from None
+        # A push bind owns Token; a legacy cascade can also own it while
+        # waiting for User. Release ALL prior locks before waiting here.
+        # This transaction performs no mutation and never requests User.
+        with transaction.atomic():
+            list(Token.objects.select_for_update().filter(user_id=user_id, key=key))
+        # Recheck this exact credential after reacquiring User. An old logout
+        # must never revoke a token issued by a newer password sign-in.
+
+
 class AuthView(APIView):
     """Login / logout endpoint.
 
@@ -68,17 +103,26 @@ class AuthView(APIView):
             password = request.data.get("password")
             user = authenticate(request, username=username, password=password)
             if user:
-                # Audit H2: rotate on every successful login. The
-                # transaction wraps delete + create so we never leave a
-                # user without any token between the two writes (otherwise
-                # a parallel request from the same user could see "no
-                # token" mid-rotation and 401 unnecessarily).
+                from apps.google_integration.oauth_exchange import invalidate_google_flows
                 with transaction.atomic():
-                    Token.objects.filter(user=user).delete()
-                    token = Token.objects.create(user=user)
-                data = UserSerializer(user).data
-                data["token"] = token.key
-                return Response(data)
+                    from apps.families.models import Family
+
+                    # Authentication may precede a lifecycle transaction.
+                    # Recheck under its family→user lock order so an old
+                    # password result cannot resurrect a deleted/deactivated
+                    # account or mint a credential after a password reset.
+                    family = Family.objects.select_for_update(no_key=True).filter(pk=user.family_id).first()
+                    fresh = User.objects.select_for_update(no_key=True).filter(
+                        pk=user.pk, family=family, is_active=True,
+                    ).first() if family else None
+                    if fresh is not None and fresh.check_password(password):
+                        # Holds the User row lock, as Google flow invalidation requires.
+                        invalidate_google_flows(fresh.pk)
+                        Token.objects.filter(user=fresh).delete()
+                        token = Token.objects.create(user=fresh)
+                        data = UserSerializer(fresh).data
+                        data["token"] = token.key
+                        return Response(data)
             return Response(
                 {"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -90,23 +134,7 @@ class AuthView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             if request.user.is_authenticated and isinstance(request.auth, Token):
-                # Authentication may precede a concurrent password login's
-                # rotation. Lock only this request's credential, preserving
-                # its replacement. Push endpoints take the same lock before
-                # binding, so an old handler cannot recreate this device after
-                # logout even when the browser already aborted its fetch.
-                with transaction.atomic():
-                    credential = Token.objects.select_for_update().filter(
-                        user=request.user, key=request.auth.key,
-                    ).first()
-                    if credential:
-                        from apps.notifications.models import PushSubscription
-
-                        if endpoint.strip():
-                            PushSubscription.objects.filter(
-                                user=request.user, endpoint=endpoint.strip(),
-                            ).delete()
-                        credential.delete()
+                _logout_current_credential(request.user.pk, request.auth.key, endpoint.strip())
             return Response({"ok": True})
         return Response(
             {"error": "Invalid action"}, status=status.HTTP_400_BAD_REQUEST
@@ -149,6 +177,18 @@ class MeView(APIView):
         return Response(UserSerializer(user).data)
 
 
+def _locked_member_write(method):
+    @wraps(method)
+    def wrapped(self, request, *args, **kwargs):
+        from apps.accounts.lifecycle import locked_family_members, require_parent
+
+        with locked_family_members(request, require_token=False) as (_family, actor, _members):
+            require_parent(actor)
+            request.user = actor
+            return method(self, request, *args, **kwargs)
+    return wrapped
+
+
 class _UserManagementActionsMixin:
     """Shared ``reset_password`` / ``deactivate`` / ``reactivate`` actions.
 
@@ -159,7 +199,43 @@ class _UserManagementActionsMixin:
     ``perform_destroy`` so DELETE shares the same checks.
     """
 
+    @_locked_member_write
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @_locked_member_write
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @_locked_member_write
+    def destroy(self, request, *args, **kwargs):
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        target = serializer.instance
+        active = serializer.validated_data.get("is_active", target.is_active)
+        if not active and target.is_active:
+            self._deactivate_member(target)
+        serializer.save()
+
+    def _deactivate_member(self, target):
+        from apps.families.services import (
+            MemberRemovalError, assert_safe_to_remove, promote_next_primary_parent,
+        )
+        from rest_framework.exceptions import ValidationError
+
+        try:
+            assert_safe_to_remove(target, self.request.user, mode="deactivate")
+        except MemberRemovalError as exc:
+            raise ValidationError({"error": str(exc)})
+        target.is_active = False
+        target.save(update_fields=["is_active"])
+        Token.objects.filter(user=target).delete()
+        if target.role == "parent":
+            promote_next_primary_parent(target.family, target)
+
     @action(detail=True, methods=["post"], url_path="reset-password")
+    @_locked_member_write
     def reset_password(self, request, pk=None):
         from django.contrib.auth.password_validation import (
             ValidationError as PasswordValidationError,
@@ -190,26 +266,15 @@ class _UserManagementActionsMixin:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def deactivate(self, request, pk=None):
-        from apps.families.services import (
-            MemberRemovalError, assert_safe_to_remove,
-            promote_next_primary_parent,
-        )
         target = self.get_object()
-        try:
-            assert_safe_to_remove(target, request.user, mode="deactivate")
-        except MemberRemovalError as exc:
-            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        with transaction.atomic():
-            target.is_active = False
-            target.save(update_fields=["is_active"])
-            Token.objects.filter(user=target).delete()
-            if target.role == "parent":
-                promote_next_primary_parent(target.family, target)
+        self._deactivate_member(target)
         serializer = self.get_serializer(target)
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"])
+    @_locked_member_write
     def reactivate(self, request, pk=None):
         target = self.get_object()
         if not target.is_active:
@@ -223,16 +288,20 @@ class _UserManagementActionsMixin:
             MemberRemovalError, assert_safe_to_remove,
             promote_next_primary_parent,
         )
-        try:
-            assert_safe_to_remove(instance, self.request.user, mode="delete")
-        except MemberRemovalError as exc:
-            # Re-raise as DRF ValidationError so the framework returns 400
-            # with the message — same shape as our serializer-validation 400s.
-            from rest_framework import serializers as drf_serializers
-            raise drf_serializers.ValidationError({"error": str(exc)})
-        if instance.role == "parent":
-            promote_next_primary_parent(instance.family, instance)
-        instance.delete()
+        # The founder handoff and the file-cleanup outbox must commit with
+        # the cascade. A failed delete must leave the account and family
+        # pointer intact so the same explicit action can be retried.
+        with transaction.atomic():
+            try:
+                assert_safe_to_remove(instance, self.request.user, mode="delete")
+            except MemberRemovalError as exc:
+                from rest_framework import serializers as drf_serializers
+                raise drf_serializers.ValidationError({"error": str(exc)})
+            from apps.accounts.lifecycle import collect_safe_deletion
+            collect_safe_deletion(instance, instance.family)
+            if instance.role == "parent":
+                promote_next_primary_parent(instance.family, instance)
+            instance.delete()
 
 
 class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):

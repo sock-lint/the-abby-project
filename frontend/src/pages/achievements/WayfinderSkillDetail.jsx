@@ -17,7 +17,7 @@ export default function WayfinderSkillDetail({ skill, resolvePrerequisite = () =
   const levelName = skill.level_names?.[String(level)];
   const prerequisites = skill.prerequisites || [];
   return <div className="space-y-4">
-    <WayfinderHeading title={skill.name} icon={skill.icon || skill.name?.[0]}
+    <WayfinderHeading title={skill.name} icon={skill.icon || skill.name?.[0]} assetId={skill.catalog_icon}
       description={skill.description} meta={`Level ${level}${levelName ? ` · ${levelName}` : ''} · ${xp.toLocaleString()} XP`} />
     {skill.unlocked ? (maxed ? <p className="font-medium text-body text-gold-leaf">Maximum level reached</p> : <div className="space-y-2">
       <div className="flex flex-wrap justify-between gap-2 text-caption text-ink-whisper">
