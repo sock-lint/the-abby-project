@@ -8,11 +8,12 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from apps.achievements.models import Badge
 from apps.quests.models import Quest, QuestDefinition, QuestRewardItem
 from apps.rpg.content.loader import ContentPackError
-from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition, UserInventory
+from apps.rpg.models import CharacterProfile, ContentPackEntry, DropTable, ItemDefinition, UserInventory
 from apps.rpg.progression.catalog import snapshot_catalog
 from apps.rpg.progression.engine import Trial
 from apps.rpg.services import ConsumableService, DropService
@@ -21,6 +22,97 @@ from config.tests.factories import make_family
 
 
 class BundledProgressionContentTests(TestCase):
+    def test_first_default_load_preserves_parent_definition_and_accepted_rewards(self):
+        family = make_family("Parent reading", parents=[{"username": "reading-parent"}])
+        parent = QuestDefinition.objects.create(
+            name="Reading Routine", description="Our own reading promise", created_by=family.parents[0],
+            quest_type="collection", target_value=2, coin_reward=50, xp_reward=7,
+        )
+        food = ItemDefinition.objects.create(slug="parent-reading-food", name="Parent food", item_type="food")
+        link = QuestRewardItem.objects.create(quest_definition=parent, item=food, quantity=3)
+        accepted = Quest.objects.create(definition=parent, end_date=timezone.now() + timedelta(days=7))
+        original = QuestDefinition.objects.filter(pk=parent.pk).values().get()
+
+        call_command("loadrpgcontent", stdout=StringIO())
+
+        self.assertEqual(QuestDefinition.objects.filter(pk=parent.pk).values().get(), original)
+        self.assertEqual(list(parent.reward_items.values_list("pk", "item_id", "quantity")), [(link.pk, food.pk, 3)])
+        accepted.refresh_from_db()
+        self.assertEqual(accepted.definition_id, parent.pk)
+        self.assertEqual([(row["item_id"], row["quantity"]) for row in accepted.reward_items_snapshot], [(food.pk, 3)])
+        system = QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None)
+        self.assertNotEqual(system.pk, parent.pk)
+        self.assertEqual((system.target_value, system.coin_reward), (5, 0))
+        visitor = make_family("Other reading family", parents=[{"username": "other-reading-parent"}]).parents[0]
+        client = APIClient()
+        client.force_authenticate(visitor)
+        response = client.get("/api/quests/available/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(system.pk, {row["id"] for row in response.data})
+        self.assertNotIn(parent.pk, {row["id"] for row in response.data})
+
+    def test_default_reload_ignores_later_parent_names_even_with_system_flag(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        system = QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None)
+        family = make_family("Later parent reading", parents=[{"username": "later-reading-parent"}])
+        parents = [QuestDefinition.objects.create(
+            name="Reading Routine", description="A saved family promise", created_by=family.parents[0],
+            quest_type="collection", target_value=2, coin_reward=50, is_system=flag,
+        ) for flag in (False, True)]
+        original = list(QuestDefinition.objects.filter(pk__in=[p.pk for p in parents]).order_by("pk").values())
+
+        call_command("loadrpgcontent", stdout=StringIO())
+
+        self.assertEqual(list(QuestDefinition.objects.filter(pk__in=[p.pk for p in parents]).order_by("pk").values()), original)
+        self.assertEqual(QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None).pk, system.pk)
+
+    def test_default_load_cannot_take_over_a_published_quest_by_name(self):
+        published = QuestDefinition.objects.create(
+            name="Reading Routine", description="A separately published promise", is_system=True,
+            quest_type="collection", target_value=2, coin_reward=50,
+        )
+        claim = ContentPackEntry.objects.create(
+            pack="published-reading", kind="questdefinition", key="reading", model_label="quests.questdefinition",
+            object_id=published.pk,
+        )
+        original = QuestDefinition.objects.filter(pk=published.pk).values().get()
+
+        with self.assertRaisesMessage(CommandError, "owned by published-reading"):
+            call_command("loadrpgcontent", stdout=StringIO())
+
+        self.assertEqual(QuestDefinition.objects.filter(pk=published.pk).values().get(), original)
+        self.assertEqual(ContentPackEntry.objects.get(pk=claim.pk).object_id, published.pk)
+        self.assertFalse(ItemDefinition.objects.exists(), "the entire bundled batch must roll back")
+
+    def test_ambiguous_global_quest_names_fail_without_updating_either_definition(self):
+        for target in (2, 9):
+            QuestDefinition.objects.create(
+                name="Reading Routine", description="Ambiguous existing catalog", is_system=True,
+                quest_type="collection", target_value=target,
+            )
+        original = list(QuestDefinition.objects.order_by("pk").values())
+
+        with self.assertRaisesMessage(CommandError, "Ambiguous global quest"):
+            call_command("loadrpgcontent", stdout=StringIO())
+
+        self.assertEqual(list(QuestDefinition.objects.order_by("pk").values()), original)
+        self.assertFalse(ItemDefinition.objects.exists())
+
+    def test_default_reload_rejects_rule_changes_for_active_global_legacy_quest(self):
+        call_command("loadrpgcontent", stdout=StringIO())
+        system = QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None)
+        system.coin_reward = 50
+        system.save(update_fields=["coin_reward"])
+        accepted = Quest.objects.create(definition=system, end_date=timezone.now() + timedelta(days=7))
+
+        with self.assertRaisesMessage(CommandError, "active legacy"):
+            call_command("loadrpgcontent", stdout=StringIO())
+
+        system.refresh_from_db()
+        accepted.refresh_from_db()
+        self.assertEqual(system.coin_reward, 50)
+        self.assertIsNone(accepted.reward_items_snapshot, "a rejected batch rolls back promise freezing too")
+
     def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
         calls = []
         class Pack:

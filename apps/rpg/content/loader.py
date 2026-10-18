@@ -232,6 +232,23 @@ class ContentPack:
                 self.stats.bump("skipped", "database_authored_item")
                 return model.objects.get(pk=override.object_id), False
         if not self.pack_key:
+            if model._meta.label_lower == "quests.questdefinition":
+                # Bundled quests predate stable publication claims. Their
+                # global scope is part of the lookup: a family's identically
+                # named template must never be adopted or rewritten, even if
+                # its legacy is_system flag is true.
+                lookup = {**lookup, "is_system": defaults["is_system"], "created_by": None}
+                matches = list(model.objects.select_for_update(no_key=True).filter(**lookup)[:2])
+                if len(matches) > 1:
+                    raise ContentPackError(f"Ambiguous global quest {lookup['name']!r}; reconcile its existing identities before loading.")
+                if matches:
+                    from apps.rpg.models import ContentPackEntry
+                    quest = matches[0]
+                    owner = ContentPackEntry.objects.filter(
+                        model_label=model._meta.label_lower, object_id=quest.pk).first()
+                    if owner:
+                        raise ContentPackError(f"Quest {quest.name!r} is owned by {owner.pack}; an unkeyed loader cannot take over its publication identity.")
+                    self._protect_active_quest(quest, defaults, entry or {})
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
         from django.core.exceptions import ValidationError

@@ -165,6 +165,38 @@ def _summary(experiment):
             "latest_decision": _decision_json(decision) if decision else None}
 
 
+def _compact_report(report):
+    """Store repeated trace column names once, retaining every daily value.
+
+    Only oversized comparisons use this private storage representation. Native
+    reports, evaluators and API consumers continue to receive ordinary rows.
+    Unknown/nonrectangular traces keep their original form and storage guard.
+    """
+    trace = report.get("trace") if isinstance(report, dict) else None
+    if not isinstance(trace, list) or not trace or not isinstance(trace[0], dict):
+        return report
+    columns = list(trace[0])
+    if (not all(isinstance(key, str) for key in columns)
+            or any(not isinstance(row, dict) or list(row) != columns for row in trace)):
+        return report
+    return {**report, "trace": {"storage_format": "trace_columns_v1", "columns": columns,
+                                "rows": [[row[column] for column in columns] for row in trace]}}
+
+
+def _restore_report(report):
+    """Expand new evidence without rewriting legacy, already stored reports."""
+    trace = report.get("trace") if isinstance(report, dict) else None
+    if not isinstance(trace, dict) or trace.get("storage_format") != "trace_columns_v1":
+        return report
+    columns, rows = trace.get("columns"), trace.get("rows")
+    if (set(trace) != {"storage_format", "columns", "rows"}
+            or not isinstance(columns, list) or not all(isinstance(key, str) for key in columns)
+            or len(set(columns)) != len(columns) or not isinstance(rows, list)
+            or any(not isinstance(row, list) or len(row) != len(columns) for row in rows)):
+        raise ExperimentUnavailable("Saved comparison trace is invalid. Its evidence has not been changed.")
+    return {**report, "trace": [dict(zip(columns, row, strict=True)) for row in rows]}
+
+
 def _comparison_json(experiment, comparison, *, full=False, binding=None):
     result = {"id": str(comparison.pk), "experiment_revision": comparison.experiment_revision,
               "created_at": comparison.created_at.isoformat(), "evaluation": comparison.evaluation,
@@ -172,7 +204,8 @@ def _comparison_json(experiment, comparison, *, full=False, binding=None):
               "freshness": "unavailable" if binding is None else "stale" if _stale(experiment, comparison, binding) else "current",
               "binding": comparison.binding}
     if full:
-        result.update(inputs=comparison.inputs, control=comparison.control, candidate=comparison.candidate)
+        result.update(inputs=comparison.inputs, control=_restore_report(comparison.control),
+                      candidate=_restore_report(comparison.candidate))
     return result
 
 
@@ -245,8 +278,12 @@ def compare_experiment(actor, experiment_id, revision):
     control = simulate_progression(control_config, catalog=catalog, incubation_policy=incubation_policy)
     candidate = simulate_progression(candidate_config, catalog=catalog, incubation_policy=incubation_policy)
     evaluation = evaluate_comparison(control, candidate, inputs["targets"])
-    if len(json.dumps({"inputs": inputs, "control": control, "candidate": candidate,
-                       "evaluation": evaluation, "binding": binding}).encode()) > MAX_EVIDENCE_BYTES:
+    evidence = {"inputs": inputs, "control": control, "candidate": candidate,
+                "evaluation": evaluation, "binding": binding}
+    if len(json.dumps(evidence).encode()) > MAX_EVIDENCE_BYTES:
+        control, candidate = _compact_report(control), _compact_report(candidate)
+        evidence.update(control=control, candidate=candidate)
+    if len(json.dumps(evidence).encode()) > MAX_EVIDENCE_BYTES:
         raise ValueError("Comparison evidence exceeds the 4 MiB storage limit. Simplify the routine or reduce the horizon.")
     with transaction.atomic():
         actor = _actor(actor, lock=True)

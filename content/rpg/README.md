@@ -14,6 +14,13 @@ to mean touching three files; now it's one YAML edit.
   calls internally) upserts everything in it idempotently.
 - Every authored entity has a stable `slug` as its natural key. Running
   the loader twice in a row is a no-op.
+- Bundled quest definitions match their name and system flag only among
+  definitions without a creator. A same-name parent template keeps its own
+  rules and rewards, including when created after the first load. Ambiguous
+  global definitions or a matching row already claimed by a published pack
+  stop the entire load for reconciliation. Existing active legacy quests
+  also block edits to their accepted rules, Coins, XP and skill tags; item
+  promises are frozen before future reward links change.
 - Pets and potions **fan out** — one entry in `pet_species.yaml` creates
   both the `PetSpecies` row **and** the matching egg `ItemDefinition`
   with a real FK linking them. Same for potions → potion items. Eggs and

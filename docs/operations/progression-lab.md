@@ -22,7 +22,10 @@ criteria, rule/catalog/evaluator fingerprints and deployment source metadata.
 Each forecast retains the existing 10,000-work-unit bound; a paired request
 permits 20,000 combined units and is limited to five per minute. A notebook
 holds at most 20 experiments, each with 20 comparisons and 100 decisions.
-Each paired evidence record is limited to 4 MiB; oversized results are rejected
+Each paired evidence record is limited to 4 MiB. Oversized daily traces are
+stored losslessly as versioned columns and all daily row values; API reads and
+downloads restore the original complete reports, including all calendar days.
+Legacy saved reports remain readable. Results that still exceed the cap are rejected
 without replacing an earlier comparison.
 
 Choose up to six bounded criteria. Costs are whole cents; completion rates
