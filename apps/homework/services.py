@@ -12,6 +12,7 @@ from apps.achievements.services import AwardService, BadgeService
 from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from config.services import bump_daily_counter, finalize_decision
+from config.submission_timing import build_timing_snapshot, submission_context
 
 from .models import (
     HomeworkAssignment,
@@ -107,7 +108,8 @@ class HomeworkService:
             data.pop("skill_tags", None)
 
         due_date = data.get("due_date")
-        if due_date and due_date < timezone.localdate():
+        target_child = data.get("assigned_to") or user
+        if due_date and due_date < submission_context(target_child)[2]:
             raise HomeworkError("Due date must be in the future.")
 
         skill_tag_data = data.pop("skill_tags", [])
@@ -210,13 +212,20 @@ class HomeworkService:
         """Child submits homework with proof images.
 
         Validates at least 1 image. Records timeliness for later badge
-        evaluation. Homework no longer pays money or coins, so there is
-        no snapshot to compute and no AI effort estimation — effort
+        evaluation and freezes the deadline/local-day comparison. Homework
+        no longer pays money or coins, so there is no currency snapshot
+        or AI effort estimation — effort
         stays as whatever was set on the assignment and only weights XP
         distribution on approval.
         """
         if user.role != "child":
             raise HomeworkError("Only children can submit homework.")
+
+        # Match soft-delete's child -> assignment lock order. Re-read the
+        # assignment so a parent edit cannot leave this submission comparing
+        # against a stale in-memory deadline or assignee.
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        assignment = HomeworkAssignment.objects.select_for_update().get(pk=assignment.pk)
 
         if not assignment.is_active:
             raise HomeworkError("This assignment is no longer active.")
@@ -233,7 +242,8 @@ class HomeworkService:
         ).exclude(status=HomeworkSubmission.Status.REJECTED).exists():
             raise HomeworkError("You already have a pending or approved submission for this assignment.")
 
-        timeliness_label = HomeworkService.get_timeliness(assignment.due_date)
+        submitted_at, _, submitted_on = submission_context(user)
+        timeliness_label = HomeworkService.get_timeliness(assignment.due_date, submit_date=submitted_on)
 
         submission = HomeworkSubmission.objects.create(
             assignment=assignment,
@@ -241,6 +251,10 @@ class HomeworkService:
             status=HomeworkSubmission.Status.PENDING,
             notes=notes,
             timeliness=timeliness_label,
+            timing_snapshot=build_timing_snapshot(
+                user, schedule="homework", at=submitted_at,
+                due_on=assignment.due_date, timeliness=timeliness_label,
+            ),
         )
 
         # Create proof records.
@@ -496,7 +510,7 @@ class HomeworkService:
     @staticmethod
     def get_child_dashboard(user):
         """Return structured dashboard data for a child."""
-        today = timezone.localdate()
+        today = submission_context(user)[2]
         assignments = HomeworkAssignment.objects.filter(
             assigned_to=user, is_active=True,
         ).prefetch_related("submissions")
@@ -615,7 +629,7 @@ class HomeworkService:
             return True
         if assignment.assigned_to_id != user.id:
             return False
-        lead_days = (assignment.due_date - timezone.localdate()).days
+        lead_days = (assignment.due_date - submission_context(user)[2]).days
         return lead_days >= settings.HOMEWORK_SELF_PLAN_LEAD_DAYS
 
     @staticmethod

@@ -1,6 +1,7 @@
 import datetime
 import logging
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q
 from django.utils import timezone
@@ -10,6 +11,7 @@ from apps.notifications.models import NotificationType
 from apps.notifications.services import get_display_name, notify, notify_parents
 from apps.rewards.models import CoinLedger
 from config.services import finalize_decision
+from config.submission_timing import build_timing_snapshot, submission_context
 
 from .models import Chore, ChoreCompletion
 
@@ -49,7 +51,7 @@ class ChoreService:
         ``today_completion_status`` (str|None) annotations.
         """
         if target_date is None:
-            target_date = timezone.localdate()
+            target_date = submission_context(user)[2]
 
         qs = Chore.objects.filter(
             family_id=user.family_id,
@@ -121,6 +123,10 @@ class ChoreService:
     @transaction.atomic
     def submit_completion(user, chore, notes=""):
         """Child marks a chore as done. Creates a pending ChoreCompletion."""
+        # Re-read the schedule before freezing it. Lock the child first,
+        # matching homework/account lifecycle lock order, then the chore.
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        chore = Chore.objects.select_for_update().get(pk=chore.pk)
         if chore.family_id != user.family_id:
             raise ChoreNotAvailableError("This chore is not available to you.")
 
@@ -138,7 +144,7 @@ class ChoreService:
         if chore.assigned_to and chore.assigned_to != user:
             raise ChoreNotAvailableError("This chore is not assigned to you.")
 
-        target_date = timezone.localdate()
+        submitted_at, _zone, target_date = submission_context(user)
 
         if not ChoreService.is_active_this_week(chore, target_date):
             raise ChoreNotAvailableError("This chore is not active this week.")
@@ -158,10 +164,28 @@ class ChoreService:
         ).exclude(status=ChoreCompletion.Status.REJECTED).exists():
             raise ChoreNotAvailableError("You have already completed this chore for this period.")
 
+        if chore.recurrence == Chore.Recurrence.ONE_TIME:
+            period_start = period_end = None
+            due_on = chore.due_date
+        else:
+            period_start = period_date
+            period_end = period_date + datetime.timedelta(
+                days=6 if chore.recurrence == Chore.Recurrence.WEEKLY else 0,
+            )
+            due_on = period_end
+        timeliness = None if due_on is None else (
+            "on_time" if target_date <= due_on else "late"
+        )
+
         completion = ChoreCompletion.objects.create(
             chore=chore,
             user=user,
             completed_date=period_date,
+            timing_snapshot=build_timing_snapshot(
+                user, schedule=chore.recurrence, at=submitted_at,
+                period_start=period_start, period_end=period_end,
+                due_on=due_on, timeliness=timeliness,
+            ),
             status=ChoreCompletion.Status.PENDING,
             notes=notes,
             reward_amount_snapshot=chore.reward_amount,

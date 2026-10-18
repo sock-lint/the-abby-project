@@ -9,6 +9,7 @@ import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import BottomSheet from '../BottomSheet';
 import ProofGallery from '../ProofGallery';
+import SubmissionTiming from '../SubmissionTiming';
 import ConfirmDialog from '../ConfirmDialog';
 import Button from '../Button';
 import ModalActions from '../ModalActions';
@@ -93,7 +94,7 @@ function thumbFor(item) {
 }
 
 function hasDetail(item) {
-  return Boolean(thumbFor(item) || item.notes);
+  return Boolean(thumbFor(item) || item.notes || item.timingRecord);
 }
 
 function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpenDetail, selected, onSelect, groupBusy }) {
@@ -149,6 +150,7 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
         {/* The body is a button when there's evidence to inspect — approving
             homework or a creation from a one-line title alone is approving
             blind, and the photo is already in the payload. */}
+        <div className="flex-1 min-w-0 space-y-2">
         {hasDetail(item) ? (
           <button
             type="button"
@@ -183,6 +185,8 @@ function Row({ item, isHidden, onApprove, onOpenReject, onProposalReview, onOpen
             )}
           </div>
         )}
+        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} />}
+        </div>
       </div>
       <div className="flex min-w-0 items-center justify-end gap-3 sm:shrink-0">
         {waiting && <span className="text-caption text-ink-secondary">{waiting}</span>}
@@ -267,6 +271,7 @@ function DetailSheet({ item, onClose, onApprove, onReject }) {
             {item.subtitle ? ` · ${item.subtitle}` : ''}
           </span>
         </div>
+        {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} />}
         {photos.length > 0 && (
           <ProofGallery proofs={photos} />
         )}

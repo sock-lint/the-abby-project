@@ -458,6 +458,27 @@ icon and order controls stay in Advanced. Alternating-week chores preview their
 reference week without changing schedule eligibility. Setup suggestions remain
 optional links, with no invented completion claims.
 
+### Submission dates and reviewed work
+
+`SubmissionTiming` separates the saved deadline/recurrence period, the child's
+submission (or Marked complete) timestamp, and the later parent decision. New
+homework and chore rows consume server-owned `timing_snapshot` v1 values in the
+saved household timezone. A changed `current_due_date` is labelled Current due;
+it never replaces the original deadline. Weekly `completed_date` is a Monday
+period identifier, not the day the child did the work. Legacy rows identify
+missing timing evidence explicitly; saved undated chores say No due date.
+Timing badges report labels only, without obsolete reward percentages.
+
+Parent homework and chore pages expose `ReviewedWorkHistory` after a child is
+verified by the current roster. It loads known endpoint pages, shows approved
+and rejected work, fences child/account/credential changes, and refreshes from
+page one after confirmed review events while open. Parent Today uses the same
+saved timing component in its approval queue. Assignment cards keep saved
+submission dates on both parent and child views. Project/challenge completion
+is labelled Completion recorded because approval or delayed processing can
+determine that timestamp; it is not proof of when the child physically worked.
+Habits retain tap-history semantics, rather than acquiring invented deadlines.
+
 Timecards show saved work notes and automatic clock-out warnings. A disputed
 card offers Resolve and approve with a parent note. Mark as paid opens the
 existing Greenlight completed-transfer form with the exact child and week;

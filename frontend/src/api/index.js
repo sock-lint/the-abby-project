@@ -475,6 +475,13 @@ export const getChoreCompletions = (status) => {
   const qs = status ? `?status=${status}` : '';
   return api.get(`/chore-completions/${qs}`);
 };
+export const getReviewHistory = (kind, { userId, page = 1, signal } = {}) => {
+  const endpoint = { chore: 'chore-completions', homework: 'homework-submissions' }[kind];
+  if (!endpoint || !Number.isInteger(page) || page < 1) throw new Error('Invalid reviewed-work request.');
+  const query = new URLSearchParams({ status: 'reviewed', page: String(page) });
+  if (userId != null && userId !== '') query.set('user_id', String(userId));
+  return api.get(`/${endpoint}/?${query}`, { signal });
+};
 export const approveChoreCompletion = (id) =>
   withParentReviewRefresh(api.post(`/chore-completions/${id}/approve/`));
 export const rejectChoreCompletion = (id, notes = '') =>

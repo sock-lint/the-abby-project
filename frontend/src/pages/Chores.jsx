@@ -20,6 +20,8 @@ import useChildContext from '../hooks/useChildContext';
 import ChildContext from '../components/family/ChildContext';
 import { getFamilyChores, getFamilyChoreProposals, getFamilyChoreCompletions } from '../api';
 import ApprovalQueue from '../components/ApprovalQueue';
+import SubmissionTiming from '../components/SubmissionTiming';
+import ReviewedWorkHistory from '../components/ReviewedWorkHistory';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -76,6 +78,7 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
     coin_reward: chore?.coin_reward ?? 2,
     xp_reward: chore?.xp_reward ?? 10,
     recurrence: chore?.recurrence || 'daily',
+    due_date: chore?.due_date || '',
     week_schedule: chore?.week_schedule || 'every_week',
     schedule_start_date: chore?.schedule_start_date || '',
     assigned_to: chore ? chore.assigned_to ?? '' : initialChildId ?? '',
@@ -89,7 +92,7 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
 
   const onField = (k) => (e) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
-    set({ [k]: val });
+    set({ [k]: val, ...(k === 'recurrence' && val !== 'one_time' ? { due_date: '' } : {}) });
   };
 
   const handleSubmit = async (e) => {
@@ -106,6 +109,7 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
         description: form.description,
         icon: form.icon,
         recurrence: form.recurrence,
+        due_date: form.recurrence === 'one_time' ? form.due_date || null : null,
         week_schedule: form.recurrence === 'one_time' ? 'every_week' : form.week_schedule,
         schedule_start_date: form.week_schedule === 'alternating' && form.recurrence !== 'one_time'
           ? form.schedule_start_date || null : null,
@@ -172,6 +176,9 @@ function ChoreFormModal({ chore, children, skills, isParent, initialChildId, mod
         <SelectField label="Recurrence" value={form.recurrence} onChange={onField('recurrence')}>
           {Object.entries(RECURRENCE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </SelectField>
+        {form.recurrence === 'one_time' && (
+          <TextField label="Due date (optional)" type="date" value={form.due_date} onChange={onField('due_date')} helpText="Leave blank for no deadline." />
+        )}
         {isParent && showSchedule && <>
           <SelectField label="Custody schedule" value={form.week_schedule} onChange={onField('week_schedule')}>
             {Object.entries(WEEK_SCHEDULE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -452,8 +459,9 @@ function ChoresWorkspace({ context }) {
                     <div className="font-body text-body font-medium text-ink-primary">
                       {c.user_name} — {c.chore_icon} {c.chore_title}
                     </div>
+                    <SubmissionTiming record={c} kind="chore" />
                     <div className="font-script text-caption text-ink-whisper">
-                      {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                      ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                     </div>
                     {c.notes && (
                       <div className="font-script text-caption text-ink-secondary italic mt-0.5">
@@ -583,6 +591,9 @@ function ChoresWorkspace({ context }) {
                         <span className="flex items-center gap-0.5">
                           <RefreshCw size={10} />{RECURRENCE_LABELS[chore.recurrence]}
                         </span>
+                        {chore.recurrence === 'one_time' && chore.due_date && (
+                          <span>Due {formatDate(chore.due_date)}</span>
+                        )}
                         {chore.week_schedule === 'alternating' && (
                           <span className="flex items-center gap-0.5 text-royal">
                             <CalendarDays size={10} />alt. weeks
@@ -665,6 +676,8 @@ function ChoresWorkspace({ context }) {
         )}
       </section>
 
+        {isParent && targetUserId && <ReviewedWorkHistory kind="chore" childId={targetUserId} />}
+
         {/* Child: recent history */}
         {!isParent && completions.length > 0 && (
           <section>
@@ -678,8 +691,9 @@ function ChoresWorkspace({ context }) {
                       <div className="font-body text-body font-medium text-ink-primary truncate">
                         {c.chore_title}
                       </div>
+                      <SubmissionTiming record={c} kind="chore" />
                       <div className="font-script text-caption text-ink-whisper">
-                        {formatDate(c.completed_date)} · ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
+                        ${c.reward_amount_snapshot} + {c.coin_reward_snapshot} coins
                       </div>
                     </div>
                   </div>
