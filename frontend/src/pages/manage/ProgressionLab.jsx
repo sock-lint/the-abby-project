@@ -15,7 +15,9 @@ import AttachmentField from '../../components/attachments/AttachmentField';
 import { CheckboxField, SelectField, TextField } from '../../components/form';
 import ProgressionEconomyControls from './ProgressionEconomyControls';
 import ProgressionEconomyReport from './ProgressionEconomyReport';
-import { importedScenario, scenariosMatch } from './progressionLabScenario';
+import ProgressionRewardBudgetControls from './ProgressionRewardBudgetControls';
+import ProgressionRewardBudgetReport from './ProgressionRewardBudgetReport';
+import { importedScenario, rewardBudgetLabel, scenariosMatch } from './progressionLabScenario';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -168,8 +170,8 @@ function AccountProgressionLab() {
                 </details>
                 {metadata.presets?.length > 0 && <div className="space-y-2">
                   <p className="text-caption text-ink-secondary">Starting routines are editable examples, not observed player groups.</p>
-                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
-                  {config.economy && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing assumptions.</p>}
+                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}), ...(previous.reward_budget ? { reward_budget: previous.reward_budget } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
+                  {(config.economy || config.reward_budget) && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing and reward budget assumptions.</p>}
                 </div>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <ChoiceField name="horizon_days" label="Forecast horizon" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
@@ -190,6 +192,8 @@ function AccountProgressionLab() {
                   </div>
                   <p className="text-caption text-ink-secondary mt-3">These values change this scenario only. Parent approvals are assumed complete. See model coverage below for the exact companion and reward behavior included.</p>
                 </details>
+                {metadata.reward_budget_defaults && metadata.reward_budget_limits && <ProgressionRewardBudgetControls budget={config.reward_budget ?? metadata.reward_budget_defaults}
+                  limits={metadata.reward_budget_limits} onChange={(budget) => change('reward_budget', budget)} error={fieldErrors.reward_budget ?? fieldErrors['reward_budget.daily_coins']} />}
                 {metadata.economy_defaults && metadata.economy_limits && <ProgressionEconomyControls economy={config.economy ?? metadata.economy_defaults} metadata={metadata}
                   onChange={(economy) => change('economy', economy)}
                   onExample={() => {
@@ -264,6 +268,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     {baseline && <div className="flex flex-wrap items-center gap-3 text-body text-ink-secondary" role="status">Comparing with {baseline.config.horizon_days} days, {baseline.config.trials} children, seed {baseline.config.seed}, {number(baseline.summary.finite_content_total)} finite targets. Changing activities can change that denominator.<Button variant="ghost" onClick={onClearBaseline}>Clear comparison</Button></div>}
     {baseline && !versionsMatch && <p role="status" className="text-body text-ember-deep">Comparison versions: unavailable or different. Numeric differences may include changes to the model, rules or catalog. Treat these as separate forecasts.</p>}
     {baseline && <p className="text-caption text-ink-secondary">Purchasing is {report.economy?.enabled ? 'on' : 'off'} in this report and {baseline.economy?.enabled ? 'on' : 'off'} in the comparison. {!scenariosMatch(report.config.economy, baseline.config.economy) && 'Purchasing assumptions differ; review their offers, budgets and earned-money assumptions alongside the totals.'}</p>}
+    {baseline && (report.reward_budget || baseline.reward_budget) && <p className="text-caption text-ink-secondary">Reward allowance: {rewardBudgetLabel(report.config.reward_budget)} in this report; {rewardBudgetLabel(baseline.config.reward_budget)} in the comparison.</p>}
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Modeled runway at a glance">Finite targets include eligible modeled badges, one-time challenges, obtainable cosmetics and companion stages. They describe a subset of Abby’s content, not total app exhaustion.</SectionHeader>
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -302,6 +307,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
       <SectionHeader as="h3" title="Reward sources and consumption">Mean totals per child across all {report.config.trials} simulated children and {report.config.horizon_days} calendar days. {report.economy?.enabled ? 'This report includes only the anonymous reward offers and purchasing assumptions below. Live household shops are not read.' : 'Coins remain savings in this model. Household shops, real-world rewards and purchasing decisions are excluded; this is not a spending forecast.'}</SectionHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FlowTable title="Sources" rows={report.flows?.sources ?? []} /><FlowTable title="Sinks and consumption" rows={report.flows?.sinks ?? []} /></div>
     </ParchmentCard>
+    <ProgressionRewardBudgetReport budget={report.reward_budget} baseline={baseline?.reward_budget} />
     <ProgressionEconomyReport economy={report.economy} baseline={baseline?.economy} config={report.config.economy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Inspect a reproducible journey">Representative trial seed: {report.journey?.seed ?? report.config.seed}. This event log describes one child; the summaries above describe the whole group.</SectionHeader>

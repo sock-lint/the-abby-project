@@ -131,6 +131,44 @@ The simulation creates no actual reward offers, redemptions, print requests,
 payments, exchanges or ledger rows. These assumptions never change live
 earning rates, exchange settings, shop prices or printing policy.
 
+## Compare expedition and pouch reward budgets
+
+The optional `reward_budget.daily_coins` is a hypothetical shared allowance
+per child per calendar simulation day. Null keeps installed uncapped rules;
+zero removes Coin credits from the selected sources; a positive whole number
+limits their combined credit. The 50, 100 and 150 Coin examples are experiment
+settings, not validated balance recommendations. Every mount shares the same
+allowance. Unused allowance expires each day, including inactive days.
+
+The allowance covers direct expedition Coins, expedition duplicate-cosmetic
+salvage and all opened Coin pouches, including pouches from activity drops.
+Other sources, including parent-authored chore Coins, reading Coins, challenge
+rewards and other drop salvage, stay outside this pool. It does not change
+XP, expedition item slots, food, eggs or cosmetic draws. Consumable boosts
+remain excluded from the model.
+
+This experiment removes excess Coins from the hypothetical journey. Pouches
+are still consumed; omitted value is neither saved in inventory nor deferred
+for a later day. Expedition returns are processed before end-of-visit pouch
+opening, so expedition rewards receive the shared allowance first. Raw Coins
+describe requests within that journey, not an independently run uncapped
+counterfactual: changes to lifetime Coin badges can affect later eligibility.
+Only credited Coins enter wallets, lifetime earnings and purchasing.
+
+Reports show raw, credited and omitted Coins by source, capped days, and
+daily cumulative totals. Keep an uncapped report as the baseline, select a
+budget, then rerun with the same routine, seeds, prices and purchasing policy.
+Compare purchase timing and balances together with finite-content milestones;
+reducing Coin income does not automatically extend item or companion content.
+Saved routines and exported reports retain the budget. Older saved routines
+without this field import with uncapped rewards.
+
+These controls change no live rewards. This is not a proposed cap on claiming
+already promised loot: a future live design must establish any reduced values
+before new expedition commitments or pouch grants and preserve existing loot
+and owned-item promises. Holding pouches unopened would delay liquidity while
+retaining their value; that is a different experiment.
+
 ## Access, bounds and API
 
 Both endpoints require an authenticated staff parent. A regular parent or
@@ -138,8 +176,8 @@ staff child cannot use them. No real-account selector is accepted.
 
 - `GET /api/rpg/progression-lab/` returns defaults, input bounds, editable
   routine examples, catalog counts, rules fingerprint, coverage and audits.
-- `POST /api/rpg/progression-lab/simulate/` takes an anonymous scenario with an
-  optional nested `economy` object and
+- `POST /api/rpg/progression-lab/simulate/` takes an anonymous scenario with
+  optional nested `economy` and `reward_budget` objects and
   returns the normalized assumptions, milestone ranges, daily aggregates,
   source/consumption totals and example journey.
 

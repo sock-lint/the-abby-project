@@ -21,6 +21,10 @@ export function withPrintQuotes(economy) {
   };
 }
 
+export function rewardBudgetLabel(budget) {
+  return budget?.daily_coins == null ? 'Uncapped per child' : `${budget.daily_coins} Coins per child per day`;
+}
+
 function exactKeys(value, keys, message) {
   if (!isObject(value) || Object.keys(value).length !== keys.length || Object.keys(value).some((key) => !keys.includes(key))) throw new Error(message);
 }
@@ -67,11 +71,18 @@ export function importedScenario(saved, metadata) {
   const config = saved?.config;
   if (saved?.schema_version !== 1 || !isObject(config)) throw new Error('The report must contain a complete supported routine.');
   const defaults = metadata.defaults;
-  const flatKeys = Object.keys(defaults).filter((key) => key !== 'economy');
-  if (Object.keys(config).some((key) => !flatKeys.includes(key) && key !== 'economy') || flatKeys.some((key) => !(key in config))) throw new Error('The report must contain a complete supported routine.');
+  const flatKeys = Object.keys(defaults).filter((key) => !['economy', 'reward_budget'].includes(key));
+  if (Object.keys(config).some((key) => !flatKeys.includes(key) && !['economy', 'reward_budget'].includes(key)) || flatKeys.some((key) => !(key in config))) throw new Error('The report must contain a complete supported routine.');
   for (const key of flatKeys) validateValue(config[key], metadata.limits[key], defaults[key], key.replaceAll('_', ' '));
   const result = clone(config);
   if ('economy' in config) result.economy = validateEconomy(config.economy, metadata);
   else if (metadata.economy_defaults ?? defaults.economy) result.economy = { ...clone(metadata.economy_defaults ?? defaults.economy), enabled: false };
+  const budgetDefaults = metadata.reward_budget_defaults ?? defaults.reward_budget;
+  if ('reward_budget' in config) {
+    if (!budgetDefaults || !metadata.reward_budget_limits) throw new Error('Reward budgets are not supported by these rules.');
+    exactKeys(config.reward_budget, Object.keys(budgetDefaults), 'The report must contain complete supported reward budget assumptions.');
+    for (const key of Object.keys(budgetDefaults)) validateValue(config.reward_budget[key], metadata.reward_budget_limits[key], budgetDefaults[key], `reward budget ${key.replaceAll('_', ' ')}`);
+    result.reward_budget = clone(config.reward_budget);
+  } else if (budgetDefaults) result.reward_budget = { ...clone(budgetDefaults), daily_coins: null };
   return result;
 }
