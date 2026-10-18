@@ -167,7 +167,7 @@ class QuestCatalogView(ListAPIView):
     def get_queryset(self):
         return QuestDefinition.objects.prefetch_related(
             "reward_items", "reward_items__item",
-        ).order_by("quest_type", "name")
+        ).order_by("quest_type", "name", "pk")
 
 
 class FamilyActiveQuestsView(APIView):

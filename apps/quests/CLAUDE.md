@@ -4,6 +4,12 @@ Automatic challenges track every relevant goal independently of its pin. The leg
 
 ## Supported rewards and reachable prerequisites (October 2026)
 
+The parent challenge catalog sorts by type, name, then primary key. A system
+definition and a parent-authored definition can share a name and type; the
+identity tie-break keeps their existing image bindings and row order stable
+across PostgreSQL query plans. `tests/test_catalog_ordering.py` covers reversed
+physical insertion without changing the shared API fixtures.
+
 New quest definition reads and accepted starts filter `reward_items` through
 `apps/rpg/catalog_support.py`. New automatic occurrences freeze only eligible
 items in their server-owned snapshot; new legacy solo/co-op starts freeze
