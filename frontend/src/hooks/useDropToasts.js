@@ -38,7 +38,13 @@ export function useDropToasts() {
         item_sprite_key: d.item_sprite_key,
         item_catalog_icon: d.item_catalog_icon,
         item_rarity: d.item_rarity,
+        item_type: d.item_type,
+        item_description: d.item_description,
+        item_metadata: d.item_metadata,
+        item_effect_summary: d.item_effect_summary,
+        item_catalog_available: d.item_catalog_available,
         was_salvaged: d.was_salvaged,
+        salvage_coins: d.salvage_coins,
       }))]);
     }
   }, [pulse]);

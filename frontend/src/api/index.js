@@ -693,9 +693,6 @@ export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
 // Parent-only sprite admin surface (powers the /manage → Codex → Sprites panel).
 export const fetchSpriteAdminList = (pack) =>
   api.get(`/sprites/admin/${pack ? `?pack=${encodeURIComponent(pack)}` : ''}`);
-export const generateSprite = (body) => api.post('/sprites/admin/generate/', body);
-export const rerollSprite = (slug, opts = {}) =>
-  api.post(`/sprites/admin/${encodeURIComponent(slug)}/reroll/`, opts);
 export const updateSpriteMeta = (slug, body) =>
   api.patch(`/sprites/admin/${encodeURIComponent(slug)}/`, body);
 export const deleteSprite = (slug) =>

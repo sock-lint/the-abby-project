@@ -329,6 +329,37 @@ class TemplateMilestone(models.Model):
         return f"{self.template.title} — {self.title}"
 
 
+class TemplateSkillTag(models.Model):
+    template = models.ForeignKey(ProjectTemplate, on_delete=models.CASCADE, related_name="skill_tags")
+    skill = models.ForeignKey("achievements.Skill", on_delete=models.CASCADE)
+    xp_weight = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["template", "skill"], name="unique_template_skill")]
+
+
+class TemplateMilestoneSkillTag(models.Model):
+    milestone = models.ForeignKey(TemplateMilestone, on_delete=models.CASCADE, related_name="skill_tags")
+    skill = models.ForeignKey("achievements.Skill", on_delete=models.CASCADE)
+    xp_amount = models.PositiveIntegerField(default=15)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["milestone", "skill"], name="unique_template_milestone_skill")]
+
+
+class TemplateAuthoringReceipt(CreatedAtModel):
+    """Immutable creation response, retained if its template/project is deleted."""
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    operation = models.CharField(max_length=40)
+    request_id = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+    response = models.JSONField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["actor", "operation", "request_id"], name="unique_template_authoring_request")]
+
+
 class TemplateMaterial(models.Model):
     template = models.ForeignKey(
         ProjectTemplate, on_delete=models.CASCADE, related_name="materials"

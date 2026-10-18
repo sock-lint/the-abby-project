@@ -64,7 +64,7 @@ export default function TrophyBadgePicker({
                       {earnedInChapter.length} earned
                     </span>
                   </div>
-                  <ul className="grid grid-cols-2 sm:grid-cols-3 gap-3 list-none p-0 m-0">
+                  <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3 list-none p-0 m-0">
                     {earnedInChapter.map((entry) => {
                       const isCurrent = entry.badge.id === currentTrophyId;
                       return (

@@ -103,15 +103,22 @@ describe('character.constants', () => {
   });
 
   describe('cosmeticLockHint', () => {
+    it('prefers actual server acquisition paths over an item description', () => {
+      expect(cosmeticLockHint({ description: 'A shiny frame.', acquisition_sources: [{ kind: 'challenge', name: 'Steady reader', path: '/quests?tab=trials' }] }))
+        .toBe('Complete Steady reader to earn this.');
+      expect(cosmeticLockHint({ acquisition_sources: [{ kind: 'drop', name: 'Homework', path: '/quests?tab=study' }] }))
+        .toBe('Can drop from Homework.');
+    });
+
     it('prefers item.description when present', () => {
       expect(cosmeticLockHint({ description: 'unlocks at level 10', rarity: 'common' }))
         .toBe('unlocks at level 10');
     });
 
-    it('falls back to rarity-flavored defaults', () => {
-      expect(cosmeticLockHint({ rarity: 'legendary' })).toMatch(/legendary/i);
-      expect(cosmeticLockHint({ rarity: 'rare' })).toMatch(/rare/i);
-      expect(cosmeticLockHint({})).toMatch(/drops/i);
+    it('does not infer an earning path from rarity when no source is supplied', () => {
+      expect(cosmeticLockHint({ rarity: 'legendary' })).toBe('Not yet owned');
+      expect(cosmeticLockHint({ rarity: 'rare' })).toBe('Not yet owned');
+      expect(cosmeticLockHint({})).toBe('Not yet owned');
     });
 
     it('returns empty string when no item is supplied', () => {

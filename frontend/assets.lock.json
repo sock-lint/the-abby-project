@@ -35,6 +35,12 @@
       "family_id": "meshtint-training-dummy",
       "manifest_sha256": "bceff1c1cb2676a68c45693460a26826dd3d880e513d4db32690ca8ca956a31b",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-achievement-card-kit/1.0.0/04f482b958aa1bf9b7f63911339eeeba59ae5745008b6355d71daf7e93e2c8c3",
+      "family_id": "abby-achievement-card-kit",
+      "manifest_sha256": "04f482b958aa1bf9b7f63911339eeeba59ae5745008b6355d71daf7e93e2c8c3",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

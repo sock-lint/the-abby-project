@@ -1,9 +1,9 @@
 import { Pencil, Trash2, Bell, BellRing } from 'lucide-react';
-import ParchmentCard from '../../components/journal/ParchmentCard';
+import AchievementCard from '../../components/cards/AchievementCard';
 import IconButton from '../../components/IconButton';
 import { CoinIcon } from '../../components/icons/JournalIcons';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
-import { RARITY_COLORS } from '../../constants/colors';
+import BadgeRarity from '../../components/atlas/BadgeRarity';
 
 export default function RewardCard({
   reward, isParent, coinBalance, pending, onRedeem, onEdit, onDelete, onToggleWishlist,
@@ -19,8 +19,10 @@ export default function RewardCard({
     ? reward.item_definition_detail : null;
 
   return (
-    <ParchmentCard
-      className={`${RARITY_COLORS[reward.rarity]} min-w-0 flex flex-col relative`}
+    <AchievementCard
+      variant="tall"
+      className="h-full"
+      contentClassName="min-w-0 flex h-full flex-col relative"
     >
       {/* Thumb-sized edit/delete, matching the Duties/Rituals card pattern —
           these used to be ~20px marks 4px apart, with destructive Trash2
@@ -28,7 +30,7 @@ export default function RewardCard({
           in flow rather than floating over the corner so the bigger hit area
           can't land on top of the reward's icon. */}
       {isParent && (
-        <div className="flex justify-end gap-2 -mt-2 -mr-1 mb-1">
+        <div className="flex justify-end gap-2 mb-2 flex-wrap">
           <IconButton
             variant="secondary"
             size="sm"
@@ -52,7 +54,7 @@ export default function RewardCard({
           inactive
         </div>
       )}
-      <div className="text-4xl mb-1 flex justify-center">
+      <div className="text-4xl leading-normal mb-1 flex justify-center">
         {digitalItem ? <CatalogIcon
           assetId={digitalItem.catalog_icon}
           spriteKey={digitalItem.sprite_key}
@@ -61,16 +63,17 @@ export default function RewardCard({
           alt={digitalItem.name || reward.name}
         /> : reward.icon || '🎁'}
       </div>
-      <div className="font-body text-body font-semibold text-center text-ink-primary break-words">
+      <div className="font-body text-body font-semibold text-center text-ink-primary break-words [overflow-wrap:anywhere]">
         {reward.name}
       </div>
+      {reward.rarity && <div className="mt-1 flex justify-center"><BadgeRarity rarity={reward.rarity} /></div>}
       {reward.description && (
-        <div className="font-body text-caption text-ink-secondary text-center mt-1 line-clamp-2">
+        <div className="font-body text-caption text-ink-secondary text-center mt-1 break-words [overflow-wrap:anywhere]">
           {reward.description}
         </div>
       )}
       {reward.fulfillment_kind && reward.fulfillment_kind !== 'real_world' && (
-        <div className="mt-2 rounded-full border border-sheikah-teal/40 bg-sheikah-teal-deep/10 px-2 py-1 text-center font-script text-tiny text-sheikah-teal-deep">
+        <div className="mt-2 break-words [overflow-wrap:anywhere] rounded-2xl border border-sheikah-teal/40 bg-sheikah-teal-deep/10 px-2 py-1 text-center font-script text-tiny text-sheikah-teal-deep">
           Adds {reward.item_definition_detail?.name || 'an item'} to inventory
           {reward.fulfillment_kind === 'both' ? ' + parent follow-up' : ''}
         </div>
@@ -91,7 +94,7 @@ export default function RewardCard({
         </div>
       )}
       {!isParent && (
-        <div className="mt-2 flex items-stretch gap-1.5">
+        <div className="mt-auto pt-3 flex flex-wrap items-stretch gap-1.5">
           {/* Raw markup on purpose: <Button>'s px-3/text-sm sizing wraps
               "Not enough coin" onto three lines inside a ~72px two-up phone
               tile. Keeps the primitive's 44px floor and the type token. */}
@@ -99,7 +102,7 @@ export default function RewardCard({
             type="button"
             disabled={!affordable || outOfStock || pending}
             onClick={() => onRedeem(reward)}
-            className="flex-1 min-w-0 min-h-11 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-caption font-body font-semibold leading-tight py-1.5 px-1 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
+            className="flex-1 basis-24 min-w-0 min-h-11 bg-sheikah-teal-deep hover:bg-sheikah-teal disabled:opacity-40 disabled:cursor-not-allowed text-ink-page-rune-glow text-caption font-body font-semibold leading-tight py-1.5 px-1 rounded-lg border border-sheikah-teal-deep/60 transition-colors"
           >
             {pending ? 'Requesting…' : outOfStock ? 'Out of stock' : affordable ? 'Request reward' : 'Not enough coins'}
           </button>
@@ -121,6 +124,6 @@ export default function RewardCard({
           )}
         </div>
       )}
-    </ParchmentCard>
+    </AchievementCard>
   );
 }

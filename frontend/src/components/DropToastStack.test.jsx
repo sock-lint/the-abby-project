@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import DropToastStack from './DropToastStack.jsx';
 import MockPulse from '../test/pulse.jsx';
 import { emptyPulse } from '../test/pulseFixtures.js';
@@ -36,14 +37,14 @@ const drop = (over = {}) => ({
  */
 function renderWithBeats(drops) {
   const view = render(
-    <MockPulse pulse={emptyPulse()}>
+    <MemoryRouter><MockPulse pulse={emptyPulse()}>
       <DropToastStack />
-    </MockPulse>,
+    </MockPulse></MemoryRouter>,
   );
   const beat = (next) => view.rerender(
-    <MockPulse pulse={emptyPulse({ recent_drops: next })}>
+    <MemoryRouter><MockPulse pulse={emptyPulse({ recent_drops: next })}>
       <DropToastStack />
-    </MockPulse>,
+    </MockPulse></MemoryRouter>,
   );
   if (drops) beat(drops);
   return { ...view, beat };

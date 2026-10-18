@@ -14,10 +14,9 @@ from apps.achievements.models import (
     UserBadge,
 )
 from apps.achievements.services import SkillService
-from apps.accounts.models import User
 from apps.achievements.models import SkillCategory
 
-from ..context import get_current_user, require_parent, resolve_target_user
+from ..context import get_current_user, resolve_target_user, require_staff_parent
 from ..errors import (
     MCPNotFoundError,
     MCPValidationError,
@@ -49,7 +48,6 @@ from ..shapes import (
     badge_to_dict,
     skill_category_to_dict,
     skill_to_dict,
-    to_plain,
     user_badge_to_dict,
 )
 
@@ -126,7 +124,7 @@ def list_earned_badges(params: ListEarnedBadgesIn) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Tier 2.1: Skill-tree taxonomy authoring (parent-only writes)
+# Tier 2.1: Skill-tree taxonomy authoring (staff-parent-only writes)
 # ---------------------------------------------------------------------------
 
 
@@ -147,8 +145,8 @@ def _subject_to_dict(subject: Subject) -> dict[str, Any]:
 @tool()
 @safe_tool
 def create_category(params: CreateCategoryIn) -> dict[str, Any]:
-    """Create a new skill category (parent-only)."""
-    require_parent()
+    """Create a new skill category (staff-parent-only)."""
+    require_staff_parent()
     if SkillCategory.objects.filter(name=params.name).exists():
         raise MCPValidationError(
             f"A category named {params.name!r} already exists.",
@@ -165,8 +163,8 @@ def create_category(params: CreateCategoryIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_category(params: UpdateCategoryIn) -> dict[str, Any]:
-    """Edit a skill category (parent-only)."""
-    require_parent()
+    """Edit a skill category (staff-parent-only)."""
+    require_staff_parent()
     try:
         category = SkillCategory.objects.get(pk=params.category_id)
     except SkillCategory.DoesNotExist:
@@ -192,7 +190,7 @@ def delete_category(params: DeleteCategoryIn) -> dict[str, Any]:
     Parent-only. Use with care — projects tagged to this category will
     have ``category=None`` (SET_NULL on Project.category).
     """
-    require_parent()
+    require_staff_parent()
     try:
         category = SkillCategory.objects.get(pk=params.category_id)
     except SkillCategory.DoesNotExist:
@@ -208,13 +206,13 @@ def delete_category(params: DeleteCategoryIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def create_subject(params: CreateSubjectIn) -> dict[str, Any]:
-    """Create a subject inside a category (parent-only).
+    """Create a subject inside a category (staff-parent-only).
 
     A subject is the middle layer between Category and Skill. Used to group
     related skills in the skill tree (e.g., "Measuring & Layout" inside
     "Woodworking").
     """
-    require_parent()
+    require_staff_parent()
     try:
         category = SkillCategory.objects.get(pk=params.category_id)
     except SkillCategory.DoesNotExist:
@@ -238,8 +236,8 @@ def create_subject(params: CreateSubjectIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_subject(params: UpdateSubjectIn) -> dict[str, Any]:
-    """Edit a subject (parent-only)."""
-    require_parent()
+    """Edit a subject (staff-parent-only)."""
+    require_staff_parent()
     try:
         subject = Subject.objects.get(pk=params.subject_id)
     except Subject.DoesNotExist:
@@ -263,7 +261,7 @@ def update_subject(params: UpdateSubjectIn) -> dict[str, Any]:
 @safe_tool
 def delete_subject(params: DeleteSubjectIn) -> dict[str, Any]:
     """Delete a subject. Skills in it keep their category but lose the subject FK (SET_NULL). Parent-only."""
-    require_parent()
+    require_staff_parent()
     try:
         subject = Subject.objects.get(pk=params.subject_id)
     except Subject.DoesNotExist:
@@ -279,12 +277,12 @@ def delete_subject(params: DeleteSubjectIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def create_skill(params: CreateSkillIn) -> dict[str, Any]:
-    """Create a skill inside a category/subject (parent-only).
+    """Create a skill inside a category/subject (staff-parent-only).
 
     Optionally pass ``prerequisites`` to wire up SkillPrerequisite rows in
     one call — each entry is ``{required_skill_id, required_level}``.
     """
-    require_parent()
+    require_staff_parent()
     try:
         category = SkillCategory.objects.get(pk=params.category_id)
     except SkillCategory.DoesNotExist:
@@ -338,12 +336,12 @@ def create_skill(params: CreateSkillIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_skill(params: UpdateSkillIn) -> dict[str, Any]:
-    """Edit a skill (parent-only).
+    """Edit a skill (staff-parent-only).
 
     Pass ``clear_subject=True`` to detach a skill from its current subject
     (keeping its category).
     """
-    require_parent()
+    require_staff_parent()
     try:
         skill = Skill.objects.get(pk=params.skill_id)
     except Skill.DoesNotExist:
@@ -379,8 +377,8 @@ def update_skill(params: UpdateSkillIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def delete_skill(params: DeleteSkillIn) -> dict[str, Any]:
-    """Delete a skill (parent-only). Cascades to SkillPrerequisite + SkillProgress + tags."""
-    require_parent()
+    """Delete a skill (staff-parent-only). Cascades to SkillPrerequisite + SkillProgress + tags."""
+    require_staff_parent()
     try:
         skill = Skill.objects.get(pk=params.skill_id)
     except Skill.DoesNotExist:
@@ -393,12 +391,12 @@ def delete_skill(params: DeleteSkillIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def add_skill_prerequisite(params: AddSkillPrerequisiteIn) -> dict[str, Any]:
-    """Add a prerequisite to a skill (parent-only).
+    """Add a prerequisite to a skill (staff-parent-only).
 
     Idempotent: if a row for this (skill, required_skill) already exists,
     the required_level is updated to the new value.
     """
-    require_parent()
+    require_staff_parent()
     if params.skill_id == params.required_skill_id:
         raise MCPValidationError("A skill cannot require itself.")
     if not Skill.objects.filter(pk=params.skill_id).exists():
@@ -424,8 +422,8 @@ def add_skill_prerequisite(params: AddSkillPrerequisiteIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def remove_skill_prerequisite(params: RemoveSkillPrerequisiteIn) -> dict[str, Any]:
-    """Remove a prerequisite edge from the skill graph (parent-only)."""
-    require_parent()
+    """Remove a prerequisite edge from the skill graph (staff-parent-only)."""
+    require_staff_parent()
     deleted, _ = SkillPrerequisite.objects.filter(
         skill_id=params.skill_id,
         required_skill_id=params.required_skill_id,
@@ -445,7 +443,7 @@ def remove_skill_prerequisite(params: RemoveSkillPrerequisiteIn) -> dict[str, An
 @tool()
 @safe_tool
 def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
-    """Create a badge with a criteria rule (parent-only).
+    """Create a badge with a criteria rule (staff-parent-only).
 
     ``criteria_type`` is one of the 17 evaluator types — see the
     ``BadgeCriteriaType`` enum. ``criteria_value`` is a JSON dict whose
@@ -453,7 +451,7 @@ def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
     ``projects_completed``, ``{"category_id": 3, "count": 3}`` for
     ``category_projects``).
     """
-    require_parent()
+    require_staff_parent()
     if Badge.objects.filter(name=params.name).exists():
         raise MCPValidationError(f"A badge named {params.name!r} already exists.")
     subject = None
@@ -480,8 +478,8 @@ def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def update_badge(params: UpdateBadgeIn) -> dict[str, Any]:
-    """Edit a badge (parent-only)."""
-    require_parent()
+    """Edit a badge (staff-parent-only)."""
+    require_staff_parent()
     try:
         badge = Badge.objects.get(pk=params.badge_id)
     except Badge.DoesNotExist:
@@ -515,7 +513,7 @@ def update_badge(params: UpdateBadgeIn) -> dict[str, Any]:
 @safe_tool
 def delete_badge(params: DeleteBadgeIn) -> dict[str, Any]:
     """Delete a badge definition. UserBadge rows referencing it cascade. Parent-only."""
-    require_parent()
+    require_staff_parent()
     try:
         badge = Badge.objects.get(pk=params.badge_id)
     except Badge.DoesNotExist:

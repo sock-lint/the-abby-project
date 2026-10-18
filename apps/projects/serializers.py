@@ -11,6 +11,7 @@ from .models import (
     MaterialItem, Project, ProjectCollaborator,
     ProjectMilestone, ProjectResource, ProjectStep, ProjectTemplate, SavingsGoal,
     TemplateMaterial, TemplateMilestone, TemplateResource, TemplateStep,
+    TemplateSkillTag, TemplateMilestoneSkillTag,
     User,
 )
 from .planning_serializers import ProjectPlanSerializer
@@ -411,10 +412,24 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         return project
 
 
+class TemplateSkillTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateSkillTag
+        fields = ["skill_id", "xp_weight"]
+
+
+class TemplateMilestoneSkillTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemplateMilestoneSkillTag
+        fields = ["skill_id", "xp_amount"]
+
+
 class TemplateMilestoneSerializer(serializers.ModelSerializer):
+    skill_tags = TemplateMilestoneSkillTagSerializer(many=True, read_only=True)
+
     class Meta:
         model = TemplateMilestone
-        fields = ["id", "title", "description", "order", "bonus_amount"]
+        fields = ["id", "title", "description", "order", "bonus_amount", "skill_tags"]
 
 
 class TemplateMaterialSerializer(serializers.ModelSerializer):
@@ -438,6 +453,7 @@ class TemplateStepSerializer(serializers.ModelSerializer):
 
 
 class ProjectTemplateSerializer(serializers.ModelSerializer):
+    skill_tags = TemplateSkillTagSerializer(many=True, read_only=True)
     milestones = TemplateMilestoneSerializer(many=True, read_only=True)
     materials = TemplateMaterialSerializer(many=True, read_only=True)
     steps = TemplateStepSerializer(many=True, read_only=True)
@@ -455,7 +471,7 @@ class ProjectTemplateSerializer(serializers.ModelSerializer):
             "id", "title", "description", "instructables_url", "difficulty",
             "category", "category_id", "bonus_amount", "materials_budget",
             "source_project", "created_by", "is_public", "created_at",
-            "milestones", "materials", "steps", "resources",
+            "milestones", "materials", "steps", "resources", "skill_tags",
         ]
         read_only_fields = ["created_by", "created_at"]
 

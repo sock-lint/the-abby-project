@@ -2,18 +2,41 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, screen } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import ChallengeGoalCard, { ChallengeGoalDetail } from './ChallengeGoalCard';
+import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
 import { resolvePedestalImage } from '../../pedestal/pedestalRelease';
 
 vi.mock('../../pedestal/pedestalRelease', () => ({ resolvePedestalImage: vi.fn() }));
-beforeEach(() => resolvePedestalImage.mockReturnValue(null));
+vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn() }));
+beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
-  it.each([false, true])('uses decorative card art only in the child view (parent: %s)', (isParent) => {
-    resolvePedestalImage.mockReturnValue({ url: '/synthetic/light-card.png', width: 512, height: 512, assetId: 'card-front-light', variantId: 'web' });
+  it('retains exact catalog artwork, long title and pin control within the child card', async () => {
+    resolveCatalogIcon.mockImplementation((id) => id === 'item-meat' ? { url: '/synthetic/meat.png' } : null);
+    const goal = buildChallengeGoal({ name: 'An extraordinarily long challenge name to keep fully readable', catalog_icon: 'item-meat' });
+    const onPin = vi.fn();
+    const { user } = renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={() => {}} onPin={onPin} />, { withAuth: false });
+    expect(screen.getByRole('img', { name: goal.name })).toHaveAttribute('src', '/synthetic/meat.png');
+    expect(screen.getByRole('heading', { name: goal.name })).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0.75');
+    await user.click(screen.getByRole('button', { name: 'Pin to Today' }));
+    expect(onPin).toHaveBeenCalledWith(goal);
+  });
+
+  it.each(['card', 'detail'])('identifies the promised reward rarity in the %s without implying delivery', (surface) => {
+    const goal = buildChallengeGoal({ rewards: { coins: 10, xp: 20, items: [{ item_name: 'Canvas frame', item_rarity: 'epic', item_icon: '🖼️', quantity: 1 }] } });
+    renderWithProviders(surface === 'card' ? <ChallengeGoalCard goal={goal} onSelect={() => {}} /> : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('epic')).toBeInTheDocument();
+    expect(screen.getByText('Canvas frame ×1')).toBeInTheDocument();
+    expect(screen.getByText('Completion bonus · 10 coins · 20 XP')).toBeInTheDocument();
+    expect(screen.queryByText(/earned automatically/i)).toBeNull();
+  });
+
+  it.each([false, true])('uses the tall kit without changing the saved reward or parent role (parent: %s)', (isParent) => {
     const goal = buildChallengeGoal({ rewards: { coins: 10, xp: 20, items: [] } });
     const { container } = renderWithProviders(<ChallengeGoalCard goal={goal} isParent={isParent} onSelect={() => {}} />, { withAuth: false });
-    expect(Boolean(container.querySelector('img'))).toBe(!isParent);
-    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(container.querySelector('[data-achievement-card="tall"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-pedestal-image="card-front-light"]')).toBeNull();
+    expect(screen.getByRole('article', { name: goal.name })).toBeInTheDocument();
     expect(screen.getByText('Completion bonus · 10 coins · 20 XP')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: `View ${goal.name}` })).toBeEnabled();
   });
@@ -52,7 +75,8 @@ describe('Challenge goal cards', () => {
     renderWithProviders(surface === 'card'
       ? <ChallengeGoalCard goal={goal} onSelect={() => {}} />
       : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
-    expect(screen.getByText('Bonus earned automatically · 10 coins · 20 XP · Canvas frame ×2')).toBeInTheDocument();
+    expect(screen.getByText('Bonus earned automatically · 10 coins · 20 XP')).toBeInTheDocument();
+    expect(screen.getByText('Canvas frame ×2')).toBeInTheDocument();
     expect(screen.queryByText(/Egg/)).not.toBeInTheDocument();
   });
 
@@ -95,7 +119,8 @@ describe('Challenge goal cards', () => {
       reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0 },
     });
     renderWithProviders(<ChallengeGoalCard goal={goal} onSelect={() => {}} />, { withAuth: false });
-    expect(screen.getByText(`${status === 'active' ? 'Completion bonus' : 'Bonus pending'} · 10 coins · 20 XP · Egg ×1`)).toBeInTheDocument();
+    expect(screen.getByText(`${status === 'active' ? 'Completion bonus' : 'Bonus pending'} · 10 coins · 20 XP`)).toBeInTheDocument();
+    expect(screen.getByText('Egg ×1')).toBeInTheDocument();
     expect(screen.queryByText(/Bonus earned automatically/)).not.toBeInTheDocument();
   });
 

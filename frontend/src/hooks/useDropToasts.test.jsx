@@ -70,4 +70,15 @@ describe('useDropToasts', () => {
     beat(emptyPulse({ recent_drops: null }));
     await waitFor(() => expect(result.current.toasts).toEqual([]));
   });
+
+  it('retains server item guidance and exact nullable salvage in the reveal queue', async () => {
+    const { result, beat } = renderWithPulse();
+    const drop = makeDrop({
+      item_type: 'coin_pouch', item_description: 'Open for coins.',
+      item_metadata: { coins: 75 }, item_catalog_available: false, salvage_coins: null,
+      item_effect_summary: 'Open to collect 75 coins.',
+    });
+    beat(emptyPulse({ recent_drops: [drop] }));
+    await waitFor(() => expect(result.current.toasts[0]).toMatchObject(drop));
+  });
 });

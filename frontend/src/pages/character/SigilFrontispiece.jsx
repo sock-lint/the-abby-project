@@ -88,17 +88,17 @@ export default function SigilFrontispiece({ profile, profilePicture, onOpenTroph
         <TrophySlot badge={profile.active_trophy_badge} onOpen={onOpenTrophyPicker} compact />
       </div>
 
-      <dl className="mt-4 grid grid-cols-3 gap-3 border-t border-ink-page-shadow pt-3 font-body">
+      <dl className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(min(100%,6em),1fr))] gap-3 border-t border-ink-page-shadow pt-3 font-body text-caption">
         <div>
-          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Flame size={13} aria-hidden="true" /> Streak</dt>
+          <dt className="flex items-start gap-1 text-caption text-ink-secondary"><Flame size={13} aria-hidden="true" className="mt-0.5 shrink-0" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Streak</span></dt>
           <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.login_streak ?? 0} days</dd>
         </div>
         <div>
-          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Star size={13} aria-hidden="true" /> Perfect days</dt>
+          <dt className="flex items-start gap-1 text-caption text-ink-secondary"><Star size={13} aria-hidden="true" className="mt-0.5 shrink-0" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Perfect days</span></dt>
           <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.perfect_days_count ?? 0}</dd>
         </div>
         <div>
-          <dt className="flex items-center gap-1 text-caption text-ink-secondary"><Award size={13} aria-hidden="true" /> Best streak</dt>
+          <dt className="flex items-start gap-1 text-caption text-ink-secondary"><Award size={13} aria-hidden="true" className="mt-0.5 shrink-0" /><span className="min-w-0 break-words [overflow-wrap:anywhere]">Best streak</span></dt>
           <dd className="mt-1 text-body font-bold text-ink-primary tabular-nums">{profile.longest_login_streak ?? 0} days</dd>
         </div>
       </dl>

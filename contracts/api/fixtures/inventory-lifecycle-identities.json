@@ -17,6 +17,8 @@
       "metadata": {
         "species": "fixture-wolf"
       },
+      "effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
@@ -52,6 +54,8 @@
       "metadata": {
         "species": "fixture-wolf"
       },
+      "effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+      "acquisition_sources": [],
       "pet_species_name": "Fox",
       "potion_type_name": null,
       "food_species_name": null,
@@ -85,6 +89,8 @@
       "rarity_display": "Common",
       "coin_value": 0,
       "metadata": {},
+      "effect_summary": "Combine with a compatible potion in Hatching to meet this companion.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": null,
@@ -112,6 +118,8 @@
       "rarity_display": "Common",
       "coin_value": 0,
       "metadata": {},
+      "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
+      "acquisition_sources": [],
       "pet_species_name": null,
       "potion_type_name": null,
       "food_species_name": "Fox",

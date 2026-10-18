@@ -6,6 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import Inventory from './Inventory.jsx';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
+import { selectDropdown } from '../test/selectDropdown.js';
 
 beforeEach(() => {
   // jsdom doesn't implement scrollIntoView — TomeShelf calls it whenever
@@ -28,6 +29,46 @@ function renderInventory() {
 }
 
 describe('Inventory', () => {
+  it('filters rare rewards and sorts by rarity or the server update time', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 1, quantity: 1, updated_at: '2026-10-16T10:00:00Z', item: { id: 1, name: 'Common frame', item_type: 'cosmetic_frame', rarity: 'common', icon: '🖼️' } },
+      { id: 2, quantity: 1, updated_at: '2026-10-17T10:00:00Z', item: { id: 2, name: 'Rare frame', item_type: 'cosmetic_frame', rarity: 'rare', icon: '🖼️' } },
+      { id: 3, quantity: 1, updated_at: '2026-10-15T10:00:00Z', item: { id: 3, name: 'Legendary frame', item_type: 'cosmetic_frame', rarity: 'legendary', icon: '🖼️' } },
+    ])));
+    const user = userEvent.setup();
+    renderInventory();
+    await screen.findByText('Rare frame');
+    const names = () => screen.getAllByText(/^(Common|Rare|Legendary) frame$/).map((node) => node.textContent);
+    expect(names()).toEqual(['Rare frame', 'Common frame', 'Legendary frame']);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Rarity' }), 'rare');
+    expect(screen.queryByText('Common frame')).toBeNull();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Sort items' }), 'rarity');
+    expect(names()).toEqual(['Legendary frame', 'Rare frame']);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Rarity' }), 'all');
+    expect(names()).toEqual(['Legendary frame', 'Rare frame', 'Common frame']);
+  });
+
+  it('can clear a rarity filter that hides every item', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 1, quantity: 1, item: { id: 1, name: 'Common frame', item_type: 'cosmetic_frame', rarity: 'common' } },
+    ])));
+    const user = userEvent.setup();
+    renderInventory();
+    await screen.findByText('Common frame');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Rarity' }), 'rare');
+    expect(screen.queryByText('Common frame')).toBeNull();
+    await user.click(screen.getByRole('button', { name: /clear filter/i }));
+    expect(await screen.findByText('Common frame')).toBeInTheDocument();
+  });
+
+  it('explains a pouch from its server metadata before opening it', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json([
+      { id: 1, quantity: 1, item: { id: 1, name: 'Coin pouch', item_type: 'coin_pouch', rarity: 'rare', metadata: { coins: 75 }, effect_summary: 'Open to collect 75 coins.' } },
+    ])));
+    renderInventory();
+    expect(await screen.findByText('Open to collect 75 coins.')).toBeInTheDocument();
+  });
+
   it('identifies stored eggs as the first stage of their declared family', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json([
       { id: 1, quantity: 2, item: { id: 1, name: 'Fox Egg', pet_species_name: 'Fox', lifecycle_stage: 'egg', item_type: 'egg', rarity: 'common', icon: '🥚' } },

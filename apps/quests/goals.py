@@ -10,7 +10,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Prefetch, Q, Sum, prefetch_related_objects
 from django.utils import timezone
-from apps.rpg.catalog_icons import challenge_catalog_icon, item_catalog_icon
+from apps.rpg.catalog_icons import challenge_catalog_icon
 
 from .models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
@@ -95,11 +95,15 @@ def _midnight(day, zone):
 def _snapshot(goal):
     from apps.rpg.models import ItemDefinition
     from apps.rpg.catalog_support import item_is_available
+    from .reward_items import reward_item_details
     items = []
+    catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+        [row["item_id"] for row in goal.reward_items],
+    )
     for row in goal.reward_items:
-        item = ItemDefinition.objects.filter(pk=row["item_id"]).first()
+        item = catalog.get(row["item_id"])
         if item and item_is_available(item):
-            items.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
+            items.append({**row, **reward_item_details(item)})
     return {
         "name": goal.name, "description": goal.description, "metric": goal.metric,
         "target": str(goal.target), "unit": goal.unit, "filter": goal.trigger_filter,
@@ -290,6 +294,7 @@ def _award(occurrence, user):
     from apps.rpg.inventory import grant_item
     from apps.pets.models import UserMount
     from apps.rewards.services import CoinService
+    from .reward_items import reward_item_details
     snapshot = occurrence.snapshot
     rows = snapshot.get("skill_tags", [])
     skills = Skill.objects.in_bulk([row["skill_id"] for row in rows])
@@ -307,20 +312,24 @@ def _award(occurrence, user):
     )
     actual_xp = grant["xp_awarded"]
     coins, items = snapshot["coins"], []
+    catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+        [row["item_id"] for row in snapshot.get("items", [])],
+    )
     for row in snapshot.get("items", []):
-        item = ItemDefinition.objects.filter(pk=row["item_id"]).first()
+        item = catalog.get(row["item_id"])
         # This server-owned snapshot was validated when the window opened.
         if not item:
             continue
         quantity = row["quantity"]
+        details = {"item_id": item.pk, **reward_item_details(item, snapshot=row), "quantity": quantity}
         if item.item_type == "egg" and item.pet_species_id and UserMount.objects.filter(user=user, species_id=item.pet_species_id).exists() and item.coin_value > 0:
             salvage = item.coin_value * quantity
             CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}")
             coins += salvage
-            items.append({"item_name": item.display_name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity, "salvaged_to_coins": salvage})
+            items.append({**details, "salvaged_to_coins": salvage})
         else:
             grant_item(user, item, quantity)
-            items.append({"item_name": item.display_name, "item_catalog_icon": item_catalog_icon(item), "quantity": quantity})
+            items.append(details)
     receipt = {"coins": coins, "xp": actual_xp, "items": items}
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt
@@ -498,6 +507,7 @@ def _what_counts(snapshot, *, catalog=False):
 def _reward_preview(snapshot, item_catalog=None):
     """Show the accepted promise; new snapshots apply acquisition policy."""
     from apps.rpg.models import ItemDefinition
+    from .reward_items import reward_item_details
     rows = snapshot.get("items", [])
     if item_catalog is None:
         item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
@@ -507,7 +517,7 @@ def _reward_preview(snapshot, item_catalog=None):
     for row in rows:
         item = item_catalog.get(row["item_id"])
         if item is not None:
-            available.append({**row, "item_name": item.display_name, "item_icon": item.icon, "item_sprite_key": item.sprite_key, "item_catalog_icon": item_catalog_icon(item)})
+            available.append({**row, **reward_item_details(item, snapshot=row)})
     return available
 
 

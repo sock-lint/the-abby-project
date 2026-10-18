@@ -6,6 +6,7 @@ from django.utils.functional import cached_property
 from rest_framework import serializers
 from .models import MountExpedition, PetSpecies, PotionType, UserPet, UserMount
 from .lifecycle import LIFECYCLE_STAGES, companion_lifecycle_stage
+from .rarity import companion_rarity
 from .services import MOUNT_BREEDING_COOLDOWN_DAYS, bird_evolution_stage
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 from apps.rpg.catalog_icons import species_catalog_icon
@@ -29,7 +30,7 @@ class PetSpeciesSerializer(CatalogPortraitFields, serializers.ModelSerializer):
     catalog_available = serializers.SerializerMethodField()
     class Meta:
         model = PetSpecies
-        fields = ["id", "slug", "name", "icon", "sprite_key", "description", "food_preference", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages"]
+        fields = ["id", "slug", "name", "icon", "sprite_key", "description", "rarity", "food_preference", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages"]
         read_only_fields = fields
 
     def get_catalog_available(self, obj):
@@ -66,7 +67,7 @@ class PetSpeciesCatalogSerializer(CatalogPortraitFields, serializers.ModelSerial
     class Meta:
         model = PetSpecies
         fields = [
-            "id", "name", "icon", "sprite_key", "description", "food_preference",
+            "id", "name", "icon", "sprite_key", "description", "rarity", "food_preference",
             "available_potions", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages",
         ]
         read_only_fields = fields
@@ -102,7 +103,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
     class Meta:
         model = PetSpecies
         fields = [
-            "id", "slug", "name", "icon", "sprite_key", "description",
+            "id", "slug", "name", "icon", "sprite_key", "description", "rarity",
             "food_preference", "available_potions",
             "discovered", "owned_pet_ids", "owned_mount_potion_ids", "catalog_available", "catalog_icon", "grown_catalog_icon", "lifecycle_stages",
         ]
@@ -116,6 +117,7 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
 
 
 class UserPetSerializer(serializers.ModelSerializer):
+    rarity = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     evolution_stage = serializers.SerializerMethodField()
     lifecycle_stage = serializers.SerializerMethodField()
@@ -127,12 +129,15 @@ class UserPetSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserPet
         fields = [
-            "id", "species", "potion", "name", "growth_points",
+            "id", "species", "potion", "rarity", "name", "growth_points",
             "is_active", "evolved_to_mount", "is_fully_grown",
             "happiness_level", "last_fed_at",
             "created_at", "updated_at", "catalog_available", "evolution_stage", "lifecycle_stage",
         ]
         read_only_fields = fields
+
+    def get_rarity(self, obj):
+        return companion_rarity(obj.species, obj.potion)
 
     def get_catalog_available(self, obj):
         return pet_is_available(obj.species, obj.potion)
@@ -145,6 +150,7 @@ class UserPetSerializer(serializers.ModelSerializer):
 
 
 class UserMountSerializer(serializers.ModelSerializer):
+    rarity = serializers.SerializerMethodField()
     catalog_available = serializers.SerializerMethodField()
     evolution_stage = serializers.SerializerMethodField()
     lifecycle_stage = serializers.SerializerMethodField()
@@ -160,12 +166,15 @@ class UserMountSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserMount
         fields = [
-            "id", "species", "potion", "is_active",
+            "id", "species", "potion", "rarity", "is_active",
             "last_bred_at", "active_expedition", "can_breed", "breeding_cooldown_seconds",
             "expedition_available", "expedition_available_at", "expedition_available_in_seconds",
             "created_at", "updated_at", "catalog_available", "evolution_stage", "lifecycle_stage",
         ]
         read_only_fields = fields
+
+    def get_rarity(self, obj):
+        return companion_rarity(obj.species, obj.potion)
 
     def get_catalog_available(self, obj):
         return pet_is_available(obj.species, obj.potion)
