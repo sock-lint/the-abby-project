@@ -3,6 +3,7 @@ import * as Sentry from '@sentry/react';
 import { STORAGE_KEYS } from '../constants/storage';
 import { purgePrivateApiCaches } from '../pwa/privacy';
 import { apiUrl } from './urls';
+import { summarizeResponse } from './responseDiagnostics';
 
 export const AUTH_CHANGED_EVENT = 'abby:auth-changed';
 let readToken;
@@ -135,7 +136,7 @@ async function request(path, options = {}) {
         category: 'api',
         message: `Retrying ${method} ${path} after a non-JSON response`,
         level: 'warning',
-        data: { status: res.status, contentType },
+        data: { status: res.status, contentType, responseDiagnostics: summarizeResponse(res, url) },
       });
       const retryUrl = new URL(url, window.location.origin);
       retryUrl.searchParams.set('_abby_retry', crypto.randomUUID());
@@ -146,7 +147,7 @@ async function request(path, options = {}) {
     }
     Sentry.captureException(
       new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
-      { extra: { contentType, preview, url, status: res.status, attempts } },
+      { extra: { contentType, preview, url, status: res.status, attempts, responseDiagnostics: summarizeResponse(res, url) } },
     );
     throw new Error(UNAVAILABLE_MESSAGE);
   }
