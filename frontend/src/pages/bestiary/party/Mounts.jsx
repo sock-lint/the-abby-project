@@ -33,8 +33,8 @@ import {
  * Ready to breed / On cooldown). Cooldown info is computed from the
  * `last_bred_at` field added to UserMountSerializer.
  */
-export default function Mounts() {
-  const { data: stableData, loading, error: stableError, reload } = useApi(getStable);
+export default function Mounts({ refreshRevision = 0, onChanged } = {}) {
+  const { data: stableData, loading, error: stableError, reload } = useApi(getStable, [refreshRevision]);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [working, setWorking] = useState(false);
@@ -84,12 +84,14 @@ export default function Mounts() {
     );
   }
 
+  const refreshAfterChange = () => { if (onChanged) onChanged(); else reload(); };
+
   const handleActivateMount = async (mountId) => {
     const request = beginMutation();
     if (!request) return;
     setWorking(true);
     setError('');
-    try { await activateMount(mountId); if (request.isCurrent()) reload(); }
+    try { await activateMount(mountId); if (request.isCurrent()) refreshAfterChange(); }
     catch (e) { if (request.isCurrent()) setError(e.message); }
     finally { if (request.isCurrent()) setWorking(false); request.finish(); }
   };
@@ -106,7 +108,7 @@ export default function Mounts() {
         setClaimedExpedition(result);
         if (result.mount?.id === homeMount?.id) setReaction({ id: ++receiptCounter.current, creatureId: result.mount.id, action: 'celebrate' });
       }
-      reload();
+      refreshAfterChange();
     } catch (e) {
       if (request.isCurrent()) setError(e.message || 'Could not claim expedition.');
     } finally {
@@ -190,7 +192,7 @@ export default function Mounts() {
         <ExpeditionLaunchSheet
           mount={launchMount}
           onDismiss={() => setLaunchMount(null)}
-          onLaunched={() => reload()}
+          onLaunched={refreshAfterChange}
         />
       )}
       {claimedExpedition && (

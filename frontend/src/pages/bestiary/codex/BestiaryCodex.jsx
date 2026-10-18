@@ -20,8 +20,8 @@ const STORAGE_KEY = 'bestiary:codex:active-chapter';
  * a BestiaryFolio with rarity information and the existing SpeciesTile grid.
  * Shared collection controls match the Badges and Lorebook navigation.
  */
-export default function BestiaryCodex() {
-  const { data, loading } = useApi(getPetCodex);
+export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
+  const { data, loading } = useApi(getPetCodex, [refreshRevision]);
   const [selected, setSelected] = useState(null);
 
   // User-clicked chapter override. Persists across renders without a
@@ -137,7 +137,7 @@ export default function BestiaryCodex() {
 
       {selected && (
         <SpeciesDetailSheet
-          species={selected}
+          species={species.find((entry) => entry.id === selected.id) || selected}
           onClose={() => setSelected(null)}
         />
       )}

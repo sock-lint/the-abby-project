@@ -14,6 +14,14 @@ identify one ownership path; stages never create four separate species.
 | Middle | Owned `UserPet`, at least 50 saved growth, not evolved | Same care; no additional award or ownership |
 | Grown | Confirmed `evolved_to_mount` or owned `UserMount` | Existing activation, expeditions and eligible breeding |
 
+Pets → **Hatchery** (`/bestiary?tab=hatchery`) lists every owned egg and its
+quantity, including earlier saved eggs that are unavailable for new hatching.
+Available eggs can be selected and their family artwork and four-stage guide
+inspected even without a potion. Selecting or previewing an egg changes no
+inventory or progress. The hatch form explains an already owned species/potion
+pair before submission, including pets that have already grown; the server
+still validates ownership, availability and compatibility for every hatch.
+
 An egg remains in inventory until the existing explicit hatch action consumes
 one egg and one potion and creates a baby at zero growth. It is not an active
 companion, incubation timer or new pet row. Multiple eggs are inventory
@@ -26,6 +34,13 @@ evolution, mounts and expedition history. The lifecycle is a read-only
 projection, requiring no data migration or backfill. An old unevolved row at
 100 growth remains Middle until evolution is confirmed. Stage reads, art loads,
 preview controls and local greetings award no XP, Coins, food or growth.
+
+Companions provides Baby and Middle filters using the saved server stage;
+growth tiles show the remaining points to the next threshold. Saved collection
+rows retain their care controls outside the active catalog filters. Confirmed
+pet mutations refresh every visited Pets tab, so hatching, middle growth,
+evolution and expeditions appear without reloading the page. Tab filters and
+unsubmitted hatch ingredient selections remain in place while switching tabs.
 
 ## API and consumers
 

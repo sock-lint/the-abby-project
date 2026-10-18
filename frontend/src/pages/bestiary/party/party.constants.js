@@ -2,6 +2,8 @@
 // game-design constant — safe to live client-side. Imported by both
 // Mounts.jsx (filter pills) and Hatchery.jsx (breed-rest copy).
 import { companionRarity } from '../../../companion/rarity';
+import { companionStage, lifecycleStageLabel } from '../../../companion/lifecycle';
+import lifecycle from '../../../../../shared/catalog/companion-lifecycle.json';
 
 export const BREEDING_COOLDOWN_DAYS = 7;
 
@@ -54,9 +56,21 @@ export const HAPPINESS_WHISPER = {
 export const COMPANION_FILTERS = [
   { key: 'all',    label: 'All',             icon: '🎒', match: () => true },
   { key: 'active', label: 'Active',          icon: '⭐', match: (p) => !!p.is_active },
+  { key: 'baby',   label: 'Baby',            icon: '🐣', match: (p) => companionStage(p) === 'baby' },
+  { key: 'middle', label: 'Middle',          icon: '🌱', match: (p) => companionStage(p) === 'middle' },
   { key: 'hungry', label: 'Hungry',          icon: '🍖', match: (p) => !p.evolved_to_mount && HUNGRY_LEVELS.has(p.happiness_level) },
   { key: 'ready',  label: 'Almost grown', icon: '✨', match: (p) => !p.evolved_to_mount && (p.growth_points ?? 0) >= READY_TO_EVOLVE_THRESHOLD },
 ];
+
+export function nextStageProgress(pet) {
+  const stage = companionStage(pet);
+  const next = stage === 'baby' ? 'middle' : stage === 'middle' ? 'grown' : null;
+  if (!next || !Number.isFinite(pet.growth_points) || pet.growth_points < 0) return null;
+  const remaining = lifecycle[`${next}_growth`] - pet.growth_points;
+  // A counter at the threshold never confirms a stage change. Wait for the
+  // saved server stage instead of promising a local evolution.
+  return remaining > 0 ? `${remaining} growth to ${lifecycleStageLabel(next)}` : null;
+}
 
 export const MOUNT_FILTERS = [
   { key: 'all',      label: 'All',             icon: '🐎', match: () => true },

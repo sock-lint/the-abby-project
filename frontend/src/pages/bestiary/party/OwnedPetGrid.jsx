@@ -5,7 +5,7 @@ import RpgSprite from '../../../components/rpg/RpgSprite';
 import { petSpriteKeys } from '../../../components/rpg/petSpriteKeys';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { RARITY_HALO } from '../../../components/atlas/mastery.constants';
-import { HAPPINESS_WHISPER } from './party.constants';
+import { HAPPINESS_WHISPER, nextStageProgress } from './party.constants';
 import { creatureLabel } from '../../../companion/appearance';
 import { companionStageLabel } from '../../../companion/lifecycle';
 import { companionRarity } from '../../../companion/rarity';
@@ -79,6 +79,11 @@ export default function OwnedPetGrid({ pets, selectedPetId, onSelect, label = 'Y
                       <div className="font-rune text-micro text-ink-whisper mt-0.5">
                         {pet.growth_points}/100
                       </div>
+                      {nextStageProgress(pet) && (
+                        <div className="text-caption text-ink-secondary mt-0.5">
+                          {nextStageProgress(pet)}
+                        </div>
+                      )}
                     </div>
                   )}
                   {pet.evolved_to_mount && (
