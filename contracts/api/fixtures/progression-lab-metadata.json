@@ -1,0 +1,315 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "horizon_days": 90,
+    "trials": 20,
+    "seed": 42,
+    "active_days_per_week": 5,
+    "reading_minutes": 10,
+    "project_minutes": 0,
+    "chores_per_day": 2,
+    "chore_coins": 10,
+    "chore_xp": 10,
+    "habits_per_day": 1,
+    "habit_xp": 5,
+    "movement_sessions_per_day": 0,
+    "movement_minutes": 20,
+    "movement_intensity": "medium",
+    "creations_per_day": 0,
+    "journal_per_day": true,
+    "feed_strategy": "feed_all",
+    "expeditions_per_day": 1,
+    "expedition_tier": "long"
+  },
+  "limits": {
+    "horizon_days": {
+      "choices": [
+        30,
+        90,
+        180,
+        365
+      ]
+    },
+    "trials": {
+      "min": 1,
+      "max": 40
+    },
+    "seed": {
+      "min": 0,
+      "max": 2147483647
+    },
+    "active_days_per_week": {
+      "min": 1,
+      "max": 7
+    },
+    "reading_minutes": {
+      "min": 0,
+      "max": 240
+    },
+    "project_minutes": {
+      "min": 0,
+      "max": 240
+    },
+    "chores_per_day": {
+      "min": 0,
+      "max": 10
+    },
+    "chore_coins": {
+      "min": 0,
+      "max": 200
+    },
+    "chore_xp": {
+      "min": 0,
+      "max": 100
+    },
+    "habits_per_day": {
+      "min": 0,
+      "max": 10
+    },
+    "habit_xp": {
+      "min": 0,
+      "max": 100
+    },
+    "movement_sessions_per_day": {
+      "min": 0,
+      "max": 6
+    },
+    "movement_minutes": {
+      "min": 1,
+      "max": 240
+    },
+    "movement_intensity": {
+      "choices": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
+    "creations_per_day": {
+      "min": 0,
+      "max": 4
+    },
+    "journal_per_day": {
+      "type": "boolean"
+    },
+    "feed_strategy": {
+      "choices": [
+        "feed_all",
+        "none"
+      ]
+    },
+    "expeditions_per_day": {
+      "min": 0,
+      "max": 15
+    },
+    "expedition_tier": {
+      "choices": [
+        "short",
+        "standard",
+        "long"
+      ]
+    }
+  },
+  "catalog": {
+    "fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
+    "skills": 5,
+    "supported_items": 5,
+    "supported_pet_variants": 1,
+    "modeled_badges": 1,
+    "excluded_badges": 0,
+    "excluded_badge_criteria": {},
+    "system_challenges": 1,
+    "nonrepeatable_challenges": 1
+  },
+  "coverage": {
+    "modeled": [
+      "New child with zero XP, Coins and owned companions/inventory",
+      "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
+      "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+      "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+      "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance"
+    ],
+    "excluded": [
+      "Homework, completed projects/milestones, savings, money, birthdays and grade progression",
+      "Private family chores, habits, reward shop, redemptions, parent goals and co-op/legacy quests",
+      "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
+      "Breeding, Perfect Day, manual grants, time-of-day and approval-delay effects",
+      "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
+      "Production deployment/asset delivery verification and player retention/engagement predictions"
+    ],
+    "assumptions": [
+      "Day 1 starts an abstract week; visits occur on the first N days of each seven-day block",
+      "All configured chores are approved that visit; each habit is a distinct positive habit with one tap/day",
+      "Source skills are fixed synthetic tags, reported in activity_skills; absent/locked skills earn no XP",
+      "Care hatches any compatible new pair, opens Coin pouches and feeds all available food to the oldest unevolved pet",
+      "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+      "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+      "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
+      "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
+      "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content"
+    ],
+    "activity_skills": {
+      "chores": [
+        [
+          "Life Skills",
+          "Persistence",
+          1
+        ]
+      ],
+      "habits": [
+        [
+          "Physical",
+          "Mindfulness",
+          1
+        ]
+      ],
+      "project": [
+        [
+          "Life Skills",
+          "Persistence",
+          1
+        ]
+      ],
+      "movement": [
+        [
+          "Physical",
+          "Endurance",
+          1
+        ]
+      ],
+      "creations": [
+        [
+          "Art & Crafts",
+          "Drawing",
+          1
+        ]
+      ],
+      "reading": [
+        [
+          "Language Arts",
+          "Reading Comprehension",
+          1
+        ]
+      ],
+      "journal": [
+        [
+          "Language Arts",
+          "Creative Writing",
+          2
+        ],
+        [
+          "Language Arts",
+          "Vocabulary",
+          1
+        ]
+      ]
+    },
+    "excluded_badge_criteria": {},
+    "initial_state": {
+      "coins": 0,
+      "xp": 0,
+      "pets": 0,
+      "mounts": 0,
+      "inventory": 0
+    }
+  },
+  "audit": [
+    {
+      "severity": "info",
+      "code": "partial_model",
+      "message": "This forecasts the stated activity/care policy, not full app exhaustion or measured retention."
+    },
+    {
+      "severity": "warning",
+      "code": "no_coin_spending",
+      "message": "No private reward offers are read. Coins accumulate; shop affordability and economic balance require a separate spending assumption."
+    },
+    {
+      "severity": "warning",
+      "code": "random_first_hatch",
+      "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
+    }
+  ],
+  "rules_fingerprint": "ef2d1c58bc695c3e7554c5acee893e47d16620358c68f5d12f020a74a34694bc",
+  "engine_version": "2026-10-17.2",
+  "source_commit": "unavailable",
+  "work_budget": {
+    "max_units": 10000,
+    "default_units": 9600,
+    "description": "trials × (calendar days + active visits × requested daily activity/expedition sources); conservative, before catalog reads"
+  },
+  "presets": [
+    {
+      "name": "Light",
+      "config": {
+        "horizon_days": 90,
+        "trials": 20,
+        "seed": 42,
+        "active_days_per_week": 3,
+        "reading_minutes": 10,
+        "project_minutes": 0,
+        "chores_per_day": 1,
+        "chore_coins": 10,
+        "chore_xp": 10,
+        "habits_per_day": 1,
+        "habit_xp": 5,
+        "movement_sessions_per_day": 0,
+        "movement_minutes": 20,
+        "movement_intensity": "medium",
+        "creations_per_day": 0,
+        "journal_per_day": false,
+        "feed_strategy": "feed_all",
+        "expeditions_per_day": 1,
+        "expedition_tier": "long"
+      }
+    },
+    {
+      "name": "Typical",
+      "config": {
+        "horizon_days": 90,
+        "trials": 20,
+        "seed": 42,
+        "active_days_per_week": 5,
+        "reading_minutes": 10,
+        "project_minutes": 0,
+        "chores_per_day": 2,
+        "chore_coins": 10,
+        "chore_xp": 10,
+        "habits_per_day": 1,
+        "habit_xp": 5,
+        "movement_sessions_per_day": 0,
+        "movement_minutes": 20,
+        "movement_intensity": "medium",
+        "creations_per_day": 0,
+        "journal_per_day": true,
+        "feed_strategy": "feed_all",
+        "expeditions_per_day": 1,
+        "expedition_tier": "long"
+      }
+    },
+    {
+      "name": "Frequent",
+      "config": {
+        "horizon_days": 90,
+        "trials": 10,
+        "seed": 42,
+        "active_days_per_week": 7,
+        "reading_minutes": 10,
+        "project_minutes": 0,
+        "chores_per_day": 3,
+        "chore_coins": 10,
+        "chore_xp": 10,
+        "habits_per_day": 1,
+        "habit_xp": 5,
+        "movement_sessions_per_day": 1,
+        "movement_minutes": 20,
+        "movement_intensity": "medium",
+        "creations_per_day": 1,
+        "journal_per_day": true,
+        "feed_strategy": "feed_all",
+        "expeditions_per_day": 1,
+        "expedition_tier": "long"
+      }
+    }
+  ]
+}

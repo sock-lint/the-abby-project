@@ -393,3 +393,35 @@ class ContentPackPublication(TimestampedModel):
     stats = models.JSONField(default=dict)
     expires_at = models.DateTimeField()
     published_at = models.DateTimeField(null=True, blank=True)
+
+
+class RPGContentDraft(TimestampedModel):
+    """A private, revisioned proposal over the global challenge/item catalog."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    revision = models.PositiveIntegerField(default=1)
+    changes = models.JSONField(default=list)
+    preview = models.ForeignKey(ContentPackPublication, null=True, blank=True, on_delete=models.SET_NULL)
+    simulation = models.JSONField(default=dict, blank=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+
+class RPGContentOverride(TimestampedModel):
+    """Published database authoring wins over a later bundled YAML reload.
+
+    The original natural identity also prevents a renamed challenge being
+    recreated when the original bundle is loaded again. No earned row is moved.
+    """
+
+    model_label = models.CharField(max_length=100)
+    object_id = models.PositiveBigIntegerField()
+    family = models.ForeignKey("families.Family", null=True, on_delete=models.SET_NULL)
+    source_lookup = models.JSONField(default=dict)
+    values = models.JSONField(default=dict)
+    publication = models.ForeignKey(ContentPackPublication, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["model_label", "object_id"], name="rpg_content_override_object")]

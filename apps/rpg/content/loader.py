@@ -96,6 +96,11 @@ class ContentPack:
         silently leak writes — ``transaction.savepoint()`` is a no-op
         outside of an atomic block.
         """
+        # A baseline reload and a reviewed publication share one catalog lock.
+        # Otherwise a loader could read "no override", wait on an upsert, and
+        # overwrite an override that committed during that wait.
+        from .publication import _catalog_lock
+        _catalog_lock()
         parsed = self.parsed_content if self.parsed_content is not None else self._parse_all()
         from .validation import validate_content
         validate_content(parsed, strict=self.pack_key is not None)
@@ -220,6 +225,12 @@ class ContentPack:
 
     def _upsert(self, model, *, defaults, entry=None, **lookup):
         """Only a pack's previously claimed stable IDs can update existing rows."""
+        if model._meta.label_lower == "rpg.itemdefinition":
+            from .workbench import preserved_loader_entry
+            override = preserved_loader_entry(model._meta.label_lower, lookup, pack_key=self.pack_key, entry=entry)
+            if override:
+                self.stats.bump("skipped", "database_authored_item")
+                return model.objects.get(pk=override.object_id), False
         if not self.pack_key:
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
@@ -619,6 +630,10 @@ class ContentPack:
 
         for entry in data.get("items", []) or []:
             slug = self._ns(entry["slug"])
+            from .workbench import preserved_loader_entry
+            if preserved_loader_entry("rpg.itemdefinition", {"slug": slug}, pack_key=self.pack_key, entry=entry):
+                self.stats.bump("skipped", "database_authored_item")
+                continue
             item_type = entry["item_type"]
             if slug.startswith("meshtint-") and item_type in {"egg", "potion"}:
                 raise ContentPackError("Prepared eggs must be generated from species; reuse the global Base potion")
@@ -739,6 +754,10 @@ class ContentPack:
         from apps.rpg.models import ItemDefinition
 
         for entry in data.get("quests", []) or []:
+            from .workbench import preserved_loader_entry
+            if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
+                self.stats.bump("skipped", "database_authored_quest")
+                continue
             defaults = {
                 "description": entry.get("description", ""),
                 "icon": entry.get("icon", "⚔️"),

@@ -167,7 +167,7 @@ def audit_catalog_rows(section, rows):
             for reward in row.reward_items.all():
                 if not item_is_available(reward.item):
                     findings.append(_finding("unsupported_reward_item", section, row,
-                        f"New acceptance excludes item {reward.item_id}; frozen existing promises are unaffected."))
+                        f"New acceptance excludes item {reward.item.slug or reward.item_id}; frozen existing promises are unaffected."))
             filters = row.trigger_filter if isinstance(row.trigger_filter, dict) else {}
             category = filters.get("skill_category_id")
             if category and (type(category) is not int or not SkillCategory.objects.filter(pk=category).exists()):

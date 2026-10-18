@@ -446,6 +446,15 @@ export const reactivateParent = (id) => api.post(`/parents/${id}/reactivate/`);
 export const adminPing = () => api.get('/admin/families/');
 export const adminCreateFamily = (data) => api.post('/admin/families/', data);
 
+// Anonymous, server-calculated designer scenarios; staff parents only.
+export const getProgressionLab = (options) => api.get('/rpg/progression-lab/', options);
+export {
+  getContentWorkbench, createContentDraft, getContentDraft, updateContentDraft,
+  previewContentDraft, simulateContentDraft, publishContentDraft,
+} from './contentWorkbench';
+export const simulateProgressionLab = (data, options) =>
+  api.post('/rpg/progression-lab/simulate/', data, options);
+
 // Admin → OAuth Clients (staff-parent-only)
 export const listOAuthApplications = () => api.get('/admin/oauth/applications/');
 export const revokeOAuthApplication = (clientId) =>
