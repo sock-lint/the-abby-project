@@ -11,6 +11,13 @@ React transport and report checks live in
 `frontend/src/api/progressionLabContractFixtures.test.js` and the Progression Lab
 page tests.
 
+`progression-lab-reward-budget-report.json` adds a synthetic shared daily
+expedition/pouch Coin allowance to the same endpoint. Its normalized scenario
+and report distinguish requested, credited and omitted automatic Coins,
+including expedition salvage, without altering parent-authored chore rewards
+or any live economy rule. Metadata publishes the nullable whole-Coin bound;
+legacy routines omit the field and retain uncapped behavior.
+
 `completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
 `completion-timing-homework-reviewed.json` and
 `completion-timing-homework-assignment.json` come from the real submission/read

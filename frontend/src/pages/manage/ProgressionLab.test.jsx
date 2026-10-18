@@ -62,6 +62,52 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  it('compares per-child reward budgets while keeping the completed baseline and preserving exports', async () => {
+    const rewardBudgetDefaults = { daily_coins: null };
+    const current = { ...metadata, defaults: { ...defaults, reward_budget: rewardBudgetDefaults },
+      reward_budget_defaults: rewardBudgetDefaults, reward_budget_limits: { daily_coins: { min: 0, max: 100000, nullable: true } } };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)),
+    );
+    const stats = (value) => ({ p10: value, p50: value, p90: value, mean: value });
+    const budgetResult = (daily_coins) => ({ daily_coins, summary: { raw_coins: stats(300), awarded_coins: stats(daily_coins === null ? 300 : 100), omitted_coins: stats(daily_coins === null ? 0 : 200), capped_days: stats(daily_coins === null ? 0 : 2) }, sources: [], assumptions: [] });
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...report, config: body, reward_budget: budgetResult(body.reward_budget.daily_coins) }));
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('region', { name: 'Reward budget forecast' });
+    expect(simulation.calls[0].body.reward_budget).toEqual({ daily_coins: null });
+    await user.click(screen.getByRole('button', { name: 'Keep as comparison' }));
+    await user.click(screen.getByRole('button', { name: '50 Coins per child per day' }));
+    expect(screen.getByText(/Inputs have changed/)).toBeVisible();
+    expect(within(screen.getByRole('region', { name: 'Reward budget forecast' })).getByText('Uncapped per child')).toBeVisible();
+    expect(simulation.calls).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: 'Use light routine' }));
+    expect(screen.getByRole('spinbutton', { name: 'Daily reward budget per child (Coins)' })).toHaveValue(50);
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await waitFor(() => expect(simulation.calls).toHaveLength(2));
+    expect(simulation.calls[1].body).toMatchObject({ active_days_per_week: 3, reward_budget: { daily_coins: 50 } });
+    const forecast = within(screen.getByRole('region', { name: 'Reward budget forecast' }));
+    expect(forecast.getByText('50 Coins per child per day')).toBeVisible();
+    expect(forecast.getByText(/Comparison budget: Uncapped per child/)).toBeVisible();
+    const table = within(forecast.getByRole('table', { name: 'Reward budget totals across simulated journeys' }));
+    expect(table.getByRole('row', { name: /Coins awarded from budgeted sources/ })).toHaveTextContent('100');
+    expect(table.getByRole('row', { name: /Coins awarded from budgeted sources/ })).toHaveTextContent('300');
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:budget-report');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await user.click(screen.getByRole('button', { name: 'Download JSON report' }));
+    const downloaded = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(JSON.parse(reader.result)); reader.readAsText(createUrl.mock.calls[0][0]); });
+    expect(downloaded.config.reward_budget).toEqual({ daily_coins: 50 });
+    await user.click(screen.getByText('Load a saved routine'));
+    await user.upload(screen.getByLabelText('Saved routine'), new File([JSON.stringify(report)], 'old-report.json', { type: 'application/json' }));
+    expect(await screen.findByText(/Saved routine loaded/)).toBeVisible();
+    expect(screen.getByRole('spinbutton', { name: 'Daily reward budget per child (Coins)' })).toHaveValue(null);
+    expect(screen.getByRole('button', { name: 'Uncapped' })).toHaveAttribute('aria-pressed', 'true');
+    expect(simulation.calls).toHaveLength(2);
+  });
+
   it('posts real purchasing assumptions, preserves the saved report while editing, and compares their economic assumptions', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
