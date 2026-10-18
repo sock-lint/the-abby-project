@@ -10,6 +10,9 @@ import { useAuth } from '../../hooks/useApi';
 import { selectDropdown } from '../../test/selectDropdown';
 import sharedMetadata from '../../../../contracts/api/fixtures/progression-lab-metadata.json';
 import sharedReport from '../../../../contracts/api/fixtures/progression-lab-report.json';
+import sharedEconomyReport from '../../../../contracts/api/fixtures/progression-lab-economy-report.json';
+import { economyDefaults, economyMetadata } from './progressionEconomyTestData';
+import { formatCurrency } from '../../utils/format';
 
 const defaults = {
   horizon_days: 90, trials: 20, seed: 42, active_days_per_week: 5,
@@ -59,6 +62,64 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  it('posts real purchasing assumptions, preserves the saved report while editing, and compares their economic assumptions', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/rpg/progression-lab/', () => HttpResponse.json({ ...sharedMetadata, defaults: sharedEconomyReport.config })),
+    );
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...sharedEconomyReport, config: body }));
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('region', { name: 'Purchasing forecast' });
+    expect(simulation.calls[0].body).toEqual(sharedEconomyReport.config);
+    const totals = () => within(screen.getByRole('table', { name: 'Purchasing totals across simulated journeys' }));
+    const cost = formatCurrency(sharedEconomyReport.economy.summary.family_cost_cents.p50 / 100);
+    expect(totals().getByRole('row', { name: /Estimated reward and print fulfillment cost/ })).toHaveTextContent(cost);
+    await user.click(screen.getByRole('button', { name: 'Keep as comparison' }));
+    const familyCost = within(screen.getByRole('group', { name: 'Reward 1' })).getByRole('spinbutton', { name: 'Family cost per purchase ($)' });
+    await user.clear(familyCost);
+    await user.type(familyCost, '7.25');
+    expect(screen.getByText(/Inputs have changed/)).toBeVisible();
+    expect(totals().getByRole('row', { name: /Estimated reward and print fulfillment cost/ })).toHaveTextContent(cost);
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await waitFor(() => expect(simulation.calls).toHaveLength(2));
+    expect(simulation.calls[1].body.economy.offers[0].family_cost_cents).toBe(725);
+    expect(await screen.findByText(/Purchasing assumptions differ/)).toBeVisible();
+    expect(totals().getByRole('columnheader', { name: 'Comparison median' })).toBeVisible();
+    const createUrl = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:economy-report');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    await user.click(screen.getByRole('button', { name: 'Download JSON report' }));
+    const downloaded = await new Promise((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(JSON.parse(reader.result)); reader.readAsText(createUrl.mock.calls[0][0]); });
+    expect(downloaded.config.economy.offers[0].family_cost_cents).toBe(725);
+  });
+
+  it('uses the explicit purchasing example, preserves it through routine presets, and imports old routines with purchasing off', async () => {
+    const current = { ...metadata, ...economyMetadata, defaults: { ...defaults, economy: economyDefaults } };
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)),
+    );
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...report, config: body }));
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByRole('button', { name: 'Load purchasing example (90 days, 10 children)' }));
+    expect(screen.getByRole('spinbutton', { name: 'Simulated children' })).toHaveValue(10);
+    expect(screen.getByRole('checkbox', { name: 'Model purchases and family costs' })).toBeChecked();
+    expect(simulation.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Use light routine' }));
+    expect(screen.getByRole('textbox', { name: 'Reward name' })).toHaveValue('Example outing');
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await waitFor(() => expect(simulation.calls).toHaveLength(1));
+    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, economy: { enabled: true, offers: [{ key: 'example-outing', family_cost_cents: 500 }] } });
+    await user.click(screen.getByText('Load a saved routine'));
+    await user.upload(screen.getByLabelText('Saved routine'), new File([JSON.stringify(report)], 'old-report.json', { type: 'application/json' }));
+    expect(await screen.findByText(/Saved routine loaded/)).toBeVisible();
+    expect(screen.getByRole('checkbox', { name: 'Model purchases and family costs' })).not.toBeChecked();
+    expect(simulation.calls).toHaveLength(1);
+  });
+
   it('renders the real endpoint contract with explicit subset totals, inventory, level and receipt metadata', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),

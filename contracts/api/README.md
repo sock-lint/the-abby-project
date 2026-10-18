@@ -1,5 +1,16 @@
 # Shared API response fixtures
 
+`progression-lab-metadata.json`, `progression-lab-report.json` and
+`progression-lab-economy-report.json` bind anonymous new-child forecasts to
+their real staff-parent endpoints. The economy example uses synthetic reward
+offers and print estimates, a calendar-month budget and assumed approved money
+earnings. Coin spending, money exchanged and estimated fulfillment costs remain
+separate; these fixtures contain no real shop, family financial data or cash-out
+value. Producers live in `config/tests/test_progression_api_contract_fixtures.py`;
+React transport and report checks live in
+`frontend/src/api/progressionLabContractFixtures.test.js` and the Progression Lab
+page tests.
+
 `content-workbench-catalog.json` and `content-workbench-denied.json` bind the
 staff content editor's catalog, exact reward references, reverse item uses,
 simulation metadata and permission denial to real Django responses. Producers

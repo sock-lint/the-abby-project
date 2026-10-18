@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import metadata from '../../../contracts/api/fixtures/progression-lab-metadata.json';
 import report from '../../../contracts/api/fixtures/progression-lab-report.json';
+import economyReport from '../../../contracts/api/fixtures/progression-lab-economy-report.json';
 import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
@@ -23,7 +24,7 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it('posts only the flat scenario and preserves completion denominators, missing dates and subset totals', async () => {
+  it('posts only the anonymous scenario and preserves completion denominators, missing dates and subset totals', async () => {
     const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ request }) => {
       expect(request.headers.get('Authorization')).toBe('Token test-session');
       return report;
@@ -42,6 +43,32 @@ describe('Progression lab shared API fixtures', () => {
     expect(response.summary.finite_completed_p50 + response.summary.finite_remaining_p50).toBe(response.summary.finite_content_total);
     expect(response.journey.seed).toBe(report.config.seed);
     expect(response.rules_fingerprint).toBe(metadata.rules_fingerprint);
+  });
+
+  it('preserves purchase timing, calendar budgets and separate Coin and money flows', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, economyReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(economyReport.config);
+    expect(simulation.calls).toHaveLength(1);
+    expect(simulation.calls[0].url).toMatch(/\/api\/rpg\/progression-lab\/simulate\/$/);
+    expect(simulation.calls[0].body).toEqual(economyReport.config);
+    expect(response.economy.enabled).toBe(true);
+    expect(response.economy.exchange_rate_coins_per_dollar).toBe(10);
+    expect(response.economy.offers.find((offer) => offer.kind === 'printing').coin_price).toBe(3);
+    expect(response.economy.months.map((month) => month.month)).toEqual(['2026-01', '2026-02']);
+    for (const month of response.economy.months) {
+      expect(month.family_cost_cents.p90).toBeLessThanOrEqual(600);
+      expect(month.print_minutes.p90).toBeLessThanOrEqual(30);
+      expect(month.print_grams.p90).toBeLessThanOrEqual(20);
+    }
+    const totals = response.economy.summary;
+    expect(totals.coin_balance.mean).toBeCloseTo(totals.coins_earned.mean + totals.coins_exchanged.mean - totals.coins_spent.mean, 1);
+    expect(totals.money_remaining_cents.mean).toBeCloseTo(totals.money_earned_cents.mean - totals.money_exchanged_cents.mean, 1);
+    expect(totals.parent_liability_cents.mean).toBeCloseTo(totals.money_remaining_cents.mean + totals.family_cost_cents.mean, 1);
+    for (const offer of response.economy.offers) {
+      expect(offer.first_purchase.trials).toBe(economyReport.config.trials);
+      expect(offer.first_coin_affordable.trials).toBe(economyReport.config.trials);
+    }
   });
 
   it('propagates a rejected scenario without silently retrying the request', async () => {
