@@ -166,7 +166,14 @@ class ReadingCompanionContentTests(ReadingChallengeReceiptTests):
         self.assertEqual((starter.reward_receipt["coins"], routine.reward_receipt["coins"]), (0, 0))
         egg = ItemDefinition.objects.get(slug="chick-egg")
         potion = ItemDefinition.objects.get(slug="base-potion")
-        pet = PetService.hatch_pet(self.child, egg.pk, potion.pk)
+        with patch("django.utils.timezone.now", return_value=NOW + timedelta(days=4)):
+            incubation, started = PetService.start_incubation(self.child, egg.pk, potion.pk, uuid4())
+        self.assertTrue(started)
+        self.assertIsNone(incubation.pet_id)
+        self.assertEqual((incubation.ready_at - incubation.started_at).total_seconds(), 86400)
+        with patch("django.utils.timezone.now", return_value=incubation.ready_at):
+            _, pet, hatched = PetService.hatch_incubation(self.child, incubation.pk)
+        self.assertTrue(hatched)
         self.assertEqual((pet.species.slug, pet.potion.slug), ("chick", "base"))
         self.assertEqual(UserInventory.objects.get(user=self.child, item__slug="food-birdseed").quantity, 4)
         self.assertFalse(UserInventory.objects.filter(user=self.sibling, item=egg).exists())
