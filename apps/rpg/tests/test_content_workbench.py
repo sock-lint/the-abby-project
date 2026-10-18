@@ -256,7 +256,7 @@ class ContentWorkbenchTests(TestCase):
 
     def test_authored_challenge_filters_only_offer_current_trackable_sources(self):
         for quest_type, triggers in (
-            ("collection", ["reading_logged"]), ("collection", ["badge_earned"]),
+            ("collection", ["perfect_day"]), ("collection", ["badge_earned"]),
             ("collection", ["quest_complete", "chore_complete"]),
             ("boss", ["creation_logged"]), ("boss", ["creation_logged", "chore_complete"]),
         ):
@@ -265,14 +265,27 @@ class ContentWorkbenchTests(TestCase):
                     "name": "Untrackable challenge", "description": "Synthetic", "quest_type": quest_type,
                     "target_value": 1, "trigger_filter": {"allowed_triggers": triggers}}}])
 
+    def test_reading_receipt_filters_are_supported_for_collection_and_boss_challenges(self):
+        for quest_type in ("collection", "boss"):
+            with self.subTest(quest_type=quest_type):
+                self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {
+                    "quest_type": quest_type, "trigger_filter": {"allowed_triggers": ["reading_logged"]}}}]))
+                metadata = describe_workbench(self.actor)
+                challenge = next(row for row in metadata["catalog"]["quests"] if row["id"] == self.quest.pk)
+                self.assertTrue(challenge["available_for_new_user"])
+                self.assertTrue(challenge["automatic_tracking_available"])
+                self.assertEqual(challenge["trigger_filter"], {"allowed_triggers": ["reading_logged"]})
+                self.assertFalse(any(finding["code"] == "unsupported_challenge_trigger" and finding["id"] == self.quest.pk
+                                     for finding in metadata["audits"]["findings"]))
+
     def test_retained_unsupported_filter_is_audited_and_can_be_corrected(self):
-        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["reading_logged"]})
+        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["perfect_day"]})
         metadata = describe_workbench(self.actor)
         challenge = metadata["catalog"]["quests"][0]
         self.assertFalse(challenge["available_for_new_user"])
         self.assertFalse(challenge["automatic_tracking_available"])
         warning = next(finding for finding in metadata["audits"]["findings"] if finding["code"] == "unsupported_challenge_trigger")
-        self.assertIn("reading_logged", warning["detail"])
+        self.assertIn("perfect_day", warning["detail"])
         with self.assertRaisesMessage(ContentPackError, "automatic challenge"):
             self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {"name": "Still untrackable"}}])
         self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {
