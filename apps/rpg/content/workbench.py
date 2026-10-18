@@ -290,7 +290,9 @@ def _same_plan(stats, changes, plan):
 def simulate_draft(actor, draft_id, revision, preview_id, config=None):
     from apps.rpg.progression import normalize_config, simulate_progression
     from apps.rpg.progression.catalog import snapshot_catalog
+    from apps.rpg.progression.engine import pet_incubation_policy
     config = normalize_config(config)
+    incubation_policy = pet_incubation_policy()
     # Snapshot only global definitions while serialized against publication.
     # Roll back every candidate write before running either bounded simulation.
     with transaction.atomic():
@@ -305,8 +307,8 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None):
             _same_plan(stats, _diff(before, _snapshot(draft.family)), plan)
             proposed = snapshot_catalog()
             transaction.set_rollback(True)
-    comparison = {"baseline": simulate_progression(config, catalog=baseline),
-                  "proposed": simulate_progression(config, catalog=proposed)}
+    comparison = {"baseline": simulate_progression(config, catalog=baseline, incubation_policy=incubation_policy),
+                  "proposed": simulate_progression(config, catalog=proposed, incubation_policy=incubation_policy)}
     with transaction.atomic():
         _catalog_lock()
         draft = _draft(actor, draft_id, lock=True)

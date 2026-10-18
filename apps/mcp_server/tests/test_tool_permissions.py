@@ -74,6 +74,24 @@ class ToolPermissionTests(TransactionTestCase):
         with self.assertRaisesRegex(ValueError, "no reviewed permission policy"):
             policy_for("breed_mounts")
 
+    def test_incubation_tools_replace_the_instant_hatch_permission_surface(self):
+        registered = {entry.name for entry in mcp._tool_manager.list_tools()}
+        self.assertNotIn("hatch_pet", registered)
+        self.assertIsNone(mcp._tool_manager.get_tool("hatch_pet"))
+        with self.assertRaisesRegex(ValueError, "no reviewed permission policy"):
+            policy_for("hatch_pet")
+        for name, scope, destructive in (
+            ("get_pet_incubation", READ_SCOPE, False),
+            ("start_pet_incubation", WRITE_SCOPE, True),
+            ("claim_pet_incubation", WRITE_SCOPE, True),
+        ):
+            with self.subTest(tool=name):
+                self.assertIn(name, registered)
+                self.assertEqual(policy_for(name).scope, scope)
+                self.assertEqual(policy_for(name).destructive, destructive)
+        self.assertTrue(policy_for("start_pet_incubation").idempotent)
+        self.assertTrue(policy_for("claim_pet_incubation").idempotent)
+
     def test_catalog_grant_does_not_disclose_family_records_or_allow_drafts_or_publication(self):
         self.assertIn("categories", self.invoke("list_skill_categories", scopes={CATALOG_SCOPE}))
         for name, params in [

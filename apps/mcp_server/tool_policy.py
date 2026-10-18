@@ -34,6 +34,7 @@ READ_TOOLS = frozenset({
     "get_payment_balance",
     "get_pending_celebration",
     "get_pet_stable",
+    "get_pet_incubation",
     "get_portfolio_export_manifest",
     "get_portfolio_summary",
     "get_project",
@@ -147,7 +148,8 @@ WRITE_TOOLS = frozenset({
     "feed_pet",
     "generate_timecard",
     "get_daily_challenge",
-    "hatch_pet",
+    "start_pet_incubation",
+    "claim_pet_incubation",
     "list_cosmetics",
     "log_creation",
     "log_habit",
@@ -296,7 +298,8 @@ DESTRUCTIVE_TOOLS = frozenset({
     "delete_template",
     "draft_pack_entries",
     "feed_pet",
-    "hatch_pet",
+    "start_pet_incubation",
+    "claim_pet_incubation",
     "load_content_pack",
     "mark_material_purchased",
     "mark_timecard_paid",
@@ -348,6 +351,8 @@ DESTRUCTIVE_TOOLS = frozenset({
 })
 
 IDEMPOTENT_WRITES = frozenset({
+    "claim_pet_incubation",
+    "start_pet_incubation",
     "create_challenge_goal",
     "pin_challenge",
     "unpin_challenge",

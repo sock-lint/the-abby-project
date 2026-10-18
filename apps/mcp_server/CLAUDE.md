@@ -49,7 +49,15 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 222 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 224 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+
+Pet acquisition uses `get_pet_incubation` (read), `start_pet_incubation` and
+`claim_pet_incubation` (confirmed writes). Start consumes the egg/potion once,
+using a UUID request ID for safe retries, and creates no owned pet. Readiness is
+server-owned; a read or elapsed timer cannot hatch automatically. Only an explicit
+ready claim creates the pet and its normal badge/Chronicle effects. Exact-ID claim
+retries return the same pet. All three use the usual self/same-family target rules.
+The instant `hatch_pet` tool is retired and unregistered; there is no MCP timer bypass.
 
 ## Content workflows
 

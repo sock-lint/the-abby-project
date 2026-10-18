@@ -1,6 +1,7 @@
 """New acquisitions use prepared art; saved companions remain fully owned."""
 
 from datetime import timedelta
+from uuid import uuid4
 
 from django.test import override_settings
 from django.utils import timezone
@@ -51,14 +52,14 @@ class AssetSupportedAcquisitionTests(APITestCase):
             self.give(item)
         before = self.state()
         for egg, potion in ((self.old_egg, self.potion), (self.egg, self.old_potion), (self.old_egg, self.old_potion)):
-            response = self.client.post("/api/pets/hatch/", {"egg_item_id": egg.pk, "potion_item_id": potion.pk}, format="json")
+            response = self.client.post("/api/pets/incubations/", {"egg_item_id": egg.pk, "potion_item_id": potion.pk, "request_id": str(uuid4())}, format="json")
             self.assertEqual(response.status_code, 400)
             self.assertEqual(self.state(), before)
-        response = self.client.post("/api/pets/hatch/", {"egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk}, format="json")
+        response = self.client.post("/api/pets/incubations/", {"egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk, "request_id": str(uuid4())}, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertTrue(response.data["catalog_available"])
-        self.assertTrue(response.data["species"]["catalog_available"])
-        self.assertTrue(response.data["potion"]["catalog_available"])
+        self.assertTrue(response.data["incubation"]["species"]["catalog_available"])
+        self.assertTrue(response.data["incubation"]["potion_type"]["catalog_available"])
+        self.assertFalse(UserPet.objects.filter(user=self.child).exists())
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.egg).quantity, 1)
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.potion).quantity, 1)
 

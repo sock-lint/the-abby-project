@@ -1,6 +1,6 @@
 """Pets / Mounts MCP tools.
 
-Wraps PetService — hatch, feed, evolve (auto on growth >= 100), set
+Wraps PetService — incubate, explicitly hatch when ready, feed, evolve (auto on growth >= 100), set
 active. Mirrors the REST endpoints under ``/api/pets/`` and
 ``/api/mounts/``.
 
@@ -14,16 +14,22 @@ from __future__ import annotations
 from typing import Any
 
 from apps.pets.models import UserMount, UserPet
-from apps.pets.services import PetService
+from django.utils import timezone
+from rest_framework import serializers
+
+from apps.pets.services import IncubationNotFound, PetService
+from apps.pets.serializers import PetIncubationSerializer
 
 from ..context import get_current_user, resolve_target_user
-from ..errors import safe_tool
+from ..errors import MCPNotFoundError, safe_tool
 from ..schemas import (
     ActivateMountIn,
     ActivatePetIn,
     FeedPetIn,
     GetPetStableIn,
-    HatchPetIn,
+    GetPetIncubationIn,
+    StartPetIncubationIn,
+    ClaimPetIncubationIn,
     ListMountsIn,
     ListPetsIn,
 )
@@ -67,14 +73,50 @@ def get_pet_stable(params: GetPetStableIn) -> dict[str, Any]:
     }
 
 
+def _incubation_body(incubation, now):
+    return {
+        "incubation": PetIncubationSerializer(incubation, context={"as_of": now}).data if incubation else None,
+        "server_now": serializers.DateTimeField().to_representation(now),
+    }
+
+
 @tool()
 @safe_tool
-def hatch_pet(params: HatchPetIn) -> dict[str, Any]:
-    """Hatch an egg + potion into a new pet (consumes both items)."""
-    user = get_current_user()
-    target = resolve_target_user(user, params.user_id)
-    pet = PetService.hatch_pet(target, params.egg_item_id, params.potion_item_id)
-    return user_pet_to_dict(pet)
+def get_pet_incubation(params: GetPetIncubationIn) -> dict[str, Any]:
+    """Read the current incubating or ready egg. Reads never hatch a pet."""
+    target = resolve_target_user(get_current_user(), params.user_id)
+    now = timezone.now()
+    return {**_incubation_body(PetService.current_incubation(target), now),
+            "duration_seconds": PetService.incubation_duration_seconds()}
+
+
+@tool()
+@safe_tool
+def start_pet_incubation(params: StartPetIncubationIn) -> dict[str, Any]:
+    """Consume one egg and potion to begin incubation, without creating a pet.
+
+    Retry identical ingredients with the same request_id after an uncertain
+    result. Only one unhatched incubation can be active for the account.
+    """
+    target = resolve_target_user(get_current_user(), params.user_id)
+    incubation, _ = PetService.start_incubation(target, params.egg_item_id, params.potion_item_id, params.request_id)
+    return _incubation_body(incubation, timezone.now())
+
+
+@tool()
+@safe_tool
+def claim_pet_incubation(params: ClaimPetIncubationIn) -> dict[str, Any]:
+    """Explicitly hatch a ready incubation. Early calls grant nothing.
+
+    Exact-ID retries return the same saved pet without another reward.
+    """
+    target = resolve_target_user(get_current_user(), params.user_id)
+    try:
+        incubation, pet, freshly_hatched = PetService.hatch_incubation(target, params.incubation_id)
+    except IncubationNotFound as exc:
+        raise MCPNotFoundError(str(exc)) from exc
+    return {**_incubation_body(incubation, timezone.now()),
+            "pet": user_pet_to_dict(pet), "freshly_hatched": freshly_hatched}
 
 
 @tool()

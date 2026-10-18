@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 from typing import Literal, Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -1569,13 +1570,20 @@ class GetPetStableIn(_Base):
     user_id: Optional[int] = None
 
 
-class HatchPetIn(_Base):
+class GetPetIncubationIn(_Base):
+    user_id: Optional[int] = None
+
+
+class StartPetIncubationIn(_Base):
     egg_item_id: int
     potion_item_id: int
-    user_id: Optional[int] = Field(
-        default=None,
-        description="Parent-only: hatch on behalf of a child.",
-    )
+    request_id: UUID
+    user_id: Optional[int] = Field(default=None, description="Parent-only: start incubation for a same-family child.")
+
+
+class ClaimPetIncubationIn(_Base):
+    incubation_id: int
+    user_id: Optional[int] = Field(default=None, description="Parent-only: claim a same-family child's ready incubation.")
 
 
 class FeedPetIn(_Base):

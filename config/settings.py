@@ -239,6 +239,12 @@ else:
         if _origin and _origin not in MCP_ALLOWED_ORIGINS:
             MCP_ALLOWED_ORIGINS.append(_origin)
 
+# --- Pet incubation -------------------------------------------------------
+# Applies only to newly accepted eggs; each incubation saves its own deadline.
+PET_INCUBATION_DURATION_SECONDS = int(os.environ.get("PET_INCUBATION_DURATION_SECONDS", "86400"))
+if PET_INCUBATION_DURATION_SECONDS < 1:
+    raise ValueError("PET_INCUBATION_DURATION_SECONDS must be positive")
+
 # --- Rewards / Coins economy ----------------------------------------------
 # How many Coins a child earns per hour of tracked time.
 COINS_PER_HOUR = 5

@@ -142,6 +142,12 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Reports and metadata record `pet_incubation_policy`, including the installed
+  elapsed duration and one unfinished slot. Ingredients are reserved during
+  active care; readiness advances over inactive days, and the next active
+  visit claims the egg before rewards and feeding. Pending eggs are not owned
+  pets or completed targets. Policy changes invalidate model bindings without
+  modifying historical report bodies. See the Lab guide for daily clock limits.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.

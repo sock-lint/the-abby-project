@@ -458,14 +458,16 @@ entries:
     chapter: rpg_layer
     summary: "Every pet family grows from egg through baby, middle, and grown."
     kid_voice: |
-      Every pet family starts with an egg in Hatching. Combine an egg and a
-      compatible potion to hatch a baby, then care for it through its middle
+      Every pet family starts with an egg in the Hatchery. Choose an egg and a
+      compatible potion to start incubation. Come back when it is ready and
+      choose Hatch pet. Then care for your baby through its middle
       and grown stages. For Chick, these forms are Chick, Fledgling and Bird.
       Choose an active pet to keep you company.
       Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
-      - "Every species follows Egg → Baby → Middle → Grown. Eggs stay in inventory until hatching; babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
-      - "Hatching consumes one egg item and one potion item and creates a unique species/potion baby pet."
+      - "Every species follows Egg → Baby → Middle → Grown. Babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
+      - "Starting incubation consumes one egg item and one compatible potion item. One egg can incubate at a time per account, including an egg waiting to be hatched."
+      - "Incubation keeps counting while you are away. When the Hatchery confirms your egg is ready, choose Hatch pet to welcome a unique species/potion baby at zero growth. Checking the timer never hatches it or grants rewards."
       - "New hatching supports 15 prepared families with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
       - "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Higher-rarity saved potion variants retain their rarity."
       - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
@@ -496,7 +498,8 @@ entries:
       prompt: "Hatch a pet, feed it, and help it grow into a mount."
       payoff: "Egg → Baby → Middle → Grown (Chick → Fledgling → Bird after hatching)"
       steps:
-        - "Combine a Chick egg and Base potion to hatch Chick."
+        - "Start incubating a Chick egg with a Base potion in the Hatchery."
+        - "When the egg is ready, choose Hatch pet to welcome Chick."
         - "Feed preferred food to grow; at 50 growth Chick becomes Fledgling."
         - "At growth 100 confirmed evolution brings Bird and a mount; the original stays in your collection."
 

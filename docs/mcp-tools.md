@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 222 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
+> **Total: 224 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -313,7 +313,9 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `activate_pet` | `mcp:write` | No | — | Mark a pet as active (deactivates any prior active pet). |
 | `feed_pet` | `mcp:write` | No | Required | Feed a food item to a pet. Auto-evolves at growth >= 100. |
 | `get_pet_stable` | `mcp:read` | Yes | — | Aggregate stable view: pets + mounts + collection stats. |
-| `hatch_pet` | `mcp:write` | No | Required | Hatch an egg + potion into a new pet (consumes both items). |
+| `get_pet_incubation` | `mcp:read` | Yes | — | Read the same-family target's active egg and server-relative incubation clock; never creates a pet. |
+| `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to start timed incubation; reuse the UUID request ID after an uncertain result. |
+| `claim_pet_incubation` | `mcp:write` | No | Required | Explicitly hatch a ready incubation; exact-ID retries return its saved pet without repeating rewards. |
 | `list_mounts` | `mcp:read` | Yes | — | List a user's evolved mounts. |
 | `list_pets` | `mcp:read` | Yes | — | List a user's pets (children forced to self). |
 
