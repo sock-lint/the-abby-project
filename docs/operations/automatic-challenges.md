@@ -16,6 +16,16 @@ confirms a submitted chore or homework contribution; approving last week's work
 does not move it into this week's goal. Late approval may finish its original
 period. Work outside the goal's window does not count.
 
+Homework uses the submission's saved calendar day and timezone, so changing the
+household timezone or assignment deadline before approval cannot move that work
+to another day. Weekly goal backfill uses the same saved day, even when the
+source timestamp falls outside the goal's absolute timestamp window after a
+timezone change. Older submissions without a valid timing snapshot use the
+configured Django timezone as a stable fallback; their original household zone
+cannot be reconstructed. Existing challenge facts and paid history are never
+rewritten. Weekly chores continue using their recorded period-start date, while
+approval timestamps remain separate for catalog eligibility and daily bonuses.
+
 Parent-created `this_week` goals use Monday through Sunday in the family's
 timezone, with the next Monday as the exclusive end boundary. A repeating weekly
 goal creates a separate occurrence for the next week. Completing a goal early
