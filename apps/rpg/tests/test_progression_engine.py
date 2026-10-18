@@ -150,11 +150,12 @@ class ProgressionEngineTests(TestCase):
         self.assertEqual(trial.streak, 7)
         self.assertFalse(any(b.pk in trial.badges for b in self.catalog.badges if b.criteria_type == "streak_days"))
 
-    def test_finite_badges_require_a_live_evaluation_scope(self):
+    def test_finite_pet_badges_include_the_live_care_evaluation_scope(self):
         trial = Trial(quiet_config(habits_per_day=1), self.catalog, 3)
         pet_badges = [b for b in self.catalog.badges if b.criteria_type == "pets_hatched"]
         self.assertTrue(pet_badges)
-        self.assertTrue(all(f"badge:{badge.pk}" not in trial.finite_keys for badge in pet_badges))
+        first_hatch = next(badge for badge in pet_badges if badge.criteria_value.get("count") == 1)
+        self.assertIn(f"badge:{first_hatch.pk}", trial.finite_keys)
 
     def test_sub_ten_minute_movement_does_not_invent_unscoped_awards(self):
         trial = Trial(quiet_config(movement_sessions_per_day=1, movement_minutes=1), self.catalog, 3)
