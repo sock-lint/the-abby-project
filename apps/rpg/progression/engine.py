@@ -53,10 +53,15 @@ from .economy import (
     ECONOMY_DEFAULTS, ECONOMY_LIMITS, OFFER_DEFAULTS, Economy,
     aggregate_economy, normalize_economy, project_money_cents, exchange_quote_cents,
 )
+from .reward_budget import (
+    REWARD_BUDGET_DEFAULTS, REWARD_BUDGET_LIMITS, REWARD_BUDGET_SOURCES,
+    SUMMARY_METRICS as REWARD_BUDGET_METRICS,
+    RewardBudget, aggregate_reward_budget, normalize_reward_budget,
+)
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-18.1"
+ENGINE_VERSION = "2026-10-18.2"
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
     "horizon_days": 90,
@@ -79,6 +84,7 @@ DEFAULTS = {
     "expeditions_per_day": 1,
     "expedition_tier": "long",
     "economy": deepcopy(ECONOMY_DEFAULTS),
+    "reward_budget": dict(REWARD_BUDGET_DEFAULTS),
 }
 LIMITS = {
     "horizon_days": {"choices": [30, 90, 180, 365]},
@@ -101,6 +107,7 @@ LIMITS = {
     "expeditions_per_day": {"min": 0, "max": 15},
     "expedition_tier": {"choices": ["short", "standard", "long"]},
     "economy": {"type": "object"},
+    "reward_budget": {"type": "object"},
 }
 MILESTONES = {
     "first_reward": "First XP or Coins",
@@ -154,8 +161,9 @@ def normalize_config(config=None):
         raise ValueError("Unknown Progression Lab configuration fields.")
     result = {**DEFAULTS, **supplied}
     result["economy"] = normalize_economy(supplied.get("economy"))
+    result["reward_budget"] = normalize_reward_budget(supplied.get("reward_budget", {}))
     for key, value in result.items():
-        if key == "economy":
+        if key in {"economy", "reward_budget"}:
             continue
         limit = LIMITS[key]
         if limit.get("type") == "boolean":
@@ -193,6 +201,9 @@ def rules_fingerprint():
         "economy_defaults": ECONOMY_DEFAULTS,
         "economy_limits": ECONOMY_LIMITS,
         "economy_source": inspect.getsource(inspect.getmodule(Economy)),
+        "reward_budget_defaults": REWARD_BUDGET_DEFAULTS,
+        "reward_budget_limits": REWARD_BUDGET_LIMITS,
+        "reward_budget_source": inspect.getsource(inspect.getmodule(RewardBudget)),
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
         "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS],
@@ -247,6 +258,7 @@ def coverage(catalog):
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
             "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
             "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
+            "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
         ],
         "excluded": [
             "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -336,6 +348,7 @@ class Trial:
     def __init__(self, config, catalog, seed):
         self.config, self.catalog, self.seed = normalize_config(config), catalog, seed
         self.economy = Economy(self.config["economy"]) if self.config["economy"]["enabled"] else None
+        self.reward_budget = RewardBudget(self.config["reward_budget"])
         self.rng = random.Random(seed)
         self.day = self.active_days = self.streak = self.last_active = 0
         self.coins = self.total_xp = self.earned_coins = 0
@@ -707,6 +720,9 @@ class Trial:
             )
 
     def coin_award(self, amount, source):
+        if amount <= 0:
+            return
+        amount = self.reward_budget.award(amount, source, self.day)
         if amount <= 0:
             return
         self.coins += amount
@@ -1103,6 +1119,7 @@ class Trial:
 
     def daily(self, day):
         self.day = day
+        self.reward_budget.begin_day(day)
         if self.economy:
             self.economy.begin_day(day)
         c = self.config
@@ -1211,6 +1228,7 @@ class Trial:
                 "expired_oneoff_challenges": expired,
                 "finite_completed": len(self.completed_finite),
                 "finite_remaining": len(self.finite_keys) - len(self.completed_finite),
+                **{f"reward_budget_{key}": self.reward_budget.totals[key] for key in REWARD_BUDGET_METRICS},
                 **({
                     "coins_earned": self.economy.totals["coins_earned"],
                     "coins_exchanged": self.economy.totals["coins_exchanged"],
@@ -1237,6 +1255,7 @@ class Trial:
             "longest_novelty_gap": max(self.longest_novelty_gap, self.day - self.last_novelty_day),
             "eligible_challenges": len(self.quests),
             "economy": self.economy.report() if self.economy else {"enabled": False},
+            "reward_budget": self.reward_budget.report(),
         }
 
 
@@ -1264,6 +1283,9 @@ def describe_progression():
         "economy_defaults": deepcopy(ECONOMY_DEFAULTS),
         "economy_offer_defaults": dict(OFFER_DEFAULTS),
         "economy_limits": deepcopy(ECONOMY_LIMITS),
+        "reward_budget_defaults": dict(REWARD_BUDGET_DEFAULTS),
+        "reward_budget_limits": deepcopy(REWARD_BUDGET_LIMITS),
+        "reward_budget_sources": list(REWARD_BUDGET_SOURCES),
         "catalog": catalog.summary(),
         "coverage": coverage(catalog),
         "audit": audit_catalog(catalog),
@@ -1366,6 +1388,9 @@ def simulate_progression(config=None, *, catalog=None):
         audit = [row for row in audit if row["code"] != "no_coin_spending"]
         audit.append({"severity": "info", "code": "hypothetical_purchasing",
                       "message": "Purchases, wages and costs use entered synthetic assumptions. No household offers, prices, budget records or money balances are read."})
+    if config["reward_budget"]["daily_coins"] is not None:
+        audit.append({"severity": "info", "code": "hypothetical_reward_budget",
+                      "message": "The entered daily reward envelope omits excess expedition, expedition-salvage and Coin-pouch income in this simulation only. It does not defer rewards or change live payout promises."})
     for key, label in (("first_pet", "First companion"), ("first_mount", "First grown companion")):
         rate = next(row["completion_rate"] for row in milestones if row["key"] == key)
         if rate < 0.9:
@@ -1411,4 +1436,5 @@ def simulate_progression(config=None, *, catalog=None):
             "truncated": runs[0]["event_count"] > len(runs[0]["events"]),
         },
         "economy": aggregate_economy(runs, config["economy"]),
+        "reward_budget": aggregate_reward_budget(runs, config["reward_budget"]),
     }

@@ -35,6 +35,9 @@
         "monthly_grams": null
       },
       "offers": []
+    },
+    "reward_budget": {
+      "daily_coins": null
     }
   },
   "limits": {
@@ -126,6 +129,9 @@
       ]
     },
     "economy": {
+      "type": "object"
+    },
+    "reward_budget": {
       "type": "object"
     }
   },
@@ -251,6 +257,21 @@
       }
     }
   },
+  "reward_budget_defaults": {
+    "daily_coins": null
+  },
+  "reward_budget_limits": {
+    "daily_coins": {
+      "min": 0,
+      "max": 100000,
+      "nullable": true
+    }
+  },
+  "reward_budget_sources": [
+    "expeditions",
+    "expeditions_salvage",
+    "coin_pouches"
+  ],
   "catalog": {
     "fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
     "skills": 5,
@@ -269,7 +290,8 @@
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
-      "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups"
+      "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
+      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
     ],
     "excluded": [
       "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -372,8 +394,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "58ad519a579250eecf222e059c0eb9639efee554f048b4b807038c40e1eae73e",
-  "engine_version": "2026-10-18.1",
+  "rules_fingerprint": "bcf1dc049458bf753725b314ad85ed2e4de7698646c9f3d5cc80a61d51375384",
+  "engine_version": "2026-10-18.2",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,
@@ -418,6 +440,9 @@
             "monthly_grams": null
           },
           "offers": []
+        },
+        "reward_budget": {
+          "daily_coins": null
         }
       }
     },
@@ -458,6 +483,9 @@
             "monthly_grams": null
           },
           "offers": []
+        },
+        "reward_budget": {
+          "daily_coins": null
         }
       }
     },
@@ -498,6 +526,9 @@
             "monthly_grams": null
           },
           "offers": []
+        },
+        "reward_budget": {
+          "daily_coins": null
         }
       }
     }

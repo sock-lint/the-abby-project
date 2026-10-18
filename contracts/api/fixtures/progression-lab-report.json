@@ -35,6 +35,9 @@
         "monthly_grams": null
       },
       "offers": []
+    },
+    "reward_budget": {
+      "daily_coins": null
     }
   },
   "catalog": {
@@ -48,8 +51,8 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "58ad519a579250eecf222e059c0eb9639efee554f048b4b807038c40e1eae73e",
-  "engine_version": "2026-10-18.1",
+  "rules_fingerprint": "bcf1dc049458bf753725b314ad85ed2e4de7698646c9f3d5cc80a61d51375384",
+  "engine_version": "2026-10-18.2",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -58,7 +61,8 @@
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
-      "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups"
+      "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
+      "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
     ],
     "excluded": [
       "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -304,7 +308,19 @@
       "finite_completed_p90": 1,
       "finite_remaining_p10": 5,
       "finite_remaining_p50": 5,
-      "finite_remaining_p90": 5
+      "finite_remaining_p90": 5,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 0,
+      "reward_budget_raw_coins_p90": 0,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 0,
+      "reward_budget_awarded_coins_p90": 0,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 2,
@@ -343,7 +359,19 @@
       "finite_completed_p90": 2,
       "finite_remaining_p10": 4,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 0,
+      "reward_budget_raw_coins_p90": 7,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 0,
+      "reward_budget_awarded_coins_p90": 7,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 3,
@@ -382,7 +410,19 @@
       "finite_completed_p90": 2,
       "finite_remaining_p10": 4,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 0,
+      "reward_budget_raw_coins_p90": 7,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 0,
+      "reward_budget_awarded_coins_p90": 7,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 4,
@@ -421,7 +461,19 @@
       "finite_completed_p90": 2,
       "finite_remaining_p10": 4,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 0,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 0,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 5,
@@ -460,7 +512,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 7,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 7,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 6,
@@ -499,7 +563,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 7,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 7,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 7,
@@ -538,7 +614,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 7,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 7,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 8,
@@ -577,7 +665,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 7,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 7,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 9,
@@ -616,7 +716,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 7,
+      "reward_budget_raw_coins_p90": 14,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 7,
+      "reward_budget_awarded_coins_p90": 14,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 10,
@@ -655,7 +767,19 @@
       "finite_completed_p90": 3,
       "finite_remaining_p10": 3,
       "finite_remaining_p50": 4,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 14,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 14,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 11,
@@ -694,7 +818,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 4
+      "finite_remaining_p90": 4,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 14,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 14,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 12,
@@ -733,7 +869,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 14,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 14,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 13,
@@ -772,7 +920,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 14,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 14,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 14,
@@ -811,7 +971,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 14,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 14,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 15,
@@ -850,7 +1022,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 0,
+      "reward_budget_raw_coins_p50": 21,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 0,
+      "reward_budget_awarded_coins_p50": 21,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 16,
@@ -889,7 +1073,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 21,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 21,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 17,
@@ -928,7 +1124,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 21,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 21,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 18,
@@ -967,7 +1175,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 21,
+      "reward_budget_raw_coins_p90": 21,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 21,
+      "reward_budget_awarded_coins_p90": 21,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 19,
@@ -1006,7 +1226,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 28,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 28,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 20,
@@ -1045,7 +1277,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 28,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 28,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 21,
@@ -1084,7 +1328,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 7,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 28,
+      "reward_budget_awarded_coins_p10": 7,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 28,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 22,
@@ -1123,7 +1379,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 14,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 28,
+      "reward_budget_awarded_coins_p10": 14,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 28,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 23,
@@ -1162,7 +1430,19 @@
       "finite_completed_p90": 4,
       "finite_remaining_p10": 2,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 14,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 28,
+      "reward_budget_awarded_coins_p10": 14,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 28,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 24,
@@ -1201,7 +1481,19 @@
       "finite_completed_p90": 5,
       "finite_remaining_p10": 1,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 14,
+      "reward_budget_raw_coins_p50": 28,
+      "reward_budget_raw_coins_p90": 35,
+      "reward_budget_awarded_coins_p10": 14,
+      "reward_budget_awarded_coins_p50": 28,
+      "reward_budget_awarded_coins_p90": 35,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 25,
@@ -1240,7 +1532,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 28,
+      "reward_budget_raw_coins_p50": 35,
+      "reward_budget_raw_coins_p90": 92,
+      "reward_budget_awarded_coins_p10": 28,
+      "reward_budget_awarded_coins_p50": 35,
+      "reward_budget_awarded_coins_p90": 92,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 26,
@@ -1279,7 +1583,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 28,
+      "reward_budget_raw_coins_p50": 42,
+      "reward_budget_raw_coins_p90": 178,
+      "reward_budget_awarded_coins_p10": 28,
+      "reward_budget_awarded_coins_p50": 42,
+      "reward_budget_awarded_coins_p90": 178,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 27,
@@ -1318,7 +1634,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 28,
+      "reward_budget_raw_coins_p50": 42,
+      "reward_budget_raw_coins_p90": 178,
+      "reward_budget_awarded_coins_p10": 28,
+      "reward_budget_awarded_coins_p50": 42,
+      "reward_budget_awarded_coins_p90": 178,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 28,
@@ -1357,7 +1685,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 28,
+      "reward_budget_raw_coins_p50": 42,
+      "reward_budget_raw_coins_p90": 178,
+      "reward_budget_awarded_coins_p10": 28,
+      "reward_budget_awarded_coins_p50": 42,
+      "reward_budget_awarded_coins_p90": 178,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 29,
@@ -1396,7 +1736,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 28,
+      "reward_budget_raw_coins_p50": 42,
+      "reward_budget_raw_coins_p90": 263,
+      "reward_budget_awarded_coins_p10": 28,
+      "reward_budget_awarded_coins_p50": 42,
+      "reward_budget_awarded_coins_p90": 263,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     },
     {
       "day": 30,
@@ -1435,7 +1787,19 @@
       "finite_completed_p90": 6,
       "finite_remaining_p10": 0,
       "finite_remaining_p50": 3,
-      "finite_remaining_p90": 3
+      "finite_remaining_p90": 3,
+      "reward_budget_raw_coins_p10": 35,
+      "reward_budget_raw_coins_p50": 42,
+      "reward_budget_raw_coins_p90": 345,
+      "reward_budget_awarded_coins_p10": 35,
+      "reward_budget_awarded_coins_p50": 42,
+      "reward_budget_awarded_coins_p90": 345,
+      "reward_budget_omitted_coins_p10": 0,
+      "reward_budget_omitted_coins_p50": 0,
+      "reward_budget_omitted_coins_p90": 0,
+      "reward_budget_capped_days_p10": 0,
+      "reward_budget_capped_days_p50": 0,
+      "reward_budget_capped_days_p90": 0
     }
   ],
   "summary": {
@@ -1456,11 +1820,11 @@
     "eligible_challenges": 1,
     "finite_breakdown": {
       "cosmetic": 1,
-      "badge": 1,
-      "mount": 1,
       "middle": 1,
       "quest": 1,
-      "pet": 1
+      "pet": 1,
+      "mount": 1,
+      "badge": 1
     },
     "level_p50": 4,
     "inventory_units_p50": 10,
@@ -3078,5 +3442,108 @@
   },
   "economy": {
     "enabled": false
+  },
+  "reward_budget": {
+    "daily_coins": null,
+    "summary": {
+      "raw_coins": {
+        "p10": 35,
+        "p50": 42,
+        "p90": 345,
+        "mean": 140.67
+      },
+      "awarded_coins": {
+        "p10": 35,
+        "p50": 42,
+        "p90": 345,
+        "mean": 140.67
+      },
+      "omitted_coins": {
+        "p10": 0,
+        "p50": 0,
+        "p90": 0,
+        "mean": 0.0
+      },
+      "capped_days": {
+        "p10": 0,
+        "p50": 0,
+        "p90": 0,
+        "mean": 0.0
+      }
+    },
+    "sources": [
+      {
+        "source": "expeditions",
+        "raw_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 304,
+          "mean": 101.33
+        },
+        "awarded_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 304,
+          "mean": 101.33
+        },
+        "omitted_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "mean": 0.0
+        }
+      },
+      {
+        "source": "expeditions_salvage",
+        "raw_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 6,
+          "mean": 2.0
+        },
+        "awarded_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 6,
+          "mean": 2.0
+        },
+        "omitted_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "mean": 0.0
+        }
+      },
+      {
+        "source": "coin_pouches",
+        "raw_coins": {
+          "p10": 35,
+          "p50": 35,
+          "p90": 42,
+          "mean": 37.33
+        },
+        "awarded_coins": {
+          "p10": 35,
+          "p50": 35,
+          "p90": 42,
+          "mean": 37.33
+        },
+        "omitted_coins": {
+          "p10": 0,
+          "p50": 0,
+          "p90": 0,
+          "mean": 0.0
+        }
+      }
+    ],
+    "assumptions": [
+      "This is a hypothetical reduction in new-child Coin income, not a live reward rule. Each trial is an alternative history of one child.",
+      "One shared envelope covers direct expedition Coins, expedition cosmetic salvage and all opened Coin pouches, regardless of pouch origin. Other Coin sources, XP and item rolls retain their installed rules.",
+      "The envelope resets each simulation calendar day. Unused allowance is not banked; inactive days do not increase the next visit's budget. Null means uncapped and zero omits all included Coins.",
+      "Included awards use first-arrival order: expedition claims precede activity and end-of-visit pouch opening. All mounts share the same child's allowance; earlier rewards can leave no allowance for later pouches.",
+      "Excess included Coins are omitted, never deferred or owed. Synthetic pouches are still consumed and expedition items retained. This must not be applied retroactively to owned pouches or already committed live expedition loot.",
+      "Raw Coins are the included awards encountered within each policy's simulated journey, not a paired uncapped counterfactual. Coin-related progression changes can alter later eligibility and rewards.",
+      "Summary and source percentiles are calculated independently across alternative trials; use means or individual trial values to reconcile source totals."
+    ]
   }
 }

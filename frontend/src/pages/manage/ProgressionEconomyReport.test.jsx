@@ -35,4 +35,18 @@ describe('Purchasing forecast', () => {
     renderWithProviders(<ProgressionEconomyReport economy={{ enabled: false }} config={economyDefaults} />, { withAuth: false });
     expect(screen.queryByRole('region', { name: 'Purchasing forecast' })).toBeNull();
   });
+
+  it.each([4, null])('compares purchase timing, including an unreached current goal, by saved offer identity (current day %s)', (day) => {
+    const comparison = { ...economyResult, offers: [{ ...economyResult.offers[0], first_purchase: { completion_rate: 1, completed_trials: 3, trials: 3, p10_days: 8, p50_days: 9, p90_days: 10 } }] };
+    const currentOffer = { ...economyResult.offers[0], ...(day === null ? { first_purchase: { completion_rate: 0, completed_trials: 0, trials: 3, p10_days: null, p50_days: null, p90_days: null } } : {}) };
+    const current = { ...economyResult, offers: [currentOffer, { ...economyResult.offers[0], key: 'new-reward', label: 'A new reward' }] };
+    renderWithProviders(<ProgressionEconomyReport economy={current} baseline={comparison} config={economyDefaults} />, { withAuth: false });
+    const table = within(screen.getByRole('table', { name: 'Affordability and actual purchases for each reward' }));
+    expect(table.getByRole('columnheader', { name: 'Comparison first purchase' })).toBeVisible();
+    const existing = within(table.getByRole('row', { name: /Example outing/ })).getAllByRole('cell');
+    expect(existing[2]).toHaveTextContent(day === null ? 'Not reached' : 'Median day 4');
+    expect(existing[3]).toHaveTextContent('Median day 9; earlier 8, later 10');
+    const added = within(table.getByRole('row', { name: /A new reward/ })).getAllByRole('cell');
+    expect(added[3]).toHaveTextContent('Unavailable');
+  });
 });
