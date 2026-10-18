@@ -14,6 +14,8 @@ from django.db import OperationalError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from .diagnostics import calendar_failure_diagnostics
+
 logger = logging.getLogger(__name__)
 
 # Google OAuth scopes
@@ -366,6 +368,8 @@ class GoogleCalendarService:
             user=user, content_type=content_type, object_id=object_id
         ).first()
 
+        operation = "update" if mapping else "insert"
+        calling_google = True
         try:
             if mapping:
                 # Update existing event
@@ -381,18 +385,22 @@ class GoogleCalendarService:
                     .insert(calendarId=cal_id, body=event_body)
                     .execute()
                 )
+                calling_google = False
                 CalendarEventMapping.objects.create(
                     user=user,
                     content_type=content_type,
                     object_id=object_id,
                     google_event_id=event["id"],
                 )
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "Google Calendar API error for %s:%s (user %s)",
                 content_type,
                 object_id,
                 user,
+                extra={"google_calendar_failure": calendar_failure_diagnostics(
+                    error if calling_google else None, operation=operation,
+                )},
             )
 
     @classmethod
