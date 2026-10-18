@@ -76,10 +76,13 @@
       <p>Older connections may retain a previously granted, broader Calendar permission. To remove that earlier grant and use the narrower permission now requested by Abby, revoke Abby's access at Google, then unlink and reconnect in Abby.</p>
     </section>
 
-    <section>
+    <section id="account-deletion">
       <h2>Account deletion and retention</h2>
       <p>A parent can manage, deactivate, and delete family member accounts in Abby, subject to safeguards that prevent self-removal and leaving a family without an active parent. Ask a family parent or the deployment operator about account deletion. Deactivation blocks sign-in but is not deletion.</p>
-      <p>Deleting an account removes its linked Google credentials and Calendar mappings from the application's active database. It does not revoke the Google grant or remove existing Calendar events. Other records, operational logs, and copies in deployment backups can have different retention behavior; no fixed deletion period for those copies is promised here. Ask the deployment operator about this deployment's retention and backup practices.</p>
+      <p>Deleting a member removes their account, private journal entries and related records from the active database. It can also delete projects and homework they created or were assigned, including work involving remaining family members. Other members' surviving records and activity summaries may still contain the deleted member's name or contributions; deletion is not comprehensive anonymization. Family-owned settings and credentials remain with the family.</p>
+      <p>Files attached to deleted records, including avatars, photos, audio, imported PDFs, receipts and print files, are scheduled for storage cleanup. Failed cleanup is recorded and retried; database deletion does not mean every file has already been erased. A file still referenced by a surviving record is retained. This process does not recover files already orphaned before cleanup tracking was introduced.</p>
+      <p>Deleting an account removes its linked Google credentials and Calendar mappings from the application's active database. It does not revoke the Google grant, remove existing Calendar events, or delete copies exported to Drive. Downloaded copies and device drafts may also remain on the devices where they were saved.</p>
+      <p>Operational logs, storage object versions and copies in deployment backups can have different retention behavior and are not purged by this operation; no fixed deletion period for those copies is promised here. Ask the deployment operator about this deployment's retention and backup practices.</p>
     </section>
 
     <section>

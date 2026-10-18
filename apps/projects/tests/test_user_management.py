@@ -7,6 +7,8 @@ primary_parent auto-rotation on departure).
 """
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
@@ -265,6 +267,81 @@ class DeleteTests(APITestCase):
         response = self.client.delete(f"/api/parents/{co_id}/")
         self.assertEqual(response.status_code, 204)
         self.assertFalse(User.objects.filter(pk=co_id).exists())
+
+    def test_failed_delete_preserves_primary_parent_and_account_for_retry(self):
+        target = self.fam.parents[1]
+        self.fam.family.primary_parent = target
+        self.fam.family.save(update_fields=["primary_parent"])
+        with patch.object(User, "delete", side_effect=RuntimeError("database failure")):
+            with self.assertRaisesMessage(RuntimeError, "database failure"):
+                self.client.delete(f"/api/parents/{target.id}/")
+        self.fam.family.refresh_from_db()
+        self.assertEqual(self.fam.family.primary_parent_id, target.id)
+        self.assertTrue(User.objects.filter(pk=target.pk).exists())
+        response = self.client.delete(f"/api/parents/{target.id}/")
+        self.assertEqual(response.status_code, 204)
+        self.fam.family.refresh_from_db()
+        self.assertEqual(self.fam.family.primary_parent_id, self.fam.parents[0].id)
+
+    def test_cannot_delete_members_of_another_family(self):
+        other = make_family(
+            "Other household", parents=[{"username": "other-parent"}],
+            children=[{"username": "other-child"}],
+        )
+        for route, member in [("parents", other.parents[0]), ("children", other.children[0])]:
+            with self.subTest(route=route):
+                response = self.client.delete(f"/api/{route}/{member.pk}/")
+                self.assertEqual(response.status_code, 404)
+                self.assertTrue(User.objects.filter(pk=member.pk).exists())
+
+    def test_child_cannot_delete_another_child(self):
+        token = Token.objects.create(user=self.fam.children[0])
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+        response = self.client.delete(f"/api/parents/{self.fam.parents[1].pk}/")
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(User.objects.filter(pk=self.fam.parents[1].pk).exists())
+
+    def test_delete_revokes_member_credentials_and_removes_private_journal_without_returning_it(self):
+        from django.utils import timezone
+        from apps.activity.models import ActivityEvent
+        from apps.chronicle.models import ChronicleEntry
+        from apps.google_integration.models import GoogleAccount, CalendarEventMapping
+        from config.tests.factories import make_oauth_token
+
+        child = self.fam.children[0]
+        child_id = child.pk
+        token = Token.objects.create(user=child)
+        oauth_token, _ = make_oauth_token(child)
+        GoogleAccount.objects.create(
+            user=child, google_id="synthetic-deleted-google-id",
+            google_email="deleted@example.invalid", encrypted_credentials=b"synthetic-credential",
+        )
+        CalendarEventMapping.objects.create(
+            user=child, content_type="project_due", object_id=1, google_event_id="synthetic-event",
+        )
+        journal = ChronicleEntry.objects.create(
+            user=child, kind="journal", occurred_on=timezone.localdate(),
+            chapter_year=2026, title="Private title", summary="Private journal body",
+            is_private=True,
+        )
+        event = ActivityEvent.objects.create(
+            actor=self.fam.parents[0], subject=child, category="system",
+            event_type="synthetic.activity", summary="kid completed shared work",
+        )
+        self.assertEqual(self.client.get(f"/api/chronicle/{journal.pk}/").status_code, 404)
+
+        response = self.client.delete(f"/api/children/{child_id}/")
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b"")
+        self.assertFalse(ChronicleEntry.objects.filter(pk=journal.pk).exists())
+        self.assertFalse(Token.objects.filter(key=token.key).exists())
+        self.assertFalse(type(oauth_token).objects.filter(pk=oauth_token.pk).exists())
+        self.assertFalse(GoogleAccount.objects.filter(user_id=child_id).exists())
+        self.assertFalse(CalendarEventMapping.objects.filter(user_id=child_id).exists())
+        event.refresh_from_db()
+        self.assertIsNone(event.subject_id)
+        self.assertEqual(event.summary, "kid completed shared work")
 
     def test_cannot_self_delete(self):
         response = self.client.delete(f"/api/parents/{self.fam.parents[0].id}/")

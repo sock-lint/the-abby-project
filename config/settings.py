@@ -606,6 +606,10 @@ CELERY_TIMEZONE = TIME_ZONE
 from celery.schedules import crontab  # noqa: E402
 
 CELERY_BEAT_SCHEDULE = {
+    "private-file-cleanup": {
+        "task": "apps.accounts.tasks.cleanup_deleted_files",
+        "schedule": crontab(minute="*/5"),
+    },
     "auto-clock-out": {
         "task": "apps.timecards.tasks.auto_clock_out_task",
         "schedule": crontab(minute="*/30"),

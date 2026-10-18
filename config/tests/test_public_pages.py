@@ -54,6 +54,10 @@ class PublicInformationPagesTests(SimpleTestCase):
             "https://myaccount.google.com/connections",
             "private by default",
             "copies in deployment backups",
+            "scheduled for storage cleanup",
+            "Failed cleanup is recorded and retried",
+            "not comprehensive anonymization",
+            "device drafts may also remain",
         ):
             with self.subTest(disclosure=disclosure):
                 self.assertContains(response, disclosure)
