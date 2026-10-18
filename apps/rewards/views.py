@@ -248,6 +248,13 @@ class RewardRedemptionViewSet(
         "reward__item_definition", "user", "item_definition_snapshot",
     )
     approval_service = RewardService
+    _APPROVAL_ACTIONS = ("approve", "reject", "deliver")
+
+    @action(detail=True, methods=["post"], permission_classes=[IsParent])
+    def deliver(self, request, pk=None):
+        redemption = self.get_object()
+        RewardService.deliver(redemption, request.user)
+        return Response(self.get_serializer(redemption).data)
 
     def handle_exception(self, exc):
         if isinstance(exc, RewardUnavailableError):

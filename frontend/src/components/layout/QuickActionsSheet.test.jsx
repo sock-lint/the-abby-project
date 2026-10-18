@@ -44,6 +44,26 @@ function CurrentLocation() {
 }
 
 describe('QuickActionsSheet', () => {
+  it.each([
+    ['Assign homework', '/quests?tab=study&new=1&child=8'],
+    ['New chore', '/quests?tab=duties&propose=1&child=8'],
+    ['Create goal', '/quests?tab=trials&new=1&child=8'],
+  ])('prioritizes parent work and opens %s for the verified remembered child', async (label, target) => {
+    const account = buildParent({ id: 99, family: { id: 5 } });
+    localStorage.setItem('abby:child-context:5:99', '8');
+    const onClose = vi.fn();
+    renderSheet(account, [http.get('*/api/children/', () => HttpResponse.json([
+      { id: 7, display_name: 'Abby' }, { id: 8, display_name: 'Sam' },
+    ]))], { onClose });
+    await waitFor(() => expect(screen.getByRole('button', { name: new RegExp(label) })).toBeEnabled());
+    const rows = within(screen.getByRole('dialog')).getAllByRole('button').filter((button) => ['Assign homework', 'New chore', 'Create goal', 'Clock in', 'Adjust coins', 'Adjust payment'].some((name) => button.textContent.startsWith(name)));
+    expect(rows.map((row) => row.textContent.split('Homework for a kid')[0].split('Set a task')[0].split('Choose measurable')[0].split('Open an entry')[0])).toEqual([
+      'Assign homework', 'New chore', 'Create goal', 'Clock in', 'Adjust coins', 'Adjust payment',
+    ]);
+    await userEvent.setup().click(screen.getByRole('button', { name: new RegExp(label) }));
+    expect(screen.getByLabelText('Current location')).toHaveTextContent(target);
+    expect(onClose).toHaveBeenCalledOnce();
+  });
   it('opens a new print request in Rewards and closes quick actions', async () => {
     const onClose = vi.fn();
     renderSheet(buildUser(), [], { onClose });

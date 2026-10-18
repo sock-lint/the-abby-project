@@ -73,8 +73,8 @@ frontend/src/
     index.js         All endpoint functions (single import surface)
   hooks/             useApi.js (useAuth, useApi),
                      useParentDashboard.js (parallel-fetch merge of
-                     chore + homework + redemption pending queues for
-                     parent Today view),
+                     all parent review and delivery sources, shared by
+                     ParentReviewProvider with Today/header/navigation),
                      useDropToasts.js, useCompanionGrowthToasts.js,
                      useQuestProgressToasts.js, useApprovalToasts.js,
                      useSpeechDictation.js, useInstallPrompt.js

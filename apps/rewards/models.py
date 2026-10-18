@@ -173,6 +173,11 @@ class RewardRedemption(ApprovalWorkflowModel, CreatedAtModel):
     )
     stock_reserved = models.BooleanField(default=False, editable=False)
     parent_notes = models.TextField(blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True, editable=False)
+    delivered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, editable=False, related_name="delivered_rewards",
+    )
 
     class Meta:
         ordering = ["-created_at"]

@@ -32,7 +32,7 @@ const CHAPTERS = [
 
 export function ChapterSidebar({ user, onLogout }) {
   const isParent = user?.role === 'parent';
-  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
+  const { total: pendingCount, ready, incomplete } = useParentPendingCounts({ enabled: isParent });
   return (
     <aside
       className="w-60 shrink-0 fixed h-full z-30 max-lg:hidden flex flex-col
@@ -74,12 +74,12 @@ export function ChapterSidebar({ user, onLogout }) {
                     size={22}
                     className={isActive ? 'text-sheikah-teal-deep' : ''}
                   />
-                  {to === '/' && pendingCount > 0 && (
+                  {to === '/' && isParent && (pendingCount > 0 || !ready || incomplete) && (
                     <span
                       className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
-                      aria-label={`${pendingCount} pending`}
+                      aria-label={!ready ? 'Checking reviews' : incomplete ? 'Some review queues are unavailable' : `${pendingCount} items needing attention`}
                     >
-                      {pendingCount > 9 ? '9+' : pendingCount}
+                      {!ready ? '…' : incomplete ? '?' : pendingCount > 9 ? '9+' : pendingCount}
                     </span>
                   )}
                 </span>
@@ -167,7 +167,7 @@ export function ChapterSidebar({ user, onLogout }) {
 
 export function ChapterBottomBar({ user }) {
   const isParent = user?.role === 'parent';
-  const { total: pendingCount } = useParentPendingCounts({ enabled: isParent });
+  const { total: pendingCount, ready, incomplete } = useParentPendingCounts({ enabled: isParent });
 
   // Both roles get the same six chapters — Manage / Activity / Content
   // Catalog for parents reach via AvatarMenu in the mobile header so Chronicle
@@ -199,12 +199,12 @@ export function ChapterBottomBar({ user }) {
             <>
               <span className="relative">
                 <Icon size={20} className={isActive ? 'text-sheikah-teal-deep' : ''} />
-                {to === '/' && pendingCount > 0 && (
+                {to === '/' && isParent && (pendingCount > 0 || !ready || incomplete) && (
                   <span
                     className="absolute -top-1 -right-2 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-ember-deep text-ink-page text-micro font-body font-bold leading-none px-1"
-                    aria-label={`${pendingCount} pending`}
+                    aria-label={!ready ? 'Checking reviews' : incomplete ? 'Some review queues are unavailable' : `${pendingCount} items needing attention`}
                   >
-                    {pendingCount > 9 ? '9+' : pendingCount}
+                    {!ready ? '…' : incomplete ? '?' : pendingCount > 9 ? '9+' : pendingCount}
                   </span>
                 )}
               </span>

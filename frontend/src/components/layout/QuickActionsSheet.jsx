@@ -1,6 +1,6 @@
 import { useContext, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Play, Square, BookOpen, Box, Target, UserCog, PenTool, Palette, Sparkles, Feather, Activity } from 'lucide-react';
+import { Play, Square, BookOpen, Box, Target, UserCog, PenTool, Palette, Sparkles, Feather, Activity, Plus } from 'lucide-react';
 import { CoinIcon } from '../icons/JournalIcons';
 import BottomSheet from '../BottomSheet';
 import ConfirmDialog from '../ConfirmDialog';
@@ -11,7 +11,10 @@ import {
   getTodayJournal,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
-import { useRole } from '../../hooks/useRole';
+import useChildContext from '../../hooks/useChildContext';
+import useMountedRef from '../../hooks/useMountedRef';
+import ChildContext from '../family/ChildContext';
+import ErrorAlert from '../ErrorAlert';
 import { normalizeList } from '../../utils/api';
 import {
   activeProjectsOf,
@@ -68,6 +71,7 @@ function ActionRow({ icon, label, hint, onClick, tone = 'ink', disabled = false 
 }
 
 function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockReload, notes, setNotes, busy, setBusy }) {
+  const mounted = useMountedRef();
   // null = untouched — falls back to the remembered/default venture below.
   const [selectedProject, setSelectedProject] = useState(null);
   const [error, setError] = useState('');
@@ -84,8 +88,10 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
     setBusy(true); setError('');
     try {
       await clockIn(parseInt(effectiveProject, 10));
+      if (!mounted.current) return;
       rememberClockProject(effectiveProject);
       await onClockReload();
+      if (!mounted.current) return;
       const started = activeProjects.find((p) => String(p.id) === String(effectiveProject));
       showSuccess?.(started ? `Clocked in · ${started.title}` : 'Clocked in');
       onBack();
@@ -96,7 +102,9 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
     setBusy(true); setError('');
     try {
       await clockOut(notes);
+      if (!mounted.current) return;
       await onClockReload();
+      if (!mounted.current) return;
       setNotes('');
       // The elapsed readout disappears with the sheet, so say what landed.
       showSuccess?.(`Clocked out · ${formatDuration(Math.round(elapsedSecs / 60))} logged`);
@@ -175,17 +183,26 @@ function ClockPane({ status, isClocked, elapsedSecs, projects, onBack, onClockRe
  *   - Child: Clock, Add homework, Submit homework (only if due),
  *            Ask for a print, Start quest (only if scroll in inventory),
  *            Request reward, Contribute to savings goal (only if goals exist).
- *   - Parent: Clock (rare), Assign homework, Adjust coins, Adjust payment.
+ *   - Parent: verified child context, Assign homework, New chore, Create goal,
+ *             Clock, then manual coin/payment corrections.
  *
  * Copy convention: use the same plain-language feature names as navigation.
  * Labels are sentence case, here
  * and on the clock pane's buttons.
  */
-export default function QuickActionsSheet({
-  status, isClocked, elapsedSecs, onClose, onClockReload,
-}) {
+export default function QuickActionsSheet(props) {
+  const context = useChildContext();
+  if (!context.user?.id) return null;
+  return <ActionWorkspace key={context.scope} {...props} context={context} />;
+}
+
+function ActionWorkspace({ status, isClocked, elapsedSecs, onClose, onClockReload, context }) {
+  const mounted = useMountedRef();
   const navigate = useNavigate();
-  const { isParent } = useRole();
+  const { isParent, children, selectedChild, targetUserId, selectChild } = context;
+  const childPath = (path) => targetUserId ? `${path}&child=${encodeURIComponent(targetUserId)}` : path;
+  const needsChild = context.loading || !selectedChild;
+  const go = (path) => { onClose(); navigate(childPath(path)); };
   const [pane, setPane] = useState('menu'); // 'menu' | 'clock'
   const [clockNotes, setClockNotes] = useState('');
   const [clockBusy, setClockBusy] = useState(false);
@@ -238,8 +255,10 @@ export default function QuickActionsSheet({
     setQuickClockBusy(true);
     try {
       await clockIn(quickClockProject.id);
+      if (!mounted.current) return;
       rememberClockProject(quickClockProject.id);
       await onClockReload();
+      if (!mounted.current) return;
       showSuccess?.(`Clocked in · ${quickClockProject.title}`);
       onClose();
     } catch {
@@ -324,6 +343,14 @@ export default function QuickActionsSheet({
     <BottomSheet title={pane === 'menu' ? 'Quick actions' : 'Clock'} onClose={onClose} dirty={dirty} disabled={busy}>
       {pane === 'menu' && (
         <div className="space-y-2">
+          {isParent && <>
+            <ChildContext children={children} selectedChildId={targetUserId} onSelect={selectChild} />
+            {context.error && <ErrorAlert message={context.error} onRetry={context.reload} />}
+            {!context.loading && !context.error && !children?.length && <ActionRow icon={<Plus size={18} />} label="Add a child" onClick={() => { onClose(); navigate('/manage'); }} />}
+            <ActionRow icon={<BookOpen size={18} />} label="Assign homework" hint="Homework for a kid" tone="royal" disabled={needsChild} onClick={() => go('/quests?tab=study&new=1')} />
+            <ActionRow icon={<Plus size={18} />} label="New chore" hint="Set a task and schedule" tone="teal" disabled={needsChild} onClick={() => go('/quests?tab=duties&propose=1')} />
+            <ActionRow icon={<Target size={18} />} label="Create goal" hint="Choose measurable work for a child" tone="moss" disabled={needsChild} onClick={() => go('/quests?tab=trials&new=1')} />
+          </>}
           {quickClockProject ? (
             <>
               <ActionRow
@@ -443,29 +470,11 @@ export default function QuickActionsSheet({
             </>
           )}
 
-          {isParent && (
-            <>
-              <ActionRow
-                icon={<BookOpen size={18} />}
-                label="Assign homework"
-                hint="Homework for a kid"
-                tone="royal"
-                onClick={() => { onClose(); navigate('/quests?tab=study&new=1'); }}
-              />
-              <ActionRow
-                icon={<CoinIcon size={18} />}
-                label="Adjust coins"
-                tone="gold"
-                onClick={() => { onClose(); navigate('/treasury?tab=bazaar&adjust=1'); }}
-              />
-              <ActionRow
-                icon={<UserCog size={18} />}
-                label="Adjust payment"
-                tone="ember"
-                onClick={() => { onClose(); navigate('/treasury?tab=coffers&adjust=1'); }}
-              />
-            </>
-          )}
+          {isParent && <>
+            <p className="font-body text-caption text-ink-secondary pt-2">Manual corrections</p>
+            <ActionRow icon={<CoinIcon size={18} />} label="Adjust coins" tone="gold" disabled={needsChild} onClick={() => go('/treasury?tab=bazaar&adjust=1')} />
+            <ActionRow icon={<UserCog size={18} />} label="Adjust payment" tone="ember" disabled={needsChild} onClick={() => go('/treasury?tab=coffers&adjust=1')} />
+          </>}
         </div>
       )}
 

@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/react';
 import { Link } from 'react-router-dom';
 import { createHomework, updateHomework } from '../../api';
 import { useFormState } from '../../hooks/useFormState';
+import useMountedRef from '../../hooks/useMountedRef';
 import BottomSheet from '../../components/BottomSheet';
 import ErrorAlert from '../../components/ErrorAlert';
 import ModalActions from '../../components/ModalActions';
@@ -20,8 +21,9 @@ const SUBJECTS = [
 ];
 
 export default function HomeworkFormModal({
-  assignment, isParent, children: childrenList = [], onClose, onSaved,
+  assignment, isParent, children: childrenList = [], initialChildId, onClose, onSaved,
 }) {
+  const mounted = useMountedRef();
   const isEdit = !!assignment;
   const { form, set, saving, setSaving, error, setError, dirty } = useFormState({
     title: assignment?.title || '',
@@ -29,14 +31,14 @@ export default function HomeworkFormModal({
     subject: assignment?.subject || 'math',
     effort_level: assignment?.effort_level ?? 3,
     due_date: assignment?.due_date || '',
-    assigned_to: assignment?.assigned_to ?? '',
+    assigned_to: assignment?.assigned_to ?? initialChildId ?? '',
   });
 
   const today = toISODate(new Date());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isParent && !form.assigned_to) {
+    if (isParent && !childrenList.some((child) => String(child.id) === String(form.assigned_to))) {
       setError('Please select a child to assign this to.');
       return;
     }
@@ -67,7 +69,8 @@ export default function HomeworkFormModal({
       } else {
         await createHomework(payload);
       }
-      onSaved();
+      if (!mounted.current) return;
+      onSaved(isParent ? form.assigned_to : undefined);
     } catch (err) {
       Sentry.captureException(err, {
         tags: { area: isEdit ? 'homework.update' : 'homework.create' },

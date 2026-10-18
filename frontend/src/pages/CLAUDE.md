@@ -380,18 +380,45 @@ savings and badges follow. Saved accordion preferences remain honored.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 
-Parent Today puts failed-source feedback before the summary and review queue.
-`useParentDashboard` unifies pending chores, homework, redemptions, creations,
-proposals and coin exchanges. `pending_timecards` adds a linked review row and
-counts toward the same attention summary. An incomplete read cannot produce an
-all-clear. `ApprovalQueueList` retains inline evidence, approve/reject, optional
-rejection notes and per-child bulk actions; the parent owns its scroll anchor.
-Family overview is visible without opening a disclosure, combines per-child
-clocked hours and clocked earnings, and has its own roster retry. These weekly
-figures are time-entry estimates, not total family earnings. Assign homework and
-New chore open the existing creation forms. Optional Getting started links
-follow that overview and make no unverified setup-completion claims;
-`children_count` is a flat dashboard field. Manual corrections remain collapsed.
+Parent Today shares one account-bound `ParentReviewProvider` with header and
+navigation. `useParentDashboard` aggregates chores, homework, redemptions,
+creations, proposals, exchanges, prints, pending/disputed timecards and approved
+real-world rewards awaiting delivery. A failed source stays unavailable;
+loading or partial reads never claim an all-clear. Successful review mutations
+invalidate the shared source, and Pulse's body-free family revision catches
+co-parent decisions, work changes and household-day rollover. The provider
+clears previous-account results and ignores late responses.
+
+`ApprovalQueueList` keeps inline evidence and optional rejection notes. Rows
+show waiting age, default to oldest first within each child, and support explicit
+selection. Every selected batch shows its work/reward/exchange consequences
+before confirmation; proposals and delivery requests cannot be bulk approved.
+
+The always-visible family overview uses `/dashboard/`'s additive
+`family_overview`: household-local homework due/overdue/review counts, scheduled
+chore status, parent goal progress, recent confirmed accomplishments and
+secondary clocked estimates. Its server projection uses bounded family-scoped
+queries and never reads journal/reflection bodies. Child links select the same
+verified context used by Homework, Chores, Habits, Challenges, Shop, Reading and
+Memories. Shared chores are explicitly labelled All children. Parent task/roster
+lists read bounded known-endpoint pages before filtering; a failed page cannot
+look like an empty child workspace. Child/account changes reset forms and fence
+late callbacks.
+
+Parent quick actions lead with Assign homework, New chore and Create goal;
+manual corrections and the available Clock follow. New chore/habit sheets lead
+with task, child and schedule; rewards are optional and advanced XP, skill,
+icon and order controls stay in Advanced. Alternating-week chores preview their
+reference week without changing schedule eligibility. Setup suggestions remain
+optional links, with no invented completion claims.
+
+Timecards show saved work notes and automatic clock-out warnings. A disputed
+card offers Resolve and approve with a parent note. Mark as paid opens the
+existing Greenlight completed-transfer form with the exact child and week;
+no money is sent by Abby. Real-world/combined reward approval stays approved
+until the parent explicitly confirms handover in Shop's separate delivery queue.
+Digital inventory is credited once at approval; delivery never spends more
+coins or grants another item. Old fulfilled histories remain unchanged.
 
 ## Global header + FAB
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getChildren } from '../api';
+import { getFamilyChildren } from '../api';
 import { getToken } from '../api/client';
 import { normalizeList } from '../utils/api';
 import { useRole } from './useRole';
@@ -18,12 +19,13 @@ export default function useChildContext() {
   useEffect(() => {
     if (!isParent || !user?.id) return undefined;
     let cancelled = false;
-    getChildren().then((response) => {
+    const controller = new AbortController();
+    getFamilyChildren(controller.signal, getChildren).then((response) => {
       if (!cancelled) setState({ scope: accountScope, children: normalizeList(response), error: null });
     }).catch((error) => {
       if (!cancelled) setState({ scope: accountScope, children: null, error: error.message });
     });
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [accountScope, isParent, user?.id, revision]);
   const children = current?.children ?? null;
   const storageKey = `abby:child-context:${user?.family?.id ?? ''}:${user?.id}`;

@@ -21,6 +21,17 @@ function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child
 }
 
 describe('Automatic challenges', () => {
+  it('opens the requested parent goal for a roster-verified child and consumes only new', async () => {
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    const { user } = renderGoals({ role: 'parent', route: '/quests?tab=trials&new=1&child=7' });
+    server.use(create.handler);
+    const dialog = await screen.findByRole('dialog', { name: 'Create a challenge' });
+    expect(within(dialog).getByRole('combobox', { name: 'Child' })).toHaveValue('7');
+    await waitFor(() => expect(screen.getByTestId('challenge-location')).toHaveTextContent('/quests?tab=trials&child=7'));
+    await user.click(within(dialog).getByRole('button', { name: 'Create challenge' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].body).toMatchObject({ user_id: 7, trigger_type: 'chore_complete' });
+  });
   it('puts parent goals and the pin first while keeping a large bonus catalog collapsed', async () => {
     const catalog = Array.from({ length: 43 }, (_, i) => buildChallengeGoal({
       id: `goal:${100 + i}`, name: `Optional bonus ${i + 1}`, origin: 'catalog', progress: '0',
@@ -160,7 +171,7 @@ describe('Automatic challenges', () => {
   it('shows parent child selection and authoring while hiding self pin controls', async () => {
     renderGoals({ role: 'parent' });
     expect(await screen.findByRole('button', { name: 'Create challenge' })).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'View child' })).toHaveValue('7');
+    expect(screen.getByRole('combobox', { name: 'Viewing' })).toHaveValue('7');
     expect(screen.queryByRole('button', { name: 'Pin to Today' })).not.toBeInTheDocument();
   });
 
@@ -201,7 +212,7 @@ describe('Automatic challenges', () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, ({ body }) => { created = body; return goal; });
     server.use(create.handler);
     const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
-    await selectDropdown(user, await screen.findByRole('combobox', { name: 'View child' }), '8');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Viewing' }), '8');
     await user.click(await screen.findByRole('button', { name: 'Create challenge' }));
     const form = screen.getByRole('dialog', { name: 'Create a challenge' });
     expect(within(form).getByLabelText('Child')).toHaveValue('8');
@@ -210,7 +221,7 @@ describe('Automatic challenges', () => {
     await waitFor(() => expect(create.calls).toHaveLength(1));
     expect(create.calls[0].body.user_id).toBe(7);
     const details = await screen.findByRole('dialog', { name: 'Abby chores' });
-    expect(screen.getByRole('combobox', { name: 'View child' })).toHaveValue('7');
+    expect(screen.getByRole('combobox', { name: 'Viewing' })).toHaveValue('7');
     expect(within(details).getByRole('heading', { name: 'What counts' })).toBeInTheDocument();
   });
 
@@ -222,13 +233,13 @@ describe('Automatic challenges', () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json({ error: 'request_id was already used for different goal details' }, { status: 409 }));
     server.use(create.handler);
     const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
-    await selectDropdown(user, await screen.findByRole('combobox', { name: 'View child' }), '8');
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Viewing' }), '8');
     await user.click(await screen.findByRole('button', { name: 'Create challenge' }));
     const form = screen.getByRole('dialog', { name: 'Create a challenge' });
     await selectDropdown(user, within(form).getByLabelText('Child'), '7');
     await user.click(within(form).getByRole('button', { name: 'Create challenge' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('This challenge was already saved with different details.');
-    expect(screen.getByRole('combobox', { name: 'View child' })).toHaveValue('8');
+    expect(screen.getByRole('combobox', { name: 'Viewing' })).toHaveValue('8');
     expect(within(screen.getByRole('dialog')).getByLabelText('Child')).toHaveValue('7');
     expect(within(screen.getByRole('dialog')).getByLabelText('Target')).toHaveValue(2);
   });

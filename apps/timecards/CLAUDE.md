@@ -14,6 +14,14 @@ Closed cards cannot reopen, regenerate earnings, or repeat approval effects.
 Nonpositive totals never offer payment; negative totals cannot be closed.
 Only positive approved totals are offered in Greenlight's payment selection.
 
+React timecard review shows saved work notes and automatic clock-out warnings.
+Parents may approve pending cards or resolve disputed cards, with an optional
+approval note. Recording payment opens the existing completed Greenlight
+transfer form with this child and full timecard selected; opening/canceling
+the form never posts a payout. The form retains its original confirmation,
+date/reference and uncertain-save retry safeguards. The legacy `mark-paid`
+endpoint remains available for existing clients with its service guards.
+
 ## Services
 `GET /api/clock/` returns the authenticated user's serialized active entry, or
 HTTP 200 with `Content-Type: application/json` and the literal `null` when idle.

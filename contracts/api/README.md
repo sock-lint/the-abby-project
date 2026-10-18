@@ -85,6 +85,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `material-ready.json` | `POST /api/projects/401/materials/701/mark-ready/`; owned or borrowed supplies become ready without recording a purchase |
 | `material-purchased-zero.json`, `material-purchased.json` | Existing purchase action preserves explicit zero or positive actual cost and also reports readiness |
 | `material-not-owned.json` | Another family's readiness write is rejected with HTTP 404 without changing the material |
+| `parent-family-overview.json` | Parent dashboard with household-local homework, chores, goals, safe accomplishments and clocked estimates; no private journal/submission bodies |
+| `parent-reward-approved.json`, `parent-reward-delivered.json` | Distinct real-world approval and handover receipts, preserving approval audit and recording explicit delivery without another reward/payment |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |

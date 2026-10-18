@@ -22,6 +22,11 @@ function buildAssignment(over = {}) {
 }
 
 describe('AssignmentCard', () => {
+  it('shows management actions without a child Submit action for parents', () => {
+    render(<AssignmentCard assignment={buildAssignment()} canManage onEdit={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Edit assignment' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Submit' })).not.toBeInTheDocument();
+  });
   it('shows the saved assignment instructions without exposing private notes', () => {
     render(<AssignmentCard assignment={buildAssignment({
       description: 'Read pages 12–14, then answer questions 1–3 in complete sentences.',

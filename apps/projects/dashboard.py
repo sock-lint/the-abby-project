@@ -13,7 +13,7 @@ from __future__ import annotations
 from datetime import timedelta
 from typing import Any
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 
@@ -153,12 +153,14 @@ def _parent_extras(user, today) -> dict[str, Any]:
     from apps.chores.models import ChoreCompletion
     from apps.families.queries import children_in
     from apps.timecards.models import Timecard
+    from apps.projects.parent_overview import build_family_overview
 
     # Audit C3: family-scope every parent counter. The leak this prevents
     # is documented at ``apps/projects/views.py:DashboardView.get`` history.
-    pending_timecards = Timecard.objects.filter(
-        status="pending", user__family=user.family,
-    ).count()
+    timecard_counts = Timecard.objects.filter(user__family=user.family).aggregate(
+        pending=Count("pk", filter=Q(status="pending")),
+        disputed=Count("pk", filter=Q(status="disputed")),
+    )
     pending_chore_approvals = ChoreCompletion.objects.filter(
         status=ChoreCompletion.Status.PENDING,
         user__family=user.family,
@@ -168,9 +170,11 @@ def _parent_extras(user, today) -> dict[str, Any]:
     return {
         "chores_today": [],
         "pending_chore_approvals": pending_chore_approvals,
-        "pending_timecards": pending_timecards,
+        "pending_timecards": timecard_counts["pending"],
+        "disputed_timecards": timecard_counts["disputed"],
         "children_count": children_count,
         "this_week_by_kid": _this_week_by_kid(user, today),
+        "family_overview": build_family_overview(user),
     }
 
 

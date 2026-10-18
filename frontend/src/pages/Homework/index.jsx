@@ -3,16 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus } from 'lucide-react';
 import { useApi } from '../../hooks/useApi';
-import { useRole } from '../../hooks/useRole';
+import useMountedRef from '../../hooks/useMountedRef';
+import useChildContext from '../../hooks/useChildContext';
+import ChildContext from '../../components/family/ChildContext';
 import {
   getHomeworkDashboard,
   approveHomeworkSubmission,
   rejectHomeworkSubmission,
   withdrawHomeworkSubmission,
-  planHomework, getChildren,
+  planHomework,
   deleteHomework,
 } from '../../api';
-import { normalizeList } from '../../utils/api';
 import ApprovalQueue from '../../components/ApprovalQueue';
 import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
@@ -30,22 +31,18 @@ import QuestFolio from '../quests/QuestFolio';
 import { buildRarityCounts, effortToRarity } from '../quests/quests.constants';
 
 export default function Homework() {
-  const { isParent } = useRole();
+  const context = useChildContext();
+  if (!context.user?.id || context.loading) return <Loader />;
+  if (context.error) return <ErrorAlert message={context.error} onRetry={context.reload} />;
+  return <HomeworkWorkspace key={`${context.scope}:${context.targetUserId}`} context={context} />;
+}
+
+function HomeworkWorkspace({ context }) {
+  const mounted = useMountedRef();
+  const { isParent, children = [], targetUserId, selectedChild, selectChild } = context;
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-
   const { data: dashboard, loading, error, reload } = useApi(getHomeworkDashboard);
-  // useApi's default deps=[] means a first call during auth-load (isParent=false)
-  // would freeze apiFn=null and never re-fetch when isParent later flips. Pass
-  // [isParent] so the call re-runs once auth resolves — matches the Chores /
-  // Habits pattern. Empty resolver instead of `null` so the test's unblocked
-  // AuthProvider doesn't error on `null(controller.signal)`.
-  const { data: childrenData } = useApi(
-    isParent ? getChildren : () => Promise.resolve({ results: [] }),
-    [isParent],
-  );
-  const children = normalizeList(childrenData);
-
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
@@ -66,8 +63,9 @@ export default function Homework() {
     if (!didAutoOpen.current && searchParams.get('new') === '1') {
       didAutoOpen.current = true;
       openCreate();
-      searchParams.delete('new');
-      setSearchParams(searchParams, { replace: true });
+      const next = new URLSearchParams(searchParams);
+      next.delete('new');
+      setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
 
@@ -78,6 +76,7 @@ export default function Homework() {
     setDecisionError(null);
     try {
       await (decision === 'approve' ? approveHomeworkSubmission(id) : rejectHomeworkSubmission(id));
+      if (!mounted.current) return;
       await reload();
     } catch (err) {
       setDecisionError({ id, decision, message: err?.message || 'Could not save this review. Try again.' });
@@ -93,6 +92,7 @@ export default function Homework() {
     setActionError('');
     try {
       await withdrawHomeworkSubmission(submissionId);
+      if (!mounted.current) return;
       reload();
     } catch (err) {
       setActionError(err?.message || 'Could not withdraw that submission.');
@@ -103,6 +103,7 @@ export default function Homework() {
     setActionError('');
     try {
       await deleteHomework(deleteConfirm);
+      if (!mounted.current) return;
       setDeleteConfirm(null);
       reload();
     } catch (err) {
@@ -115,6 +116,7 @@ export default function Homework() {
     setPlanError('');
     try {
       const result = await planHomework(assignment.id);
+      if (!mounted.current) return;
       const projectId = result?.project_id || result?.project?.id || result?.project;
       if (projectId) {
         // Audit H9: SPA navigation rather than ``window.location.href``,
@@ -167,14 +169,14 @@ export default function Homework() {
   // child, assignments for parent).
   const stats = dashboard?.stats ?? {};
   const allAssignments = isParent
-    ? (dashboard?.assignments ?? [])
+    ? (dashboard?.assignments ?? []).filter((assignment) => String(assignment.assigned_to) === String(targetUserId))
     : [
       ...(dashboard?.today ?? []),
       ...(dashboard?.overdue ?? []),
       ...(dashboard?.upcoming ?? []),
       ...(dashboard?.pending ?? []),
     ];
-  const pendingSubs = dashboard?.pending_submissions ?? [];
+  const pendingSubs = (dashboard?.pending_submissions ?? []).filter((submission) => !isParent || String(submission.user) === String(targetUserId));
   const versoStats = isParent
     ? [
       { value: pendingSubs.length, label: 'awaiting approval' },
@@ -210,7 +212,7 @@ export default function Homework() {
         letter="H"
         title="Homework"
         kicker="Track assignments and due dates"
-        meta="submit each assignment with a proof photo"
+        meta={isParent ? 'Assign schoolwork and review submissions for this child.' : 'Submit each assignment with a proof photo.'}
         stats={versoStats}
         progressPct={versoProgressPct}
         progressLabel={versoProgressLabel}
@@ -219,6 +221,7 @@ export default function Homework() {
         {actionError && <ErrorAlert message={actionError} />}
         {planError && <ErrorAlert message={planError} />}
 
+        {isParent && <ChildContext children={children} selectedChildId={targetUserId} onSelect={selectChild} />}
         <div className="flex justify-end">
           <Button
             size="sm"
@@ -276,12 +279,12 @@ export default function Homework() {
             <Section
               index={nextRubric()}
               title="Active assignments"
-              items={dashboard?.assignments}
+              items={allAssignments}
               emptyText="No active assignments. Tap “New assignment” to add one."
             >
               {(a) => (
                 <AssignmentCard
-                  key={a.id} assignment={a}
+                  key={a.id} assignment={{ ...a, assigned_to_name: a.assigned_to_name || selectedChild?.display_name || selectedChild?.username }}
                   onPlan={() => handlePlan(a)}
                   planning={planning === a.id}
                   canPlan={a.can_plan}
@@ -294,7 +297,7 @@ export default function Homework() {
             <section>
               <ChapterRubric index={nextRubric()} name="Awaiting approval" />
               <ApprovalQueue
-                items={dashboard?.pending_submissions}
+                items={pendingSubs}
                 emptyText="No pending submissions."
                 onApprove={handleApprove}
                 onReject={handleReject}
@@ -350,8 +353,9 @@ export default function Homework() {
           assignment={editing}
           isParent={isParent}
           children={children}
+          initialChildId={isParent ? targetUserId : undefined}
           onClose={closeForm}
-          onSaved={() => { closeForm(); reload(); }}
+          onSaved={(childId) => { closeForm(); if (isParent && childId && String(childId) !== String(targetUserId)) selectChild(childId); else reload(); }}
         />
       )}
 

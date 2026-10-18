@@ -31,6 +31,7 @@ export default function AssignmentCard({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        {canManage && a.assigned_to_name && <span className="font-body text-caption text-ink-secondary">For {a.assigned_to_name}</span>}
         <span className="font-script text-body text-ink-whisper">
           due {formatDate(a.due_date)}
         </span>
@@ -51,7 +52,7 @@ export default function AssignmentCard({
         </div>
       )}
       <div className="flex gap-2 flex-wrap items-center">
-        {!sub && (
+        {!canManage && !sub && typeof onSubmit === 'function' && (
           <Button
             variant="success"
             size="sm"
