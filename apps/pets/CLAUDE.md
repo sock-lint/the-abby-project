@@ -49,6 +49,21 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ### Growth transactions
 
+Hatching and confirmed evolution evaluate the existing `pet` and `badges`
+achievement scopes immediately, in the same transaction as ownership and item
+consumption. Hatching acquires the achievements user gate before inventory
+locks. Food, Growth Surge, Feast and passive growth all reach evolution's
+badge evaluation through `PetService._save_growth`; intermediate growth grants
+no new badge rule or reward. Existing badge criteria, XP and Coin values stay
+authoritative. A failed badge payout rolls back the pet/mount, consumed items
+and payout together so a retry cannot lose ingredients or duplicate awards.
+Only newly earned badges create self-scoped `badge_earned` notifications linking
+to Badges. Their rows use a best-effort savepoint, and external push waits for
+the ownership transaction to commit; a notification failure retains progression
+and its authoritative badge payout. These hooks never run the broader game loop.
+`tests/test_badge_milestones.py` covers milestone timing, account isolation,
+retries and rollback through these care paths.
+
 Food base growth has rarity floors 5/8/10/12/15 from Common through Legendary.
 An integer authored `metadata.growth` in 1..30 can raise that floor; malformed,
 boolean or out-of-range legacy values use the floor. Preferred food adds 10

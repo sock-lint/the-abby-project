@@ -241,6 +241,15 @@ receipts. Grown pets show today's expedition directly on their home. Server
 availability/relative deadlines govern daily start and return refreshes; the
 phone clock never grants a trip or claims its loot.
 
+Missing hatching supplies and food link to Tasks and challenge rewards.
+Confirmed hatches offer a care link with `?tab=companions&pet=<owned-id>`;
+Companions resolves that ID only against the signed-in stable and removes it
+when care closes. A successful feed into the server-confirmed Middle stage
+shows a quiet text acknowledgement, including in the DOM fallback. Earned
+egg/potion and food receipts link to Hatchery or care; previews, salvaged items
+and parent views of a child's rewards never offer self-use actions. Collection
+read failures show retry controls and preserve loaded rows during refresh.
+
 - **Import recovery:** `ProjectIngest` keeps the active job, edited plan, and overrides in a user-scoped device draft (`pages/ingest/ingestDraft.js`) and debounces staged-plan saves to the server. Connection failures resume the existing job. An interrupted creation checks that job and safely retries its idempotent commit; confirmed creation/discard clears the local draft.
 - **Drive selection:** `GoogleDrivePickerButton` preloads GIS/Picker before enabling its popup action, requests only `drive.file`, and keeps the token in the current interaction. `AddResourceModal` verifies metadata through Django before filling its explicit-save form; `SourceStep` starts the existing PDF review flow. `BottomSheet.focusSuspended` temporarily yields keyboard/focus ownership to Google's external dialog while dismissal stays disabled. See `docs/operations/google-drive-picker.md` for runtime setup.
 

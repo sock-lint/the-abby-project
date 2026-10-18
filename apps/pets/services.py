@@ -93,6 +93,26 @@ class PetService:
     """Manages pet lifecycle: hatching, feeding, evolution, activation."""
 
     @staticmethod
+    def _evaluate_pet_badges(user):
+        from apps.achievements.services import BadgeService
+        from apps.notifications.services import defer_push_until_commit, notify
+
+        badges = BadgeService.evaluate_badges(user, scopes={"pet", "badges"})
+        if not badges:
+            return
+        # Keep the authoritative award even if its optional notification fails.
+        # Push delivery waits until ownership and the badge payout commit.
+        try:
+            with transaction.atomic(), defer_push_until_commit():
+                for badge in badges:
+                    notify(
+                        user, title=f"Badge earned: {badge.name}", message=badge.description,
+                        notification_type="badge_earned", link="/atlas?tab=badges",
+                    )
+        except Exception:
+            logger.exception("Pet badge notification failed")
+
+    @staticmethod
     def _save_growth(pet, *, update_fields):
         """Persist growth and its evolution together for an already locked pet.
 
@@ -113,6 +133,7 @@ class PetService:
         mount, created = UserMount.objects.get_or_create(
             user=pet.user, species=pet.species, potion=pet.potion,
         )
+        PetService._evaluate_pet_badges(pet.user)
         if not created:
             return mount
         user = pet.user
@@ -154,8 +175,13 @@ class PetService:
 
         Returns the new UserPet, or raises ValueError on invalid input.
         """
+        from apps.achievements.services import _lock_award_user
         from apps.rpg.models import ItemDefinition, UserInventory
         from apps.pets.models import UserPet
+
+        # Badge payouts share the hatch transaction. Acquire their user gate
+        # before inventory locks, matching feeding and consumable growth.
+        _lock_award_user(user)
 
         # Validate egg
         try:
@@ -222,6 +248,7 @@ class PetService:
         pet = UserPet.objects.create(
             user=user, species=species, potion=potion_type,
         )
+        PetService._evaluate_pet_badges(user)
 
         logger.info("User %s hatched %s %s", user.username, potion_type.name, species.name)
 

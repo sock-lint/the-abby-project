@@ -3,6 +3,7 @@ import { getPetCodex } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
+import ErrorAlert from '../../../components/ErrorAlert';
 import IncipitBand from '../../../components/atlas/IncipitBand';
 import TomeShelf from '../../../components/atlas/TomeShelf';
 import { tierForProgress } from '../../../components/atlas/mastery.constants';
@@ -21,7 +22,7 @@ const STORAGE_KEY = 'bestiary:codex:active-chapter';
  * Shared collection controls match the Badges and Lorebook navigation.
  */
 export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
-  const { data, loading } = useApi(getPetCodex, [refreshRevision]);
+  const { data, loading, error, reload } = useApi(getPetCodex, [refreshRevision]);
   const [selected, setSelected] = useState(null);
 
   // User-clicked chapter override. Persists across renders without a
@@ -63,11 +64,16 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
 
   if (loading) return <Loader />;
 
+  if (error && !data) return <ErrorAlert message={error} onRetry={reload} />;
+
   if (species.length === 0) {
     return (
-      <EmptyState icon={<DragonIcon size={36} />}>
-        No pet species are available yet.
-      </EmptyState>
+      <div className="space-y-3">
+        <ErrorAlert message={error} onRetry={reload} />
+        <EmptyState icon={<DragonIcon size={36} />}>
+          No pet species are available yet.
+        </EmptyState>
+      </div>
     );
   }
 
@@ -98,6 +104,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
 
   return (
     <div className="space-y-5">
+      <ErrorAlert message={error} onRetry={reload} />
       <IncipitBand
         letter="C"
         title="Collection"

@@ -7,13 +7,18 @@ from django.db import close_old_connections, connection
 from django.test import TransactionTestCase, override_settings, skipUnlessDBFeature
 from rest_framework.test import APIClient
 
+from apps.achievements.models import Badge, UserBadge
 from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.rewards.models import CoinLedger
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
 @skipUnlessDBFeature("has_select_for_update")
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], RPG_ASSET_SUPPORT_POLICY=None)
+@override_settings(
+    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"], RPG_ASSET_SUPPORT_POLICY=None,
+    COINS_PER_BADGE_RARITY={"common": 7},
+)
 class SupportedPetConcurrencyTests(TransactionTestCase):
     def setUp(self):
         self.child = make_family("Supported concurrent pets", children=[{"username": "concurrent-pet-child"}]).children[0]
@@ -45,6 +50,7 @@ class SupportedPetConcurrencyTests(TransactionTestCase):
             return [future.result(timeout=15) for future in futures]
 
     def test_two_same_companion_hatches_create_one_pet_and_consume_one_pair(self):
+        badge = Badge.objects.create(name="First concurrent hatch", criteria_type="pets_hatched", criteria_value={"count": 1})
         for item in (self.egg, self.potion):
             UserInventory.objects.create(user=self.child, item=item, quantity=2)
         results = self.competing_posts("/api/pets/hatch/", {
@@ -57,8 +63,11 @@ class SupportedPetConcurrencyTests(TransactionTestCase):
         success = next(body for status, body in results if status == 201)
         self.assertTrue(success["catalog_available"])
         self.assertEqual(success["growth_points"], 0)
+        self.assertEqual(UserBadge.objects.filter(user=self.child, badge=badge).count(), 1)
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child, reason="badge_bonus").values_list("amount", flat=True)), [7])
 
     def test_competing_final_feeds_consume_once_and_create_one_confirmed_mount(self):
+        badge = Badge.objects.create(name="First concurrent evolution", criteria_type="mounts_evolved", criteria_value={"count": 1})
         pet = UserPet.objects.create(user=self.child, species=self.chick, potion=self.base, growth_points=85)
         inventory = UserInventory.objects.create(user=self.child, item=self.food, quantity=1)
         results = self.competing_posts(f"/api/pets/{pet.pk}/feed/", {"food_item_id": self.food.pk})
@@ -71,3 +80,5 @@ class SupportedPetConcurrencyTests(TransactionTestCase):
         success = next(body for status, body in results if status == 200)
         self.assertTrue(success["evolved"])
         self.assertEqual(success["mount_id"], UserMount.objects.get(user=self.child).pk)
+        self.assertEqual(UserBadge.objects.filter(user=self.child, badge=badge).count(), 1)
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child, reason="badge_bonus").values_list("amount", flat=True)), [7])

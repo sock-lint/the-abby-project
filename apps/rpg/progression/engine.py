@@ -61,7 +61,7 @@ from .reward_budget import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-18.2"
+ENGINE_VERSION = "2026-10-18.pet-badges.1"
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
     "horizon_days": 90,
@@ -229,6 +229,9 @@ def rules_fingerprint():
                 process_daily_bonus,
                 ClockService.clock_out,
                 PetService.feed_pet,
+                PetService.hatch_pet,
+                PetService._save_growth,
+                PetService._evaluate_pet_badges,
                 ExpeditionService._roll_loot,
                 ExpeditionService._materialize_loot,
                 BadgeService._award_badge_xp,
@@ -604,7 +607,6 @@ class Trial:
         ):
             if enabled:
                 available_scopes.update(scopes)
-        reachable_types = None if unscoped else criteria_types_for_scopes(available_scopes)
         count_sources = {
             "project_sessions": c["project_minutes"],
             "project_minutes": c["project_minutes"],
@@ -679,6 +681,11 @@ class Trial:
             potential.counters["quest_completions"] = sum(
                 potential.counters[f"quest_completed:{q.pk}"] for q in self.quests
             )
+            # Care evaluates pet criteria even without an unscoped activity.
+            # Recompute after each pass: a badge-gated challenge can introduce
+            # the first obtainable pair or the food needed for its evolution.
+            care_scopes = {"pet"} if potential.pets else set()
+            reachable_types = None if unscoped else criteria_types_for_scopes(available_scopes | care_scopes)
             for badge in self.catalog.badges:
                 if (reachable_types is None or badge.criteria_type in reachable_types) and potential._badge_matches(
                     badge
@@ -1012,6 +1019,7 @@ class Trial:
                 self.pets[pair] = SimPet(*self.catalog.pairs[pair])
                 self.milestones.setdefault("first_pet", self.day)
                 self.record("hatch", target=egg.pet_species.name)
+                self.evaluate_badges(scopes={"pet", "badges"})
                 break
         if self.config["feed_strategy"] != "none":
             for pk in sorted(self.inventory):
@@ -1039,6 +1047,7 @@ class Trial:
                         pet.evolved_to_mount = True
                         self.milestones.setdefault("first_mount", self.day)
                         self.record("evolution", target=pet.species.name)
+                        self.evaluate_badges(scopes={"pet", "badges"})
         for pk in sorted(self.inventory):
             item = self.catalog.items[pk]
             if item.item_type == "coin_pouch" and self.inventory[pk] > 0:

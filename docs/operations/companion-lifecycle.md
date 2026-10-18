@@ -41,6 +41,16 @@ pet mutations refresh every visited Pets tab, so hatching, middle growth,
 evolution and expeditions appear without reloading the page. Tab filters and
 unsubmitted hatch ingredient selections remain in place while switching tabs.
 
+Missing-ingredient guidance links to Tasks and challenge rewards, including the
+existing guaranteed Companion Trails; it grants no supplies. A confirmed hatch
+offers a care link to the returned pet ID. Companions resolves the link only
+against the signed-in account's stable and clears it when care closes. A
+successful feed from Baby into the saved Middle stage adds a polite text
+acknowledgement without another reward or motion requirement. Ordinary item
+drops and settled child challenge receipts offer Hatchery/care links; reward
+previews, salvaged items and parent views of a child's receipt do not. Collection
+read errors offer retry, preserving existing rows and the selected group.
+
 ## API and consumers
 
 Species, catalog and codex responses expose ordered `lifecycle_stages`. Pet and

@@ -5,6 +5,7 @@ import { Package } from 'lucide-react';
 import { useDropToasts } from '../hooks/useDropToasts';
 import NotificationToast from './NotificationToast';
 import CatalogIcon from './rpg/CatalogIcon';
+import EarnedPetItemActions from './rpg/EarnedPetItemActions';
 import RareDropReveal from './RareDropReveal';
 import { RARE_TIERS } from './rareDropTiers';
 // Shared with the Lorebook first-encounter sheet — both are pulse-driven
@@ -35,6 +36,7 @@ function ToastItem({ toast, onDismiss }) {
           {toast.was_salvaged ? 'Salvaged' : 'You got'}: {toast.item_name}
         </div>
         <div className="text-caption text-current capitalize">{toast.item_rarity}</div>
+        <EarnedPetItemActions items={[toast]} onNavigate={() => onDismiss(toast.id)} />
       </div>
     </NotificationToast>
   );
