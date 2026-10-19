@@ -47,14 +47,14 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 
 ```powershell
 python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures config.tests.test_material_api_contract_fixtures config.tests.test_reading_api_contract_fixtures config.tests.test_template_api_contract_fixtures config.tests.test_lifecycle_api_contract_fixtures config.tests.test_google_auth_api_contract_fixtures config.tests.test_submission_timing_api_contract_fixtures
-python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures config.tests.test_journal_api_contract_fixtures
 ```
 
 From `frontend/`, run the matching consumers:
 
 ```powershell
 npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/rpgIntegrityContractFixtures.test.jsx src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js src/api/materialContractFixtures.test.js src/api/readingContractFixtures.test.js src/api/templateContractFixtures.test.js src/api/accountLifecycleContractFixtures.test.js src/api/googleAuthContracts.test.js src/api/submissionTimingContractFixtures.test.jsx
-npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx
+npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/journalContractFixtures.test.js
 ```
 
 The catalog producer/consumer pair uses production asset support and checks
@@ -72,6 +72,12 @@ incubation starts, ready hatch claims and final-feed transactions;
 SQLite skips these row-lock checks. React Saved collection coverage lives in
 `src/pages/bestiary/party/SavedPetCollections.test.jsx` and the affected Profile,
 Inventory, Hatching and reward/challenge tests within the full coverage gate.
+
+The journal producer/consumer pair verifies new saves, exact UUID replays, today
+reads and edits against the same measured XP/Coin receipt. Summary fixtures keep
+legacy daily notes in the same history with unavailable historical receipts;
+parent responses exclude private notes and journals. Old-client note saves and
+new journal saves share one daily Coin acknowledgment.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

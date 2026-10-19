@@ -12,7 +12,8 @@ import { getToken } from '../../api/client';
 import TomeShelf from '../../components/atlas/TomeShelf';
 import { chapterMark, PROGRESS_TIER } from '../../components/atlas/mastery.constants';
 import { useRole } from '../../hooks/useRole';
-import { getChronicleSummary, getTodayJournal } from '../../api';
+import { getChronicleSummary } from '../../api';
+import useJournalCapture from '../../hooks/useJournalCapture';
 import JournalEntryFormModal from '../yearbook/JournalEntryFormModal';
 
 const ACTIVE_CHAPTER_KEY_PREFIX = 'atlas:journal:active-chapter:';
@@ -35,13 +36,10 @@ export default function JournalReader() {
 }
 
 function AccountJournalReader() {
-  const { user, isParent, children, selectedChild, targetUserId, selectChild, error: childError, reload: reloadChildren } = useChildContext();
+  const { isParent, children, selectedChild, targetUserId, selectChild, error: childError, reload: reloadChildren } = useChildContext();
 
-  const [todayJournal, setTodayJournal] = useState(null);
-
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('create');
-  const [modalEntry, setModalEntry] = useState(null);
+  const journal = useJournalCapture(!isParent);
+  const todayJournal = journal.data;
 
   // chapters === null means "haven't fetched yet" — distinct from "fetched
   // and got zero." Re-fetches keep the prior chapters visible until the new
@@ -56,22 +54,6 @@ function AccountJournalReader() {
   // active id is derived during render so the shelf self-heals when the
   // chapter list shifts beneath us.
   const [activeChapterOverride, setActiveChapterOverride] = useState({});
-
-  // Child path: pre-fetch today's entry to label the write button.
-  useEffect(() => {
-    if (isParent) return undefined;
-    let cancelled = false;
-    getTodayJournal()
-      .then((res) => {
-        if (!cancelled) setTodayJournal(res && res.id ? res : null);
-      })
-      .catch(() => {
-        if (!cancelled) setTodayJournal(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isParent, user?.id]);
 
   // Fetch the chronicle summary once we have a target. Error clearing
   // happens in the .then() / .catch() callbacks (not synchronously in the
@@ -102,7 +84,7 @@ function AccountJournalReader() {
         label: c.label || `Year ${c.chapter_year}`,
         is_current: !!c.is_current,
         entries: (c.entries ?? [])
-          .filter((e) => e.kind === 'journal' && e.user === targetUserId && (!isParent || e.is_private === false))
+          .filter((e) => ['journal', 'daily_note'].includes(e.kind) && e.user === targetUserId && (!isParent || (e.kind === 'journal' && e.is_private === false)))
           .sort((a, b) => (b.occurred_on || '').localeCompare(a.occurred_on || '')),
       }))
       .filter((c) => c.entries.length > 0)
@@ -167,20 +149,8 @@ function AccountJournalReader() {
     }));
   }, [journalChapters]);
 
-  const openWriteModal = () => {
-    if (todayJournal && todayJournal.id) {
-      setModalMode('edit');
-      setModalEntry(todayJournal);
-    } else {
-      setModalMode('create');
-      setModalEntry(null);
-    }
-    setModalOpen(true);
-  };
-
   const handleSaved = (saved) => {
-    setModalOpen(false);
-    if (saved && saved.id) setTodayJournal(saved);
+    journal.saved(saved);
     setReloadKey((k) => k + 1);
   };
 
@@ -201,14 +171,17 @@ function AccountJournalReader() {
         <div className="flex justify-center">
           <Button
             variant="primary"
-            onClick={openWriteModal}
+            onClick={journal.open}
+            disabled={journal.loading || journal.refreshing || Boolean(journal.error)}
             className="inline-flex items-center gap-2"
           >
             <PenTool size={16} aria-hidden="true" />
-            {writeLabel}
+            {journal.loading || journal.refreshing ? 'Checking today’s entry…' : writeLabel}
           </Button>
         </div>
       )}
+
+      {!isParent && <ErrorAlert message={journal.error} onRetry={journal.reload} />}
 
       {!childError && <JournalBody
         error={error}
@@ -222,11 +195,10 @@ function AccountJournalReader() {
         targetUserId={targetUserId}
       />}
 
-      {modalOpen && (
+      {journal.capture && (
         <JournalEntryFormModal
-          mode={modalMode}
-          entry={modalEntry}
-          onClose={() => setModalOpen(false)}
+          {...journal.capture}
+          onClose={journal.close}
           onSaved={handleSaved}
         />
       )}
@@ -292,7 +264,8 @@ function JournalBody({
 }
 
 function JournalEntryCard({ entry }) {
-  const isPrivate = entry.is_private !== false;
+  const isDailyNote = entry.kind === 'daily_note';
+  const isPrivate = isDailyNote || entry.is_private !== false;
   const dateLabel = useMemo(() => formatDate(entry.occurred_on), [entry.occurred_on]);
   return (
     <li>
@@ -321,7 +294,7 @@ function JournalEntryCard({ entry }) {
             {entry.summary}
           </p>
         )}
-        <JournalConversation entry={entry} />
+        {isDailyNote ? <p className="text-caption text-ink-secondary">Saved daily note</p> : <JournalConversation entry={entry} />}
       </article>
     </li>
   );

@@ -1644,7 +1644,7 @@ class DecideExchangeIn(_Base):
 
 ChronicleKind = Literal[
     "birthday", "chapter_start", "chapter_end", "first_ever",
-    "milestone", "recap", "manual", "journal", "creation", "grade",
+    "milestone", "recap", "manual", "journal", "daily_note", "creation", "grade",
 ]
 
 

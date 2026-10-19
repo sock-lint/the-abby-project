@@ -50,6 +50,22 @@ function mountWithUser(entry, userFixture) {
 }
 
 describe('EntryDetailSheet', () => {
+  it('keeps a migrated daily note private and read-only even if passed a stale shared flag', async () => {
+    mountWithUser({ id: 80, kind: 'daily_note', user: 1, is_private: false,
+      title: 'Old note', summary: 'Private legacy words', occurred_on: todayISO() }, buildUser());
+    expect(await screen.findByText('Only me')).toBeInTheDocument();
+    expect(screen.getByText('Private legacy words')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /edit|sharing|family responses/i })).toBeNull();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  })
+
+  it('withholds legacy daily notes from parents even when an old response says shared', async () => {
+    mountWithUser({ id: 80, kind: 'daily_note', user: 1, is_private: false,
+      title: 'Old note', summary: 'Private legacy words', occurred_on: todayISO() }, buildParent());
+    await screen.findByRole('dialog', { name: 'Private journal entry' });
+    expect(screen.queryByText('Private legacy words')).toBeNull();
+  })
+
   it('shows report card subjects and opens the report card correction form for its owner', async () => {
     const entry = {
       id: 40, kind: 'grade', user: 1, title: 'Semester 1 report card', is_private: true,

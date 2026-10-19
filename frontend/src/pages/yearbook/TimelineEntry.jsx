@@ -12,8 +12,8 @@ export default function TimelineEntry({ entry }) {
   const [savedEdit, setSavedEdit] = useState(null)
   const currentEntry = savedEdit?.source === entry ? savedEdit.value : entry
   const { isParent } = useRole()
-  const isPersonalEntry = ['journal', 'grade'].includes(currentEntry.kind)
-  const isPrivate = isPersonalEntry && currentEntry.is_private !== false
+  const isPersonalEntry = ['journal', 'daily_note', 'grade'].includes(currentEntry.kind)
+  const isPrivate = isPersonalEntry && (currentEntry.kind === 'daily_note' || currentEntry.is_private !== false)
   if (isPrivate && isParent) return null
 
   return (

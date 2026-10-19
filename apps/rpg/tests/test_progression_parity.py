@@ -15,8 +15,9 @@ from django.db import connection, transaction
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from apps.achievements.models import Badge, Skill, SkillProgress
+from apps.achievements.models import Badge, Skill, SkillProgress, UserBadge
 from apps.achievements.services import BadgeService
+from apps.chronicle.services import ChronicleService
 from apps.pets.expeditions import ExpeditionService
 from apps.movement.services import MovementSessionService
 from apps.pets.models import PetSpecies, PotionType, UserPet
@@ -30,6 +31,7 @@ from apps.rpg.models import CharacterProfile, DropTable, ItemDefinition, UserInv
 from apps.rpg.progression.catalog import load_catalog, snapshot_catalog
 from apps.rpg.progression.engine import SimPet, Trial, audit_catalog, rules_fingerprint, run_trial
 from apps.rpg.services import DropService
+from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 from config.tests.factories import make_family
 
 
@@ -247,6 +249,41 @@ class ProgressionCatalogParityTests(TestCase):
             before = rules_fingerprint()
             with patch.dict(policy, {key: policy[key] + 1}):
                 self.assertNotEqual(before, rules_fingerprint())
+
+    def test_journal_forecast_matches_native_daily_coins_and_badge_evaluation_order(self):
+        child = make_family(children=[{"username": "parity-journal-child"}]).children[0]
+        # A coin badge must wait until the next real XP/badge evaluation:
+        # journal XP is processed before today's direct coin recognition.
+        coin_badge = Badge.objects.create(
+            name="Journal coin ordering", criteria_type="total_coins_earned",
+            criteria_value={"amount": 1}, xp_bonus=0, award_coins=False,
+        )
+        catalog = replace(load_catalog(), badges=[coin_badge], quests=[])
+        config = {**CONFIG, "reading_minutes": 0, "chores_per_day": 0,
+                  "habits_per_day": 0, "expeditions_per_day": 0, "journal_per_day": True}
+        trial = Trial(config, catalog, 42)
+        # Keep only the badge under test in the real evaluator as well.
+        Badge.objects.exclude(pk=coin_badge.pk).delete()
+        today = timezone.localdate()
+        for day in (1, 2):
+            with self.subTest(day=day), patch(
+                "django.utils.timezone.localdate", return_value=today + timedelta(days=day - 1),
+            ), patch("apps.rpg.services.DropService.process_drops", return_value=None), patch.object(trial, "drop"):
+                entry = ChronicleService.write_journal(child, title="A short reflection", summary="A few words count.")
+                trial.daily(day)
+                self.assertEqual(entry.metadata["reward_receipt"]["coins_awarded"], GRATITUDE_FIRST_OF_DAY_COINS)
+                self.assertEqual(trial.source_totals["journal"]["coins"], day * GRATITUDE_FIRST_OF_DAY_COINS)
+                self.assertEqual(trial.coins, CoinService.get_balance(child))
+                self.assertEqual(trial.badges, set(UserBadge.objects.filter(user=child).values_list("badge_id", flat=True)))
+                self.assertEqual(coin_badge.pk in trial.badges, day == 2)
+
+    def test_journal_coin_policy_changes_invalidate_saved_rules_fingerprint(self):
+        before = rules_fingerprint()
+        with patch(
+            "apps.rpg.progression.engine.GRATITUDE_FIRST_OF_DAY_COINS",
+            GRATITUDE_FIRST_OF_DAY_COINS + 1, create=True,
+        ):
+            self.assertNotEqual(before, rules_fingerprint())
 
     def test_expedition_avoids_duplicate_cosmetics_within_its_prerolled_trip(self):
         child = make_family(children=[{"username": "parity-expedition-child"}]).children[0]

@@ -176,6 +176,11 @@ movement. Activity skill tags and automatic companion-care choices are
 reported assumptions. Expedition rewards are rolled at launch and claimed
 at the next active visit after their return.
 
+Daily journal captures include the shared flat 2-Coin writing acknowledgment
+alongside eligible writing XP and the existing game-loop rewards. The model
+uses the live amount and reward order; edits, retries and imported earlier
+daily notes add no earning events. The rules fingerprint includes this amount.
+
 Homework, completed projects and milestones, private shops and parent goals,
 weekly payment settlement, birthdays, grades, consumable use/boosts,
 Perfect Day and legacy/co-op campaigns remain outside the model. Unmodeled badge criteria

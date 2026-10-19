@@ -15,6 +15,7 @@ class ChronicleEntry(CreatedAtModel):
         RECAP         = "recap", "Recap"
         MANUAL        = "manual", "Manual"
         JOURNAL       = "journal", "Journal"
+        DAILY_NOTE    = "daily_note", "Daily note"
         CREATION      = "creation", "Creation"
         GRADE         = "grade", "Grade"
 
@@ -36,6 +37,11 @@ class ChronicleEntry(CreatedAtModel):
     related_object_id = models.PositiveIntegerField(null=True, blank=True)
     metadata = models.JSONField(default=dict, blank=True)
     client_entry_id = models.UUIDField(null=True, blank=True, editable=False)
+    daily_note_source = models.OneToOneField(
+        "wellbeing.DailyWellbeingEntry", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="chronicle_entry", editable=False,
+        help_text="Original private daily note, retained for older clients.",
+    )
     viewed_at = models.DateTimeField(null=True, blank=True)
     is_private = models.BooleanField(
         default=False,

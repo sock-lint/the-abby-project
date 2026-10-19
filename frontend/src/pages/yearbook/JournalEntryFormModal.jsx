@@ -1,4 +1,7 @@
 import { useRef, useState } from 'react';
+import { getToken } from '../../api/client';
+import useMountedRef from '../../hooks/useMountedRef';
+import { usePulse } from '../../providers/pulseContext';
 import { Check, Heart, Lock, Mic, MicOff, PawPrint } from 'lucide-react';
 import BottomSheet from '../../components/BottomSheet';
 import Button from '../../components/Button';
@@ -52,7 +55,7 @@ export default function JournalEntryFormModal(props) {
   // previous child's words under the next child's storage key.
   return (
     <JournalEntryForm
-      key={`${user?.id ?? 'anonymous'}:${props.mode ?? 'create'}:${props.entry?.id ?? 'new'}`}
+      key={`${user?.id ?? 'anonymous'}:${getToken()}:${props.mode ?? 'create'}:${props.entry?.id ?? 'new'}`}
       {...props}
       userId={user?.id}
     />
@@ -102,6 +105,9 @@ function JournalEntryForm({
   surfaceClassName,
   surfaceStyle,
 }) {
+  const { refresh } = usePulse();
+  const mounted = useMountedRef();
+  const token = useRef(getToken());
   const [form, setForm] = useState(() => initialForm(userId, initialMode, initialEntry));
   const formRef = useRef(form);
   const { mode, entry, title, summary, is_private: isPrivate, pending } = form;
@@ -171,9 +177,14 @@ function JournalEntryForm({
       const saved = await saveWithDeadline(() => request.method === 'patch'
         ? updateJournalEntry(request.entry_id, request.payload)
         : writeJournal(request.payload));
+      if (!mounted.current || getToken() !== token.current) return;
       clearJournalDraft(userId, form.client_entry_id, form);
       setSavedEntry(saved);
+      // Refresh the shared header/Today balances from the server. Failure
+      // here cannot undo the already confirmed journal save.
+      void Promise.resolve().then(() => refresh()).catch(() => {});
     } catch (err) {
+      if (!mounted.current || getToken() !== token.current) return;
       // A 403 here means the day rolled over while the modal was open —
       // the entry is locked. Present it as a read-only fact.
       if (err?.status === 403) {
@@ -189,7 +200,7 @@ function JournalEntryForm({
         const merged = !summary || summary === prior ? prior : `${prior}\n\n${summary}`;
         changeForm({
           mode: 'edit', entry: existing, title: existing.title || '',
-          summary: merged, pending: null,
+          summary: merged, is_private: existing.is_private !== false, pending: null,
         });
         setError(
           "You already wrote today — we've loaded your entry so you can add to it.",
@@ -236,8 +247,11 @@ function JournalEntryForm({
 
   if (savedEntry) {
     const receipt = savedEntry.reward_receipt;
-    const awarded = mode === 'create' && receipt?.status === 'awarded'
+    const newReceipt = mode === 'create' && !initialEntry?.id;
+    const awarded = newReceipt && receipt?.status === 'awarded'
       && Number.isFinite(receipt.xp_awarded) && receipt.xp_awarded > 0;
+    const coinsAwarded = newReceipt && receipt?.coin_status === 'awarded'
+      && Number.isFinite(receipt.coins_awarded) && receipt.coins_awarded > 0;
     return (
       <BottomSheet title={mode === 'create' ? 'Memory saved' : 'Entry updated'} onClose={finish} surfaceClassName={surfaceClassName} surfaceStyle={surfaceStyle}>
         <div className="space-y-4 text-center">
@@ -249,11 +263,14 @@ function JournalEntryForm({
               {awarded ? 'One more memory to grow with!' : 'Your words are saved in your journal.'}
             </p>
             {awarded && <p className="font-semibold text-body text-sheikah-teal-deep">+{receipt.xp_awarded} XP earned</p>}
-            {mode === 'create' && receipt?.status === 'unavailable' && (
+            {coinsAwarded && <p className="font-semibold text-body text-sheikah-teal-deep">+{receipt.coins_awarded} Coins earned</p>}
+            {newReceipt && receipt?.coin_status === 'already_received' && <p className="text-body text-ink-secondary">Today’s Coins were already received.</p>}
+            {newReceipt && receipt?.coin_status === 'unavailable' && <p className="text-body text-ink-secondary">Your entry is saved. Its Coins could not be confirmed.</p>}
+            {newReceipt && receipt?.status === 'unavailable' && (
               <p className="text-body text-ink-secondary">Your memory is saved. Its reward could not be confirmed.</p>
             )}
-            {mode === 'create' && receipt?.status === 'not_eligible' && (
-              <p className="text-body text-ink-secondary">This memory is saved without an extra reward.</p>
+            {newReceipt && receipt?.status === 'not_eligible' && (
+              <p className="text-body text-ink-secondary">This memory is saved without extra XP.</p>
             )}
             {mode === 'edit' && <p className="text-body text-ink-secondary">Updates keep your memory current without another reward.</p>}
           </div>
@@ -279,14 +296,18 @@ function JournalEntryForm({
             </span>
           </p>
         )}
-        <TextField
-          label="Title"
-          placeholder="(leave blank — we'll use the first line)"
-          value={title}
-          onChange={(e) => changeForm({ title: e.target.value })}
-          disabled={isLocked || saving || Boolean(pending)}
-          error={errors.title}
-        />
+        <p className="text-body text-ink-secondary">Write about anything, even a hard day. A few words count. When you save, find your entry in Memories → Journal.</p>
+        <details open={Boolean(title)}>
+          <summary className="min-h-11 flex items-center text-caption text-ink-secondary cursor-pointer">Add a title (optional)</summary>
+          <TextField
+            label="Title"
+            placeholder="(leave blank — we'll use the first line)"
+            value={title}
+            onChange={(e) => changeForm({ title: e.target.value })}
+            disabled={isLocked || saving || Boolean(pending)}
+            error={errors.title}
+          />
+        </details>
 
         <div>
           <div className="flex items-end justify-between gap-2 mb-1">
@@ -321,10 +342,10 @@ function JournalEntryForm({
           </div>
           <TextAreaField
             id="journal-body"
-            rows={10}
+            rows={5}
             value={summary}
             onChange={(e) => changeForm({ summary: e.target.value })}
-            placeholder="Write or tap the mic to dictate…"
+            placeholder="Something from your day…"
             disabled={isLocked || saving || Boolean(pending)}
             error={errors.summary}
           />
@@ -340,6 +361,8 @@ function JournalEntryForm({
           )}
         </div>
 
+        <p className="text-caption text-ink-secondary">Need an idea? Something you noticed, something you tried, or someone you appreciate.</p>
+        {!isLocked && <p className="text-caption text-ink-secondary">The first new entry each day can earn writing XP and a 2 Coin daily bonus, alongside normal journal progress. More words or happier thoughts do not earn more. Updates give no extra reward.</p>}
         <ErrorAlert message={error} />
 
         {/* intentional: checkbox is outside the text/select form primitives;
@@ -360,11 +383,11 @@ function JournalEntryForm({
         </p>
         <p role="status" aria-live="polite" className="text-caption text-ink-whisper">
           {saving
-            ? 'Saving to your Yearbook…'
+            ? 'Saving to your journal…'
             : pending
               ? 'Save not confirmed yet. Check save to safely try again.'
               : storageState === 'saved'
-                ? 'Draft kept on this device. It is not in your Yearbook yet.'
+                ? 'Draft kept on this device. It is not saved in your journal yet.'
                 : storageState === 'unavailable'
                   ? 'This browser cannot keep a draft. Keep this window open until you save.'
                   : 'Save when you are ready to keep this memory.'}

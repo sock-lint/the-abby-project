@@ -45,6 +45,30 @@ function renderReader() {
 }
 
 describe('JournalReader — child view', () => {
+  it('holds writing after a failed today lookup instead of creating against unknown state', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/chronicle/summary/', () => HttpResponse.json(summaryPayload([]))),
+      http.get('*/api/chronicle/journal/today/', () => HttpResponse.json({ detail: 'Journal unavailable' }, { status: 503 })));
+    renderReader();
+    await screen.findByText('Journal unavailable');
+    expect(screen.getByRole('button', { name: 'Write today’s entry' })).toBeDisabled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('includes old daily notes in the same history as private read-only memories', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/chronicle/summary/', () => HttpResponse.json(summaryPayload([
+        { id: 81, kind: 'daily_note', title: 'A note from Today', summary: 'A hard day and a kind friend.', occurred_on: '2026-04-10', is_private: true },
+      ]))),
+    );
+    renderReader();
+    expect(await screen.findByText('A hard day and a kind friend.')).toBeInTheDocument();
+    expect(screen.getByText('Only me')).toBeInTheDocument();
+    expect(screen.getByText('Saved daily note')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /family responses|change sharing/i })).toBeNull();
+  });
+
   it('renders existing journal entries newest-first and skips other kinds', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

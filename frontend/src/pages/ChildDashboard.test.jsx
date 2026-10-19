@@ -31,37 +31,30 @@ function renderDashboard(extraHandlers = [], catalog = {}) {
 }
 
 describe('ChildDashboard', () => {
-  it('lets a child revisit and update today’s note from Today', async () => {
+  it('opens today’s existing journal entry from Today and keeps its sharing on update', async () => {
     const user = userEvent.setup();
-    let saved = {
-      id: 7, date: '2026-10-13', is_today: true,
-      affirmation: { text: 'A quiet moment for today.' },
-      gratitude_lines: ['Warm bread'], gratitude_paid: true,
-      max_lines: 3, max_line_chars: 200, coin_reward: 2,
-    };
-    const submit = spyHandler('post', /\/api\/wellbeing\/today\/gratitude\/$/, ({ body }) => {
-      saved = { ...saved, gratitude_lines: body.lines };
-      return { ...saved, freshly_paid: false, coin_awarded: 0 };
-    });
+    const saved = { id: 42, title: 'My day', summary: 'Warm bread', is_private: false, kind: 'journal', occurred_on: new Date().toLocaleDateString('en-CA') };
+    const patch = spyHandler('patch', /\/api\/chronicle\/42\/journal\/$/, ({ body }) => ({ ...saved, ...body }));
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
       http.get('*/api/challenges/daily/', () => HttpResponse.json(null)),
-      http.get('*/api/wellbeing/today/', () => HttpResponse.json(saved)),
-      submit.handler,
+      http.get('*/api/wellbeing/today/', () => HttpResponse.json({ affirmation: { text: 'A quiet moment for today.' } })),
+      http.get('*/api/chronicle/journal/today/', () => HttpResponse.json(saved)), patch.handler,
     ]);
     expect(await screen.findByRole('heading', { level: 1, name: 'Today' })).toBeInTheDocument();
-    const firstLine = await screen.findByRole('textbox', { name: "Today's note" });
-    await waitFor(() => expect(firstLine).toHaveValue('Warm bread'));
-    expect(screen.getByText("today's note")).toBeInTheDocument();
+    expect(await screen.findByText('Warm bread')).toBeInTheDocument();
     expect(screen.getByText('A quiet moment for today.')).toBeInTheDocument();
-    await user.clear(firstLine);
-    await user.type(firstLine, '  A walk together  ');
-    await user.click(screen.getByRole('button', { name: 'Update' }));
-    await waitFor(() => expect(submit.calls).toHaveLength(1));
-    expect(submit.calls[0].body).toEqual({ lines: ['A walk together'] });
-    expect(submit.calls[0].url).toMatch(/\/api\/wellbeing\/today\/gratitude\/$/);
-    await waitFor(() => expect(firstLine).toHaveValue('A walk together'));
-    expect(screen.queryByText(/first save today earns/i)).toBeNull();
+    await user.click(await screen.findByRole('button', { name: 'Edit today’s entry' }));
+    const body = await screen.findByLabelText(/mind/i);
+    await user.clear(body);
+    await user.type(body, 'A walk together');
+    await user.click(screen.getByRole('button', { name: 'Update entry' }));
+    await waitFor(() => expect(patch.calls).toHaveLength(1));
+    expect(patch.calls[0].body).toEqual({ title: 'My day', summary: 'A walk together', is_private: false });
+    expect(patch.calls[0].url).toMatch(/\/api\/chronicle\/42\/journal\/$/);
+    await user.click(await screen.findByRole('button', { name: 'Done' }));
+    expect(await screen.findByText('A walk together')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Memories → Journal' })).toHaveAttribute('href', '/chronicle?tab=journal');
   });
 
   it('renders active-timer hero when a timer is active', async () => {

@@ -1,13 +1,10 @@
-"""Daily wellbeing card — Finch-inspired affirmation + gratitude prompt.
+"""Daily affirmation, retained short notes, and the daily writing Coin allowance.
 
-A user-private surface on the Sigil Frontispiece. Once-per-day row carrying
-the deterministic affirmation (rolled from a YAML pool) and up to 3
-gratitude lines the kid types in. First-of-day gratitude submit pays a
-small coin trickle; subsequent edits same-day are free (no XP, no streak).
-
-Intentionally no notifications, no badge ladder, no quest progress — this
-is the one Finch-pulled surface that stays soft. The coin trickle is the
-RPG output; the act of writing is its own reward.
+Today now opens the Chronicle journal. These rows retain earlier clients'
+private gratitude lines and the deterministic affirmation. ``coin_paid_at``
+prevents both writing endpoints from paying the same daily allowance twice.
+Earlier notes also have a private Chronicle history projection, without
+retroactive journal XP or game progress.
 """
 from __future__ import annotations
 
