@@ -530,13 +530,10 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
-        from django.utils import timezone
         project = self.get_object()
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         project.status = "completed"
-        if project.completed_at is None:
-            project.completed_at = timezone.now()
         project.save()
         return Response(ProjectDetailSerializer(project).data)
 

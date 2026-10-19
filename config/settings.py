@@ -695,18 +695,20 @@ SESSION_CACHE_ALIAS = "default"
 
 # Email
 #
-# Audit H11: prior versions hardcoded the console backend, so the Sunday
-# 08:00 weekly-summary email task wrote into ``docker logs`` in production
-# instead of reaching parents. Now reads from env; defaults to console only
-# when DEBUG=True so local dev keeps zero-config behaviour.
-EMAIL_BACKEND = os.environ.get(
-    "EMAIL_BACKEND",
-    "django.core.mail.backends.console.EmailBackend"
-    if DEBUG
-    else "django.core.mail.backends.smtp.EmailBackend",
-)
+# Keep development's console convenience, but never write private summaries to
+# production logs or attempt SMTP when no mail provider has been configured.
+# Compose forwards an empty EMAIL_BACKEND when unset, so blank values must use
+# the same defaults as an absent variable. Explicit backend overrides still win.
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "").strip()
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "").strip()
+if not EMAIL_BACKEND:
+    if DEBUG:
+        EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    elif EMAIL_HOST:
+        EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    else:
+        EMAIL_BACKEND = "django.core.mail.backends.dummy.EmailBackend"
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@summerforge.local")
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
 EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")

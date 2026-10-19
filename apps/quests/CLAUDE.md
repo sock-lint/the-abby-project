@@ -41,6 +41,7 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 - `ChallengePin` points to one new occurrence or an existing legacy quest for Today presentation.
 - `DailyBonus` records one automatically awarded receipt per child per family-local day. The old `DailyChallenge` rows and their claim state are preserved.
 - `goals.py` owns automatic enrollment, matching, recurrence, contribution processing, payout, retry and pinning. Locks begin with the account row, matching `AwardService`; hold that lock while changing contribution/completion state.
+- Source services acquire that account gate before saving the accepted timestamp used by first enrollment. Untimed internal facts sample their fallback clock under the same gate. Explicit source timestamps, cutover exclusions and saved window boundaries remain unchanged; a concurrent initial catalog read cannot cut off a newly accepted action.
 - Every saved qualifying action advances eligible goals independently of the pin. Catalog goals retain the source limits of one planned homework assignment and two logged creations per local day. The service-owned counter freezes a private boolean `ChallengeActivity.context.catalog_eligible`; incoming client context cannot grant eligibility, and retries/deletions cannot promote an over-limit fact.
 - Explicit parent-created goals can count all valid matching saved records. Movement goal progress includes every valid session after the separate three-session XP/drop cap. Reads and pins never award or consume inventory.
 - Planning/creation quota counters keep their existing active-Django-timezone day (default America/Phoenix). Parent goal windows and daily bonuses remain family-local; this fix does not move the source reward gates to a new clock.
@@ -98,6 +99,17 @@ pay a satisfied period; it requires explicit client confirmation. Legacy daily
 challenge tools do not create current measurable parent goals.
 
 ## Preserved legacy behavior
+
+New legacy starts and the parent catalog share `queries.definitions_visible_to`:
+system definitions are global, while parent-authored definitions belong only to
+their creator's current family. A private definition with a deleted creator is
+unavailable for new starts. Saved campaigns/history keep their accepted promise.
+Solo and co-op services enforce this boundary for REST, MCP and internal callers;
+co-op participants must also share one family. Parent-authored reward amounts
+remain a decision within that household.
+Known foreign or mixed-family campaigns accepted before this gate cannot record
+new progress or pay. Existing creatorless campaigns retain their saved promise;
+deleting an author does not cancel a valid participant's accepted reward.
 
 Reading Adventure's `reading_logged` event advances explicitly filtered
 automatic goals using the awarded `ReadingDailyReward` primary key as its

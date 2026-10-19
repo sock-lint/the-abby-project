@@ -45,7 +45,10 @@ body without a content type, which the shared frontend API client rejects.
 ## Celery tasks (`tasks.py`)
 - `auto_clock_out_task` — every 30 min.
 - `generate_weekly_timecards_task` — Sun 23:55 local.
-- `send_weekly_email_summaries_task` — Sun 08:00.
+- `send_weekly_email_summaries` — Sun 08:00. With the dummy email backend,
+  returns `Weekly emails disabled` before reading household data or building
+  messages. Production defaults to this disabled backend without an SMTP host;
+  development console and explicit backend overrides remain supported.
 
 ## Constants
 - `ClockService.QUIET_HOURS_START = 22`, `QUIET_HOURS_END = 7`.

@@ -39,7 +39,7 @@ class CatalogIconApiResponseFixtureTests(APITestCase):
         self.definition = QuestDefinition.objects.create(id=91, name="Feather Collector", quest_type="collection", target_value=3,
                                                        duration_days=7, is_system=True, trigger_filter={"allowed_triggers": ["chore_complete"]})
         QuestRewardItem.objects.create(id=92, quest_definition=self.definition, item=self.fish, quantity=1)
-        self.custom = QuestDefinition.objects.create(id=93, name="Feather Collector", quest_type="collection", target_value=3, is_system=False)
+        self.custom = QuestDefinition.objects.create(id=93, name="Feather Collector", quest_type="collection", target_value=3, is_system=False, created_by=self.parent)
         DropLog.objects.create(id=94, user=self.child, item=self.cooked, trigger_type="clock_out")
         ChallengeEnrollment.objects.create(user=self.child, starts_at=shared.FIXED_NOW, timezone_name="America/Phoenix")
         with connection.cursor() as cursor:

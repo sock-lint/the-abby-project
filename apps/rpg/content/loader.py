@@ -233,6 +233,21 @@ class ContentPack:
                 changed.append("skill_tags")
         return len(active), changed
 
+    def _upsert_link(self, model, *, defaults, **lookup):
+        """Retain ambiguous legacy links rather than guessing which row owns them."""
+        matches = list(model.objects.select_for_update(no_key=True).filter(**lookup).order_by("pk")[:2])
+        if len(matches) > 1:
+            kind = model._meta.model_name
+            message = f"Ambiguous {kind}: multiple rows match {lookup}; reconcile them before applying catalog changes."
+            if self.pack_key:
+                # A reviewed publication must apply its complete intended diff,
+                # whereas the unkeyed deployment load must keep startup available.
+                raise ContentPackError(message)
+            self.stats.bump("skipped", f"ambiguous_{kind}")
+            self.warnings.append(message)
+            return None, False
+        return model.objects.update_or_create(defaults=defaults, **lookup)
+
     def _upsert(self, model, *, defaults, entry=None, **lookup):
         """Only a pack's previously claimed stable IDs can update existing rows."""
         if model._meta.label_lower == "rpg.itemdefinition":
@@ -242,6 +257,8 @@ class ContentPack:
                 self.stats.bump("skipped", "database_authored_item")
                 return model.objects.get(pk=override.object_id), False
         if not self.pack_key:
+            if model._meta.label_lower == "rpg.droptable":
+                return self._upsert_link(model, defaults=defaults, **lookup)
             if model._meta.label_lower == "quests.questdefinition":
                 # Bundled quests predate stable publication claims. Their
                 # global scope is part of the lookup: a family's identically
@@ -745,11 +762,12 @@ class ContentPack:
                         continue
                     if isinstance(item.metadata, dict) and item.metadata.get("no_random_drop") is True:
                         continue
-                    _, created = self._upsert(DropTable,
+                    drop, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": weight, "min_level": min_level},
                     )
-                    self.stats.bump("created" if created else "updated", "drop")
+                    if drop is not None:
+                        self.stats.bump("created" if created else "updated", "drop")
 
         macros = data.get("macros", []) or []
         for macro in macros:
@@ -787,11 +805,12 @@ class ContentPack:
                     w = int(
                         weight_by_rarity.get(item.rarity, 0) if weight_by_rarity else (flat_weight or 1)
                     )
-                    _, created = self._upsert(DropTable,
+                    drop, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": w, "min_level": min_level},
                     )
-                    self.stats.bump("created" if created else "updated", "drop")
+                    if drop is not None:
+                        self.stats.bump("created" if created else "updated", "drop")
 
     # ---- quests --------------------------------------------------------
 
@@ -854,11 +873,12 @@ class ContentPack:
                             f"unknown item {reward['slug']!r}"
                         ) from exc
                 desired_reward_ids.append(item.pk)
-                _, r_created = QuestRewardItem.objects.update_or_create(
+                link, r_created = self._upsert_link(QuestRewardItem,
                     quest_definition=quest, item=item,
                     defaults={"quantity": int(reward.get("quantity", 1))},
                 )
-                self.stats.bump("created" if r_created else "updated", "quest_reward")
+                if link is not None:
+                    self.stats.bump("created" if r_created else "updated", "quest_reward")
 
             if self.pack_key:
                 removed, _ = QuestRewardItem.objects.filter(quest_definition=quest).exclude(item_id__in=desired_reward_ids).delete()
@@ -923,7 +943,25 @@ class ContentPack:
 
             if self.pack_key and self.family is None:
                 raise ContentPackError("Shop rewards require an explicit destination family.")
-            reward_scope = {"family": self.family} if self.family is not None else {}
+            family = self.family
+            if family is None:
+                from apps.families.models import Family
+                family, _ = Family.objects.get_or_create(
+                    slug="default-family", defaults={"name": "Default Family"},
+                )
+            reward_scope = {"family": family}
+            if not self.pack_key:
+                # Legacy seed offers have no stable ownership claim. A name
+                # within the destination household cannot prove this is still
+                # the bundled offer, or authorize resetting a parent's edits.
+                # Seed missing offers only; reviewed, owned publications below
+                # remain the explicit way to update authored shop content.
+                _, created = Reward.objects.get_or_create(
+                    name=entry["name"], **reward_scope, defaults=defaults,
+                )
+                self.stats.bump("created" if created else "skipped",
+                                "reward" if created else "preserved_family_reward")
+                continue
             _, created = self._upsert(Reward, entry=entry,
                 name=entry["name"], **reward_scope, defaults=defaults,
             )

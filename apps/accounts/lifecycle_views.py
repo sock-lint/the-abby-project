@@ -53,7 +53,7 @@ class LifecycleMutationView(LifecycleView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        with lifecycle.locked_family_members(request) as (family, actor, members):
+        with lifecycle.locked_family_members(request, nowait=True) as (family, actor, members):
             self.operation(family, actor, members, **serializer.validated_data)
         return Response(status=status.HTTP_204_NO_CONTENT)
 

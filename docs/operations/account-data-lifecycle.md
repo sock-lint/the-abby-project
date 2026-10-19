@@ -65,10 +65,11 @@ contract. A stale authenticated lifecycle request cannot finish after logout,
 password rotation, deactivation or deletion. Other already-running application
 requests are not universally cancelled by this change.
 
-Dependent records are locked without waiting on PostgreSQL. An approval or
-completion already saving affected work makes deletion return a safe 409;
-let that save finish, refresh the review and retry. This avoids reversing the
-existing approval work-row → award-user lock order. The failed attempt rolls
+Lifecycle mutations lock member gates and dependent records without waiting
+on PostgreSQL. An approval or completion already saving affected work makes
+deletion return a safe 409; let that save finish, refresh the review and retry.
+This avoids waiting on in-flight reward transactions while the family is fenced.
+The failed attempt rolls
 back any handoff, activity cleanup and file jobs together.
 
 Before collecting the cascade, deletion takes stronger locks on the departing

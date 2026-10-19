@@ -26,6 +26,7 @@ class QuestRewardIntegrityTests(TestCase):
         self.other = make_family("Other household", children=[{"username": "quest-outsider"}]).children[0]
         self.definition = QuestDefinition.objects.create(
             name="Team effort", description="A saved legacy challenge",
+            created_by=self.family.parents[0],
             quest_type="collection", target_value=2, coin_reward=13, xp_reward=24,
         )
         category = SkillCategory.objects.create(name="Quest reward skill")
