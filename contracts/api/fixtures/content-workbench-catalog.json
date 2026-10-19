@@ -285,6 +285,11 @@
       "expedition_budget": {
         "daily_launches": null,
         "daily_items": null
+      },
+      "challenge_gates": {
+        "mode": "current",
+        "start_date": "2026-01-01",
+        "rules": []
       }
     },
     "limits": {
@@ -385,6 +390,9 @@
         "type": "object"
       },
       "expedition_budget": {
+        "type": "object"
+      },
+      "challenge_gates": {
         "type": "object"
       }
     },
@@ -713,8 +721,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "8c29fc76ef7b36912fa64856dd0fe35db26966d3c752721fc192e4aeb3224319",
-    "engine_version": "2026-10-18.5",
+    "rules_fingerprint": "2fe1825853f0d2e1e7bce89978d45b15d052010e333bca40356e46898e86f362",
+    "engine_version": "2026-10-19.1",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,
@@ -769,6 +777,11 @@
           "expedition_budget": {
             "daily_launches": null,
             "daily_items": null
+          },
+          "challenge_gates": {
+            "mode": "current",
+            "start_date": "2026-01-01",
+            "rules": []
           }
         }
       },
@@ -819,6 +832,11 @@
           "expedition_budget": {
             "daily_launches": null,
             "daily_items": null
+          },
+          "challenge_gates": {
+            "mode": "current",
+            "start_date": "2026-01-01",
+            "rules": []
           }
         }
       },
@@ -869,10 +887,66 @@
           "expedition_budget": {
             "daily_launches": null,
             "daily_items": null
+          },
+          "challenge_gates": {
+            "mode": "current",
+            "start_date": "2026-01-01",
+            "rules": []
           }
         }
       }
-    ]
+    ],
+    "challenge_gates_defaults": {
+      "mode": "current",
+      "start_date": "2026-01-01",
+      "rules": []
+    },
+    "challenge_gates_limits": {
+      "mode": {
+        "choices": [
+          "current",
+          "milestones",
+          "milestone_tenure"
+        ]
+      },
+      "max_rules": 20,
+      "skill_level": {
+        "min": 0,
+        "max": 6
+      },
+      "min_days": {
+        "min": 0,
+        "max": 365
+      },
+      "date_format": "YYYY-MM-DD"
+    },
+    "challenge_gates_assumptions": [
+      "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
+      "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+      "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
+      "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
+      "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
+      "Waiting visits have no currently available unfinished challenge in that subset and at least one structurally reachable challenge locked by a gate or native badge. Visits after exhaustion or expiration are separate. Inactive dates and blocked challenges are not extra playable content.",
+      "Unlock and completion day percentiles are conditional on the trials that reached each event; reached counts include every trial. Unlocked means a native challenge window was actually offered by a new fact, not merely that its conditions became true on an inactive date.",
+      "Only one-off global challenges can receive new gates; a repeatable challenge may serve as a predecessor after its first completion. Missed direct-predecessor windows and offerings, and definite native completed-challenge badge dead ends, block descendants rather than generating waiting visits. Other native badge paths remain optimistic; a viable alternative or repeatable path prevents a definite dead-end claim.",
+      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses."
+    ],
+    "challenge_gate_choices": {
+      "quests": [
+        {
+          "id": 904,
+          "name": "Practice challenge",
+          "is_repeatable": false
+        }
+      ],
+      "skills": [
+        {
+          "id": 902,
+          "name": "Persistence",
+          "category": "Life Skills"
+        }
+      ]
+    }
   },
   "drafts": []
 }
