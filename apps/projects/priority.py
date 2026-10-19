@@ -2,9 +2,9 @@
 
 Exports one public function — `build_next_actions(user, *, target_date=None,
 hour=None, limit=20)` — which returns a ranked list of `NextAction`
-dataclass instances covering chores, homework, and (optionally) a single
-streak-protecting habit. Parents always receive `[]` — the parent hero is
-driven by the approval queue, not a priority feed.
+dataclass instances covering chores, homework, daily starter habits, and
+(optionally) a single streak-protecting habit. Parents always receive `[]` —
+the parent hero is driven by the approval queue, not a priority feed.
 
 Scoring weights live in `SCORING_WEIGHTS` at module top so they can be
 tuned in one place. See
@@ -30,6 +30,7 @@ SCORING_WEIGHTS = {
     "chore_one_time_per_day": 2,
     "chore_weekly_base": 10,
     "chore_weekly_per_day": 8,
+    "habit_daily": 70,
     "habit_streak_protection": 65,
 }
 
@@ -257,7 +258,7 @@ def _untapped_positive_habits(user, target_date):
 
     habits = list(
         Habit.objects
-        .filter(user=user, is_active=True)
+        .filter(user=user, is_active=True, pending_parent_review=False)
         .filter(Q(habit_type="positive") | Q(habit_type="both"))
     )
     for h in habits:
@@ -269,19 +270,38 @@ def _untapped_positive_habits(user, target_date):
 
 
 def _habit_actions(user, target_date, *, hour):
+    habits = _untapped_positive_habits(user, target_date)
+    starters = [h for h in habits if getattr(h, "starter_key", None)]
+    actions = [NextAction(
+        kind="habit",
+        id=habit.pk,
+        title=habit.name,
+        subtitle=(
+            f"{habit._taps_today}/{habit.max_taps_per_day} today"
+            + (" · morning and bedtime"
+               if habit.starter_key == "brush_teeth" and habit.max_taps_per_day == 2
+               else "")
+        ),
+        score=SCORING_WEIGHTS["habit_daily"],
+        due_at=None,
+        reward=None,
+        icon=habit.icon or "Sparkles",
+        tone="moss",
+        action_url="/habits",
+    ) for habit in starters]
     if hour < 18:
-        return []
+        return actions
     streak = _login_streak(user)
     if streak < 1:
-        return []
-    habits = _untapped_positive_habits(user, target_date)
+        return actions
+    habits = [h for h in habits if not getattr(h, "starter_key", None)]
     if not habits:
-        return []
+        return actions
     # Pick the habit with highest strength, ties broken by name.
     habits.sort(key=lambda h: (-h.strength, h.name))
     top = habits[0]
     icon = top.icon or "Flame"
-    return [NextAction(
+    actions.append(NextAction(
         kind="habit",
         id=top.pk,
         title=top.name,
@@ -292,4 +312,5 @@ def _habit_actions(user, target_date, *, hour):
         icon=icon,
         tone="ember",
         action_url="/habits",
-    )]
+    ))
+    return actions

@@ -7,6 +7,11 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
 - `HabitLog` — single `+1` or `-1` tap entry. `streak_at_time` snapshots current login streak. Table preserved as `rpg_habitlog`.
 - `HabitSkillTag` — `(habit, skill, xp_weight)` fan-out table mirroring `ProjectSkillTag`.
 
+## Starter routine
+- Every existing child receives the published positive **Brush your teeth** starter through migration `0007`; new children receive it atomically with creation in `ChildViewSet`. It starts with `max_taps_per_day=2` and the normal 5-XP setting. The two check-ins support a morning/evening routine without imposing time windows.
+- `defaults.ensure_starter_habits` is called only at onboarding or explicit seeding, never on reads. Nullable, read-only `Habit.starter_key` identifies the starter as `brush_teeth`, with database uniqueness per child. Parents can rename, customize, pause or delete it normally; it cannot be reassigned to another child. Paused habits cannot be tapped.
+- Existing published positive **Brush teeth** / **Brush your teeth** habits with two taps per day are adopted without changing their name, rewards, logs or paused state. Pending child proposals are never auto-published. A starter with a saved key survives later parent customization; repeat installation leaves it untouched.
+
 ## Services
 - `HabitService`:
   - `log_tap(user, habit, direction)` — validates type compatibility, enforces daily positive-tap cap, updates `strength`, distributes skill XP via `AwardService.grant` (positive taps only), fires RPG game loop. Returns `{direction, xp_reward, new_strength}`.

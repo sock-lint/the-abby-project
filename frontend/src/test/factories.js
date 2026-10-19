@@ -70,6 +70,7 @@ export function buildHabit(over = {}) {
     name: 'Read 20 min',
     icon: '📖',
     habit_type: 'positive',
+    starter_key: null,
     user: 1,
     strength: 0,
     color: 'yellow',

@@ -27,6 +27,7 @@ class HabitSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name",
+            "starter_key",
             "icon",
             "habit_type",
             "user",
@@ -45,6 +46,7 @@ class HabitSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "starter_key",
             "strength",
             "color",
             "taps_today",
@@ -96,6 +98,18 @@ class HabitWriteSerializer(serializers.ModelSerializer):
             # Do not require or validate client-supplied proposal ownership.
             fields["user"] = serializers.PrimaryKeyRelatedField(read_only=True)
         return fields
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        target = attrs.get("user")
+        if (
+            self.instance is not None and self.instance.starter_key
+            and target is not None and target.pk != self.instance.user_id
+        ):
+            raise serializers.ValidationError({
+                "user": "A starter habit stays with the child it was created for.",
+            })
+        return attrs
 
     class Meta:
         model = Habit

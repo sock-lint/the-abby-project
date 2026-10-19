@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import Dashboard from './Dashboard.jsx';
+import ChildDashboard from './ChildDashboard.jsx';
 import { AuthProvider } from '../hooks/useApi.js';
 import { server } from '../test/server.js';
 import { spyHandler } from '../test/spy.js';
@@ -357,6 +358,63 @@ describe('ChildDashboard', () => {
     expect(tap.calls[0].body).toEqual({ direction: 1 });
     expect(tap.calls[0].url).toMatch(/\/habits\/7\/log\/$/);
     await waitFor(() => expect(dashboard.mock.calls.length).toBeGreaterThanOrEqual(2));
+  });
+
+  it.each(['Brush your teeth', 'Read quietly'])(
+    'keeps %s actionable after one tap and removes it only at the daily cap',
+    async (name) => {
+      const user = userEvent.setup();
+      let taps = 0;
+      const tap = spyHandler('post', /\/api\/habits\/7\/log\/$/, () => {
+        taps += 1;
+        return { direction: 1, xp_reward: 0, new_strength: taps };
+      });
+      const action = {
+        kind: 'habit', id: 7, title: name, score: 65, due_at: null,
+        reward: null, icon: 'Flame', tone: 'ember', action_url: '/habits',
+      };
+      renderDashboard([
+        http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+        http.get('*/api/dashboard/', () => HttpResponse.json({
+          active_timer: null, active_projects: [], recent_badges: [], savings_goals: [],
+          rpg: { login_streak: 0, habits_today: [{ id: 7, name, taps_today: taps, max_taps_per_day: 2 }] },
+          next_actions: taps < 2 ? [{ ...action, subtitle: `${taps}/2 today · morning and bedtime` }] : [],
+        })),
+        tap.handler,
+      ]);
+
+      await user.click(await screen.findByRole('button', { name: `Complete ${name}` }));
+      await waitFor(() => expect(screen.getAllByText('1/2 today · morning and bedtime')).toHaveLength(2));
+      expect(screen.getByRole('button', { name: `Complete ${name}` })).toBeEnabled();
+      expect(screen.queryByRole('button', { name: 'Completed' })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: `Complete ${name}` }));
+      await waitFor(() => expect(tap.calls).toHaveLength(2));
+      expect(tap.calls.map((call) => call.body)).toEqual([{ direction: 1 }, { direction: 1 }]);
+      await waitFor(() => expect(screen.queryByText(name)).not.toBeInTheDocument());
+      expect(screen.getByRole('heading', { name: 'No urgent tasks right now' })).toBeInTheDocument();
+    },
+  );
+
+  it('does not claim a habit is complete when the confirmed dashboard refresh is unavailable', async () => {
+    const user = userEvent.setup();
+    const reload = vi.fn().mockResolvedValue(undefined);
+    const tap = spyHandler('post', /\/api\/habits\/7\/log\/$/, { direction: 1, xp_reward: 0, new_strength: 1 });
+    server.use(tap.handler);
+    render(
+      <MemoryRouter>
+        <AuthProvider>
+          <ChildDashboard reload={reload} data={{
+            rpg: { login_streak: 0 },
+            next_actions: [{ kind: 'habit', id: 7, title: 'Brush your teeth', subtitle: '0/2 today' }],
+          }} />
+        </AuthProvider>
+      </MemoryRouter>,
+    );
+    await user.click(await screen.findByRole('button', { name: 'Complete Brush your teeth' }));
+    await waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('button', { name: 'Completed' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Complete Brush your teeth' })).toBeEnabled();
   });
 
   it('completing a chore from the today log posts to /chores/{id}/complete/ and refetches', async () => {

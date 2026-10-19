@@ -25,6 +25,9 @@ class HabitService:
         Habit.objects.select_for_update().get(pk=habit.pk)
         habit.refresh_from_db()
 
+        if not habit.is_active:
+            raise ValueError("This habit is paused. Ask a parent to resume it before tapping.")
+
         if habit.pending_parent_review:
             raise ValueError(
                 "This habit is waiting for parent approval before it can be tapped.",
