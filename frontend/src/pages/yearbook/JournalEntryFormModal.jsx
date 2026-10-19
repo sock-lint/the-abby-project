@@ -200,7 +200,9 @@ function JournalEntryForm({
         const merged = !summary || summary === prior ? prior : `${prior}\n\n${summary}`;
         changeForm({
           mode: 'edit', entry: existing, title: existing.title || '',
-          summary: merged, is_private: existing.is_private !== false, pending: null,
+          // Combining words cannot opt either private contribution into
+          // sharing. The child may explicitly share the merged entry next.
+          summary: merged, is_private: isPrivate || existing.is_private !== false, pending: null,
         });
         setError(
           "You already wrote today — we've loaded your entry so you can add to it.",

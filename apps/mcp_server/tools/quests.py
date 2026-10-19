@@ -16,7 +16,6 @@ Live ``Quest`` instances for a specific child are spawned via
 from __future__ import annotations
 
 from typing import Any
-from django.db.models import Q
 
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -26,6 +25,7 @@ from django.db import transaction
 from apps.achievements.models import Badge
 from apps.accounts.models import User
 from apps.quests.models import Quest, QuestDefinition, QuestSkillTag
+from apps.quests.queries import definitions_visible_to
 from apps.quests.services import QuestService
 from apps.quests.validators import validate_trigger_filter
 
@@ -136,9 +136,7 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
     collection quests.
     """
     actor = require_parent()
-    qs = QuestDefinition.objects.filter(
-        Q(is_system=True) | Q(created_by__family_id=actor.family_id),
-    ).prefetch_related("reward_items__item")
+    qs = definitions_visible_to(actor).prefetch_related("reward_items__item")
     if params.quest_type:
         qs = qs.filter(quest_type=params.quest_type)
     qs = qs.order_by("quest_type", "name")
@@ -173,7 +171,7 @@ def create_quest_definition(
             raise MCPValidationError(
                 f"required_badge_id {params.required_badge_id} not found.",
             )
-    if QuestDefinition.objects.filter(name=params.name).exists():
+    if definitions_visible_to(parent).filter(name=params.name).exists():
         raise MCPValidationError(
             f"A quest named {params.name!r} already exists.",
         )
@@ -232,7 +230,7 @@ def assign_quest(params: AssignQuestIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"user_id {params.user_id} does not match any child.",
         )
-    if not QuestDefinition.objects.filter(pk=params.definition_id).exists():
+    if not definitions_visible_to(parent).filter(pk=params.definition_id).exists():
         raise MCPNotFoundError(
             f"QuestDefinition {params.definition_id} not found.",
         )
@@ -270,7 +268,7 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"user_ids don't match any child: {missing}",
         )
-    if not QuestDefinition.objects.filter(pk=params.definition_id).exists():
+    if not definitions_visible_to(parent).filter(pk=params.definition_id).exists():
         raise MCPNotFoundError(
             f"QuestDefinition {params.definition_id} not found.",
         )

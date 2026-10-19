@@ -142,3 +142,107 @@ class LegacyEnrollmentConcurrencyTests(TransactionTestCase):
 
     def test_coop_legacy_start_serializes_automatic_enrollment(self):
         self._overlap_legacy_start_and_enrollment(co_op=True)
+
+
+@skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
+class FirstPlanningCreditConcurrencyTests(TransactionTestCase):
+    """A challenge read cannot cut over after an in-flight accepted action."""
+
+    def test_first_homework_plan_keeps_credit_when_initial_catalog_read_overlaps(self):
+        from apps.homework.models import HomeworkAssignment
+        from apps.homework.services import HomeworkService
+
+        user = get_user_model().objects.create_user(username="first-plan-race", role="child")
+        definition = QuestDefinition.objects.create(
+            name="First plan", quest_type="collection", target_value=1,
+            is_system=True, trigger_filter={"allowed_triggers": ["homework_created"]},
+        )
+        source_saved, release = Event(), Event()
+        original_create = HomeworkAssignment.objects.create
+        reader_pids = []
+
+        def pause_after_source_save(*args, **kwargs):
+            source = original_create(*args, **kwargs)
+            source_saved.set()
+            if not release.wait(10):
+                raise TimeoutError("First source save was not released")
+            return source
+
+        def create():
+            return HomeworkService.create_assignment(user, {
+                "title": "Plan before the catalog read", "due_date": timezone.localdate() + timedelta(days=2),
+            })
+
+        with patch.object(HomeworkAssignment.objects, "create", pause_after_source_save), ThreadPoolExecutor(max_workers=2) as pool:
+            source_future = pool.submit(LegacyEnrollmentConcurrencyTests._worker, create)
+            reader_future = None
+            try:
+                self.assertTrue(source_saved.wait(5))
+                reader_future = pool.submit(LegacyEnrollmentConcurrencyTests._worker, lambda: list_goals(user), reader_pids)
+                deadline = monotonic() + 5
+                while monotonic() < deadline and not reader_future.done():
+                    if reader_pids:
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT wait_event_type FROM pg_stat_activity WHERE pid = %s", [reader_pids[0]])
+                            row = cursor.fetchone()
+                        if row and row[0] == "Lock":
+                            break
+                    sleep(0.01)
+            finally:
+                release.set()
+            source = source_future.result(timeout=15)
+            if reader_future:
+                reader_future.result(timeout=15)
+
+        occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+        self.assertEqual((occurrence.starts_at, occurrence.progress, occurrence.status),
+                         (source.created_at, 1, "completed"))
+        self.assertEqual(ChallengeEnrollment.objects.get(user=user).starts_at, source.created_at)
+
+
+@skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
+class FirstActivityClockConcurrencyTests(TransactionTestCase):
+    def test_default_activity_clock_follows_a_catalog_read_that_already_owns_the_lock(self):
+        from apps.quests.goals import _catalog_goals
+
+        user = get_user_model().objects.create_user(username="first-default-clock", role="child")
+        definition = QuestDefinition.objects.create(
+            name="First default clock", quest_type="collection", target_value=1, is_system=True,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+        )
+        reader_locked, release = Event(), Event()
+        writer_pids = []
+
+        def pause_locked_reader(member):
+            reader_locked.set()
+            if not release.wait(10):
+                raise TimeoutError("Initial catalog read was not released")
+            return _catalog_goals(member)
+
+        with patch("apps.quests.goals._catalog_goals", side_effect=pause_locked_reader), ThreadPoolExecutor(max_workers=2) as pool:
+            reader = pool.submit(LegacyEnrollmentConcurrencyTests._worker, lambda: list_goals(user))
+            writer = None
+            try:
+                self.assertTrue(reader_locked.wait(5))
+                writer = pool.submit(
+                    LegacyEnrollmentConcurrencyTests._worker,
+                    lambda: ingest_activity(user, "chore_complete", "first", "chore_complete"), writer_pids,
+                )
+                deadline, blocked = monotonic() + 5, False
+                while monotonic() < deadline and not writer.done():
+                    if writer_pids:
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT wait_event_type FROM pg_stat_activity WHERE pid = %s", [writer_pids[0]])
+                            row = cursor.fetchone()
+                        if row and row[0] == "Lock":
+                            blocked = True
+                            break
+                    sleep(0.01)
+                self.assertTrue(blocked, "The first activity did not wait for the catalog read's user lock")
+            finally:
+                release.set()
+            reader.result(timeout=15)
+            if writer:
+                writer.result(timeout=15)
+        occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+        self.assertEqual((occurrence.progress, occurrence.status), (1, "completed"))

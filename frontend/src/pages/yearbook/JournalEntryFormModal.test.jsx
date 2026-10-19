@@ -417,7 +417,11 @@ describe('JournalEntryFormModal', () => {
     expect(within(dialog).getByRole('button', { name: /update entry/i })).toBeInTheDocument();
   });
 
-  it('flips to edit mode when POST returns 409 with the existing entry', async () => {
+  it.each([
+    { draftPrivate: true, existingPrivate: false, mergedPrivate: true },
+    { draftPrivate: false, existingPrivate: true, mergedPrivate: true },
+    { draftPrivate: false, existingPrivate: false, mergedPrivate: false },
+  ])('preserves words and private sharing on a daily conflict ($draftPrivate, $existingPrivate)', async ({ draftPrivate, existingPrivate, mergedPrivate }) => {
     // 409 path: the child is in create mode and submits, but the backend
     // (via the unique-per-day constraint) reports that today's entry
     // already exists. The modal should swap to edit mode, preserve the
@@ -429,12 +433,15 @@ describe('JournalEntryFormModal', () => {
     const existing = {
       id: 77,
       kind: 'journal',
-      is_private: false,
+      is_private: existingPrivate,
       title: 'Earlier today',
       summary: 'Some earlier thoughts.',
       occurred_on: new Date().toLocaleDateString('en-CA'),
     };
-    server.use(
+    const update = spyHandler('patch', '*/api/chronicle/77/journal/', () => ({
+      ...existing, is_private: mergedPrivate,
+    }));
+    server.use(update.handler,
       http.post('*/api/chronicle/journal/', () =>
         HttpResponse.json(
           {
@@ -451,6 +458,7 @@ describe('JournalEntryFormModal', () => {
     );
     const dialog = getDialog();
     await user.type(within(dialog).getByLabelText(/mind/i), 'New thought I typed');
+    if (!draftPrivate) await user.click(screen.getByRole('checkbox', { name: /share with parents/i }));
     await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
 
     // Title flips to the BottomSheet title for edit mode.
@@ -465,9 +473,19 @@ describe('JournalEntryFormModal', () => {
     ).toBeInTheDocument();
     // Friendly 409 error — not a raw status code.
     expect(screen.getByRole('alert').textContent).toMatch(/already wrote today/i);
-    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /share with parents/i }).checked).toBe(!mergedPrivate);
     // The in-flight text survives, appended after the existing body.
     expect(screen.getByLabelText(/mind/i).value).toContain('Some earlier thoughts.');
     expect(screen.getByLabelText(/mind/i).value).toContain('New thought I typed');
+    expect(JSON.parse(localStorage.getItem(journalDraftKey(role.user.id))).is_private).toBe(mergedPrivate);
+    await user.click(screen.getByRole('button', { name: /update entry/i }));
+    await screen.findByRole('dialog', { name: 'Entry updated' });
+    expect(update.calls).toHaveLength(1);
+    expect(update.calls[0].body).toEqual({
+      title: existing.title,
+      summary: 'Some earlier thoughts.\n\nNew thought I typed',
+      is_private: mergedPrivate,
+    });
+    expect(new URL(update.calls[0].url).pathname).toBe('/api/chronicle/77/journal/');
   });
 });
