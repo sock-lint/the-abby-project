@@ -17,8 +17,8 @@ x-app-env: &app-env
   SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
   SENTRY_TRACES_SAMPLE_RATE: ${SENTRY_TRACES_SAMPLE_RATE:-0.2}
   SENTRY_RELEASE: ${SENTRY_RELEASE:-}
-  # Email (audit H11) — passed through; Django defaults to SMTP backend
-  # when DEBUG=False and falls back to console only in dev.
+  # Email — Django treats a blank backend as unset. Production uses SMTP
+  # only with EMAIL_HOST configured; otherwise email is disabled. Dev uses console.
   EMAIL_BACKEND: ${EMAIL_BACKEND:-}
   DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:-noreply@summerforge.local}
   EMAIL_HOST: ${EMAIL_HOST:-}
