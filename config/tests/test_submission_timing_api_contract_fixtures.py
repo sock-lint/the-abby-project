@@ -74,7 +74,7 @@ class SubmissionTimingApiFixtureTests(APITestCase):
         submission = HomeworkService.submit_completion(
             self.child, assignment, images=["homework_proofs/synthetic-timing.png"], notes="Read two chapters",
         )
-        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 26))
+        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 24))
         self.client.force_authenticate(self.parent)
         with patch("django.utils.timezone.now", return_value=REVIEWED):
             self.assertEqual(self.client.post(f"/api/homework-submissions/{submission.pk}/approve/").status_code, 200)
@@ -84,10 +84,12 @@ class SubmissionTimingApiFixtureTests(APITestCase):
         )
         row = reviewed["results"][0]
         self.assertEqual(row["timing_snapshot"]["due_on"], "2026-10-22")
-        self.assertEqual(row["current_due_date"], "2026-10-26")
+        self.assertEqual(row["current_due_date"], "2026-10-24")
         self.assertEqual(row["timeliness"], "late")
         self.client.force_authenticate(self.child)
-        self.assert_response_fixture(
+        detail = self.assert_response_fixture(
             self.client.get(f"/api/homework/{assignment.pk}/"),
             "completion-timing-homework-assignment.json",
         )
+        self.assertEqual(detail["timeliness_preview"]["timeliness"], "on_time")
+        self.assertEqual(detail["submission_status"]["timeliness"], "late")

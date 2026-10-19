@@ -13,6 +13,11 @@ One-off homework assignments with a submit→approve workflow requiring proof im
 ## Services
 - `HomeworkService` — `create_assignment`, `submit_completion`, `approve_submission`, `plan_assignment` (AI), `get_timeliness`, `can_self_plan`.
 
+New submissions and previews count both the household-local day before the due
+date and the due date itself as `on_time`. Two or more days before is `early`;
+after the due date is `late` (or `beyond_cutoff` past the configured late cutoff).
+Previously saved labels and timing snapshots retain their original evidence.
+
 ## Endpoints
 - `/api/homework/ai-settings/` (parent-only `GET`/`PUT`/`DELETE`; current family's planner settings).
 - `/api/homework/` (CRUD + `submit` + `save-template` + `plan`).

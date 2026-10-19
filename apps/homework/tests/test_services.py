@@ -41,8 +41,12 @@ class _Fixture(TestCase):
 
 class TimelinessTests(_Fixture):
     def test_early_submission(self):
-        due = timezone.localdate() + timedelta(days=3)
+        due = timezone.localdate() + timedelta(days=2)
         self.assertEqual(HomeworkService.get_timeliness(due), "early")
+
+    def test_day_before_due_date_is_on_time(self):
+        due = timezone.localdate() + timedelta(days=1)
+        self.assertEqual(HomeworkService.get_timeliness(due), "on_time")
 
     def test_on_time_submission(self):
         due = timezone.localdate()
@@ -242,7 +246,7 @@ class SubmitCompletionTests(_Fixture):
         )
         self.assertEqual(submission.status, "pending")
         self.assertEqual(submission.proofs.count(), 2)
-        self.assertEqual(submission.timeliness, "early")
+        self.assertEqual(submission.timeliness, "on_time")
 
     def test_submit_without_images_raises(self):
         with self.assertRaises(HomeworkError):

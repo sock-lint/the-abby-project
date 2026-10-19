@@ -90,6 +90,10 @@ observation checkpoint; even saved empty evidence remains insufficient.
 `completion-timing-homework-assignment.json` come from the real submission/read
 endpoints. They distinguish the weekly Monday period from a Friday submission,
 the original homework deadline from a later edit, and a later parent approval.
+The homework assignment previews the day before its current deadline as on time,
+while its saved submission retains the original late classification. Homework
+submitted on the day before its deadline or the deadline itself is on time;
+earlier submissions are early, and later submissions are late.
 `timing_snapshot` v1 freezes `timezone`, `submitted_at`, `submitted_on`,
 `schedule`, `period_start`, `period_end`, `due_on` and `timeliness`. Legacy rows
 remain null. Read-only nullable `current_due_date` is today's editable deadline,

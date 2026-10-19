@@ -70,16 +70,17 @@ class HomeworkService:
         Pure function — no side effects. Homework pays no money and no
         coins, so there's no multiplier to return; the label alone is
         what goes on ``HomeworkSubmission.timeliness`` and gates the
-        ``on_time`` quest filter.
+        ``on_time`` quest filter. Both the day before the deadline and the
+        due date itself are on time; earlier calendar days are early.
         """
         if submit_date is None:
             submit_date = timezone.localdate()
 
-        if submit_date < due_date:
-            return HomeworkSubmission.Timeliness.EARLY
-        if submit_date == due_date:
-            return HomeworkSubmission.Timeliness.ON_TIME
         days_late = (submit_date - due_date).days
+        if days_late < -1:
+            return HomeworkSubmission.Timeliness.EARLY
+        if days_late <= 0:
+            return HomeworkSubmission.Timeliness.ON_TIME
         if days_late > settings.HOMEWORK_LATE_CUTOFF_DAYS:
             return HomeworkSubmission.Timeliness.BEYOND_CUTOFF
         return HomeworkSubmission.Timeliness.LATE
