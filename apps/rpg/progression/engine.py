@@ -847,7 +847,9 @@ class Trial:
                     for level in XP_THRESHOLDS:
                         entries, weights = self._source_pool("expedition_returned", level, tier)
                         obtainable.update(entry.item_id for entry, weight in zip(entries, weights)
-                                          if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0)
+                                          if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0
+                                          and (not self.reward_commitment.enabled
+                                               or self.reward_commitment.allows(entry.item, tier=tier)))
             for q in self.quests:
                 if q.required_badge_id and q.required_badge_id not in potential.badges:
                     continue

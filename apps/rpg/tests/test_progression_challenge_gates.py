@@ -319,6 +319,51 @@ class ProgressionChallengeGateTests(TestCase):
                 alternate.delete()
                 badge.delete()
 
+
+    def test_gated_expedition_reachability_preserves_the_native_coin_commitment_filter(self):
+        from apps.rpg.tests.test_progression_incubation import companion_catalog
+        catalog = companion_catalog()
+        items = {pk: N(**vars(item), slug=f"companion-item-{pk}") for pk, item in catalog.items.items()}
+        title = N(pk=6, item_type="cosmetic_title", pet_species_id=None, potion_type_id=None,
+                  rarity="common", coin_value=500, metadata={}, display_name="Costly title", slug="costly-title")
+        items[6] = title
+        badge = N(pk=9, name="Costly title collector", criteria_type="cosmetic_set_owned",
+                  criteria_value={"slugs": [title.slug]}, rarity="common", xp_bonus=0, award_coins=False)
+        def quest(pk, trigger, rewards, required_badge_id=None):
+            return N(pk=pk, name=f"Commitment path {pk}", required_badge_id=required_badge_id,
+                     is_repeatable=False, quest_type="collection", target_value=1, duration_days=30,
+                     trigger_filter={"allowed_triggers": [trigger]}, xp_reward=0, coin_reward=0,
+                     skill_tags=FrozenRows(), reward_items=FrozenRows(N(item_id=item_id, quantity=4) for item_id in rewards))
+        mount_path = quest(1, "reading_logged", [1, 3, 4])
+        authored_title_path = quest(2, "reading_logged", [6])
+        title_badge_path = quest(3, "expedition_returned", [], required_badge_id=badge.pk)
+        catalog = replace(catalog, skills=self.catalog().skills, items=items, badges=[badge],
+                          quests=[mount_path, authored_title_path, title_badge_path],
+                          pools={"expedition_returned": [N(item_id=6, item=title, min_level=0, weight=1)]})
+        # Movement evaluates all native badge criteria, making this genuine
+        # cosmetic-set gate reachable through the ungated authored reward.
+        config = quiet_config(reading_minutes=10, movement_sessions_per_day=1, expeditions_per_day=1,
+            reward_commitment={"enabled": True}, challenge_gates={"mode": "milestones", "rules": [
+                {"quest_id": 2, "skill_id": self.unearned_skill.pk, "skill_level": 1}]})
+        trial = Trial(config, catalog, 5)
+        self.assertIn("quest:3", trial.finite_keys)
+        self.assertFalse(trial.reward_commitment.allows(title, tier=config["expedition_tier"]))
+        self.assertFalse(self.target(trial.report(), title_badge_path)["reachable"])
+        result = simulate_progression(config, catalog=catalog)
+        self.assertFalse(self.target(result, title_badge_path)["reachable"])
+        self.assertGreaterEqual(result["challenge_gates"]["gate_unreachable_finite_total"], 4)
+        self.assertEqual(result["challenge_gates"]["visits"]["waiting_for_gate_p50"], 0)
+        self.assertEqual(self.target(result, title_badge_path)["completed_trials"], 0)
+        # Exact long-expedition liability boundary remains reachable. This is
+        # a policy filter, not a blanket removal of expedition cosmetics.
+        permitted = N(**{**vars(title), "coin_value": trial.reward_commitment.static_limit(config["expedition_tier"])})
+        allowed_catalog = replace(catalog, items={**items, 6: permitted}, pools={"expedition_returned": [
+            N(item_id=6, item=permitted, min_level=0, weight=1)]})
+        allowed = Trial(config, allowed_catalog, 5)
+        self.assertTrue(self.target(allowed.report(), title_badge_path)["reachable"])
+        installed = Trial({**config, "reward_commitment": {"enabled": False}}, catalog, 5)
+        self.assertTrue(self.target(installed.report(), title_badge_path)["reachable"])
+
     def test_normalized_defaults_are_independent_and_bound_to_rule_fingerprint(self):
         from apps.rpg.progression import challenge_gates
         from apps.rpg.progression.engine import rules_fingerprint
