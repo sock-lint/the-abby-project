@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "proposal_id": "reading-voyager-milestones-56-days-20261019",
+  "artifact_kind": "review_only_policy_proposal",
+  "status": "draft_for_review",
+  "owner_selected_direction": true,
+  "owner_requested_scope": "proposal_and_plan_only",
+  "implementation_complete": false,
+  "workbench_importable": false,
+  "publication_ready": false,
+  "live_publication_authorized": false,
+  "target": {
+    "model": "quests.questdefinition",
+    "name": "Reading Voyager",
+    "quest_type": "collection",
+    "is_system": true,
+    "captured_id_reference": 69,
+    "bundled_source": "content/rpg/bundled/reading-adventures/quests.yaml",
+    "identity_policy": "Preserve the exact existing definition after current identity, ownership and expected-old-value checks; captured IDs are not portable."
+  },
+  "expected_current": {
+    "duration_days": 45,
+    "required_badge": null,
+    "description": "Complete 20 daily Reading Adventures within 45 days. Ten newly logged reading or listening minutes counts once each family-local day. Celebrate your reading rhythm with the Bookworm title."
+  },
+  "proposed": {
+    "duration_days": 56,
+    "unlock_requirements": {
+      "combination": "all",
+      "subject": "same_child",
+      "completed_catalog_challenge": {
+        "name": "Reading Companion",
+        "captured_id_reference": 67
+      },
+      "unlocked_skill": {
+        "category": "Language Arts",
+        "name": "Reading Comprehension",
+        "captured_id_reference": 92,
+        "minimum_level": 1
+      },
+      "additional_tenure_days": 0,
+      "available_from": null,
+      "available_until": null,
+      "preserve_native_eligibility_and_earned_badge_requirements": true
+    },
+    "window_start": "first_new_qualifying_fact_after_observed_eligibility",
+    "deadline": "exclusive_using_native_household_calendar_convention",
+    "description": "Unlock by completing Reading Companion and reaching Reading Comprehension level 1. Complete 20 daily Reading Adventures within 56 days after this challenge opens. Each Adventure needs ten newly logged reading or listening minutes and counts once each family-local day. Earn the Bookworm title."
+  },
+  "preserved": {
+    "name": "Reading Voyager",
+    "quest_type": "collection",
+    "target_value": 20,
+    "trigger_filter": {"allowed_triggers": ["reading_logged"]},
+    "coin_reward": 0,
+    "xp_reward": 50,
+    "skill_tags": [{"skill_reference": "Language Arts::Reading Comprehension", "xp_weight": 1}],
+    "reward_items": [{"slug": "title-bookworm", "quantity": 1}],
+    "is_repeatable": false,
+    "is_system": true,
+    "existing_item_behavior_and_value": true,
+    "existing_accepted_goal_dates_rules_rewards_and_history": true
+  },
+  "scope_exclusions": [
+    "Other challenge gates or rewards",
+    "Existing goal extensions, resets, retroactive credit or replacement payouts",
+    "Coin budgets or expedition policy changes",
+    "Runtime implementation, migrations, active content edits or publication in this proposal"
+  ],
+  "evidence": {
+    "study_date": "2026-10-19",
+    "source_commit": "12c1f694516a575210998c7f1b21fe4c7aaccee1",
+    "source_pr": "https://github.com/sock-lint/the-abby-project/pull/291",
+    "study_cases": 114,
+    "synthetic_journeys": 1110,
+    "horizon_days": 90,
+    "same_mode_duration_trial_pairs": 840,
+    "source_freeze_sha256": "97952170867865f355d28d1ffdc6afb3aab9fe12c65cea93f477df4d8d9b21ed",
+    "archive_sha256": "7aa93958296f06c97cf0fd46b936651604c8b2ba2b54afa9fa1f2cbbe06d32dc",
+    "gate_recipe_scope": "Five-target milestone recipe held fixed for duration comparisons; isolated Voyager-only implementation must be rerun.",
+    "light_56_day_reference_results": {
+      "visits_per_week": 3,
+      "offer_day_from_first_visit": 10,
+      "no_break": {"trials": 20, "completed": 20, "completion_day": 57},
+      "week_4_app_absence": {"trials": 5, "completed": 5, "completion_day": 64},
+      "weeks_4_and_6_app_absence": {"trials": 5, "completed": 0, "completion_day": null}
+    },
+    "two_reading_days_per_week": "20 daily receipts do not fit 56 days. Lab capacity exclusion is not a live attendance gate.",
+    "interpretation": "Synthetic routine evidence, not observed player completion probabilities, retention or additional content supply."
+  },
+  "publication_prerequisites": [
+    "Separate owner decision to implement",
+    "Reviewed native AND-gate authoring and enforcement at all accepted-start paths",
+    "Prospective eligibility/offer boundary and no retroactive or same-predecessor-fact credit",
+    "Exact Voyager-only fresh simulation and native regressions",
+    "Preserved accepted goals; active legacy guard and ownership/reference checks",
+    "Complete policy, description and Lorebook review with exact publication binding",
+    "Required hosted checks, independent review and explicit live rollout approval"
+  ]
+}
