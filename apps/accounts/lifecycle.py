@@ -37,9 +37,9 @@ class LifecycleBusy(APIException):
 
 @contextmanager
 def _dependent_deletion_work(using):
-    # Existing approval/completion services lock their work row before the
-    # award user's row. We already hold members, so never wait in the opposite
-    # order. A savepoint restores transaction usability before returning 409.
+    # Approval/completion writers can already hold either a member's award
+    # gate or an affected work row. Never wait for those while fencing the
+    # family. A savepoint restores transaction usability before returning 409.
     try:
         with transaction.atomic(using=using):
             yield connections[using].features.has_select_for_update_nowait
@@ -51,13 +51,15 @@ def _dependent_deletion_work(using):
 
 
 @contextmanager
-def locked_family_members(request, *, require_token=True):
+def locked_family_members(request, *, require_token=True, nowait=False):
     """Yield ``(family, fresh_actor, members)`` inside the lifecycle transaction.
 
     A request authenticated before logout, rotation, deactivation, or deletion
     cannot carry its old authorization through a wait for this lock. NO KEY
     UPDATE lets unrelated FK checks complete without taking a stronger user
     lock before a concurrent notification writer can finish.
+    Lifecycle mutations also decline busy member gates immediately, before
+    reaching their dependent-record preflight.
     """
     User = get_user_model()
     with transaction.atomic():
@@ -65,7 +67,10 @@ def locked_family_members(request, *, require_token=True):
             family = Family.objects.select_for_update(no_key=True).get(pk=request.user.family_id)
         except Family.DoesNotExist:
             raise AuthenticationFailed("Your account is no longer available.")
-        members = list(User.objects.select_for_update(no_key=True).filter(family=family).order_by("pk"))
+        with _dependent_deletion_work(family._state.db) as supports_nowait:
+            members = list(User.objects.select_for_update(
+                no_key=True, nowait=nowait and supports_nowait,
+            ).filter(family=family).order_by("pk"))
         actor = next((member for member in members if member.pk == request.user.pk), None)
         if actor is None or not actor.is_active:
             raise AuthenticationFailed("Your account is no longer available.")

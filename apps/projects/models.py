@@ -97,6 +97,14 @@ class Project(TimestampedModel):
     def save(self, *args, **kwargs):
         # Status, the completion receipt and all reward writes must commit
         # together. A failed award leaves the previous status retryable.
+        # Lock the child before the source row and accepted timestamp. Initial
+        # challenge enrollment uses the same gate and must wait for this work.
+        update_fields = kwargs.get("update_fields")
+        writes_status = update_fields is None or "status" in update_fields
+        if writes_status and self.pk and self.status == self.Status.COMPLETED and self.assigned_to_id and not self.is_homework:
+            from apps.achievements.services import _lock_award_user
+
+            _lock_award_user(self.assigned_to)
         if not self.xp_reward:
             self.xp_reward = 50 * self.difficulty
         super().save(*args, **kwargs)
@@ -141,6 +149,12 @@ class ProjectMilestone(models.Model):
         # transaction before adding its existing client-specific coin bonus.
         self._completion_reward_claimed = False
         self._completion_reward_xp = 0
+        update_fields = kwargs.get("update_fields")
+        writes_completion = update_fields is None or "is_completed" in update_fields
+        if writes_completion and self.is_completed and self.project.assigned_to_id and not self.project.is_homework:
+            from apps.achievements.services import _lock_award_user
+
+            _lock_award_user(self.project.assigned_to)
         super().save(*args, **kwargs)
 
 

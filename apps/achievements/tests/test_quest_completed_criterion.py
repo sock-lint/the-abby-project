@@ -170,6 +170,7 @@ class QuestCompletionAwardsBadgeTests(TestCase):
     def _make_quest(self, *, name: str, xp_reward: int = 0) -> QuestDefinition:
         return QuestDefinition.objects.create(
             name=name,
+            is_system=True,
             description="...",
             quest_type="collection",
             target_value=1,

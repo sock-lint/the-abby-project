@@ -58,7 +58,7 @@ describe('ProjectIngest', () => {
     const drive = screen.getByRole('button', { name: /import pdf from google drive/i });
     expect(drive).toHaveAttribute('data-pdf-only', 'true');
     const disclosure = screen.getByText(/up to 12,000 characters of extracted text/i);
-    expect(disclosure).toBeVisible();
+    await waitFor(() => expect(disclosure).toBeVisible());
     expect(disclosure).toHaveTextContent('Anthropic (Claude)');
     expect(disclosure).toHaveTextContent('Import PDF from Google Drive');
     expect(screen.getByRole('link', { name: 'Privacy details' })).toHaveAttribute('href', '/privacy/#ai');

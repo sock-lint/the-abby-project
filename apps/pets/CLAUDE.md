@@ -99,6 +99,13 @@ and neutral feeds and decrement once with the successful food transaction;
 failure preserves the charge and food. Boosted food does not use the direct
 consumable daily cap.
 
+Pet activation and expedition claims take the same user gate before touching
+pet, receipt or inventory rows. Claims lock only the expedition row with
+`select_for_update(of=("self",))`; joined mount, species and potion rows stay
+unlocked so another family's hatching/evolution can use the shared catalog.
+`test_care_lock_order.py` reproduces the former claim/evolution and
+activation/Feast deadlocks on PostgreSQL and checks preserved rewards and growth.
+
 Every growth path uses `PetService._save_growth` to save the growth/evolution
 flag, obtain one matching mount, and emit the existing first-mount Chronicle and
 family-scoped notifications. Feast therefore evolves a 90-growth pet immediately.

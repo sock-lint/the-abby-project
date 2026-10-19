@@ -92,12 +92,13 @@ export default function JournalConversation({ entry, defaultOpen = false }) {
       key={`${entry.id}:${user.id}`}
       entryId={entry.id}
       userId={user.id}
+      isOwner={entry.user === user.id}
       defaultOpen={defaultOpen}
     />
   );
 }
 
-function ConversationThread({ entryId, userId, defaultOpen }) {
+function ConversationThread({ entryId, userId, isOwner, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen);
   const [comments, setComments] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -197,7 +198,11 @@ function ConversationThread({ entryId, userId, defaultOpen }) {
       </Button>
       {open && (
         <div id={panelId} className="space-y-3">
-          <p className="text-caption text-ink-whisper">Your family can respond here. Responses stay with this shared memory.</p>
+          <p className="text-caption text-ink-whisper">
+            {isOwner
+              ? 'This is your shared entry. Your family can respond here, and you can reply.'
+              : 'Your family can respond here. Responses stay with this shared memory.'}
+          </p>
           {loadError ? (
             <ErrorAlert message={loadError} onRetry={() => setReloadKey((value) => value + 1)} />
           ) : comments === null ? (
@@ -205,7 +210,11 @@ function ConversationThread({ entryId, userId, defaultOpen }) {
           ) : (
             <>
               {comments.length === 0 ? (
-                <p className="text-body text-ink-whisper">No responses yet. Leave a little encouragement or start a conversation.</p>
+                <p className="text-body text-ink-whisper">
+                  {isOwner
+                    ? 'No family responses yet. Replies will appear here.'
+                    : 'No responses yet. Leave a little encouragement or start a conversation.'}
+                </p>
               ) : (
                 <ol className="space-y-3" aria-label="Responses to this memory">
                   {comments.map((comment) => (
@@ -223,13 +232,15 @@ function ConversationThread({ entryId, userId, defaultOpen }) {
               )}
               <form onSubmit={submit} className="space-y-3">
                 <TextAreaField
-                  label="Your family response"
+                  label={isOwner ? 'Reply to your family' : 'Your family response'}
                   value={draft.body}
                   rows={3}
                   maxLength={2000}
                   disabled={saving || !!draft.pending}
                   error={bodyError}
-                  helpText={draft.pending ? 'This response is waiting for confirmation. Check again before writing another.' : 'A note, a question, or a little encouragement.'}
+                  helpText={draft.pending
+                    ? 'This response is waiting for confirmation. Check again before writing another.'
+                    : isOwner ? 'Add a follow-up or reply to a family response.' : 'A note, a question, or a little encouragement.'}
                   onChange={(event) => {
                     changeDraft({ body: event.target.value, pending: null });
                     setBodyError(null);
@@ -241,7 +252,7 @@ function ConversationThread({ entryId, userId, defaultOpen }) {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p role="status" aria-live="polite" className="text-caption text-moss-deep">{saved ? 'Response saved with this memory.' : ''}</p>
                   <Button type="submit" loading={saving} disabled={saving || !draft.body.trim()}>
-                    {draft.pending ? 'Check response' : 'Send response'}
+                    {draft.pending ? 'Check response' : isOwner ? 'Send reply' : 'Send response'}
                   </Button>
                 </div>
               </form>

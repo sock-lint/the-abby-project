@@ -1,5 +1,5 @@
 """Homework plans are study instructions, never a second paid project."""
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone as datetime_timezone
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -28,6 +28,13 @@ from config.tests.factories import make_family
 
 class HomeworkProjectSeparationTests(TestCase):
     def setUp(self):
+        # Tuesday noon in Phoenix keeps the one-hour entries inside the
+        # requested week, including when CI runs just after Monday midnight.
+        clock = patch("django.utils.timezone.now", return_value=datetime(
+            2026, 10, 20, 19, tzinfo=datetime_timezone.utc,
+        ))
+        clock.start()
+        self.addCleanup(clock.stop)
         self.house = make_family(parents=[{"username": "study-parent"}], children=[{
             "username": "study-child", "hourly_rate": Decimal("8.00"),
         }])

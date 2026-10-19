@@ -93,6 +93,17 @@ service. All provider calls use mocks and synthetic test keys.
 
 ## Automatic challenge planning credit
 
+Assignment creation takes the child's shared award/challenge row lock before
+saving its timestamp. A concurrent first challenge read therefore cannot
+initialize enrollment after that accepted plan and exclude its first credit.
+The PostgreSQL interleaving regression is in
+`apps/quests/tests/test_goal_concurrency.py`.
+
+Approval uses the same child-first lock order before locking the submission and
+stamping `decided_at`. The initial catalog read cannot cut over after accepted
+homework and lose its completion credit. PostgreSQL chore/homework approval
+interleavings are covered in `apps/chores/tests/test_approval_concurrency.py`.
+
 Built-in catalog challenges count the first planned assignment per local day,
 using the existing `HomeworkDailyCounter` gate. The source service freezes the
 private challenge-fact eligibility at save time; deleting an assignment or

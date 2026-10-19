@@ -138,7 +138,7 @@ class CatalogConsumerTests(APITestCase):
         ).exists())
 
     def test_stale_quest_rewards_do_not_mint_unavailable_items_or_replacement_coins(self):
-        definition = QuestDefinition.objects.create(name="Catalog quest", quest_type="collection", target_value=1, coin_reward=5, xp_reward=0)
+        definition = QuestDefinition.objects.create(name="Catalog quest", quest_type="collection", target_value=1, coin_reward=5, xp_reward=0, created_by=self.parent)
         for item in (self.egg, self.accessory, self.frame):
             QuestRewardItem.objects.create(quest_definition=definition, item=item, quantity=1)
         visible = QuestDefinitionSerializer(definition).data["reward_items"]

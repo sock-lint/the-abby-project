@@ -389,16 +389,19 @@ def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None
     if not source_type or source_id is None or not str(source_id):
         raise ValueError("A durable source identity is required")
     zone = family_zone(user)
-    at = occurred_at or (_midnight(occurred_on, zone) if occurred_on else timezone.now())
-    if timezone.is_naive(at):
-        at = timezone.make_aware(at, zone)
-    day = occurred_on or at.astimezone(zone).date()
     safe_context = {key: value for key, value in (context or {}).items() if key in CONTEXT_KEYS}
     for key in ("duration_minutes", "hours", "distance_meters"):
         if key in safe_context and safe_context[key] is not None:
             safe_context[key] = str(decimal_value(safe_context[key]))
     with transaction.atomic():
         lock_user(user)
+        # A source that supplies its accepted timestamp keeps that exact
+        # boundary. For a new untimed fact, sample the clock only after the
+        # user gate: an initial catalog read may have enrolled while we waited.
+        at = occurred_at or (_midnight(occurred_on, zone) if occurred_on else timezone.now())
+        if timezone.is_naive(at):
+            at = timezone.make_aware(at, zone)
+        day = occurred_on or at.astimezone(zone).date()
         # Enrollment must precede the first fact so that fact counts in catalog windows.
         ChallengeEnrollment.objects.get_or_create(user=user, defaults={
             "starts_at": at, "timezone_name": str(zone), "discovery_tracking_started_at": timezone.now(),

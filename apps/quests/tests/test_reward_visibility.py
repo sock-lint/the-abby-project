@@ -19,7 +19,7 @@ class ChallengeRewardVisibilityTests(TestCase):
             item_type="coin_pouch", rarity="rare", description="Open for 50 Coins",
             metadata={"coins": 50}, coin_value=50,
         )
-        self.definition = QuestDefinition.objects.create(name="Visible rewards", quest_type="collection", target_value=1)
+        self.definition = QuestDefinition.objects.create(name="Visible rewards", quest_type="collection", target_value=1, is_system=True)
         self.reward = QuestRewardItem.objects.create(quest_definition=self.definition, item=self.item, quantity=2)
 
     def goal(self):

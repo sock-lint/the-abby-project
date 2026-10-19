@@ -18,6 +18,7 @@ class QuestServiceTest(TestCase):
         )
         self.collection_def = QuestDefinition.objects.create(
             name="Gather Feathers", description="Collect feathers",
+            is_system=True,
             quest_type="collection", target_value=5, duration_days=3,
         )
 
@@ -59,6 +60,7 @@ class QuestServiceTest(TestCase):
     def test_trigger_filter_blocks_unmatched(self):
         filtered_def = QuestDefinition.objects.create(
             name="Chore Quest", description="Only chores",
+            is_system=True,
             quest_type="collection", target_value=5,
             trigger_filter={"allowed_triggers": ["chore_complete"]},
         )
@@ -124,6 +126,7 @@ class QuestEggSalvageTest(TestCase):
         )
         self.boss_def = QuestDefinition.objects.create(
             name="Wolf Boss", description="x",
+            is_system=True,
             quest_type="boss", target_value=10, duration_days=1,
             coin_reward=0, xp_reward=0,
         )
