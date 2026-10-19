@@ -6,6 +6,7 @@
     {
       "id": 9,
       "name": "Read {a} book \"today\"",
+      "starter_key": null,
       "icon": "book",
       "habit_type": "positive",
       "user": 7,
@@ -33,6 +34,7 @@
     {
       "id": 10,
       "name": "Ritual 02",
+      "starter_key": null,
       "icon": "",
       "habit_type": "negative",
       "user": 7,
@@ -52,6 +54,7 @@
     {
       "id": 11,
       "name": "Ritual 03",
+      "starter_key": null,
       "icon": "",
       "habit_type": "both",
       "user": 7,
@@ -71,6 +74,7 @@
     {
       "id": 12,
       "name": "Ritual 04",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -90,6 +94,7 @@
     {
       "id": 13,
       "name": "Ritual 05",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -109,6 +114,7 @@
     {
       "id": 14,
       "name": "Ritual 06",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -128,6 +134,7 @@
     {
       "id": 15,
       "name": "Ritual 07",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -147,6 +154,7 @@
     {
       "id": 16,
       "name": "Ritual 08",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -166,6 +174,7 @@
     {
       "id": 17,
       "name": "Ritual 09",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -185,6 +194,7 @@
     {
       "id": 18,
       "name": "Ritual 10",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -204,6 +214,7 @@
     {
       "id": 19,
       "name": "Ritual 11",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -223,6 +234,7 @@
     {
       "id": 20,
       "name": "Ritual 12",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -242,6 +254,7 @@
     {
       "id": 21,
       "name": "Ritual 13",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -261,6 +274,7 @@
     {
       "id": 22,
       "name": "Ritual 14",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -280,6 +294,7 @@
     {
       "id": 23,
       "name": "Ritual 15",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -299,6 +314,7 @@
     {
       "id": 24,
       "name": "Ritual 16",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -318,6 +334,7 @@
     {
       "id": 25,
       "name": "Ritual 17",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -337,6 +354,7 @@
     {
       "id": 26,
       "name": "Ritual 18",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -356,6 +374,7 @@
     {
       "id": 27,
       "name": "Ritual 19",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,
@@ -375,6 +394,7 @@
     {
       "id": 28,
       "name": "Ritual 20",
+      "starter_key": null,
       "icon": "",
       "habit_type": "positive",
       "user": 7,

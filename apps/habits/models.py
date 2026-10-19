@@ -13,6 +13,10 @@ class Habit(TimestampedModel):
         BOTH = "both", "Both"
 
     name = models.CharField(max_length=100)
+    starter_key = models.CharField(
+        max_length=50, null=True, blank=True, editable=False,
+        help_text="Stable identity for a child's installed starter routine.",
+    )
     icon = models.CharField(max_length=10, blank=True)
     habit_type = models.CharField(
         max_length=8,
@@ -43,6 +47,13 @@ class Habit(TimestampedModel):
         # Preserve original table name so the move is a state-only migration.
         db_table = "rpg_habit"
         ordering = ["name"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "starter_key"],
+                condition=models.Q(starter_key__isnull=False),
+                name="habit_user_starter_key_unique",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.icon} {self.name}".strip()

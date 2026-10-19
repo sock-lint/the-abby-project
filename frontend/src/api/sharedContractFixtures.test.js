@@ -8,6 +8,9 @@ import meResponse from '../../../contracts/api/fixtures/auth-me-child.json';
 import firstPage from '../../../contracts/api/fixtures/habits-page-1.json';
 import lastPage from '../../../contracts/api/fixtures/habits-page-2.json';
 import emptyPage from '../../../contracts/api/fixtures/habits-empty.json';
+import brushingToday from '../../../contracts/api/fixtures/habit-brush-teeth-today.json';
+import brushingPartial from '../../../contracts/api/fixtures/habit-brush-teeth-partial.json';
+import brushingComplete from '../../../contracts/api/fixtures/habit-brush-teeth-complete.json';
 import notificationsFirstPage from '../../../contracts/api/fixtures/notifications-page-1.json';
 import notificationsLastPage from '../../../contracts/api/fixtures/notifications-page-2.json';
 import notificationsEmptyPage from '../../../contracts/api/fixtures/notifications-empty.json';
@@ -248,6 +251,19 @@ describe('shared Django response fixtures through the React API client', () => {
     const page = await getHabits();
     expect(page).toEqual({ count: 0, next: null, previous: null, results: [] });
     expect(normalizeList(page)).toEqual([]);
+  });
+
+  it.each([
+    [brushingToday, 0], [brushingPartial, 1], [brushingComplete, 2],
+  ])('preserves the brushing starter identity and its confirmed daily progress %#', async (fixture, taps) => {
+    server.use(http.get('*/api/habits/9/', () => HttpResponse.json(fixture)));
+    const habit = await api.get('/habits/9/');
+    expect(habit).toEqual(fixture);
+    expect(habit).toMatchObject({
+      starter_key: 'brush_teeth', name: 'Brush your teeth',
+      habit_type: 'positive', max_taps_per_day: 2, taps_today: taps,
+      pending_parent_review: false, is_active: true,
+    });
   });
 
   it('follows relative notification pages with the current session without marking updates read', async () => {
