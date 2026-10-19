@@ -267,7 +267,7 @@ class ContentPack:
                     else:
                         active, changed = self._active_quest_changes(quest, defaults, entry or {})
                         if changed:
-                            skip = ("protected_active_legacy_quest",
+                            skip = ("deferred_active_legacy_quest_change",
                                     f"Left quest {quest.name!r} unchanged: {active} active legacy quest(s) retain its accepted {', '.join(changed)}; the bundled change applies once they end.")
                         else:
                             self.stats.bump("skipped", "protected_active_legacy_quests", active)

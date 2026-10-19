@@ -109,6 +109,10 @@ class BundledProgressionContentTests(TestCase):
         system.coin_reward = 50
         system.save(update_fields=["coin_reward"])
         accepted = Quest.objects.create(definition=system, end_date=timezone.now() + timedelta(days=7))
+        # Links the active quest relies on also differ from the YAML; a
+        # skipped definition must not have them reconciled underneath it.
+        QuestRewardItem.objects.filter(quest_definition=system).update(quantity=5)
+        system.skill_tags.all().delete()
         out = StringIO()
 
         # A later YAML/admin change must not stop the deploy-time load that
@@ -117,6 +121,8 @@ class BundledProgressionContentTests(TestCase):
 
         system.refresh_from_db()
         self.assertEqual(system.coin_reward, 50)
+        self.assertEqual(list(system.reward_items.values_list("quantity", flat=True)), [5])
+        self.assertFalse(system.skill_tags.exists())
         self.assertIn("active legacy quest(s) retain its accepted coin_reward", out.getvalue())
         accepted.refresh_from_db()
         self.assertIsNotNone(accepted.reward_items_snapshot, "accepted item promises are frozen")
@@ -126,6 +132,8 @@ class BundledProgressionContentTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
         system.refresh_from_db()
         self.assertEqual(system.coin_reward, 0, "the bundled change applies once no active quest relies on it")
+        self.assertEqual(list(system.reward_items.values_list("quantity", flat=True)), [2])
+        self.assertEqual(system.skill_tags.count(), 1)
 
     def test_previously_taken_over_parent_row_never_fails_a_later_startup(self):
         # main's name-only loader could adopt a family's same-name quest in
