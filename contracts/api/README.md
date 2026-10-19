@@ -1,5 +1,14 @@
 # Shared API response fixtures
 
+`challenge-details-opened.json` comes from the self-scoped catalog details
+opening POST; `challenge-discovery-observed.json` comes from the staff parent's
+bounded family aggregate after actual movement completion. They distinguish
+two created/completed windows from one recorded opening. Challenge payloads
+also expose nullable `first_details_opened_at` and `catalog_repeatable`; parent
+and legacy rows retain null/false. Producers and consumers are the existing
+challenge fixture modules, including the live Lab report component tests.
+These observations do not assert that details were read or enjoyed.
+
 `progression-lab-metadata.json`, `progression-lab-report.json` and
 `progression-lab-economy-report.json` bind anonymous new-child forecasts to
 their real staff-parent endpoints. The economy example uses synthetic reward

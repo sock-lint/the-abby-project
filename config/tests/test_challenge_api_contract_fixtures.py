@@ -175,6 +175,50 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.client.get("/api/challenges/").json(), completed)
         self.assertEqual(self.state(), paid)
 
+    def test_discovery_receipts_and_same_family_counts_are_actual_endpoints(self):
+        from apps.quests.models import ChallengeEnrollment
+        # Exercise the real first enrollment rather than inventing old views.
+        ChallengeEnrollment.objects.filter(user=self.child).delete()
+        type(self.child).objects.filter(pk__in=[self.child.pk, self.sibling.pk]).update(
+            date_joined=FIXED_NOW - timedelta(days=1),
+        )
+        QuestDefinition.objects.create(
+            name="Another movement goal", quest_type="collection", target_value=1,
+            duration_days=7, trigger_filter={"allowed_triggers": ["movement_session"]},
+            is_system=True, coin_reward=0, xp_reward=0,
+        )
+        self.authenticate(self.child)
+        initial = self.client.get("/api/challenges/")
+        self.assertEqual(initial.status_code, 200)
+        catalog = next(row for row in initial.json()["results"] if row["name"] == self.catalog.name)
+        self.assertFalse(catalog["catalog_repeatable"])
+        self.assertIsNone(catalog["first_details_opened_at"])
+        before = self.state()
+        opened = self.assert_response_fixture(
+            self.client.post(f"/api/challenges/{catalog['id']}/opened/", {}, format="json"),
+            "challenge-details-opened.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertEqual(opened["id"], catalog["id"])
+        self.assertEqual(opened["first_details_opened_at"], FIXED_NOW.isoformat())
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=1)):
+            self.assertEqual(self.log_run("0.75").status_code, 201)
+            self.assertEqual(self.log_run("1.25").status_code, 201)
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        self.authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=2)):
+            observations = self.assert_response_fixture(
+                self.client.get("/api/challenges/discovery/"), "challenge-discovery-observed.json",
+            )
+        self.assertEqual(observations["catalog_occurrences"], {
+            "cohort_materialized": 2, "opened": 1, "completed": 2,
+            "opened_and_completed": 1, "completed_without_recorded_opening": 1,
+            "opening_recorded_after_completion": 0,
+        })
+        self.assertEqual(observations["cohort"]["tracked_children"], 1)
+        self.assertEqual(observations["cohort"]["untracked_children"], 1)
+
     def test_parent_goal_pin_and_two_real_runs_preserve_automatic_rewards(self):
         created = self.assert_response_fixture(self.create_goal(), "challenge-goal-created.json", status=201)
         self.assertEqual(created["origin"], "parent")

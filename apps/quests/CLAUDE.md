@@ -53,6 +53,25 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
+Catalog detail discovery records presentation separately from progress.
+`POST /api/challenges/<goal_id>/opened/` accepts an empty object for the active
+child's own catalog occurrence and saves only its first details-opening time.
+It accepts active or saved history windows that have started, never a parent
+view, sibling, legacy ID or future window. Retries retain the first timestamp;
+the action never materializes goals, processes activities, pins or awards.
+Payloads expose nullable `first_details_opened_at` and `catalog_repeatable`.
+
+`GET /api/challenges/discovery/` is a bounded read for active staff parents in
+their current family. It aggregates one-time catalog windows created in the
+last 30 family-local days among recent children with explicitly new tracked
+enrollments. Old enrollments retain a null tracking marker and unknown history.
+Server materialization is not an impression or eligibility timestamp; opened
+and completed groups overlap and neither proves reading or enjoyment. The
+endpoint excludes trusted observer families, identities and prose, and returns
+unknown counts when its cohort or occurrence bound is exceeded. Only the
+browser client's transport partition/retry query keys are allowed. See
+`tests/test_discovery.py` and the actual challenge response fixtures.
+
 Goal payloads expose server-owned `origin: parent|catalog|legacy` for presentation. Automatic catalog origin uses the saved `is_catalog` marker even after a template is retired; retained `Quest` rows always report `legacy`. Names, pinning and client input do not determine origin or change tracking.
 
 Goal payloads also expose nullable `completed_at` from the saved occurrence.

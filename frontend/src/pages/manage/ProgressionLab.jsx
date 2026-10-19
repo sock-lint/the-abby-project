@@ -26,6 +26,7 @@ import { expeditionBudgetLabel, importedScenario, rewardPolicyLabel, scenariosMa
 import PetIncubationPolicy from './PetIncubationPolicy';
 import PetIncubationState from './PetIncubationState';
 import PetIncubationJourney from './PetIncubationJourney';
+import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -166,6 +167,7 @@ function AccountProgressionLab() {
         <ErrorAlert message={readError && `Could not load the rules and catalog. ${readError}`} onRetry={retryRead} />
         {loading && <Loader />}
         {metadata && config && <>
+          <ChallengeDiscoveryReport />
           <ParchmentCard className="space-y-4">
             <SectionHeader title="Build a new child’s routine" index={0}>All activity counts apply to active days. Scenarios use anonymous state and do not create accounts or change rewards.</SectionHeader>
             <form aria-label="Progression scenario" onSubmit={simulate} className="space-y-4">
