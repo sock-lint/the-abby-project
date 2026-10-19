@@ -24,10 +24,14 @@ from apps.rpg.content.loader import ContentPack, ContentPackError
 
 
 DEFAULT_PACK = "content/rpg/initial"
+# Bundled packs stay baked into the image. docker-compose.yml bind-mounts the
+# host's content/rpg/packs over the image copy for MCP-authored packs, so a
+# default pack there would be missing in production and stop this load, which
+# runs before gunicorn on every container start.
 BUNDLED_PACKS = (
     (DEFAULT_PACK, ""),
-    ("content/rpg/packs/reading-adventures", "reading-adventures-"),
-    ("content/rpg/packs/collector-reading-2026", "collector-reading-2026-"),
+    ("content/rpg/bundled/reading-adventures", "reading-adventures-"),
+    ("content/rpg/bundled/collector-reading-2026", "collector-reading-2026-"),
 )
 
 

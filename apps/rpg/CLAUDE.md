@@ -190,6 +190,8 @@ does not count toward unfiltered effort goals or the daily effort bonus. Deleted
 sessions retain their earned fact. Saved legacy quests retain filtering and
 5 base boss damage. Default content loading installs the additive reading starter
 and post-Full-Ark reading chapters atomically after the unchanged initial pack.
+Both bundled packs live in `content/rpg/bundled/`, baked into the image; the
+host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 ## Gotchas
 

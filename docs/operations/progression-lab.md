@@ -315,7 +315,8 @@ and coverage notes current when live progression rules change.
 ## Acting on reading and collection gaps
 
 Default `loadrpgcontent` loads the initial seed, `reading-adventures` and
-`collector-reading-2026` in one transaction. Explicit `--pack` loads only that
+`collector-reading-2026` (from `content/rpg/bundled/`, baked into the image
+rather than the host-mounted `content/rpg/packs/`) in one transaction. Explicit `--pack` loads only that
 pack; dry runs roll back the complete default batch. The initial pack is unchanged.
 Three daily Reading Adventures within 14 days grant a supported Chick egg, Base
 potion and two Birdseed. A repeating five-in-seven-days goal provides care food;

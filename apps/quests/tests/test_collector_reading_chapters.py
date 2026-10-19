@@ -24,7 +24,7 @@ from config.tests.factories import make_family
 
 
 NOW = datetime(2026, 10, 20, 12, tzinfo=datetime_timezone.utc)
-PACK = "content/rpg/packs/collector-reading-2026"
+PACK = "content/rpg/bundled/collector-reading-2026"
 NAMESPACE = "collector-reading-2026-"
 CHAPTERS = {
     "Collector's Reading: Fresh Pages": (5, "Full Ark", "title-pagefinder"),

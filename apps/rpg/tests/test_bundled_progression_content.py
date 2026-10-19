@@ -4,6 +4,8 @@ from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 
+import yaml
+from django.conf import settings
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import TestCase
@@ -147,6 +149,23 @@ class BundledProgressionContentTests(TestCase):
 
         self.assertEqual(list(QuestDefinition.objects.filter(name="Reading Routine").order_by("pk").values()), before)
         self.assertIn("more than one definition matches", out.getvalue())
+
+    def test_default_load_reads_no_pack_from_a_runtime_bind_mount(self):
+        # Production bind-mounts the host's content/rpg/packs over the image
+        # copy for MCP-authored packs. A default pack under a mount is missing
+        # there, and its "Pack directory not found" stops gunicorn from starting.
+        from apps.rpg.management.commands.loadrpgcontent import BUNDLED_PACKS
+        compose = yaml.safe_load((Path(settings.BASE_DIR) / "docker-compose.yml").read_text())
+        mounted = [
+            Path(volume.split(":")[1]).relative_to("/app")
+            for volume in compose["services"]["django"]["volumes"]
+            if isinstance(volume, str) and volume.startswith("./") and volume.split(":")[1].startswith("/app/")
+        ]
+        self.assertIn(Path("content/rpg/packs"), mounted)
+        for pack, _namespace in BUNDLED_PACKS:
+            self.assertTrue((Path(settings.BASE_DIR) / pack).is_dir(), pack)
+            for target in mounted:
+                self.assertFalse(Path(pack).is_relative_to(target), f"{pack} is hidden by the {target} bind mount")
 
     def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
         calls = []

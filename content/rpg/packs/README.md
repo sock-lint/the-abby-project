@@ -28,6 +28,9 @@ automatically.
 
 The default `loadrpgcontent` command loads the initial seed followed by the
 registered `reading-adventures` and `collector-reading-2026` packs, atomically.
+Those bundled packs live in `content/rpg/bundled/`, baked into the image:
+production bind-mounts this `packs/` directory from the host for MCP-authored
+packs, so a default pack placed here would be missing at startup.
 Explicit `--pack` retains single-pack behavior; `--dry-run` rolls back the whole
 selected batch, including cross-pack dependencies.
 

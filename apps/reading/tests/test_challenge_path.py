@@ -153,7 +153,7 @@ class ReadingCompanionContentTests(ReadingChallengeReceiptTests):
     def setUpTestData(cls):
         super().setUpTestData()
         with patch("django.utils.timezone.now", return_value=NOW):
-            ContentPack("content/rpg/packs/reading-adventures", namespace="reading-adventures-").load()
+            ContentPack("content/rpg/bundled/reading-adventures", namespace="reading-adventures-").load()
 
     def test_three_daily_adventures_grant_supported_hatch_ingredients_and_weekly_care(self):
         for day in range(5):
@@ -182,7 +182,7 @@ class ReadingCompanionContentTests(ReadingChallengeReceiptTests):
         self.session()
         occurrence = ChallengeOccurrence.objects.get(goal__catalog_definition__name="Reading Companion")
         snapshot = occurrence.snapshot
-        ContentPack("content/rpg/packs/reading-adventures", namespace="reading-adventures-").load()
+        ContentPack("content/rpg/bundled/reading-adventures", namespace="reading-adventures-").load()
         occurrence.refresh_from_db()
         self.assertEqual(occurrence.snapshot, snapshot)
         definitions = QuestDefinition.objects.filter(name__in=["Reading Companion", "Reading Routine", "Reading Voyager"])
