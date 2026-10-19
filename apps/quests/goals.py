@@ -22,9 +22,11 @@ FACT_TRIGGERS = {
     "clock_out", "chore_complete", "homework_complete", "homework_created",
     "milestone_complete", "project_complete", "habit_log", "journal_entry",
     "creation_logged", "movement_session", "savings_goal_complete",
-    "expedition_returned",
+    "expedition_returned", "reading_logged",
 }
-EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned"}
+# Reading has its own once-daily receipt and explicit reading goals. Existing
+# unfiltered promises keep their original qualifying activities and pacing.
+EFFORT_TRIGGERS = FACT_TRIGGERS - {"expedition_returned", "reading_logged"}
 CONTEXT_KEYS = {
     "project_id", "skill_category_id", "chore_id", "savings_goal_id", "on_time",
     "movement_type_id", "duration_minutes", "hours", "distance_meters", "skill_tags",
@@ -38,6 +40,7 @@ ACTION_PATHS = {
     "movement_session": ("Log movement", "/quests?tab=movement"),
     "journal_entry": ("Write in your journal", "/yearbook"),
     "creation_logged": ("Log a creation", "/quests?tab=creations"),
+    "reading_logged": ("Read for ten minutes", "/quests?tab=reading"),
 }
 TRIGGER_LABELS = {
     "clock_out": "tracked project work", "chore_complete": "approved chores",
@@ -47,6 +50,7 @@ TRIGGER_LABELS = {
     "journal_entry": "journal entries", "creation_logged": "logged creations",
     "savings_goal_complete": "completed savings goals", "badge_earned": "earned badges",
     "perfect_day": "Perfect Days", "expedition_returned": "returned expeditions",
+    "reading_logged": "daily Reading Adventures (ten newly logged minutes, once per day)",
 }
 
 
@@ -148,7 +152,8 @@ def _catalog_goals(user):
             trigger_type__in=FACT_TRIGGERS,
         ).order_by("occurred_at", "pk").values_list("occurred_at", flat=True).first()
         enrollment, _ = ChallengeEnrollment.objects.get_or_create(
-            user=user, defaults={"starts_at": first_pending or offered_at, "timezone_name": str(family_zone(user))},
+            user=user, defaults={"starts_at": first_pending or offered_at, "timezone_name": str(family_zone(user)),
+                                 "discovery_tracking_started_at": offered_at},
         )
     # A historical active quest remains the pinned legacy instance through its deadline.
     pin, new_pin = ChallengePin.objects.get_or_create(user=user)
@@ -395,7 +400,9 @@ def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None
     with transaction.atomic():
         lock_user(user)
         # Enrollment must precede the first fact so that fact counts in catalog windows.
-        ChallengeEnrollment.objects.get_or_create(user=user, defaults={"starts_at": at, "timezone_name": str(zone)})
+        ChallengeEnrollment.objects.get_or_create(user=user, defaults={
+            "starts_at": at, "timezone_name": str(zone), "discovery_tracking_started_at": timezone.now(),
+        })
         activity, _ = ChallengeActivity.objects.get_or_create(
             user=user, source_type=source_type, source_id=str(source_id), trigger_type=str(trigger_type),
             defaults={"occurred_at": at, "occurred_on": day, "context": safe_context},
@@ -542,6 +549,10 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
         "origin": "catalog" if occurrence.goal.is_catalog else "parent",
+        "first_details_opened_at": (occurrence.first_details_opened_at.isoformat()
+                                    if occurrence.goal.is_catalog and occurrence.first_details_opened_at else None),
+        "catalog_repeatable": bool(occurrence.goal.is_catalog and (
+            occurrence.goal.repeat_days or occurrence.goal.repeat_weekly)),
         "catalog_icon": challenge_catalog_icon(occurrence.goal.catalog_definition) if occurrence.goal.is_catalog else None,
         "metric": snapshot["metric"], "target": number(snapshot["target"]), "progress": number(occurrence.progress),
         "unit": snapshot["unit"], "status": status,
@@ -577,6 +588,7 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
     return {
         "id": key, "name": definition.name, "description": definition.description,
         "origin": "legacy",
+        "first_details_opened_at": None, "catalog_repeatable": False,
         "catalog_icon": challenge_catalog_icon(definition),
         "metric": "damage" if definition.quest_type == "boss" else "count", "target": str(quest.effective_target),
         "progress": str(quest.current_progress), "unit": "damage" if definition.quest_type == "boss" else "actions",
@@ -609,7 +621,9 @@ def list_goals(user):
             | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at")),
         ),
         to_attr="_listed_occurrences",
-    ))
+    )).order_by("pk")
+    # Ordered so newly materialized occurrences get the same ids on every
+    # database and query plan, as in the receipt loop below.
     for goal in goals:
         occurrence = _occurrence(goal, now)
         if occurrence is not None:

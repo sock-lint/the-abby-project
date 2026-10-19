@@ -66,25 +66,41 @@ describe('Pet care journey', () => {
 
   it('hands a confirmed hatch directly to the new baby care panel', async () => {
     let hatched = false;
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, () => {
+    let incubation = null;
+    const waiting = { id: 7, egg: egg.item, potion: base.item, remaining_seconds: 7200, is_ready: false, status: 'incubating' };
+    const start = spyHandler('post', /\/api\/pets\/incubations\/$/, () => {
+      incubation = waiting;
+      return { incubation, server_now: '2026-10-18T10:00:00Z' };
+    });
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/7\/hatch\/$/, () => {
       hatched = true;
-      return HttpResponse.json({ ...baby, growth_points: 0 }, { status: 201 });
+      incubation = null;
+      return HttpResponse.json({ pet: { ...baby, growth_points: 0 }, incubation: { ...waiting, status: 'hatched', pet_id: baby.id }, freshly_hatched: true, server_now: '2026-10-18T12:00:00Z' }, { status: 201 });
     });
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: hatched ? [{ ...baby, growth_points: 0 }] : [], mounts: [], total_possible: 15 })),
       http.get('*/api/inventory/', () => HttpResponse.json(hatched ? [food] : [egg, base, food])),
-      hatch.handler,
+      http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation, duration_seconds: 7200, server_now: '2026-10-18T10:00:00Z' })),
+      start.handler, hatch.handler,
     );
     const { user } = renderWithProviders(<><BestiaryHub /><Location /></>, { route: '/bestiary?tab=hatchery' });
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), '22');
-    await user.click(screen.getByRole('button', { name: 'Hatch pet' }));
+    await user.click(screen.getByRole('button', { name: 'Start incubation' }));
+    await screen.findByRole('heading', { name: 'Your egg is incubating' });
+    expect(hatch.calls).toHaveLength(0);
+    incubation = { ...waiting, is_ready: true, remaining_seconds: 0, status: 'ready' };
+    await user.click(screen.getByRole('button', { name: 'Check readiness' }));
+    await user.click(await screen.findByRole('button', { name: 'Hatch pet' }));
     await user.click(await screen.findByRole('button', { name: 'Close pet celebration' }));
     await user.click(screen.getByRole('link', { name: 'Care for your new pet' }));
     expect(await screen.findByRole('dialog', { name: 'Care for Pip' })).toBeInTheDocument();
     expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/bestiary?tab=companions&pet=7');
     expect(hatch.calls).toHaveLength(1);
-    expect(hatch.calls[0]).toMatchObject({ method: 'POST', body: { egg_item_id: '11', potion_item_id: '22' } });
+    expect(start.calls).toHaveLength(1);
+    expect(start.calls[0]).toMatchObject({ method: 'POST', body: { egg_item_id: '11', potion_item_id: '22', request_id: expect.any(String) } });
+    expect(hatch.calls[0]).toMatchObject({ method: 'POST', body: null });
+    expect(new URL(hatch.calls[0].url).pathname).toBe('/api/pets/incubations/7/hatch/');
     await user.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByRole('dialog', { name: 'Care for Pip' })).toBeNull();
     expect(screen.getByRole('status', { name: 'Current page' })).not.toHaveTextContent('pet=');

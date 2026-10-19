@@ -1,0 +1,62 @@
+# A first optional chapter after the complete supported companion collection.
+# Reading Adventure receipts supply at most one fact per child/family-local day.
+# Sequential gates count new days after each unlock; these are not streaks.
+# DOM cosmetics need no additional creature artwork. No pouches, shop offers or
+# drop-pool entries accompany this pack, and existing promises remain intact.
+quests:
+  - name: "Collector's Reading: Fresh Pages"
+    description: "Your full companion collection opens a new reading path. Complete 5 new daily Reading Adventures after earning Full Ark to earn the Pagefinder title. Each Adventure takes ten newly logged minutes of reading or listening, with any book. Days do not have to be consecutive; each child can earn one Adventure per family-local day."
+    icon: "📖"
+    quest_type: collection
+    target_value: 5
+    duration_days: 365
+    trigger_filter:
+      allowed_triggers: [reading_logged]
+    required_badge: Full Ark
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: title-pagefinder
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: "Collector's Reading: Far Horizons"
+    description: "Continue after Fresh Pages with 10 new daily Reading Adventures to earn the Far Horizons Frame. Reading and listening count equally, with any book. Ten newly logged minutes earn one Adventure per child/family-local day. Days do not have to be consecutive, and earlier Adventures stay with the chapter they completed."
+    icon: "🌅"
+    quest_type: collection
+    target_value: 10
+    duration_days: 365
+    trigger_filter:
+      allowed_triggers: [reading_logged]
+    required_badge: "Collector's Reading: Fresh Pages Complete"
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: frame-far-horizons
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: "Collector's Reading: Living Atlas"
+    description: "Finish the collector reading path with 20 new daily Reading Adventures after Far Horizons to earn the Living Atlas title. Choose any reading or listening you enjoy. Ten newly logged minutes earn one Adventure per child/family-local day, and the days do not have to be consecutive. Earlier Adventures do not skip this chapter."
+    icon: "🗺️"
+    quest_type: collection
+    target_value: 20
+    duration_days: 365
+    trigger_filter:
+      allowed_triggers: [reading_logged]
+    required_badge: "Collector's Reading: Far Horizons Complete"
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: title-living-atlas
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}

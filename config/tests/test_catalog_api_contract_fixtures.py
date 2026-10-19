@@ -8,7 +8,7 @@ from django.conf import settings
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
@@ -19,6 +19,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
     assert_response_fixture = shared.SharedApiResponseFixtureTests.assert_response_fixture
     pin_next_mount_identity = shared.SharedApiResponseFixtureTests.pin_next_mount_identity
     pin_next_hatched_pet_identity = shared.SharedApiResponseFixtureTests.pin_next_hatched_pet_identity
+    pin_next_incubation_identity = shared.SharedApiResponseFixtureTests.pin_next_incubation_identity
 
     def setUp(self):
         clock = patch("django.utils.timezone.now", return_value=shared.FIXED_NOW)
@@ -84,9 +85,18 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assertEqual(owned_egg["catalog_icon"], "bat-egg-portrait")
         self.assert_response_fixture(inventory, "inventory-roster-hatching.json")
         self.pin_next_hatched_pet_identity()
-        body = self.assert_response_fixture(self.client.post(
-            "/api/pets/hatch/", {"egg_item_id": egg.pk, "potion_item_id": self.potion.pk}, format="json",
-        ), "pet-hatch-roster.json", status=201)
+        self.pin_next_incubation_identity()
+        incubation = self.assert_response_fixture(self.client.post(
+            "/api/pets/incubations/", {"egg_item_id": egg.pk, "potion_item_id": self.potion.pk,
+                                       "request_id": shared.INCUBATION_REQUEST_ID}, format="json",
+        ), "pet-incubation-roster-start.json", status=201)["incubation"]
+        saved_incubation = PetIncubation.objects.get(pk=incubation["id"])
+        self.assertEqual((saved_incubation.ready_at - saved_incubation.started_at).total_seconds(), 86400)
+        self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
+        with patch("django.utils.timezone.now", return_value=saved_incubation.ready_at):
+            body = self.assert_response_fixture(self.client.post(
+                f"/api/pets/incubations/{incubation['id']}/hatch/", {}, format="json",
+            ), "pet-incubation-roster-hatched.json", status=201)["pet"]
         self.assertEqual(body["species"]["slug"], "meshtint-bat")
         self.assertEqual(body["species"]["catalog_icon"], "bat-baby-portrait")
         self.assertEqual(body["potion"]["slug"], "base")
@@ -181,7 +191,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
         }])
 
     def test_unavailable_mutations_have_no_consumption_or_loss(self):
-        self.assert_response_fixture(self.client.post("/api/pets/hatch/", {"egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk}, format="json"), "pet-hatch-unavailable.json", status=400)
+        self.assert_response_fixture(self.client.post("/api/pets/incubations/", {"egg_item_id": self.egg.pk, "potion_item_id": self.potion.pk, "request_id": shared.INCUBATION_REQUEST_ID}, format="json"), "pet-hatch-unavailable.json", status=400)
         self.assert_response_fixture(self.client.post("/api/character/equip/", {"item_id": self.accessory.pk}, format="json"), "cosmetic-equip-unavailable.json", status=400)
         self.assertEqual(UserPet.objects.filter(user=self.child).count(), 2)
         self.assertEqual(list(UserInventory.objects.filter(user=self.child).values_list("quantity", flat=True)), [1, 1, 1, 1])

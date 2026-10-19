@@ -1,0 +1,200 @@
+{
+  "schema_version": 1,
+  "limits": {
+    "max_experiments": 20,
+    "max_comparisons": 20,
+    "max_observations": 20,
+    "max_comparison_work_units": 20000,
+    "max_evidence_bytes": 4194304
+  },
+  "feedback": {
+    "max_targets": 6,
+    "metrics": [
+      {
+        "key": "coins_earned_p50",
+        "label": "Median Coins earned",
+        "unit": "coins",
+        "min_value": 0,
+        "max_value": 1000000000
+      },
+      {
+        "key": "closing_coins_p50",
+        "label": "Median closing Coin balance",
+        "unit": "coins",
+        "min_value": 0,
+        "max_value": 1000000000
+      },
+      {
+        "key": "fulfillment_cost_cents_p50",
+        "label": "Median estimated fulfillment cost",
+        "unit": "cents",
+        "min_value": 0,
+        "max_value": 1000000000
+      },
+      {
+        "key": "priority_purchase_day_p50",
+        "label": "Priority reward purchase day, among completing journeys",
+        "unit": "days",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "priority_purchase_reached_rate",
+        "label": "Journeys purchasing the priority reward",
+        "unit": "rate",
+        "min_value": 0,
+        "max_value": 1
+      },
+      {
+        "key": "finite_80_day_p50",
+        "label": "Day reaching 80% of modeled content, among completing journeys",
+        "unit": "days",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "finite_80_reached_rate",
+        "label": "Journeys reaching 80% of modeled content",
+        "unit": "rate",
+        "min_value": 0,
+        "max_value": 1
+      },
+      {
+        "key": "expedition_launches_p50",
+        "label": "Median expedition launches",
+        "unit": "trips",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "expedition_items_promised_p50",
+        "label": "Median expedition item promises",
+        "unit": "items",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "expedition_empty_trips_p50",
+        "label": "Median empty expedition trips",
+        "unit": "trips",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "first_mount_day_p50",
+        "label": "First grown companion day, among completing journeys",
+        "unit": "days",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "first_mount_reached_rate",
+        "label": "Journeys reaching a grown companion",
+        "unit": "rate",
+        "min_value": 0,
+        "max_value": 1
+      }
+    ],
+    "proposal": {
+      "status": "lab_prototype",
+      "live_ready": false,
+      "blocks_live_change": true,
+      "evaluated_by_current_engine": true,
+      "title": "100-Coin daily commitment prototype",
+      "daily_new_commitment_coins": 100,
+      "allocations": {
+        "expeditions": 75,
+        "activity_pouches": 25
+      },
+      "expedition_tiers": [
+        {
+          "key": "short",
+          "duration_minutes": 120,
+          "coins": 10,
+          "item_slots": 1
+        },
+        {
+          "key": "standard",
+          "duration_minutes": 240,
+          "coins": 25,
+          "item_slots": 2
+        },
+        {
+          "key": "long",
+          "duration_minutes": 480,
+          "coins": 50,
+          "item_slots": 3
+        }
+      ],
+      "pouch_face_values": [
+        5,
+        10,
+        15,
+        50,
+        100,
+        250,
+        500
+      ],
+      "principles": [
+        "Reserve new expedition direct Coins, full pouch value and maximum possible positive cosmetic salvage before launch. Establish any reduced direct amount before the child commits; never trim a claim.",
+        "Reserve a random activity pouch's full face value before granting it. Only candidates whose full value fits the remaining allocation are eligible before the draw; never grant a partial pouch or reroll saved loot.",
+        "Each child's new commitments reset daily without banking unused allowance. Redemptions may exceed 100 Coins on a later day because previously established rewards are paid in full.",
+        "Preserve owned pouches, frozen expedition loot and authored challenge promises. Fixed authored rewards stay outside this proposed random-grant allocation and must be reported separately.",
+        "Track reserved, paid and outstanding Coin values separately, along with empty item slots, zero-Coin expeditions and permanently unavailable content."
+      ],
+      "blockers": [
+        {
+          "key": "commitment_model",
+          "title": "Evaluate the prototype against explicit targets",
+          "detail": "The Lab now separately models the 75/25 allocation, fixed expedition rewards and full-value pouch reservations. The income-envelope candidate remains a separate policy that omits payout excess.",
+          "next_action": "Save paired 90-day and 365-day comparisons with income, purchasing and content-access targets; record the design decision and affected acquisition paths before implementing live rules."
+        },
+        {
+          "key": "promised_rewards",
+          "title": "Preserve every established reward",
+          "detail": "The in-memory model pays established rewards fully. Production has no corresponding reservation protocol; existing pouch stacks read shared item definitions rather than a per-unit face-value snapshot.",
+          "next_action": "Specify versioned reward definitions and reservation records; test full redemption, late claims, retries, concurrent launches and the accounting of outstanding promises."
+        },
+        {
+          "key": "coin_boosts",
+          "title": "Specify Lucky Coin timing",
+          "detail": "Live Lucky Coin can double direct expedition Coins at claim. Consumable effects are excluded from both Lab policies, so neither candidate proves a live maximum payout.",
+          "next_action": "Decide when boosted value is established and reserved, then simulate and test activation, expiry and delayed claims without changing prior promises."
+        },
+        {
+          "key": "content_reachability",
+          "title": "Check pouch and collection access",
+          "detail": "The prototype reports filtered grants and unavailable finite targets because full-value reservations change acquisition paths. Missing paths are not additional playable runway, and source-level availability does not guarantee timely completion.",
+          "next_action": "Audit every affected acquisition path, first-reward pacing, empty returns and collection milestones; use the content workbench for new reward versions and a reviewed code change for expedition policy."
+        }
+      ]
+    },
+    "expedition_budget_defaults": {
+      "daily_launches": null,
+      "daily_items": null
+    },
+    "expedition_budget_limits": {
+      "daily_launches": {
+        "min": 0,
+        "max": 15,
+        "nullable": true
+      },
+      "daily_items": {
+        "min": 0,
+        "max": 45,
+        "nullable": true
+      }
+    },
+    "fingerprint": "4b82dbb3c382f6242fde602b86b3d6c31ea5cd186c43dca1df44b96b54c7890b"
+  },
+  "experiments": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "100-Coin starting experiment",
+      "hypothesis": "Test income and first-reward pacing before changing live grants.",
+      "revision": 1,
+      "updated_at": "2026-10-18T12:00:00+00:00",
+      "latest_decision": null
+    }
+  ]
+}

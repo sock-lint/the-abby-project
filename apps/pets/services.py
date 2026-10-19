@@ -1,5 +1,8 @@
 import logging
+from datetime import timedelta
+from uuid import UUID
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from apps.rpg.catalog_support import (
@@ -10,6 +13,15 @@ from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage, g
 from .roster import prepared_base_potion, prepared_family
 
 logger = logging.getLogger(__name__)
+
+
+class IncubationError(ValueError):
+    """The requested change conflicts with an accepted incubation."""
+
+
+class IncubationNotFound(ValueError):
+    """No incubation belongs to this caller at the requested identity."""
+
 
 GROWTH_PREFERRED_FOOD = 15
 GROWTH_NEUTRAL_FOOD = 5
@@ -169,19 +181,43 @@ class PetService:
         return mount
 
     @staticmethod
-    @transaction.atomic
-    def hatch_pet(user, egg_item_id, potion_item_id):
-        """Consume an egg + potion from inventory to create a new pet.
+    def incubation_duration_seconds():
+        return settings.PET_INCUBATION_DURATION_SECONDS
 
-        Returns the new UserPet, or raises ValueError on invalid input.
-        """
+    @staticmethod
+    def current_incubation(user):
+        from .models import PetIncubation
+        return PetIncubation.objects.filter(user=user, hatched_at__isnull=True).first()
+
+    @staticmethod
+    @transaction.atomic
+    def start_incubation(user, egg_item_id, potion_item_id, request_id):
+        """Accept and consume one owned pair, once per caller's request UUID."""
         from apps.achievements.services import _lock_award_user
         from apps.rpg.models import ItemDefinition, UserInventory
-        from apps.pets.models import UserPet
+        from apps.rpg.catalog_icons import item_catalog_icon
+        from .models import PetIncubation, UserPet
+        from .serializers import PetSpeciesSerializer, PotionTypeSerializer
 
-        # Badge payouts share the hatch transaction. Acquire their user gate
-        # before inventory locks, matching feeding and consumable growth.
+        try:
+            request_id = UUID(str(request_id))
+            if any(isinstance(value, bool) or not str(value).isdigit() for value in (egg_item_id, potion_item_id)):
+                raise ValueError
+            egg_item_id, potion_item_id = int(egg_item_id), int(potion_item_id)
+            if egg_item_id < 1 or potion_item_id < 1:
+                raise ValueError
+        except (ValueError, TypeError, AttributeError):
+            raise ValueError("Positive egg_item_id, potion_item_id and a valid request_id UUID are required")
+
+        # All companion progression serializes through the same user gate.
         _lock_award_user(user)
+        previous = PetIncubation.objects.filter(user=user, request_id=request_id).first()
+        if previous:
+            if (previous.accepted_pair["egg"]["id"], previous.accepted_pair["potion"]["id"]) != (egg_item_id, potion_item_id):
+                raise IncubationError("This request_id was already used for a different egg and potion")
+            return previous, False
+        if PetIncubation.objects.filter(user=user, hatched_at__isnull=True).exists():
+            raise IncubationError("Finish hatching your current egg before starting another incubation")
 
         # Validate egg
         try:
@@ -244,28 +280,70 @@ class PetService:
         else:
             potion_inv.save(update_fields=["quantity", "updated_at"])
 
-        # Create the pet
-        pet = UserPet.objects.create(
-            user=user, species=species, potion=potion_type,
-        )
-        PetService._evaluate_pet_badges(user)
+        def ingredient_snapshot(item):
+            return {
+                "id": item.pk, "slug": item.slug, "name": item.display_name,
+                "icon": item.icon, "sprite_key": item.sprite_key,
+                "rarity": item.rarity, "item_type": item.item_type,
+                "catalog_icon": item_catalog_icon(item),
+            }
 
-        logger.info("User %s hatched %s %s", user.username, potion_type.name, species.name)
+        now = timezone.now()
+        incubation = PetIncubation.objects.create(
+            user=user, request_id=request_id, species=species, potion_type=potion_type,
+            egg_item=egg_item, potion_item=potion_item,
+            accepted_pair={
+                "egg": ingredient_snapshot(egg_item), "potion": ingredient_snapshot(potion_item),
+                "species": dict(PetSpeciesSerializer(species).data),
+                "potion_type": dict(PotionTypeSerializer(potion_type).data),
+            },
+            started_at=now, ready_at=now + timedelta(seconds=PetService.incubation_duration_seconds()),
+        )
+        return incubation, True
+
+    @staticmethod
+    @transaction.atomic
+    def hatch_incubation(user, incubation_id):
+        """Explicitly hatch an accepted, ready pair; retries return its saved pet."""
+        from apps.achievements.services import _lock_award_user
+        from .models import PetIncubation, UserPet
+
+        _lock_award_user(user)
+        try:
+            incubation = PetIncubation.objects.select_for_update(of=("self",)).select_related("species", "potion_type", "pet").get(pk=incubation_id, user=user)
+        except PetIncubation.DoesNotExist:
+            raise IncubationNotFound("Egg incubation not found")
+        if incubation.hatched_at is not None:
+            if incubation.pet_id is None:
+                raise IncubationError("This egg has already hatched and its saved pet is no longer available")
+            return incubation, incubation.pet, False
+        now = timezone.now()
+        if incubation.ready_at > now:
+            raise IncubationError("Your egg is still incubating")
+
+        # This pair was accepted and paid for at start. Catalog retirement or
+        # compatibility edits cannot revoke that promise or consume more items.
+        pet, created = UserPet.objects.get_or_create(user=user, species=incubation.species, potion=incubation.potion_type)
+        incubation.pet = pet
+        incubation.hatched_at = now
+        incubation.save(update_fields=["pet", "hatched_at", "updated_at"])
+        if not created:
+            return incubation, pet, False
+        PetService._evaluate_pet_badges(user)
+        logger.info("User %s hatched accepted incubation %s", user.username, incubation.pk)
 
         # Chronicle hook — wrapped so a chronicle failure never breaks hatching.
         try:
             from apps.chronicle.services import ChronicleService
-            ChronicleService.record_first(
-                user,
-                event_slug="first_pet_hatched",
-                title=f"Hatched your first pet \u2014 {species.name}",
-                icon_slug="egg-crack",
-                related=("userpet", pet.pk),
-            )
+            with transaction.atomic():
+                ChronicleService.record_first(
+                    user, event_slug="first_pet_hatched",
+                    title=f"Hatched your first pet \u2014 {incubation.accepted_pair['species']['name']}",
+                    icon_slug="egg-crack", related=("userpet", pet.pk),
+                )
         except Exception:
-            logger.exception("Chronicle hook failed in hatch_pet")
-
-        return pet
+            logger.exception("Chronicle hook failed in hatch_incubation")
+        return incubation, pet, True
 
     @staticmethod
     @transaction.atomic

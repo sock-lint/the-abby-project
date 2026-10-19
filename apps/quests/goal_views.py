@@ -2,7 +2,7 @@ from rest_framework import permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from config.permissions import IsParent
+from config.permissions import IsParent, IsStaffParent
 from config.viewsets import child_not_found_response, get_child_or_404
 from .goal_serializers import GoalWriteSerializer
 from .goals import create_goal, list_goals, occurrence_payload, set_pin
@@ -60,3 +60,23 @@ class ChallengePinView(APIView):
             return Response(set_pin(request.user, goal_id, clear=True))
         except ValueError:
             return Response({"error": "Challenge not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ChallengeOpenedView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, goal_id):
+        from .discovery import record_details_opened
+        if request.query_params or not isinstance(request.data, dict) or request.data:
+            return Response({"error": "Supply an empty object without query parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(record_details_opened(request.user, goal_id))
+
+
+class ChallengeDiscoveryView(APIView):
+    permission_classes = [IsStaffParent]
+
+    def get(self, request):
+        from .discovery import discovery_observations
+        if set(request.query_params) - {"_abby_session", "_abby_retry"}:
+            return Response({"error": "Discovery observations accept no targeting parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(discovery_observations(request.user))

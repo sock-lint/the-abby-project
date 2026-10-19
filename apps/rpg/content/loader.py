@@ -82,6 +82,9 @@ class ContentPack:
         self.pack_key = pack_key
         self.family = family
         self.seen_entries = set()
+        # Unkeyed (deploy-time) loads report entries they leave unchanged
+        # here instead of failing: they run before gunicorn starts.
+        self.warnings: list[str] = []
 
     # ---- public API ----------------------------------------------------
 
@@ -152,6 +155,8 @@ class ContentPack:
 
         for line in self.stats.as_lines():
             write(line)
+        for warning in self.warnings:
+            write(f"  warning: {warning}")
         return self.stats
 
     def _reconcile_owned_offers(self):
@@ -200,12 +205,19 @@ class ContentPack:
         return resolved
 
     def _protect_active_quest(self, quest, defaults, entry):
+        active, changed = self._active_quest_changes(quest, defaults, entry)
+        if changed:
+            raise ContentPackError(f"Cannot change {', '.join(changed)} while {active} active legacy quest(s) retain these rules and rewards. Author a new stable entry/version with a distinct name for future content.")
+        self.stats.bump("skipped", "protected_active_legacy_quests", active)
+
+    def _active_quest_changes(self, quest, defaults, entry):
+        """Return (active legacy quest count, accepted fields this load would change)."""
         from apps.quests.models import Quest
         active = list(Quest.objects.select_for_update(of=("self",)).filter(
             definition=quest, status=Quest.Status.ACTIVE).values_list("pk", flat=True))
         if not active:
-            return
-        fields = ("quest_type", "target_value", "duration_days", "trigger_filter",
+            return 0, []
+        fields =("quest_type", "target_value", "duration_days", "trigger_filter",
                   "coin_reward", "xp_reward", "is_repeatable", "required_badge")
         changed = []
         for field_name in fields:
@@ -219,9 +231,7 @@ class ContentPack:
             proposed_tags = sorted((skill.pk, weight) for skill, weight in self._resolved_quest_skill_tags(entry))
             if current_tags != proposed_tags:
                 changed.append("skill_tags")
-        if changed:
-            raise ContentPackError(f"Cannot change {', '.join(changed)} while {len(active)} active legacy quest(s) retain these rules and rewards. Author a new stable entry/version with a distinct name for future content.")
-        self.stats.bump("skipped", "protected_active_legacy_quests", len(active))
+        return len(active), changed
 
     def _upsert(self, model, *, defaults, entry=None, **lookup):
         """Only a pack's previously claimed stable IDs can update existing rows."""
@@ -232,6 +242,39 @@ class ContentPack:
                 self.stats.bump("skipped", "database_authored_item")
                 return model.objects.get(pk=override.object_id), False
         if not self.pack_key:
+            if model._meta.label_lower == "quests.questdefinition":
+                # Bundled quests predate stable publication claims. Their
+                # global scope is part of the lookup: a family's identically
+                # named template must never be adopted or rewritten, even if
+                # its legacy is_system flag is true.
+                lookup = {**lookup, "is_system": defaults["is_system"], "created_by": None}
+                # This load runs before gunicorn on every container start, so
+                # a quest it cannot safely update is left unchanged and
+                # reported. Failing here would keep the whole app down.
+                matches = list(model.objects.select_for_update(no_key=True).filter(**lookup)[:2])
+                skip = None
+                if len(matches) > 1:
+                    skip = ("ambiguous_global_quest",
+                            f"Left global quest {lookup['name']!r} unchanged: more than one definition matches; reconcile them to apply bundled changes.")
+                elif matches:
+                    from apps.rpg.models import ContentPackEntry
+                    quest = matches[0]
+                    owner = ContentPackEntry.objects.filter(
+                        model_label=model._meta.label_lower, object_id=quest.pk).first()
+                    if owner:
+                        skip = ("pack_owned_quest",
+                                f"Left quest {quest.name!r} unchanged: it is owned by {owner.pack}.")
+                    else:
+                        active, changed = self._active_quest_changes(quest, defaults, entry or {})
+                        if changed:
+                            skip = ("deferred_active_legacy_quest_change",
+                                    f"Left quest {quest.name!r} unchanged: {active} active legacy quest(s) retain its accepted {', '.join(changed)}; the bundled change applies once they end.")
+                        else:
+                            self.stats.bump("skipped", "protected_active_legacy_quests", active)
+                if skip:
+                    self.stats.bump("skipped", skip[0])
+                    self.warnings.append(skip[1])
+                    return None, False
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
         from django.core.exceptions import ValidationError
@@ -700,6 +743,8 @@ class ContentPack:
                         ) from exc
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
                         continue
+                    if isinstance(item.metadata, dict) and item.metadata.get("no_random_drop") is True:
+                        continue
                     _, created = self._upsert(DropTable,
                         trigger_type=trigger, item=item,
                         defaults={"weight": weight, "min_level": min_level},
@@ -734,6 +779,10 @@ class ContentPack:
             for trigger in triggers:
                 for item in qs:
                     if item.item_type in {"egg", "potion"} and not item_is_available(item):
+                        continue
+                    # Earned-only cosmetics must not enter global macros on a
+                    # later seed reload, before their chapter is completed.
+                    if isinstance(item.metadata, dict) and item.metadata.get("no_random_drop") is True:
                         continue
                     w = int(
                         weight_by_rarity.get(item.rarity, 0) if weight_by_rarity else (flat_weight or 1)
@@ -784,6 +833,9 @@ class ContentPack:
             quest, created = self._upsert(QuestDefinition, entry=entry,
                 name=entry["name"], defaults=defaults,
             )
+            if quest is None:
+                # Left unchanged by an unkeyed load; keep its links as well.
+                continue
             self.stats.bump("created" if created else "updated", "quest")
 
             # Reconcile future links after freezing accepted promises above.

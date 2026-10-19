@@ -73,7 +73,10 @@ describe('BestiaryHub', () => {
     const potion = { id: 41, slug: 'base', name: 'Base', rarity: 'common', catalog_available: true };
     const pet = { id: 1, species, potion, name: 'Peep', lifecycle_stage: 'baby', evolution_stage: 'chick', growth_points: 0, evolved_to_mount: false, is_active: true, catalog_available: true };
     let hatched = false;
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, () => { hatched = true; return HttpResponse.json(pet, { status: 201 }); });
+    let incubation = null;
+    const waiting = { id: 7, egg: { name: 'Chick Egg' }, potion: { name: 'Base Potion' }, remaining_seconds: 7200, is_ready: false, status: 'incubating' };
+    const start = spyHandler('post', /\/api\/pets\/incubations\/$/, () => { incubation = waiting; return { incubation, server_now: '2026-10-18T10:00:00Z' }; });
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/7\/hatch\/$/, () => { hatched = true; incubation = null; return HttpResponse.json({ pet, freshly_hatched: true, incubation: { ...waiting, status: 'hatched', pet_id: pet.id }, server_now: '2026-10-18T12:00:00Z' }, { status: 201 }); });
     stubAll();
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: hatched ? [pet] : [], mounts: [], total_possible: 1 })),
@@ -85,7 +88,8 @@ describe('BestiaryHub', () => {
         species: [{ ...species, discovered: hatched, owned_pet_ids: hatched ? [1] : [], owned_mount_potion_ids: [], available_potions: [potion] }],
         potions: [potion], totals: { species: 1, discovered_species: hatched ? 1 : 0, mounts_possible: 1, mounts_owned: 0 },
       })),
-      hatch.handler,
+      http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation, duration_seconds: 7200, server_now: '2026-10-18T10:00:00Z' })),
+      start.handler, hatch.handler,
     );
     render(<MemoryRouter><AuthProvider><BestiaryHub /></AuthProvider></MemoryRouter>);
     expect(await screen.findByText(/No companions yet/)).toBeInTheDocument();
@@ -99,11 +103,18 @@ describe('BestiaryHub', () => {
     await user.click(screen.getByRole('tab', { name: /^Hatch(?:ing|ery)$/ }));
     expect(screen.getByRole('combobox', { name: 'Egg' })).toHaveTextContent('Chick Egg');
     expect(screen.getByRole('combobox', { name: 'Potion' })).toHaveTextContent('Base Potion');
-    await user.click(screen.getByRole('button', { name: 'Hatch pet' }));
+    await user.click(screen.getByRole('button', { name: 'Start incubation' }));
+    await screen.findByRole('heading', { name: 'Your egg is incubating' });
+    expect(hatch.calls).toHaveLength(0);
+    incubation = { ...waiting, is_ready: true, remaining_seconds: 0, status: 'ready' };
+    await user.click(screen.getByRole('button', { name: 'Check readiness' }));
+    await user.click(await screen.findByRole('button', { name: 'Hatch pet' }));
     await user.click(await screen.findByRole('button', { name: 'Close pet celebration' }));
     expect(hatch.calls).toHaveLength(1);
-    expect(hatch.calls[0]).toMatchObject({ method: 'POST', body: { egg_item_id: '11', potion_item_id: '22' } });
-    expect(new URL(hatch.calls[0].url).pathname).toBe('/api/pets/hatch/');
+    expect(start.calls).toHaveLength(1);
+    expect(start.calls[0]).toMatchObject({ method: 'POST', body: { egg_item_id: '11', potion_item_id: '22', request_id: expect.any(String) } });
+    expect(hatch.calls[0]).toMatchObject({ method: 'POST', body: null });
+    expect(new URL(hatch.calls[0].url).pathname).toBe('/api/pets/incubations/7/hatch/');
     await user.click(screen.getByRole('tab', { name: 'Companions' }));
     expect(within(await screen.findByRole('list', { name: 'Your companions' })).getByRole('button', { name: 'Care for Base Chick' })).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Collection' }));

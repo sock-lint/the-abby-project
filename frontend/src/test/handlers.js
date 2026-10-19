@@ -325,7 +325,8 @@ export const handlers = [
   http.get('*/api/pets/codex/', () =>
     HttpResponse.json({ species: [], potions: [], totals: { species: 0, discovered_species: 0, mounts_possible: 0, mounts_owned: 0 } }),
   ),
-  http.post('*/api/pets/hatch/', ok),
+  http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation: null, duration_seconds: 86400, server_now: '2026-10-18T12:00:00Z' })),
+  http.post('*/api/pets/hatch/', () => HttpResponse.json({ error: 'Instant hatching has been removed. Start an egg incubation in the Hatchery.' }, { status: 410 })),
   http.post(/\/api\/pets\/\d+\/feed\/$/, ok),
   http.post(/\/api\/pets\/\d+\/activate\/$/, ok),
   http.get('*/api/mounts/', empty),
@@ -424,6 +425,8 @@ export const handlers = [
   http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
   // Designer workspace stays staff-only unless a test supplies its catalog.
   http.get('*/api/rpg/progression-lab/', () => new HttpResponse(null, { status: 403 })),
+  http.get('*/api/rpg/progression-lab/experiments/', () => new HttpResponse(null, { status: 403 })),
+  http.get('*/api/rpg/progression-lab/observations/', () => new HttpResponse(null, { status: 403 })),
   http.post('*/api/rpg/progression-lab/simulate/', () => new HttpResponse(null, { status: 403 })),
   http.get('*/api/dev/children/', empty),
   http.get('*/api/dev/rewards/', empty),

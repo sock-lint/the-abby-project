@@ -142,6 +142,29 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Reports and metadata record `pet_incubation_policy`, including the installed
+  elapsed duration and one unfinished slot. Ingredients are reserved during
+  active care; readiness advances over inactive days, and the next active
+  visit claims the egg before rewards and feeding. Pending eggs are not owned
+  pets or completed targets. Policy changes invalidate model bindings without
+  modifying historical report bodies. See the Lab guide for daily clock limits.
+- Private feedback notebook: `/api/rpg/progression-lab/experiments/` saves
+  author-and-family-scoped assumptions, immutable server-generated paired
+  comparisons and append-only decisions with actions/review dates. It never
+  publishes or changes rewards. Revisions plus engine/rules/catalog/evaluator
+  bindings reject stale decisions; keep historical evidence readable even if
+  today's catalog is unavailable. `progression/observations.py` separately
+  reads bounded own-family recent-child ledger aggregates, with typed future
+  attribution, incomplete-history coverage and insufficient empty cohorts.
+  Preserve this separation from anonymous forecasts and MCP catalog scopes.
+  `candidate_policy` selects the legacy payout envelope or fixed `commitment100`
+  prototype. The latter reserves 75 expedition / 25 random-activity-pouch Coins
+  before grants and pays established promises fully; boosts remain unmodeled.
+  `expedition_budget` independently limits new launches and whole item promises
+  shared across mounts. `expedition_limits` notebook candidates preserve identical
+  Coin rules in both arms; the control has unlimited expedition quotas. Never
+  conflate unavailable targets with additional runway or charge frozen claims
+  against a later allowance. These are simulation policies, never live writers.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.
@@ -161,8 +184,14 @@ normal streak/Drop Charm bonuses, using authored existing food and coin-pouch
 pools. The service calls `GameLoopService.on_task_completed(..., strict=True)`
 inside its outer transaction: any pipeline failure propagates so all reward
 writes roll back. Existing callers retain the default independent-step
-failure isolation. Reading's new trigger is not an automatic Challenges
-source; saved legacy quests retain filtering and 5 base boss damage.
+failure isolation. Awarded daily receipts provide explicit `reading_logged` Challenge facts keyed by
+`reading_reward_id`, with the saved family-local day and award timestamp. Reading
+does not count toward unfiltered effort goals or the daily effort bonus. Deleted
+sessions retain their earned fact. Saved legacy quests retain filtering and
+5 base boss damage. Default content loading installs the additive reading starter
+and post-Full-Ark reading chapters atomically after the unchanged initial pack.
+Both bundled packs live in `content/rpg/bundled/`, baked into the image; the
+host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 ## Gotchas
 

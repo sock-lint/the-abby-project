@@ -1,0 +1,29 @@
+# Gate recognition adds no authored XP or Coins. Existing universal collection
+# ladders remain unchanged and may still recognize these new completions.
+badges:
+  - name: "Collector's Reading: Fresh Pages Complete"
+    description: Finish the Fresh Pages collector reading chapter.
+    icon: "📖"
+    criteria_type: quest_completed
+    criteria_value: {quest_name: "Collector's Reading: Fresh Pages"}
+    rarity: uncommon
+    xp_bonus: 0
+    award_coins: false
+
+  - name: "Collector's Reading: Far Horizons Complete"
+    description: Finish the Far Horizons collector reading chapter.
+    icon: "🌅"
+    criteria_type: quest_completed
+    criteria_value: {quest_name: "Collector's Reading: Far Horizons"}
+    rarity: rare
+    xp_bonus: 0
+    award_coins: false
+
+  - name: "Collector's Reading: Living Atlas Complete"
+    description: Finish all three collector reading chapters.
+    icon: "🗺️"
+    criteria_type: quest_completed
+    criteria_value: {quest_name: "Collector's Reading: Living Atlas"}
+    rarity: epic
+    xp_bonus: 0
+    award_coins: false

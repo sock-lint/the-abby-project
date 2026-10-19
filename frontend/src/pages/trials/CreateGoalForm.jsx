@@ -16,6 +16,7 @@ const ACTIVITIES = [
   ['chore_complete', 'Approved chores'], ['homework_complete', 'Approved homework'],
   ['habit_log', 'Positive habit taps'], ['clock_out', 'Project work'],
   ['milestone_complete', 'Project milestones'], ['movement_session', 'Movement'],
+  ['reading_logged', 'Daily Reading Adventures'],
 ];
 const INITIAL = {
   user_id: '', name: '', trigger_type: 'chore_complete', movement_type_id: '',
@@ -117,6 +118,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
           <SelectField label="Activity" value={form.trigger_type} onChange={(event) => patch({ trigger_type: event.target.value, metric: 'count', unit: 'actions' })} error={errors.trigger_type}>
             {ACTIVITIES.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </SelectField>
+          {form.trigger_type === 'reading_logged' && <p className="text-caption text-ink-secondary">A Daily Reading Adventure counts once per family day after 10 cumulative reading minutes. Extra sessions and edits do not add another count.</p>}
           {movement && <>
             <SelectField label="Movement activity" value={form.movement_type_id} onChange={set('movement_type_id')} disabled={typesLoading} error={errors.movement_type_id} required>
               <option value="">Choose an activity…</option>

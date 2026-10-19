@@ -5,6 +5,7 @@ import { getToken } from '../../api/client';
 import useChildContext from '../../hooks/useChildContext';
 import ChildContext from '../../components/family/ChildContext';
 import useChallenges, { CHALLENGES_CHANGED } from '../../hooks/useChallenges';
+import useChallengeOpening from '../../hooks/useChallengeOpening';
 import Loader from '../../components/Loader';
 import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
@@ -12,6 +13,11 @@ import DailyChallengeCard from '../../components/dashboard/DailyChallengeCard';
 import CreateGoalForm from './CreateGoalForm';
 import { ChallengeGoalDetail } from './ChallengeGoalCard';
 import ChallengesFolio from './ChallengesFolio';
+
+function TrackedChallengeDetail({ user, onConfirmed, ...props }) {
+  useChallengeOpening(props.goal, { user, onConfirmed });
+  return <ChallengeGoalDetail {...props} />;
+}
 
 export default function Trials() {
   const context = useChildContext();
@@ -33,6 +39,11 @@ function TrialsWorkspace({ context }) {
   useEffect(() => { identityRef.current = identity; }, [identity]);
   const selected = goals.find((goal) => goal.id === (selectedId ?? searchParams.get('goal')));
   const timezone = data?.daily_bonus?.timezone || data?.timezone || 'UTC';
+  const confirmOpening = ({ id, first_details_opened_at }) => {
+    setData((previous) => ({ ...previous, results: previous.results.map((row) => (
+      row.id === id && !row.first_details_opened_at ? { ...row, first_details_opened_at } : row
+    )) }));
+  };
 
   const handlePin = async (goal) => {
     const requestIdentity = identity;
@@ -69,7 +80,7 @@ function TrialsWorkspace({ context }) {
       {searchParams.has('scroll') && <p className="font-body text-caption text-ink-secondary">You can track challenges without spending a scroll. Your saved scroll stays in Inventory.</p>}
       <ErrorAlert message={error || actionError} />
       {error && <Button variant="secondary" onClick={reload}>Try again</Button>}
-      {selected && <ChallengeGoalDetail goal={selected} {...cardProps} onClose={() => setSelectedId('')} />}
+      {selected && <TrackedChallengeDetail key={selected.id} user={user} onConfirmed={confirmOpening} goal={selected} {...cardProps} onClose={() => setSelectedId('')} />}
       <ChallengesFolio
         goals={goals} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
         dailyBonus={!isParent && <DailyChallengeCard challenge={data?.daily_bonus ?? null} />}

@@ -1,7 +1,9 @@
 """Database drafts evaluate and publish exact global content without editing YAML."""
+from copy import deepcopy
 from datetime import timedelta
 from pathlib import Path
 import tempfile
+from unittest.mock import patch
 
 from django.db import connection
 from django.test import TestCase, override_settings
@@ -13,6 +15,7 @@ from apps.quests.models import Quest, QuestDefinition, QuestRewardItem, QuestSki
 from apps.rpg.content.loader import ContentPack, ContentPackError
 from apps.rpg.content.workbench import create_draft, describe_workbench, save_draft, preview_draft, publish_draft, get_draft, simulate_draft
 from apps.rpg.models import ContentPackEntry, ItemDefinition, RPGContentOverride, UserInventory
+from apps.rpg.progression import simulate_progression
 from config.tests.factories import make_family
 
 
@@ -236,6 +239,57 @@ class ContentWorkbenchTests(TestCase):
         with override_settings(COINS_PER_HOUR=999), self.assertRaisesMessage(ContentPackError, "Simulation rules changed"):
             publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
 
+    @override_settings(PET_INCUBATION_DURATION_SECONDS=86400)
+    def test_comparison_freezes_one_incubation_policy_even_if_setting_changes_between_arms(self):
+        draft = self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Pear"}}])
+        plan = preview_draft(self.actor, draft["id"], draft["revision"])["preview"]
+        reports = []
+
+        def run_arm(*args, **kwargs):
+            # Exercise both real simulations; only the installed setting changes.
+            duration = 172800 if reports else 86400
+            with override_settings(PET_INCUBATION_DURATION_SECONDS=duration):
+                report = simulate_progression(*args, **kwargs)
+            reports.append(report)
+            return report
+
+        with patch("apps.rpg.progression.simulate_progression", side_effect=run_arm):
+            comparison = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"],
+                                        {"horizon_days": 30, "trials": 1})
+        baseline, proposed = comparison["baseline"], comparison["proposed"]
+        self.assertEqual(baseline["pet_incubation_policy"]["duration_seconds"], 86400)
+        self.assertEqual(proposed["pet_incubation_policy"], baseline["pet_incubation_policy"])
+        self.assertEqual(proposed["rules_fingerprint"], baseline["rules_fingerprint"])
+        self.assertEqual(comparison["simulation"]["rules_fingerprint"], baseline["rules_fingerprint"])
+
+    @override_settings(PET_INCUBATION_DURATION_SECONDS=86400)
+    def test_duration_drift_requires_resimulation_before_publish_and_preserves_previous_reports(self):
+        draft = self.draft([{"section": "items", "object_id": self.item.pk, "key": "apple", "values": {"name": "Pear"}}])
+        plan = preview_draft(self.actor, draft["id"], draft["revision"])["preview"]
+        config = {"horizon_days": 30, "trials": 1}
+        comparison = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], config)
+        original_comparison = deepcopy(comparison)
+        original_fingerprint = comparison["simulation"]["rules_fingerprint"]
+        with override_settings(PET_INCUBATION_DURATION_SECONDS=172800):
+            with self.assertRaisesMessage(ContentPackError, "Simulation rules changed"):
+                publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
+            current = get_draft(self.actor, draft["id"])
+            self.assertIsNone(current["published_at"])
+            self.assertEqual(current["simulation"], comparison["simulation"])
+            self.item.refresh_from_db()
+            self.assertEqual(self.item.name, "Apple")
+            self.assertFalse(RPGContentOverride.objects.exists())
+            fresh = simulate_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], config)
+            self.assertNotEqual(fresh["simulation"]["rules_fingerprint"], original_fingerprint)
+            self.assertEqual(fresh["baseline"]["pet_incubation_policy"]["duration_seconds"], 172800)
+            published = publish_draft(self.actor, draft["id"], draft["revision"], plan["preview_id"], plan["content_digest"])
+        self.assertTrue(published["published_at"])
+        for report in (comparison["baseline"], comparison["proposed"]):
+            self.assertEqual(report["pet_incubation_policy"]["duration_seconds"], 86400)
+            self.assertEqual(report["rules_fingerprint"], original_fingerprint)
+        self.assertEqual(comparison["simulation"]["rules_fingerprint"], original_fingerprint)
+        self.assertEqual(comparison, original_comparison)
+
     def test_private_templates_and_their_reward_changes_are_outside_global_review(self):
         private = QuestDefinition.objects.create(name="Private homework", description="Private family description",
             quest_type="collection", target_value=2, created_by=self.actor)
@@ -256,7 +310,7 @@ class ContentWorkbenchTests(TestCase):
 
     def test_authored_challenge_filters_only_offer_current_trackable_sources(self):
         for quest_type, triggers in (
-            ("collection", ["reading_logged"]), ("collection", ["badge_earned"]),
+            ("collection", ["perfect_day"]), ("collection", ["badge_earned"]),
             ("collection", ["quest_complete", "chore_complete"]),
             ("boss", ["creation_logged"]), ("boss", ["creation_logged", "chore_complete"]),
         ):
@@ -265,14 +319,27 @@ class ContentWorkbenchTests(TestCase):
                     "name": "Untrackable challenge", "description": "Synthetic", "quest_type": quest_type,
                     "target_value": 1, "trigger_filter": {"allowed_triggers": triggers}}}])
 
+    def test_reading_receipt_filters_are_supported_for_collection_and_boss_challenges(self):
+        for quest_type in ("collection", "boss"):
+            with self.subTest(quest_type=quest_type):
+                self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {
+                    "quest_type": quest_type, "trigger_filter": {"allowed_triggers": ["reading_logged"]}}}]))
+                metadata = describe_workbench(self.actor)
+                challenge = next(row for row in metadata["catalog"]["quests"] if row["id"] == self.quest.pk)
+                self.assertTrue(challenge["available_for_new_user"])
+                self.assertTrue(challenge["automatic_tracking_available"])
+                self.assertEqual(challenge["trigger_filter"], {"allowed_triggers": ["reading_logged"]})
+                self.assertFalse(any(finding["code"] == "unsupported_challenge_trigger" and finding["id"] == self.quest.pk
+                                     for finding in metadata["audits"]["findings"]))
+
     def test_retained_unsupported_filter_is_audited_and_can_be_corrected(self):
-        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["reading_logged"]})
+        QuestDefinition.objects.filter(pk=self.quest.pk).update(trigger_filter={"allowed_triggers": ["perfect_day"]})
         metadata = describe_workbench(self.actor)
         challenge = metadata["catalog"]["quests"][0]
         self.assertFalse(challenge["available_for_new_user"])
         self.assertFalse(challenge["automatic_tracking_available"])
         warning = next(finding for finding in metadata["audits"]["findings"] if finding["code"] == "unsupported_challenge_trigger")
-        self.assertIn("reading_logged", warning["detail"])
+        self.assertIn("perfect_day", warning["detail"])
         with self.assertRaisesMessage(ContentPackError, "automatic challenge"):
             self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {"name": "Still untrackable"}}])
         self.publish(self.draft([{"section": "quests", "object_id": self.quest.pk, "key": "practice", "values": {

@@ -35,7 +35,7 @@ describe('Hatchery egg collection', () => {
     await user.click(within(collection).getByRole('button', { name: 'Select Bat Egg' }));
     expect(screen.getByRole('heading', { name: 'Bat family' })).toBeInTheDocument();
     expect(screen.getByRole('list', { name: 'Pet growth stages' })).toHaveTextContent('Middle');
-    expect(screen.getByRole('button', { name: 'Hatch pet' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Start incubation' })).toBeDisabled();
     expect(hatch.calls).toHaveLength(0);
   });
 
@@ -57,19 +57,19 @@ describe('Hatchery egg collection', () => {
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.item.id));
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(potion.item.id));
     expect(screen.getByText('You already have this companion. Extra eggs stay in your inventory.')).toBeInTheDocument();
-    const button = screen.getByRole('button', { name: 'Hatch pet' });
+    const button = screen.getByRole('button', { name: 'Start incubation' });
     expect(button).toBeDisabled();
     await user.click(button);
     expect(hatch.calls).toHaveLength(0);
     expect(screen.getByRole('link', { name: 'Care for companions' })).toHaveAttribute('href', '/bestiary?tab=companions');
   });
 
-  it('prevents repeated hatches and ignores a receipt after the account credential changes', async () => {
+  it('prevents repeated starts and ignores a receipt after the account credential changes', async () => {
     let release;
     const pending = new Promise((resolve) => { release = resolve; });
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, async () => {
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/$/, async () => {
       await pending;
-      return { id: 9, species: { name: 'Bat' }, potion: { name: 'Base' } };
+      return { incubation: { id: 7, egg: egg.item, potion: potion.item, remaining_seconds: 7200, is_ready: false, status: 'incubating' }, server_now: '2026-10-18T10:00:00Z' };
     });
     server.use(hatch.handler);
     const onChanged = vi.fn();
@@ -77,11 +77,11 @@ describe('Hatchery egg collection', () => {
     const user = userEvent.setup();
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.item.id));
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(potion.item.id));
-    await user.dblClick(screen.getByRole('button', { name: 'Hatch pet' }));
+    await user.dblClick(screen.getByRole('button', { name: 'Start incubation' }));
     await waitFor(() => expect(hatch.calls).toHaveLength(1));
-    expect(hatch.calls[0].body).toEqual({ egg_item_id: String(egg.item.id), potion_item_id: String(potion.item.id) });
-    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
-    expect(screen.getByRole('button', { name: 'Hatching…' })).toBeDisabled();
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: String(egg.item.id), potion_item_id: String(potion.item.id), request_id: expect.any(String) });
+    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/incubations\/$/);
+    expect(screen.getByRole('button', { name: 'Starting…' })).toBeDisabled();
     localStorage.setItem('abby_auth_token', 'another-synthetic-session');
     await act(async () => { release(); await pending; });
     expect(onChanged).not.toHaveBeenCalled();

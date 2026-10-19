@@ -17,7 +17,16 @@ import ProgressionEconomyControls from './ProgressionEconomyControls';
 import ProgressionEconomyReport from './ProgressionEconomyReport';
 import ProgressionRewardBudgetControls from './ProgressionRewardBudgetControls';
 import ProgressionRewardBudgetReport from './ProgressionRewardBudgetReport';
-import { importedScenario, rewardBudgetLabel, scenariosMatch } from './progressionLabScenario';
+import ProgressionCommitmentControls from './ProgressionCommitmentControls';
+import ProgressionCommitmentReport from './ProgressionCommitmentReport';
+import ProgressionExpeditionBudgetControls from './ProgressionExpeditionBudgetControls';
+import ProgressionExpeditionBudgetReport from './ProgressionExpeditionBudgetReport';
+import ProgressionExperimentNotebook from './ProgressionExperimentNotebook';
+import { expeditionBudgetLabel, importedScenario, rewardPolicyLabel, scenariosMatch } from './progressionLabScenario';
+import PetIncubationPolicy from './PetIncubationPolicy';
+import PetIncubationState from './PetIncubationState';
+import PetIncubationJourney from './PetIncubationJourney';
+import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -158,6 +167,7 @@ function AccountProgressionLab() {
         <ErrorAlert message={readError && `Could not load the rules and catalog. ${readError}`} onRetry={retryRead} />
         {loading && <Loader />}
         {metadata && config && <>
+          <ChallengeDiscoveryReport />
           <ParchmentCard className="space-y-4">
             <SectionHeader title="Build a new child’s routine" index={0}>All activity counts apply to active days. Scenarios use anonymous state and do not create accounts or change rewards.</SectionHeader>
             <form aria-label="Progression scenario" onSubmit={simulate} className="space-y-4">
@@ -170,8 +180,8 @@ function AccountProgressionLab() {
                 </details>
                 {metadata.presets?.length > 0 && <div className="space-y-2">
                   <p className="text-caption text-ink-secondary">Starting routines are editable examples, not observed player groups.</p>
-                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}), ...(previous.reward_budget ? { reward_budget: previous.reward_budget } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
-                  {(config.economy || config.reward_budget) && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing and reward budget assumptions.</p>}
+                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}), ...(previous.reward_budget ? { reward_budget: previous.reward_budget } : {}), ...(previous.reward_commitment ? { reward_commitment: previous.reward_commitment } : {}), ...(previous.expedition_budget ? { expedition_budget: previous.expedition_budget } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
+                  {(config.economy || config.reward_budget) && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing, Coin policy and expedition limits.</p>}
                 </div>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <ChoiceField name="horizon_days" label="Forecast horizon" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
@@ -191,9 +201,13 @@ function AccountProgressionLab() {
                     <ChoiceField name="expedition_tier" label="Expedition length" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
                   </div>
                   <p className="text-caption text-ink-secondary mt-3">These values change this scenario only. Parent approvals are assumed complete. See model coverage below for the exact companion and reward behavior included.</p>
+                  <PetIncubationPolicy policy={metadata.pet_incubation_policy} context="metadata" />
                 </details>
                 {metadata.reward_budget_defaults && metadata.reward_budget_limits && <ProgressionRewardBudgetControls budget={config.reward_budget ?? metadata.reward_budget_defaults}
-                  limits={metadata.reward_budget_limits} onChange={(budget) => change('reward_budget', budget)} error={fieldErrors.reward_budget ?? fieldErrors['reward_budget.daily_coins']} />}
+                  limits={metadata.reward_budget_limits} onChange={(budget) => setConfig((previous) => ({ ...previous, reward_budget: budget, ...(budget.daily_coins != null ? { reward_commitment: { enabled: false } } : {}) }))} error={fieldErrors.reward_budget ?? fieldErrors['reward_budget.daily_coins']} />}
+                {metadata.reward_commitment_defaults && <ProgressionCommitmentControls commitment={config.reward_commitment ?? metadata.reward_commitment_defaults}
+                  onChange={(commitment) => setConfig((previous) => ({ ...previous, reward_commitment: commitment, ...(commitment.enabled ? { reward_budget: { daily_coins: null } } : {}) }))} error={fieldErrors.reward_commitment ?? fieldErrors['reward_commitment.enabled']} />}
+                {metadata.expedition_budget_defaults && metadata.expedition_budget_limits && <ProgressionExpeditionBudgetControls budget={config.expedition_budget ?? metadata.expedition_budget_defaults} limits={metadata.expedition_budget_limits} onChange={(budget) => change('expedition_budget', budget)} errors={fieldErrors} />}
                 {metadata.economy_defaults && metadata.economy_limits && <ProgressionEconomyControls economy={config.economy ?? metadata.economy_defaults} metadata={metadata}
                   onChange={(economy) => change('economy', economy)}
                   onExample={() => {
@@ -215,6 +229,7 @@ function AccountProgressionLab() {
             {!scenariosMatch(config, resultInputs ?? result.config) && <p role="status" className="text-body text-ember-deep">Inputs have changed. The report below still shows the last completed scenario.</p>}
             <Report key={`${result.config.seed}:${result.config.horizon_days}:${result.config.trials}`} report={result} baseline={baseline} onBaseline={() => setBaseline(result)} onClearBaseline={() => setBaseline(null)} />
           </>}
+          <ProgressionExperimentNotebook routine={config} />
           <Coverage coverage={(result ?? metadata).coverage} audit={(result ?? metadata).audit} catalog={(result ?? metadata).catalog} />
         </>}
       </>}
@@ -268,7 +283,9 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     {baseline && <div className="flex flex-wrap items-center gap-3 text-body text-ink-secondary" role="status">Comparing with {baseline.config.horizon_days} days, {baseline.config.trials} children, seed {baseline.config.seed}, {number(baseline.summary.finite_content_total)} finite targets. Changing activities can change that denominator.<Button variant="ghost" onClick={onClearBaseline}>Clear comparison</Button></div>}
     {baseline && !versionsMatch && <p role="status" className="text-body text-ember-deep">Comparison versions: unavailable or different. Numeric differences may include changes to the model, rules or catalog. Treat these as separate forecasts.</p>}
     {baseline && <p className="text-caption text-ink-secondary">Purchasing is {report.economy?.enabled ? 'on' : 'off'} in this report and {baseline.economy?.enabled ? 'on' : 'off'} in the comparison. {!scenariosMatch(report.config.economy, baseline.config.economy) && 'Purchasing assumptions differ; review their offers, budgets and earned-money assumptions alongside the totals.'}</p>}
-    {baseline && (report.reward_budget || baseline.reward_budget) && <p className="text-caption text-ink-secondary">Reward allowance: {rewardBudgetLabel(report.config.reward_budget)} in this report; {rewardBudgetLabel(baseline.config.reward_budget)} in the comparison.</p>}
+    {baseline && (report.reward_budget || baseline.reward_budget) && <p className="text-caption text-ink-secondary">Reward policy: {rewardPolicyLabel(report.config)} in this report; {rewardPolicyLabel(baseline.config)} in the comparison.</p>}
+    {baseline && <p className="text-caption text-ink-secondary">Expedition limits: {expeditionBudgetLabel(report.config.expedition_budget)} in this report; {expeditionBudgetLabel(baseline.config.expedition_budget)} in the comparison.</p>}
+    <PetIncubationPolicy policy={report.pet_incubation_policy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Modeled runway at a glance">Finite targets include eligible modeled badges, one-time challenges, obtainable cosmetics and companion stages. They describe a subset of Abby’s content, not total app exhaustion.</SectionHeader>
       <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -301,21 +318,25 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
         <dl className="grid grid-cols-2 sm:grid-cols-4 gap-3" aria-label={`Day ${snapshot.day} median state`}>
           {[['Discovered', snapshot.finite_completed_p50], ['Modeled targets not completed', snapshot.finite_remaining_p50], [report.economy?.enabled ? 'Coins available' : 'Coins saved', snapshot.coins_p50], ['Total XP', snapshot.total_xp_p50], ['Character level', snapshot.level_p50], ['Inventory units held', snapshot.inventory_units_p50], ['Hatched companions', snapshot.pets_p50], ['Grown companions', snapshot.mounts_p50], ['Expired unfinished challenges', snapshot.expired_oneoff_challenges_p50]].map(([label, value]) => <div key={label} className="rounded-lg bg-ink-page-aged p-3"><dt className="text-caption text-ink-secondary">{label}</dt><dd className="text-lede font-semibold text-ink-primary">{number(value)}</dd></div>)}
         </dl>
+        <PetIncubationState snapshot={snapshot} />
       </> : <p>No timeline is available for this report.</p>}
     </ParchmentCard>
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Reward sources and consumption">Mean totals per child across all {report.config.trials} simulated children and {report.config.horizon_days} calendar days. {report.economy?.enabled ? 'This report includes only the anonymous reward offers and purchasing assumptions below. Live household shops are not read.' : 'Coins remain savings in this model. Household shops, real-world rewards and purchasing decisions are excluded; this is not a spending forecast.'}</SectionHeader>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4"><FlowTable title="Sources" rows={report.flows?.sources ?? []} /><FlowTable title="Sinks and consumption" rows={report.flows?.sinks ?? []} /></div>
     </ParchmentCard>
-    <ProgressionRewardBudgetReport budget={report.reward_budget} baseline={baseline?.reward_budget} />
+    {!report.reward_commitment?.enabled && <ProgressionRewardBudgetReport budget={report.reward_budget} baseline={baseline?.reward_commitment?.enabled ? null : baseline?.reward_budget} />}
+    <ProgressionCommitmentReport commitment={report.reward_commitment} />
+    <ProgressionExpeditionBudgetReport budget={report.expedition_budget} baseline={baseline?.expedition_budget} />
     <ProgressionEconomyReport economy={report.economy} baseline={baseline?.economy} config={report.config.economy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Inspect a reproducible journey">Representative trial seed: {report.journey?.seed ?? report.config.seed}. This event log describes one child; the summaries above describe the whole group.</SectionHeader>
+      <PetIncubationJourney events={report.journey?.events} policy={report.pet_incubation_policy} truncated={report.journey?.truncated} />
       <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show event receipts</summary>
         <pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify(report.journey?.events ?? [], null, 2)}</pre>
         {report.journey?.truncated && <p className="text-caption text-ink-secondary">The event preview is bounded. The report marks it as truncated.</p>}
       </details>
-      <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show exact scenario and model summary</summary><pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify({ config: report.config, summary: report.summary, engine_version: report.engine_version, source_commit: report.source_commit, rules_fingerprint: report.rules_fingerprint, catalog_fingerprint: report.catalog.fingerprint }, null, 2)}</pre></details>
+      <details><summary className="min-h-11 py-3 cursor-pointer font-semibold text-ink-primary">Show exact scenario and model summary</summary><pre className="max-h-96 overflow-auto rounded-lg bg-ink-page-aged p-3 text-caption">{JSON.stringify({ config: report.config, summary: report.summary, pet_incubation_policy: report.pet_incubation_policy, engine_version: report.engine_version, source_commit: report.source_commit, rules_fingerprint: report.rules_fingerprint, catalog_fingerprint: report.catalog.fingerprint }, null, 2)}</pre></details>
     </ParchmentCard>
   </section>;
 }

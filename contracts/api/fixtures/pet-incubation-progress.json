@@ -1,0 +1,63 @@
+{
+  "incubation": {
+    "id": 1,
+    "egg": {
+      "id": 73,
+      "slug": "fixture-fox-egg",
+      "name": "Synthetic Egg",
+      "icon": "🥚",
+      "sprite_key": "big-egg",
+      "rarity": "common",
+      "item_type": "egg",
+      "catalog_icon": null
+    },
+    "potion": {
+      "id": 75,
+      "slug": "fixture-ice-potion",
+      "name": "Synthetic Ice Potion",
+      "icon": "🧪",
+      "sprite_key": "ice-potion",
+      "rarity": "rare",
+      "item_type": "potion",
+      "catalog_icon": null
+    },
+    "species": {
+      "id": 41,
+      "slug": "fox",
+      "name": "Fox",
+      "icon": "🦊",
+      "sprite_key": "fox",
+      "description": "A synthetic fox for hatching checks.",
+      "rarity": "common",
+      "food_preference": "berries",
+      "catalog_available": true,
+      "catalog_icon": null,
+      "grown_catalog_icon": null,
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    "potion_type": {
+      "id": 44,
+      "slug": "ice",
+      "name": "Ice",
+      "sprite_key": "ice-potion",
+      "color_hex": "#00BBFF",
+      "rarity": "rare",
+      "description": "",
+      "catalog_available": true
+    },
+    "started_at": "2026-10-10T12:00:00-07:00",
+    "ready_at": "2026-10-11T12:00:00-07:00",
+    "remaining_seconds": 43200,
+    "is_ready": false,
+    "status": "incubating",
+    "hatched_at": null,
+    "pet_id": null
+  },
+  "duration_seconds": 86400,
+  "server_now": "2026-10-11T00:00:00-07:00"
+}

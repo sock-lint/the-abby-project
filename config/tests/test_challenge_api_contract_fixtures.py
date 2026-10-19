@@ -126,6 +126,100 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_parent_reading_goal_counts_the_daily_reward_receipt_after_real_threshold(self):
+        from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession
+
+        self.catalog.is_system = False
+        self.catalog.save(update_fields=["is_system"])
+        category = SkillCategory.objects.create(id=23, name="Language Arts")
+        skill = Skill.objects.create(id=24, name="Reading Comprehension", category=category)
+        book = ReadingBook.objects.create(
+            id=101, user=self.child, title="Fixture reading adventure", create_payload={},
+            client_request_id="77777777-7777-4777-8777-777777777777",
+        )
+        with connection.cursor() as cursor:
+            for sql in connection.ops.sequence_reset_sql(no_style(), [ReadingSession, ReadingDailyReward]):
+                cursor.execute(sql)
+        created = self.assert_response_fixture(self.client.post("/api/challenges/goals/", {
+            "request_id": "44444444-4444-4444-8444-444444444444",
+            "user_id": self.child.pk, "name": "One Reading Adventure",
+            "trigger_type": "reading_logged", "metric": "count", "target": "1", "unit": "actions",
+            "period": "from_today", "coin_reward": 0, "xp_reward": 0,
+        }, format="json"), "challenge-reading-goal-created.json", status=201)
+        self.assertEqual((created["origin"], created["what_counts"]),
+                         ("parent", "daily Reading Adventures (ten newly logged minutes, once per day)"))
+        self.authenticate(self.child)
+        first = self.client.post("/api/reading-sessions/", {
+            "book": book.pk, "duration_minutes": 4,
+            "client_request_id": "88888888-8888-4888-8888-888888888888",
+        }, format="json")
+        self.assertEqual(first.status_code, 201, first.data)
+        self.assertIsNone(first.data["reading_reward"])
+        self.assertEqual(self.client.get("/api/challenges/").json()["results"][0]["progress"], "0")
+        threshold_payload = {
+            "book": book.pk, "duration_minutes": 6, "format": "audiobook",
+            "client_request_id": "99999999-9999-4999-8999-999999999999",
+        }
+        threshold = self.assert_response_fixture(self.client.post(
+            "/api/reading-sessions/", threshold_payload, format="json",
+        ), "challenge-reading-threshold-session.json", status=201)
+        self.assertEqual(threshold["reading_reward"], {"day": "2026-10-14", "xp_awarded": 15, "coins_awarded": 5})
+        completed = self.assert_response_fixture(self.client.get("/api/challenges/"), "challenges-reading-completed.json")
+        self.assertEqual(len(completed["results"]), 1)
+        self.assertEqual((completed["results"][0]["progress"], completed["results"][0]["status"]), ("1", "completed"))
+        self.assertEqual(completed["results"][0]["reward_receipt"]["coins_awarded"], 0)
+        self.assertFalse(completed["daily_bonus"]["awarded"])
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=skill).xp_points, 15)
+        paid = self.state()
+        self.assertEqual(self.client.post("/api/reading-sessions/", threshold_payload, format="json").status_code, 200)
+        self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+        self.assertEqual(self.state(), paid)
+
+    def test_discovery_receipts_and_same_family_counts_are_actual_endpoints(self):
+        from apps.quests.models import ChallengeEnrollment
+        # Exercise the real first enrollment rather than inventing old views.
+        ChallengeEnrollment.objects.filter(user=self.child).delete()
+        type(self.child).objects.filter(pk__in=[self.child.pk, self.sibling.pk]).update(
+            date_joined=FIXED_NOW - timedelta(days=1),
+        )
+        # A fixed id keeps this fixture independent of earlier tests' sequences.
+        QuestDefinition.objects.create(
+            id=50, name="Another movement goal", quest_type="collection", target_value=1,
+            duration_days=7, trigger_filter={"allowed_triggers": ["movement_session"]},
+            is_system=True, coin_reward=0, xp_reward=0,
+        )
+        self.authenticate(self.child)
+        initial = self.client.get("/api/challenges/")
+        self.assertEqual(initial.status_code, 200)
+        catalog = next(row for row in initial.json()["results"] if row["name"] == self.catalog.name)
+        self.assertFalse(catalog["catalog_repeatable"])
+        self.assertIsNone(catalog["first_details_opened_at"])
+        before = self.state()
+        opened = self.assert_response_fixture(
+            self.client.post(f"/api/challenges/{catalog['id']}/opened/", {}, format="json"),
+            "challenge-details-opened.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertEqual(opened["id"], catalog["id"])
+        self.assertEqual(opened["first_details_opened_at"], FIXED_NOW.isoformat())
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=1)):
+            self.assertEqual(self.log_run("0.75").status_code, 201)
+            self.assertEqual(self.log_run("1.25").status_code, 201)
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        self.authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(minutes=2)):
+            observations = self.assert_response_fixture(
+                self.client.get("/api/challenges/discovery/"), "challenge-discovery-observed.json",
+            )
+        self.assertEqual(observations["catalog_occurrences"], {
+            "cohort_materialized": 2, "opened": 1, "completed": 2,
+            "opened_and_completed": 1, "completed_without_recorded_opening": 1,
+            "opening_recorded_after_completion": 0,
+        })
+        self.assertEqual(observations["cohort"]["tracked_children"], 1)
+        self.assertEqual(observations["cohort"]["untracked_children"], 1)
+
     def test_parent_goal_pin_and_two_real_runs_preserve_automatic_rewards(self):
         created = self.assert_response_fixture(self.create_goal(), "challenge-goal-created.json", status=201)
         self.assertEqual(created["origin"], "parent")

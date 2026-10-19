@@ -1,16 +1,19 @@
 """Pet milestones pay their existing badges in the successful care transaction."""
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.db import transaction
 from django.db.models import Sum
 from django.test import TestCase, override_settings
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress, UserBadge
 from apps.achievements.services import BadgeService
 from apps.notifications.models import Notification, NotificationType
-from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.pets.services import PetService
+from apps.pets.tests.helpers import hatch_ready_pet
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import ItemDefinition, UserInventory
 from apps.rpg.services import ConsumableService
@@ -87,7 +90,7 @@ class PetBadgeMilestoneTests(TestCase):
             UserPet.objects.create(user=owner, species=self.species, potion=self.potion)
         egg, potion = self.give(self.egg, 2), self.give(self.potion_item, 2)
 
-        pet = PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+        pet = hatch_ready_pet(self.child, self.egg.pk, self.potion_item.pk)
 
         self.assertEqual(pet.growth_points, 0)
         self.assert_award(hatch, xp=25, coins=7)
@@ -95,7 +98,7 @@ class PetBadgeMilestoneTests(TestCase):
         self.assert_badge_notification(hatch)
         self.assert_badge_notification(meta)
         with self.assertRaisesRegex(ValueError, "already have"):
-            PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+            hatch_ready_pet(self.child, self.egg.pk, self.potion_item.pk)
         BadgeService.evaluate_badges(self.child, scopes={"pet", "badges"})
         self.assert_award(hatch, xp=25, coins=7)
         self.assert_badge_notification(hatch)
@@ -170,21 +173,25 @@ class PetBadgeMilestoneTests(TestCase):
         self.assertFalse(UserBadge.objects.filter(badge=badge).exists())
         self.assertFalse(UserMount.objects.exists())
 
-    def test_hatch_badge_payout_failure_rolls_back_ingredients_pet_xp_and_badge_then_retries(self):
+    def test_hatch_badge_payout_failure_preserves_reserved_pair_and_rolls_back_pet_xp_badge_then_retries(self):
         badge = self.badge("pets_hatched", xp=25)
         self.give(self.egg)
         self.give(self.potion_item)
+        incubation, _ = PetService.start_incubation(self.child, self.egg.pk, self.potion_item.pk, uuid4())
+        PetIncubation.objects.filter(pk=incubation.pk).update(ready_at=timezone.now())
         with patch.object(BadgeService, "_award_badge_coins", side_effect=RuntimeError("payout unavailable")):
             with self.assertRaisesRegex(RuntimeError, "payout unavailable"):
-                PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+                PetService.hatch_incubation(self.child, incubation.pk)
         self.assertFalse(UserPet.objects.filter(user=self.child).exists())
-        self.assertEqual(UserInventory.objects.filter(user=self.child).count(), 2)
+        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
+        incubation.refresh_from_db()
+        self.assertIsNone(incubation.hatched_at)
         self.assertFalse(UserBadge.objects.filter(user=self.child).exists())
         self.assertFalse(Notification.objects.filter(user=self.child, notification_type=NotificationType.BADGE_EARNED).exists())
         self.progress.refresh_from_db()
         self.assertEqual(self.progress.xp_points, 100)
 
-        PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+        PetService.hatch_incubation(self.child, incubation.pk)
 
         self.assert_award(badge, xp=25, coins=7)
         self.assert_badge_notification(badge)
@@ -196,7 +203,7 @@ class PetBadgeMilestoneTests(TestCase):
         with self.assertLogs("apps.pets.services", level="ERROR"), patch(
             "apps.notifications.services.notify", side_effect=RuntimeError("notification unavailable"),
         ):
-            pet = PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+            pet = hatch_ready_pet(self.child, self.egg.pk, self.potion_item.pk)
 
         self.assertTrue(UserPet.objects.filter(pk=pet.pk, user=self.child).exists())
         self.assert_award(badge, xp=25, coins=7)
@@ -208,7 +215,7 @@ class PetBadgeMilestoneTests(TestCase):
         self.give(self.potion_item)
         with patch("apps.notifications.services._push_now") as push:
             with self.captureOnCommitCallbacks(execute=True):
-                PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+                hatch_ready_pet(self.child, self.egg.pk, self.potion_item.pk)
                 self.assert_badge_notification(badge)
                 push.assert_not_called()
             push.assert_called_once()
@@ -222,7 +229,7 @@ class PetBadgeMilestoneTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 with self.assertRaisesRegex(RuntimeError, "outer transaction failed"):
                     with transaction.atomic():
-                        PetService.hatch_pet(self.child, self.egg.pk, self.potion_item.pk)
+                        hatch_ready_pet(self.child, self.egg.pk, self.potion_item.pk)
                         raise RuntimeError("outer transaction failed")
             push.assert_not_called()
         self.assertFalse(UserPet.objects.filter(user=self.child).exists())

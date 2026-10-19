@@ -28,17 +28,21 @@ from apps.rpg.management.commands.cleanup_rpg_catalog import (
     LEGACY_SKILL_CATEGORIES,
     RETIRED_QUESTS,
 )
+from apps.rpg.management.commands.loadrpgcontent import BUNDLED_PACKS
 
 
-CONTENT_ROOT = Path(__file__).resolve().parents[3] / "content" / "rpg" / "initial"
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _yaml_names(filename: str, top_key: str, name_key: str = "name") -> set[str]:
-    path = CONTENT_ROOT / filename
-    if not path.exists():
-        return set()
-    data = yaml.safe_load(path.read_text()) or {}
-    return {entry[name_key] for entry in (data.get(top_key) or []) if entry.get(name_key)}
+    names = set()
+    for pack_path, _namespace in BUNDLED_PACKS:
+        path = REPO_ROOT / pack_path / filename
+        if not path.exists():
+            continue
+        data = yaml.safe_load(path.read_text()) or {}
+        names.update(entry[name_key] for entry in (data.get(top_key) or []) if entry.get(name_key))
+    return names
 
 
 class CatalogDriftTests(TestCase):
@@ -52,7 +56,7 @@ class CatalogDriftTests(TestCase):
         call_command("loadrpgcontent")
 
     def test_no_orphan_badges(self):
-        """Every Badge row must be in badges.yaml or in DUPLICATE_BADGES."""
+        """Every Badge row must be in a bundled pack or DUPLICATE_BADGES."""
         in_yaml = _yaml_names("badges.yaml", "badges")
         allow = in_yaml | set(DUPLICATE_BADGES)
         rows = set(Badge.objects.values_list("name", flat=True))
@@ -84,13 +88,7 @@ class CatalogDriftTests(TestCase):
             )
 
     def test_no_orphan_skill_categories(self):
-        # skill_tree.yaml top-level is "categories" with each entry a dict.
-        path = CONTENT_ROOT / "skill_tree.yaml"
-        data = yaml.safe_load(path.read_text()) if path.exists() else {}
-        in_yaml = {
-            entry["name"] for entry in (data.get("categories") or [])
-            if entry.get("name")
-        }
+        in_yaml = _yaml_names("skill_tree.yaml", "categories")
         allow = in_yaml | set(LEGACY_SKILL_CATEGORIES)
         rows = set(SkillCategory.objects.values_list("name", flat=True))
         orphans = sorted(rows - allow)
@@ -100,3 +98,17 @@ class CatalogDriftTests(TestCase):
                 "in LEGACY_SKILL_CATEGORIES: "
                 f"{orphans}. Re-add to YAML OR add to LEGACY_SKILL_CATEGORIES.",
             )
+
+    def test_unregistered_catalog_rows_still_fail_the_drift_guards(self):
+        cases = (
+            (Badge, {"criteria_type": "first_project"}, self.test_no_orphan_badges),
+            (QuestDefinition, {"quest_type": "collection", "target_value": 1}, self.test_no_orphan_quests),
+            (SkillCategory, {}, self.test_no_orphan_skill_categories),
+        )
+        for model, fields, check in cases:
+            with self.subTest(model=model.__name__):
+                orphan = model.objects.create(name="Unregistered catalog drift", **fields)
+                with self.assertRaisesRegex(AssertionError, "Unregistered catalog drift"):
+                    check()
+                orphan.delete()
+                check()

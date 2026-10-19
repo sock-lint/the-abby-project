@@ -6,6 +6,7 @@ import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
 import { buildParent, buildUser } from '../../test/factories';
 import { buildChallengeGoal, buildDailyBonus } from '../../test/challenges';
+import { CHALLENGES_CHANGED } from '../../hooks/useChallenges';
 import Trials from './index';
 import { useLocation } from 'react-router-dom';
 function LocationProbe() { const location = useLocation(); return <span data-testid="challenge-location">{location.pathname}{location.search}</span>; }
@@ -21,6 +22,58 @@ function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child
 }
 
 describe('Automatic challenges', () => {
+  it('records only mounted child catalog details and keeps prose visible while confirmation is pending', async () => {
+    const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
+    let finish;
+    const opened = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/opened\/$/, () => new Promise((resolve) => { finish = () => resolve({ id: goal.id, first_details_opened_at: '2026-10-18T19:00:00Z' }); }));
+    server.use(opened.handler);
+    const { user } = renderGoals({ goals: [goal] });
+    await screen.findByRole('region', { name: 'Explore challenges' });
+    expect(opened.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: `View ${goal.name}` }));
+    const dialog = await screen.findByRole('dialog', { name: goal.name });
+    expect(within(dialog).getByText(goal.description)).toBeInTheDocument();
+    await waitFor(() => expect(opened.calls).toHaveLength(1));
+    expect(opened.calls[0].body).toEqual({});
+    expect(screen.getByRole('region', { name: 'Explore challenges' })).toBeInTheDocument();
+    // A newer server read must retain its progress when this older opening
+    // request settles; the receipt confirms only the opening timestamp.
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json({ results: [{ ...goal, progress: '1.50' }], pin: null, daily_bonus: null })));
+    act(() => window.dispatchEvent(new Event(CHALLENGES_CHANGED)));
+    await waitFor(() => expect(within(dialog).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1.5'));
+    await act(async () => finish());
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Explore challenges' })).not.toBeInTheDocument());
+    expect(within(dialog).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '1.5');
+    expect(screen.getByRole('dialog', { name: goal.name })).toContainElement(within(dialog).getByText(goal.description));
+  });
+
+  it('keeps details readable and available to explore after failure, retrying only on close and reopen', async () => {
+    const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
+    const opened = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/opened\/$/, () => HttpResponse.json({ detail: 'Unavailable' }, { status: 503 }));
+    server.use(opened.handler);
+    const { user } = renderGoals({ goals: [goal] });
+    await user.click(await screen.findByRole('button', { name: `View ${goal.name}` }));
+    await waitFor(() => expect(opened.calls).toHaveLength(1));
+    expect(within(screen.getByRole('dialog')).getByText(goal.description)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Explore challenges' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    await user.click(screen.getByRole('button', { name: `View ${goal.name}` }));
+    await waitFor(() => expect(opened.calls).toHaveLength(2));
+    expect(within(screen.getByRole('dialog')).getByText(goal.description)).toBeInTheDocument();
+  });
+
+  it('never records a parent inspecting child catalog details', async () => {
+    const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
+    const opened = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/opened\/$/, {});
+    server.use(opened.handler);
+    const { user } = renderGoals({ role: 'parent', goals: [goal] });
+    await user.click(await screen.findByRole('button', { name: `View ${goal.name}` }));
+    expect(within(await screen.findByRole('dialog')).getByText(goal.description)).toBeInTheDocument();
+    expect(opened.calls).toHaveLength(0);
+  });
+
   it('opens the requested parent goal for a roster-verified child and consumes only new', async () => {
     const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
     const { user } = renderGoals({ role: 'parent', route: '/quests?tab=trials&new=1&child=7' });

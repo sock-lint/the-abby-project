@@ -173,12 +173,12 @@ describe('Hatchery', () => {
       http.get('*/api/inventory/', () => HttpResponse.json([])),
     );
     const { container } = renderHatchery();
-    await waitFor(() => expect(screen.getByText('Hatch a new pet')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Incubate a new pet')).toBeInTheDocument());
     expect(container.querySelector('[data-chapter-marker="1"]')).toHaveTextContent('1');
     expect(container.querySelector('[data-chapter-marker="2"]')).toBeNull();
   });
 
-  it('hatches a pet using the egg + potion picked from the satchel', async () => {
+  it('starts incubation using the egg + potion picked from the satchel', async () => {
     server.use(
       http.get('*/api/pets/stable/', () =>
         HttpResponse.json({ pets: [], mounts: [], total_possible: 48 }),
@@ -190,9 +190,9 @@ describe('Hatchery', () => {
         ]),
       ),
     );
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, {
-      species: { name: 'Dragon' },
-      potion: { name: 'Fire' },
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/$/, {
+      incubation: { id: 7, egg: { name: 'Dragon Egg' }, potion: { name: 'Fire Potion' }, remaining_seconds: 7200, is_ready: false, status: 'incubating' },
+      server_now: '2026-10-18T10:00:00Z',
     });
     server.use(hatch.handler);
 
@@ -201,11 +201,11 @@ describe('Hatchery', () => {
 
     await selectDropdown(user, await screen.findByRole('combobox', { name: /^egg$/i }), '11');
     await selectDropdown(user, screen.getByRole('combobox', { name: /^potion$/i }), '22');
-    await user.click(screen.getByRole('button', { name: /hatch pet/i }));
+    await user.click(screen.getByRole('button', { name: /start incubation/i }));
 
     await waitFor(() => expect(hatch.calls).toHaveLength(1));
-    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
-    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22', request_id: expect.any(String) });
+    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/incubations\/$/);
   });
 
   it('keeps artwork neutral and preserves the hatch form without a ceremony after a rejected hatch', async () => {
@@ -216,7 +216,7 @@ describe('Hatchery', () => {
         { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', item_type: 'potion', catalog_available: true } },
       ])),
     );
-    const hatch = spyHandler('post', /\/api\/pets\/hatch\/$/, HttpResponse.json({ detail: 'This pair cannot be hatched.' }, { status: 400 }));
+    const hatch = spyHandler('post', /\/api\/pets\/incubations\/$/, HttpResponse.json({ detail: 'This pair cannot be hatched.' }, { status: 400 }));
     server.use(hatch.handler);
     renderHatchery();
     const user = userEvent.setup();
@@ -227,11 +227,11 @@ describe('Hatchery', () => {
     expect(hatch.calls).toHaveLength(0);
     expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
     expect(screen.queryByRole('alertdialog')).toBeNull();
-    await user.click(screen.getByRole('button', { name: /hatch pet/i }));
+    await user.click(screen.getByRole('button', { name: /start incubation/i }));
     expect(await screen.findByRole('alert')).toHaveTextContent('This pair cannot be hatched.');
     expect(hatch.calls).toHaveLength(1);
-    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/hatch\/$/);
-    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22' });
+    expect(hatch.calls[0].url).toMatch(/\/api\/pets\/incubations\/$/);
+    expect(hatch.calls[0].body).toEqual({ egg_item_id: '11', potion_item_id: '22', request_id: expect.any(String) });
     expect(egg).toHaveTextContent('A very long saved egg name including Legendary artwork words');
     expect(potion).toHaveTextContent('Base Potion');
     expect(screen.queryByRole('alertdialog')).toBeNull();

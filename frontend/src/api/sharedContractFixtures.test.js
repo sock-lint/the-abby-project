@@ -45,8 +45,15 @@ import alreadyEvolved from '../../../contracts/api/fixtures/pet-feed-already-evo
 import foreignPet from '../../../contracts/api/fixtures/pet-not-owned.json';
 import foreignMount from '../../../contracts/api/fixtures/mount-not-owned.json';
 import hatchingInventory from '../../../contracts/api/fixtures/inventory-hatching.json';
-import hatchedPet from '../../../contracts/api/fixtures/pet-hatch.json';
-import missingHatchIngredients from '../../../contracts/api/fixtures/pet-hatch-missing-ingredients.json';
+import incubationEmpty from '../../../contracts/api/fixtures/pet-incubation-empty.json';
+import incubationStarted from '../../../contracts/api/fixtures/pet-incubation-start.json';
+import incubationProgress from '../../../contracts/api/fixtures/pet-incubation-progress.json';
+import incubationReady from '../../../contracts/api/fixtures/pet-incubation-ready.json';
+import incubationTooEarly from '../../../contracts/api/fixtures/pet-incubation-too-early.json';
+import incubationHatched from '../../../contracts/api/fixtures/pet-incubation-hatched.json';
+import incubationRetry from '../../../contracts/api/fixtures/pet-incubation-hatch-retry.json';
+import retiredInstantHatch from '../../../contracts/api/fixtures/pet-hatch-retired.json';
+import missingHatchIngredients from '../../../contracts/api/fixtures/pet-incubation-missing-ingredients.json';
 import unavailableHatchEgg from '../../../contracts/api/fixtures/pet-hatch-unavailable-egg.json';
 import unavailableHatchPotion from '../../../contracts/api/fixtures/pet-hatch-unavailable-potion.json';
 import duplicateHatch from '../../../contracts/api/fixtures/pet-hatch-duplicate.json';
@@ -82,7 +89,7 @@ import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
   activateMount, activatePet, claimExpedition, closeTimecard, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
-  getClockStatus, getMe, getNotifications, getStable, hatchPet, listExpeditions, logHabitTap, login,
+  getClockStatus, getMe, getNotifications, getStable, getIncubation, startIncubation, hatchIncubation, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
 
@@ -520,29 +527,66 @@ describe('shared Django response fixtures through the React API client', () => {
     });
   });
 
-  it('hatches with actual egg and potion item IDs and preserves the complete HTTP 201 pet receipt', async () => {
+  it('starts incubation once, preserves server readiness, and creates a pet only on an explicit ready claim', async () => {
     const calls = [];
+    const requestId = '01234567-89ab-4cde-8012-3456789abcde';
+    let current = incubationEmpty;
+    let claimed = false;
     setToken(loginResponse.token);
-    server.use(http.post('*/api/pets/hatch/', async ({ request }) => {
-      calls.push({
-        body: await request.json(), authorization: request.headers.get('authorization'),
-        method: request.method, pathname: new URL(request.url).pathname,
-      });
-      return HttpResponse.json(hatchedPet, { status: 201 });
-    }));
+    server.use(
+      http.get('*/api/pets/incubations/', () => HttpResponse.json(current)),
+      http.post('*/api/pets/incubations/', async ({ request }) => {
+        calls.push({ path: new URL(request.url).pathname, body: await request.json(), auth: request.headers.get('authorization') });
+        return HttpResponse.json(incubationStarted, { status: 201 });
+      }),
+      http.post('*/api/pets/incubations/1/hatch/', async ({ request }) => {
+        calls.push({ path: new URL(request.url).pathname, body: await request.text(), auth: request.headers.get('authorization') });
+        if (current === incubationProgress) return HttpResponse.json(incubationTooEarly, { status: 409 });
+        const response = claimed ? incubationRetry : incubationHatched;
+        const status = claimed ? 200 : 201;
+        claimed = true;
+        return HttpResponse.json(response, { status });
+      }),
+    );
+    expect(await getIncubation()).toEqual(incubationEmpty);
+    expect(incubationEmpty.duration_seconds).toBe(86400);
+    expect(await startIncubation(73, 75, requestId)).toEqual(incubationStarted);
+    expect(incubationStarted.incubation).toMatchObject({ id: 1, status: 'incubating', is_ready: false, remaining_seconds: 86400, pet_id: null });
+    const readyAt = incubationStarted.incubation.ready_at;
+    expect(Date.parse(readyAt) - Date.parse(incubationStarted.incubation.started_at)).toBe(86400 * 1000);
+    current = incubationProgress;
+    expect(await getIncubation()).toEqual(incubationProgress);
+    expect(incubationProgress.incubation).toMatchObject({ ready_at: readyAt, remaining_seconds: 43200 });
+    expect(calls).toHaveLength(1);
+    await expect(hatchIncubation(1)).rejects.toMatchObject({ status: 409, response: incubationTooEarly });
+    current = incubationReady;
+    expect(await getIncubation()).toEqual(incubationReady);
+    expect(incubationReady.incubation).toMatchObject({ status: 'ready', is_ready: true, remaining_seconds: 0, pet_id: null, ready_at: readyAt });
+    expect(incubationReady.server_now).toBe(readyAt);
+    expect(calls).toHaveLength(2);
+    const first = await hatchIncubation(1);
+    expect(first).toEqual(incubationHatched);
+    expect(first.server_now).toBe(readyAt);
+    expect(first.freshly_hatched).toBe(true);
+    expect(first.pet).toMatchObject({ id: 83, growth_points: 0, is_active: false, lifecycle_stage: 'baby',
+      evolved_to_mount: false, happiness_level: 'happy', species: { id: 41, name: 'Fox' }, potion: { id: 44, slug: 'ice' } });
+    expect(await hatchIncubation(1)).toEqual(incubationRetry);
+    expect(incubationRetry.freshly_hatched).toBe(false);
+    expect(incubationRetry.pet).toEqual(first.pet);
+    expect(calls).toEqual([
+      { path: '/api/pets/incubations/', body: { egg_item_id: 73, potion_item_id: 75, request_id: requestId }, auth: `Token ${loginResponse.token}` },
+      ...Array.from({ length: 3 }, () => ({ path: '/api/pets/incubations/1/hatch/', body: '', auth: `Token ${loginResponse.token}` })),
+    ]);
+  });
 
-    const pet = await hatchPet(73, 75);
-    expect(pet).toEqual(hatchedPet);
-    expect(pet).toMatchObject({
-      id: 83, name: '', growth_points: 0, is_active: false, lifecycle_stage: 'baby',
-      evolved_to_mount: false, is_fully_grown: false, happiness_level: 'happy', last_fed_at: null,
-      species: { id: 41, name: 'Fox', sprite_key: 'fox' },
-      potion: { id: 44, name: 'Ice', slug: 'ice', sprite_key: 'ice-potion', rarity: 'rare' },
-    });
-    expect(calls).toEqual([{
-      body: { egg_item_id: 73, potion_item_id: 75 },
-      authorization: `Token ${loginResponse.token}`, method: 'POST', pathname: '/api/pets/hatch/',
-    }]);
+  it('keeps the legacy instant hatch endpoint retired without retrying a stale POST', async () => {
+    let requests = 0;
+    server.use(http.post('*/api/pets/hatch/', () => {
+      requests += 1;
+      return HttpResponse.json(retiredInstantHatch, { status: 410 });
+    }));
+    await expect(api.post('/pets/hatch/', { egg_item_id: 73, potion_item_id: 75 })).rejects.toMatchObject({ status: 410, response: retiredInstantHatch });
+    expect(requests).toBe(1);
   });
 
   it.each([
@@ -550,16 +594,17 @@ describe('shared Django response fixtures through the React API client', () => {
     ['unavailable egg', 999, 75, { egg_item_id: 999, potion_item_id: 75 }, unavailableHatchEgg],
     ['unavailable potion', 73, 999, { egg_item_id: 73, potion_item_id: 999 }, unavailableHatchPotion],
     ['duplicate combination', 73, 76, { egg_item_id: 73, potion_item_id: 76 }, duplicateHatch],
-  ])('preserves %s hatch rejection and does not replay the POST', async (_label, eggId, potionId, body, response) => {
+  ])('preserves %s incubation rejection and does not replay the POST', async (_label, eggId, potionId, body, response) => {
     const submitted = [];
-    server.use(http.post('*/api/pets/hatch/', async ({ request }) => {
+    const requestId = '01234567-89ab-4cde-8012-3456789abcde';
+    server.use(http.post('*/api/pets/incubations/', async ({ request }) => {
       submitted.push(await request.json());
       return HttpResponse.json(response, { status: 400 });
     }));
-    await expect(hatchPet(eggId, potionId)).rejects.toMatchObject({
-      status: 400, message: response.error, response,
+    await expect(startIncubation(eggId, potionId, requestId)).rejects.toMatchObject({
+      status: 400, message: response.error || JSON.stringify(response), response,
     });
-    expect(submitted).toEqual([body]);
+    expect(submitted).toEqual([{ ...body, request_id: requestId }]);
   });
 
   it.each([

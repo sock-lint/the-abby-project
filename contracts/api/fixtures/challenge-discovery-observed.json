@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "observations_available",
+  "period": {
+    "since": "2026-09-15",
+    "until": "2026-10-14",
+    "timezone": "America/Phoenix",
+    "starts_at": "2026-09-15T00:00:00-07:00",
+    "ends_before": "2026-10-15T00:00:00-07:00",
+    "as_of": "2026-10-14T19:02:00+00:00"
+  },
+  "cohort": {
+    "registered_within_days": 90,
+    "eligible_children": 2,
+    "tracked_children": 1,
+    "untracked_children": 1,
+    "max_children": 100,
+    "truncated": false,
+    "observer_family_excluded": false
+  },
+  "catalog_occurrences": {
+    "cohort_materialized": 2,
+    "opened": 1,
+    "completed": 2,
+    "opened_and_completed": 1,
+    "completed_without_recorded_opening": 1,
+    "opening_recorded_after_completion": 0
+  },
+  "notes": [
+    "This measures catalog challenge detail openings, not reading, attention, enjoyment, visits or retention. Opening grants no progress or rewards.",
+    "Only one-time catalog windows first materialized within this period are counted. Materialization can follow a parent read or saved activity; it is not a child impression or the exact time of eligibility.",
+    "The cohort contains currently active nonstaff children in your family registered within 90 inclusive days ending today. Only enrollments created with discovery tracking contribute window counts. Old or missing tracking is unknown, never evidence that content was not opened.",
+    "Opened and completed counts overlap. Completion is automatic from qualifying activity and does not prove that a child opened the details. Recorded openings after completion are shown separately.",
+    "Dates use the family's current timezone and include the last date through exclusive next local midnight. Current membership and active status are not reconstructed historically. Future-dated evidence is excluded.",
+    "Trusted provisioned test families are excluded. Counts contain no child identities, authored descriptions, reading details or private journal text. No cross-family or story-specific inference is made.",
+    "An occurrence ID ceiling excludes later inserts but is not a repeatable-read snapshot. Capacity failures return unknown counts rather than partial totals."
+  ]
+}

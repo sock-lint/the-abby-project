@@ -9,6 +9,21 @@ stable routes and component identifiers, not the labels to show users.
 
 ## Progression lab
 
+Challenges expose up to three available one-time catalog goals under Explore
+challenges, with the same shortcut on child Today. Opening a child's own catalog
+details records a server-confirmed first opening separately from automatic
+completion. Parent previews, parent-authored goals and legacy details do not
+record child openings. The hook shares an in-flight request across StrictMode
+replay, does not retry an uncertain mutation automatically, and ignores late
+responses after account, credential or detail changes. Failed measurement
+never hides the details. Older missing fields preserve the existing browser.
+
+The staff Lab's Recorded challenge discovery panel reads bounded same-family
+counts independently from the anonymous simulator. Its denominator is newly
+materialized tracked one-time windows, not visits or screen impressions.
+Untracked earlier history and capacity failures remain explicit. Opening does
+not establish reading, enjoyment or retention; see the backend quest guidance.
+
 `/manage/rpg-content` adds the staff-parent content workspace alongside the lab.
 It browses challenges and items, saves revisioned server drafts, shows reward
 wiring and audits, and compares the published and proposed catalogs before
@@ -24,6 +39,17 @@ come from the server's anonymous, bounded simulator. React keeps editable
 assumptions, a current report and an optional comparison in account-scoped
 component state. Local JSON imports restore validated routines only and never
 run automatically or present old imported results as current forecasts.
+The optional commitment prototype is mutually exclusive with the payout envelope;
+presets preserve the selected policy, imports validate it, and saved experiments
+retain `candidate_policy`. Reports distinguish reserved, paid and outstanding
+Coins and unavailable acquisition paths. Independent `expedition_budget` limits
+share launches and item promises across mounts. Saved `expedition_limits`
+comparisons preserve the same Coin policy in both arms; show trip quality,
+pending promises and unavailable targets alongside runway. These policies are
+simulation only.
+Metadata and completed reports distinguish current from recorded incubation policy.
+Saved comparisons display their recorded policy and never infer current timing
+for legacy reports. Pending/ready eggs remain distinct from owned companions.
 Unreached milestones, conditional percentile dates, expired one-time windows
 and the model's finite-content subset stay explicit. See
 [`Progression Lab`](../../../docs/operations/progression-lab.md) and the shared

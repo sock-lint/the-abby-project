@@ -183,6 +183,15 @@ def _has_family_owner(model, seen=frozenset()):
     )
 
 
+@lru_cache(maxsize=None)
+def _deletion_scope_fields(model):
+    """Ownership traversal needs identities, never report bodies or prose."""
+    return tuple(
+        field.attname for field in model._meta.concrete_fields
+        if field.primary_key or isinstance(field, (models.ForeignKey, models.OneToOneField))
+    )
+
+
 def _assert_object_family(obj, family_id, checked):
     identity = (type(obj), obj.pk)
     if identity in checked:
@@ -216,7 +225,15 @@ def _assert_object_family(obj, family_id, checked):
             field.related_model, getattr(obj, field.attname),
         ) in checked:
             continue
-        related = getattr(obj, field.name)
+        # The relation descriptor selects every parent field by default. A
+        # Decision's comparison can contain megabytes of immutable evidence;
+        # only its identity and ownership links are relevant here. Resolve
+        # to_field explicitly rather than assuming every FK stores a PK.
+        related = field.related_model._base_manager.db_manager(
+            using=obj._state.db, hints={"instance": obj},
+        ).only(*_deletion_scope_fields(field.related_model)).get(
+            **{field.target_field.attname: getattr(obj, field.attname)},
+        )
         _assert_object_family(related, family_id, checked)
 
 
@@ -233,7 +250,7 @@ def collect_safe_deletion(instance, family):
         # A foreign-key insert can commit while NO KEY UPDATE is held. Fence
         # cascade roots before taking a snapshot or handing shared work off,
         # so a newly acknowledged save cannot appear behind that handoff.
-        type(instance)._base_manager.select_for_update(nowait=nowait).get(pk=instance.pk)
+        type(instance)._base_manager.only(*_deletion_scope_fields(type(instance))).select_for_update(nowait=nowait).get(pk=instance.pk)
         if isinstance(instance, Family):
             # Projects and personal records reference members, without a
             # direct Family FK. Fence those roots before collecting too.
@@ -254,7 +271,7 @@ def collect_safe_deletion(instance, family):
                 # as well: a writer may hold one before checking its User FK.
                 groups.append((field.model, query, check_scope))
         for model, query, check_scope in sorted(groups, key=lambda item: item[0]._meta.label_lower):
-            for obj in query.select_for_update(nowait=nowait).order_by("pk"):
+            for obj in query.only(*_deletion_scope_fields(model)).select_for_update(nowait=nowait).order_by("pk"):
                 if check_scope:
                     _assert_object_family(obj, family.pk, checked)
     return collector

@@ -97,7 +97,8 @@ entries:
       - "Reading Adventure awards 15 base Reading Comprehension XP and 5 base Coins once per child per family-local day after ten cumulative newly logged minutes. Active XP and Lucky Coin boosts apply; actual XP depends on the unlocked skill."
       - "Only new reading sessions dated today in the family's timezone count toward this reward. Pages, chapters, ratings, finishing books, optional reflections, edits, and older sessions do not earn extra rewards. Deleting a rewarded session never rearms the day."
       - "The daily reading reward records streak activity and one drop opportunity at a 20% base rate plus normal streak and Drop Charm bonuses. Reading drops use the existing food and coin-pouch catalog. A separate first-activity check-in bonus can also apply."
-      - "Reading can match saved legacy quests, dealing 5 base boss damage or one collection step when eligible. It does not automatically credit the current Challenges goals or daily bonus."
+      - "Each earned daily Reading Adventure counts once toward challenges that explicitly ask for reading; individual extra logs, edits and deletions do not add more credit. Reading stays outside unfiltered challenges and the daily bonus. Saved legacy quests can also match it for 5 base boss damage or one collection step."
+      - "Reading Companion offers a Chick egg, Base potion and two Birdseed after 3 daily Adventures within 14 days. Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. Reading Voyager offers the Bookworm title after 20 within 45 days. These challenges add reading XP and items, with no authored Coin payout."
     parent_knobs:
       settings:
         - key: HOMEWORK_LATE_CUTOFF_DAYS
@@ -461,14 +462,16 @@ entries:
     chapter: rpg_layer
     summary: "Every pet family grows from egg through baby, middle, and grown."
     kid_voice: |
-      Every pet family starts with an egg in Hatching. Combine an egg and a
-      compatible potion to hatch a baby, then care for it through its middle
+      Every pet family starts with an egg in the Hatchery. Choose an egg and a
+      compatible potion to start incubation. Come back when it is ready and
+      choose Hatch pet. Then care for your baby through its middle
       and grown stages. For Chick, these forms are Chick, Fledgling and Bird.
       Choose an active pet to keep you company.
       Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
-      - "Every species follows Egg → Baby → Middle → Grown. Eggs stay in inventory until hatching; babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
-      - "Hatching consumes one egg item and one potion item and creates a unique species/potion baby pet."
+      - "Every species follows Egg → Baby → Middle → Grown. Babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
+      - "Starting incubation consumes one egg item and one compatible potion item. One egg can incubate at a time per account, including an egg waiting to be hatched."
+      - "Incubation keeps counting while you are away. When the Hatchery confirms your egg is ready, choose Hatch pet to welcome a unique species/potion baby at zero growth. Checking the timer never hatches it or grants rewards."
       - "New hatching supports 15 prepared families with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
       - "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Higher-rarity saved potion variants retain their rarity."
       - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
@@ -499,7 +502,8 @@ entries:
       prompt: "Hatch a pet, feed it, and help it grow into a mount."
       payoff: "Egg → Baby → Middle → Grown (Chick → Fledgling → Bird after hatching)"
       steps:
-        - "Combine a Chick egg and Base potion to hatch Chick."
+        - "Start incubating a Chick egg with a Base potion in the Hatchery."
+        - "When the egg is ready, choose Hatch pet to welcome Chick."
         - "Feed preferred food to grow; at 50 growth Chick becomes Fledgling."
         - "At growth 100 confirmed evolution brings Bird and a mount; the original stays in your collection."
 

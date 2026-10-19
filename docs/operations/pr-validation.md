@@ -65,8 +65,10 @@ catalog changes, also run:
 python manage.py test --settings=config.settings_test apps.rpg.tests.test_catalog_support apps.rpg.tests.test_asset_supported_acquisition apps.rpg.tests.test_catalog_consumers apps.pets.tests.test_asset_supported_catalog
 ```
 
-Run `apps.pets.tests.test_catalog_concurrency` with `config.settings_test` and a
-disposable PostgreSQL database for competing hatch/final-feed transactions;
+Run `apps.pets.tests.test_incubation` for start, wait, claim, replay and retired
+instant-hatch behavior. Run `apps.pets.tests.test_catalog_concurrency` with
+`config.settings_test` and a disposable PostgreSQL database for competing
+incubation starts, ready hatch claims and final-feed transactions;
 SQLite skips these row-lock checks. React Saved collection coverage lives in
 `src/pages/bestiary/party/SavedPetCollections.test.jsx` and the affected Profile,
 Inventory, Hatching and reward/challenge tests within the full coverage gate.
@@ -76,6 +78,13 @@ reads and edits against the same measured XP/Coin receipt. Summary fixtures keep
 legacy daily notes in the same history with unavailable historical receipts;
 parent responses exclude private notes and journals. Old-client note saves and
 new journal saves share one daily Coin acknowledgment.
+
+Progression Lab's incubation projection is covered by
+`apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
+and the React Lab tests. Check consumed ingredients without early ownership,
+one unfinished slot, inactive-day readiness, next-active-visit claims, recorded
+policy/fingerprint changes and missing historical policy. These tests remain
+in memory or use disposable synthetic data; they never exercise household care.
 
 Fixtures do not replace permission, family-scoping or transaction tests. Add
 affected endpoint tests, React interactions and PostgreSQL concurrency checks

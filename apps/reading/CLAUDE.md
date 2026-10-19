@@ -52,10 +52,19 @@ under the same account lock as every reading write. The inserted log, request
 identity, daily credit, XP, Coins and strict game-loop call share a transaction;
 a failure rolls them back together. The game loop runs only at the threshold,
 giving streak/check-in credit, one supported drop opportunity and compatible
-legacy quest progress. Any push notifications from the direct award and game
+legacy quest progress. It also records one automatic challenge fact from the
+awarded `ReadingDailyReward` ID, with its saved day and award timestamp and no
+book, reflection or session prose. Only challenges explicitly filtered to
+`reading_logged` count these daily Adventures; unfiltered goals retain their
+existing activity rules. The bundled `reading-adventures` pack offers supported
+Chick hatch ingredients after three Adventures, repeatable Birdseed care after
+five in seven days, and a Bookworm title after twenty. These new goals have no
+authored Coin payouts. Any push notifications from the direct award and game
 loop are deferred until that transaction commits; a rollback discards them.
-Reading does not add automatic goal facts or count toward
-the existing project/movement daily challenge bonus. Missing or locked reading
+Reading does not count toward the existing project/movement daily challenge
+bonus. Corrections, deletion and source replay cannot change the daily fact;
+explicit current-week parent count goals can include saved awarded receipts
+even after their source session was deleted. Missing or locked reading
 skills award no invented XP; the saved receipt reports actual credit.
 
 Session responses include a nullable `reading_reward` on the original awarding

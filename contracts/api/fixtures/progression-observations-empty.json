@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "status": "insufficient_evidence",
+  "period": {
+    "since": "2026-09-19",
+    "until": "2026-10-18",
+    "timezone": "America/Phoenix",
+    "starts_at": "2026-09-19T00:00:00-07:00",
+    "ends_before": "2026-10-19T00:00:00-07:00"
+  },
+  "cohort": {
+    "registered_within_days": 90,
+    "eligible_children": 0,
+    "eligible_child_days": 0,
+    "max_children": 100,
+    "truncated": false,
+    "observer_family_excluded": false
+  },
+  "activity": {
+    "ledger_active_children": 0,
+    "ledger_active_child_days": 0
+  },
+  "ledger": {
+    "opening_balance": 0,
+    "credits": 0,
+    "debits": 0,
+    "net_change": 0,
+    "closing_balance": 0,
+    "by_reason": {}
+  },
+  "automatic_sources": {
+    "coins": 0,
+    "by_source": {
+      "expedition": 0,
+      "expedition_salvage": 0,
+      "coin_pouch": 0
+    },
+    "unattributed_positive_adjustments": 0,
+    "unattributed_expedition_coins": 0,
+    "attribution_complete": false,
+    "child_days_over_100": 0
+  },
+  "policy": {
+    "installed_daily_automatic_coin_cap": null,
+    "selected_lab_daily_coins": 100,
+    "is_live_experiment": false
+  },
+  "notes": [
+    "Observed amounts use the installed uncapped economy. The 100-Coin Lab hypothesis is not live and these observations cannot validate an undeployed policy.",
+    "The cohort contains only currently active, nonstaff children in your family registered within 90 inclusive days ending on the observation period's last day. Trusted provisioned test families are excluded.",
+    "Ledger-active children and child-days count any persisted Coin transaction. They are not an engagement or retention measure and do not count visits without a Coin transaction.",
+    "Eligible child-days count calendar days from registration or the start of the period, whichever is later; no transaction is required. Account activity and family membership are their current values, not reconstructed historical states.",
+    "Typed attribution is recorded for new expedition, expedition-salvage and pouch awards only. Blank source is unknown or another source. Positive mixed adjustments can include check-ins, challenges, manual grants and historical pouch or salvage awards; their text is never used to guess a source.",
+    "Automatic-source totals are a measured lower bound when attribution is incomplete. Child-days over 100 compare credited typed-source amounts within the current family calendar, not launch-day commitments or withheld rewards.",
+    "Amounts are actual CoinLedger entries including applied boosts. Refunds and exchanges stay separate by reason; no activity-log deltas or receipt subtotals are added to the ledger.",
+    "All dates use the family's current timezone, with an inclusive last date and exclusive next local midnight. This does not reconstruct past timezone settings. An ID ceiling excludes later inserts but is not a repeatable-read database snapshot.",
+    "Observations available means ledger evidence exists, not that sample size is sufficient to approve an economy or predict retention. No family-cost or purchase-timing conclusion is inferred from these Coin totals."
+  ]
+}

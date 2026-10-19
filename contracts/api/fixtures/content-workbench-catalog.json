@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "sprite_key": "",
           "metadata": {
             "growth": 5
           },
-          "name": "Practice snack",
-          "description": "",
           "rarity": "common",
+          "sprite_key": "",
           "icon": "🍎",
-          "coin_value": 2
+          "description": "",
+          "coin_value": 2,
+          "name": "Practice snack"
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "xp_reward": 15,
-          "sprite_key": "",
-          "name": "Practice challenge",
-          "description": "Complete two approved chores.",
-          "is_repeatable": false,
           "icon": "⚔️",
           "target_value": 2,
+          "coin_reward": 10,
+          "description": "Complete two approved chores.",
+          "duration_days": 7,
+          "name": "Practice challenge",
+          "is_repeatable": false,
+          "xp_reward": 15,
+          "quest_type": "collection",
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "coin_reward": 10,
-          "quest_type": "collection",
-          "duration_days": 7,
           "required_badge": null,
           "reward_items": [
             {
@@ -176,6 +176,7 @@
       "milestone_complete",
       "movement_session",
       "project_complete",
+      "reading_logged",
       "savings_goal_complete"
     ],
     "boss_triggers": [
@@ -189,6 +190,7 @@
       "milestone_complete",
       "movement_session",
       "project_complete",
+      "reading_logged",
       "savings_goal_complete"
     ],
     "editable_item_fields": [
@@ -231,6 +233,13 @@
   },
   "simulation": {
     "schema_version": 1,
+    "pet_incubation_policy": {
+      "duration_seconds": 86400,
+      "max_active": 1,
+      "clock": "elapsed_seconds",
+      "start_strategy": "first_compatible_pair_during_care",
+      "claim_strategy": "next_active_care_visit_at_or_after_ready"
+    },
     "defaults": {
       "horizon_days": 90,
       "trials": 20,
@@ -269,6 +278,13 @@
       },
       "reward_budget": {
         "daily_coins": null
+      },
+      "reward_commitment": {
+        "enabled": false
+      },
+      "expedition_budget": {
+        "daily_launches": null,
+        "daily_items": null
       }
     },
     "limits": {
@@ -363,6 +379,12 @@
         "type": "object"
       },
       "reward_budget": {
+        "type": "object"
+      },
+      "reward_commitment": {
+        "type": "object"
+      },
+      "expedition_budget": {
         "type": "object"
       }
     },
@@ -503,6 +525,68 @@
       "expeditions_salvage",
       "coin_pouches"
     ],
+    "reward_commitment_defaults": {
+      "enabled": false
+    },
+    "reward_commitment_policy": {
+      "daily_coins": 100,
+      "expedition_daily_coins": 75,
+      "activity_pouch_daily_coins": 25,
+      "tiers": {
+        "short": {
+          "direct_coins": 10,
+          "item_slots": 1
+        },
+        "standard": {
+          "direct_coins": 25,
+          "item_slots": 2
+        },
+        "long": {
+          "direct_coins": 50,
+          "item_slots": 3
+        }
+      }
+    },
+    "reward_commitment_assumptions": [
+      "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+      "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
+      "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
+      "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",
+      "Frozen expeditions, owned pouches and authored challenge pouches pay their full promises. Authored pouches and other Coin sources, including random activity cosmetic salvage, remain outside these allocations.",
+      "Commitments, wallet credits and contingent salvage are separate quantities. Late claims or pouch opening can pay more than 100 Coins in one day. Unused contingent salvage is released at claim without restoring a past day's allocation.",
+      "Consumables and boosts, including Lucky Coin timing, are unmodeled. This experiment cannot establish a live maximum claim or a rollout-ready reservation protocol.",
+      "Unavailable finite targets are excluded acquisition paths, not extra playable runway. Reachability is source-level potential, not a promise of completion within the horizon.",
+      "The installed finite comparator removes only the Coin commitment policy while retaining expedition launch/item quotas. The separate unlimited expedition comparator retains the Coin policy; their unavailable-target counts cannot be added."
+    ],
+    "expedition_budget_defaults": {
+      "daily_launches": null,
+      "daily_items": null
+    },
+    "expedition_budget_limits": {
+      "daily_launches": {
+        "min": 0,
+        "max": 15,
+        "nullable": true
+      },
+      "daily_items": {
+        "min": 0,
+        "max": 45,
+        "nullable": true
+      }
+    },
+    "expedition_budget_assumptions": [
+      "This anonymous experiment changes only new synthetic expedition launches and item promises. No live expedition, reward rule or inventory is changed.",
+      "One child's mounts share the daily launch and item allocations. Null means unlimited, zero prevents the selected new commitments, and unused capacity never banks across calendar days.",
+      "Requested trips are the configured count at each active visit. Eligible trips are the smaller of that request and currently available mounts. Prevented trips are eligible trips withheld by the launch quota; unavailable mounts are reported separately.",
+      "Nominal item slots are counted only for launched trips. Before drawing loot, the remaining item quota bounds whole slots; each successfully selected item consumes one unit, including pouches and cosmetics later salvaged. Empty eligible pools do not consume item capacity.",
+      "Slots requested equal slots promised plus nominal slots withheld by the quota plus permitted slots left unfilled by the eligible pool or Coin commitment policy. Withheld nominal slots are not a counterfactual count of items that would have dropped.",
+      "Item-only quotas still allow later Coin-only trips. The Coin commitment policy may also promise zero direct Coins; zero-item, zero-Coin and fully empty trips remain visible rather than being silently skipped.",
+      "A saturated day exactly uses an allocation on a relevant eligible opportunity; a limited day actually withholds a trip or nominal slot. Zero allocations do not count idle or no-mount days as saturated. Each day counts at most once per measure.",
+      "Frozen loot claims retain their complete item and Coin promises. Claimed and pending items count promised units, including later salvage, not retained inventory. Grandfathered units lack a new-budget reservation marker and are reported separately.",
+      "For new-budget promises, slots promised equal claimed items minus grandfathered claimed items plus pending items minus grandfathered pending items. Claims do not consume a later day's allocation.",
+      "The unlimited finite denominator removes both expedition quotas while retaining the same Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
+      "Authored challenge items, activity drops, boosts and future launch/claim concurrency are outside these expedition slot quotas. This is a design comparison, not a live reservation protocol or retention prediction."
+    ],
     "catalog": {
       "fingerprint": "a8f2cc85f285bef9e9cdfb61cf91881efa1b84d5c0318d58fcc3c4ad37c0d7ff",
       "skills": 1,
@@ -520,9 +604,11 @@
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
-        "Hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
+        "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
-        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches"
+        "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
+        "Opt-in fixed 100-Coin new commitment experiment: 75 expedition and 25 random activity-pouch Coins, preserving full established rewards",
+        "Shared optional per-child expedition launch and whole-item promise quotas, independent of the Coin policy"
       ],
       "excluded": [
         "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
@@ -536,7 +622,9 @@
         "Day 1 starts an abstract week; visits occur on the first N days of each seven-day block",
         "All configured chores are approved that visit; each habit is a distinct positive habit with one tap/day",
         "Source skills are fixed synthetic tags, reported in activity_skills; absent/locked skills earn no XP",
-        "Care hatches any compatible new pair, opens Coin pouches and feeds all available food to the oldest unevolved pet",
+        "Visits occur at fixed 86400-second intervals; within-visit actions take no modeled time",
+        "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
+        "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -625,8 +713,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "c086ff8e22a48cb3947279602f8e5c1adb3f561e07db3d283fadc5a2a104f9c9",
-    "engine_version": "2026-10-18.pet-badges.1",
+    "rules_fingerprint": "8c29fc76ef7b36912fa64856dd0fe35db26966d3c752721fc192e4aeb3224319",
+    "engine_version": "2026-10-18.5",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,
@@ -674,6 +762,13 @@
           },
           "reward_budget": {
             "daily_coins": null
+          },
+          "reward_commitment": {
+            "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       },
@@ -717,6 +812,13 @@
           },
           "reward_budget": {
             "daily_coins": null
+          },
+          "reward_commitment": {
+            "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       },
@@ -760,6 +862,13 @@
           },
           "reward_budget": {
             "daily_coins": null
+          },
+          "reward_commitment": {
+            "enabled": false
+          },
+          "expedition_budget": {
+            "daily_launches": null,
+            "daily_items": null
           }
         }
       }

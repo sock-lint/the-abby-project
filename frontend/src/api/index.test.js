@@ -331,7 +331,9 @@ const CASES = [
   ['getRecentDrops', [], /\/api\/drops\/recent\/$/, 'GET'],
 
   ['getStable', [], /\/api\/pets\/stable\/$/, 'GET'],
-  ['hatchPet', [1, 2], /\/api\/pets\/hatch\/$/, 'POST'],
+  ['getIncubation', [], /\/api\/pets\/incubations\/$/, 'GET'],
+  ['startIncubation', [1, 2, '01234567-89ab-4cde-8012-3456789abcde'], /\/api\/pets\/incubations\/$/, 'POST'],
+  ['hatchIncubation', [3], /\/api\/pets\/incubations\/3\/hatch\/$/, 'POST'],
   ['feedPet', [1, 2], /\/api\/pets\/1\/feed\/$/, 'POST'],
   ['activatePet', [1], /\/api\/pets\/1\/activate\/$/, 'POST'],
   ['getMounts', [], /\/api\/mounts\/$/, 'GET'],
@@ -564,5 +566,22 @@ describe('getProjectQR uses getBlob', () => {
   it('requests /qr/ and returns the blob result', async () => {
     await api.getProjectQR(5);
     expect(lastCall().url).toMatch(/\/api\/projects\/5\/qr\/$/);
+  });
+});
+
+describe('challenge discovery endpoints', () => {
+  it('records the exact occurrence opening with no client-supplied event or reward data', async () => {
+    await api.recordChallengeOpening('goal:11', { token: 'opening-token' });
+    expect(lastCall()).toEqual({ url: expect.stringMatching(/\/api\/challenges\/goal%3A11\/opened\/$/), method: 'POST', body: '{}' });
+    expect(fetchSpy.mock.calls.at(-1)[1].headers.Authorization).toBe('Token opening-token');
+  });
+
+  it('reads the staff discovery report with cancellation and credential options', async () => {
+    const controller = new AbortController();
+    await api.getChallengeDiscovery({ signal: controller.signal, token: 'staff-token' });
+    expect(lastCall().url).toMatch(/\/api\/challenges\/discovery\/$/);
+    expect(lastCall().method).toBe('GET');
+    expect(fetchSpy.mock.calls.at(-1)[1].signal).toBe(controller.signal);
+    expect(fetchSpy.mock.calls.at(-1)[1].headers.Authorization).toBe('Token staff-token');
   });
 });
