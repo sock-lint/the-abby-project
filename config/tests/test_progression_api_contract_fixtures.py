@@ -1,4 +1,6 @@
 """Raw designer endpoints over fixed, synthetic global content."""
+from datetime import datetime, timezone as dt_timezone
+from unittest.mock import patch
 from django.core.cache import cache
 from django.test import override_settings
 from rest_framework.test import APITestCase
@@ -139,6 +141,148 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assert_response_fixture(response, "progression-lab-reward-budget-report.json")
         self.assertEqual(response.json()["pet_incubation_policy"], INCUBATION_POLICY)
 
+    def test_full_value_commitments_match_shared_wire_contract(self):
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+            "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+            "reward_commitment": {"enabled": True},
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        commitment = response.data["reward_commitment"]
+        self.assertTrue(commitment["enabled"])
+        self.assertIsNone(response.data["config"]["reward_budget"]["daily_coins"])
+        self.assertEqual(commitment["policy"]["daily_coins"], 100)
+        self.assertGreater(commitment["summary"]["activity_pouch_committed"]["p50"], 0)
+        self.assertGreater(commitment["summary"]["expedition_launches"]["p90"], 0)
+        for day in response.data["trace"]:
+            self.assertLessEqual(day["reward_commitment_expedition_today_p90"], 75)
+            self.assertLessEqual(day["reward_commitment_activity_pouch_today_p90"], 25)
+        self.assert_response_fixture(response, "progression-lab-commitment-report.json")
+
+    def test_shared_expedition_limits_match_shared_wire_contract(self):
+        response = self.client.post("/api/rpg/progression-lab/simulate/", {
+            "horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+            "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+            "reward_commitment": {"enabled": True},
+            "expedition_budget": {"daily_launches": 1, "daily_items": 1},
+        }, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        quotas = response.data["expedition_budget"]
+        self.assertEqual(response.data["config"]["expedition_budget"], {"daily_launches": 1, "daily_items": 1})
+        self.assertTrue(response.data["reward_commitment"]["enabled"])
+        self.assertGreater(quotas["summary"]["launched_trips"]["p90"], 0)
+        self.assertGreater(quotas["summary"]["slots_promised"]["p90"], 0)
+        self.assertLessEqual(quotas["summary"]["slots_promised"]["p90"], 30)
+        self.assert_response_fixture(response, "progression-lab-expedition-budget-report.json")
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_quota_comparison_matches_shared_wire_contract(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionExperiment
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "Shared expedition supply", "hypothesis": "Limit new item promises while preserving the same full-promise Coin policy.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+                       "reward_commitment": {"enabled": True}},
+            "candidate_daily_coins": None, "candidate_policy": "expedition_limits",
+            "candidate_expedition_budget": {"daily_launches": 1, "daily_items": 1},
+            "targets": [{"metric": "expedition_items_promised_p50", "max": 30},
+                        {"metric": "first_mount_reached_rate", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000021"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000022"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(
+            self.client.get(detail_url + f"comparisons/{comparison_id}/"),
+            "progression-experiment-expedition-budget-comparison.json",
+        )
+        self.assertEqual(report["inputs"]["candidate_policy"], "expedition_limits")
+        self.assertIsNone(report["inputs"]["candidate_daily_coins"])
+        self.assertEqual(report["control"]["config"]["expedition_budget"], {"daily_launches": None, "daily_items": None})
+        self.assertEqual(report["candidate"]["config"]["expedition_budget"], {"daily_launches": 1, "daily_items": 1})
+        self.assertEqual(report["control"]["config"]["reward_commitment"], report["candidate"]["config"]["reward_commitment"])
+        self.assertEqual(report["control"]["config"]["reward_budget"], report["candidate"]["config"]["reward_budget"])
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_commitment_experiment_matches_shared_wire_contract(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionExperiment
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "Full-promise commitment prototype",
+            "hypothesis": "Reserve full new grants before launch, keeping every established payout intact.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 10,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False},
+            "candidate_daily_coins": 100, "candidate_policy": "commitment100",
+            "targets": [{"metric": "closing_coins_p50", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000011"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000012"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(
+            self.client.get(detail_url + f"comparisons/{comparison_id}/"),
+            "progression-experiment-commitment-comparison.json",
+        )
+        self.assertEqual(report["inputs"]["candidate_policy"], "commitment100")
+        self.assertFalse(report["control"]["config"]["reward_commitment"]["enabled"])
+        self.assertTrue(report["candidate"]["config"]["reward_commitment"]["enabled"])
+        self.assertIsNone(report["candidate"]["config"]["reward_budget"]["daily_coins"])
+        self.assertTrue(report["evaluation"]["proposal"]["evaluated_by_current_engine"])
+        self.assertFalse(report["evaluation"]["proposal"]["live_ready"])
+
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
+    def test_saved_experiment_feedback_contracts(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
+
+        url = "/api/rpg/progression-lab/experiments/"
+        response = self.client.post(url, {
+            "name": "100-Coin starting experiment", "hypothesis": "Test income and first-reward pacing before changing live grants.",
+            "config": {"horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 1,
+                       "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False},
+            "candidate_daily_coins": 100, "targets": [{"metric": "closing_coins_p50", "min": 0}],
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.content)
+        experiment_id = "00000000-0000-4000-8000-000000000001"
+        ProgressionExperiment.objects.filter(pk=response.json()["id"]).update(id=experiment_id)
+        self.assert_response_fixture(self.client.get(url), "progression-experiment-list.json")
+        detail_url = f"{url}{experiment_id}/"
+        comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+        self.assertEqual(comparison.status_code, 201, comparison.content)
+        comparison_id = "00000000-0000-4000-8000-000000000002"
+        ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+        report = self.assert_response_fixture(self.client.get(detail_url + f"comparisons/{comparison_id}/"), "progression-experiment-comparison.json")
+        self.assertEqual(report["control"]["config"]["seed"], report["candidate"]["config"]["seed"])
+        self.assertEqual(report["candidate"]["config"]["reward_budget"]["daily_coins"], 100)
+        self.assertFalse(report["evaluation"]["proposal"]["live_ready"])
+        decision = self.client.post(detail_url + "decisions/", {
+            "revision": 1, "comparison_id": comparison_id, "outcome": "keep_testing",
+            "rationale": "This envelope does not yet model promise-safe commitments.",
+            "next_action": "Simulate the proposed expedition table and reserve full pouch value before new grants.",
+            "review_on": "2099-01-01",
+        }, format="json")
+        self.assertEqual(decision.status_code, 201, decision.content)
+        ProgressionDecision.objects.filter(pk=decision.json()["decisions"][0]["id"]).update(id="00000000-0000-4000-8000-000000000003")
+        self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-decided.json")
+        empty = self.assert_response_fixture(self.client.get("/api/rpg/progression-lab/observations/"), "progression-observations-empty.json")
+        self.assertEqual(empty["status"], "insufficient_evidence")
+        self.assertEqual(empty["cohort"]["eligible_children"], 0)
+        observation = self.client.post(detail_url + "observations/", {"revision": 1}, format="json")
+        self.assertEqual(observation.status_code, 201, observation.content)
+        ProgressionObservation.objects.filter(pk=observation.json()["observations"][0]["id"]).update(id="00000000-0000-4000-8000-000000000004")
+        snapshot = self.assert_response_fixture(self.client.get(detail_url), "progression-experiment-observed.json")
+        self.assertEqual(snapshot["observations"][0]["status"], "insufficient_evidence")
+
     def test_companion_badges_pay_once_when_care_reaches_their_milestones(self):
         quest = QuestDefinition.objects.get(pk=561)
         quest.target_value = 1
@@ -183,6 +327,7 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertTrue(all(day["badges_p50"] == 4 for day in report["trace"][1:]))
         badges = next(source for source in report["flows"]["sources"] if source["source"] == "badges")
         self.assertEqual((badges["coins"], badges["xp"]), (60.0, 29.0))
+        self.assert_response_fixture(response, "progression-lab-pet-incubation-report.json")
 
     def test_metadata_and_report_capture_duration_setting_without_rewriting_an_earlier_report(self):
         scenario = {"horizon_days": 30, "trials": 1, "seed": 17}

@@ -12,7 +12,7 @@ from apps.achievements.models import Badge, Skill
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
 from apps.quests.models import QuestDefinition
-from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item
+from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item, random_item_is_available
 from apps.rpg.models import DropTable, ItemDefinition
 
 
@@ -155,7 +155,7 @@ def snapshot_catalog():
     for entry in _bounded(
         DropTable.objects.order_by("pk").select_related("item", "item__pet_species", "item__potion_type"), 16384, "drop"
     ):
-        if entry.item_id in items:
+        if entry.item_id in items and random_item_is_available(entry.item):
             pools.setdefault(entry.trigger_type, []).append(entry)
     badges, excluded = [], Counter()
     for badge in _bounded(Badge.objects.order_by("rarity", "name"), 512, "badge"):

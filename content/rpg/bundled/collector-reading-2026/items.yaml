@@ -1,0 +1,27 @@
+items:
+  - slug: title-pagefinder
+    name: Pagefinder
+    description: A title earned by taking a new reading path after collecting the full companion roster.
+    icon: "📖"
+    item_type: cosmetic_title
+    rarity: uncommon
+    coin_value: 0
+    metadata: {text: Pagefinder, no_random_drop: true}
+
+  - slug: frame-far-horizons
+    name: Far Horizons Frame
+    description: A blue frame earned through the second collector reading chapter.
+    icon: "🌅"
+    item_type: cosmetic_frame
+    rarity: rare
+    coin_value: 0
+    metadata: {border_color: "#3B82A0", no_random_drop: true}
+
+  - slug: title-living-atlas
+    name: Living Atlas
+    description: A title earned by finishing all three collector reading chapters.
+    icon: "🗺️"
+    item_type: cosmetic_title
+    rarity: epic
+    coin_value: 0
+    metadata: {text: Living Atlas, no_random_drop: true}

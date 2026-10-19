@@ -44,7 +44,18 @@ class CoinService(BaseLedgerService):
     default_value = 0
 
     @staticmethod
-    def award_coins(user, amount, reason, *, description="", created_by=None, redemption=None):
+    def award_coins(user, amount, reason, *, description="", created_by=None, redemption=None, source=""):
+        # Internal attribution describes the actual award without changing its
+        # reason, multiplier or amount. Never infer older sources from text.
+        if source not in CoinLedger.Source.values:
+            raise ValueError("Unknown Coin award source.")
+        source_reasons = {
+            CoinLedger.Source.EXPEDITION: CoinLedger.Reason.EXPEDITION,
+            CoinLedger.Source.EXPEDITION_SALVAGE: CoinLedger.Reason.ADJUSTMENT,
+            CoinLedger.Source.COIN_POUCH: CoinLedger.Reason.ADJUSTMENT,
+        }
+        if source and (amount <= 0 or reason != source_reasons[source]):
+            raise ValueError("Coin award source requires a positive award with its matching reason.")
         if amount == 0:
             return None
         # Apply Lucky Coin boost to earn-kind positive awards only. Skips
@@ -63,6 +74,7 @@ class CoinService(BaseLedgerService):
             user=user,
             amount=boosted_amount,
             reason=reason,
+            source=source,
             description=description,
             created_by=created_by,
             redemption=redemption,

@@ -26,12 +26,22 @@ class CoinLedger(CreatedAtModel):
         EXPEDITION = "expedition", "Expedition"
         READING = "reading", "Reading"
 
+    class Source(models.TextChoices):
+        UNKNOWN = "", "Unattributed or other"
+        EXPEDITION = "expedition", "Expedition Coins"
+        EXPEDITION_SALVAGE = "expedition_salvage", "Expedition cosmetic salvage"
+        COIN_POUCH = "coin_pouch", "Coin pouch"
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="coin_entries",
     )
     amount = models.IntegerField()
     reason = models.CharField(max_length=20, choices=Reason.choices)
+    source = models.CharField(
+        max_length=20, choices=Source.choices, default="", blank=True, editable=False,
+        help_text="Typed future award attribution. Blank preserves unknown historical or other sources.",
+    )
     description = models.CharField(max_length=200, blank=True)
     redemption = models.ForeignKey(
         "rewards.RewardRedemption", on_delete=models.SET_NULL,

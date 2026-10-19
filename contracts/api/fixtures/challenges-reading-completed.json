@@ -1,0 +1,120 @@
+{
+  "results": [
+    {
+      "id": "goal:1",
+      "name": "One Reading Adventure",
+      "description": "",
+      "origin": "parent",
+      "first_details_opened_at": null,
+      "catalog_repeatable": false,
+      "catalog_icon": null,
+      "metric": "count",
+      "target": "1",
+      "progress": "1",
+      "unit": "actions",
+      "status": "completed",
+      "starts_at": "2026-10-14T19:00:00+00:00",
+      "ends_at": "2026-10-21T19:00:00+00:00",
+      "completed_at": "2026-10-14T19:00:00+00:00",
+      "timezone": "America/Phoenix",
+      "what_counts": "daily Reading Adventures (ten newly logged minutes, once per day)",
+      "rewards": {
+        "coins": 0,
+        "xp": 0,
+        "items": []
+      },
+      "action": {
+        "label": "Read for ten minutes",
+        "path": "/quests?tab=reading"
+      },
+      "pinned": false,
+      "repeat_weekly": false,
+      "legacy": false,
+      "reward_receipt": {
+        "id": "goal:1",
+        "status": "awarded",
+        "coins_awarded": 0,
+        "xp_awarded": 0,
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": []
+      }
+    }
+  ],
+  "pin": null,
+  "recent_receipts": [
+    {
+      "id": "goal:1",
+      "name": "One Reading Adventure",
+      "description": "",
+      "origin": "parent",
+      "first_details_opened_at": null,
+      "catalog_repeatable": false,
+      "catalog_icon": null,
+      "metric": "count",
+      "target": "1",
+      "progress": "1",
+      "unit": "actions",
+      "status": "completed",
+      "starts_at": "2026-10-14T19:00:00+00:00",
+      "ends_at": "2026-10-21T19:00:00+00:00",
+      "completed_at": "2026-10-14T19:00:00+00:00",
+      "timezone": "America/Phoenix",
+      "what_counts": "daily Reading Adventures (ten newly logged minutes, once per day)",
+      "rewards": {
+        "coins": 0,
+        "xp": 0,
+        "items": []
+      },
+      "action": {
+        "label": "Read for ten minutes",
+        "path": "/quests?tab=reading"
+      },
+      "pinned": false,
+      "repeat_weekly": false,
+      "legacy": false,
+      "reward_receipt": {
+        "id": "goal:1",
+        "status": "awarded",
+        "coins_awarded": 0,
+        "xp_awarded": 0,
+        "awarded_at": "2026-10-14T19:00:00+00:00",
+        "items": []
+      }
+    }
+  ],
+  "challenge_receipts": [
+    {
+      "id": "activity:1",
+      "goals": [
+        {
+          "id": "goal:1",
+          "name": "One Reading Adventure",
+          "progress": "1",
+          "target": "1",
+          "unit": "actions",
+          "completed": true,
+          "rewards": {
+            "coins": 0,
+            "xp": 0,
+            "items": []
+          }
+        }
+      ],
+      "daily_bonus": null
+    }
+  ],
+  "daily_bonus": {
+    "date": "2026-10-14",
+    "timezone": "America/Phoenix",
+    "goal": "Complete an approved task or log 10 minutes of work or movement",
+    "progress_minutes": 0,
+    "completed": false,
+    "awarded": false,
+    "coin_reward": 10,
+    "xp_reward": 20,
+    "coins_awarded": 0,
+    "xp_awarded": 0,
+    "ends_at": "2026-10-15T00:00:00-07:00",
+    "receipt_id": null
+  }
+}

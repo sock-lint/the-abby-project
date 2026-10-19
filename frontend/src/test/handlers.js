@@ -425,6 +425,8 @@ export const handlers = [
   http.get('*/api/dev/ping/', () => new HttpResponse(null, { status: 403 })),
   // Designer workspace stays staff-only unless a test supplies its catalog.
   http.get('*/api/rpg/progression-lab/', () => new HttpResponse(null, { status: 403 })),
+  http.get('*/api/rpg/progression-lab/experiments/', () => new HttpResponse(null, { status: 403 })),
+  http.get('*/api/rpg/progression-lab/observations/', () => new HttpResponse(null, { status: 403 })),
   http.post('*/api/rpg/progression-lab/simulate/', () => new HttpResponse(null, { status: 403 })),
   http.get('*/api/dev/children/', empty),
   http.get('*/api/dev/rewards/', empty),

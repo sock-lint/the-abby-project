@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import progression_views, sprite_admin_views, views, workbench_views
+from . import experiment_views, progression_views, sprite_admin_views, views, workbench_views
 
 urlpatterns = [
     path("rpg/content-workbench/", workbench_views.ContentWorkbenchView.as_view(), name="content-workbench"),
@@ -10,6 +10,13 @@ urlpatterns = [
     path("rpg/content-workbench/drafts/<uuid:draft_id>/simulate/", workbench_views.ContentDraftSimulationView.as_view(), name="content-draft-simulate"),
     path("rpg/content-workbench/drafts/<uuid:draft_id>/publish/", workbench_views.ContentDraftPublishView.as_view(), name="content-draft-publish"),
     path("rpg/progression-lab/", progression_views.ProgressionLabView.as_view(), name="progression-lab"),
+    path("rpg/progression-lab/experiments/", experiment_views.ExperimentListView.as_view(), name="progression-experiment-list"),
+    path("rpg/progression-lab/experiments/<uuid:experiment_id>/", experiment_views.ExperimentDetailView.as_view(), name="progression-experiment-detail"),
+    path("rpg/progression-lab/experiments/<uuid:experiment_id>/compare/", experiment_views.ExperimentCompareView.as_view(), name="progression-experiment-compare"),
+    path("rpg/progression-lab/experiments/<uuid:experiment_id>/comparisons/<uuid:comparison_id>/", experiment_views.ExperimentComparisonView.as_view(), name="progression-experiment-comparison"),
+    path("rpg/progression-lab/experiments/<uuid:experiment_id>/decisions/", experiment_views.ExperimentDecisionView.as_view(), name="progression-experiment-decision"),
+    path("rpg/progression-lab/experiments/<uuid:experiment_id>/observations/", experiment_views.ExperimentObservationView.as_view(), name="progression-experiment-observation"),
+    path("rpg/progression-lab/observations/", experiment_views.ProgressionObservationsView.as_view(), name="progression-observations"),
     path(
         "rpg/progression-lab/simulate/",
         progression_views.ProgressionSimulationView.as_view(),

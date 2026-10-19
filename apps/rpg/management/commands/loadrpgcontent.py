@@ -3,7 +3,7 @@
 Examples::
 
     python manage.py loadrpgcontent
-        Loads content/rpg/initial/ (the seed pack).
+        Loads the seed and registered first-party progression packs atomically.
 
     python manage.py loadrpgcontent --pack content/rpg/packs/dragons --namespace dragons-
         Loads a third-party pack with every slug prefixed ``dragons-``.
@@ -18,11 +18,21 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from django.db import transaction
 
 from apps.rpg.content.loader import ContentPack, ContentPackError
 
 
 DEFAULT_PACK = "content/rpg/initial"
+# Bundled packs stay baked into the image. docker-compose.yml bind-mounts the
+# host's content/rpg/packs over the image copy for MCP-authored packs, so a
+# default pack there would be missing in production and stop this load, which
+# runs before gunicorn on every container start.
+BUNDLED_PACKS = (
+    (DEFAULT_PACK, ""),
+    ("content/rpg/bundled/reading-adventures", "reading-adventures-"),
+    ("content/rpg/bundled/collector-reading-2026", "collector-reading-2026-"),
+)
 
 
 class Command(BaseCommand):
@@ -32,7 +42,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--pack",
             default=None,
-            help=f"Pack directory (default: {DEFAULT_PACK}).",
+            help="Load only this directory; omitted loads the registered bundled packs.",
         )
         parser.add_argument(
             "--namespace",
@@ -46,38 +56,29 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        pack_arg = options["pack"] or DEFAULT_PACK
-        pack_path = Path(pack_arg)
-        if not pack_path.is_absolute():
-            pack_path = Path(settings.BASE_DIR) / pack_path
-        if not pack_path.is_dir():
-            raise CommandError(f"Pack directory not found: {pack_path}")
-
         namespace = options["namespace"]
         dry_run = options["dry_run"]
-
-        self.stdout.write(
-            f"Loading pack: {pack_path}"
-            + (f" (namespace={namespace!r})" if namespace else "")
-            + (" [dry-run]" if dry_run else "")
-        )
-
+        selections = ((options["pack"] or DEFAULT_PACK, namespace),) if options["pack"] or namespace else BUNDLED_PACKS
         try:
-            pack = ContentPack(pack_path, namespace=namespace)
-            pack.load(stdout=self.stdout, dry_run=dry_run)
+            with transaction.atomic():
+                for pack_arg, pack_namespace in selections:
+                    pack_path = Path(pack_arg)
+                    if not pack_path.is_absolute():
+                        pack_path = Path(settings.BASE_DIR) / pack_path
+                    if not pack_path.is_dir():
+                        raise CommandError(f"Pack directory not found: {pack_path}")
+                    self.stdout.write(f"Loading pack: {pack_path}" +
+                                      (f" (namespace={pack_namespace!r})" if pack_namespace else "") +
+                                      (" [dry-run]" if dry_run else ""))
+                    # Keep preceding packs visible while checking dependencies.
+                    # One outer rollback covers every pack in a dry run/failure.
+                    ContentPack(pack_path, namespace=pack_namespace).load(stdout=self.stdout, dry_run=False)
+                if not dry_run and not namespace:
+                    self._grant_starter_covers()
+                if dry_run:
+                    transaction.set_rollback(True)
         except ContentPackError as exc:
             raise CommandError(str(exc)) from exc
-
-        # Post-load: backfill the journal cover for every active user.
-        # The 2026-05 cover unification turned the 6 base covers into
-        # cosmetic_theme items — every existing user needs ownership of
-        # cover-hyrule (the free baseline) + the cover matching their
-        # pre-unification ``User.theme`` so their selection survives the
-        # upgrade. Idempotent via ``UserInventory.get_or_create`` — safe
-        # to run on every deploy. No-op when ``namespace`` is set (third-
-        # party packs don't ship the base covers).
-        if not dry_run and not namespace:
-            self._grant_starter_covers()
 
         self.stdout.write(self.style.SUCCESS("Content pack load complete."))
 
@@ -97,7 +98,7 @@ class Command(BaseCommand):
     def _grant_starter_covers(self) -> None:
         """Backfill journal cover ownership for every active user.
 
-        On every loadrpgcontent run:
+        On each non-dry-run load without a namespace:
         - Grant ``cover-hyrule`` (the always-free baseline).
         - Resolve their current ``User.theme`` (legacy aliases supported)
           and grant the matching cover too, so a kid who was using Vigil

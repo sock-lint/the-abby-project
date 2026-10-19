@@ -39,6 +39,17 @@ come from the server's anonymous, bounded simulator. React keeps editable
 assumptions, a current report and an optional comparison in account-scoped
 component state. Local JSON imports restore validated routines only and never
 run automatically or present old imported results as current forecasts.
+The optional commitment prototype is mutually exclusive with the payout envelope;
+presets preserve the selected policy, imports validate it, and saved experiments
+retain `candidate_policy`. Reports distinguish reserved, paid and outstanding
+Coins and unavailable acquisition paths. Independent `expedition_budget` limits
+share launches and item promises across mounts. Saved `expedition_limits`
+comparisons preserve the same Coin policy in both arms; show trip quality,
+pending promises and unavailable targets alongside runway. These policies are
+simulation only.
+Metadata and completed reports distinguish current from recorded incubation policy.
+Saved comparisons display their recorded policy and never infer current timing
+for legacy reports. Pending/ready eggs remain distinct from owned companions.
 Unreached milestones, conditional percentile dates, expired one-time windows
 and the model's finite-content subset stay explicit. See
 [`Progression Lab`](../../../docs/operations/progression-lab.md) and the shared

@@ -84,7 +84,8 @@ class ReadingRewardService:
             # Other task flows tolerate a failed optional step. This reward is
             # one transaction; pushes must not escape a later strict rollback.
             GameLoopService.on_task_completed(
-                user, TriggerType.READING_LOGGED, {"session_id": session.pk}, strict=True,
+                user, TriggerType.READING_LOGGED,
+                {"session_id": session.pk, "reading_reward_id": daily.pk}, strict=True,
             )
 
     @classmethod

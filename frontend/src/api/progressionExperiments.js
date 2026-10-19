@@ -1,0 +1,12 @@
+import { api } from './client';
+const root = '/rpg/progression-lab/experiments/';
+const experiment = (id) => `${root}${encodeURIComponent(id)}/`;
+export const listProgressionExperiments = (options) => api.get(root, options);
+export const createProgressionExperiment = (data, options) => api.post(root, data, options);
+export const getProgressionExperiment = (id, options) => api.get(experiment(id), options);
+export const updateProgressionExperiment = (id, data, options) => api.patch(experiment(id), data, options);
+export const compareProgressionExperiment = (id, data, options) => api.post(`${experiment(id)}compare/`, data, options);
+export const getProgressionComparison = (id, comparisonId, options) => api.get(`${experiment(id)}comparisons/${encodeURIComponent(comparisonId)}/`, options);
+export const recordProgressionDecision = (id, data, options) => api.post(`${experiment(id)}decisions/`, data, options);
+export const getProgressionObservations = (options) => api.get('/rpg/progression-lab/observations/', options);
+export const saveProgressionObservation = (id, data, options) => api.post(`${experiment(id)}observations/`, data, options);

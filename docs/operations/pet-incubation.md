@@ -61,14 +61,14 @@ actual start, wait, ready, hatch and replay producers.
 
 The Lab records the installed incubation policy with metadata and each report.
 It reserves one compatible egg/potion pair during active care, advances the
-frozen elapsed deadline on inactive days, then claims at the next active care
-visit before activity rewards and feeding. Pending eggs remain separate from
-owned companions and completed milestones. Hatching and confirmed evolution
-evaluate the same companion badge scopes as live care.
+frozen elapsed-time deadline on inactive days too, then claims at the next
+active care visit. The daily visit model does not predict real return habits
+or phone timing. Pending eggs remain separate from owned companions and
+completed milestones. Pet badge payouts run at hatch and growth transitions.
 
-Daily visits occur at fixed 24-hour intervals; this assumption does not predict
-real return habits or phone timing. Both sides of a Content Workbench comparison
-share one captured policy. Later duration changes require a new simulation
-before publication, while earlier report bodies retain their original bindings
-and missing policy fields remain unrecorded. See [Progression Lab](progression-lab.md)
-for the clock, care strategy and model limits.
+Saved control/candidate comparisons share one immutable policy snapshot even
+if the setting changes during calculation. A real later policy change makes
+older evidence stale and blocks new decisions without rewriting saved bodies.
+The commitment and expedition-quota models preserve this same snapshot in
+their finite-content comparators. Reforecast after a policy or model change;
+older immediate-hatch calibration remains a historical baseline.

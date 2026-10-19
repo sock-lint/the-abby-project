@@ -27,6 +27,44 @@ including expedition salvage, without altering parent-authored chore rewards
 or any live economy rule. Metadata publishes the nullable whole-Coin bound;
 legacy routines omit the field and retain uncapped behavior.
 
+`progression-lab-commitment-report.json` and
+`progression-experiment-commitment-comparison.json` cover the separate hypothetical
+`reward_commitment.enabled` policy. It reserves new promises before synthetic
+grants and remains mutually exclusive with the payout envelope. Saved experiment
+`candidate_policy` selects `envelope` or `commitment100`; omitted creates retain
+the original envelope default, while omitted updates preserve the saved policy.
+The existing progression producer and React consumer above verify both examples;
+they contain synthetic data and change no live reward policy.
+
+`progression-lab-expedition-budget-report.json` and
+`progression-experiment-expedition-budget-comparison.json` cover anonymous
+`expedition_budget: {daily_launches, daily_items}` quotas shared across one
+child's mounts. Null is unlimited, zero prevents new commitments, and complete
+frozen claims remain payable. Reports distinguish requested, eligible,
+launched and prevented trips, promised/withheld/unfilled item slots, pending
+and claimed promises, and limited versus saturated days. Quota comparisons
+use `candidate_policy: expedition_limits`, `candidate_daily_coins: null` and
+an explicit `candidate_expedition_budget` with at least one non-null cap.
+The control clears both quotas; both arms retain the same Coin rules from
+the routine. Existing Coin hypotheses keep their original behavior and reject
+non-null expedition quotas. Omitted update fields preserve the saved policy
+and candidate caps. Fixed feedback criteria include expedition launches, item
+promises, empty trips, and first grown companion days/rates with their actual
+completion denominators. The existing progression producer and React consumer
+above verify these synthetic examples; no household or live rewards change.
+
+`progression-experiment-list.json`, `progression-experiment-comparison.json`
+and `progression-experiment-decided.json` bind the private experiment notebook
+to its real staff-parent endpoints. The server generates immutable control and
+candidate evidence with matching seeds and one catalog, then retains criteria,
+fingerprints, decisions, next actions and review dates. Ready for design is
+never authority to change live rewards. `progression-observations-empty.json`
+keeps a family cohort with no eligible children as insufficient evidence;
+simulated outcomes never become observed behavior. The same progression
+producer and React consumer modules above verify these contracts.
+`progression-experiment-observed.json` adds an immutable server-captured
+observation checkpoint; even saved empty evidence remains insufficient.
+
 `completion-timing-weekly-pending.json`, `completion-timing-chore-reviewed.json`,
 `completion-timing-homework-reviewed.json` and
 `completion-timing-homework-assignment.json` come from the real submission/read
@@ -881,6 +919,17 @@ without adding it to balances locally. Replays, corrections, deletion and
 historical logging never rearm the reward; retained daily progress and request
 identities survive deleted logs. The producer checks the real XP and Coins
 ledger after retries, corrections, deletion and a replacement log.
+
+`challenge-reading-goal-created.json`, `challenge-reading-threshold-session.json`
+and `challenges-reading-completed.json` bind a parent-authored Reading Adventure
+count goal to real four-plus-six-minute reading logs. The durable daily reward
+receipt advances that explicit goal once; individual sessions and extra minutes
+cannot grant extra goal credit. The ordinary reading reward remains separate
+from the goal's zero-Coin/zero-XP receipt and does not qualify for the project or
+movement daily bonus. The producer is
+`config.tests.test_challenge_api_contract_fixtures`; its React consumer is
+`frontend/src/api/challengeContractFixtures.test.js`.
+
 Saved book responses add `catalog_entry` or null. Catalog recognition normalizes
 title/author case and whitespace; a blank legacy author is accepted only when
 the title is unique. Recommendations use 64 bundled publisher-sourced books,
@@ -950,3 +999,11 @@ The global bound includes spent and expired rows until bounded cleanup removes
 them. At capacity, a new start returns `code: authorization_busy` without saving
 another verifier; retry requires capacity to become available.
 See [the exchange contract](../../docs/operations/google-oauth.md#browser-bound-return-exchange).
+
+The combined Lab also produces `progression-lab-pet-incubation-report.json`
+through the real anonymous endpoint: day1 reserves an egg/potion, day2 records
+readiness and explicit active-care hatch/evolution with one-time milestone
+awards. Notebook control/candidate reports share a single immutable incubation
+snapshot with their rule binding. Real setting drift marks historical evidence
+stale and blocks decisions without replacing saved report bodies. The quota,
+commitment and incubation fixtures are regenerated together against that model.

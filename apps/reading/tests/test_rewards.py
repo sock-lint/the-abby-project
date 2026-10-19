@@ -245,6 +245,7 @@ class ReadingRewardTests(ReadingRewardSetup, TestCase):
         self.assertEqual(len(reward_queries), 1)
 
     def test_game_loop_runs_once_only_when_saved_minutes_cross_threshold(self):
+        from apps.reading.models import ReadingDailyReward
         from apps.rpg.services import GameLoopService
         with patch.object(GameLoopService, "on_task_completed", wraps=GameLoopService.on_task_completed) as game_loop:
             self.create_session(4)
@@ -253,7 +254,10 @@ class ReadingRewardTests(ReadingRewardSetup, TestCase):
             self.create_session(600)
             self.assertEqual(game_loop.call_count, 1)
         self.assertEqual(game_loop.call_args.args[1], "reading_logged")
-        self.assertEqual(game_loop.call_args.args[2], {"session_id": crossing.data["id"]})
+        self.assertEqual(game_loop.call_args.args[2], {
+            "session_id": crossing.data["id"],
+            "reading_reward_id": ReadingDailyReward.objects.get(user=self.child).pk,
+        })
         self.assertTrue(game_loop.call_args.kwargs["strict"])
 
     def test_same_family_parent_logging_uses_child_wallet_and_next_local_day_resets(self):

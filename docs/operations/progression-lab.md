@@ -2,8 +2,87 @@
 
 Staff parents open **Manage → Admin → Progression lab** to forecast an
 anonymous new child's progression. The workbench reads the currently loaded
-global content and supported-acquisition policy. It creates no accounts,
-inventory, awards, notifications or household records.
+global content and supported-acquisition policy. Forecasts create no accounts,
+inventory, awards or notifications. The experiment notebook saves private
+design evidence separately; its observation panel reads only your family's
+recent-child Coin ledger aggregates.
+
+## Save findings and act on them
+
+Use the experiment notebook to name a hypothesis and capture the current
+routine, candidate policy and explicit numeric targets. Coin experiments compare
+the installed rules with a payout envelope or the 100-Coin commitment prototype.
+Expedition-limit experiments preserve the selected Coin policy on both sides
+and compare unlimited expeditions with shared per-child launch or item limits. Saved routine edits create a new
+revision; imported reports never become trusted evidence.
+
+Run control and candidate explicitly. The server generates both from one
+detached catalog and matching seeds, then saves immutable reports, inputs,
+criteria, rule/catalog/evaluator fingerprints and deployment source metadata.
+Each forecast retains the existing 10,000-work-unit bound; a paired request
+permits 20,000 combined units and is limited to five per minute. A notebook
+holds at most 20 experiments, each with 20 comparisons and 100 decisions.
+Each paired evidence record is limited to 4 MiB. Oversized daily traces are
+stored losslessly as versioned columns and all daily row values; API reads and
+downloads restore the original complete reports, including all calendar days.
+Legacy saved reports remain readable. Results that still exceed the cap are rejected
+without replacing an earlier comparison.
+
+Choose up to six bounded criteria. Costs are whole cents; completion rates
+range from 0 to 1. A day percentile describes only completing journeys, so
+also set a minimum completion rate when most children must reach the reward.
+Disabled purchasing, an empty content denominator or an unreached milestone
+produces insufficient evidence, never a zero-day success. No targets means
+unconfigured, not passing. Targets measure the candidate, with control values
+and differences retained for comparison.
+
+Record keep testing, revise, or ready for design with a reason, concrete next
+action and review date. Ready for design requires fresh, passing simulation
+criteria and grants no publication authority. Edits or changes to rules,
+catalog or criterion evaluation make earlier evidence stale; rerun before
+recording another decision. Earlier reports and decisions remain readable.
+Records are private to their author and current family, including between
+co-parents. There is no client-supplied result or decision-edit endpoint.
+
+Use **Manage challenges and items** for content drafts, preview, simulation
+and explicit publication through the existing workbench. Expedition policy
+requires a reviewed code change. The [concrete reward proposal](progression-reward-proposal.md)
+describes the opt-in 75/25 commitment allocation and 10/25/50 expedition table.
+The separate payout envelope does not simulate that issuance policy.
+
+## Observe the installed economy
+
+The separate observations panel uses a fixed last-30-day period in the
+family's current timezone. It includes currently active, nonstaff children
+registered within the last 90 inclusive days, excludes provisioned live-check
+families and accepts no household or child selectors. It reports ledger-active
+children and child-days alongside all eligible child-days. A Coin transaction
+is evidence of ledger activity, not retention or a visit without an award.
+
+New expedition direct, expedition salvage and opened-pouch awards receive
+internal typed attribution without changing their amounts, boosts or timing.
+Historical rows are not rewritten. Mixed unclassified positive adjustments
+remain unknown and make the measured automatic totals a lower bound. The
+panel reconciles opening balance + credits - debits = closing balance;
+activity events and overlapping reward receipts are never added to it.
+No eligible children or ledger entries means insufficient evidence. More than
+100 eligible children or 100,000 ledger rows returns a capacity state with
+unavailable totals, rather than a partial or zero sample.
+
+These observations measure today's installed uncapped rules. They cannot
+validate a 100-Coin policy that has not been deployed, estimate family costs,
+or establish content exhaustion/retention. They do not read journals, report
+child identities or aggregate other households. A saved decision and review
+date provide the manual follow-up; no notification, timer or automatic reward
+change is installed.
+
+**Save observation checkpoint** retains the server's current accounting report
+against the saved experiment revision, with its period, cohort denominators,
+coverage and installed-rule binding. Each experiment permits 20 immutable
+checkpoints. Save a baseline before taking an action and another at review;
+empty samples remain insufficient evidence. Checkpoints never accept posted
+client totals, enroll users in a live treatment or imply that changing cohorts
+form a causal test. The recent-child window does not establish annual retention.
 
 ## Make a forecast
 
@@ -207,7 +286,8 @@ staff child cannot use them. No real-account selector is accepted.
 - `GET /api/rpg/progression-lab/` returns defaults, input bounds, editable
   routine examples, catalog counts, rules fingerprint, coverage and audits.
 - `POST /api/rpg/progression-lab/simulate/` takes an anonymous scenario with
-  optional nested `economy` and `reward_budget` objects and
+  optional nested `economy`, `reward_budget`, `reward_commitment` and
+  `expedition_budget` objects and
   returns the normalized assumptions, milestone ranges, daily aggregates,
   source/consumption totals and example journey.
 
@@ -230,3 +310,100 @@ disposable records, reject simulator writes and household reads, check seeded
 repeatability and exercise permissions and input limits. Shared synthetic API
 fixtures connect the producing endpoints to React consumers. Keep those checks
 and coverage notes current when live progression rules change.
+
+
+## Acting on reading and collection gaps
+
+Default `loadrpgcontent` loads the initial seed, `reading-adventures` and
+`collector-reading-2026` (from `content/rpg/bundled/`, baked into the image
+rather than the host-mounted `content/rpg/packs/`) in one transaction. Explicit `--pack` loads only that
+pack; dry runs roll back the complete default batch. The initial pack is unchanged.
+Three daily Reading Adventures within 14 days grant a supported Chick egg, Base
+potion and two Birdseed. A repeating five-in-seven-days goal provides care food;
+a twenty-in-45-days goal offers the existing Bookworm title. These goals author
+no Coins. Existing general quest/badge bonuses still apply and are modeled.
+
+After Full Ark (15 species), three sequential chapters require 5, 10 and 20 new
+daily Reading Adventures and grant a title, frame and title. These six new
+finite quest/cosmetic targets require 35 reading days after the gate, with
+365-day chapter windows. Their three recognition badges author no Coins or XP.
+Only explicit reading goals consume daily awarded receipts; reading does not
+advance unfiltered effort goals or daily effort bonuses. Saved source dates,
+family ownership, corrections, deletion and retries preserve the daily limit.
+
+## Promise-preserving commitment prototype
+
+`reward_commitment: {"enabled": true}` selects the fixed 100-Coin design:
+75 for new expedition commitments across all a child's mounts and 25 for random
+activity pouches per day. It cannot be combined with a non-null payout envelope.
+Short/standard/long tiers establish 10/25/50 direct Coins and 1/2/3 item slots.
+Direct promises are reduced only before launch when allocation is low. Candidate
+items must fit their full pouch value or worst positive duplicate salvage before
+weighted selection; established promises are never rerolled or partially paid.
+
+Reports separate commitments, payments, pending direct Coins, unopened/pending
+pouches and contingent salvage. Authored pouches remain outside these allocations.
+Empty trips/slots and filtered paths are explicit. Unavailable finite targets
+are excluded paths, never extra content runway. Delayed claims can exceed 100
+Coins per day; boosts and live concurrent reservation storage remain unmodeled.
+This is not a live hard payout limit or a rollout-ready economy.
+
+Saved experiments use `candidate_policy: "envelope"` (legacy/default) or
+`"commitment100"` (requires `candidate_daily_coins: 100`). Their installed control
+has both experiments disabled. Older clients omitting policy on an edit preserve
+the stored policy. A notebook decision never changes content or live rewards.
+
+
+## Compare shared expedition launch and item budgets
+
+`expedition_budget: {"daily_launches": null, "daily_items": null}` leaves
+expeditions unlimited. Independently set whole-number launches (0–15) and item
+units (0–45) per child per calendar day. The UI supplies unlimited, 1/2/3-launch
+and 3/6/9-item examples; custom values may combine both limits. These remain
+Lab assumptions and do not alter live ExpeditionService, drops or content.
+Routine presets preserve the selected limits and Coin policy. Legacy report
+imports default missing limits to unlimited; malformed or incomplete objects
+are rejected rather than silently changing an experiment.
+
+Every mount shares the same daily capacity; unused capacity does not carry.
+The launch limit applies to eligible idle mounts before launch. The item limit
+applies before weighted loot selection, reserving one unit per item actually
+promised. A whole Coin pouch or cosmetic counts as one unit, even if the
+cosmetic is later salvaged. Full item values and previously frozen promises
+remain payable. Direct Coin promises still follow the selected Coin rules:
+after item capacity runs out, Coin-only or completely empty trips can still
+launch. The report explicitly counts these outcomes. Automatic oldest-first
+mount selection is a model assumption, not a simulated child preference.
+
+Trip accounting separates requested opportunities, available mounts, launched
+trips and launches prevented by the limit. Item accounting reconciles nominal
+slots on launched trips = promised units + budget-withheld slots + slots with
+no eligible item. New promises equal claimed plus pending units after subtracting
+grandfathered claims/pending units. Mean totals reconcile; separate percentile
+values can describe different journeys. Zero-direct-Coin and completely empty
+trip percentages use summed counts, never a ratio of independent medians.
+Saturated days (allowance fully used) differ from limited days (an opportunity
+was actually withheld). No-mount days do not imply a binding limit.
+
+Acquisition and challenge capacity use the limits too. Reports compare finite
+targets with an unlimited-expedition denominator under the **same Coin policy**.
+Targets losing their only modeled acquisition path are reported separately;
+removing access cannot count as longer runway. Reached-rate and conditional
+milestone dates still need to be read together.
+
+In the notebook choose `candidate_policy: "expedition_limits"`, with
+`candidate_daily_coins: null` and a complete `candidate_expedition_budget`
+containing at least one non-null limit. Control configuration has unlimited
+expeditions; candidate changes only those limits. Selected Coin and purchasing
+rules are identical. Switching to this policy explicitly captures the current
+Lab routine; use **Use current routine** for later changes. Coin-only candidates
+require unlimited expedition limits to avoid confounded comparisons. New
+criterion options cover launched trips, promised items, empty trips, first-grown
+completion day and first-grown reached rate. All criteria still share the
+six-target maximum, immutable evidence and freshness checks.
+
+Account/family deletion traverses only primary keys and ownership foreign keys
+when fencing and checking collected rows. Saved comparison and observation JSON
+bodies are not decoded by ownership checks, including recursive parent checks.
+Regression tests cover self deletion, parent-managed deletion, family closure
+and a foreign comparison link that must continue to fail closed.

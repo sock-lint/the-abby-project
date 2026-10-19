@@ -215,6 +215,18 @@ def available_items(queryset):
     return [item for item in queryset if item_is_available(item)]
 
 
+def random_item_is_available(item):
+    """Keep earned-only rewards out of new random grants, retaining ownership."""
+    metadata = _value(item, "metadata")
+    return item_is_available(item) and not (
+        isinstance(metadata, Mapping) and metadata.get("no_random_drop") is True
+    )
+
+
+def available_random_items(queryset):
+    return [item for item in queryset if random_item_is_available(item)]
+
+
 def item_unavailable_reason(item):
     if item_is_available(item):
         return None
