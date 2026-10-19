@@ -236,6 +236,12 @@ class ChoreService:
         notes were silently dropped — ``finalize_decision`` now raises
         on a notes-less model, so we have to make the drop explicit.)
         """
+        # Match challenge enrollment and source submission lock order: child
+        # first, then completion. The accepted timestamp must be written while
+        # holding this lock so an initial catalog read cannot exclude it.
+        child_id = ChoreCompletion.objects.values_list("user_id", flat=True).get(pk=completion.pk)
+        get_user_model().objects.select_for_update(no_key=True).get(pk=child_id)
+
         # Race guard: two parents tapping "approve" within ms of each other
         # would each see ``status == PENDING`` and double-pay XP/coins/money.
         # Re-fetch under a row-level lock so the status check + state

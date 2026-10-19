@@ -15,6 +15,7 @@ class _Fixture(TestCase):
         self.client = APIClient()
         self.definition = QuestDefinition.objects.create(
             name="Slay Dragon", description="Beat the boss",
+            created_by=self.parent,
             quest_type="boss", target_value=100,
             duration_days=7, coin_reward=50, xp_reward=100,
         )
@@ -131,6 +132,7 @@ class StartCoOpQuestViewTests(TestCase):
         )
         self.definition = QuestDefinition.objects.create(
             name="Co-op Boss",
+            created_by=self.fam_a.parents[0],
             description="Tag-team",
             quest_type="boss",
             target_value=200,

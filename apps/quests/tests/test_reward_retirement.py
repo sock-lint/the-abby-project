@@ -53,6 +53,7 @@ class RetiredRewardPromiseTests(TestCase):
         ]
         self.definition = QuestDefinition.objects.create(
             name="Accepted egg challenge", quest_type="collection", target_value=1,
+            is_system=True,
         )
         for egg in self.eggs:
             QuestRewardItem.objects.create(quest_definition=self.definition, item=egg, quantity=2)

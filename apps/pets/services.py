@@ -508,8 +508,12 @@ class PetService:
     @transaction.atomic
     def set_active_pet(user, pet_id):
         """Set a pet as the user's active pet (deactivates current)."""
+        from apps.achievements.services import _lock_award_user
         from apps.pets.models import UserPet
 
+        # Feast locks the stable in primary-key order. Serialize before the
+        # current-pet update so activation cannot own those rows in reverse.
+        _lock_award_user(user)
         UserPet.objects.filter(user=user, is_active=True).update(is_active=False)
         try:
             pet = UserPet.objects.get(pk=pet_id, user=user)

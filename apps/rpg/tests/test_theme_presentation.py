@@ -102,7 +102,9 @@ class ThemeSurfaceTests(APITestCase):
         self.assertEqual(UserInventory.objects.get(user=self.child, item=self.cover).quantity, 1)
 
     def test_challenge_catalog_reward_labels_match_the_theme_picker(self):
-        definition = QuestDefinition.objects.create(name="Theme prize", quest_type="collection", target_value=1)
+        definition = QuestDefinition.objects.create(
+            name="Theme prize", quest_type="collection", target_value=1, created_by=self.parent,
+        )
         QuestRewardItem.objects.create(quest_definition=definition, item=self.cover, quantity=1)
         self.client.force_authenticate(self.parent)
         response = self.client.get("/api/quests/catalog/")

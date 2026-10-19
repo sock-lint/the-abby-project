@@ -337,8 +337,6 @@ def update_project_status(params: UpdateProjectStatusIn) -> dict[str, Any]:
         project.status = params.status
         if params.status == "in_progress" and project.started_at is None:
             project.started_at = timezone.now()
-        if params.status == "completed" and project.completed_at is None:
-            project.completed_at = timezone.now()
         project.save()
         # The completion signal owns the shared once-only reward receipt and
         # payouts for both REST and MCP; no second client-specific award.
@@ -372,8 +370,7 @@ def complete_milestone(params: CompleteMilestoneIn) -> dict[str, Any]:
 
     with transaction.atomic():
         milestone.is_completed = True
-        milestone.completed_at = timezone.now()
-        milestone.save(update_fields=["is_completed", "completed_at"])
+        milestone.save(update_fields=["is_completed"])
 
         # The shared completion signal owns XP and the permanent receipt for
         # both clients. Only its first successful save can add this tool's
@@ -553,8 +550,6 @@ def approve_project(params: ProjectActionIn) -> dict[str, Any]:
     project = _get_project_parent_only(params.project_id)
     _require_work_project(project)
     project.status = "completed"
-    if project.completed_at is None:
-        project.completed_at = timezone.now()
     project.save()
     return project_detail_to_dict(project)
 

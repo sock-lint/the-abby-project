@@ -114,6 +114,12 @@ class HomeworkService:
 
         skill_tag_data = data.pop("skill_tags", [])
 
+        # Catalog reads share this lock. Acquire it before created_at is
+        # saved, so the first accepted plan cannot fall before a concurrent
+        # read's enrollment/window boundary and lose its challenge credit.
+        if data.get("assigned_to") is not None:
+            get_user_model().objects.select_for_update(no_key=True).get(pk=data["assigned_to"].pk)
+
         assignment = HomeworkAssignment.objects.create(
             created_by=user,
             **data,
@@ -179,8 +185,7 @@ class HomeworkService:
             #   • quest progress farming (Scholar's Week, Summer Reading List
             #     count homework_created — pre-2026-04-23 the Nth create per
             #     day still advanced these quests).
-            # Rewards and challenge facts share the same first user lock.
-            get_user_model().objects.select_for_update(no_key=True).get(pk=child.pk)
+            # The source save already owns the shared award/challenge lock.
             prior_count = bump_daily_counter(
                 HomeworkDailyCounter, child, timezone.localdate(),
             )
@@ -315,6 +320,12 @@ class HomeworkService:
         services; HomeworkSubmission has no parent_notes field so the value
         is silently dropped by ``finalize_decision``.
         """
+        # Match challenge enrollment and source submission lock order: child
+        # first, then submission. Hold the lock before decided_at is stamped so
+        # the first accepted approval cannot fall before catalog enrollment.
+        child_id = HomeworkSubmission.objects.values_list("user_id", flat=True).get(pk=submission.pk)
+        get_user_model().objects.select_for_update(no_key=True).get(pk=child_id)
+
         # Race guard: two parents tapping "approve" within ms of each
         # other would each see ``status == PENDING`` and double-fire the
         # XP grant + RPG game loop. Re-fetch under a row lock so the
