@@ -489,15 +489,15 @@ describe('JournalEntryFormModal', () => {
     expect(new URL(update.calls[0].url).pathname).toBe('/api/chronicle/77/journal/');
   });
 
-  it('keeps typed words and the existing sharing when the recovered entry is locked', async () => {
+  it('keeps a private draft unmerged when the recovered entry is locked on this device', async () => {
     // The server's day can differ from the device's, so today's existing
-    // entry can arrive dated "yesterday" here and open locked. Its text
-    // cannot be saved; recovery must not offer a sharing-only update that
-    // drops the typed words or quietly unshares the entry.
-    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    // entry can arrive dated another day here and would open locked. Its
+    // text cannot be saved, so the typed words must not be merged into it:
+    // a later sharing update or unlock could otherwise drop or share them.
+    const nextDay = new Date(Date.now() + 86400000).toLocaleDateString('en-CA');
     const existing = {
       id: 78, kind: 'journal', is_private: false, title: 'Earlier',
-      summary: 'Earlier shared words.', occurred_on: yesterday,
+      summary: 'Earlier shared words.', occurred_on: nextDay,
     };
     const update = spyHandler('patch', '*/api/chronicle/78/journal/', () => existing);
     server.use(update.handler,
@@ -506,18 +506,34 @@ describe('JournalEntryFormModal', () => {
       ),
     );
     const user = userEvent.setup();
-    renderWithProviders(
+    const { unmount } = renderWithProviders(
       <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
     );
     const dialog = getDialog();
     await user.type(within(dialog).getByLabelText(/mind/i), 'Private words');
     await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
 
-    await screen.findByRole('dialog', { name: /locked/i });
+    expect(await screen.findByRole('alert')).toHaveTextContent(/kept here as a draft/i);
+    expect(screen.getByRole('dialog', { name: /write in your journal/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /update sharing/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /share with parents/i })).not.toBeChecked();
+    expect(screen.getByLabelText(/mind/i).value).toBe('Private words');
     const draft = JSON.parse(localStorage.getItem(journalDraftKey(role.user.id)));
-    expect(draft.summary).toContain('Private words');
+    expect(draft).toMatchObject({ mode: 'create', summary: 'Private words', is_private: true });
     expect(update.calls).toHaveLength(0);
+
+    // Once that entry is editable on this device, it opens with its own saved
+    // text and sharing; the private words were never attached to it.
+    unmount();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(Date.now() + 86400000);
+      renderWithProviders(<JournalEntryFormModal mode="edit" entry={existing} onClose={() => {}} onSaved={() => {}} />);
+      const edit = await screen.findByRole('dialog', { name: /edit your journal entry/i });
+      expect(within(edit).getByLabelText(/mind/i).value).toBe('Earlier shared words.');
+      expect(update.calls).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

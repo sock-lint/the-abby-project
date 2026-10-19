@@ -198,18 +198,24 @@ function JournalEntryForm({
         // Append the new thought without losing the existing body.
         const prior = existing.summary || '';
         const merged = !summary || summary === prior ? prior : `${prior}\n\n${summary}`;
-        // A recovered entry from another device day opens locked: its text
-        // cannot be saved, so changing its sharing here would only offer a
-        // sharing-only update that leaves the typed words behind.
+        // An entry dated another day than this device opens locked: its text
+        // cannot be saved here. Merging would only park the typed words in a
+        // draft bound to that entry, where a later sharing or unlock could
+        // send or discard them. Keep this private draft unchanged instead.
         const recoveredLocked = Boolean(existing.occurred_on)
           && existing.occurred_on !== new Date().toLocaleDateString('en-CA');
+        if (recoveredLocked) {
+          changeForm({ pending: null });
+          setError(
+            "You already wrote today, and that entry can't be changed from this device right now. Your words are kept here as a draft.",
+          );
+          return;
+        }
         changeForm({
           mode: 'edit', entry: existing, title: existing.title || '',
           // Combining words cannot opt either private contribution into
           // sharing. The child may explicitly share the merged entry next.
-          summary: merged,
-          is_private: recoveredLocked ? existing.is_private !== false : isPrivate || existing.is_private !== false,
-          pending: null,
+          summary: merged, is_private: isPrivate || existing.is_private !== false, pending: null,
         });
         setError(
           "You already wrote today — we've loaded your entry so you can add to it.",
