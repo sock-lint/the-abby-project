@@ -182,8 +182,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         type(self.child).objects.filter(pk__in=[self.child.pk, self.sibling.pk]).update(
             date_joined=FIXED_NOW - timedelta(days=1),
         )
-        # A fixed id keeps the catalog materialization order, and so the
-        # fixture's occurrence ids, independent of earlier tests' sequences.
+        # A fixed id keeps this fixture independent of earlier tests' sequences.
         QuestDefinition.objects.create(
             id=50, name="Another movement goal", quest_type="collection", target_value=1,
             duration_days=7, trigger_filter={"allowed_triggers": ["movement_session"]},

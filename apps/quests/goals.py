@@ -621,7 +621,9 @@ def list_goals(user):
             | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at")),
         ),
         to_attr="_listed_occurrences",
-    ))
+    )).order_by("pk")
+    # Ordered so newly materialized occurrences get the same ids on every
+    # database and query plan, as in the receipt loop below.
     for goal in goals:
         occurrence = _occurrence(goal, now)
         if occurrence is not None:
