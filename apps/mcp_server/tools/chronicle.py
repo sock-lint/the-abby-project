@@ -54,9 +54,10 @@ def _chapter_year_for(d: date) -> int:
 def list_chronicle_entries(params: ListChronicleEntriesIn) -> dict[str, Any]:
     """Read-only timeline of all chronicle entries for a user.
 
-    Returns every kind (journal, grade, creation, manual, birthday, milestone,
-    first_ever, recap, chapter boundaries) interleaved by ``occurred_on``.
-    Children see their own; parents see any child in their family.
+    Returns every kind (journal, daily_note, grade, creation, manual, birthday,
+    milestone, first_ever, recap, chapter boundaries) interleaved by
+    ``occurred_on``. Children see their own; parents see any child in their
+    family, except private journals/grades and every author-only daily_note.
 
     To CREATE entries use a kind-specific tool:
       - child journal entry → ``write_journal``

@@ -198,9 +198,11 @@ function JournalEntryForm({
         // Append the new thought without losing the existing body.
         const prior = existing.summary || '';
         const merged = !summary || summary === prior ? prior : `${prior}\n\n${summary}`;
+        // Private wins: words typed as private never become shared, and an
+        // existing private entry stays private.
         changeForm({
           mode: 'edit', entry: existing, title: existing.title || '',
-          summary: merged, is_private: existing.is_private !== false, pending: null,
+          summary: merged, is_private: isPrivate || existing.is_private !== false, pending: null,
         });
         setError(
           "You already wrote today — we've loaded your entry so you can add to it.",

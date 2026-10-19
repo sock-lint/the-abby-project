@@ -35,6 +35,18 @@ def import_daily_notes(apps, schema_editor):
             Entry.objects.using(database).filter(pk=entry.pk).update(created_at=source.created_at)
 
 
+def remove_daily_note_projections(apps, schema_editor):
+    """Drop the private projections before the earlier schema returns.
+
+    Earlier access rules only hide private journal and grade entries, so a
+    retained daily_note row would become readable by the child's parents.
+    The source wellbeing rows still hold every note, and a later forward
+    migration rebuilds the projections without duplicates.
+    """
+    Entry = apps.get_model("chronicle", "ChronicleEntry")
+    Entry.objects.using(schema_editor.connection.alias).filter(kind="daily_note").delete()
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -53,5 +65,5 @@ class Migration(migrations.Migration):
             name='kind',
             field=models.CharField(choices=[('birthday', 'Birthday'), ('chapter_start', 'Chapter start'), ('chapter_end', 'Chapter end'), ('first_ever', 'First ever'), ('milestone', 'Milestone'), ('recap', 'Recap'), ('manual', 'Manual'), ('journal', 'Journal'), ('daily_note', 'Daily note'), ('creation', 'Creation'), ('grade', 'Grade')], max_length=32),
         ),
-        migrations.RunPython(import_daily_notes, reverse_code=migrations.RunPython.noop),
+        migrations.RunPython(import_daily_notes, reverse_code=remove_daily_note_projections),
     ]

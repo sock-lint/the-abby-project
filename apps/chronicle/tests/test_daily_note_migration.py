@@ -93,6 +93,56 @@ class DailyNoteMigrationTests(unittest.TestCase):
                 migration.import_daily_notes(new_apps, editor)
             assert list(Entry.objects.order_by("pk").values()) == state
         '''
+        self.run_migration_script(code)
+
+    def test_rollback_removes_private_projections_and_reapply_does_not_duplicate(self):
+        # Earlier access rules only hide private journals and grades, so a
+        # daily_note left behind by a rollback would become parent-readable.
+        code = r'''
+            import django
+            django.setup()
+            from datetime import date
+            from django.db import connection
+            from django.db.migrations.executor import MigrationExecutor
+            executor = MigrationExecutor(connection)
+            old_targets = [node for node in executor.loader.graph.leaf_nodes() if node[0] != "chronicle"]
+            old_targets.append(("chronicle", "0007_grade_entries"))
+            executor.migrate(old_targets)
+            old_apps = executor.loader.project_state(old_targets).apps
+            Family = old_apps.get_model("families", "Family")
+            User = old_apps.get_model("accounts", "User")
+            Wellbeing = old_apps.get_model("wellbeing", "DailyWellbeingEntry")
+            family = Family.objects.create(name="Rollback notes", slug="rollback-notes")
+            child = User.objects.create(username="rollback-author", role="child", family=family)
+            note = Wellbeing.objects.create(
+                user=child, date=date(2026, 7, 31), affirmation_slug="old-affirmation",
+                gratitude_lines=["Only mine."],
+            )
+            source_before = list(Wellbeing.objects.order_by("pk").values())
+
+            executor = MigrationExecutor(connection)
+            leaves = executor.loader.graph.leaf_nodes()
+            executor.migrate(leaves)
+            Entry = executor.loader.project_state(leaves).apps.get_model("chronicle", "ChronicleEntry")
+            assert Entry.objects.filter(kind="daily_note").count() == 1
+
+            executor = MigrationExecutor(connection)
+            executor.migrate(old_targets)
+            back_apps = executor.loader.project_state(old_targets).apps
+            assert back_apps.get_model("chronicle", "ChronicleEntry").objects.filter(kind="daily_note").count() == 0
+            assert list(back_apps.get_model("wellbeing", "DailyWellbeingEntry").objects.order_by("pk").values()) == source_before
+
+            executor = MigrationExecutor(connection)
+            executor.migrate(leaves)
+            Entry = executor.loader.project_state(leaves).apps.get_model("chronicle", "ChronicleEntry")
+            notes = list(Entry.objects.filter(kind="daily_note"))
+            assert len(notes) == 1, len(notes)
+            assert notes[0].daily_note_source_id == note.pk and notes[0].summary == "Only mine."
+            assert notes[0].is_private
+        '''
+        self.run_migration_script(code)
+
+    def run_migration_script(self, code):
         bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
         env = {key: os.environ[key] for key in bootstrap if key in os.environ}
         env.update({

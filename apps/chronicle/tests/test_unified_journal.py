@@ -137,6 +137,12 @@ class UnifiedJournalTests(TestCase):
         self.assertEqual(own.json()["reward_receipt"]["coins_awarded"], 0)
         self.assertEqual(self.client.patch(f"/api/chronicle/{note.pk}/journal/", {"is_private": False}).status_code, 403)
         self.assertEqual(self.client.get(f"/api/chronicle/entries/{note.pk}/comments/").status_code, 404)
+        with override_user(self.child):
+            own_notes = list_chronicle_entries(ListChronicleEntriesIn(kind="daily_note"))
+        self.assertEqual([row["id"] for row in own_notes["entries"]], [note.pk])
+        with override_user(self.parent):
+            filtered = list_chronicle_entries(ListChronicleEntriesIn(user_id=self.child.pk, kind="daily_note"))
+        self.assertEqual(filtered["entries"], [])
 
     def test_coin_sentinel_failure_rolls_back_ledger_but_keeps_journal_and_xp(self):
         original_save = DailyWellbeingEntry.save
