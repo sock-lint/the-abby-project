@@ -1,7 +1,7 @@
 """Overlapping PostgreSQL completions must share one milestone reward."""
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
-from threading import Barrier
+from threading import Barrier, local
 from unittest import skipUnless
 from unittest.mock import patch
 
@@ -13,7 +13,6 @@ from apps.achievements.models import MilestoneSkillTag, Skill, SkillCategory, Sk
 from apps.activity.models import ActivityEvent
 from apps.notifications.models import Notification
 from apps.payments.models import PaymentLedger
-from apps.projects import signals
 from apps.projects.models import Project, ProjectMilestone
 from config.tests.factories import make_family
 
@@ -38,14 +37,16 @@ class MilestoneRewardConcurrencyTests(TransactionTestCase):
             project=project, title="Walls", bonus_amount=Decimal("5.00"),
         )
         MilestoneSkillTag.objects.create(milestone=milestone, skill=skill, xp_amount=23)
-        prior_state_read = Barrier(2)
-        original_track = signals._track_previous_value
+        from apps.achievements.services import _lock_award_user
 
-        def track_simultaneous_completions(instance, sender, field, default=None):
-            previous = original_track(instance, sender, field, default)
-            if sender is ProjectMilestone and instance.pk == milestone.pk and field == "is_completed":
-                prior_state_read.wait(timeout=5)
-            return previous
+        before_award_lock = Barrier(2)
+        worker_state = local()
+
+        def lock_simultaneous_completions(user):
+            if not getattr(worker_state, "started", False):
+                worker_state.started = True
+                before_award_lock.wait(timeout=5)
+            return _lock_award_user(user)
 
         def complete(parent):
             close_old_connections()
@@ -62,7 +63,7 @@ class MilestoneRewardConcurrencyTests(TransactionTestCase):
             finally:
                 connection.close()
 
-        with patch.object(signals, "_track_previous_value", track_simultaneous_completions), patch(
+        with patch("apps.achievements.services._lock_award_user", lock_simultaneous_completions), patch(
             "apps.rpg.services.GameLoopService.on_task_completed",
         ) as game_loop, ThreadPoolExecutor(max_workers=2) as pool:
             futures = [pool.submit(complete, parent) for parent in family.parents]

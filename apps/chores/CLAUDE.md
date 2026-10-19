@@ -25,6 +25,7 @@ Recurring household tasks with a submit-then-approve workflow. User-facing label
 - **Withdraw**: owner-only `POST /api/chore-completions/<id>/withdraw/` hard-deletes a pending row.
 - **`Chore.save()` defense-in-depth**: auto-attaches to default family when `family_id` is None.
 - **`pending_parent_review`**: when True, the chore can't be completed — used for parent-proposed chores that haven't been finalized yet.
+- **First challenge credit**: approval locks the child before the completion and before saving `decided_at`, using the same account lock as automatic enrollment. A concurrent first challenge read therefore cannot exclude that accepted approval from its initial window. PostgreSQL approval/read interleavings for chores and homework are covered by `tests/test_approval_concurrency.py`.
 
 ## Key entry points
 - `services.py` — `ChoreService` (all business logic).

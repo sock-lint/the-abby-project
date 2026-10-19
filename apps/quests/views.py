@@ -7,6 +7,7 @@ from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import QuestDefinition, Quest
+from .queries import definitions_visible_to
 from .serializers import (
     DailyChallengeSerializer,
     QuestSerializer,
@@ -159,13 +160,13 @@ class CreateQuestView(APIView):
 
 
 class QuestCatalogView(ListAPIView):
-    """GET /api/quests/catalog/ — parent-only browse of every authored QuestDefinition."""
+    """GET /api/quests/catalog/ — global and current household definitions."""
     permission_classes = [permissions.IsAuthenticated, IsParent]
     serializer_class = QuestDefinitionSerializer
     pagination_class = None
 
     def get_queryset(self):
-        return QuestDefinition.objects.prefetch_related(
+        return definitions_visible_to(self.request.user).prefetch_related(
             "reward_items", "reward_items__item",
         ).order_by("quest_type", "name", "pk")
 

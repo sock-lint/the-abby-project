@@ -8,12 +8,17 @@ logger = logging.getLogger(__name__)
 
 
 def _track_previous_value(instance, sender, field, default=None):
-    """Read a field's DB value before save for post_save comparison."""
+    """Read the prior transition state without erasing its accepted timestamp."""
     if instance.pk:
         try:
-            return getattr(sender.objects.get(pk=instance.pk), field)
+            previous = sender.objects.get(pk=instance.pk)
         except sender.DoesNotExist:
             return default
+        # A full save loaded before another completion can carry None even
+        # after waiting for its child gate. Preserve the committed first time.
+        if instance.completed_at is None:
+            instance.completed_at = previous.completed_at
+        return getattr(previous, field)
     return default
 
 

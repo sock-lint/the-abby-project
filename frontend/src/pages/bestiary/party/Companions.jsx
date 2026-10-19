@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { getStable, getInventory, feedPet, activatePet, claimExpedition } from '../../../api';
+import { getStable, getInventory, getIncubation, feedPet, activatePet, claimExpedition } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
@@ -27,6 +27,7 @@ import DailyExpeditionCard from './DailyExpeditionCard';
 import ExpeditionLaunchSheet from './ExpeditionLaunchSheet';
 import useExpeditionRefresh from './useExpeditionRefresh';
 import usePetMutationGuard from './usePetMutationGuard';
+import useIncubationRefresh from '../hatchery/useIncubationRefresh';
 
 /**
  * Companions — owned, unevolved pets. Lifted from the old Stable.jsx
@@ -41,6 +42,12 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
     data: inventoryData, loading: loadingInventory, error: inventoryError,
     reload: reloadInventory,
   } = useApi(getInventory, [refreshRevision]);
+  const {
+    data: incubationData, loading: loadingIncubation, error: incubationError,
+    reload: reloadIncubation,
+  } = useApi(getIncubation, [refreshRevision]);
+  const incubation = incubationData?.incubation;
+  useIncubationRefresh(incubation, reloadIncubation);
   const [filter, setFilter] = useState('all');
   const [error, setError] = useState('');
   const [selectedPet, setSelectedPet] = useState(null);
@@ -113,13 +120,13 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
 
   if (loadingStable || loadingInventory) return <Loader />;
 
-  const refresh = () => { reloadStable(); reloadInventory(); };
+  const refresh = () => { reloadStable(); reloadInventory(); reloadIncubation(); };
   const refreshAfterChange = () => { if (onChanged) onChanged(); else refresh(); };
 
   // A failed stable fetch used to render "No companions yet. Find eggs and
   // potions in drops…" — indistinguishable from an empty party, and the kid
   // has no way to retry.
-  const fetchError = stableError || inventoryError;
+  const fetchError = stableError || inventoryError || incubationError;
   // Only the stable is load-bearing here: a failed satchel fetch just costs
   // the feed chips, so the party still renders with a banner over it.
   if (fetchError && !stableData) {
@@ -237,7 +244,7 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
 
       {/* Covers the partial case too: stable loaded but the satchel fetch
           failed, which would otherwise just hide the feed chips. */}
-      <ErrorAlert message={error || fetchError} />
+      <ErrorAlert message={error || fetchError} onRetry={fetchError ? refresh : undefined} />
 
       {supportedPets.length > 0 && (
         <TomeShelf
@@ -262,7 +269,13 @@ export default function Companions({ refreshRevision = 0, onChanged } = {}) {
 
       {supportedPets.length === 0 ? (
         <EmptyState icon={<EggIcon size={36} />}>
-          {savedPets.length ? 'Your earlier pets are in Saved collection below. Use an available egg and potion to hatch a new companion.' : 'No companions yet. Collect an egg and a potion, then combine them in the Hatchery.'}
+          <p>{incubation
+            ? incubation.is_ready ? 'Your egg is ready to hatch. Visit the Hatchery to meet your companion.' : 'Your egg is incubating. Check its progress in the Hatchery.'
+            : loadingIncubation ? 'Checking your egg’s progress…'
+            : incubationError ? 'Check the Hatchery for your egg’s progress.'
+            : savedPets.length ? 'Your earlier pets are in Saved collection below. Use an available egg and potion to start incubation in the Hatchery.'
+            : 'No companions yet. Collect an egg and a potion, then start incubation in the Hatchery.'}</p>
+          <Link className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep" to="/bestiary?tab=hatchery">Visit the Hatchery</Link>
         </EmptyState>
       ) : visiblePets.length === 0 ? (
         <EmptyState icon={<EggIcon size={28} />}>

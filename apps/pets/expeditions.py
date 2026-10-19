@@ -162,12 +162,20 @@ class ExpeditionService:
                 "mount": {"id", "species_name", "potion_name", ...},
             }
         """
+        from apps.achievements.services import _lock_award_user
         from apps.pets.models import MountExpedition
+
+        # Care and consumables take this gate before inventory/pet writes.
+        # Take it before the receipt lock too, so a claim cannot own catalog
+        # or inventory locks while waiting for a concurrent evolution.
+        _lock_award_user(user)
 
         try:
             expedition = (
                 MountExpedition.objects
-                .select_for_update()
+                # Joined species/potions are shared by every family. Only the
+                # expedition receipt needs a lock for an idempotent claim.
+                .select_for_update(of=("self",))
                 .select_related("mount__species", "mount__potion")
                 .get(pk=expedition_id, mount__user=user)
             )

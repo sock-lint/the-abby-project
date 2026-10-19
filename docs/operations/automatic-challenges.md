@@ -44,6 +44,14 @@ boundaries. An eligible pending saved action can anchor that first window so its
 initial save or retry still counts; already processed history does not start or
 replay a new catalog goal. Nonrepeatable goals keep that one window. Repeatable
 goals use successive windows from their saved anchor and stored duration.
+Project and milestone completion saves take the child's shared award lock before
+writing the source or assigning its first accepted completion timestamp. Initial
+catalog reads use that same lock, so they cannot enroll after an in-flight first
+completion and exclude its credit. REST and MCP leave timestamp assignment to
+the canonical completion signal; stale saves retain an existing accepted time.
+Unrelated partial saves, such as a plan's `updated_at`, do not take the award lock
+after their caller has already locked the project row. PostgreSQL overlap
+regressions are in `apps/projects/tests/test_challenge_credit_concurrency.py`.
 Existing windows never restart when the child returns, completes or pins them. An already active
 legacy challenge retains its original dates, target, progress and reward promise.
 New automatic enrollment omits reward-only badge-earned/Perfect-Day definitions;

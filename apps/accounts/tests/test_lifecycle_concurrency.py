@@ -248,8 +248,8 @@ class AccountLifecycleConcurrencyTests(TransactionTestCase):
 
         def hold_before_award_user(user):
             if getattr(_worker, "label", None) == "approve":
-                # The real approval already holds ChoreCompletion's row lock.
-                # Lifecycle locks users before its dependent-record preflight.
+                # Approval already holds its child gate and completion row.
+                # Closure must refuse at the member gate, before preflight.
                 approval_locked.set()
                 if not release_approval.wait(10):
                     raise TimeoutError("Chore approval was not released")
@@ -275,10 +275,11 @@ class AccountLifecycleConcurrencyTests(TransactionTestCase):
                     self._request, "close", "post", self.close_url, token=self.token.key,
                     data=self._closure_data(),
                 )
-                # Waiting for approval here would form an inverse user→record
-                # / record→user cycle. Closure must decline while approval is
-                # still held, rather than rely on PostgreSQL aborting a victim.
-                self.assertEqual(closing.result(timeout=3)[0], 409)
+                # Closure must decline while approval is still held, before
+                # either the member or dependent-row lock can make it wait.
+                status, body = closing.result(timeout=3)
+                self.assertEqual(status, 409)
+                self.assertEqual(body["detail"].code, "lifecycle_busy")
             finally:
                 release_approval.set()
             self.assertEqual(approving.result(timeout=15), ChoreCompletion.Status.APPROVED)

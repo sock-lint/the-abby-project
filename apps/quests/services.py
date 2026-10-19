@@ -64,6 +64,23 @@ class QuestService:
     """Manages quest lifecycle: start, progress, completion, expiration."""
 
     @staticmethod
+    def _campaign_belongs_to_participants(quest, users):
+        """Stop old invalid starts before they can credit a foreign promise."""
+        from django.contrib.auth import get_user_model
+
+        family_ids = {member.family_id for member in users}
+        if len(family_ids) != 1 or None in family_ids:
+            return False
+        definition = quest.definition
+        if definition.is_system or definition.created_by_id is None:
+            # Existing orphaned promises predate this gate. Preserve those
+            # saved rewards without making them startable public definitions.
+            return True
+        return get_user_model().objects.filter(
+            pk=definition.created_by_id, family_id=next(iter(family_ids)),
+        ).exists()
+
+    @staticmethod
     def _lock_participants(quest_id):
         """Lock all award users in one stable order before campaign rows.
 
@@ -88,10 +105,15 @@ class QuestService:
         Returns the new Quest, or raises ValueError.
         """
         from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
+        from apps.quests.queries import definitions_visible_to
         from django.contrib.auth import get_user_model
 
         # Serialize this legacy compatibility path with automatic enrollment.
-        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        user = get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        try:
+            definition = definitions_visible_to(user).get(pk=definition_id)
+        except QuestDefinition.DoesNotExist:
+            raise ValueError("Quest not found")
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id=definition_id).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
 
@@ -100,11 +122,6 @@ class QuestService:
             participants__user=user, status=Quest.Status.ACTIVE,
         ).exists():
             raise ValueError("You already have an active quest")
-
-        try:
-            definition = QuestDefinition.objects.get(pk=definition_id)
-        except QuestDefinition.DoesNotExist:
-            raise ValueError("Quest not found")
 
         if not definition.is_repeatable and Quest.objects.filter(
             definition=definition, participants__user=user, status=Quest.Status.COMPLETED,
@@ -162,6 +179,7 @@ class QuestService:
         Quest. Raises ``ValueError`` on invalid input.
         """
         from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
+        from apps.quests.queries import definitions_visible_to
         from django.contrib.auth import get_user_model
 
         users = list(users)
@@ -169,8 +187,16 @@ class QuestService:
             raise ValueError("start_co_op_quest needs at least one user")
         if len({u.pk for u in users}) != len(users):
             raise ValueError("Duplicate user in co-op quest assignment")
-        for user in sorted(users, key=lambda member: member.pk):
+        users = [
             get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+            for user in sorted(users, key=lambda member: member.pk)
+        ]
+        if len({user.family_id for user in users}) != 1 or users[0].family_id is None:
+            raise ValueError("Co-op participants must belong to the same family")
+        try:
+            definition = definitions_visible_to(users[0]).get(pk=definition_id)
+        except QuestDefinition.DoesNotExist:
+            raise ValueError("Quest not found")
         if ChallengeGoal.objects.filter(user__in=users, catalog_definition_id=definition_id).exists():
             raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
 
@@ -184,11 +210,6 @@ class QuestService:
                 "Users already on active quests: "
                 + ", ".join(sorted(set(conflicting)))
             )
-
-        try:
-            definition = QuestDefinition.objects.get(pk=definition_id)
-        except QuestDefinition.DoesNotExist:
-            raise ValueError("Quest not found")
 
         if not definition.is_repeatable and Quest.objects.filter(
             definition=definition, participants__user__in=users, status=Quest.Status.COMPLETED,
@@ -254,9 +275,11 @@ class QuestService:
         quest_id = membership.values_list("quest_id", flat=True).first()
         if quest_id is None:
             return None
-        QuestService._lock_participants(quest_id)
+        users = QuestService._lock_participants(quest_id)
         quest = Quest.objects.select_for_update(of=("self",)).select_related("definition").get(pk=quest_id)
         if quest.status != Quest.Status.ACTIVE:
+            return None
+        if not QuestService._campaign_belongs_to_participants(quest, users):
             return None
         try:
             participant = QuestParticipant.objects.select_for_update().get(user=user, quest=quest)
@@ -379,6 +402,8 @@ class QuestService:
             return None
         if not any(member.pk == user.pk for member in users):
             raise ValueError("You are not a participant in this quest")
+        if not QuestService._campaign_belongs_to_participants(quest, users):
+            raise ValueError("Quest not found")
         if quest.reward_items_snapshot is None:
             from apps.quests.reward_items import snapshot_reward_items
             quest.reward_items_snapshot = snapshot_reward_items(quest.definition, available_only=False)

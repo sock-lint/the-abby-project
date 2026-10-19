@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Companions from './Companions.jsx';
@@ -73,6 +73,50 @@ function renderPage(handlers = []) {
 function collection() { return within(screen.getByRole('list', { name: 'Your companions' })); }
 
 describe('Companions tab', () => {
+  it('checks incubation before suggesting supplies, and offers recovery when the check fails', async () => {
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const check = spyHandler('get', '*/api/pets/incubations/', async () => {
+      if (check.calls.length === 1) {
+        await pending;
+        return HttpResponse.json({ detail: 'Egg status unavailable' }, { status: 503 });
+      }
+      return { incubation: { id: 7, status: 'incubating', is_ready: false, remaining_seconds: 7200 } };
+    });
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+      check.handler,
+    ]);
+    try {
+      expect(await screen.findByText('Checking your egg’s progress…')).toBeInTheDocument();
+      expect(screen.queryByText(/collect an egg and a potion/i)).toBeNull();
+      await act(async () => { release(); await pending; });
+      expect(await screen.findByRole('alert')).toHaveTextContent('Egg status unavailable');
+      expect(screen.queryByText(/collect an egg and a potion/i)).toBeNull();
+      await userEvent.setup().click(screen.getByRole('button', { name: 'Try again' }));
+      expect(await screen.findByText(/Your egg is incubating/)).toBeInTheDocument();
+      expect(check.calls).toHaveLength(2);
+      expect(new URL(check.calls[1].url).pathname).toBe('/api/pets/incubations/');
+    } finally { await act(async () => { release(); await pending; }); }
+  });
+
+  it.each([
+    { is_ready: false, status: 'incubating', message: 'Your egg is incubating' },
+    { is_ready: true, status: 'ready', message: 'Your egg is ready to hatch' },
+  ])('guides a child with a $status egg back to the Hatchery', async ({ is_ready, status, message }) => {
+    renderPage([
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),
+      http.get('*/api/inventory/', () => HttpResponse.json([])),
+      http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation: {
+        id: 7, is_ready, status, remaining_seconds: is_ready ? 0 : 7200,
+      } })),
+    ]);
+    expect(await screen.findByText(new RegExp(message))).toBeInTheDocument();
+    expect(screen.queryByText(/collect an egg and a potion|use an available egg and potion/i)).toBeNull();
+    expect(screen.getByRole('link', { name: 'Visit the Hatchery' })).toHaveAttribute('href', '/bestiary?tab=hatchery');
+  });
+
   it('shows the server food effect before spending a serving', async () => {
     const user = userEvent.setup();
     const feed = spyHandler('post', /\/api\/pets\/1\/feed\/$/, { new_growth: 100, growth_added: 10, evolved: false });

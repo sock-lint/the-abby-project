@@ -429,13 +429,17 @@ describe('ParentDashboard', () => {
       http.get('*/api/children/', () => HttpResponse.json([])),
     ]);
     const family = await screen.findByRole('region', { name: 'Family overview' });
-    expect(await within(family).findByText(/2 due today · 1 overdue/)).toBeVisible();
-    expect(within(family).getByText('3 awaiting your review')).toBeVisible();
-    expect(within(family).getByText('2 remaining · 1 awaiting review · 3 approved')).toBeVisible();
-    expect(within(family).getByText('7.5 / 20 minutes')).toBeVisible();
+    // Finding the text precedes its ancestor's entrance animation. Keep the
+    // visibility assertions and wait for the visible state itself.
+    await waitFor(() => {
+      expect(within(family).getByText(/2 due today · 1 overdue/)).toBeVisible();
+      expect(within(family).getByText('3 awaiting your review')).toBeVisible();
+      expect(within(family).getByText('2 remaining · 1 awaiting review · 3 approved')).toBeVisible();
+      expect(within(family).getByText('7.5 / 20 minutes')).toBeVisible();
+      expect(within(family).getByText('Earned a badge: Steady learner')).toBeVisible();
+      expect(within(family).getByText(/household day \(America\/Phoenix\)/)).toBeVisible();
+    });
     expect(within(family).getByRole('progressbar', { name: 'Read together progress' })).toHaveAttribute('aria-valuenow', '7.5');
-    expect(within(family).getByText('Earned a badge: Steady learner')).toBeVisible();
-    expect(within(family).getByText(/household day \(America\/Phoenix\)/)).toBeVisible();
     expect(within(family).getByRole('link', { name: "View Abby's homework" })).toHaveAttribute('href', '/quests?tab=study&child=2');
     expect(within(family).getByRole('link', { name: "View Abby's chores" })).toHaveAttribute('href', '/quests?tab=duties&child=2');
     expect(within(family).getByRole('link', { name: "View Abby's goals" })).toHaveTextContent('View all 4 goals');
