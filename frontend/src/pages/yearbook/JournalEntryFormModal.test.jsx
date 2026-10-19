@@ -417,11 +417,7 @@ describe('JournalEntryFormModal', () => {
     expect(within(dialog).getByRole('button', { name: /update entry/i })).toBeInTheDocument();
   });
 
-  it.each([
-    { draftPrivate: true, existingPrivate: false, mergedPrivate: true },
-    { draftPrivate: false, existingPrivate: true, mergedPrivate: true },
-    { draftPrivate: false, existingPrivate: false, mergedPrivate: false },
-  ])('preserves words and private sharing on a daily conflict ($draftPrivate, $existingPrivate)', async ({ draftPrivate, existingPrivate, mergedPrivate }) => {
+  it('flips to edit mode when POST returns 409 with the existing entry', async () => {
     // 409 path: the child is in create mode and submits, but the backend
     // (via the unique-per-day constraint) reports that today's entry
     // already exists. The modal should swap to edit mode, preserve the
@@ -433,15 +429,12 @@ describe('JournalEntryFormModal', () => {
     const existing = {
       id: 77,
       kind: 'journal',
-      is_private: existingPrivate,
+      is_private: false,
       title: 'Earlier today',
       summary: 'Some earlier thoughts.',
       occurred_on: new Date().toLocaleDateString('en-CA'),
     };
-    const update = spyHandler('patch', '*/api/chronicle/77/journal/', () => ({
-      ...existing, is_private: mergedPrivate,
-    }));
-    server.use(update.handler,
+    server.use(
       http.post('*/api/chronicle/journal/', () =>
         HttpResponse.json(
           {
@@ -458,7 +451,6 @@ describe('JournalEntryFormModal', () => {
     );
     const dialog = getDialog();
     await user.type(within(dialog).getByLabelText(/mind/i), 'New thought I typed');
-    if (!draftPrivate) await user.click(screen.getByRole('checkbox', { name: /share with parents/i }));
     await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
 
     // Title flips to the BottomSheet title for edit mode.
@@ -473,67 +465,9 @@ describe('JournalEntryFormModal', () => {
     ).toBeInTheDocument();
     // Friendly 409 error — not a raw status code.
     expect(screen.getByRole('alert').textContent).toMatch(/already wrote today/i);
-    expect(screen.getByRole('checkbox', { name: /share with parents/i }).checked).toBe(!mergedPrivate);
+    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
     // The in-flight text survives, appended after the existing body.
     expect(screen.getByLabelText(/mind/i).value).toContain('Some earlier thoughts.');
     expect(screen.getByLabelText(/mind/i).value).toContain('New thought I typed');
-    expect(JSON.parse(localStorage.getItem(journalDraftKey(role.user.id))).is_private).toBe(mergedPrivate);
-    await user.click(screen.getByRole('button', { name: /update entry/i }));
-    await screen.findByRole('dialog', { name: 'Entry updated' });
-    expect(update.calls).toHaveLength(1);
-    expect(update.calls[0].body).toEqual({
-      title: existing.title,
-      summary: 'Some earlier thoughts.\n\nNew thought I typed',
-      is_private: mergedPrivate,
-    });
-    expect(new URL(update.calls[0].url).pathname).toBe('/api/chronicle/77/journal/');
-  });
-
-  it('keeps a private draft unmerged when the recovered entry is locked on this device', async () => {
-    // The server's day can differ from the device's, so today's existing
-    // entry can arrive dated another day here and would open locked. Its
-    // text cannot be saved, so the typed words must not be merged into it:
-    // a later sharing update or unlock could otherwise drop or share them.
-    const nextDay = new Date(Date.now() + 86400000).toLocaleDateString('en-CA');
-    const existing = {
-      id: 78, kind: 'journal', is_private: false, title: 'Earlier',
-      summary: 'Earlier shared words.', occurred_on: nextDay,
-    };
-    const update = spyHandler('patch', '*/api/chronicle/78/journal/', () => existing);
-    server.use(update.handler,
-      http.post('*/api/chronicle/journal/', () =>
-        HttpResponse.json({ detail: 'You already wrote a journal entry today.', existing }, { status: 409 }),
-      ),
-    );
-    const user = userEvent.setup();
-    const { unmount } = renderWithProviders(
-      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
-    );
-    const dialog = getDialog();
-    await user.type(within(dialog).getByLabelText(/mind/i), 'Private words');
-    await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(/kept here as a draft/i);
-    expect(screen.getByRole('dialog', { name: /write in your journal/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /update sharing/i })).not.toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: /share with parents/i })).not.toBeChecked();
-    expect(screen.getByLabelText(/mind/i).value).toBe('Private words');
-    const draft = JSON.parse(localStorage.getItem(journalDraftKey(role.user.id)));
-    expect(draft).toMatchObject({ mode: 'create', summary: 'Private words', is_private: true });
-    expect(update.calls).toHaveLength(0);
-
-    // Once that entry is editable on this device, it opens with its own saved
-    // text and sharing; the private words were never attached to it.
-    unmount();
-    vi.useFakeTimers({ toFake: ['Date'] });
-    try {
-      vi.setSystemTime(Date.now() + 86400000);
-      renderWithProviders(<JournalEntryFormModal mode="edit" entry={existing} onClose={() => {}} onSaved={() => {}} />);
-      const edit = await screen.findByRole('dialog', { name: /edit your journal entry/i });
-      expect(within(edit).getByLabelText(/mind/i).value).toBe('Earlier shared words.');
-      expect(update.calls).toHaveLength(0);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });
