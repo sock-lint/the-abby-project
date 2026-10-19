@@ -29,6 +29,7 @@ class QuestRewardConcurrencyTests(TransactionTestCase):
         self.skill = Skill.objects.create(name="Shared effort", category=category)
         self.definition = QuestDefinition.objects.create(
             name="Shared campaign", description="Saved co-op", quest_type="collection",
+            is_system=True,
             target_value=2, coin_reward=13, xp_reward=24,
         )
         QuestSkillTag.objects.create(quest_definition=self.definition, skill=self.skill)
@@ -204,6 +205,7 @@ class QuestRewardConcurrencyTests(TransactionTestCase):
         QuestService.record_progress(self.first, "chore_complete")
         replacement_definition = QuestDefinition.objects.create(
             name="Next campaign", description="Assigned after the source", quest_type="collection", target_value=2,
+            is_system=True,
         )
         replacement = QuestService.start_co_op_quest(replacement_definition.pk, [self.first, self.second])
         for callback in callbacks:

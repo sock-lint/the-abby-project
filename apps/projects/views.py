@@ -315,6 +315,7 @@ class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
             return User.objects.none()
         return User.objects.filter(role="child", family=family)
 
+    @transaction.atomic
     def perform_create(self, serializer):
         # ``password`` flows through validated_data; ChildSerializer.create
         # pops it and uses ``User.objects.create_user`` to hash it.
@@ -322,6 +323,8 @@ class ChildViewSet(_UserManagementActionsMixin, viewsets.ModelViewSet):
             role="child",
             family=self.request.user.family,
         )
+        from apps.habits.defaults import ensure_starter_habits
+        ensure_starter_habits(child, created_by=self.request.user)
         # Grant the Hyrule journal cover — same rationale as signup. See
         # ``CosmeticService.grant_starter_cover`` for the defense-in-depth
         # against missing seed content.
@@ -527,13 +530,10 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
-        from django.utils import timezone
         project = self.get_object()
         if project.is_homework:
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         project.status = "completed"
-        if project.completed_at is None:
-            project.completed_at = timezone.now()
         project.save()
         return Response(ProjectDetailSerializer(project).data)
 

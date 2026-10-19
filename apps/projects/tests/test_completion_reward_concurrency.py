@@ -1,7 +1,7 @@
 """Project approvals must pay once across independent PostgreSQL requests."""
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
-from threading import Barrier
+from threading import Barrier, local
 from unittest import skipUnless
 from unittest.mock import patch
 
@@ -13,7 +13,6 @@ from apps.achievements.models import ProjectSkillTag, Skill, SkillCategory, Skil
 from apps.activity.models import ActivityEvent
 from apps.notifications.models import Notification
 from apps.payments.models import PaymentLedger
-from apps.projects import signals
 from apps.projects.models import Project
 from apps.rewards.models import CoinLedger
 from config.tests.factories import make_family
@@ -40,16 +39,18 @@ class ProjectCompletionRewardConcurrencyTests(TransactionTestCase):
             bonus_amount=Decimal("10.00"),
         )
         ProjectSkillTag.objects.create(project=project, skill=skill, xp_weight=1)
-        prior_status_read = Barrier(2)
-        original_track = signals._track_previous_value
+        from apps.achievements.services import _lock_award_user
 
-        def track_simultaneous_approvals(instance, sender, field, default=None):
-            previous = original_track(instance, sender, field, default)
-            if sender is Project and instance.pk == project.pk and field == "status":
-                # Both requests observe the unapproved state before either
-                # writes it. A transition-only guard then pays both callers.
-                prior_status_read.wait(timeout=5)
-            return previous
+        before_award_lock = Barrier(2)
+        worker_state = local()
+
+        def lock_simultaneous_approvals(user):
+            if not getattr(worker_state, "started", False):
+                worker_state.started = True
+                # Both approvals reach the shared child gate together. The
+                # gate serializes source saves as well as their reward writes.
+                before_award_lock.wait(timeout=5)
+            return _lock_award_user(user)
 
         def approve(parent):
             close_old_connections()
@@ -64,7 +65,7 @@ class ProjectCompletionRewardConcurrencyTests(TransactionTestCase):
             finally:
                 connection.close()
 
-        with patch.object(signals, "_track_previous_value", track_simultaneous_approvals), patch(
+        with patch("apps.achievements.services._lock_award_user", lock_simultaneous_approvals), patch(
             "apps.rpg.services.GameLoopService.on_task_completed",
         ) as game_loop, ThreadPoolExecutor(max_workers=2) as pool:
             futures = [pool.submit(approve, parent) for parent in family.parents]

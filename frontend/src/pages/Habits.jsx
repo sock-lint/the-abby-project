@@ -163,7 +163,14 @@ function HabitFormModal({ habit, children, skills, isParent, initialChildId, mod
           </div>
         )}
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
-        {canSetRewards && <SelectField label="Child" value={form.user} onChange={onField('user')} required>
+        {canSetRewards && <SelectField
+          label="Child"
+          value={form.user}
+          onChange={onField('user')}
+          required
+          disabled={isEdit && Boolean(habit?.starter_key)}
+          helpText={isEdit && habit?.starter_key ? 'This starter habit stays with this child.' : undefined}
+        >
           <option value="">Choose a child…</option>
           {children?.map((child) => <option key={child.id} value={child.id}>{child.display_name || child.username}</option>)}
         </SelectField>}
@@ -221,6 +228,7 @@ function HabitsWorkspace({ context }) {
   const [formMode, setFormMode] = useState('create');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [tapping, setTapping] = useState(null);
+  const [togglingActive, setTogglingActive] = useState(null);
   const [search, setSearch] = useState('');
   // Optimistic deltas keyed by habit id — `{ [id]: {strength, taps_today} }`.
   // Applied during render so the strength medallion bumps the moment a
@@ -229,7 +237,9 @@ function HabitsWorkspace({ context }) {
   // refetch lands; on error we also clear so we don't ghost a phantom.
   const [tapDeltas, setTapDeltas] = useState({});
 
-  const habitsRaw = normalizeList(rawHabits).filter((habit) => !isParent || String(habit.user) === String(targetUserId));
+  const habitsRaw = normalizeList(rawHabits).filter((habit) => isParent
+    ? String(habit.user) === String(targetUserId)
+    : habit.is_active !== false);
   const habits = habitsRaw.map((h) => {
     const d = tapDeltas[h.id];
     if (!d) return h;
@@ -344,6 +354,21 @@ function HabitsWorkspace({ context }) {
     }
   };
 
+  const handleToggleActive = async (habit) => {
+    if (togglingActive !== null) return;
+    setTogglingActive(habit.id);
+    setError('');
+    try {
+      await updateHabit(habit.id, { is_active: habit.is_active === false });
+      if (!mounted.current) return;
+      await reload();
+    } catch (err) {
+      if (mounted.current) setError(err.message);
+    } finally {
+      if (mounted.current) setTogglingActive(null);
+    }
+  };
+
   if (loading) return <Loader />;
 
   // Verso math — average strength tells the chapter-level story; the
@@ -363,7 +388,7 @@ function HabitsWorkspace({ context }) {
     { value: rawHabits === null ? '—' : avgStrength.toFixed(1), label: 'avg strength' },
   ];
   const versoProgressLabel = habits.length > 0
-    ? `${habits.length} habit${habits.length === 1 ? '' : 's'} in practice`
+    ? `${habits.length} habit${habits.length === 1 ? '' : 's'} ${isParent ? 'added' : 'in practice'}`
     : rawHabits === null ? 'Habits unavailable' : '0 habits added';
 
   let rubricIndex = 0;
@@ -447,7 +472,7 @@ function HabitsWorkspace({ context }) {
         <section>
           <ChapterRubric
             index={nextRubric()}
-            name="Active habits"
+            name={isParent ? 'Habits' : 'Active habits'}
             icon={<ScrollIcon size={18} className="text-sheikah-teal-deep" />}
           />
           {habits.length > 0 && (
@@ -467,7 +492,7 @@ function HabitsWorkspace({ context }) {
           ) : filteredHabits.length === 0 ? (
             <FilteredEmptyState query={search.trim()} onClear={() => setSearch('')} icon={<ScrollIcon size={32} />} />
           ) : (
-            <motion.div layout className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <motion.div layout className="grid lg:grid-cols-2 2xl:grid-cols-3 gap-3">
           <AnimatePresence>
             {filteredHabits.map((habit) => (
               <motion.div
@@ -486,15 +511,19 @@ function HabitsWorkspace({ context }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        {habit.icon && <span className="text-lg">{habit.icon}</span>}
+                        {habit.icon && <span className="text-lg shrink-0">{habit.icon}</span>}
                         <span className="min-w-0 break-words [overflow-wrap:anywhere] font-display text-base text-ink-primary">
                           {habit.name}
                         </span>
                       </div>
+                      {habit.is_active === false && <RuneBadge tone="ink" size="sm" className="mt-1">Paused</RuneBadge>}
                       {isParent && <p className="font-body text-caption text-ink-secondary">For {selectedChild?.display_name || selectedChild?.username}</p>}
+                      {habit.starter_key === 'brush_teeth' && habit.max_taps_per_day === 2 && (
+                        <p className="font-body text-caption text-ink-secondary mt-0.5">Twice a day · morning and evening</p>
+                      )}
                       <div className="font-script text-caption text-ink-whisper mt-0.5">
-                        {habit.xp_reward > 0 && <span>{habit.xp_reward} XP</span>}
-                        {habit.xp_reward > 0 && habit.max_taps_per_day > 0 && <span> · </span>}
+                        {habit.xp_reward > 0 && (!habit.starter_key || habit.skill_tags?.length > 0) && <span>{habit.xp_reward} XP</span>}
+                        {habit.xp_reward > 0 && (!habit.starter_key || habit.skill_tags?.length > 0) && habit.max_taps_per_day > 0 && <span> · </span>}
                         {habit.max_taps_per_day > 0 && (
                           <span>
                             {habit.taps_today ?? 0}/{habit.max_taps_per_day} today
@@ -510,6 +539,10 @@ function HabitsWorkspace({ context }) {
                     <div className="flex gap-2">
                       {!isParent && (habit.habit_type === 'positive' || habit.habit_type === 'both') && (() => {
                         const atCap = (habit.taps_today ?? 0) >= (habit.max_taps_per_day ?? 1);
+                        const brushing = habit.starter_key === 'brush_teeth';
+                        const label = brushing
+                          ? (atCap ? 'Done for today' : 'I brushed my teeth')
+                          : (atCap ? 'done' : 'Log progress');
                         return (
                           <Button
                             variant="success"
@@ -519,7 +552,7 @@ function HabitsWorkspace({ context }) {
                             title={atCap ? `Daily limit reached (${habit.max_taps_per_day}/day)` : undefined}
                             className="flex items-center gap-1"
                           >
-                            <ThumbsUp size={14} /> {atCap ? 'done' : 'Log progress'}
+                            <ThumbsUp size={14} /> {label}
                           </Button>
                         );
                       })()}
@@ -536,15 +569,26 @@ function HabitsWorkspace({ context }) {
                       )}
                     </div>
                     {isParent && (
-                      <div className="flex gap-1">
+                      <div className="flex flex-wrap gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleToggleActive(habit)}
+                          disabled={togglingActive !== null}
+                          aria-busy={togglingActive === habit.id || undefined}
+                        >
+                          {habit.is_active === false ? 'Resume' : 'Pause'}
+                        </Button>
                         <IconButton
                           onClick={() => openEdit(habit)}
+                          disabled={togglingActive !== null}
                           aria-label="Edit habit"
                         >
                           <Pencil size={16} />
                         </IconButton>
                         <IconButton
                           onClick={() => setConfirmDelete(habit)}
+                          disabled={togglingActive !== null}
                           aria-label="Delete habit"
                           className="hover:text-ember-deep"
                         >

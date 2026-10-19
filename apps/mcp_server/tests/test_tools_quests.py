@@ -65,6 +65,7 @@ class CatalogAndCreateTests(_Base):
     def test_duplicate_name_rejected(self) -> None:
         QuestDefinition.objects.create(
             name="Taken", description="", quest_type="boss", target_value=10,
+            created_by=self.parent,
         )
         with override_user(self.parent), self.assertRaises(MCPValidationError):
             q.create_quest_definition(CreateQuestDefinitionIn(
@@ -96,6 +97,7 @@ class AssignQuestTests(_Base):
     def test_assign_to_child(self) -> None:
         defn = QuestDefinition.objects.create(
             name="D", description="", quest_type="boss", target_value=100,
+            created_by=self.parent,
         )
         with override_user(self.parent):
             r = q.assign_quest(AssignQuestIn(
@@ -106,9 +108,11 @@ class AssignQuestTests(_Base):
     def test_cannot_assign_second_active_quest(self) -> None:
         defn1 = QuestDefinition.objects.create(
             name="D1", description="", quest_type="boss", target_value=100,
+            created_by=self.parent,
         )
         defn2 = QuestDefinition.objects.create(
             name="D2", description="", quest_type="boss", target_value=100,
+            created_by=self.parent,
         )
         with override_user(self.parent):
             q.assign_quest(AssignQuestIn(

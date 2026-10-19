@@ -225,6 +225,18 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 - **RPG content authoring** (`content/rpg/`): Pets, eggs, potions, items, drops, quests, badges, and the skill tree are authored as YAML in `content/rpg/initial/*.yaml` and loaded by `python manage.py loadrpgcontent` — a dependency-ordered, idempotent upsert. `seed_data` invokes this internally. The loader (`apps/rpg/content/loader.py`) is the single source of truth for cross-entity wiring: one `pet_species.yaml` entry fans out to both a `PetSpecies` row and an egg `ItemDefinition` with typed FK; same pattern for `potion_types.yaml` → potion items. Third-party packs live under `content/rpg/packs/<name>/` and are loaded with `--namespace <prefix>-` so slugs don't collide with core. When adding new RPG content, edit YAML — don't add `get_or_create` calls to Python seed code. See `content/rpg/README.md` for schema + authoring workflow.
 
+  Unkeyed deployment loads seed missing shop offers into the explicit legacy
+  `default-family` destination (or the supplied family), preserving every
+  existing offer and parent edit. Names do not establish seed ownership, so
+  later bundled price/approval changes intentionally do not overwrite these
+  rows; reviewed pack publications retain their explicit owned-update path.
+  Duplicate legacy drop or quest-item links are preserved and reported as
+  ambiguous without blocking startup. Reconcile them explicitly to apply
+  bundled link updates; the loader never guesses which quantity or weight is
+  authoritative. Reviewed publications still reject ambiguous links and roll
+  back the entire publication. `tests/test_startup_loader_safety.py` covers
+  these boundaries through the actual loader and startup command.
+
 ## RPG tunables (hardcoded constants in `apps/rpg/services.py`)
 These are intentionally NOT in settings — they're game-design constants, not deploy-time config.
 - `BASE_CHECK_IN_COINS = 5` — base daily check-in bonus before streak multiplier.

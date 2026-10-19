@@ -947,6 +947,33 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertTrue(all(row["user"] == self.child.pk for row in first["results"] + second["results"]))
         self.assertFalse(any(row["pending_parent_review"] for row in first["results"] + second["results"]))
 
+    def test_brushing_starter_preserves_identity_and_two_daily_check_ins(self):
+        self.habit.name = "Brush your teeth"
+        self.habit.icon = "🪥"
+        self.habit.starter_key = "brush_teeth"
+        self.habit.max_taps_per_day = 2
+        self.habit.strength = 0
+        self.habit.save()
+        path = f"/api/habits/{self.habit.pk}/"
+        for taps, fixture in enumerate((
+            "habit-brush-teeth-today.json",
+            "habit-brush-teeth-partial.json",
+            "habit-brush-teeth-complete.json",
+        )):
+            if taps:
+                with patch("apps.rpg.services.random.random", return_value=1.0):
+                    response = self.client.post(path + "log/", {"direction": 1}, format="json")
+                self.assertEqual(response.status_code, 200)
+            body = self.client.get(path)
+            self.assertEqual(body.json()["starter_key"], "brush_teeth")
+            body = self.assert_response_fixture(body, fixture)
+            self.assertEqual((body["taps_today"], body["max_taps_per_day"]), (taps, 2))
+            self.assertEqual(body["strength"], taps)
+        rejected = self.client.post(path + "log/", {"direction": 1}, format="json")
+        self.assertEqual(rejected.status_code, 400)
+        self.assertEqual(HabitLog.objects.filter(habit=self.habit).count(), 2)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 10)
+
     def test_notification_pages_stay_same_origin_across_proxy_hops(self):
         for index in range(21):
             notification = Notification.objects.create(

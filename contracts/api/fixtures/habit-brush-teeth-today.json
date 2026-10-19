@@ -1,0 +1,28 @@
+{
+  "id": 9,
+  "name": "Brush your teeth",
+  "starter_key": "brush_teeth",
+  "icon": "🪥",
+  "habit_type": "positive",
+  "user": 7,
+  "created_by": 6,
+  "created_by_name": "Fixture Parent",
+  "xp_reward": 5,
+  "max_taps_per_day": 2,
+  "taps_today": 0,
+  "strength": 0,
+  "color": "yellow",
+  "is_active": true,
+  "pending_parent_review": false,
+  "skill_tags": [
+    {
+      "id": 4,
+      "skill": 2,
+      "skill_name": "Reading",
+      "skill_category": "Language Arts",
+      "xp_weight": 1
+    }
+  ],
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00"
+}

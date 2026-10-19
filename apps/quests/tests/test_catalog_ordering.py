@@ -14,13 +14,13 @@ class QuestCatalogOrderingTests(APITestCase):
         # PostgreSQL may preserve this physical insertion order for tied sort
         # keys. A custom same-name row must not displace the earlier ID.
         QuestDefinition.objects.create(
-            id=93, name="Feather Collector", quest_type="collection", target_value=3, is_system=False,
+            id=93, name="Feather Collector", quest_type="collection", target_value=3, is_system=False, created_by=parent,
         )
         QuestDefinition.objects.create(
             id=91, name="Feather Collector", quest_type="collection", target_value=3, is_system=True,
         )
-        QuestDefinition.objects.create(id=97, name="Zulu boss", quest_type="boss", target_value=3)
-        QuestDefinition.objects.create(id=95, name="Alpha collection", quest_type="collection", target_value=3)
+        QuestDefinition.objects.create(id=97, name="Zulu boss", quest_type="boss", target_value=3, created_by=parent)
+        QuestDefinition.objects.create(id=95, name="Alpha collection", quest_type="collection", target_value=3, created_by=parent)
 
         response = self.client.get("/api/quests/catalog/")
 

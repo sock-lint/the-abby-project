@@ -100,15 +100,11 @@ export default function ChildDashboard({ data, reload }) {
   const handleTapHabit = useCallback(
     (id) => {
       hapticTap();
-      setCompletedIds((prev) => new Set(prev).add(`habit-${id}`));
+      // A tap may be only part of a daily habit. Let the refreshed server
+      // feed update progress and remove the row when its actual cap is met.
       return logHabitTap(id, 1)
         .then(reload)
         .catch((err) => {
-          setCompletedIds((prev) => {
-            const next = new Set(prev);
-            next.delete(`habit-${id}`);
-            return next;
-          });
           handleActionError(err, 'Log habit');
         });
     },
