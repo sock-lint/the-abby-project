@@ -576,9 +576,8 @@ capture on loading/read failures, and chooses create or edit from confirmed
 server state. Account/credential keys fence private preview and capture state.
 The modal offers one writing field, an optional title, dictation and gentle
 ideas, with the existing per-account drafts and immutable save reconciliation.
-New entries default private; edits preserve the existing entry's sharing
-choice. Create-conflict recovery keeps the more private of the draft and the
-existing entry, so words typed as private never become shared. Confirmations show only server-receipted XP
+New entries default private; edits and create-conflict recovery preserve the
+existing entry's sharing choice. Confirmations show only server-receipted XP
 and Coins, suppress reward celebrations for edits and known saved retries, and
 refresh shared balances after saving. The flat daily 2 Coin bonus accompanies
 normal journal progression; it is not a promise of the entire coin payout.

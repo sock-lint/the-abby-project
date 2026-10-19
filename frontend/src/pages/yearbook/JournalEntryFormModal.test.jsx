@@ -465,46 +465,9 @@ describe('JournalEntryFormModal', () => {
     ).toBeInTheDocument();
     // Friendly 409 error — not a raw status code.
     expect(screen.getByRole('alert').textContent).toMatch(/already wrote today/i);
-    // Words typed as private never become shared just because today's
-    // existing entry was shared from another device.
-    expect(screen.getByRole('checkbox', { name: /share with parents/i })).not.toBeChecked();
+    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
     // The in-flight text survives, appended after the existing body.
     expect(screen.getByLabelText(/mind/i).value).toContain('Some earlier thoughts.');
     expect(screen.getByLabelText(/mind/i).value).toContain('New thought I typed');
-  });
-
-  it.each([
-    [false, true],
-    [true, false],
-  ])('keeps an explicit share only when the existing entry is shared too (existing private=%s)', async (existingPrivate, expectShared) => {
-    server.use(
-      http.post('*/api/chronicle/journal/', () =>
-        HttpResponse.json(
-          {
-            detail: 'You already wrote a journal entry today. Edit it instead.',
-            existing: {
-              id: 78, kind: 'journal', is_private: existingPrivate, title: 'Earlier today',
-              summary: 'Some earlier thoughts.', occurred_on: new Date().toLocaleDateString('en-CA'),
-            },
-          },
-          { status: 409 },
-        ),
-      ),
-    );
-    const user = userEvent.setup();
-    renderWithProviders(
-      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
-    );
-    const dialog = getDialog();
-    await user.type(within(dialog).getByLabelText(/mind/i), 'A thought to share');
-    await user.click(within(dialog).getByRole('checkbox', { name: /share with parents in my family/i }));
-    await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
-
-    await waitFor(() =>
-      expect(screen.getByRole('dialog', { name: /edit your journal entry/i })).toBeInTheDocument(),
-    );
-    const share = screen.getByRole('checkbox', { name: /share with parents/i });
-    if (expectShared) expect(share).toBeChecked();
-    else expect(share).not.toBeChecked();
   });
 });

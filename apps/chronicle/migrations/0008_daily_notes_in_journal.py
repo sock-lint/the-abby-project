@@ -40,11 +40,17 @@ def remove_daily_note_projections(apps, schema_editor):
 
     Earlier access rules only hide private journal and grade entries, so a
     retained daily_note row would become readable by the child's parents.
-    The source wellbeing rows still hold every note, and a later forward
-    migration rebuilds the projections without duplicates.
+    The retained wellbeing rows still hold their notes, and a later forward
+    migration rebuilds those projections without duplicates. A projection
+    whose source row was deleted cannot be rebuilt; privacy takes precedence.
     """
     Entry = apps.get_model("chronicle", "ChronicleEntry")
-    Entry.objects.using(schema_editor.connection.alias).filter(kind="daily_note").delete()
+    connection = schema_editor.connection
+    Entry.objects.using(connection.alias).filter(kind="daily_note").delete()
+    if connection.vendor == "postgresql":
+        # The deletes queue deferred foreign-key checks, and PostgreSQL then
+        # refuses the following ALTER TABLE in this transaction. Run them now.
+        schema_editor.execute("SET CONSTRAINTS ALL IMMEDIATE")
 
 
 class Migration(migrations.Migration):
