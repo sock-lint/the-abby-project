@@ -5,6 +5,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import { renderWithProviders } from '../../test/render';
 import { server } from '../../test/server';
 import { buildParent, buildUser } from '../../test/factories';
+import { spyHandler } from '../../test/spy';
 import { useRole } from '../../hooks/useRole';
 import JournalConversation from './JournalConversation';
 import * as chronicleApi from '../../api';
@@ -32,6 +33,52 @@ function mount(entry = sharedEntry, userFixture = buildParent(), defaultOpen = t
 }
 
 describe('JournalConversation', () => {
+  it.each([
+    ['child journal', 'journal', buildUser()],
+    ['parent journal', 'journal', buildParent()],
+    ['child grade', 'grade', buildUser()],
+  ])('offers the %s author a reply to their family', async (_name, kind, author) => {
+    const reply = 'Thanks for reading my entry!';
+    const send = spyHandler('post', /\/api\/chronicle\/entries\/23\/comments\/$/, ({ body }) => ({
+      ...response, id: 10, author: author.id, author_name: author.first_name, body: body.body,
+    }));
+    server.use(
+      http.get('*/api/chronicle/entries/23/comments/', () => HttpResponse.json([response])),
+      send.handler,
+    );
+    const { user } = mount({ ...sharedEntry, kind, user: author.id }, author);
+    const textbox = await screen.findByRole('textbox', { name: 'Reply to your family' });
+    expect(screen.getByText('This is your shared entry. Your family can respond here, and you can reply.')).toBeInTheDocument();
+    expect(textbox).toHaveAccessibleDescription('Add a follow-up or reply to a family response.');
+    expect(screen.queryByRole('textbox', { name: 'Your family response' })).toBeNull();
+    expect(screen.getByText(response.body)).toBeInTheDocument();
+    await user.type(textbox, reply);
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
+    await waitFor(() => expect(send.calls).toHaveLength(1));
+    expect(send.calls[0].url).toMatch(/\/api\/chronicle\/entries\/23\/comments\/$/);
+    expect(send.calls[0].body).toEqual({ body: reply, client_comment_id: expect.stringMatching(/^[\da-f-]{36}$/i) });
+    await screen.findByText('Response saved with this memory.');
+    expect(screen.getByText(reply)).toBeInTheDocument();
+    expect(textbox).toHaveValue('');
+  });
+
+  it('explains the empty conversation to the entry author without asking them to encourage themselves', async () => {
+    server.use(http.get('*/api/chronicle/entries/23/comments/', () => HttpResponse.json([])));
+    mount(sharedEntry, buildUser());
+    await screen.findByRole('textbox', { name: 'Reply to your family' });
+    expect(screen.getByText('No family responses yet. Replies will appear here.')).toBeInTheDocument();
+    expect(screen.queryByText(/Leave a little encouragement/)).toBeNull();
+  });
+
+  it('keeps the family response prompt for a parent viewing another author’s entry', async () => {
+    mount();
+    const textbox = await screen.findByRole('textbox', { name: 'Your family response' });
+    expect(screen.getByText('Your family can respond here. Responses stay with this shared memory.')).toBeInTheDocument();
+    expect(textbox).toHaveAccessibleDescription('A note, a question, or a little encouragement.');
+    expect(screen.getByRole('button', { name: 'Send response' })).toBeInTheDocument();
+    expect(screen.queryByText(/This is your shared entry/)).toBeNull();
+  });
+
   it('keeps a pending reply through collapse/reopen and merges a late read without losing it', async () => {
     const post = deferred();
     const read = deferred();

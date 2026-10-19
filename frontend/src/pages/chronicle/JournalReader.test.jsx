@@ -126,8 +126,8 @@ describe('JournalReader — child view', () => {
     renderReader();
     await user.click(await screen.findByRole('button', { name: 'Family responses' }));
     expect(await screen.findByText('What did you make?')).toBeInTheDocument();
-    await user.type(screen.getByRole('textbox', { name: 'Your family response' }), 'A birthday card!');
-    await user.click(screen.getByRole('button', { name: 'Send response' }));
+    await user.type(screen.getByRole('textbox', { name: 'Reply to your family' }), 'A birthday card!');
+    await user.click(screen.getByRole('button', { name: 'Send reply' }));
     expect(await screen.findByText('A birthday card!')).toBeInTheDocument();
     expect(screen.getByText('Abby (you)')).toBeInTheDocument();
   });
