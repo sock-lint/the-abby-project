@@ -89,6 +89,7 @@ entries:
     mechanics:
       - "Homework pays no money or Coins directly; separate check-in, challenge, or badge bonuses can still apply."
       - "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress."
+      - "Submit homework with proof photos, a Google Drive or other shareable link, or both. Use a link your parent can open for review."
       - "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time challenge filters and badge criteria."
       - "Homework submitted the day before its due date or on the due date is on time in your family's timezone. Two or more days before is early; after the due date is late."
       - "The first homework assignment added per child per local day can count for built-in challenges, drops, and streak credit; create-delete-create cannot farm it."

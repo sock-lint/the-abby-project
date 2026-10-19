@@ -55,6 +55,24 @@ function renderPage(user, handlers = [], { route = '/homework' } = {}) {
 }
 
 describe('Homework', () => {
+  it('shows a link-only homework proof URL before the parent reviews it', async () => {
+    const user = userEvent.setup();
+    const approval = spyHandler('post', /\/api\/homework-submissions\/9\/approve\/$/, { ok: true });
+    renderPage(buildParent(), [
+      http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+        assignments: [], pending_submissions: [{ id: 9, assignment_title: 'Reading log', user: 1,
+          user_name: 'Abby', status: 'pending', proofs: [], proof_url: 'https://drive.google.com/file/d/synthetic-proof/view' }],
+      })),
+      approval.handler,
+    ]);
+    const link = await screen.findByRole('link', { name: /open proof link/i });
+    expect(link).toHaveAttribute('href', 'https://drive.google.com/file/d/synthetic-proof/view');
+    expect(approval.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: /^approve$/i }));
+    await waitFor(() => expect(approval.calls).toHaveLength(1));
+    expect(approval.calls[0].body).toBeNull();
+  });
+
   it.each(['approve', 'reject'])('keeps %s decisions busy and prevents competing or repeated requests', async (decision) => {
     const user = userEvent.setup();
     let finishDecision;

@@ -133,9 +133,10 @@ class HomeworkAssignmentViewSet(
         assignment = self.get_object()
         images = request.FILES.getlist("images")
         notes = request.data.get("notes", "")
+        proof_url = request.data.get("proof_url", "")
         try:
             submission = HomeworkService.submit_completion(
-                request.user, assignment, images, notes,
+                request.user, assignment, images, notes, proof_url=proof_url,
             )
         except HomeworkError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

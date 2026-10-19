@@ -21,7 +21,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import HomeworkSubmitSheet from '../../components/HomeworkSubmitSheet';
 import SubmissionTiming from '../../components/SubmissionTiming';
 import ReviewedWorkHistory from '../../components/ReviewedWorkHistory';
-import ProofGallery from '../../components/ProofGallery';
+import HomeworkProofEvidence from '../../components/HomeworkProofEvidence';
 import StatusBadge from '../../components/StatusBadge';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import ChapterRubric from '../../components/atlas/ChapterRubric';
@@ -213,7 +213,7 @@ function HomeworkWorkspace({ context }) {
         letter="H"
         title="Homework"
         kicker="Track assignments and due dates"
-        meta={isParent ? 'Assign schoolwork and review submissions for this child.' : 'Submit each assignment with a proof photo.'}
+        meta={isParent ? 'Assign schoolwork and review submissions for this child.' : 'Submit each assignment with a proof photo or link.'}
         stats={versoStats}
         progressPct={versoProgressPct}
         progressLabel={versoProgressLabel}
@@ -321,7 +321,7 @@ function HomeworkWorkspace({ context }) {
                         &ldquo;{sub.notes}&rdquo;
                       </p>
                     )}
-                    <ProofGallery proofs={sub.proofs} />
+                    <HomeworkProofEvidence proofs={sub.proofs || []} proofUrl={sub.proof_url} />
                     <fieldset
                       disabled={pendingDecision !== null}
                       aria-label={`Review ${sub.assignment_title}`}

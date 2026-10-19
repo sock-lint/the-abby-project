@@ -22,6 +22,19 @@ function authenticate() {
 }
 
 describe('Reviewed work history', () => {
+  it('shows saved homework proof URL alongside its photos after review', async () => {
+    authenticate();
+    server.use(http.get('*/api/homework-submissions/', () => HttpResponse.json([row(1, {
+      proof_url: 'https://docs.google.com/document/d/synthetic-proof/edit',
+      proofs: [{ id: 10, image: 'https://example.test/proof.jpg', caption: 'Completed page' }],
+    })])));
+    const { user } = renderWithProviders(<ReviewedWorkHistory kind="homework" childId={7} />);
+    await user.click(await screen.findByText('Reviewed homework'));
+    const link = await screen.findByRole('link', { name: /open proof link/i });
+    expect(link).toHaveAttribute('href', 'https://docs.google.com/document/d/synthetic-proof/edit');
+    expect(screen.getByRole('button', { name: 'View Completed page' })).toBeInTheDocument();
+  });
+
   it('uses the current family timezone for legacy work and updates it without reopening history', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({

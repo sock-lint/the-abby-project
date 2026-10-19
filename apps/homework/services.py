@@ -1,9 +1,13 @@
 import logging
+import unicodedata
 from dataclasses import dataclass
 from decimal import Decimal
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import URLValidator
 from django.db import transaction
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
@@ -57,6 +61,30 @@ def _scale_xp_by_effort(total_xp, effort_level):
 
 class HomeworkError(Exception):
     pass
+
+
+def _normalize_proof_url(value):
+    """Validate a saved browser link locally, without fetching or resolving it."""
+    message = "Enter a valid proof link starting with http:// or https://."
+    if not isinstance(value, str) or any(
+        unicodedata.category(char) == "Cc" or char == "\ufeff" for char in value
+    ):
+        raise HomeworkError(message)
+    value = value.strip()
+    if not value:
+        return ""
+    if len(value) > 2048:
+        raise HomeworkError(message)
+    try:
+        URLValidator(schemes=["http", "https"])(value)
+        parsed = urlsplit(value)
+        # urllib checks numeric port bounds only when the property is read.
+        _ = parsed.port
+        if not parsed.hostname or parsed.username is not None or parsed.password is not None:
+            raise ValueError("Proof links must not contain credentials.")
+    except (ValidationError, ValueError):
+        raise HomeworkError(message) from None
+    return value
 
 
 class HomeworkService:
@@ -214,14 +242,14 @@ class HomeworkService:
     # ------------------------------------------------------------------
     @staticmethod
     @transaction.atomic
-    def submit_completion(user, assignment, images, notes=""):
-        """Child submits homework with proof images.
+    def submit_completion(user, assignment, images, notes="", *, proof_url=""):
+        """Child submits homework with proof images, a shareable link, or both.
 
-        Validates at least 1 image. Records timeliness for later badge
-        evaluation and freezes the deadline/local-day comparison. Homework
-        no longer pays money or coins, so there is no currency snapshot
-        or AI effort estimation — effort
-        stays as whatever was set on the assignment and only weights XP
+        Requires at least one image or a locally validated link. Records
+        timeliness for later badge evaluation and freezes the deadline/local-day
+        comparison. Homework pays no money or coins, so there is no currency
+        snapshot or AI effort estimation — effort stays as whatever was set
+        on the assignment and only weights XP
         distribution on approval.
         """
         if user.role != "child":
@@ -239,8 +267,9 @@ class HomeworkService:
         if assignment.assigned_to != user:
             raise HomeworkError("This assignment is not assigned to you.")
 
-        if not images:
-            raise HomeworkError("At least one proof image is required.")
+        proof_url = _normalize_proof_url(proof_url)
+        if not images and not proof_url:
+            raise HomeworkError("Add a proof photo or a proof link.")
 
         # Check for existing non-rejected submission.
         if HomeworkSubmission.objects.filter(
@@ -256,6 +285,7 @@ class HomeworkService:
             user=user,
             status=HomeworkSubmission.Status.PENDING,
             notes=notes,
+            proof_url=proof_url,
             timeliness=timeliness_label,
             timing_snapshot=build_timing_snapshot(
                 user, schedule="homework", at=submitted_at,
@@ -281,12 +311,12 @@ class HomeworkService:
             target=submission,
             breakdown=[
                 {"label": "timeliness", "value": timeliness_label, "op": "note"},
-                {"label": "proofs", "value": len(images), "op": "note"},
+                {"label": "proofs", "value": len(images) + bool(proof_url), "op": "note"},
             ],
             extras={
                 "assignment_id": assignment.pk,
                 "timeliness": timeliness_label,
-                "proof_count": len(images),
+                "proof_count": len(images) + bool(proof_url),
             },
         )
 

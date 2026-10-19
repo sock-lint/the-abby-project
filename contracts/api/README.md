@@ -104,6 +104,15 @@ The producer is `config.tests.test_submission_timing_api_contract_fixtures` and
 the React consumer is `src/api/submissionTimingContractFixtures.test.jsx`;
 both run in the required API fixtures workflow.
 
+`homework-proof-link-submitted.json` and `homework-proof-link-reviewed.json`
+come from a real URL-only homework submission and its later parent review.
+Submission responses add `proof_url`, an optional HTTP(S) link with an empty
+string for photo-only and older submissions. A proof link can accompany photos
+or supply the evidence on its own; Abby saves the link without retrieving it.
+The synthetic Drive link survives approval and a later deadline edit while the
+original on-time snapshot remains unchanged. The same submission-timing
+producer and React consumer verify transport and the reviewed-history link.
+
 `content-workbench-catalog.json` and `content-workbench-denied.json` bind the
 staff content editor's catalog, exact reward references, reverse item uses,
 simulation metadata and permission denial to real Django responses. Producers

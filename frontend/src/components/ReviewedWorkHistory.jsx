@@ -8,7 +8,7 @@ import ErrorAlert from './ErrorAlert';
 import ParchmentCard from './journal/ParchmentCard';
 import RuneBadge from './journal/RuneBadge';
 import SubmissionTiming from './SubmissionTiming';
-import ProofGallery from './ProofGallery';
+import HomeworkProofEvidence from './HomeworkProofEvidence';
 
 function History({ kind, childId, timezone }) {
   const [open, setOpen] = useState(false);
@@ -83,7 +83,7 @@ function History({ kind, childId, timezone }) {
         </div>
         <SubmissionTiming record={row} kind={kind} timezone={timezone} />
         {row.notes && <p className="font-body text-caption text-ink-secondary whitespace-pre-wrap break-words">{row.notes}</p>}
-        {kind === 'homework' && <ProofGallery proofs={row.proofs || []} />}
+        {kind === 'homework' && <HomeworkProofEvidence proofs={row.proofs || []} proofUrl={row.proof_url} />}
       </ParchmentCard>)}
       {loading && <p role="status" className="font-body text-caption text-ink-secondary">Loading reviewed work…</p>}
       <ErrorAlert message={error} />
