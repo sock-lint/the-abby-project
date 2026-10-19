@@ -55,6 +55,11 @@ export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezon
         {isParent ? 'Create a goal for this child, or explore their bonus challenges below.' : 'Parent goals and any challenge you pin will appear here. Your usual activity already counts toward matching bonuses.'}
       </EmptyState>}
       {dailyBonus}
+      {focus.explore.length > 0 && <section className="space-y-3" aria-label="Explore challenges">
+        <ChapterRubric index={sectionIndex++} name="Explore challenges" />
+        <p className="font-body text-caption text-ink-secondary">Open an available challenge to see its details. Your usual activity already counts.</p>
+        {cards(focus.explore)}
+      </section>}
       {focus.bonusPreview.length > 0 && <section className="space-y-3" aria-label="Bonus progress">
         <ChapterRubric index={sectionIndex++} name="Bonus progress" />
         <p className="font-body text-caption text-ink-secondary">A few bonus challenges your activity is moving toward completion.</p>

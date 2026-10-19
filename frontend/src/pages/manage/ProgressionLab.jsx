@@ -20,6 +20,7 @@ import ProgressionRewardBudgetReport from './ProgressionRewardBudgetReport';
 import PetIncubationPolicy from './PetIncubationPolicy';
 import PetIncubationState from './PetIncubationState';
 import PetIncubationJourney from './PetIncubationJourney';
+import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
 import { importedScenario, rewardBudgetLabel, scenariosMatch } from './progressionLabScenario';
 
 const ROUTINE_FIELDS = [
@@ -161,6 +162,7 @@ function AccountProgressionLab() {
         <ErrorAlert message={readError && `Could not load the rules and catalog. ${readError}`} onRetry={retryRead} />
         {loading && <Loader />}
         {metadata && config && <>
+          <ChallengeDiscoveryReport />
           <ParchmentCard className="space-y-4">
             <SectionHeader title="Build a new child’s routine" index={0}>All activity counts apply to active days. Scenarios use anonymous state and do not create accounts or change rewards.</SectionHeader>
             <form aria-label="Progression scenario" onSubmit={simulate} className="space-y-4">

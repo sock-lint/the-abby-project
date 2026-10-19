@@ -239,6 +239,10 @@ class ChallengeEnrollment(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     starts_at = models.DateTimeField(default=timezone.now)
     timezone_name = models.CharField(max_length=64, default="America/Phoenix")
+    discovery_tracking_started_at = models.DateTimeField(
+        null=True, blank=True, editable=False,
+        help_text="Set only on new enrollment; null preserves unknown historical detail openings.",
+    )
 
 
 class ChallengeGoal(TimestampedModel):
@@ -297,6 +301,7 @@ class ChallengeOccurrence(TimestampedModel):
         ("active", "Active"), ("completed", "Completed"), ("expired", "Expired"),
     ])
     completed_at = models.DateTimeField(null=True, blank=True)
+    first_details_opened_at = models.DateTimeField(null=True, blank=True, editable=False)
     awarded_at = models.DateTimeField(null=True, blank=True)
     reward_receipt = models.JSONField(default=dict)
 

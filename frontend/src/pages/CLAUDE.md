@@ -9,6 +9,21 @@ stable routes and component identifiers, not the labels to show users.
 
 ## Progression lab
 
+Challenges expose up to three available one-time catalog goals under Explore
+challenges, with the same shortcut on child Today. Opening a child's own catalog
+details records a server-confirmed first opening separately from automatic
+completion. Parent previews, parent-authored goals and legacy details do not
+record child openings. The hook shares an in-flight request across StrictMode
+replay, does not retry an uncertain mutation automatically, and ignores late
+responses after account, credential or detail changes. Failed measurement
+never hides the details. Older missing fields preserve the existing browser.
+
+The staff Lab's Recorded challenge discovery panel reads bounded same-family
+counts independently from the anonymous simulator. Its denominator is newly
+materialized tracked one-time windows, not visits or screen impressions.
+Untracked earlier history and capacity failures remain explicit. Opening does
+not establish reading, enjoyment or retention; see the backend quest guidance.
+
 `/manage/rpg-content` adds the staff-parent content workspace alongside the lab.
 It browses challenges and items, saves revisioned server drafts, shows reward
 wiring and audits, and compares the published and proposed catalogs before

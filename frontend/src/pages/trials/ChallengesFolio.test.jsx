@@ -4,6 +4,17 @@ import { buildChallengeGoal } from '../../test/challenges';
 import ChallengesFolio from './ChallengesFolio';
 
 describe('Challenges Task folio', () => {
+  it('makes unopened one-time catalog details accessible without expanding the bonus browser', async () => {
+    const goal = buildChallengeGoal({ origin: 'catalog', progress: '0', catalog_repeatable: false, first_details_opened_at: null });
+    const select = vi.fn();
+    const { user } = renderWithProviders(<ChallengesFolio goals={[goal]} onSelect={select} />, { withAuth: false });
+    const explore = screen.getByRole('region', { name: 'Explore challenges' });
+    expect(within(explore).getByRole('article', { name: goal.name })).toBeInTheDocument();
+    await user.click(within(explore).getByRole('button', { name: `View ${goal.name}` }));
+    expect(select).toHaveBeenCalledWith(goal);
+    expect(goal.progress).toBe('0');
+  });
+
   it('identifies parent goals by server origin even when catalog names match', () => {
     const goals = [
       buildChallengeGoal({ id: 'goal:catalog', origin: 'catalog', progress: '0', name: 'Run 2 miles' }),
