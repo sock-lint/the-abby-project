@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import ProgressionLab from './ProgressionLab';
@@ -11,8 +11,12 @@ import { selectDropdown } from '../../test/selectDropdown';
 import sharedMetadata from '../../../../contracts/api/fixtures/progression-lab-metadata.json';
 import sharedReport from '../../../../contracts/api/fixtures/progression-lab-report.json';
 import sharedEconomyReport from '../../../../contracts/api/fixtures/progression-lab-economy-report.json';
+import sharedGateReport from '../../../../contracts/api/fixtures/progression-lab-challenge-gates-report.json';
+import sharedGateMetadata from '../../../../contracts/api/fixtures/progression-lab-challenge-gates-metadata.json';
+import sharedDiscovery from '../../../../contracts/api/fixtures/challenge-discovery-observed.json';
 import { economyDefaults, economyMetadata } from './progressionEconomyTestData';
 import { formatCurrency } from '../../utils/format';
+import { gateDefaults, gateMetadata, gateRule } from './progressionChallengeGateTestData';
 
 const defaults = {
   horizon_days: 90, trials: 20, seed: 42, active_days_per_week: 5,
@@ -62,6 +66,45 @@ function setupMetadata() {
 }
 
 describe('Progression lab', () => {
+  beforeEach(() => server.use(http.get('*/api/challenges/discovery/', () => HttpResponse.json(sharedDiscovery))));
+  it('renders actual endpoint gate timing and restores its saved rules without importing old outcomes', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(sharedGateMetadata)));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, sharedGateReport);
+    server.use(simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await user.click(await screen.findByText('Load a saved routine'));
+    await user.upload(screen.getByLabelText('Saved routine'), new File([JSON.stringify(sharedGateReport)], 'gates-report.json', { type: 'application/json' }));
+    expect(await screen.findByText(/Saved routine loaded/)).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Challenge gate forecast' })).toBeNull();
+    expect(simulation.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    const panel = within(await screen.findByRole('region', { name: 'Challenge gate forecast' }));
+    expect(simulation.calls[0].body).toEqual(sharedGateReport.config);
+    expect(panel.getByText(/Native modeled finite targets/)).toHaveTextContent(String(sharedGateReport.summary.finite_content_total));
+    expect(panel.getByRole('table', { name: 'Per-challenge eligibility and completion' })).toBeVisible();
+    const offered = sharedGateReport.challenge_gates.targets.find((target) => target.unlocked_trials > 0);
+    if (offered) expect(panel.getByRole('row', { name: new RegExp(offered.name) })).toHaveTextContent(`Day ${offered.p50_unlock_days}`);
+    expect(panel.getByText(/Gate waiting is not additional content/)).toBeVisible();
+  });
+  it('keeps edited challenge gates through presets and submits each policy only to the simulator', async () => {
+    const current = { ...metadata, ...gateMetadata, defaults: { ...defaults, challenge_gates: { ...gateDefaults, rules: [{ ...gateRule }] } } };
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, ({ body }) => ({ ...report, config: body }));
+    const live = spyHandler('post', /\/api\/challenges\/.*/, {});
+    server.use(simulation.handler, live.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Challenge gate policy' }), 'milestones');
+    await user.click(screen.getByRole('button', { name: 'Use light routine' }));
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await screen.findByRole('region', { name: 'Simulation report' });
+    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, challenge_gates: { ...gateDefaults, mode: 'milestones', rules: [gateRule] } });
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Challenge gate policy' }), 'milestone_tenure');
+    expect(screen.getByText(/Inputs have changed/)).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Run simulation' }));
+    await waitFor(() => expect(simulation.calls).toHaveLength(2));
+    expect(simulation.calls[1].body.challenge_gates.mode).toBe('milestone_tenure');
+    expect(live.calls).toHaveLength(0);
+  });
   it('compares shared launch and item limits while preserving Coin rules and routine presets', async () => {
     const current = { ...metadata, defaults: { ...defaults, reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: { daily_launches: null, daily_items: null } }, expedition_budget_defaults: { daily_launches: null, daily_items: null }, expedition_budget_limits: { daily_launches: { min: 0, max: 15 }, daily_items: { min: 0, max: 45 } } };
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(current)));

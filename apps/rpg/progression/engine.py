@@ -70,9 +70,15 @@ from .expedition_budget import (
     ExpeditionBudget, aggregate_expedition_budget, normalize_expedition_budget,
 )
 
+from .challenge_gates import (
+    CHALLENGE_GATES_DEFAULTS, CHALLENGE_GATES_LIMITS, ASSUMPTIONS as CHALLENGE_GATES_ASSUMPTIONS,
+    ChallengeGates, aggregate_challenge_gates, challenge_gate_choices, normalize_challenge_gates,
+    validate_challenge_gate_catalog,
+)
+
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-18.5"
+ENGINE_VERSION = "2026-10-19.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -99,6 +105,7 @@ DEFAULTS = {
     "reward_budget": dict(REWARD_BUDGET_DEFAULTS),
     "reward_commitment": dict(COMMITMENT_DEFAULTS),
     "expedition_budget": dict(EXPEDITION_BUDGET_DEFAULTS),
+    "challenge_gates": deepcopy(CHALLENGE_GATES_DEFAULTS),
 }
 LIMITS = {
     "horizon_days": {"choices": [30, 90, 180, 365]},
@@ -124,6 +131,7 @@ LIMITS = {
     "reward_budget": {"type": "object"},
     "reward_commitment": {"type": "object"},
     "expedition_budget": {"type": "object"},
+    "challenge_gates": {"type": "object"},
 }
 MILESTONES = {
     "first_reward": "First XP or Coins",
@@ -180,10 +188,11 @@ def normalize_config(config=None):
     result["reward_budget"] = normalize_reward_budget(supplied.get("reward_budget", {}))
     result["reward_commitment"] = normalize_commitment(supplied.get("reward_commitment", {}))
     result["expedition_budget"] = normalize_expedition_budget(supplied.get("expedition_budget", {}))
+    result["challenge_gates"] = normalize_challenge_gates(supplied.get("challenge_gates", {}))
     if result["reward_commitment"]["enabled"] and result["reward_budget"]["daily_coins"] is not None:
         raise ValueError("Commitment promises cannot be combined with the hypothetical Coin income envelope.")
     for key, value in result.items():
-        if key in {"economy", "reward_budget", "reward_commitment", "expedition_budget"}:
+        if key in {"economy", "reward_budget", "reward_commitment", "expedition_budget", "challenge_gates"}:
             continue
         limit = LIMITS[key]
         if limit.get("type") == "boolean":
@@ -245,6 +254,8 @@ def rules_fingerprint(*, incubation_policy=None):
         "reward_budget_source": inspect.getsource(inspect.getmodule(RewardBudget)),
         "reward_commitment_source": inspect.getsource(inspect.getmodule(RewardCommitment)),
         "expedition_budget_source": inspect.getsource(inspect.getmodule(ExpeditionBudget)),
+        "challenge_gates_source": inspect.getsource(inspect.getmodule(ChallengeGates)),
+        "challenge_gates_assumptions": list(inspect.getmodule(ChallengeGates).ASSUMPTIONS),
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
         "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS, GRATITUDE_FIRST_OF_DAY_COINS],
@@ -415,6 +426,7 @@ class Trial:
         self.reward_budget = RewardBudget(self.config["reward_budget"])
         self.reward_commitment = RewardCommitment(self.config["reward_commitment"])
         self.expedition_budget = ExpeditionBudget(self.config["expedition_budget"])
+        self.challenge_gates = ChallengeGates(self.config["challenge_gates"], catalog)
         self.rng = random.Random(seed)
         self.day = self.active_days = self.streak = self.last_active = 0
         self.coins = self.total_xp = self.earned_coins = 0
@@ -460,6 +472,17 @@ class Trial:
         }
         self.quests = self._eligible_quests()
         self.finite_keys = self._finite_keys()
+        native_quest_ids = set(self.reachable_quest_ids)
+        self.challenge_gates.native_ids = {q.pk for q in self.quests if not q.is_repeatable and q.pk in native_quest_ids}
+        gated_finite = self.finite_keys
+        if self.challenge_gates.enabled:
+            gated_finite = self._finite_keys(respect_gates=True)
+        self.challenge_gates.reachable_ids = set(self.reachable_quest_ids)
+        self.challenge_gates.native_finite_total = len(self.finite_keys)
+        self.challenge_gates.reachable_finite_total = len(self.finite_keys & gated_finite)
+        # Keep the installed native subset and denominator even for a gate that
+        # makes a reward path impossible. Such a lock cannot create content.
+        self.reachable_quest_ids = native_quest_ids
         if self.reward_commitment.enabled and _comparators:
             # Compare Coin policies while retaining the same expedition quotas.
             # A sibling initialization also recomputes challenge capacity and
@@ -663,7 +686,7 @@ class Trial:
         return entries, tier_balanced_weights(entries, budgets, authored_weights=authored,
                                               owned_item_ids=owned_item_ids)
 
-    def _finite_keys(self, *, installed=False):
+    def _finite_keys(self, *, installed=False, respect_gates=False):
         # Scenario-reachable means a compatible source exists in this model,
         # not that the target can be completed within the requested horizon.
         triggers = self._enabled_triggers()
@@ -674,7 +697,7 @@ class Trial:
             if e.min_level <= max(XP_THRESHOLDS) and e.weight > 0
             and (installed or not self.reward_commitment.enabled or self.reward_commitment.allows(e.item))
         }
-        if "expedition_returned" in triggers and self.config["expedition_budget"]["daily_items"] != 0:
+        if not respect_gates and "expedition_returned" in triggers and self.config["expedition_budget"]["daily_items"] != 0:
             tier = self.config["expedition_tier"]
             budgets = TIER_CONFIG[tier]["rarity_weights"]
             # A dedicated pool suppresses fallback at that level even if all
@@ -686,7 +709,7 @@ class Trial:
                                   if weight > 0 and budgets.get(e.item.rarity, 0) > 0
                                   and (installed or not self.reward_commitment.enabled
                                        or self.reward_commitment.allows(e.item, tier=tier)))
-        reachable_badges = self._reachable_badges(obtainable)
+        reachable_badges = self._reachable_badges(obtainable, respect_gates=respect_gates)
         egg_species = {
             self.catalog.items[pk].pet_species_id for pk in obtainable if self.catalog.items[pk].item_type == "egg"
         }
@@ -728,7 +751,7 @@ class Trial:
                         }
         return [paths[key] for key in sorted(paths)]
 
-    def _reachable_badges(self, obtainable):
+    def _reachable_badges(self, obtainable, *, respect_gates=False):
         """Filter finite targets by the scenario's eventual source capacity.
 
         An unbounded potential state is only a reachability calculation. It is
@@ -813,8 +836,23 @@ class Trial:
                 potential.xp[pk] = max(XP_THRESHOLDS.values())
             potential.total_xp = sum(potential.xp.values())
             potential.evaluate_unlocks()
+            potential_triggers = self._enabled_triggers()
+            if respect_gates:
+                # A gate on the only first companion path cannot bootstrap
+                # itself from future expedition loot before any mount exists.
+                if not any(pet.evolved_to_mount for pet in potential.pets.values()):
+                    potential_triggers.discard("expedition_returned")
+                elif "expedition_returned" in potential_triggers and self.config["expedition_budget"]["daily_items"] != 0:
+                    tier = self.config["expedition_tier"]
+                    for level in XP_THRESHOLDS:
+                        entries, weights = self._source_pool("expedition_returned", level, tier)
+                        obtainable.update(entry.item_id for entry, weight in zip(entries, weights)
+                                          if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0)
             for q in self.quests:
                 if q.required_badge_id and q.required_badge_id not in potential.badges:
+                    continue
+                if respect_gates and (not self.challenge_gates.potential_allows(q, potential)
+                                      or self._challenge_capacity(q, potential_triggers) < q.target_value):
                     continue
                 potential.completed_quests.add(q.pk)
                 obtainable.update(row.item_id for row in q.reward_items.all() if row.item_id in self.catalog.items)
@@ -1005,10 +1043,11 @@ class Trial:
         # Production materializes eligible catalog goals once before processing
         # the fact. A completion seal cannot enroll its next chapter halfway
         # through this same fact, regardless of catalog ordering.
-        eligible = [q for q in self.quests if not q.required_badge_id or q.required_badge_id in self.badges]
+        eligible = [q for q in self.quests if self.challenge_gates.can_offer(q, self)]
         for q in eligible:
             if q.pk not in self.quest_windows:
                 self.quest_windows[q.pk] = {"start": self.day, "progress": Decimal(0), "paid": False}
+                self.challenge_gates.unlock_days.setdefault(q.pk, self.day)
             window = self.quest_windows[q.pk]
             if self.day >= window["start"] + q.duration_days:
                 if not q.is_repeatable:
@@ -1027,6 +1066,7 @@ class Trial:
                 continue
             window["paid"] = True
             self.completed_quests.add(q.pk)
+            self.challenge_gates.completion_days.setdefault(q.pk, self.day)
             self.counters[f"{q.quest_type}_quests"] += 1
             self.counters["quest_completions"] += 1
             self.counters[f"quest_completed:{q.pk}"] += 1
@@ -1330,6 +1370,7 @@ class Trial:
         active = (day - 1) % 7 < c["active_days_per_week"]
         if active:
             self.active_days += 1
+            self.challenge_gates.visit(self)
             self.claim_incubation()
             self.claim_expeditions()
             if c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES:
@@ -1473,6 +1514,7 @@ class Trial:
             "reward_budget": self.reward_budget.report(),
             "reward_commitment": self.reward_commitment.report(self),
             "expedition_budget": self.expedition_budget.report(self),
+            "challenge_gates": self.challenge_gates.report(self),
         }
 
 
@@ -1511,6 +1553,10 @@ def describe_progression():
         "expedition_budget_defaults": dict(EXPEDITION_BUDGET_DEFAULTS),
         "expedition_budget_limits": deepcopy(EXPEDITION_BUDGET_LIMITS),
         "expedition_budget_assumptions": list(EXPEDITION_BUDGET_ASSUMPTIONS),
+        "challenge_gates_defaults": deepcopy(CHALLENGE_GATES_DEFAULTS),
+        "challenge_gates_limits": deepcopy(CHALLENGE_GATES_LIMITS),
+        "challenge_gates_assumptions": list(CHALLENGE_GATES_ASSUMPTIONS),
+        "challenge_gate_choices": challenge_gate_choices(catalog),
         "catalog": catalog.summary(),
         "coverage": coverage(catalog),
         "audit": audit_catalog(catalog),
@@ -1547,6 +1593,7 @@ def simulate_progression(config=None, *, catalog=None, incubation_policy=None):
     config = normalize_config(config)
     policy = _capture_incubation_policy(incubation_policy)
     catalog = load_catalog() if catalog is None else catalog
+    validate_challenge_gate_catalog(config["challenge_gates"], catalog)
     runs = [run_trial(config, catalog, config["seed"] + index, incubation_policy=policy) for index in range(config["trials"])]
     milestones = []
     milestone_labels = {**MILESTONES, **({"first_purchase": "First fulfilled purchase"} if config["economy"]["enabled"] else {})}
@@ -1672,4 +1719,5 @@ def simulate_progression(config=None, *, catalog=None, incubation_policy=None):
         "reward_budget": aggregate_reward_budget(runs, config["reward_budget"]),
         "reward_commitment": aggregate_commitment(runs, config["reward_commitment"]),
         "expedition_budget": aggregate_expedition_budget(runs, config["expedition_budget"]),
+        "challenge_gates": aggregate_challenge_gates(runs, config["challenge_gates"]),
     }

@@ -93,6 +93,34 @@
         "unit": "rate",
         "min_value": 0,
         "max_value": 1
+      },
+      {
+        "key": "challenge_waiting_visits_p50",
+        "label": "Median active visits waiting for a one-off challenge gate",
+        "unit": "visits",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "challenge_available_visits_p50",
+        "label": "Median active visits with an available one-off challenge",
+        "unit": "visits",
+        "min_value": 0,
+        "max_value": 365
+      },
+      {
+        "key": "challenge_unreachable_total",
+        "label": "Modeled finite targets made unreachable by challenge gates",
+        "unit": "targets",
+        "min_value": 0,
+        "max_value": 1000000
+      },
+      {
+        "key": "gated_challenge_min_completion_rate",
+        "label": "Lowest completion rate among configured challenges in the native routine subset",
+        "unit": "rate",
+        "min_value": 0,
+        "max_value": 1
       }
     ],
     "proposal": {
@@ -185,7 +213,7 @@
         "nullable": true
       }
     },
-    "fingerprint": "4b82dbb3c382f6242fde602b86b3d6c31ea5cd186c43dca1df44b96b54c7890b"
+    "fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0"
   },
   "experiments": [
     {

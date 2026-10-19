@@ -26,6 +26,7 @@ MAX_DECISIONS = 100
 MAX_OBSERVATIONS = 20
 MAX_COMPARISON_WORK_UNITS = MAX_WORK_UNITS * 2
 MAX_EVIDENCE_BYTES = 4 * 1024 * 1024
+GATE_POLICIES = {"milestone_gates": "milestones", "tenure_gates": "milestone_tenure"}
 
 
 class ExperimentConflict(Exception):
@@ -72,6 +73,8 @@ def _text(value, label, limit):
 
 
 def _candidate_config(config, policy, daily, expedition_budget):
+    if policy in GATE_POLICIES:
+        return {**config, "challenge_gates": {**deepcopy(config["challenge_gates"]), "mode": GATE_POLICIES[policy]}}
     if policy == "expedition_limits":
         return {**config, "expedition_budget": deepcopy(expedition_budget)}
     return {**config, "reward_budget": {"daily_coins": None if policy == "commitment100" else daily},
@@ -85,8 +88,8 @@ def _inputs(data, *, default_policy="envelope", default_expedition_budget=None):
     # Persist the installed control independently from any imported scenario.
     # The selected candidate policy establishes the one hypothetical change.
     policy = data.get("candidate_policy", default_policy)
-    if not isinstance(policy, str) or policy not in {"envelope", "commitment100", "expedition_limits"}:
-        raise ValueError("Candidate policy must be envelope, commitment100 or expedition_limits.")
+    if not isinstance(policy, str) or policy not in {"envelope", "commitment100", "expedition_limits", *GATE_POLICIES}:
+        raise ValueError("Choose a supported Coin, expedition or challenge-gate candidate policy.")
     supplied_budget = (data["candidate_expedition_budget"] if "candidate_expedition_budget" in data
                        else default_expedition_budget if default_expedition_budget is not None else {})
     if not isinstance(supplied_budget, dict):
@@ -94,7 +97,15 @@ def _inputs(data, *, default_policy="envelope", default_expedition_budget=None):
     expedition_budget = normalize_expedition_budget(supplied_budget)
     unlimited = normalize_expedition_budget({})
     daily = data["candidate_daily_coins"]
-    if policy == "expedition_limits":
+    if policy in GATE_POLICIES:
+        if daily is not None or expedition_budget != unlimited:
+            raise ValueError("Challenge-gate comparisons require null candidate daily Coins and no separate candidate expedition quota.")
+        if not config["challenge_gates"]["rules"]:
+            raise ValueError("Add at least one challenge-gate rule before saving this comparison.")
+        # Keep the entire recipe in both arms. Only the mode differs, so the
+        # same seed, catalog, Coin policy and expedition caps remain comparable.
+        config["challenge_gates"]["mode"] = "current"
+    elif policy == "expedition_limits":
         if daily is not None or expedition_budget == unlimited:
             raise ValueError("Expedition-limit comparisons require null candidate daily Coins and at least one quota.")
     else:
@@ -105,7 +116,8 @@ def _inputs(data, *, default_policy="envelope", default_expedition_budget=None):
         config["reward_budget"] = {"daily_coins": None}
         config["reward_commitment"] = {"enabled": False}
     # A quota comparison retains the routine's Coin rules in both arms.
-    config["expedition_budget"] = unlimited
+    if policy not in GATE_POLICIES:
+        config["expedition_budget"] = unlimited
     if policy == "commitment100" and daily != 100:
         raise ValueError("The commitment prototype requires exactly 100 candidate daily Coins.")
     candidate = _candidate_config(config, policy, daily, expedition_budget)

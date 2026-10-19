@@ -412,3 +412,71 @@ when fencing and checking collected rows. Saved comparison and observation JSON
 bodies are not decoded by ownership checks, including recursive parent checks.
 Regression tests cover self deletion, parent-managed deletion, family closure
 and a foreign comparison link that must continue to fail closed.
+
+## Challenge gate experiments
+
+Challenge gates are anonymous simulation assumptions. They never update the
+live catalog, a child's saved goals, progress, rewards or eligibility. Start
+with a bounded recipe of at most 20 explicit one-time global challenge IDs and choose:
+
+- `current`: ignore the valid recipe and retain native badge prerequisites.
+- `milestones`: require the selected prior challenge completion and named
+  skill/level, alongside the existing badge prerequisite and offering dates.
+- `milestone_tenure`: also require the selected elapsed days since first use.
+
+All populated conditions combine with AND. The first modeled active visit is
+day 1 at `challenge_gates.start_date`; 14 elapsed days permits offering from
+day 15. Inactive days advance that clock. This is not 14 active or consecutive
+days, and it does not model an existing child's historical activity. The
+calendar anchor is independent of the purchasing calendar: review both when
+using seasonal availability and monthly spending together. Date availability
+is an inclusive window for new offerings. Once offered, a challenge keeps its
+full native completion duration and reward values after the seasonal window
+ends. New qualifying facts alone make progress; completing a predecessor does
+not replay the same fact or earlier activity into the next chapter.
+
+Use a different rule per target, with an optional `prerequisite_quest_id`,
+`skill_id` / `skill_level`, `min_days`, and `available_from` / `available_until`.
+All IDs must refer to the detached global catalog. A repeatable challenge can
+be a prerequisite through its first completion, but cannot itself be a gated
+target. Duplicate rules, self or
+cyclic explicit prerequisite paths, malformed dates, and private/missing IDs
+are rejected. Skills use their actual XP and native unlock requirements;
+choosing a skill does not invent an XP source. A gate that cannot be reached
+is reported as unavailable content and does not reduce the native finite
+content denominator.
+
+The gate report lists native one-off catalog challenges, conditional unlock
+and completion dates with reached counts, temporary locks and expired windows.
+Its availability measure samples the start of each active visit, before that
+visit's work. Counts cover only the routine-compatible one-off challenge
+subset. An available repeatable, hobby or household activity is outside that
+measure. A waiting visit means that subset has no available unfinished
+challenge but has a structurally reachable locked challenge. Exhausted or
+expired visits are separate. Structural reachability is optimistic: it is not
+proof of completion before a seasonal deadline or within the forecast horizon.
+Definitively missed prerequisite paths are reported as blocked, including
+direct prerequisite chains and native challenge-completion badge requirements.
+Other native badge types retain optimistic structural reachability.
+Waiting and inactive days are not new content or measured engagement.
+
+In the feedback notebook, `milestone_gates` and `tenure_gates` compare current
+mode against the corresponding gated mode using the same recipe, catalog,
+seeds, economic policy and expedition caps. Supply null candidate daily Coins
+and no separate candidate expedition quota. Compare a shared current control
+against each candidate to distinguish milestones from the extra tenure wait.
+Add explicit guardrails for waiting visits, available visits and unreachable
+finite targets alongside reward timing and completion rates. The lowest
+completion rate among configured targets in the native routine subset retains
+its completing-trial count and can fail a policy that causes even one such
+challenge to remain unfinished. If no configured target belongs to that subset,
+this metric is unknown, not a passing zero. Inspect each target's counts too;
+an optimistic reachable path is not proof of finishing before its deadline.
+Evidence remains
+immutable, author/family scoped, and bound to the engine/rules/catalog/evaluator.
+
+For an interpretable first study, leave starter companion paths and repeatable
+routines native. Add a few optional chapter/skill prerequisites, evaluate 90
+and 365 days across light and frequent routines, then test calendar boundary
+and late-join cases separately. These experiments do not establish enjoyment,
+retention or authority to change live rewards.

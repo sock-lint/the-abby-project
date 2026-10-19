@@ -241,6 +241,58 @@ class ProgressionLabResponseFixtureTests(APITestCase):
         self.assertTrue(report["evaluation"]["proposal"]["evaluated_by_current_engine"])
         self.assertFalse(report["evaluation"]["proposal"]["live_ready"])
 
+    @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 19, 12, tzinfo=dt_timezone.utc))
+    def test_challenge_gates_and_saved_paired_evidence_match_shared_wire_contract(self, _now):
+        from apps.rpg.models import ProgressionComparison, ProgressionExperiment
+
+        QuestDefinition.objects.create(
+            id=563, name="Next lab chapter", description="Two newly approved chores after the first chapter",
+            quest_type="collection", target_value=2, duration_days=7,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+            coin_reward=18, xp_reward=0, is_system=True,
+        )
+        self.assert_response_fixture(self.client.get("/api/rpg/progression-lab/"), "progression-lab-challenge-gates-metadata.json")
+        config = {
+            "horizon_days": 30, "trials": 3, "seed": 17, "chores_per_day": 1,
+            "chore_coins": 5, "habits_per_day": 0, "journal_per_day": False,
+            "reward_commitment": {"enabled": True},
+            "expedition_budget": {"daily_launches": 3, "daily_items": None},
+            "challenge_gates": {"mode": "milestone_tenure", "start_date": "2026-01-01", "rules": [{
+                "quest_id": 563, "prerequisite_quest_id": 561, "skill_id": 511, "skill_level": 1,
+                "min_days": 14, "available_from": None, "available_until": None,
+            }]},
+        }
+        response = self.client.post("/api/rpg/progression-lab/simulate/", config, format="json")
+        report = self.assert_response_fixture(response, "progression-lab-challenge-gates-report.json")
+        target = next(row for row in report["challenge_gates"]["targets"] if row["quest_id"] == 563)
+        self.assertEqual(target["unlocked_trials"], 3)
+        self.assertEqual(target["p50_unlock_days"], 15)
+        self.assertEqual(target["p50_completion_days"], 16)
+        self.assertFalse(report["config"]["reward_budget"]["daily_coins"])
+        url = "/api/rpg/progression-lab/experiments/"
+        for index, (policy, mode) in enumerate((("milestone_gates", "milestones"), ("tenure_gates", "milestone_tenure")), start=21):
+            created = self.client.post(url, {
+                "name": "Optional chapter gate experiment", "hypothesis": "Separate chapters while preserving reward values.",
+                "config": config, "candidate_policy": policy, "candidate_daily_coins": None,
+                "targets": [{"metric": "challenge_waiting_visits_p50", "max": 10},
+                            {"metric": "challenge_unreachable_total", "max": 0},
+                            {"metric": "gated_challenge_min_completion_rate", "min": 1}],
+            }, format="json")
+            self.assertEqual(created.status_code, 201, created.content)
+            experiment_id = f"00000000-0000-4000-8000-{index:012d}"
+            ProgressionExperiment.objects.filter(pk=created.json()["id"]).update(id=experiment_id)
+            detail_url = f"{url}{experiment_id}/"
+            comparison = self.client.post(detail_url + "compare/", {"revision": 1}, format="json")
+            self.assertEqual(comparison.status_code, 201, comparison.content)
+            comparison_id = f"00000000-0000-4000-8000-{index + 10:012d}"
+            ProgressionComparison.objects.filter(pk=comparison.json()["id"]).update(id=comparison_id)
+            pair = self.assert_response_fixture(self.client.get(detail_url + f"comparisons/{comparison_id}/"),
+                                               f"progression-experiment-{policy.replace('_', '-')}-comparison.json")
+            self.assertEqual(pair["control"]["config"]["challenge_gates"]["mode"], "current")
+            self.assertEqual(pair["candidate"]["config"]["challenge_gates"]["mode"], mode)
+            self.assertEqual(pair["control"]["config"]["reward_commitment"], pair["candidate"]["config"]["reward_commitment"])
+            self.assertEqual(pair["control"]["config"]["expedition_budget"], pair["candidate"]["config"]["expedition_budget"])
+
     @patch("django.utils.timezone.now", return_value=datetime(2026, 10, 18, 12, tzinfo=dt_timezone.utc))
     def test_saved_experiment_feedback_contracts(self, _now):
         from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation

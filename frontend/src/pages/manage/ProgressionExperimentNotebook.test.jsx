@@ -12,6 +12,7 @@ import comparison from '../../../../contracts/api/fixtures/progression-experimen
 import decided from '../../../../contracts/api/fixtures/progression-experiment-decided.json';
 import observations from '../../../../contracts/api/fixtures/progression-observations-empty.json';
 import observed from '../../../../contracts/api/fixtures/progression-experiment-observed.json';
+import { gateDefaults, gateMetadata, gateRule } from './progressionChallengeGateTestData';
 const root = '/api/rpg/progression-lab/experiments/';
 const draft = { ...decided, latest_decision: null, comparisons: [], decisions: [] };
 const setup = (detail = draft, evidence = comparison) => server.use(
@@ -69,6 +70,24 @@ describe('Progression experiment notebook', () => {
     await user.click(screen.getByRole('button', { name: 'Save experiment' }));
     await screen.findByText('Experiment saved. Live rewards are unchanged.');
     expect(create.calls[0].body).toMatchObject({ candidate_policy: 'expedition_limits', candidate_daily_coins: null, candidate_expedition_budget: { daily_launches: null, daily_items: 3 }, config: { reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: quota } });
+  });
+  it('compares both gate hypotheses while preserving actual Coin rules, launch caps and edited gate rules', async () => {
+    setup();
+    const routine = { ...draft.config, reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: { daily_launches: 3, daily_items: null }, challenge_gates: { ...gateDefaults, mode: 'milestone_tenure', rules: [{ ...gateRule }] } };
+    const create = spyHandler('post', new RegExp(`${root}$`), { ...draft, candidate_policy: 'tenure_gates', candidate_daily_coins: null, config: { ...routine, challenge_gates: { ...routine.challenge_gates, mode: 'current' } } });
+    server.use(create.handler);
+    const { user } = renderWithProviders(<ProgressionExperimentNotebook routine={routine} gateMetadata={gateMetadata} />);
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Candidate reward policy' }), 'milestone_gates');
+    expect(screen.queryByRole('spinbutton', { name: 'Candidate Coins per child per day' })).toBeNull();
+    expect(screen.getByText(/Both arms keep 100-Coin commitment prototype.*3 launches/)).toBeVisible();
+    const gates = within(screen.getByRole('region', { name: 'Candidate challenge gates' }));
+    fireEvent.change(gates.getByRole('spinbutton', { name: 'Gate 1 elapsed days since first activity' }), { target: { value: '21' } });
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Candidate reward policy' }), 'tenure_gates');
+    expect(gates.getByRole('spinbutton', { name: 'Gate 1 elapsed days since first activity' })).toHaveValue(21);
+    await user.click(screen.getByRole('button', { name: 'Save experiment' }));
+    await screen.findByText('Experiment saved. Live rewards are unchanged.');
+    expect(create.calls[0].body).toMatchObject({ candidate_policy: 'tenure_gates', candidate_daily_coins: null, candidate_expedition_budget: { daily_launches: null, daily_items: null }, config: { reward_commitment: { enabled: true }, reward_budget: { daily_coins: null }, expedition_budget: routine.expedition_budget, challenge_gates: { ...routine.challenge_gates, mode: 'current', rules: [{ ...gateRule, min_days: 21 }] } } });
+    expect(Object.keys(create.calls[0].body).sort()).toEqual(['candidate_daily_coins', 'candidate_expedition_budget', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
   });
   it('updates the exact revision and captures the changed routine explicitly', async () => {
     setup(decided);

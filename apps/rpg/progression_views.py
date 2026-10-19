@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from config.permissions import IsStaffParent
 
 from .progression import describe_progression, normalize_config, simulate_progression
+from .progression.challenge_gates import GateReferenceError
 
 
 class ProgressionSimulationThrottle(UserRateThrottle):
@@ -64,5 +65,7 @@ class ProgressionSimulationView(_ProgressionLabView):
         scenario.is_valid(raise_exception=True)
         try:
             return Response(simulate_progression(scenario.validated_data))
+        except GateReferenceError as exc:
+            raise ValidationError({"detail": str(exc)}) from exc
         except ValueError as exc:
             raise ProgressionCatalogUnavailable(str(exc)) from exc

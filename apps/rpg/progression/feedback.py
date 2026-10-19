@@ -25,6 +25,10 @@ METRICS = (
     {"key": "expedition_empty_trips_p50", "label": "Median empty expedition trips", "unit": "trips", "min_value": 0, "max_value": 1_000_000},
     {"key": "first_mount_day_p50", "label": "First grown companion day, among completing journeys", "unit": "days", "min_value": 0, "max_value": 365},
     {"key": "first_mount_reached_rate", "label": "Journeys reaching a grown companion", "unit": "rate", "min_value": 0, "max_value": 1},
+    {"key": "challenge_waiting_visits_p50", "label": "Median active visits waiting for a one-off challenge gate", "unit": "visits", "min_value": 0, "max_value": 365},
+    {"key": "challenge_available_visits_p50", "label": "Median active visits with an available one-off challenge", "unit": "visits", "min_value": 0, "max_value": 365},
+    {"key": "challenge_unreachable_total", "label": "Modeled finite targets made unreachable by challenge gates", "unit": "targets", "min_value": 0, "max_value": 1_000_000},
+    {"key": "gated_challenge_min_completion_rate", "label": "Lowest completion rate among configured challenges in the native routine subset", "unit": "rate", "min_value": 0, "max_value": 1},
 )
 METRIC_BY_KEY = {row["key"]: row for row in METRICS}
 
@@ -125,8 +129,9 @@ def normalize_targets(supplied):
 def _check_pair(control, candidate):
     """Defense in depth; the caller generates both reports from one snapshot."""
     from .expedition_budget import normalize_expedition_budget
+    from .challenge_gates import normalize_challenge_gates
 
-    configs, quotas, coin_policies = [], [], []
+    configs, quotas, coin_policies, gates = [], [], [], []
     for report in (control, candidate):
         config = report.get("config")
         if not isinstance(config, dict) or not isinstance(config.get("reward_budget"), dict):
@@ -143,18 +148,27 @@ def _check_pair(control, candidate):
         if not isinstance(quota, dict):
             raise ValueError("Comparison requires normalized expedition quotas.")
         quotas.append(normalize_expedition_budget(quota))
+        gates.append(normalize_challenge_gates(config.get("challenge_gates", {})))
         coin_policies.append((cap, commitment["enabled"]))
         configs.append({key: value for key, value in config.items()
-                        if key not in {"reward_budget", "reward_commitment", "expedition_budget"}})
+                        if key not in {"reward_budget", "reward_commitment", "expedition_budget", "challenge_gates"}})
     if configs[0] != configs[1]:
         raise ValueError("Control and candidate must use the same routine, seeds and purchasing assumptions.")
     unlimited = normalize_expedition_budget({})
-    if quotas[0] != unlimited:
+    if gates[0] != gates[1]:
+        if (gates[0]["mode"] != "current" or gates[1]["mode"] not in {"milestones", "milestone_tenure"}
+                or not gates[0]["rules"]
+                or {key: value for key, value in gates[0].items() if key != "mode"}
+                != {key: value for key, value in gates[1].items() if key != "mode"}):
+            raise ValueError("Challenge-gate comparisons must retain one recipe and change only the current control's gate mode.")
+        if quotas[0] != quotas[1] or coin_policies[0] != coin_policies[1]:
+            raise ValueError("Challenge-gate comparisons must retain the same Coin rules and expedition quotas.")
+    elif quotas[0] != unlimited:
         raise ValueError("The control must use unlimited expedition quotas.")
-    if quotas[1] != unlimited:
+    elif quotas[1] != unlimited:
         if coin_policies[0] != coin_policies[1]:
             raise ValueError("Quota comparisons must retain the same Coin rules in both reports.")
-    else:
+    elif gates[0] == gates[1]:
         if coin_policies[0] != (None, False):
             raise ValueError("The Coin-policy control must use installed reward rules.")
         cap, committed = coin_policies[1]
@@ -218,6 +232,20 @@ def _measure(report):
         ("expedition_empty_trips_p50", "empty_trips"),
     ):
         result[metric] = _observation(expedition_summary.get(counter, {}).get("p50"), trials)
+    gates = report.get("challenge_gates", {})
+    visits = gates.get("visits", {})
+    result["challenge_waiting_visits_p50"] = _observation(visits.get("waiting_for_gate_p50"), trials)
+    result["challenge_available_visits_p50"] = _observation(visits.get("with_available_challenge_p50"), trials)
+    result["challenge_unreachable_total"] = _observation(gates.get("gate_unreachable_finite_total"), trials)
+    configured = {rule["quest_id"] for rule in report["config"].get("challenge_gates", {}).get("rules", [])}
+    configured_rows = [row for row in gates.get("targets", [])
+                       if row.get("quest_id") in configured and row.get("in_native_subset") is True]
+    if (configured_rows and gates.get("trials") == trials
+            and len({row["quest_id"] for row in configured_rows}) == len(configured_rows)
+            and all(type(row.get("completed_trials")) is int and 0 <= row["completed_trials"] <= trials
+                    for row in configured_rows)):
+        completed = min(row["completed_trials"] for row in configured_rows)
+        result["gated_challenge_min_completion_rate"] = _observation(completed / trials, trials, completed=completed)
     return result
 
 

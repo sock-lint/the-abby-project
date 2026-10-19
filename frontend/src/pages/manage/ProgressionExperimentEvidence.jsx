@@ -7,8 +7,9 @@ import ProgressionEconomyReport from './ProgressionEconomyReport';
 import PetIncubationPolicy from './PetIncubationPolicy';
 import { scenariosMatch } from './progressionLabScenario';
 import ProgressionExpeditionBudgetReport from './ProgressionExpeditionBudgetReport';
-import { expeditionBudgetLabel, rewardPolicyLabel } from './progressionLabScenario';
+import { challengeGateLabel, expeditionBudgetLabel, rewardPolicyLabel } from './progressionLabScenario';
 import ProgressionCommitmentReport from './ProgressionCommitmentReport';
+import ProgressionChallengeGateReport from './ProgressionChallengeGateReport';
 const number = (value) => Number.isFinite(value) ? new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value) : 'Not reached or unavailable';
 const status = (value) => ({ pass: 'Meets targets', fail: 'Outside targets', insufficient: 'Insufficient evidence', unconfigured: 'No targets configured' })[value] ?? 'Unavailable';
 function download(value) {
@@ -21,6 +22,7 @@ export function ExperimentComparison({ comparison, dirty }) {
     <SectionHeader as="h3" title="Control and candidate evidence" actions={<Button variant="secondary" onClick={() => download(comparison)}>Download comparison evidence</Button>}>Saved revision {comparison.experiment_revision} · {candidate.config.horizon_days} days · {candidate.config.trials} simulated children · seed {candidate.config.seed}. Both reports use the same routine and catalog snapshot.</SectionHeader>
     {(dirty || comparison.stale || comparison.freshness !== 'current') && <p role="status" className="text-ember-deep">{comparison.freshness === 'unavailable' ? 'Current rules or catalog could not be checked. Saved evidence remains readable; decisions are unavailable.' : 'Evidence is stale or experiment inputs have changed. Save changes and run a fresh comparison before deciding.'}</p>}
     <p className="text-caption text-ink-secondary">Control: {rewardPolicyLabel(control.config)}; {expeditionBudgetLabel(control.config.expedition_budget)}. Candidate: {rewardPolicyLabel(candidate.config)}; {expeditionBudgetLabel(candidate.config.expedition_budget)}.</p>
+    <p className="text-caption text-ink-secondary">Challenge policies: control uses {challengeGateLabel(control.config.challenge_gates)}; candidate uses {challengeGateLabel(candidate.config.challenge_gates)}.</p>
     <PetIncubationPolicy policy={candidate.pet_incubation_policy} />
     {candidate.pet_incubation_policy && !scenariosMatch(control.pet_incubation_policy, candidate.pet_incubation_policy) && <p role="status" className="text-ember-deep">The saved reports record different incubation policies. Review their version bindings before interpreting this comparison.</p>}
     <p className="text-body font-semibold">Criteria result: {status(evaluation.status)}.</p>
@@ -31,6 +33,7 @@ export function ExperimentComparison({ comparison, dirty }) {
     {!candidate.reward_commitment?.enabled && <ProgressionRewardBudgetReport budget={candidate.reward_budget} baseline={control.reward_budget} />}
     <ProgressionCommitmentReport commitment={candidate.reward_commitment} />
     <ProgressionExpeditionBudgetReport budget={candidate.expedition_budget} baseline={control.expedition_budget} />
+    <ProgressionChallengeGateReport gates={candidate.challenge_gates} baseline={control.challenge_gates} />
     <ProgressionEconomyReport economy={candidate.economy} baseline={control.economy} config={candidate.config.economy} />
     <details><summary className="min-h-11 py-3 cursor-pointer font-semibold">Exact saved assumptions and version bindings</summary><pre className="max-h-80 overflow-auto text-caption">{JSON.stringify({ inputs: comparison.inputs, binding: comparison.binding, created_at: comparison.created_at }, null, 2)}</pre></details>
   </section>;
