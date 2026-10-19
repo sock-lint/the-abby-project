@@ -58,4 +58,4 @@ class ProgressionPetPolicyComparatorTests(SimpleTestCase):
         self.assertTrue(all(snapshot is policy for snapshot in captured))
         self.assertEqual(report["pet_incubation_policy"]["duration_seconds"], 86400)
         self.assertEqual(report["rules_fingerprint"], engine.rules_fingerprint(incubation_policy=policy))
-        self.assertEqual(report["engine_version"], "2026-10-18.5")
+        self.assertEqual(report["engine_version"], engine.ENGINE_VERSION)
