@@ -488,4 +488,36 @@ describe('JournalEntryFormModal', () => {
     });
     expect(new URL(update.calls[0].url).pathname).toBe('/api/chronicle/77/journal/');
   });
+
+  it('keeps typed words and the existing sharing when the recovered entry is locked', async () => {
+    // The server's day can differ from the device's, so today's existing
+    // entry can arrive dated "yesterday" here and open locked. Its text
+    // cannot be saved; recovery must not offer a sharing-only update that
+    // drops the typed words or quietly unshares the entry.
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA');
+    const existing = {
+      id: 78, kind: 'journal', is_private: false, title: 'Earlier',
+      summary: 'Earlier shared words.', occurred_on: yesterday,
+    };
+    const update = spyHandler('patch', '*/api/chronicle/78/journal/', () => existing);
+    server.use(update.handler,
+      http.post('*/api/chronicle/journal/', () =>
+        HttpResponse.json({ detail: 'You already wrote a journal entry today.', existing }, { status: 409 }),
+      ),
+    );
+    const user = userEvent.setup();
+    renderWithProviders(
+      <JournalEntryFormModal mode="create" onClose={() => {}} onSaved={() => {}} />,
+    );
+    const dialog = getDialog();
+    await user.type(within(dialog).getByLabelText(/mind/i), 'Private words');
+    await user.click(within(dialog).getByRole('button', { name: /save entry/i }));
+
+    await screen.findByRole('dialog', { name: /locked/i });
+    expect(screen.queryByRole('button', { name: /update sharing/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /share with parents/i })).toBeChecked();
+    const draft = JSON.parse(localStorage.getItem(journalDraftKey(role.user.id)));
+    expect(draft.summary).toContain('Private words');
+    expect(update.calls).toHaveLength(0);
+  });
 });

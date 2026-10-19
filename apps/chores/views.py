@@ -1,3 +1,4 @@
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404
 from rest_framework import permissions, status, viewsets
@@ -150,7 +151,15 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
         was_pending = instance.pending_parent_review
         proposer = instance.created_by
         title = instance.title
-        super().perform_destroy(instance)
+        with transaction.atomic():
+            # Approval locks the child before its completion. The cascade
+            # below deletes completions and then voids each child's challenge
+            # facts, which locks that child; lock the children first, in id
+            # order, so both paths take the same order and cannot deadlock.
+            child_ids = instance.completions.values_list("user_id", flat=True).distinct()
+            list(get_user_model().objects.select_for_update(no_key=True)
+                 .filter(pk__in=list(child_ids)).order_by("pk").values_list("pk", flat=True))
+            super().perform_destroy(instance)
         if was_pending and proposer and proposer.role == "child":
             from apps.notifications.models import NotificationType
             from apps.notifications.services import notify
