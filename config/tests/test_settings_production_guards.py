@@ -11,10 +11,14 @@ controlled environment, and asserts the import either succeeds or raises
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import re
 import subprocess
 import sys
 import textwrap
 import unittest
+
+import yaml
 
 
 def _import_settings_with_env(env: dict[str, str]) -> subprocess.CompletedProcess:
@@ -99,13 +103,15 @@ class ProductionBootGuardTests(unittest.TestCase):
 
 
 class EmailBackendDefaultTests(unittest.TestCase):
-    """Audit H11: production must default to SMTP backend, not console."""
+    """Email is opt-in in production and stays convenient in development."""
 
     def _read_email_backend(self, env: dict[str, str]) -> str:
         cwd = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
         code = textwrap.dedent(
             """
             from django.conf import settings
+            from django.core.mail import get_connection
+            get_connection()  # Resolve the backend without connecting to SMTP.
             print(settings.EMAIL_BACKEND)
             """,
         )
@@ -127,14 +133,67 @@ class EmailBackendDefaultTests(unittest.TestCase):
             raise AssertionError(result.stderr)
         return result.stdout.strip()
 
-    def test_debug_false_defaults_to_smtp_backend(self):
+    def test_debug_false_without_email_host_disables_email(self):
         backend = self._read_email_backend({
             "DEBUG": "False",
             "SECRET_KEY": "a-real-key-32-chars-long-aaaaaaaaaa",
             "DATABASE_URL": "postgres://x:y@h/db",
+        })
+        self.assertEqual(backend, "django.core.mail.backends.dummy.EmailBackend")
+
+    def test_debug_false_with_email_host_defaults_to_smtp_backend(self):
+        backend = self._read_email_backend({
+            "DEBUG": "False",
+            "SECRET_KEY": "a-real-key-32-chars-long-aaaaaaaaaa",
+            "DATABASE_URL": "postgres://x:y@h/db",
+            "EMAIL_HOST": "smtp.example.test",
         })
         self.assertEqual(backend, "django.core.mail.backends.smtp.EmailBackend")
 
     def test_debug_true_defaults_to_console_backend(self):
         backend = self._read_email_backend({"DEBUG": "True"})
         self.assertEqual(backend, "django.core.mail.backends.console.EmailBackend")
+
+    def test_compose_default_email_backend_uses_configured_defaults(self):
+        compose = yaml.safe_load(
+            (Path(__file__).resolve().parents[2] / "docker-compose.yml").read_text(),
+        )
+        # Read Compose's actual fallback without loading .env or invoking Docker.
+        declaration = compose["x-app-env"]["EMAIL_BACKEND"]
+        default = re.fullmatch(r"\$\{EMAIL_BACKEND:-([^}]*)\}", declaration)
+        self.assertIsNotNone(default, declaration)
+        self._assert_default_backends(default.group(1))
+
+    def test_whitespace_email_backend_uses_configured_defaults(self):
+        self._assert_default_backends(" \t ")
+
+    def _assert_default_backends(self, backend_value):
+        for debug, host, expected in (
+            ("False", "", "dummy"),
+            ("False", " \t ", "dummy"),
+            ("False", "smtp.example.test", "smtp"),
+            ("True", "", "console"),
+            ("True", "smtp.example.test", "console"),
+        ):
+            with self.subTest(debug=debug, host=host):
+                backend = self._read_email_backend({
+                    "DEBUG": debug,
+                    "SECRET_KEY": "a-real-key-32-chars-long-aaaaaaaaaa",
+                    "DATABASE_URL": "postgres://x:y@h/db",
+                    "EMAIL_BACKEND": backend_value,
+                    "EMAIL_HOST": host,
+                })
+                self.assertEqual(backend, f"django.core.mail.backends.{expected}.EmailBackend")
+
+    def test_explicit_email_backend_overrides_are_preserved(self):
+        for debug in ("False", "True"):
+            for name in ("dummy", "locmem", "smtp"):
+                explicit = f"django.core.mail.backends.{name}.EmailBackend"
+                with self.subTest(debug=debug, backend=name):
+                    backend = self._read_email_backend({
+                        "DEBUG": debug,
+                        "SECRET_KEY": "a-real-key-32-chars-long-aaaaaaaaaa",
+                        "DATABASE_URL": "postgres://x:y@h/db",
+                        "EMAIL_BACKEND": explicit,
+                    })
+                    self.assertEqual(backend, explicit)
