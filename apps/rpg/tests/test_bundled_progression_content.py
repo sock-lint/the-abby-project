@@ -66,7 +66,7 @@ class BundledProgressionContentTests(TestCase):
         self.assertEqual(list(QuestDefinition.objects.filter(pk__in=[p.pk for p in parents]).order_by("pk").values()), original)
         self.assertEqual(QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None).pk, system.pk)
 
-    def test_default_load_cannot_take_over_a_published_quest_by_name(self):
+    def test_default_load_leaves_a_published_quest_unchanged_without_failing_startup(self):
         published = QuestDefinition.objects.create(
             name="Reading Routine", description="A separately published promise", is_system=True,
             quest_type="collection", target_value=2, coin_reward=50,
@@ -76,42 +76,77 @@ class BundledProgressionContentTests(TestCase):
             object_id=published.pk,
         )
         original = QuestDefinition.objects.filter(pk=published.pk).values().get()
+        out = StringIO()
 
-        with self.assertRaisesMessage(CommandError, "owned by published-reading"):
-            call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", stdout=out)
 
         self.assertEqual(QuestDefinition.objects.filter(pk=published.pk).values().get(), original)
         self.assertEqual(ContentPackEntry.objects.get(pk=claim.pk).object_id, published.pk)
-        self.assertFalse(ItemDefinition.objects.exists(), "the entire bundled batch must roll back")
+        self.assertEqual(QuestDefinition.objects.filter(name="Reading Routine").count(), 1)
+        self.assertTrue(ItemDefinition.objects.exists(), "the rest of the bundled batch still loads")
+        self.assertIn("owned by published-reading", out.getvalue())
 
-    def test_ambiguous_global_quest_names_fail_without_updating_either_definition(self):
+    def test_ambiguous_global_quest_names_are_left_unchanged_without_failing_startup(self):
         for target in (2, 9):
             QuestDefinition.objects.create(
                 name="Reading Routine", description="Ambiguous existing catalog", is_system=True,
                 quest_type="collection", target_value=target,
             )
-        original = list(QuestDefinition.objects.order_by("pk").values())
+        original = list(QuestDefinition.objects.filter(name="Reading Routine").order_by("pk").values())
+        out = StringIO()
 
-        with self.assertRaisesMessage(CommandError, "Ambiguous global quest"):
-            call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", stdout=out)
 
-        self.assertEqual(list(QuestDefinition.objects.order_by("pk").values()), original)
-        self.assertFalse(ItemDefinition.objects.exists())
+        self.assertEqual(list(QuestDefinition.objects.filter(name="Reading Routine").order_by("pk").values()), original)
+        self.assertTrue(ItemDefinition.objects.exists(), "the rest of the bundled batch still loads")
+        self.assertIn("more than one definition matches", out.getvalue())
 
-    def test_default_reload_rejects_rule_changes_for_active_global_legacy_quest(self):
+    def test_default_reload_keeps_accepted_rules_for_active_global_legacy_quest(self):
         call_command("loadrpgcontent", stdout=StringIO())
         system = QuestDefinition.objects.get(name="Reading Routine", is_system=True, created_by=None)
         system.coin_reward = 50
         system.save(update_fields=["coin_reward"])
         accepted = Quest.objects.create(definition=system, end_date=timezone.now() + timedelta(days=7))
+        out = StringIO()
 
-        with self.assertRaisesMessage(CommandError, "active legacy"):
-            call_command("loadrpgcontent", stdout=StringIO())
+        # A later YAML/admin change must not stop the deploy-time load that
+        # runs before gunicorn; the accepted rules are kept instead.
+        call_command("loadrpgcontent", stdout=out)
 
         system.refresh_from_db()
-        accepted.refresh_from_db()
         self.assertEqual(system.coin_reward, 50)
-        self.assertIsNone(accepted.reward_items_snapshot, "a rejected batch rolls back promise freezing too")
+        self.assertIn("active legacy quest(s) retain its accepted coin_reward", out.getvalue())
+        accepted.refresh_from_db()
+        self.assertIsNotNone(accepted.reward_items_snapshot, "accepted item promises are frozen")
+
+        accepted.status = Quest.Status.COMPLETED
+        accepted.save(update_fields=["status"])
+        call_command("loadrpgcontent", stdout=StringIO())
+        system.refresh_from_db()
+        self.assertEqual(system.coin_reward, 0, "the bundled change applies once no active quest relies on it")
+
+    def test_previously_taken_over_parent_row_never_fails_a_later_startup(self):
+        # main's name-only loader could adopt a family's same-name quest in
+        # place (is_system=True with its creator kept). Deleting that parent
+        # later leaves two creatorless global rows.
+        family = make_family("Taken over", parents=[{"username": "taken-over-parent"}])
+        adopted = QuestDefinition.objects.create(
+            name="Reading Routine", description="Adopted by an earlier loader", is_system=True,
+            created_by=family.parents[0], quest_type="collection", target_value=5,
+        )
+        call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(QuestDefinition.objects.filter(name="Reading Routine", created_by=None).count(), 1)
+
+        family.parents[0].delete()
+        adopted.refresh_from_db()
+        self.assertIsNone(adopted.created_by_id)
+        before = list(QuestDefinition.objects.filter(name="Reading Routine").order_by("pk").values())
+        out = StringIO()
+
+        call_command("loadrpgcontent", stdout=out)
+
+        self.assertEqual(list(QuestDefinition.objects.filter(name="Reading Routine").order_by("pk").values()), before)
+        self.assertIn("more than one definition matches", out.getvalue())
 
     def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
         calls = []

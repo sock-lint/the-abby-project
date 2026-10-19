@@ -16,11 +16,15 @@ to mean touching three files; now it's one YAML edit.
   the loader twice in a row is a no-op.
 - Bundled quest definitions match their name and system flag only among
   definitions without a creator. A same-name parent template keeps its own
-  rules and rewards, including when created after the first load. Ambiguous
-  global definitions or a matching row already claimed by a published pack
-  stop the entire load for reconciliation. Existing active legacy quests
-  also block edits to their accepted rules, Coins, XP and skill tags; item
-  promises are frozen before future reward links change.
+  rules and rewards, including when created after the first load. The
+  default load runs before gunicorn on every container start, so it never
+  fails on a quest it cannot safely update: ambiguous global definitions, a
+  row already claimed by a published pack, and a quest whose accepted rules,
+  Coins, XP or skill tags an active legacy quest still relies on are left
+  unchanged and reported as `warning:` lines. The bundled change applies on a
+  later load once the definitions are reconciled or the active quests end.
+  Item promises are frozen before future reward links change. Keyed pack
+  publication still refuses these cases.
 - Pets and potions **fan out** — one entry in `pet_species.yaml` creates
   both the `PetSpecies` row **and** the matching egg `ItemDefinition`
   with a real FK linking them. Same for potions → potion items. Eggs and

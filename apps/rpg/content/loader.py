@@ -82,6 +82,9 @@ class ContentPack:
         self.pack_key = pack_key
         self.family = family
         self.seen_entries = set()
+        # Unkeyed (deploy-time) loads report entries they leave unchanged
+        # here instead of failing: they run before gunicorn starts.
+        self.warnings: list[str] = []
 
     # ---- public API ----------------------------------------------------
 
@@ -152,6 +155,8 @@ class ContentPack:
 
         for line in self.stats.as_lines():
             write(line)
+        for warning in self.warnings:
+            write(f"  warning: {warning}")
         return self.stats
 
     def _reconcile_owned_offers(self):
@@ -200,12 +205,19 @@ class ContentPack:
         return resolved
 
     def _protect_active_quest(self, quest, defaults, entry):
+        active, changed = self._active_quest_changes(quest, defaults, entry)
+        if changed:
+            raise ContentPackError(f"Cannot change {', '.join(changed)} while {active} active legacy quest(s) retain these rules and rewards. Author a new stable entry/version with a distinct name for future content.")
+        self.stats.bump("skipped", "protected_active_legacy_quests", active)
+
+    def _active_quest_changes(self, quest, defaults, entry):
+        """Return (active legacy quest count, accepted fields this load would change)."""
         from apps.quests.models import Quest
         active = list(Quest.objects.select_for_update(of=("self",)).filter(
             definition=quest, status=Quest.Status.ACTIVE).values_list("pk", flat=True))
         if not active:
-            return
-        fields = ("quest_type", "target_value", "duration_days", "trigger_filter",
+            return 0, []
+        fields =("quest_type", "target_value", "duration_days", "trigger_filter",
                   "coin_reward", "xp_reward", "is_repeatable", "required_badge")
         changed = []
         for field_name in fields:
@@ -219,9 +231,7 @@ class ContentPack:
             proposed_tags = sorted((skill.pk, weight) for skill, weight in self._resolved_quest_skill_tags(entry))
             if current_tags != proposed_tags:
                 changed.append("skill_tags")
-        if changed:
-            raise ContentPackError(f"Cannot change {', '.join(changed)} while {len(active)} active legacy quest(s) retain these rules and rewards. Author a new stable entry/version with a distinct name for future content.")
-        self.stats.bump("skipped", "protected_active_legacy_quests", len(active))
+        return len(active), changed
 
     def _upsert(self, model, *, defaults, entry=None, **lookup):
         """Only a pack's previously claimed stable IDs can update existing rows."""
@@ -238,17 +248,33 @@ class ContentPack:
                 # named template must never be adopted or rewritten, even if
                 # its legacy is_system flag is true.
                 lookup = {**lookup, "is_system": defaults["is_system"], "created_by": None}
+                # This load runs before gunicorn on every container start, so
+                # a quest it cannot safely update is left unchanged and
+                # reported. Failing here would keep the whole app down.
                 matches = list(model.objects.select_for_update(no_key=True).filter(**lookup)[:2])
+                skip = None
                 if len(matches) > 1:
-                    raise ContentPackError(f"Ambiguous global quest {lookup['name']!r}; reconcile its existing identities before loading.")
-                if matches:
+                    skip = ("ambiguous_global_quest",
+                            f"Left global quest {lookup['name']!r} unchanged: more than one definition matches; reconcile them to apply bundled changes.")
+                elif matches:
                     from apps.rpg.models import ContentPackEntry
                     quest = matches[0]
                     owner = ContentPackEntry.objects.filter(
                         model_label=model._meta.label_lower, object_id=quest.pk).first()
                     if owner:
-                        raise ContentPackError(f"Quest {quest.name!r} is owned by {owner.pack}; an unkeyed loader cannot take over its publication identity.")
-                    self._protect_active_quest(quest, defaults, entry or {})
+                        skip = ("pack_owned_quest",
+                                f"Left quest {quest.name!r} unchanged: it is owned by {owner.pack}.")
+                    else:
+                        active, changed = self._active_quest_changes(quest, defaults, entry or {})
+                        if changed:
+                            skip = ("protected_active_legacy_quest",
+                                    f"Left quest {quest.name!r} unchanged: {active} active legacy quest(s) retain its accepted {', '.join(changed)}; the bundled change applies once they end.")
+                        else:
+                            self.stats.bump("skipped", "protected_active_legacy_quests", active)
+                if skip:
+                    self.stats.bump("skipped", skip[0])
+                    self.warnings.append(skip[1])
+                    return None, False
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
         from django.core.exceptions import ValidationError
@@ -807,6 +833,9 @@ class ContentPack:
             quest, created = self._upsert(QuestDefinition, entry=entry,
                 name=entry["name"], defaults=defaults,
             )
+            if quest is None:
+                # Left unchanged by an unkeyed load; keep its links as well.
+                continue
             self.stats.bump("created" if created else "updated", "quest")
 
             # Reconcile future links after freezing accepted promises above.
