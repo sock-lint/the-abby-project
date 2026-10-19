@@ -39,8 +39,12 @@ def generate_weekly_timecards_task():
 @shared_task
 def send_weekly_email_summaries():
     """Send weekly summary emails to all users (runs Sunday morning)."""
-    from django.core.mail import send_mail
     from django.conf import settings as django_settings
+
+    if django_settings.EMAIL_BACKEND == "django.core.mail.backends.dummy.EmailBackend":
+        return "Weekly emails disabled"
+
+    from django.core.mail import send_mail
     from apps.achievements.models import UserBadge
     from apps.families.queries import children_across_families, parents_in
     from apps.families.models import Family
