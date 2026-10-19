@@ -19,6 +19,7 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
 - `decay_habit_strength_task` — runs daily at 00:05 in the configured scheduler timezone. Evaluates the previous calendar day in each child's family timezone, preserving taps from that completed day. Strength and `last_decay_date` commit together under a habit lock; repeat or older deliveries cannot decay it again. Tapped and zero-strength days also advance the guard.
 
 ## Gotchas
+- **Proposal ownership**: child create requests omit `user`; the write serializer treats it as read-only and the view saves the authenticated child as owner and creator. Parent create requests still require an explicit `user`.
 - **Optimistic taps**: the frontend mutates `strength` + `taps_today` immediately on click and rolls back if `logHabitTap` rejects.
 - **Decay scaling**: high-frequency habits (`max_taps_per_day=4`) decay at `step=2` per missed day so they drift roughly twice as fast as daily habits.
 - **No coins**: unlike chores and projects, habits intentionally award zero coins — they are behavior-building, not economic.

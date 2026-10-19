@@ -27,13 +27,16 @@ class HabitCRUDTests(_Fixture):
             "name": "Drink water",
             "icon": "💧",
             "habit_type": "positive",
-            "user": self.child.id,
+            "max_taps_per_day": 2,
         }, format="json")
         self.assertEqual(resp.status_code, 201, msg=resp.content)
         habit = Habit.objects.get(name="Drink water")
         self.assertTrue(habit.pending_parent_review)
         self.assertEqual(habit.user, self.child)
         self.assertEqual(habit.created_by, self.child)
+        self.assertEqual(habit.max_taps_per_day, 2)
+        self.assertEqual(habit.icon, "💧")
+        self.assertEqual(resp.json()["user"], self.child.id)
 
     def test_parent_creates_habit_for_child(self):
         self.client.force_authenticate(self.parent)
@@ -150,6 +153,43 @@ class HabitCRUDTests(_Fixture):
 
 
 class HabitProposalTests(_Fixture):
+    def test_child_cannot_choose_proposal_owner(self):
+        from apps.habits.models import Habit
+        from config.tests.factories import make_family
+
+        other_child = make_family(
+            "Other family", children=[{"username": "other-child"}],
+        ).children[0]
+        for owner in (self.parent.id, other_child.id, 999999, "invalid", None):
+            with self.subTest(owner=owner):
+                self.client.force_authenticate(self.child)
+                resp = self.client.post("/api/habits/", {
+                    "name": "Brush teeth",
+                    "habit_type": "positive",
+                    "user": owner,
+                    "xp_reward": 9999,
+                    "is_active": False,
+                }, format="json")
+                self.assertEqual(resp.status_code, 201, msg=resp.content)
+                habit = Habit.objects.latest("pk")
+                self.assertEqual(habit.user, self.child)
+                self.assertEqual(habit.created_by, self.child)
+                self.assertTrue(habit.pending_parent_review)
+                self.assertTrue(habit.is_active)
+                self.assertEqual(habit.xp_reward, 5)
+
+    def test_parent_create_still_requires_child(self):
+        from apps.habits.models import Habit
+
+        self.client.force_authenticate(self.parent)
+        resp = self.client.post("/api/habits/", {
+            "name": "Brush teeth", "habit_type": "positive",
+        }, format="json")
+
+        self.assertEqual(resp.status_code, 400, msg=resp.content)
+        self.assertEqual(resp.json(), {"user": ["This field is required."]})
+        self.assertFalse(Habit.objects.exists())
+
     def test_child_create_strips_xp_reward(self):
         from apps.habits.models import Habit
 
