@@ -163,7 +163,12 @@ class BundledProgressionContentTests(TestCase):
         # copy for MCP-authored packs. A default pack under a mount is missing
         # there, and its "Pack directory not found" stops gunicorn from starting.
         from apps.rpg.management.commands.loadrpgcontent import BUNDLED_PACKS
-        compose = yaml.safe_load((Path(settings.BASE_DIR) / "docker-compose.yml").read_text())
+        compose_file = Path(settings.BASE_DIR) / "docker-compose.yml"
+        if not compose_file.exists():
+            # .dockerignore leaves the compose file out of the image, so an
+            # in-container test run has no mounts to compare against.
+            self.skipTest("docker-compose.yml is not part of this checkout")
+        compose = yaml.safe_load(compose_file.read_text())
         mounted = [
             Path(volume.split(":")[1]).relative_to("/app")
             for volume in compose["services"]["django"]["volumes"]
