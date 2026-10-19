@@ -373,3 +373,39 @@ class ProgressionChallengeGateTests(TestCase):
         before = rules_fingerprint()
         with patch.object(challenge_gates, "ASSUMPTIONS", ["Changed interpretation"]):
             self.assertNotEqual(rules_fingerprint(), before)
+
+
+class MutuallyGatedChapterCostTests(TestCase):
+    """Chapters unlocked by a badge for finishing any of them must stay cheap."""
+
+    @classmethod
+    def setUpTestData(cls):
+        names = [f"Gate chapter {index}" for index in range(1, 11)]
+        badge = Badge.objects.create(
+            name="Gate chapter novice", description="Finish any three chapters.", rarity="common",
+            criteria_type="quest_completed", criteria_value={"quest_names": names, "count": 3},
+        )
+        for index, name in enumerate(names):
+            QuestDefinition.objects.create(
+                name=name, quest_type="collection", target_value=3, duration_days=7, is_system=True,
+                coin_reward=1, xp_reward=0, trigger_filter={"allowed_triggers": ["chore_complete"]},
+                required_badge=badge if index >= 3 else None,
+            )
+
+    def test_mutually_gated_chapters_do_not_recurse_factorially(self):
+        # Seven chapters gated on a badge their peers earn once enumerated
+        # every ordering of them on each active visit (roughly 7! calls).
+        from apps.rpg.progression.challenge_gates import ChallengeGates
+        calls = []
+        original = ChallengeGates._native_badge_expired
+
+        def counted(gates, *args, **kwargs):
+            calls.append(1)
+            return original(gates, *args, **kwargs)
+
+        trial = Trial(quiet_config(chores_per_day=1), load_catalog(), 7)
+        with patch.object(ChallengeGates, "_native_badge_expired", counted):
+            for day in range(1, 4):
+                trial.daily(day)
+        self.assertGreater(len(calls), 0)
+        self.assertLess(len(calls), 2000)

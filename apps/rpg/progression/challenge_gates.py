@@ -188,7 +188,7 @@ class ChallengeGates:
         last = self.last_day(quest.pk)
         return last is not None and trial.day > last
 
-    def _native_badge_expired(self, quest, trial, seen):
+    def _native_badge_expired(self, quest, trial, seen, memo):
         if not quest.required_badge_id or quest.required_badge_id in trial.badges:
             return False
         badge = next((row for row in self.catalog.badges if row.pk == quest.required_badge_id), None)
@@ -203,7 +203,7 @@ class ChallengeGates:
         possible = sum(trial.counters[f"quest_completed:{row.pk}"] for row in matched)
         expired_evidence = False
         for row in matched:
-            expired = self._known_expired(row, trial) or bool(self.blocked_reasons(row, trial, seen))
+            expired = self._known_expired(row, trial) or bool(self._blocked(row, trial, seen, memo))
             if expired:
                 expired_evidence = True
             elif row.is_repeatable:
@@ -213,22 +213,36 @@ class ChallengeGates:
         return expired_evidence and possible < needed
 
     def blocked_reasons(self, quest, trial, seen=None):
+        # One evaluation reuses finished sub-results and treats a quest still
+        # on the current path as an unproven cycle. Copying the path per frame
+        # without reuse enumerated every ordering of mutually badge-gated
+        # quests (roughly K! calls), which stalled simulations for authored
+        # chapter sets such as "finish any 3 chapters to unlock the rest".
+        return self._blocked(quest, trial, set() if seen is None else set(seen), {})
+
+    def _blocked(self, quest, trial, seen, memo):
         # Accepted promises keep their original window independently of later
         # offering locks. Only a definite missing prerequisite can close a new path.
         if quest.pk in trial.quest_windows or quest.pk in trial.completed_quests:
             return []
-        seen = set() if seen is None else set(seen)
+        if quest.pk in memo:
+            return memo[quest.pk]
         if quest.pk in seen:
             return []  # Unknown/cyclic native badge paths are not proven expired.
         seen.add(quest.pk)
+        reasons = []
         prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
         if prerequisite is not None and prerequisite not in trial.completed_quests:
             prior = next(q for q in self.catalog.quests if q.pk == prerequisite)
             if self._known_expired(prior, trial):
-                return ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
-            if self.blocked_reasons(prior, trial, seen):
-                return ["prerequisite_path_expired"]
-        return ["native_badge_prerequisite_expired"] if self._native_badge_expired(quest, trial, seen) else []
+                reasons = ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
+            elif self._blocked(prior, trial, seen, memo):
+                reasons = ["prerequisite_path_expired"]
+        if not reasons and self._native_badge_expired(quest, trial, seen, memo):
+            reasons = ["native_badge_prerequisite_expired"]
+        seen.discard(quest.pk)
+        memo[quest.pk] = reasons
+        return reasons
 
     def visit(self, trial):
         """Sample once before the active visit; this method never materializes goals."""
