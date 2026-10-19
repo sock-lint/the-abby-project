@@ -88,6 +88,15 @@ class HabitWriteSerializer(serializers.ModelSerializer):
         child=serializers.DictField(), required=False, write_only=True,
     )
 
+    def get_fields(self):
+        fields = super().get_fields()
+        request = self.context.get("request")
+        if request is not None and getattr(request.user, "role", None) == "child":
+            # perform_create assigns the signed-in child before saving.
+            # Do not require or validate client-supplied proposal ownership.
+            fields["user"] = serializers.PrimaryKeyRelatedField(read_only=True)
+        return fields
+
     class Meta:
         model = Habit
         fields = [
