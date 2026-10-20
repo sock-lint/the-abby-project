@@ -24,12 +24,20 @@ formats are `print`, `ebook`, or `audiobook`; optional reactions are `loved`,
 reflection must be present. Minutes are bounded to 600 and pages to 2000.
 Session dates default to the family's local day and cannot be future dates.
 
+Creating a new session automatically moves its book from `want_to_read` or
+`paused` to `reading`, including backdated, listening and notes-only logs.
+`finished` books stay finished. The change uses the same owner lock and
+transaction as the log and rewards; a failed save rolls everything back.
+Replays, corrections and deletion do not change shelf status, and existing
+history is not backfilled. Book creation retry payloads retain their original
+status even after this automatic change.
+
 Every create requires a UUID `client_request_id`. Reading writes and MCP reads
 hold family, then sorted actor/owner member locks while checking the current
 actor's role, staff status, activity and family membership after waiting. Create
 and replay responses materialize their book and reward fields before releasing
-those locks. Parents
-can still maintain an inactive child's saved history. Each model uniquely binds
+those locks. Parents can still maintain an inactive child's saved history.
+Each model uniquely binds
 the owner and UUID. `create_payload` retains
 the normalized original request so an
 identical retry returns the current record even after a correction. Conflicting

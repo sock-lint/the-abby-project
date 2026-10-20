@@ -111,10 +111,12 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `chores` | 9 |
 | `chronicle` | 10 |
 | `content_packs` | 13 |
+| `content_workbench` | 10 |
 | `creations` | 8 |
 | `daily_challenges` | 2 |
 | `dashboard` | 1 |
 | `economy` | 4 |
+| `editorial` | 7 |
 | `exchange` | 5 |
 | `habits` | 7 |
 | `homework` | 17 |
@@ -128,7 +130,10 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `projects` | 28 |
 | `quests` | 9 |
 | `reading` | 4 |
+| `reading_maintenance` | 7 |
 | `rewards` | 9 |
+| `rpg_management` | 9 |
+| `rpg_rules` | 2 |
 | `savings` | 4 |
 | `sprite_assets` | 1 |
 | `sprite_authoring` | 6 |

@@ -19,6 +19,8 @@ import familySuggestion from '../../../contracts/api/fixtures/reading-family-sug
 import familySuggestions from '../../../contracts/api/fixtures/reading-family-suggestions.json';
 import savedSuggestions from '../../../contracts/api/fixtures/reading-family-suggestions-saved.json';
 import dismissedSuggestion from '../../../contracts/api/fixtures/reading-family-suggestion-dismissed.json';
+import wantedBook from '../../../contracts/api/fixtures/reading-book-wanted.json';
+import startedShelf from '../../../contracts/api/fixtures/reading-books-started.json';
 import { server } from '../test/server';
 import {
   createReadingBook, createReadingSession, listReadingBooks, listReadingSessions,
@@ -28,6 +30,27 @@ import {
 } from './index';
 
 describe('reading responses shared with Django', () => {
+  it('reads the server-confirmed Reading shelf after logging a wanted book without a separate book write', async () => {
+    const writes = [];
+    let logged = false;
+    server.use(
+      http.get('*/api/reading-books/', () => HttpResponse.json(logged ? startedShelf : { count: 1, next: null, previous: null, results: [wantedBook] })),
+      http.post('*/api/reading-sessions/', async ({ request }) => {
+        writes.push(await request.json());
+        logged = true;
+        return HttpResponse.json({ ...session, book: wantedBook.id }, { status: 201 });
+      }),
+      http.patch('*/api/reading-books/:id/', () => { throw new Error('Logging must not issue a second book write'); }),
+    );
+    expect((await listReadingBooks()).results[0].status).toBe('want_to_read');
+    const payload = { book: wantedBook.id, pages_read: 4, client_request_id: session.client_request_id };
+    await createReadingSession(payload);
+    const shelf = await listReadingBooks();
+    expect(shelf).toEqual(startedShelf);
+    expect(shelf.results[0]).toMatchObject({ id: wantedBook.id, user: wantedBook.user, status: 'reading' });
+    expect(writes).toEqual([payload]);
+  });
+
   it('preserves enriched discovery details and sends format filters without renderer negotiation', async () => {
     const reads = [];
     server.use(http.get('*/api/reading/recommendations/', ({ request }) => {

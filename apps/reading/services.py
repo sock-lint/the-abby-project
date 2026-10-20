@@ -110,6 +110,9 @@ def create_reading_session(requester, target, validated_data):
         session = ReadingSession.objects.create(
             user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
         )
+        if book.status in (ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.PAUSED):
+            book.status = ReadingBook.Status.READING
+            book.save(update_fields=["status", "updated_at"])
         ReadingRewardService.credit_new_session(target, session)
     return session, created
 

@@ -231,6 +231,30 @@ class ReadingToolsTests(TestCase):
         self.assertEqual(ReadingDailyReward.objects.count(), 1)
         self.assertEqual(CoinLedger.objects.filter(reason="reading").count(), 1)
 
+    def test_new_logs_start_wanted_or_paused_books_and_replays_preserve_later_choices(self):
+        from apps.mcp_server.tools import reading
+
+        for status in ReadingBook.Status.values:
+            with self.subTest(status=status):
+                book = self.make_book(self.child, f"Shelf status {status}")
+                ReadingBook.objects.filter(pk=book.pk).update(status=status)
+                params = self.session_input(book=book.pk, duration_minutes=0, section="Chapter 1")
+                with override_user(self.child):
+                    first = reading.log_reading_session(params)
+                book.refresh_from_db()
+                expected = status if status == ReadingBook.Status.FINISHED else ReadingBook.Status.READING
+                self.assertEqual(book.status, expected)
+                ReadingBook.objects.filter(pk=book.pk).update(status=ReadingBook.Status.PAUSED)
+                credits = list(ReadingRewardCredit.objects.order_by("pk").values())
+                with override_user(self.child):
+                    retry = reading.log_reading_session(params)
+                book.refresh_from_db()
+                self.assertEqual(retry["id"], first["id"])
+                self.assertEqual(book.status, ReadingBook.Status.PAUSED)
+                self.assertEqual(list(ReadingRewardCredit.objects.order_by("pk").values()), credits)
+        self.assertFalse(ReadingDailyReward.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+
     def test_shared_validation_rejects_future_empty_foreign_book_and_bad_bounds(self):
         from apps.mcp_server.reading_schemas import CreateReadingBookIn, ListReadingBooksIn, LogReadingSessionIn
         from apps.mcp_server.tools import reading
