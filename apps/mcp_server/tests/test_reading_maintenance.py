@@ -1,12 +1,14 @@
 """Reading maintenance keeps saved history separate from daily reward credit."""
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from contextlib import contextmanager
+from threading import Event, Thread
 import time
 from unittest.mock import patch
 from uuid import uuid4
 
 from asgiref.sync import async_to_sync
-from django.db import connection
-from django.test import SimpleTestCase, TestCase, override_settings
+from django.db import close_old_connections, connection, connections, transaction
+from django.test import SimpleTestCase, TestCase, TransactionTestCase, override_settings, skipUnlessDBFeature
 from django.test.utils import CaptureQueriesContext
 from pydantic import ValidationError
 from rest_framework.test import APIClient
@@ -440,6 +442,94 @@ class ReadingMaintenanceTests(TestCase):
         self.assertFalse(ReadingRewardCredit.objects.exists())
         self.assertFalse(ReadingDailyReward.objects.exists())
 
+    def reading_actions(self):
+        from apps.mcp_server.reading_schemas import GetReadingSummaryIn, ListReadingBooksIn
+        from apps.mcp_server.tools import reading
+        return {
+            "get_reading_book": lambda: self.invoke("get_reading_book", user_id=self.child.pk, book_id=self.book.pk),
+            "get_reading_session": lambda: self.invoke("get_reading_session", user_id=self.child.pk, session_id=self.session.pk),
+            "list_reading_sessions": lambda: self.invoke("list_reading_sessions", user_id=self.child.pk),
+            "list_reading_books": lambda: reading.list_reading_books(ListReadingBooksIn(user_id=self.child.pk)),
+            "get_reading_summary": lambda: reading.get_reading_summary(GetReadingSummaryIn(user_id=self.child.pk)),
+        }
+
+    def test_all_five_reads_reject_parent_access_revoked_after_target_resolution(self):
+        from apps.mcp_server.tools.reading import _reading_target
+        for state in (
+            {"family_id": self.other_parent.family_id}, {"role": "child"},
+            {"is_active": False}, {"is_staff": False},
+        ):
+            for name, action in self.reading_actions().items():
+                def revoke_after_resolution(user_id):
+                    actor, target = _reading_target(user_id)
+                    type(self.parent).objects.filter(pk=self.parent.pk).update(**state)
+                    return actor, target
+
+                module = "reading" if name in {"list_reading_books", "get_reading_summary"} else "reading_maintenance"
+                try:
+                    with self.subTest(name=name, state=state), override_user(self.parent), patch(
+                        f"apps.mcp_server.tools.{module}._reading_target", side_effect=revoke_after_resolution,
+                    ), self.assertRaises(MCPNotFoundError):
+                        action()
+                finally:
+                    type(self.parent).objects.filter(pk=self.parent.pk).update(
+                        family_id=self.parent.family_id, role="parent", is_active=True, is_staff=True,
+                    )
+
+    def test_parent_can_read_all_five_archived_child_history_surfaces(self):
+        type(self.child).objects.filter(pk=self.child.pk).update(is_active=False)
+        with override_user(self.parent):
+            results = {name: action() for name, action in self.reading_actions().items()}
+        self.assertEqual(results["get_reading_session"]["reflection"], "A private reading reflection")
+        self.assertEqual(results["list_reading_sessions"]["sessions"][0]["id"], self.session.pk)
+        self.assertEqual(results["get_reading_book"]["id"], self.book.pk)
+        self.assertEqual(results["list_reading_books"]["books"][0]["id"], self.book.pk)
+        self.assertEqual(results["get_reading_summary"]["sessions_total"], 1)
+        self.assertFalse(ReadingDailyReward.objects.exists())
+
+    def test_all_five_reads_query_and_build_responses_inside_current_authorization_context(self):
+        from apps.mcp_server.tools import reading, reading_maintenance
+        from apps.reading.services import authorized_reading
+        state = {"active": False, "entries": 0}
+
+        @contextmanager
+        def tracked_authorization(actor, target):
+            with authorized_reading(actor, target) as fresh:
+                self.assertIsNot(fresh[0], actor)
+                self.assertIsNot(fresh[1], target)
+                state["active"] = True
+                state["entries"] += 1
+                try:
+                    yield fresh
+                finally:
+                    state["active"] = False
+
+        def checked(function):
+            def call(*args, **kwargs):
+                self.assertTrue(state["active"], "The response must be constructed before authority locks are released")
+                return function(*args, **kwargs)
+            return call
+
+        def guarded_queries(execute, sql, params, many, context):
+            if '"reading_reading' in sql:
+                self.assertTrue(state["active"], "Reading queries must execute under current authority locks")
+            return execute(sql, params, many, context)
+
+        with (
+            override_user(self.parent), connection.execute_wrapper(guarded_queries),
+            patch.object(reading, "authorized_reading", tracked_authorization),
+            patch.object(reading_maintenance, "authorized_reading", tracked_authorization),
+            patch.object(reading, "_book_payload", checked(reading._book_payload)),
+            patch.object(reading_maintenance, "_book_payload", checked(reading_maintenance._book_payload)),
+            patch.object(reading_maintenance, "to_plain", checked(reading_maintenance.to_plain)),
+            patch.object(reading, "reading_summary", checked(reading.reading_summary)),
+        ):
+            for name, action in self.reading_actions().items():
+                with self.subTest(name=name):
+                    self.assertIsInstance(action(), dict)
+                    self.assertFalse(state["active"])
+        self.assertEqual(state["entries"], 5)
+
     def test_history_traverses_over_page_limit_and_tied_creation_times_without_new_inserts(self):
         book = self.make_book(self.child, "Large synthetic history")
         rows = ReadingSession.objects.bulk_create([
@@ -482,7 +572,9 @@ class ReadingMaintenanceTests(TestCase):
         self.assertIn(boundary.pk, [row["id"] for row in result["sessions"]])
         self.assertNotIn(old.pk, [row["id"] for row in result["sessions"]])
         self.assertTrue(all(row["book"] == self.book.pk for row in result["sessions"]))
-        self.assertLessEqual(len(queries), 4)
+        with override_user(self.child), CaptureQueriesContext(connection) as small_queries:
+            self.invoke("list_reading_sessions", book_id=self.book.pk, since="2026-10-18", until="2026-10-19", limit=1)
+        self.assertEqual(len(queries), len(small_queries), "More returned sessions must not add per-row queries")
         with override_user(self.child):
             empty = self.invoke("list_reading_sessions", since="2020-01-01", until="2020-01-01")
         self.assertEqual(empty, {"user_id": self.child.pk, "sessions": [], "total": 0, "has_more": False, "next_cursor": None})
@@ -515,3 +607,73 @@ class ReadingMaintenanceTests(TestCase):
             type(self.child).objects.filter(pk=self.child.pk).update(family=self.other_child.family)
             with self.assertRaises(MCPNotFoundError):
                 self.invoke("list_reading_sessions", user_id=self.child.pk, cursor=first["next_cursor"])
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class ReadingReadConcurrencyTests(TransactionTestCase):
+    @skipUnlessDBFeature("has_select_for_update")
+    def test_parent_revocation_while_read_waits_for_family_lock_never_returns_reflection(self):
+        from apps.families.models import Family
+        from apps.mcp_server.reading_maintenance_schemas import GetReadingSessionIn
+        from apps.mcp_server.tools.reading_maintenance import get_reading_session
+        household = make_family(
+            "Locked reading history", parents=[{"username": "locked-reader-parent", "is_staff": True}],
+            children=[{"username": "locked-reader-child"}],
+        )
+        other = make_family("Other locked reading family")
+        parent, child = household.parents[0], household.children[0]
+        book = ReadingBook.objects.create(user=child, title="Saved private book", client_request_id=uuid4(), create_payload={})
+        session = ReadingSession.objects.create(
+            user=child, book=book, occurred_on="2026-10-19", reflection="Private reflection must not escape",
+            client_request_id=uuid4(), create_payload={},
+        )
+        for state in ({"family_id": other.family.pk}, {"role": "child"}, {"is_active": False}, {"is_staff": False}):
+            ready, done = Event(), Event()
+            outcome = {}
+
+            def read_in_separate_connection():
+                close_old_connections()
+                try:
+                    with connections["default"].cursor() as cursor:
+                        cursor.execute("SELECT pg_backend_pid()")
+                        outcome["pid"] = cursor.fetchone()[0]
+                    ready.set()
+                    with override_user(parent):
+                        outcome["result"] = get_reading_session(GetReadingSessionIn(user_id=child.pk, session_id=session.pk))
+                except Exception as exc:
+                    outcome["error"] = exc
+                finally:
+                    connections.close_all()
+                    done.set()
+
+            reader = Thread(target=read_in_separate_connection, daemon=True)
+            try:
+                with self.subTest(state=state), transaction.atomic():
+                    Family.objects.select_for_update().get(pk=household.family.pk)
+                    reader.start()
+                    self.assertTrue(ready.wait(3), "The reader must establish its independent database connection")
+                    deadline = time.monotonic() + 3
+                    waiting = False
+                    while time.monotonic() < deadline:
+                        with connection.cursor() as cursor:
+                            cursor.execute("SELECT pg_stat_clear_snapshot()")
+                            cursor.execute("SELECT wait_event_type FROM pg_stat_activity WHERE pid = %s", [outcome["pid"]])
+                            row = cursor.fetchone()
+                        if row and row[0] == "Lock":
+                            waiting = True
+                            break
+                        if done.is_set():
+                            break
+                        time.sleep(0.01)
+                    self.assertTrue(waiting, "The actual reading handler must wait for the held family lock")
+                    type(parent).objects.filter(pk=parent.pk).update(**state)
+                reader.join(5)
+                self.assertFalse(reader.is_alive(), "The reader must finish after the family transaction commits")
+                self.assertIsInstance(outcome.get("error"), MCPNotFoundError)
+                self.assertNotIn("result", outcome)
+            finally:
+                if reader.is_alive():
+                    reader.join(5)
+                type(parent).objects.filter(pk=parent.pk).update(
+                    family_id=household.family.pk, role="parent", is_staff=True, is_active=True,
+                )

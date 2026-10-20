@@ -24,10 +24,11 @@ formats are `print`, `ebook`, or `audiobook`; optional reactions are `loved`,
 reflection must be present. Minutes are bounded to 600 and pages to 2000.
 Session dates default to the family's local day and cannot be future dates.
 
-Every create requires a UUID `client_request_id`. All reading writes lock the
-owner user row, then recheck the current actor's role, activity and family
-membership after waiting. Parents can still maintain an inactive child's saved
-history. Each model uniquely binds the owner and UUID. `create_payload` retains
+Every create requires a UUID `client_request_id`. Reading writes and MCP reads
+hold family, then sorted actor/owner member locks while checking the current
+actor's role, staff status, activity and family membership after waiting. Parents
+can still maintain an inactive child's saved history. Each model uniquely binds
+the owner and UUID. `create_payload` retains
 the normalized original request so an
 identical retry returns the current record even after a correction. Conflicting
 reuse returns 400. An omitted session date stays omitted from that payload,

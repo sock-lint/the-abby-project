@@ -1,5 +1,6 @@
 """Shared reading writes, saved summaries and once-daily RPG rewards."""
 import json
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
@@ -11,6 +12,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.achievements.models import Skill
 from apps.achievements.services import AwardService
+from apps.families.models import Family
 from apps.notifications.services import defer_push_until_commit
 from apps.quests.activity import household_timezone
 from apps.rewards.models import CoinLedger
@@ -20,28 +22,41 @@ from apps.rpg.services import GameLoopService
 from .models import ReadingBook, ReadingDailyReward, ReadingRewardCredit, ReadingSession
 
 
-def lock_reading_owner(target, requester):
-    """Serialize every reading write and recheck ownership after waiting."""
-    users = get_user_model().objects
-    actor = users.filter(pk=requester.pk, is_active=True).first()
-    if actor is None:
+def _locked_reading_members(target, requester):
+    """Check current authority in account-lifecycle Family -> member order."""
+    family = Family.objects.select_for_update(no_key=True).filter(pk=requester.family_id).first()
+    if family is None:
         raise NotFound("Child not found.")
-    target = (
-        users.select_for_update(no_key=True, of=("self",))
-        .select_related("family")
-        .filter(pk=target.pk, role="child", family_id=actor.family_id)
-        .first()
-    )
-    # The request's actor object may predate a role/family change, including
-    # while this transaction waited for another reading write to finish.
-    actor = users.filter(pk=requester.pk, is_active=True).first()
+    members = {
+        member.pk: member for member in get_user_model().objects.select_for_update(no_key=True).filter(
+            pk__in={requester.pk, target.pk}, family=family,
+        ).order_by("pk")
+    }
+    actor, target = members.get(requester.pk), members.get(target.pk)
     if (
-        target is None or actor is None or actor.family_id != target.family_id
+        target is None or target.role != "child" or actor is None or not actor.is_active
+        or (actor.role, actor.is_staff) != (requester.role, requester.is_staff)
         or actor.role not in {"parent", "child"}
         or (actor.role == "child" and actor.pk != target.pk)
     ):
         raise NotFound("Child not found.")
-    return target
+    # Parents may maintain an inactive child's historical records. The actor
+    # must remain active; do not inherit generic active-target mutation rules.
+    actor.family = family
+    target.family = family
+    return actor, target
+
+
+def lock_reading_owner(target, requester):
+    """Serialize writes and retain current member locks in the caller's transaction."""
+    return _locked_reading_members(target, requester)[1]
+
+
+@contextmanager
+def authorized_reading(requester, target):
+    """Hold current read authority through query evaluation and serialization."""
+    with transaction.atomic():
+        yield _locked_reading_members(target, requester)
 
 
 def reading_payload(data):

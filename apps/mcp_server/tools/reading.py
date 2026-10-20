@@ -7,6 +7,7 @@ from apps.reading.serializers import (
     ReadingSessionCreateSerializer, ReadingSessionSerializer,
 )
 from apps.reading.services import (
+    authorized_reading,
     create_reading_book as save_reading_book,
     create_reading_session as save_reading_session,
     reading_summary,
@@ -73,25 +74,27 @@ def list_reading_books(params: ListReadingBooksIn) -> ListReadingBooksOut:
     Parents must choose a same-family child. Children read only themselves.
     This read never logs reading, advances goals, or awards a reward.
     """
-    _, target = _reading_target(params.user_id)
-    queryset = ReadingBook.objects.filter(user=target, pk__gt=params.after)
-    if params.status:
-        queryset = queryset.filter(status=params.status)
-    rows = list(queryset.order_by("pk")[:params.limit + 1])
-    has_more = len(rows) > params.limit
-    selected = rows[:params.limit]
-    return {
-        "user_id": target.pk, "books": [_book_payload(book) for book in selected],
-        "next_after": selected[-1].pk if has_more else None, "has_more": has_more,
-    }
+    actor, target = _reading_target(params.user_id)
+    with authorized_reading(actor, target) as (_, target):
+        queryset = ReadingBook.objects.filter(user=target, pk__gt=params.after)
+        if params.status:
+            queryset = queryset.filter(status=params.status)
+        rows = list(queryset.order_by("pk")[:params.limit + 1])
+        has_more = len(rows) > params.limit
+        selected = rows[:params.limit]
+        return {
+            "user_id": target.pk, "books": [_book_payload(book) for book in selected],
+            "next_after": selected[-1].pk if has_more else None, "has_more": has_more,
+        }
 
 
 @tool()
 @safe_tool
 def get_reading_summary(params: GetReadingSummaryIn) -> ReadingSummaryOut:
     """Read saved reading totals and today's actual Reading Adventure receipt."""
-    _, target = _reading_target(params.user_id)
-    return {"user_id": target.pk, **reading_summary(target)}
+    actor, target = _reading_target(params.user_id)
+    with authorized_reading(actor, target) as (_, target):
+        return {"user_id": target.pk, **reading_summary(target)}
 
 
 @tool()

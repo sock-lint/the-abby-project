@@ -3,6 +3,7 @@ from apps.reading.models import ReadingBook, ReadingSession
 from apps.reading.serializers import ReadingSessionSerializer
 from apps.reading.services import (
     ReadingHistoryConflict,
+    authorized_reading,
     delete_reading_book as remove_book,
     delete_reading_session as remove_session,
     update_reading_book as save_book,
@@ -47,7 +48,8 @@ def _patch_data(params):
 def get_reading_book(params: GetReadingBookIn) -> ReadingBookOut:
     """Read one saved shelf book for the explicitly selected child or child self."""
     actor, target = _reading_target(params.user_id)
-    return _book_payload(_owned_record(ReadingBook, actor, target, params.book_id))
+    with authorized_reading(actor, target) as (actor, target):
+        return _book_payload(_owned_record(ReadingBook, actor, target, params.book_id))
 
 
 @tool()
@@ -59,8 +61,9 @@ def get_reading_session(params: GetReadingSessionIn) -> ReadingSessionOut:
     history. This read never credits minutes or awards XP or Coins.
     """
     actor, target = _reading_target(params.user_id)
-    session = _owned_record(ReadingSession, actor, target, params.session_id)
-    return to_plain(ReadingSessionSerializer(session).data)
+    with authorized_reading(actor, target) as (actor, target):
+        session = _owned_record(ReadingSession, actor, target, params.session_id)
+        return to_plain(ReadingSessionSerializer(session).data)
 
 
 @tool()
@@ -74,24 +77,25 @@ def list_reading_sessions(params: ListReadingSessionsIn) -> ListReadingSessionsO
     in current results and totals; reading dates do not determine page order.
     """
     actor, target = _reading_target(params.user_id)
-    queryset = _owned_records(ReadingSession, actor, target)
-    if params.book_id is not None:
-        _owned_record(ReadingBook, actor, target, params.book_id)
-        queryset = queryset.filter(book_id=params.book_id)
-    if params.since is not None:
-        queryset = queryset.filter(occurred_on__gte=params.since)
-    if params.until is not None:
-        queryset = queryset.filter(occurred_on__lte=params.until)
-    rows, page = paginate_created_history(
-        queryset, actor=actor, tool="list_reading_sessions",
-        filters={
-            "user_id": target.pk, "book_id": params.book_id,
-            "since": params.since.isoformat() if params.since is not None else None,
-            "until": params.until.isoformat() if params.until is not None else None,
-        },
-        limit=params.limit, cursor=params.cursor,
-    )
-    return {"user_id": target.pk, "sessions": to_plain(ReadingSessionSerializer(rows, many=True).data), **page}
+    with authorized_reading(actor, target) as (actor, target):
+        queryset = _owned_records(ReadingSession, actor, target)
+        if params.book_id is not None:
+            _owned_record(ReadingBook, actor, target, params.book_id)
+            queryset = queryset.filter(book_id=params.book_id)
+        if params.since is not None:
+            queryset = queryset.filter(occurred_on__gte=params.since)
+        if params.until is not None:
+            queryset = queryset.filter(occurred_on__lte=params.until)
+        rows, page = paginate_created_history(
+            queryset, actor=actor, tool="list_reading_sessions",
+            filters={
+                "user_id": target.pk, "book_id": params.book_id,
+                "since": params.since.isoformat() if params.since is not None else None,
+                "until": params.until.isoformat() if params.until is not None else None,
+            },
+            limit=params.limit, cursor=params.cursor,
+        )
+        return {"user_id": target.pk, "sessions": to_plain(ReadingSessionSerializer(rows, many=True).data), **page}
 
 
 @tool()
