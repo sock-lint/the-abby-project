@@ -11,6 +11,26 @@ const SKILLS = [
 ];
 
 describe('SkillTagEditor', () => {
+  it.each(['C', 'C "quoted"'])('keeps literal category-looking names distinct with category %s', async (literalCategory) => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const skills = [
+      { id: 1, name: 'Twin', category_name: 'A' },
+      { id: 2, name: 'Twin', category_name: 'B' },
+      { id: 3, name: 'Twin (A)', category_name: literalCategory },
+    ];
+    render(<SkillTagEditor skills={skills} value={[{ skill_id: 1, xp_weight: 2 }]} onChange={onChange} />);
+    const picker = screen.getByRole('combobox', { name: 'Skill for tag 1' });
+    const options = await openDropdown(user, picker);
+    const labels = options.getAllByRole('option').map((option) => option.textContent);
+    expect(new Set(labels).size).toBe(skills.length);
+    expect(picker).toHaveTextContent('"Twin" ("A")');
+    const literalLabel = `"Twin (A)" (${JSON.stringify(literalCategory)})`;
+    await user.click(options.getByRole('option', { name: literalLabel, exact: true }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith([{ skill_id: 3, xp_weight: 2 }]);
+    expect(screen.getByRole('button', { name: 'Remove "Twin" ("A")' })).toBeInTheDocument();
+  });
+
   it('distinguishes same-name skills by category and emits the chosen numeric ID', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();

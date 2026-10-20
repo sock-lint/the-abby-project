@@ -457,7 +457,9 @@ transaction; a missing category rolls back both the new definition and its MCP
 receipt. Identical request replay still returns the saved original response.
 
 Skill identities include their category. Duplicate labels show their category in
-the native pickers; MCP writes continue to use numeric IDs. Quest YAML references
+the native pickers; if literal names imitate those labels, escaped quoted name
+and category parts keep every choice distinct. MCP writes continue to use numeric
+IDs. Quest YAML references
 accept a unique bare name or `Category::Skill`; bare prerequisites within a skill
 tree refer to that skill's category. Ambiguous qualified spellings are rejected,
 including collisions caused by literal `::` in category or skill names. Subject
