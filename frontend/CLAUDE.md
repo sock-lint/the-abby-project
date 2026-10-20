@@ -428,3 +428,20 @@ import. Dummy is separate future training art with no product binding. Read
 non-destructive reconciliation, rollback pins and remaining phone acceptance.
 Run `ABBY_ROSTER_FULL_MOTIONS=1 npx playwright test e2e/roster.pw.js` with private
 assets to exercise the actual current renderer; absent payloads explicitly skip.
+
+
+Fire/Ice Chick and Wolf presentation uses the separately pinned
+`abby-elemental-companions` candidate and `sharedElementalRelease` /
+`sharedElementalPlayback`, shared by Live and Hatchery previews. Exact
+`appearance_bindings` v1 keeps potion identity separate from native `source-*`
+take IDs. Each take owns its rig/materials/mixer; four Chick transition payloads
+preload the confirmed destination, while reduced motion skips directly to it.
+`sharedElementalPortraits` selects the declared `icon` variant at every size;
+missing art never substitutes Base or a CSS recolor. Only exact elemental
+Chick/Wolf identities receive those model/portrait bindings. The production
+acquisition registry remains Base-only pending separate publication/activation.
+Read [Fire and Ice companions](../docs/operations/fire-ice-companions.md) for
+verification, remaining acceptance and rollback. With private art installed,
+`ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js` exercises
+all 178 native takes plus Live/Hatchery stages and Bird transitions. Public CI
+without private art explicitly skips those browser acceptance scopes.

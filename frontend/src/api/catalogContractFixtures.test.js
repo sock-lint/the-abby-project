@@ -16,6 +16,8 @@ import imageChallenges from '../../../contracts/api/fixtures/catalog-icons-chall
 import imageSpecies from '../../../contracts/api/fixtures/catalog-icons-species.json';
 import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json';
 import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
+import elementalInventory from '../../../contracts/api/fixtures/catalog-icons-elemental-inventory.json';
+import elementalChallenges from '../../../contracts/api/fixtures/catalog-icons-elemental-challenges.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
@@ -25,6 +27,41 @@ import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-b
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('retains verified Fire/Ice potion artwork on saved inventory without enabling acquisition or accepting same-name copies', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(elementalInventory)));
+    const rows = await getInventory();
+    expect(rows).toEqual(elementalInventory);
+    expect(new Map(rows.map((row) => [row.item.id, row.item.catalog_icon]))).toEqual(new Map([
+      [51, 'item-fire-potion'], [52, 'item-ice-potion'], [53, null], [54, null],
+    ]));
+    expect(new Set(rows.map((row) => row.id))).toEqual(new Set([101, 102, 103, 104]));
+    expect(rows.every((row) => row.quantity === 2 && row.item.catalog_available === false && row.available_actions.length === 0)).toBe(true);
+    expect(rows.find((row) => row.item.id === 51).item).toMatchObject({
+      slug: 'fire-potion', item_type: 'potion', potion_type_name: 'Fire', metadata: { variant: 'fire' },
+    });
+    expect(rows.find((row) => row.item.id === 52).item).toMatchObject({
+      slug: 'ice-potion', item_type: 'potion', potion_type_name: 'Ice', metadata: { variant: 'ice' },
+    });
+    expect(rows.filter((row) => row.item.name === 'Fire Potion').map((row) => row.item.catalog_icon)).toEqual(['item-fire-potion', null]);
+  });
+
+  it('transports four exact elemental challenge images and complete synthetic reward pairs while custom names stay unbound', async () => {
+    server.use(http.get('*/api/quests/catalog/', () => HttpResponse.json(elementalChallenges)));
+    const rows = await getQuestCatalog();
+    expect(rows).toEqual(elementalChallenges);
+    expect(new Map(rows.map((row) => [row.id, row.catalog_icon]))).toEqual(new Map([
+      [91, 'challenge-ember-nest'], [92, 'challenge-frost-nest'], [93, 'challenge-ember-trail'], [94, 'challenge-frost-trail'], [95, null],
+    ]));
+    for (const [id, egg, potion] of [[91, 71, 51], [92, 71, 52], [93, 72, 51], [94, 72, 52]]) {
+      const challenge = rows.find((row) => row.id === id);
+      expect(challenge).toMatchObject({ quest_type: 'collection', is_system: true, is_repeatable: false, duration_days: 180, coin_reward: 0, xp_reward: 0 });
+      expect(new Set(challenge.reward_items.map((reward) => reward.item))).toEqual(new Set([egg, potion]));
+      expect(challenge.reward_items).toHaveLength(2);
+      expect(challenge.reward_items.every((reward) => reward.quantity === 1 && reward.item_catalog_available === true)).toBe(true);
+      expect(challenge.reward_items.find((reward) => reward.item_type === 'potion').item_catalog_icon).toBe(potion === 51 ? 'item-fire-potion' : 'item-ice-potion');
+    }
+    expect(rows.find((row) => row.id === 95)).toMatchObject({ name: 'Ember Nest', is_system: false, catalog_icon: null, reward_items: [] });
+  });
   it('uses the shared species allowance for every saved potion appearance', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));
     const stable = await getStable();

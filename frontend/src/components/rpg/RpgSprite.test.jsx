@@ -5,6 +5,9 @@ import { SpriteCatalogProvider } from '../../providers/SpriteCatalogProvider';
 import { SpriteCatalogContext } from '../../providers/spriteCatalog.context';
 import presentation from '../../storybook/presentation.json';
 import { getLicensedRpgSprite, resolveLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
+import { resolveElementalPortrait } from '../../companion/sharedElementalPortraits';
+
+vi.mock('../../companion/sharedElementalPortraits', () => ({ resolveElementalPortrait: vi.fn(() => null) }));
 
 vi.mock('../../storybook/licensedRpgSprites', async () => {
   const actual = await vi.importActual('../../storybook/licensedRpgSprites');
@@ -37,6 +40,34 @@ describe('RpgSprite', () => {
   beforeEach(() => {
     localStorage.clear();
     getLicensedRpgSprite.mockReset().mockReturnValue(null);
+    resolveElementalPortrait.mockReset().mockReturnValue(null);
+  });
+
+  it.each(['fire', 'ice'])('uses exact %s stage images at every size, with dimming separate from appearance', (potionSlug) => {
+    resolveElementalPortrait.mockImplementation((key, potion) => ({ url: `/elemental/${key}-${potion}.png`, frames: 1 }));
+    const keys = ['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount'];
+    const { rerender } = render(<RpgSprite spriteKey={keys[0]} potionSlug={potionSlug} alt="Elemental pet" />);
+    for (const spriteKey of keys) {
+      for (const size of [24, 32, 64, 96, 128, 256]) {
+        rerender(<RpgSprite spriteKey={spriteKey} fallbackSpriteKey="cute-chick" potionSlug={potionSlug} size={size} dim="stale" alt="Elemental pet" />);
+        expect(screen.getByRole('img', { name: 'Elemental pet' })).toHaveAttribute('src', `/elemental/${spriteKey}-${potionSlug}.png`);
+        expect(screen.getByRole('img', { name: 'Elemental pet' })).toHaveStyle({ width: `${size}px`, filter: 'grayscale(0.5) opacity(0.7)' });
+        expect(resolveElementalPortrait).toHaveBeenLastCalledWith(spriteKey, potionSlug);
+      }
+    }
+    expect(getLicensedRpgSprite).not.toHaveBeenCalled();
+  });
+
+  it('retains the exact identity as a labelled icon after a failed image instead of trying a different stage/species', () => {
+    resolveElementalPortrait.mockImplementation((key, potion) => ({ url: `/elemental/${key}-${potion}.png`, frames: 1 }));
+    const view = (key, potion) => <RpgSprite spriteKey={key} fallbackSpriteKey="meshtint-wolf" potionSlug={potion} icon="🐾" dim="bored" alt="Fire Fledgling" />;
+    const { rerender } = renderWithCatalog(view('cute-chick-fledgling', 'fire'), { 'cute-chick-fledgling': { url: '/base-fledgling.png', frames: 1 } });
+    fireEvent.error(screen.getByRole('img', { name: 'Fire Fledgling' }));
+    expect(screen.getByRole('img', { name: 'Fire Fledgling' }).tagName).toBe('SPAN');
+    expect(screen.getByRole('img', { name: 'Fire Fledgling' })).toHaveTextContent('🐾');
+    expect(screen.getByRole('img', { name: 'Fire Fledgling' })).toHaveStyle({ filter: 'grayscale(0.25) opacity(0.85)' });
+    rerender(<SpriteCatalogProvider>{view('cute-chick-mount', 'ice')}</SpriteCatalogProvider>);
+    expect(screen.getByRole('img', { name: 'Fire Fledgling' })).toHaveAttribute('src', '/elemental/cute-chick-mount-ice.png');
   });
 
   it.each(['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount'])(

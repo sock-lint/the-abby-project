@@ -1,0 +1,126 @@
+[
+  {
+    "id": 101,
+    "item": {
+      "id": 51,
+      "slug": "fire-potion",
+      "name": "Fire Potion",
+      "description": "",
+      "icon": "P",
+      "sprite_key": "",
+      "catalog_icon": "item-fire-potion",
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "uncommon",
+      "rarity_display": "Uncommon",
+      "coin_value": 0,
+      "metadata": {
+        "variant": "fire"
+      },
+      "effect_summary": "Combine with a compatible egg in Hatching.",
+      "acquisition_sources": [],
+      "pet_species_name": null,
+      "potion_type_name": "Fire",
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 103,
+    "item": {
+      "id": 53,
+      "slug": "custom-fire-potion",
+      "name": "Fire Potion",
+      "description": "",
+      "icon": "CUSTOM",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "uncommon",
+      "rarity_display": "Uncommon",
+      "coin_value": 0,
+      "metadata": {
+        "variant": "fire"
+      },
+      "effect_summary": "Combine with a compatible egg in Hatching.",
+      "acquisition_sources": [],
+      "pet_species_name": null,
+      "potion_type_name": "Fire",
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 102,
+    "item": {
+      "id": 52,
+      "slug": "ice-potion",
+      "name": "Ice Potion",
+      "description": "",
+      "icon": "P",
+      "sprite_key": "",
+      "catalog_icon": "item-ice-potion",
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "uncommon",
+      "rarity_display": "Uncommon",
+      "coin_value": 0,
+      "metadata": {
+        "variant": "ice"
+      },
+      "effect_summary": "Combine with a compatible egg in Hatching.",
+      "acquisition_sources": [],
+      "pet_species_name": null,
+      "potion_type_name": "Ice",
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  },
+  {
+    "id": 104,
+    "item": {
+      "id": 54,
+      "slug": "custom-ice-potion",
+      "name": "Ice Potion",
+      "description": "",
+      "icon": "MISMATCH",
+      "sprite_key": "",
+      "catalog_icon": null,
+      "item_type": "potion",
+      "type_display": "Hatching Potion",
+      "rarity": "uncommon",
+      "rarity_display": "Uncommon",
+      "coin_value": 0,
+      "metadata": {
+        "variant": "fire"
+      },
+      "effect_summary": "Combine with a compatible egg in Hatching.",
+      "acquisition_sources": [],
+      "pet_species_name": null,
+      "potion_type_name": "Ice",
+      "food_species_name": null,
+      "catalog_available": false,
+      "lifecycle_stage": null,
+      "pet_species_slug": null
+    },
+    "quantity": 2,
+    "updated_at": "2026-10-10T12:00:00-07:00",
+    "available_actions": []
+  }
+]

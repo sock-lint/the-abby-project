@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 import { getLicensedRpgSprite } from '../../storybook/licensedRpgSprites';
 import { resolveRosterPortrait } from '../../companion/sharedRosterRelease';
+import { resolveElementalPortrait } from '../../companion/sharedElementalPortraits';
 
 const SIZE_TO_TEXT_CLASS = {
   24: 'text-xl',
@@ -52,9 +53,8 @@ const DIM_FILTERS = {
  * Use case: mount sprites named ``{species}-mount`` fall back to the
  * base species sprite for species we haven't drawn evolved forms of yet.
  *
- * ``potionSlug`` applies a hue-shift CSS filter keyed off the potion the
- * pet was hatched with (fire/ice/shadow/golden/cosmic). Base potion is
- * the natural palette so we skip the filter.
+ * Prepared Chick/Wolf Fire/Ice appearances use their exact stage portraits.
+ * ``potionSlug`` retains legacy hue filters for other species/appearances.
  */
 export default function RpgSprite({
   spriteKey,
@@ -73,10 +73,12 @@ export default function RpgSprite({
   const [failedUrls, setFailedUrls] = useState(() => new Set());
   const exactElemental = ['fire', 'ice'].includes(potionSlug)
     && [spriteKey, fallbackSpriteKey].some((key) => ELEMENTAL_PORTRAIT_KEYS.has(key));
-  const meta = [spriteKey, fallbackSpriteKey].filter(Boolean)
-    .flatMap((key) => exactElemental
-      ? [resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon')]
-      : [resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon'), getLicensedRpgSprite(key, size > 96 ? 'native' : 'icon'), getSpriteMeta(key)])
+  const candidates = exactElemental ? [resolveElementalPortrait(spriteKey, potionSlug)]
+    : [spriteKey, fallbackSpriteKey].filter(Boolean).flatMap((key) => [
+      resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon'),
+      getLicensedRpgSprite(key, size > 96 ? 'native' : 'icon'), getSpriteMeta(key),
+    ]);
+  const meta = candidates
     .find((candidate) => candidate?.url && !failedUrls.has(candidate.url));
   const onImageError = () => setFailedUrls((previous) => new Set(previous).add(meta.url));
   const imageRendering = rendering === 'pixelated' ? 'pixelated' : 'auto';

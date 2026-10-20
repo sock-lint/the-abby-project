@@ -264,3 +264,12 @@ shop offers idempotently; it never deletes item/species definitions, quest rewar
 links or frozen promises. Use `reconcile_companion_catalog --dry-run --json`
 before rollout. Egg-category weights remain unchanged in live selection. See
 [the adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+
+`catalog_icons.py` also reads exact potion/challenge image identities from
+`shared/catalog/elemental-bindings.json`. Canonical Fire/Ice potion ingredients
+require the matching typed potion FK, metadata variant, slug, name and type;
+challenge images require the exact system collection definition. These read-only
+image IDs do not enable acquisition. Fire/Ice presentation is privately
+integrated, with production positive-policy activation and publication separate;
+see `docs/operations/fire-ice-companions.md`.

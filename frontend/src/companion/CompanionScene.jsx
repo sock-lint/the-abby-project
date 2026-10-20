@@ -5,6 +5,7 @@ import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';
 import { createSharedBirdPlayback } from './sharedBirdPlayback';
 import { createSharedRosterPlayback } from './sharedRosterPlayback';
+import { createSharedElementalPlayback } from './sharedElementalPlayback';
 import { rosterFraming } from './rosterFraming';
 import { birdPlaybackIdentity } from './sharedBirdRelease';
 import WoodlandScene, { WoodlandCamera } from './WoodlandScene';
@@ -81,7 +82,7 @@ function SharedCreature({ appearance, greeting, interaction, reaction, evolution
   const resourceIdentity = birdPlaybackIdentity(appearance);
   const notifyReady = useEffectEvent(() => onReady());
   const notifyPlayback = useEffectEvent((state) => onPlaybackState?.(state));
-  const createPlayback = useEffectEvent(() => (appearance.pipeline === 'abby-assets-roster' ? createSharedRosterPlayback : createSharedBirdPlayback)(appearance, {
+  const createPlayback = useEffectEvent(() => ({ 'abby-assets-roster': createSharedRosterPlayback, 'abby-assets-elemental': createSharedElementalPlayback }[appearance.pipeline] || createSharedBirdPlayback)(appearance, {
     onReady: () => notifyReady(), onPlaybackState: (state) => notifyPlayback(state), onError: setError, invalidate,
   }));
   useEffect(() => {
@@ -178,12 +179,12 @@ export default function CompanionScene({ appearance, greeting, interaction, reac
       <Canvas frameloop="demand" dpr={[1, 1.5]} camera={WOODLAND_CAMERA} gl={{ antialias: true, alpha: false, powerPreference: 'low-power' }}
       fallback={<span>3D display is unavailable on this device.</span>}>
       <color attach="background" args={[WOODLAND_BACKGROUND]} />
-      <WoodlandCamera target={appearance.pipeline === 'abby-assets-roster' ? rosterFraming(appearance.referenceBounds).center : undefined} />
+      <WoodlandCamera target={(appearance.pipeline === 'abby-assets-roster' || appearance.framing === 'roster') ? rosterFraming(appearance.referenceBounds).center : undefined} />
       {!appearance.woodland && <ambientLight intensity={2} />}
       <ContextGuard onUnavailable={onUnavailable} />
       <Suspense fallback={null}>
         {appearance.woodland && <WoodlandScene appearance={appearance.woodland} />}
-        {['abby-assets-bird', 'abby-assets-roster'].includes(appearance.pipeline)
+        {['abby-assets-bird', 'abby-assets-roster', 'abby-assets-elemental'].includes(appearance.pipeline)
           ? <SharedCreature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} evolution={evolution} animate={animate} motionAllowed={motionAllowed} onReady={onReady} onPlaybackState={onPlaybackState} />
           : <Creature appearance={appearance} greeting={greeting} interaction={interaction} reaction={reaction} animate={animate} motionAllowed={motionAllowed} onReady={onReady} />}
       </Suspense>

@@ -1,15 +1,18 @@
-# Fire and Ice companion foundations
+# Fire and Ice companions
 
 The owner approved Fire and Ice appearances for exact species `chick`
 (`cute-chick`) and `meshtint-wolf`, four guaranteed ingredient challenges,
 and a daily expedition allowance shared by each account's species. Pet stats
-are deferred. This change prepares application behavior while the private
-asset workshop prepares the appearances.
+are deferred. The application integrates the verified private candidate;
+publication, production activation and deployment remain separate.
 
 ## Delivery state
 
-The production art registry and all existing asset release pins remain Base
-only for these species. Authored `available_potions` now declares Base, Fire
+The production acquisition registry remains Base only for these species.
+All eight existing release pins are preserved, with a ninth pin for
+`abby-elemental-companions` 1.0.0 at manifest SHA-256
+`fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048`.
+Authored `available_potions` declares Base, Fire
 and Ice compatibility; that declaration does not establish art availability.
 Registered Chick/Wolf starts require the canonical ingredient slug, typed
 potion FK and matching metadata, plus the exact art policy and authored pair.
@@ -28,6 +31,23 @@ potions. An unknown or failed catalog read blocks a new start, while an already
 accepted ready incubation can still be hatched. Selecting another egg clears
 an incompatible potion. Missing Fire/Ice art uses an explicit placeholder;
 neither Base 3D art nor a CSS recolor establishes an elemental appearance.
+
+The read-only candidate index matched SHA-256
+`fcf62e1254f81e69cd42b9b9e7b0b974218c52d922fa925b3c534c6061842674`.
+All six envelope objects, 743 verification inventory files, 185 authoring
+inventory files and 200 runtime payloads verified. The standard verifier
+reports `candidate_for_review`; it does not establish publication. The exact
+code-only packages are contracts 1.4.0, avatar-runtime 1.3.0 and release-tools
+1.6.0; their handoff SHA-256 and npm SHA-512 integrities are preserved in the
+vendor packages and npm lock. Models, PNGs, authoring sources and review
+evidence stay private and outside Git.
+
+Private adoption uses the existing importer's local `releaseRoot` with the
+verified candidate and unchanged Base releases, including seven retained
+supplemental portraits. It does not repoint the ordinary production reader
+to `candidates/`: no canonical version index exists for this candidate.
+Required private production builds must continue to fail on absent or changed
+payloads. Public validation builds retain their optional-art fallbacks.
 
 ## Guaranteed acquisition
 
@@ -72,25 +92,70 @@ that the other appearance's trip must be collected. The Lab uses deterministic
 species selection and the same daily/pending restrictions before its separate
 hypothetical account-wide expedition quotas.
 
-## Remaining asset intake
+## Exact application presentation
 
-Receive twelve stage appearances and matching portraits, plus both Bird
-evolution transitions in each element. Chick remains Chick → Fledgling → Bird;
-Wolf remains Wolf Pup → Wolf → Werewolf. Potion appearance must remain separate
-from native animation-take IDs such as `source-idle`.
+`sharedElementalRelease` resolves the twelve exact stage appearances through
+`appearance_bindings` v1. Chick remains Chick → Fledgling → Bird; Wolf remains
+Wolf Pup → Wolf → Werewolf. Potion appearance remains separate from native
+animation-take IDs such as `source-idle`. Each of the 178 declared takes loads
+its own source rig, animation action, loop and root-travel policy. Existing
+Base adapters remain exact and unchanged.
 
-The receiving change must verify the immutable private release, exact file
-inventory/digests, every supported motion, transition source/destination,
-portraits, simultaneous Base/Fire/Ice instances, reduced motion and actual
-renderer output. Add the exact appearance bindings to both live companions
-and Hatchery previews, then update the production positive registry for only
-the verified pairs. Existing release pins and saved
-ownership must be preserved. Public delivery uses the existing separate
-owner-approved intake process; this foundations PR does not publish assets.
+Live companions and Hatchery previews use the same exact bindings and twelve
+declared `icon` portraits at every display size. Four challenge and two potion
+images use typed mappings in `shared/catalog/elemental-bindings.json`; those
+presentation IDs never establish acquisition availability. Unknown identities,
+missing private files and failed models retain labelled fallback and controls.
+Egg item identities and their natural appearance stay unchanged.
+
+The four Bird transition bindings preload the confirmed destination idle,
+play once, and support a direct Baby → Grown chain. Stale selections, retries
+and unmounts cancel old work and dispose owned resources. Reduced motion
+skips the transition and shows the confirmed destination immediately. Wolf
+uses its confirmed stage's native idle, with no invented transition.
+The static Bird and roster framing rules remain independent from selected
+motion bounds. Local preview controls never change growth, ownership or rewards.
+
+The private review verified all canonical models against their original native
+data and replayed 1,092 sampled WebGL poses, including simultaneous
+Base/Fire/Ice isolation. Current-application browser checks use the actual
+components and imported payloads:
+
+```sh
+cd frontend
+ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js
+```
+
+Missing private art explicitly skips that acceptance scope. The synthetic
+unit/API tests and public CI do not substitute for the private browser run.
+The visible Chick bands cross brow/body because of shared source UVs; exact-art
+owner review retains that documented presentation decision. Real-phone
+performance and acceptance remain pending, separately from desktop viewports.
+
+## Activation and rollback
+
+Keep PR #307 in draft while publication and acceptance remain pending. A
+verified local candidate and ninth pin do not publish its runtime version.
+Use the existing separate owner-reviewed intake process; this change does not
+publish or deploy. Only a later reviewed activation may expand the production
+positive registry for the exact Chick/Wolf Fire/Ice pairs. Whole-bundle
+challenge gating and random-pool exclusions remain in force until then.
+
+The application rollback baseline before asset adoption is foundations commit
+`bf0a0fbab74fc1968d4fd4d582449dfa223c5d8e`. A fresh rollback PR restores its
+eight-release lock, compatible package set and presentation code together,
+preserving unrelated later changes. Reimport and verify the old pins and
+supplemental portraits, then rerun ordinary checks and independent review.
+Close only new elemental offers/starts through the positive policy; preserve
+saved elemental ownership, nicknames, growth, accepted incubation identities
+and deadlines, frozen ingredient promises and pending expedition receipts.
+Accepted claims still fulfill exactly once and shared species allowance stays
+intact. Honest unavailable-art fallbacks keep care and claim controls usable.
+No database restore, reward reversal, conversion to Base or mutable release
+replacement is part of art rollback.
 
 Required normal checks include backend PostgreSQL races, challenge payout and
 replay/retirement tests, API producers/consumers, Lab parity, frontend coverage,
 web/native builds and independent review. The shared-allowance wire example is
 `contracts/api/fixtures/pets-shared-expedition-allowance.json`; it contains only
-synthetic saved ownership and no elemental acquisition authorization. Physical
-phone performance and complete visual acceptance await the actual asset intake.
+synthetic saved ownership and no elemental acquisition authorization.

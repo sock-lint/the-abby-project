@@ -4,12 +4,13 @@ import RpgSprite from './RpgSprite';
 import { resolveRosterCatalogIcon } from '../../companion/sharedRosterRelease';
 import { resolveSupplementalCatalogIcon } from '../../companion/supplementalPortraits';
 import { resolveArtworkImage } from '../../catalog/sharedArtwork';
+import { resolveElementalCatalogIcon } from '../../companion/sharedElementalPortraits';
 
 /** Static private catalog art is a presentation of an existing server record.
  * A missing binding, private install or failed PNG keeps the original fallback. */
 export default function CatalogIcon({ assetId, size = 32, alt = '', className = '', ...fallback }) {
   const [failedUrls, setFailedUrls] = useState(() => new Set());
-  const image = resolveSupplementalCatalogIcon(assetId) || resolveRosterCatalogIcon(assetId) || resolveCatalogIcon(assetId)
+  const image = resolveElementalCatalogIcon(assetId) || resolveSupplementalCatalogIcon(assetId) || resolveRosterCatalogIcon(assetId) || resolveCatalogIcon(assetId)
     || resolveArtworkImage(assetId);
   if (!image || failedUrls.has(image.url)) {
     return <RpgSprite {...fallback} size={size} alt={alt} className={className} />;
