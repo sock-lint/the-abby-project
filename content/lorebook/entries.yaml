@@ -342,6 +342,7 @@ entries:
     mechanics:
       - "Badge criteria are evaluated across time, projects, skills, economy, homework, creations, RPG progress, and saved milestones."
       - "Earning a badge can grant an XP bonus and rarity-scaled Coins."
+      - "Each newly earned badge also receives one completion drop from available loot. Already earned badges do not pay again."
       - "Badge previews show base Coin bonuses: Common 5, Uncommon 15, Rare 35, Epic 75 and Legendary 150 when enabled. Lucky Coin can boost the actual award."
       - "Some challenge-completion badges opt out of extra Coins when the challenge already paid its reward."
       - "The badge catalog is view-only for children and parent-managed from the Skills admin surface."
@@ -430,6 +431,7 @@ entries:
       - "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework."
       - "Existing boss challenges retain their rage shield: it grows on idle days and decays when the child returns."
       - "Completing a challenge can award Coins, XP through challenge skill tags, and item rewards."
+      - "Each completed challenge also receives one random completion drop in addition to its promised items. Several challenges finishing together each receive their own drop."
     parent_knobs:
       settings: []
       powers_badges:
@@ -557,6 +559,7 @@ entries:
       - "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds."
       - "Eligible drop-table rows are weighted and can require a minimum level."
       - "A successful ordinary drop uses tier weights 60/25/10/4/1 from Common to Legendary. Major accomplishments use 40/30/20/8/2. Empty tiers redistribute across those available; item weights choose within a tier. Streak bonuses increase drop frequency, not the rarity mix."
+      - "Perfect Day completion drops exclude Common items and use the remaining accomplishment weights, so eligible loot is always Uncommon or better."
       - "New drops, mystery boxes and lucky dips draw from available items, excluding unprepared pet species, potion variants and pet accessories. An empty mystery pool consumes nothing."
       - "Unowned cosmetics are preferred over duplicates in the same tier without changing that tier's chance. Fully collected cosmetic tiers salvage duplicates to Coins; new drop receipts show the exact amount."
       - "Some triggers are daily-capped at their source so drops cannot be farmed by delete/recreate loops."
@@ -593,7 +596,7 @@ entries:
       - "The first qualifying activity of a local day records activity and awards streak-scaled daily check-in Coins."
       - "Missing a day can reset the visible streak and multiplier, but it never destroys earned Coins, XP, items, badges, pets, or memories."
       - "A streak freeze consumable can protect one missed day when its expiry covers the first missed day."
-      - "Perfect Day is separate: a nightly task awards bonus Coins when a child was active and completed every scheduled daily chore, with at least one daily chore scheduled."
+      - "Perfect Day is separate: a nightly task awards 15 bonus Coins and one Uncommon-or-better completion drop when a child was active and completed every scheduled daily chore, with at least one daily chore scheduled."
     parent_knobs:
       settings: []
       powers_badges:

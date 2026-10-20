@@ -210,4 +210,6 @@ class CuteChickCatalogTests(TestCase):
         pet = hatch_ready_pet(self.child, self.egg.pk, cosmic_item.pk)
 
         self.assertEqual((pet.species, pet.potion), (self.chick, cosmic))
-        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
+        # The hatch can now earn badge loot; its reserved ingredients must
+        # still be fully consumed, independently of those new rewards.
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item__in=[self.egg, cosmic_item]).exists())
