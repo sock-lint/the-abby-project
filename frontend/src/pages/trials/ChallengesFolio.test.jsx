@@ -1,10 +1,31 @@
 import { describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { renderWithProviders, screen, within } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import ChallengesFolio from './ChallengesFolio';
 import { selectDropdown } from '../../test/selectDropdown';
 
 describe('Challenges Task folio', () => {
+  it('keeps all ended history accessible after retrying the last eligible attempt', async () => {
+    const expired = buildChallengeGoal({ name: 'Ended bonus', origin: 'catalog', status: 'expired', retry: { allowed: true } });
+    const fresh = buildChallengeGoal({ id: 'goal:fresh', name: 'Fresh bonus', origin: 'catalog', progress: '0', retry: { allowed: false } });
+    function SavedAttempts() {
+      const [goals, setGoals] = useState([expired]);
+      return <ChallengesFolio goals={goals} onSelect={vi.fn()} onRetry={() => setGoals([
+        { ...expired, retry: { allowed: false, latest_attempt_id: fresh.id } }, fresh,
+      ])} />;
+    }
+    const { user } = renderWithProviders(<SavedAttempts />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: 'Find challenges to try again' }));
+    await user.click(screen.getByRole('button', { name: 'Try Ended bonus again' }));
+    const filter = screen.getByRole('combobox', { name: 'Show history' });
+    expect(filter).toHaveValue('retryable');
+    expect(screen.getByText('No challenges can be tried again right now.')).toBeInTheDocument();
+    await selectDropdown(user, filter, 'all');
+    expect(screen.getByRole('article', { name: 'Ended bonus' })).toBeInTheDocument();
+    expect(screen.getByText('History · 1')).toBeInTheDocument();
+  });
+
   it('searches and filters the full bonus catalog without duplicating preview cards or hiding parent goals', async () => {
     const bonuses = Array.from({ length: 7 }, (_, index) => buildChallengeGoal({
       id: `goal:bonus-${index}`, origin: 'catalog', name: `Story ${index}`, progress: '0',

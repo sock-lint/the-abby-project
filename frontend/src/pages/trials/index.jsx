@@ -75,10 +75,15 @@ function TrialsWorkspace({ context }) {
     try {
       const fresh = await retryChallenge(goal.id, { token });
       if (!current()) return;
-      setData((previous) => ({ ...previous, results: [
-        ...previous.results.filter((row) => row.id !== fresh.id).map((row) => row.id === goal.id
-          ? { ...row, retry: { ...row.retry, allowed: false, latest_attempt_id: fresh.id } } : row), fresh,
-      ] }));
+      setData((previous) => {
+        const pin = fresh.pinned === true ? fresh.id : previous.pin;
+        return { ...previous, pin, results: [
+          ...previous.results.filter((row) => row.id !== fresh.id).map((row) => ({
+            ...row, pinned: row.id === pin,
+            ...(row.id === goal.id && { retry: { ...row.retry, allowed: false, latest_attempt_id: fresh.id } }),
+          })), fresh,
+        ] };
+      });
       setSelectedId(fresh.id);
       window.dispatchEvent(new Event(CHALLENGES_CHANGED));
     } catch (failure) {

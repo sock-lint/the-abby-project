@@ -27,6 +27,60 @@ async function edit(user) {
 }
 
 describe('Parent future weekly goal controls', () => {
+  it.each([false, true])('blocks pause and resume until current settings reload, including a concurrent refresh (%s)', async (concurrentRefresh) => {
+    const current = goalWithSchedule({ schedule: { revision: 2, paused: false, next_week: { ...NEXT, paused: true } } });
+    const onReload = vi.fn().mockResolvedValueOnce(undefined).mockResolvedValueOnce({ results: [current] });
+    const conflict = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => HttpResponse.json({ error: 'Saved revision changed.' }, { status: 409 }));
+    server.use(conflict.handler);
+    function ChangingGoal() {
+      const [goal, setGoal] = useState(goalWithSchedule());
+      return <GoalScheduleControls goal={goal} onReload={async () => {
+        const response = await onReload();
+        if (concurrentRefresh && !response) setGoal(current);
+        return response;
+      }} />;
+    }
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
+    const { user } = renderWithProviders(<ChangingGoal />);
+    const pause = await screen.findByRole('button', { name: 'Pause future weeks' });
+    await user.click(pause);
+    const retry = await screen.findByRole('button', { name: 'Retry saved future settings' });
+    expect(pause).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Change future weeks' })).toBeDisabled();
+    await user.click(pause);
+    expect(conflict.calls).toHaveLength(1);
+    await user.click(retry);
+    const resume = await screen.findByRole('button', { name: 'Resume future weeks' });
+    await waitFor(() => expect(resume).toBeEnabled());
+    const save = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, { goal_definition_id: 21, schedule: { ...current.schedule, revision: 3, next_week: NEXT } });
+    server.use(save.handler);
+    await user.click(resume);
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toEqual({ expected_revision: 2, paused: false });
+    expect(onReload).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['unchanged revision', 'other goal', 'missing schedule'])('keeps the draft blocked when a reload returns %s', async (shape) => {
+    const current = goalWithSchedule({ schedule: { revision: 2, paused: false, next_week: NEXT } });
+    const response = shape === 'unchanged revision' ? { results: [goalWithSchedule()] }
+      : shape === 'other goal' ? { results: [{ ...current, goal_definition_id: 99 }] }
+        : { results: [{ ...current, schedule: null }] };
+    const onReload = vi.fn().mockResolvedValue(response);
+    const conflict = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => HttpResponse.json({ error: 'Saved revision changed.' }, { status: 409 }));
+    server.use(conflict.handler);
+    const { user } = setup({ onReload });
+    const dialog = await edit(user);
+    const target = within(dialog).getByLabelText('Future target (miles)');
+    await user.clear(target); await user.type(target, '3');
+    await user.click(within(dialog).getByRole('button', { name: 'Save future weeks' }));
+    await within(dialog).findByRole('button', { name: 'Retry saved future settings' });
+    expect(within(dialog).getByRole('button', { name: 'Load saved future settings' })).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Save future weeks' })).toBeDisabled();
+    expect(target).toHaveValue(3);
+    expect(onReload).toHaveBeenCalledOnce();
+    expect(conflict.calls).toHaveLength(1);
+  });
+
   it('saves only the six future settings with the exact revision and a captured credential', async () => {
     let authorization;
     const save = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, ({ request }) => {
@@ -102,7 +156,11 @@ describe('Parent future weekly goal controls', () => {
   it('retains a conflicting draft until the parent explicitly loads refreshed future settings', async () => {
     function ChangingGoal() {
       const [goal, setGoal] = useState(goalWithSchedule());
-      return <GoalScheduleControls goal={goal} onReload={async () => setGoal(goalWithSchedule({ schedule: { revision: 2, paused: false, next_week: { ...NEXT, target: '4' } } }))} />;
+      return <GoalScheduleControls goal={goal} onReload={async () => {
+        const current = goalWithSchedule({ schedule: { revision: 2, paused: false, next_week: { ...NEXT, target: '4' } } });
+        setGoal(current);
+        return { results: [current] };
+      }} />;
     }
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
     const stale = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => HttpResponse.json({ error: 'Schedule revision changed.' }, { status: 409 }));

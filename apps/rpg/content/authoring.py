@@ -68,9 +68,38 @@ def _canonical_lookup(model, lookup):
     return result
 
 
+def validate_source_identity(obj):
+    """Keep current names disjoint from another object's retained source name.
+
+    Publication and direct writers hold the shared catalog lock before this
+    check and the following save. Draft validation also runs it as a preflight;
+    preview/publication repeat validation under that same lock.
+    """
+    label = obj._meta.label_lower
+    if label not in AUTHORING_MODELS | {"quests.questdefinition"}:
+        return
+    lookup = natural_lookup(obj)
+    sources = RPGContentOverride.objects.filter(model_label=label).exclude(object_id=obj.pk)
+    if label == "quests.questdefinition":
+        # Retired aliases and private templates do not participate in the
+        # loader's global source-name resolution.
+        sources = sources.filter(object_id__in=type(obj).objects.filter(
+            is_system=True, created_by__isnull=True, superseded_by__isnull=True,
+        ).values("pk"))
+    for name, value in lookup.items():
+        sources = sources.filter(**{f"source_lookup__{name}": value})
+    for source in sources:
+        if source.source_lookup != lookup:
+            continue
+        if label in AUTHORING_MODELS and source.values.get("_authoring") != {"version": 1, "source": "mcp"}:
+            continue
+        raise ContentPackError("This source identity is retained by another authored entry; choose another name.")
+
+
 def validate_catalog_object(obj):
     """Validate the final candidate, including relationships retained by PATCH."""
     label = obj._meta.label_lower
+    validate_source_identity(obj)
     if label == "achievements.skill":
         if obj.subject_id is not None and obj.subject.category_id != obj.category_id:
             raise ContentPackError("The skill and its subject must belong to the same category; clear or replace the subject first.")

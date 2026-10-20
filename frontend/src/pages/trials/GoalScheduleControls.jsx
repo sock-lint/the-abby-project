@@ -23,6 +23,15 @@ function initialSettings(schedule) {
   };
 }
 
+async function refreshSchedule(onReload, goalId, revision) {
+  const response = await onReload?.();
+  const schedule = response?.results?.find((row) => row.goal_definition_id === goalId && row.schedule)?.schedule;
+  if (!schedule?.next_week || !Number.isInteger(schedule.revision) || schedule.revision <= revision) {
+    throw new Error('Could not refresh the saved future settings. Try loading them again.');
+  }
+  return schedule;
+}
+
 export default function GoalScheduleControls({ goal, onChanged, onReload }) {
   const { isParent, user } = useRole();
   const token = getToken();
@@ -35,18 +44,41 @@ function ScheduleControls({ goal, token, onChanged, onReload }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [editing, setEditing] = useState(false);
-  const next = goal.schedule.next_week;
+  const [conflict, setConflict] = useState(false);
+  const [conflictRevision, setConflictRevision] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [confirmedSchedule, setConfirmedSchedule] = useState(null);
+  const schedule = confirmedSchedule?.revision > goal.schedule.revision ? confirmedSchedule : goal.schedule;
+  const next = schedule.next_week;
   const current = () => mounted.current && getToken() === token;
+  const reloadSettings = async () => {
+    if (refreshing || !current()) return;
+    setRefreshing(true);
+    try {
+      const fresh = await refreshSchedule(onReload, goal.goal_definition_id, conflictRevision ?? schedule.revision);
+      if (!current()) return;
+      setConfirmedSchedule(fresh);
+      setConflict(false);
+      setConflictRevision(null);
+      setError('Saved future settings have been refreshed. Review them before trying again.');
+    } catch {
+      if (current()) setError('Could not refresh the saved future settings. Load them again before making another change.');
+    } finally { if (current()) setRefreshing(false); }
+  };
   const setPaused = async () => {
-    if (saving || !current()) return;
+    if (saving || refreshing || conflict || !current()) return;
     setSaving(true); setError('');
     try {
-      const response = await updateChallengeSchedule(goal.goal_definition_id, { expected_revision: goal.schedule.revision, paused: !next.paused }, { token });
+      const response = await updateChallengeSchedule(goal.goal_definition_id, { expected_revision: schedule.revision, paused: !next.paused }, { token });
       if (current()) onChanged?.(response);
     } catch (failure) {
       if (!current()) return;
-      setError(failure.status === 409 ? 'These future settings changed. They have been refreshed; review them before trying again.' : failure.message);
-      if (failure.status === 409) onReload?.();
+      if (failure.status === 409) {
+        setConflict(true);
+        setConflictRevision(schedule.revision);
+        setError('These future settings changed. Loading the saved version before you try again.');
+        await reloadSettings();
+      } else setError(failure.message);
     } finally { if (current()) setSaving(false); }
   };
   return <section aria-label="Future weekly goal settings" className="space-y-3 rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3">
@@ -55,10 +87,12 @@ function ScheduleControls({ goal, token, onChanged, onReload }) {
     <p className="font-body text-caption text-ink-secondary">{next.name} · {goalNumber(next.target)} {goalUnit(next.unit, next.target)} · {next.coin_reward} coins · {next.xp_reward} XP</p>
     <ErrorAlert message={error} />
     <div className="flex flex-wrap gap-2">
-      <Button variant="secondary" disabled={saving} onClick={setPaused}>{next.paused ? 'Resume future weeks' : 'Pause future weeks'}</Button>
-      <Button variant="secondary" disabled={saving} onClick={() => setEditing(true)}>Change future weeks</Button>
+      <Button variant="secondary" disabled={saving || refreshing || conflict} onClick={setPaused}>{next.paused ? 'Resume future weeks' : 'Pause future weeks'}</Button>
+      <Button variant="secondary" disabled={saving || refreshing || conflict} onClick={() => setEditing(true)}>Change future weeks</Button>
+      {conflict && <Button variant="secondary" disabled={saving || refreshing} onClick={reloadSettings}>Retry saved future settings</Button>}
     </div>
-    {editing && <NextWeekGoalForm goal={goal} token={token} onClose={() => setEditing(false)} onChanged={onChanged} onReload={onReload} />}
+    {refreshing && <p role="status">Loading saved future settings…</p>}
+    {editing && <NextWeekGoalForm goal={{ ...goal, schedule }} token={token} onClose={() => setEditing(false)} onChanged={onChanged} onReload={onReload} />}
   </section>;
 }
 
@@ -72,6 +106,9 @@ function NextWeekGoalForm({ goal, token, onClose, onChanged, onReload }) {
   const [error, setError] = useState('');
   const [errors, setErrors] = useState({});
   const [conflict, setConflict] = useState(false);
+  const [refreshedSchedule, setRefreshedSchedule] = useState(null);
+  const [refreshingSettings, setRefreshingSettings] = useState(false);
+  const [refreshError, setRefreshError] = useState('');
   const fetchSkills = useCallback((signal) => getAllSkills({ token, signal }), [token]);
   const { data, loading, refreshing, error: skillsError, reload: reloadSkills } = useApi(fetchSkills, [token]);
   const skills = normalizeList(data);
@@ -81,6 +118,16 @@ function NextWeekGoalForm({ goal, token, onClose, onChanged, onReload }) {
   const current = () => mounted.current && getToken() === token;
   const patch = (values) => { setForm((previous) => ({ ...previous, ...values })); setErrors({}); };
   const set = (field) => (event) => patch({ [field]: event.target.value });
+  const reloadSettings = async () => {
+    if (refreshingSettings || !current()) return;
+    setRefreshingSettings(true); setRefreshedSchedule(null); setRefreshError('');
+    try {
+      const fresh = await refreshSchedule(onReload, goal.goal_definition_id, revision);
+      if (current()) setRefreshedSchedule(fresh);
+    } catch {
+      if (current()) setRefreshError('Could not refresh the saved future settings. Your draft is still here. Try loading again.');
+    } finally { if (current()) setRefreshingSettings(false); }
+  };
   const submit = async (event) => {
     event.preventDefault();
     if (saving || conflict || !current() || (wantsXp && (skillsPending || skillsError))) return;
@@ -101,7 +148,7 @@ function NextWeekGoalForm({ goal, token, onClose, onChanged, onReload }) {
       if (failure.status === 409) {
         setConflict(true);
         setError('These future settings changed. Your draft has been kept. Load the saved future settings and review before saving again.');
-        await onReload?.();
+        await reloadSettings();
       } else setError(Object.keys(fields).length ? 'Check the highlighted fields.' : failure.message);
     } finally { if (current()) setSaving(false); }
   };
@@ -127,7 +174,16 @@ function NextWeekGoalForm({ goal, token, onClose, onChanged, onReload }) {
         </div>}
       </fieldset>
       <ErrorAlert message={error} />
-      {conflict && <Button variant="secondary" disabled={saving} onClick={() => { setForm(initialSettings(goal.schedule)); setRevision(goal.schedule.revision); setConflict(false); setErrors({}); setError(''); }}>Load saved future settings</Button>}
+      <ErrorAlert message={refreshError} />
+      {refreshingSettings && <p role="status">Loading saved future settings…</p>}
+      {conflict && <div className="flex flex-wrap gap-2">
+        <Button variant="secondary" disabled={saving || refreshingSettings || !refreshedSchedule} onClick={() => {
+          if (!refreshedSchedule || !current()) return;
+          setForm(initialSettings(refreshedSchedule)); setRevision(refreshedSchedule.revision);
+          setConflict(false); setRefreshedSchedule(null); setErrors({}); setError('');
+        }}>Load saved future settings</Button>
+        {refreshError && <Button variant="secondary" disabled={saving || refreshingSettings} onClick={reloadSettings}>Retry saved future settings</Button>}
+      </div>}
     </form>
   </BottomSheet>;
 }

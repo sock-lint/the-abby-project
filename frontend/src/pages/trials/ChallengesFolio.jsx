@@ -82,8 +82,8 @@ export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinned
       <LockedCatalogChallenges definitions={lockedCatalog} sectionIndex={sectionIndex++} />
       {retryable.length > 0 && <div className="space-y-2"><p className="font-body text-caption text-ink-secondary">{retryable.length} ended {retryable.length === 1 ? 'challenge can' : 'challenges can'} be tried again with a fresh period. Each challenge&apos;s bonus can be earned once.</p><Button variant="secondary" onClick={() => { setHistoryFilter('retryable'); setHistoryOpen(true); }}>Find challenges to try again</Button></div>}
       <GoalDisclosure title={`History · ${focus.history.length}`} controlledOpen={historyOpen} onOpenChange={setHistoryOpen}>
-        {retryable.length > 0 && <SelectField label="Show history" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)}><option value="all">All completed and ended challenges</option><option value="retryable">Can try again</option></SelectField>}
-        {historyRows.length ? cards(historyRows) : <p className="font-body text-body text-ink-secondary">No completed or ended challenges yet.</p>}
+        {(retryable.length > 0 || historyFilter !== 'all') && <SelectField label="Show history" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)}><option value="all">All completed and ended challenges</option><option value="retryable">Can try again</option></SelectField>}
+        {historyRows.length ? cards(historyRows) : <p className="font-body text-body text-ink-secondary">{historyFilter === 'retryable' ? 'No challenges can be tried again right now.' : 'No completed or ended challenges yet.'}</p>}
       </GoalDisclosure>
     </QuestFolio>
   );

@@ -12,7 +12,8 @@ from apps.achievements.models import Badge, SkillPrerequisite
 from apps.mcp_server.content_pack_schemas import PreviewContentPackIn, PublishContentPackIn
 from apps.mcp_server.context import override_user
 from apps.mcp_server.errors import MCPValidationError
-from apps.mcp_server.schemas import DraftPackEntriesIn, WritePackFileIn
+from apps.mcp_server.schemas import DraftPackEntriesIn, UpdateBadgeIn, WritePackFileIn
+from apps.mcp_server.tools import achievements
 from apps.mcp_server.tools import content_packs as tools
 from apps.quests.models import Quest, QuestDefinition
 from apps.rpg.models import ItemDefinition
@@ -137,3 +138,19 @@ class PackManagementTests(TestCase):
                 with self.assertRaises(MCPValidationError):
                     self.preview()
                 self.assertFalse(ItemDefinition.objects.filter(slug="managed-bad").exists())
+
+    def test_owned_badge_rename_cannot_reuse_another_direct_authored_source_name(self):
+        original = Badge.objects.create(name="Bundled source badge", description="Synthetic",
+            criteria_type="projects_completed", criteria_value={"count": 1})
+        achievements.update_badge(UpdateBadgeIn(badge_id=original.pk, name="Authored source badge"))
+        row = {"id": "other-badge", "name": "Pack badge", "description": "Synthetic",
+               "criteria_type": "projects_completed", "criteria_value": {"count": 2}}
+        self.write("badges.yaml", {"badges": [row]})
+        self.publish()
+        owned = Badge.objects.get(name="Pack badge")
+        row["name"] = "Bundled source badge"
+        self.write("badges.yaml", {"badges": [row]})
+        with self.assertRaises(MCPValidationError):
+            self.preview()
+        self.assertEqual(Badge.objects.get(pk=owned.pk).name, "Pack badge")
+        self.assertEqual(Badge.objects.get(pk=original.pk).name, "Authored source badge")

@@ -15,8 +15,11 @@ from django.db.models.deletion import ProtectedError
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
 
+from apps.achievements.models import Skill, SkillCategory
 from apps.mcp_server.catalog import audit_catalog_rows, catalog_row
+from apps.quests.controls import control_context
 from apps.quests.goals import _occurrence, ingest_activity, list_goals
+from apps.quests.milestone_eligibility import milestone_eligibility, validate_milestone_gate
 from apps.quests.models import (
     ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestParticipant,
 )
@@ -97,6 +100,67 @@ class CatalogSupersessionTests(TestCase):
         row = catalog_row("quests", alias)
         self.assertEqual(row["superseded_by"], canonical.pk)
         self.assertFalse(row["available_for_new_user"])
+
+    def test_milestone_gate_differences_keep_distinct_definitions_and_promises(self):
+        category = SkillCategory.objects.create(name="Reconciliation skills")
+        skill = Skill.objects.create(name="First required skill", category=category)
+        other_skill = Skill.objects.create(name="Other required skill", category=category)
+        prior = self.definition(name="First prerequisite")
+        other_prior = self.definition(name="Other prerequisite")
+        gates = {"prerequisite_quest": prior, "required_skill": skill, "required_skill_level": 1}
+        canonical = self.definition(**gates)
+        alias = self.definition(**gates, description="Equivalent future display copy")
+        divergent = [self.definition(**{**gates, **change}) for change in (
+            {"prerequisite_quest": other_prior}, {"required_skill": other_skill}, {"required_skill_level": 2},
+        )]
+        for definition in divergent:
+            self.saved_goal(definition)
+        goals_before = list(ChallengeGoal.objects.order_by("pk").values())
+        windows_before = list(ChallengeOccurrence.objects.order_by("pk").values())
+
+        self.reconcile()
+
+        alias.refresh_from_db()
+        self.assertEqual(alias.superseded_by_id, canonical.pk, "genuine duplicates still reconcile")
+        self.assertFalse(QuestDefinition.objects.filter(pk__in=[row.pk for row in divergent],
+                                                      superseded_by__isnull=False).exists())
+        self.assertEqual(list(ChallengeGoal.objects.order_by("pk").values()), goals_before)
+        self.assertEqual(list(ChallengeOccurrence.objects.order_by("pk").values()), windows_before)
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_equivalent_prerequisite_is_canonicalized_without_rewriting_accepted_gates(self):
+        prior = self.definition(name="Equivalent prerequisite")
+        alias = self.definition(name=prior.name)
+        dependent = self.definition(name="Dependent milestone", prerequisite_quest=alias,
+                                    trigger_filter={"allowed_triggers": ["reading_logged"]})
+        private = self.definition(name="Private gated history", prerequisite_quest=alias,
+                                  is_system=False, created_by=self.parent)
+        owned = self.definition(name="Owned system gated history", prerequisite_quest=alias, created_by=self.parent)
+        goal, window = self.saved_goal(dependent)
+        goal.catalog_gate_snapshot = {"version": 1, "prerequisite_quest_id": alias.pk,
+                                      "required_skill_id": None, "required_skill_level": 0,
+                                      "required_badge_id": None}
+        goal.save(update_fields=["catalog_gate_snapshot"])
+        window.snapshot["catalog_gate"] = goal.catalog_gate_snapshot
+        window.save(update_fields=["snapshot"])
+        before_goal = ChallengeGoal.objects.values().get(pk=goal.pk)
+        before_window = ChallengeOccurrence.objects.values().get(pk=window.pk)
+        before_owned = [QuestDefinition.objects.values().get(pk=row.pk) for row in (private, owned)]
+
+        self.reconcile()
+
+        dependent.refresh_from_db()
+        self.assertEqual(dependent.prerequisite_quest_id, prior.pk)
+        validate_milestone_gate(dependent)
+        completed = Quest.objects.create(definition=alias, status="completed", end_date=self.now)
+        QuestParticipant.objects.create(quest=completed, user=self.child)
+        self.assertTrue(milestone_eligibility(self.child, dependent, new_enrollment=False)["unlocked"])
+        self.assertTrue(control_context(self.child)["milestone_retry"][dependent.pk],
+                        "batched eligibility uses the same canonical prerequisite")
+        self.assertEqual(ChallengeGoal.objects.values().get(pk=goal.pk), before_goal)
+        self.assertEqual(ChallengeOccurrence.objects.values().get(pk=window.pk), before_window)
+        self.assertEqual([QuestDefinition.objects.values().get(pk=row.pk) for row in (private, owned)], before_owned)
+        self.assertFalse(CoinLedger.objects.exists())
 
     def test_sole_alias_goal_keeps_identity_and_repeat_anchor_when_repointed(self):
         canonical = self.definition(is_repeatable=True)

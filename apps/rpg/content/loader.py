@@ -382,6 +382,8 @@ class ContentPack:
         if kind == "itemdefinition":
             from .workbench_validation import validate_item_runtime
             validate_item_runtime(obj)
+        from .authoring import validate_source_identity
+        validate_source_identity(obj)
         try:
             # Empty parameter objects are valid for parameterless badge criteria;
             # their schema was checked before loading (JSONField.blank is False).

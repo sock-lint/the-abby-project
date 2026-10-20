@@ -4,6 +4,7 @@ from datetime import datetime, time, timedelta
 from decimal import Decimal
 from zoneinfo import ZoneInfo
 
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import Exists, Max, OuterRef, Prefetch
 from django.utils import timezone
@@ -138,9 +139,12 @@ def _authorized_goal(actor, goal_id):
     ).first()
     if goal is None or (actor.role != "parent" and (actor.role != "child" or goal.user_id != actor.pk)):
         raise NotFound("Challenge not found")
-    members = {member.pk: lock_user(member) for member in sorted(
-        {actor.pk: actor, goal.user_id: goal.user}.values(), key=lambda member: member.pk,
-    )}
+    try:
+        members = {member.pk: lock_user(member) for member in sorted(
+            {actor.pk: actor, goal.user_id: goal.user}.values(), key=lambda member: member.pk,
+        )}
+    except get_user_model().DoesNotExist:
+        raise NotFound("Challenge not found") from None
     fresh_actor, child = members[actor.pk], members[goal.user_id]
     if (not fresh_actor.is_active or not child.is_active or child.role != "child" or fresh_actor.family_id != child.family_id
             or child.family_id != goal.family_id or fresh_actor.role != actor.role):

@@ -176,6 +176,10 @@ def _apply(draft, *, publication=None):
             # explicit IDs, refuse collisions, and surface named dependencies.
             if obj.superseded_by_id:
                 raise ContentPackError("This challenge identity is a retained alias; edit its canonical definition.")
+            from .authoring import validate_source_identity
+            # Earlier changes in this same draft may have just retained a
+            # source identity that was not present during preflight.
+            validate_source_identity(obj)
             if QuestDefinition.objects.filter(name=obj.name, superseded_by__isnull=True).exclude(pk=obj.pk).exists():
                 raise ContentPackError("Challenge name collides with existing content; choose a distinct name.")
         else:

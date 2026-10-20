@@ -7,6 +7,7 @@ from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
 
 from .models import ReadingBook, ReadingSession
 from .services import (
+    authorized_reading,
     create_reading_book, create_reading_session,
     delete_reading_book, delete_reading_session, reading_summary,
     update_reading_book, update_reading_session,
@@ -74,8 +75,9 @@ class ReadingBookViewSet(ReadingOwnerViewSet):
         write = ReadingBookCreateSerializer(data=request.data)
         write.is_valid(raise_exception=True)
         target = _target_user(request, source="data")
-        book, created = create_reading_book(request.user, target, write.validated_data)
-        return Response(self.get_serializer(book).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        with authorized_reading(request.user, target) as (actor, target):
+            book, created = create_reading_book(actor, target, write.validated_data)
+            return Response(self.get_serializer(book).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -98,8 +100,9 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
         target = _target_user(request, source="data")
         write = ReadingSessionCreateSerializer(data=request.data, context={"target_user": target})
         write.is_valid(raise_exception=True)
-        session, created = create_reading_session(request.user, target, write.validated_data)
-        return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        with authorized_reading(request.user, target) as (actor, target):
+            session, created = create_reading_session(actor, target, write.validated_data)
+            return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

@@ -3,6 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
@@ -275,3 +276,27 @@ class GoalControlTests(TestCase):
         self.assertEqual(row.snapshot, original)
         self.assertEqual(self.schedule(row, {"expected_revision": 1, "paused": False}).status_code, 400)
         self.assertEqual(self.schedule(row, {"expected_revision": 1, "next_week": {"name": "Still invalid"}}).status_code, 400)
+
+    def test_removed_authenticated_parent_cannot_retry_or_change_schedule(self):
+        User = get_user_model()
+        User.objects.create_user(username="surviving-control-parent", role="parent", family=self.parent.family)
+        weekly = self.weekly()
+        # QuerySet deletion leaves the authentication-time actor object's ID
+        # intact, as when removal commits before the control acquires its locks.
+        User.objects.filter(pk=self.parent.pk).delete()
+        self.client.force_authenticate(self.parent)
+        self.client.raise_request_exception = False
+        before_goals = list(ChallengeOccurrence.objects.order_by("pk").values())
+        before_schedules = list(ChallengeSchedule.objects.values())
+        for endpoint, payload in (
+            (f"/api/challenges/goal:{self.original.pk}/retry/", {}),
+            (f"/api/challenges/goals/{weekly.goal_id}/schedule/", {"expected_revision": 0, "paused": True}),
+        ):
+            with self.subTest(endpoint=endpoint):
+                write = self.client.post if endpoint.endswith("retry/") else self.client.patch
+                self.assertEqual(write(endpoint, payload, format="json").status_code, 404)
+        weekly.goal.refresh_from_db()
+        self.assertEqual(weekly.goal.schedule_revision, 0)
+        self.assertEqual(list(ChallengeOccurrence.objects.order_by("pk").values()), before_goals)
+        self.assertEqual(list(ChallengeSchedule.objects.values()), before_schedules)
+        self.assertFalse(CoinLedger.objects.exists())

@@ -250,6 +250,7 @@ def validate_changes(actor, changes):
         # Validate the proposed graph together: individually safe edits can
         # form a cycle when applied in the same draft.
         from copy import copy
+        from .authoring import validate_source_identity
         graph = dict(QuestDefinition.objects.values_list("pk", "prerequisite_quest_id"))
         for change in changes:
             if change["section"] != "quests":
@@ -258,6 +259,7 @@ def validate_changes(actor, changes):
             for field, value in change["values"].items():
                 if field not in {"reward_items", "skill_tags"}:
                     setattr(obj, field + "_id" if field in {"required_badge", "prerequisite_quest", "required_skill"} else field, value)
+            validate_source_identity(obj)
             obj.clean()
             if obj.pk:
                 graph[obj.pk] = obj.prerequisite_quest_id

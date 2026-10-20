@@ -2,11 +2,11 @@
 import io
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
-from threading import Barrier
+from threading import Barrier, Event
 from unittest import skipUnless
 from uuid import uuid4
 
-from django.db import close_old_connections, connection
+from django.db import close_old_connections, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.core.exceptions import ValidationError
 
@@ -336,3 +336,57 @@ class DirectAuthoringConcurrencyTests(TransactionTestCase):
         ])
         self.assertEqual(result, ["rejected", "saved"])
         self.assertEqual(RPGContentOverride.objects.filter(model_label="achievements.skillcategory", object_id=self.category.pk).count(), 1)
+
+    def test_cross_family_source_reuse_sees_the_committed_catalog_claim(self):
+        from unittest.mock import patch
+        from apps.mcp_server.context import get_current_user
+        from apps.rpg.content import authoring
+
+        other_category = SkillCategory.objects.create(name="Other concurrent source")
+        first_ready, second_at_lock, release_first = Event(), Event(), Event()
+        catalog_lock = authoring._catalog_lock
+
+        def observe_catalog_lock():
+            if get_current_user().pk == self.other.pk:
+                second_at_lock.set()
+            catalog_lock()
+
+        def invoke(actor_id, category_id, name, *, hold=False):
+            close_old_connections()
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("SET lock_timeout = '10s'")
+                    cursor.execute("SET statement_timeout = '20s'")
+                actor = User.objects.get(pk=actor_id)
+                with override_user(actor):
+                    try:
+                        with transaction.atomic():
+                            achievements.update_category(UpdateCategoryIn(category_id=category_id, name=name))
+                            if hold:
+                                first_ready.set()
+                                if not release_first.wait(timeout=10):
+                                    raise AssertionError("The second author did not reach the catalog fence")
+                        return "saved"
+                    except MCPValidationError:
+                        return "rejected"
+            finally:
+                connection.close()
+
+        with patch.object(authoring, "_catalog_lock", side_effect=observe_catalog_lock):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                first = pool.submit(invoke, self.parent.pk, self.category.pk, "Renamed concurrent source", hold=True)
+                try:
+                    self.assertTrue(first_ready.wait(timeout=5))
+                    second = pool.submit(invoke, self.other.pk, other_category.pk, self.category.name)
+                    self.assertTrue(second_at_lock.wait(timeout=5))
+                finally:
+                    release_first.set()
+                self.assertEqual(first.result(timeout=30), "saved")
+                self.assertEqual(second.result(timeout=30), "rejected")
+        self.category.refresh_from_db()
+        other_category.refresh_from_db()
+        self.assertEqual(self.category.name, "Renamed concurrent source")
+        self.assertEqual(other_category.name, "Other concurrent source")
+        self.assertFalse(RPGContentOverride.objects.filter(
+            model_label="achievements.skillcategory", object_id=other_category.pk,
+        ).exists())

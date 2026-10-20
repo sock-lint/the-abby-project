@@ -26,7 +26,9 @@ Session dates default to the family's local day and cannot be future dates.
 
 Every create requires a UUID `client_request_id`. Reading writes and MCP reads
 hold family, then sorted actor/owner member locks while checking the current
-actor's role, staff status, activity and family membership after waiting. Parents
+actor's role, staff status, activity and family membership after waiting. Create
+and replay responses materialize their book and reward fields before releasing
+those locks. Parents
 can still maintain an inactive child's saved history. Each model uniquely binds
 the owner and UUID. `create_payload` retains
 the normalized original request so an

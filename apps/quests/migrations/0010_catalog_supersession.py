@@ -33,6 +33,9 @@ def reconcile_definitions(apps, schema_editor):
             "name": definition.name, "type": definition.quest_type,
             "target": definition.target_value, "duration": definition.duration_days,
             "filter": definition.trigger_filter, "badge": definition.required_badge_id,
+            "prerequisite": definition.prerequisite_quest_id,
+            "required_skill": definition.required_skill_id,
+            "required_skill_level": definition.required_skill_level,
             "repeatable": definition.is_repeatable, "coins": definition.coin_reward,
             "xp": definition.xp_reward, "items": sorted(rewards[definition.pk]),
             "skills": sorted(tags[definition.pk]),
@@ -55,10 +58,19 @@ def reconcile_definitions(apps, schema_editor):
             if goal.user_id not in users_with_canonical:
                 Goal.objects.using(database).filter(pk=goal.pk).update(catalog_definition_id=canonical)
                 users_with_canonical.add(goal.user_id)
+    # Current global policies must reference the canonical prerequisite that
+    # eligibility offers. Accepted goals retain their original gate snapshots,
+    # and creator-owned policies retain their original provenance and fields.
+    for alias_id, canonical_id in Definition.objects.using(database).exclude(
+        superseded_by__isnull=True,
+    ).values_list("pk", "superseded_by_id"):
+        Definition.objects.using(database).filter(
+            is_system=True, created_by__isnull=True, prerequisite_quest_id=alias_id,
+        ).update(prerequisite_quest_id=canonical_id)
 
 
 class Migration(migrations.Migration):
-    dependencies = [("quests", "0009_challenge_discovery")]
+    dependencies = [("quests", "0010_milestone_gate_acceptance")]
 
     operations = [
         migrations.AddField(

@@ -24,6 +24,74 @@ function renderGoals({ goals = [buildChallengeGoal()], lockedCatalog = [], pin =
 }
 
 describe('Automatic challenges', () => {
+  it('keeps a conflicting future-settings draft until a failed refresh can be retried successfully', async () => {
+    const next = { starts_at: '2026-10-26T07:00:00Z', paused: false, name: 'Weekly running', description: '', metric: 'distance', target: '2', unit: 'mi', trigger_type: 'movement_session', movement_type_id: 3, coin_reward: 10, xp_reward: 0, skill_tags: [] };
+    const goal = buildChallengeGoal({ name: 'Weekly running', goal_definition_id: 21, repeat_weekly: true, timezone: 'America/Phoenix', schedule: { revision: 0, paused: false, next_week: next } });
+    let reads = 0;
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7 })])),
+      http.get('*/api/challenges/', () => ++reads === 1
+        ? HttpResponse.json({ results: [goal], pin: null, daily_bonus: null })
+        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 503 })),
+    );
+    const conflict = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => HttpResponse.json({ error: 'Saved revision changed.' }, { status: 409 }));
+    server.use(conflict.handler);
+    const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials&child=7' });
+    await user.click(await screen.findByRole('button', { name: 'View Weekly running' }));
+    await user.click(screen.getByRole('button', { name: 'Change future weeks' }));
+    const dialog = screen.getByRole('dialog', { name: 'Change future weeks' });
+    const target = within(dialog).getByLabelText('Future target (miles)');
+    await user.clear(target); await user.type(target, '3');
+    await user.click(within(dialog).getByRole('button', { name: 'Save future weeks' }));
+    await screen.findByText('Refresh unavailable.');
+    const load = await within(dialog).findByRole('button', { name: 'Load saved future settings' });
+    await user.click(load);
+    expect(target).toHaveValue(3);
+    expect(load).toBeDisabled();
+    expect(within(dialog).getByRole('button', { name: 'Save future weeks' })).toBeDisabled();
+    expect(conflict.calls).toHaveLength(1);
+
+    const current = { ...goal, schedule: { revision: 2, paused: false, next_week: { ...next, target: '4' } } };
+    const refresh = spyHandler('get', /\/api\/challenges\/$/, { results: [current], pin: null, daily_bonus: null });
+    server.use(refresh.handler);
+    await user.click(within(dialog).getByRole('button', { name: 'Retry saved future settings' }));
+    await waitFor(() => expect(load).toBeEnabled());
+    expect(refresh.calls).toHaveLength(1);
+    expect(target).toHaveValue(3);
+    await user.click(load);
+    expect(target).toHaveValue(4);
+    const save = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, { goal_definition_id: 21, schedule: { ...current.schedule, revision: 3 } });
+    server.use(save.handler);
+    await user.click(within(dialog).getByRole('button', { name: 'Save future weeks' }));
+    await waitFor(() => expect(save.calls).toHaveLength(1));
+    expect(save.calls[0].body).toMatchObject({ expected_revision: 2, next_week: { target: '4' } });
+    expect(conflict.calls).toHaveLength(1);
+  });
+
+  it('keeps the confirmed successor pin if the retry follow-up read fails', async () => {
+    const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', pinned: true, retry: { allowed: true, reason: null, latest_attempt_id: 'goal:11' } });
+    const fresh = buildChallengeGoal({ id: 'goal:12', name: 'Fresh retry', origin: 'catalog', pinned: true, progress: '0', retry: { allowed: false, reason: 'not_expired', latest_attempt_id: 'goal:12' } });
+    let reads = 0;
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/challenges/', () => ++reads === 1
+        ? HttpResponse.json({ results: [expired], pin: expired.id, daily_bonus: null })
+        : HttpResponse.json({ error: 'Refresh unavailable.' }, { status: 503 })),
+    );
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, fresh);
+    server.use(retry.handler);
+    const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
+    await user.click(await screen.findByRole('button', { name: 'Find challenges to try again' }));
+    await user.click(screen.getByRole('button', { name: `Try ${expired.name} again` }));
+    await screen.findByRole('dialog', { name: fresh.name });
+    await screen.findByText('Refresh unavailable.');
+    const pinned = document.querySelector('section[aria-label="Pinned challenge"]');
+    expect(pinned).not.toBeNull();
+    expect(within(pinned).getByRole('article', { name: fresh.name, hidden: true })).toHaveTextContent('Pinned');
+    expect(retry.calls).toHaveLength(1);
+  });
+
   it('starts a fresh attempt from retryable history with an exact empty POST and preserves the old period', async () => {
     const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', catalog_repeatable: false, retry: { allowed: true, reason: null, latest_attempt_id: null } });
     const fresh = buildChallengeGoal({ id: 'goal:12', origin: 'catalog', progress: '0', catalog_repeatable: false, starts_at: '2026-10-20T07:00:00Z', ends_at: '2026-10-27T07:00:00Z', retry: { allowed: false, reason: 'active', latest_attempt_id: null } });

@@ -45,7 +45,7 @@ def _book_payload(book):
     return payload
 
 
-def _save_reading(params, serializer_class, save):
+def _save_reading(params, serializer_class, save, serialize):
     actor, target = _reading_target(params.user_id)
     serializer = serializer_class(
         data=params.model_dump(mode="json", exclude_none=True),
@@ -53,7 +53,12 @@ def _save_reading(params, serializer_class, save):
     )
     try:
         serializer.is_valid(raise_exception=True)
-        record, _ = save(actor, target, serializer.validated_data)
+        # Retry rows have lazy book/reward relations. Materialize every response
+        # field while current family authority still holds, before commit hooks
+        # or another account-lifecycle transaction can move/delete the reader.
+        with authorized_reading(actor, target) as (actor, target):
+            record, _ = save(actor, target, serializer.validated_data)
+            return serialize(record)
     except NotFound as exc:
         raise MCPNotFoundError(str(exc.detail)) from None
     except ValidationError as exc:
@@ -63,7 +68,6 @@ def _save_reading(params, serializer_class, save):
             code="idempotency_conflict" if "client_request_id" in fields else "invalid_request",
             field_errors=fields,
         ) from None
-    return record
 
 
 @tool()
@@ -105,7 +109,7 @@ def create_reading_book(params: CreateReadingBookIn) -> ReadingBookOut:
     Identical retries return the current saved book; conflicting UUID reuse
     fails. Saving a book records no reading and awards no XP or Coins.
     """
-    return _book_payload(_save_reading(params, ReadingBookCreateSerializer, save_reading_book))
+    return _save_reading(params, ReadingBookCreateSerializer, save_reading_book, _book_payload)
 
 
 @tool()
@@ -118,5 +122,7 @@ def log_reading_session(params: LogReadingSessionIn) -> ReadingSessionOut:
     reading_reward reports only an actual saved award. Identical retries reuse
     the entry and cannot repeat its award. Reuse the UUID after a timeout.
     """
-    session = _save_reading(params, ReadingSessionCreateSerializer, save_reading_session)
-    return to_plain(ReadingSessionSerializer(session).data)
+    return _save_reading(
+        params, ReadingSessionCreateSerializer, save_reading_session,
+        lambda session: to_plain(ReadingSessionSerializer(session).data),
+    )
