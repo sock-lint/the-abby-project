@@ -98,19 +98,14 @@ async function fetchOrOffline(url, config) {
 }
 
 // Statuses a reverse proxy answers with while the app container is restarting
-// or unreachable. A background poller can land on one of these for a beat or
-// two on every deploy.
-export const GATEWAY_STATUSES = [502, 503, 504];
+// or unreachable; a request in flight during a deploy can land on one.
+const GATEWAY_STATUSES = [502, 503, 504];
+export const GATEWAY_RETRY_DELAY_MS = 1500;
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 async function request(path, options = {}) {
-  const {
-    token: explicitToken,
-    selfHeal = true,
-    // A caller that polls on a timer can ask to own the report for gateway
-    // statuses (see PulseProvider). Every other 5xx is still captured here.
-    deferGatewayReport = false,
-    ...fetchOptions
-  } = options;
+  const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
   const token = explicitToken ?? getToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
   let url = method === 'GET'
@@ -135,6 +130,24 @@ async function request(path, options = {}) {
   const hadAuth = Boolean(config.headers?.Authorization);
   let res = await fetchOrOffline(url, config);
   let attempts = 1;
+  // The proxy answers 502/503/504 while a deploy swaps containers. Retry a read
+  // once after a short wait so the caller gets its data; a persistent failure
+  // falls through to the normal error path and Sentry capture. Never replay a
+  // possible write.
+  if (GATEWAY_STATUSES.includes(res.status) && method === 'GET' && getToken() === token) {
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: `Retrying ${method} ${path} after a ${res.status}`,
+      level: 'warning',
+      data: { status: res.status },
+    });
+    await sleep(GATEWAY_RETRY_DELAY_MS);
+    config.signal?.throwIfAborted();
+    if (getToken() === token) {
+      attempts += 1;
+      res = await fetchOrOffline(url, config);
+    }
+  }
   // A deployment proxy can return a cacheable HTML error page with a success
   // status. Retry reads once at a fresh URL, since no-store alone cannot evict
   // a response already cached upstream. Never replay a possible write.
@@ -187,11 +200,10 @@ async function request(path, options = {}) {
       _selfHealReload(token);
     }
 
-    const deferred = deferGatewayReport && GATEWAY_STATUSES.includes(res.status);
-    if (res.status >= 500 && !deferred) {
+    if (res.status >= 500) {
       Sentry.captureException(
         new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
-        { extra: { response: errorMessage, status: res.status } },
+        { extra: { response: errorMessage, status: res.status, attempts } },
       );
     }
 

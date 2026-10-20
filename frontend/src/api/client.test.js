@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { server } from '../test/server.js';
 import {
-  api, getBlob, getToken, setToken, OFFLINE_MESSAGE,
+  api, getBlob, getToken, setToken, OFFLINE_MESSAGE, GATEWAY_RETRY_DELAY_MS,
 } from './client.js';
 
 const UNAVAILABLE_MESSAGE = 'Abby is temporarily unavailable. Please try again in a moment.';
@@ -110,31 +110,81 @@ describe('api errors', () => {
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
-  it.each([502, 503, 504])('leaves a %i to the caller when it defers gateway reports', async (status) => {
-    server.use(
-      http.get('*/api/gateway/', () => new HttpResponse('upstream timed out', { status })),
-    );
-    await expect(api.get('/gateway/', { deferGatewayReport: true })).rejects.toMatchObject({ status });
-    expect(Sentry.captureException).not.toHaveBeenCalled();
-    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
-      message: `GET /gateway/ -> ${status}`,
-    }));
-  });
+  describe('gateway statuses during a deploy', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-  it('still captures a gateway status when the caller did not defer it', async () => {
-    server.use(
-      http.get('*/api/gateway/', () => new HttpResponse('upstream timed out', { status: 504 })),
-    );
-    await expect(api.get('/gateway/')).rejects.toMatchObject({ status: 504 });
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-  });
+    it.each([502, 503, 504])('retries a GET once after a %i and returns the recovered data', async (status) => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return calls === 1
+          ? new HttpResponse('upstream timed out', { status })
+          : HttpResponse.json({ ok: true });
+      }));
+      const pending = api.get('/gateway/');
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await expect(pending).resolves.toEqual({ ok: true });
+      expect(calls).toBe(2);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+        message: `Retrying GET /gateway/ after a ${status}`,
+      }));
+    });
 
-  it('still captures other 5xx responses when gateway reports are deferred', async () => {
-    server.use(
-      http.get('*/api/boom/', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
-    );
-    await expect(api.get('/boom/', { deferGatewayReport: true })).rejects.toThrow('boom');
-    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    it('captures a gateway status that persists after the retry, with the attempt count', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      const pending = expect(api.get('/gateway/')).rejects.toMatchObject({ status: 504 });
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await pending;
+      expect(calls).toBe(2);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 504, attempts: 2 });
+    });
+
+    it('never replays a write after a gateway status', async () => {
+      let calls = 0;
+      server.use(http.post('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      await expect(api.post('/gateway/', { a: 1 })).rejects.toMatchObject({ status: 504 });
+      expect(calls).toBe(1);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry other server errors', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/boom/', () => {
+        calls += 1;
+        return HttpResponse.json({ error: 'boom' }, { status: 500 });
+      }));
+      await expect(api.get('/boom/')).rejects.toThrow('boom');
+      expect(calls).toBe(1);
+    });
+
+    it('stops without a retry when the caller aborts during the wait', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      const controller = new AbortController();
+      const pending = expect(api.get('/gateway/', { signal: controller.signal })).rejects.toThrow();
+      await vi.waitFor(() => expect(calls).toBe(1));
+      controller.abort();
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await pending;
+      expect(calls).toBe(1);
+    });
   });
 
   it('attaches .status + .response to the thrown error so callers can branch on HTTP code', async () => {
@@ -499,10 +549,10 @@ describe('upstream HTML recovery', () => {
 
   it('does not retry a real HTTP error or a failed connection', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(htmlResponse(503))
+      .mockResolvedValueOnce(htmlResponse(500))
       .mockRejectedValueOnce(new TypeError('Failed to fetch'));
     try {
-      await expect(api.get('/auth/me/')).rejects.toMatchObject({ status: 503 });
+      await expect(api.get('/auth/me/')).rejects.toMatchObject({ status: 500 });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       await expect(api.get('/auth/me/')).rejects.toThrow(OFFLINE_MESSAGE);
       expect(fetchSpy).toHaveBeenCalledTimes(2);

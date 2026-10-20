@@ -4,10 +4,6 @@ import { createContext, useContext } from 'react';
 // and together woke a phone's radio every ~7 seconds.
 export const PULSE_INTERVAL_MS = 30000;
 
-// Consecutive gateway failures (502/503/504) before the outage is reported —
-// about a minute and a half, longer than a deploy's container swap.
-export const PULSE_OUTAGE_REPORT_BEATS = 3;
-
 export const PulseContext = createContext(null);
 
 /**

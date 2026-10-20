@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import * as Sentry from '@sentry/react';
 import { getPulse } from '../api';
 import { useAuth } from '../hooks/useApi';
-import { PulseContext, PULSE_INTERVAL_MS, PULSE_OUTAGE_REPORT_BEATS } from './pulseContext';
-import { getToken, GATEWAY_STATUSES } from '../api/client';
+import { PulseContext, PULSE_INTERVAL_MS } from './pulseContext';
+import { getToken } from '../api/client';
 
 /**
  * PulseProvider — the shell's single background poller.
@@ -17,11 +16,6 @@ import { getToken, GATEWAY_STATUSES } from '../api/client';
  * Skips beats while the tab is hidden (a backgrounded phone shouldn't burn
  * battery or data) and catches up immediately on `visibilitychange` — the
  * pattern useDropToasts established and three of the old pollers lacked.
- *
- * A deploy briefly leaves the proxy answering 502/503/504 to a poller that is
- * still running in every open tab, so the API client leaves those statuses to
- * this provider: they are reported to Sentry once they span
- * PULSE_OUTAGE_REPORT_BEATS beats in a row, not for each tab's one missed beat.
  */
 export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   const { user } = useAuth();
@@ -31,7 +25,6 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   const [savedPulse, setSavedPulse] = useState(null);
   const pulse = savedPulse?.account === account ? savedPulse.data : null;
   const cancelledRef = useRef(false);
-  const gatewayFailuresRef = useRef(0);
 
   const beat = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -39,21 +32,10 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
     if (!requestedAccount) return;
     try {
       const data = await getPulse();
-      gatewayFailuresRef.current = 0;
       if (!cancelledRef.current && accountRef.current === requestedAccount) setSavedPulse({ account: requestedAccount, data });
-    } catch (err) {
-      // Otherwise silent, like every poller before it — a missed beat must
-      // never break the shell, and the next one is 30s away.
-      if (GATEWAY_STATUSES.includes(err?.status)) {
-        gatewayFailuresRef.current += 1;
-        // Exactly once per outage; the count restarts after a good beat.
-        if (gatewayFailuresRef.current === PULSE_OUTAGE_REPORT_BEATS) {
-          Sentry.captureException(
-            new Error(`API ${err.status}: GET /pulse/ (${PULSE_OUTAGE_REPORT_BEATS} consecutive beats)`),
-            { extra: { status: err.status, beats: PULSE_OUTAGE_REPORT_BEATS } },
-          );
-        }
-      }
+    } catch {
+      // Silent, like every poller before it — a missed beat must never break
+      // the shell, and the next one is 30s away.
     }
   }, []);
 
