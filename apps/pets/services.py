@@ -10,7 +10,7 @@ from apps.rpg.catalog_support import (
     pet_is_available, potion_type_for_item,
 )
 from .lifecycle import GROWN_GROWTH, MIDDLE_GROWTH, companion_lifecycle_stage, growth_thresholds
-from .roster import prepared_base_potion, prepared_family
+from .roster import prepared_potion, prepared_family
 
 logger = logging.getLogger(__name__)
 
@@ -251,8 +251,12 @@ class PetService:
         potion_type = potion_type_for_item(potion_item)
         if potion_type is None:
             raise ValueError("Unknown potion variant")
-        if prepared_family(species) and not prepared_base_potion(potion_item):
-            raise ValueError("This companion requires the registered global Base potion")
+        registered_species = prepared_family(species) or (
+            species.slug == "chick" and species.sprite_key == "cute-chick"
+            and potion_type.slug in {"fire", "ice"}
+        )
+        if registered_species and not prepared_potion(potion_item):
+            raise ValueError("This companion requires a registered global potion")
 
         # Authored species can restrict their supported variants. An empty
         # relation preserves unrestricted hatching for legacy species that

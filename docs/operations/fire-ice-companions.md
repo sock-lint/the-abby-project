@@ -11,8 +11,10 @@ asset workshop prepares the appearances.
 The production art registry and all existing asset release pins remain Base
 only for these species. Authored `available_potions` now declares Base, Fire
 and Ice compatibility; that declaration does not establish art availability.
-The production typed-potion and prepared-roster checks remain strict. A scoped
-synthetic art policy exercises the future pairs in tests only.
+Registered Chick/Wolf starts require the canonical ingredient slug, typed
+potion FK and matching metadata, plus the exact art policy and authored pair.
+A scoped synthetic art policy exercises all four real start/wait/claim paths
+in tests only.
 
 New elemental challenges are entirely omitted until their exact egg, potion
 and species/potion pair are available. They cannot materialize an egg-only
@@ -81,8 +83,8 @@ The receiving change must verify the immutable private release, exact file
 inventory/digests, every supported motion, transition source/destination,
 portraits, simultaneous Base/Fire/Ice instances, reduced motion and actual
 renderer output. Add the exact appearance bindings to both live companions
-and Hatchery previews, then update the production positive registry and typed
-ingredient checks for only the verified pairs. Existing release pins and saved
+and Hatchery previews, then update the production positive registry for only
+the verified pairs. Existing release pins and saved
 ownership must be preserved. Public delivery uses the existing separate
 owner-approved intake process; this foundations PR does not publish assets.
 
