@@ -17,6 +17,16 @@ from .workbench import create_draft, preview_draft, save_draft
 from .workbench_validation import require_actor
 
 
+CURRENT_COMPANION_DESCRIPTION = (
+    "Complete 3 daily Reading Adventures within 14 days. Each Adventure needs ten newly logged reading or listening minutes "
+    "in your family's day. Meet a Chick with an egg, a Base potion and two Birdseed."
+)
+PROPOSED_COMPANION_DESCRIPTION = (
+    "Complete 3 daily Reading Adventures at your own pace, with no deadline. "
+    "Each Adventure needs ten newly logged reading or listening minutes in your family's day. "
+    "Meet a Chick with an egg, a Base potion and two Birdseed."
+)
+
 CURRENT_DESCRIPTION = (
     "Complete 20 daily Reading Adventures within 45 days. Ten newly logged reading or listening minutes "
     "counts once each family-local day. Celebrate your reading rhythm with the Bookworm title."
@@ -66,10 +76,17 @@ def prepare_reading_voyager(actor):
         "required_skill_id": None, "required_skill_level": 0,
     }, "Reading Voyager")
     _expected(companion, {"quest_type": "collection", "target_value": 3, "duration_days": 14,
-                          "trigger_filter": READING_FILTER, "is_repeatable": False,
+                          "description": CURRENT_COMPANION_DESCRIPTION, "trigger_filter": READING_FILTER, "is_repeatable": False,
                           "coin_reward": 0, "xp_reward": 20, "required_badge_id": None,
                           "prerequisite_quest_id": None, "required_skill_id": None, "required_skill_level": 0},
               "Reading Companion")
+    companion_rewards = list(companion.reward_items.select_related("item").order_by("item__slug"))
+    if [(row.item.slug, row.quantity) for row in companion_rewards] != [
+        ("base-potion", 1), ("chick-egg", 1), ("food-birdseed", 2),
+    ] or any(not item_is_available(row.item) for row in companion_rewards):
+        raise ContentPackError("Reading Companion item rewards differ from the reviewed Chick starter promise.")
+    if list(companion.skill_tags.order_by("skill_id").values_list("skill_id", "xp_weight")) != [(skill.pk, 1)]:
+        raise ContentPackError("Reading Companion skill rewards differ from the reviewed one-weight Reading Comprehension promise.")
     if skill.is_locked_by_default:
         raise ContentPackError("Reading Comprehension differs from the reviewed unlocked skill baseline.")
     if title.item_type != ItemDefinition.ItemType.COSMETIC_TITLE or not item_is_available(title):
@@ -81,13 +98,16 @@ def prepare_reading_voyager(actor):
     if list(voyager.reward_items.order_by("item_id").values_list("item_id", "quantity")) != [(title.pk, 1)]:
         raise ContentPackError("Reading Voyager item rewards differ from the reviewed single Bookworm title promise.")
 
-    draft = create_draft(actor, "Reading Voyager: milestones and 56 days")
+    draft = create_draft(actor, "Untimed Reading Companion and 56-day Voyager")
     draft = save_draft(actor, draft["id"], draft["revision"], [{
+        "section": "quests", "object_id": companion.pk, "key": "reading-companion",
+        "values": {"duration_days": None, "description": PROPOSED_COMPANION_DESCRIPTION},
+    }, {
         "section": "quests", "object_id": voyager.pk, "key": "reading-voyager",
         "values": {"prerequisite_quest": companion.pk, "required_skill": skill.pk, "required_skill_level": 1,
                    "duration_days": 56, "description": PROPOSED_DESCRIPTION},
     }])
     reviewed = preview_draft(actor, draft["id"], draft["revision"])
-    return {**reviewed, "policy_id": "reading-voyager-milestones-56-days", "preparation_only": True,
+    return {**reviewed, "policy_id": "reading-companion-untimed-voyager-milestones-56-days", "preparation_only": True,
             "resolved_ids": {"voyager": voyager.pk, "companion": companion.pk,
                              "reading_skill": skill.pk, "bookworm_title": title.pk}}

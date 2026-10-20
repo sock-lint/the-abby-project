@@ -844,7 +844,7 @@ class ContentPack:
                 "sprite_key": entry.get("sprite_key", ""),
                 "quest_type": entry["quest_type"],
                 "target_value": int(entry["target_value"]),
-                "duration_days": int(entry.get("duration_days", 7)),
+                "duration_days": None if entry.get("duration_days", 7) is None else int(entry.get("duration_days", 7)),
                 "trigger_filter": entry.get("trigger_filter", {}),
                 "coin_reward": int(entry.get("coin_reward", 0)),
                 "xp_reward": int(entry.get("xp_reward", 0)),

@@ -84,7 +84,7 @@ def _saved_policy(row, companion_id, skill_id):
             or snapshot.get("catalog_type") != "collection"
             or row["goal__repeat_weekly"] or row["goal__repeat_days"]
             or row["starts_at"] != row["goal__starts_at"]
-            or row["ends_at"] != row["goal__ends_at"]):
+            or row["ends_at"] != row["goal__ends_at"] or row["ends_at"] is None):
         return "other_or_unknown"
     duration = row["ends_at"] - row["starts_at"]
     gate = row["goal__catalog_gate_snapshot"]
@@ -114,7 +114,7 @@ def _saved_policy(row, companion_id, skill_id):
 def _automatic_state(row, as_of):
     """A deadline may expire a saved active row without writing its status."""
     start, end = row["starts_at"], row["ends_at"]
-    if end <= start or start > as_of or row["created_at"] > as_of:
+    if end is None or end <= start or start > as_of or row["created_at"] > as_of:
         return "unknown", "unknown_windows"
     mature = end <= as_of
     unknown = "mature_unknown" if mature else "unknown_windows"
@@ -301,7 +301,8 @@ def voyager_feedback(actor):
         state, outcome = _automatic_state(row, as_of)
         if occurrences_by_goal[row["goal_id"]] != 1:
             state = "unknown"
-            outcome = "mature_unknown" if row["starts_at"] < row["ends_at"] <= as_of else "unknown_windows"
+            outcome = ("mature_unknown" if row["ends_at"] is not None
+                       and row["starts_at"] < row["ends_at"] <= as_of else "unknown_windows")
         states[row["goal__user_id"]].append(state)
         group = group_map[_saved_policy(row, companion_id, skill_id)]
         group["accepted_windows"] += 1

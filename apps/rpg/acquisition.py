@@ -30,13 +30,14 @@ def sources_for_request(request):
     now = timezone.now()
     saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).prefetch_related(
         Prefetch("occurrences", queryset=ChallengeOccurrence.objects.filter(
-            starts_at__lte=now, ends_at__gt=now,
-        ), to_attr="current_windows"),
+            starts_at__lte=now,
+        ).filter(Q(ends_at__gt=now) | Q(ends_at__isnull=True)), to_attr="current_windows"),
     ))
     accepted_definitions = {goal.catalog_definition_id for goal in saved_goals}
     for goal in saved_goals:
         if (goal.pk in unavailable_goals or goal.starts_at > now
-                or (goal.ends_at <= now and not goal.repeat_days and not goal.repeat_weekly)):
+                or (goal.ends_at is not None and goal.ends_at <= now
+                    and not goal.repeat_days and not goal.repeat_weekly)):
             continue
         current = goal.current_windows[0] if goal.current_windows else None
         if current is not None and current.status != "active":

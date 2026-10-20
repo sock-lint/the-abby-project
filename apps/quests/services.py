@@ -116,6 +116,8 @@ class QuestService:
             raise ValueError("Quest not found")
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id=definition_id).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline. Pin it to follow your progress.")
 
         # Check no active quest
         if Quest.objects.filter(
@@ -208,6 +210,8 @@ class QuestService:
             raise ValueError("Quest not found")
         if ChallengeGoal.objects.filter(user__in=users, catalog_definition_id=definition_id).exists():
             raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline for each child.")
 
         # Pre-flight: no participant may already have an active quest.
         # Doing this as one SQL query keeps the check atomic.

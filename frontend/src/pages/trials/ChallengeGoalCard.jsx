@@ -48,6 +48,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = f
         {goal.repeat_weekly && <span>Repeats weekly</span>}
       </div>
       <div className="space-y-1 font-body text-caption text-ink-secondary">
+        {goal.ends_at === null && <p>No deadline</p>}
         {starts && ends && <p>Goal period <time dateTime={goal.starts_at}>{starts}</time> – <time dateTime={finalIncludedAt}>{ends}</time></p>}
         {showExactDeadline && deadline && <p>Counts work before <time dateTime={goal.ends_at}>{deadline}</time></p>}
         {completed && (completedDate

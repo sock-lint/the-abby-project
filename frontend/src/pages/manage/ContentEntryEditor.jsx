@@ -24,7 +24,14 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
   const editable = source?.editable !== false;
   const availableTriggers = values.quest_type === 'boss' ? rules.boss_triggers ?? rules.triggers : rules.triggers;
   const supportedTriggers = new Map((availableTriggers ?? []).map((choice) => [choiceValue(choice), choice]));
+  let hasAdditionalFilters = true;
+  try {
+    const additionalFilters = JSON.parse(editor.filterText);
+    hasAdditionalFilters = !additionalFilters || typeof additionalFilters !== 'object' || Array.isArray(additionalFilters) || Object.keys(additionalFilters).length > 0;
+  } catch { /* Invalid filters must be corrected before enabling untimed challenges. */ }
   const selectedTriggers = Array.isArray(values.trigger_filter?.allowed_triggers) ? values.trigger_filter.allowed_triggers : [];
+  const canBeUntimed = values.quest_type === 'collection' && !values.is_repeatable
+    && selectedTriggers.length === 1 && selectedTriggers[0] === 'reading_logged' && !hasAdditionalFilters;
   const triggerChoices = [...new Set([...supportedTriggers.keys(), ...selectedTriggers])];
   const rewardItems = values.reward_items ?? [];
   const itemIdentity = (item) => item.id ? `id:${item.id}` : `new:${item.key}`;
@@ -63,8 +70,13 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <SelectField label="Challenge type" value={values.quest_type} onChange={(event) => set('quest_type', event.target.value)}><option value="collection">Activity count</option><option value="boss">Boss challenge</option></SelectField>
           {numeric('target_value', values.quest_type === 'boss' ? 'Target damage' : 'Target count', 1)}
-          {numeric('duration_days', 'Duration in days', 1)}
+          {values.duration_days !== null && numeric('duration_days', 'Duration in days', 1)}
         </div>
+        <CheckboxField label="No deadline" checked={values.duration_days === null} disabled={!canBeUntimed && values.duration_days !== null} onChange={(event) => onChange({
+          ...editor,
+          timedDurationDays: values.duration_days ?? editor.timedDurationDays,
+          values: { ...values, duration_days: event.target.checked ? null : editor.timedDurationDays ?? 7 },
+        })} helpText="Available for one-time activity count challenges that count only daily Reading Adventures. Saved goals keep their original completion windows." />
         <CheckboxField label="Repeatable challenge" checked={values.is_repeatable ?? false} onChange={(event) => set('is_repeatable', event.target.checked)} />
         <SelectField label="Required badge" value={values.required_badge ?? ''} onChange={(event) => set('required_badge', event.target.value ? Number(event.target.value) : null)}><option value="">No badge required</option>{catalog.badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}</SelectField>
         <section aria-label="Challenge milestones" className="space-y-3 rounded-lg bg-ink-page-aged p-3">

@@ -80,7 +80,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-20.1"
+ENGINE_VERSION = "2026-10-20.2"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -604,6 +604,12 @@ class Trial:
         result = []
         for q in self.catalog.quests:
             filters = q.trigger_filter or {}
+            # An explicit null is a supported untimed reading milestone, never
+            # an unlimited version of arbitrary or repeatable catalog content.
+            if q.duration_days is None and (q.quest_type != "collection" or q.is_repeatable
+                    or not q.is_system or set(filters) != {"allowed_triggers"}
+                    or tuple(filters.get("allowed_triggers") or ()) != ("reading_logged",)):
+                continue
             if self._has_milestones(q) and (q.quest_type != "collection" or q.is_repeatable
                     or set(filters) != {"allowed_triggers"}
                     or tuple(filters.get("allowed_triggers") or ()) != ("reading_logged",)):
@@ -617,7 +623,8 @@ class Trial:
                 for key in ("project_id", "skill_category_id", "chore_ids", "savings_goal_id", "on_time")
             ):
                 continue
-            if q.target_value > 0 and q.duration_days > 0 and self._challenge_capacity(q, enabled) >= q.target_value:
+            if (q.target_value > 0 and (q.duration_days is None or q.duration_days > 0)
+                    and self._challenge_capacity(q, enabled) >= q.target_value):
                 result.append(q)
         # Keep only structurally usable milestone references. Actual progress
         # is evaluated at the fresh activity, never predicted as an offer rule.
@@ -675,7 +682,10 @@ class Trial:
         )
         # Windows can begin on any weekday after badge unlock. Use the largest
         # possible active-day count; never declare an impossible target reachable.
-        weeks, remainder = divmod(quest.duration_days, 7)
+        # Untimed milestones have no expiry. Bound the routine-capacity subset
+        # by the requested horizon without inventing a saved deadline.
+        days = quest.duration_days if quest.duration_days is not None else c["horizon_days"]
+        weeks, remainder = divmod(days, 7)
         active = weeks * c["active_days_per_week"] + max(
             sum((offset + day) % 7 < c["active_days_per_week"] for day in range(remainder)) for offset in range(7)
         )
@@ -1088,7 +1098,7 @@ class Trial:
                 self.quest_windows[q.pk] = {"start": self.day, "progress": Decimal(0), "paid": False}
                 self.challenge_gates.unlock_days.setdefault(q.pk, self.day)
             window = self.quest_windows[q.pk]
-            if self.day >= window["start"] + q.duration_days:
+            if q.duration_days is not None and self.day >= window["start"] + q.duration_days:
                 if not q.is_repeatable:
                     continue
                 periods = (self.day - window["start"]) // q.duration_days
@@ -1491,6 +1501,7 @@ class Trial:
             self.economy.close_day(self)
         expired = sum(
             not q.is_repeatable
+            and q.duration_days is not None
             and q.pk in self.quest_windows
             and not self.quest_windows[q.pk]["paid"]
             and day >= self.quest_windows[q.pk]["start"] + q.duration_days

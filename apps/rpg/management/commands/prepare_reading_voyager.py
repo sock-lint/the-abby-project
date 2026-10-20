@@ -9,7 +9,7 @@ from apps.rpg.content.reading_voyager import prepare_reading_voyager
 
 
 class Command(BaseCommand):
-    help = "Prepare and preview the private Reading Voyager milestone/56-day draft; never simulate or publish."
+    help = "Prepare and preview the private untimed Companion and milestone/56-day Voyager draft; never simulate or publish."
 
     def add_arguments(self, parser):
         parser.add_argument("--actor-id", required=True, type=int,

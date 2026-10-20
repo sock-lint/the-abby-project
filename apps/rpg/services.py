@@ -1159,7 +1159,7 @@ class ConsumableService:
                 UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
             )
             candidates = [
-                q for q in QuestDefinition.objects.filter(is_system=True)
+                q for q in QuestDefinition.objects.filter(is_system=True, duration_days__isnull=False)
                 if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
                 and not has_milestone_gate(q)
             ]

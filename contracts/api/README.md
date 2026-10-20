@@ -1,5 +1,11 @@
 # Shared API response fixtures
 
+`challenges-untimed.json` is a real authenticated challenge response for an
+untimed one-time Reading Companion. Its saved `ends_at` is null and it remains
+active after ninety elapsed days. Null means no deadline; absent timing in
+older payloads is not inferred to be untimed. The existing challenge producer
+and React consumer check this shape.
+
 `journal-created.json`, `journal-replayed.json`, `journal-today.json` and
 `journal-edited.json` bind the Today capture and Memories journal to the same
 saved entry and measured reward receipt. Journal receipts add whole-number

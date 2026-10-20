@@ -90,7 +90,9 @@ def prerequisite_unavailable(user, prerequisite_id):
         goals = ChallengeGoal.objects.filter(user=user, catalog_definition_id=prerequisite_id, is_catalog=True)
         if goals.exists():
             occurrences = ChallengeOccurrence.objects.filter(goal__in=goals)
-            return occurrences.exists() and not occurrences.filter(status="active", ends_at__gt=now).exists()
+            return occurrences.exists() and not occurrences.filter(status="active").filter(
+                Q(ends_at__gt=now) | Q(ends_at__isnull=True),
+            ).exists()
         prerequisite_id = prior["prerequisite_quest_id"]
     return False
 

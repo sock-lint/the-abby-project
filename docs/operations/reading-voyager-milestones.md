@@ -1,11 +1,17 @@
 # Reading Voyager milestone implementation
 
-This implementation adds inactive native support and an exact private draft
-preparation command. It does not publish the selected policy or change bundled
+This implementation adds inactive native support for an untimed Companion
+and milestone-gated Voyager, plus an exact private draft preparation command. It does not publish the selected policy or change bundled
 Reading Voyager/Lorebook content. Activation remains a separately reviewed
 Workbench publication after deployment of this implementation.
 
 ## Selected candidate
+
+Reading Companion is a one-time onboarding milestone: three daily Reading
+Adventures, at the child's own pace, with no deadline. Its existing 0 authored
+Coins, 20 Reading Comprehension XP, Chick Egg, Base Potion and two Birdseed
+remain the reward promise. The private draft prepares this change together
+with Voyager; neither definition changes when the implementation is deployed.
 
 Reading Voyager requires the same child's completed global Reading Companion
 and unlocked Language Arts::Reading Comprehension at level 1. Its next newly
@@ -20,6 +26,11 @@ value and saved metadata. There is no tenure or calendar requirement.
 `QuestDefinition` stores protected prerequisite-challenge and skill references
 plus the required skill level. Defaults leave existing definitions ungated.
 Validation rejects private, ambiguous, cyclic and unsupported references.
+An explicit null `duration_days` means untimed and is restricted to one-time
+global collection challenges whose only filter is `reading_logged`. New
+automatic goals and occurrences retain null `ends_at`; they never acquire a
+synthetic distant deadline or repeat. Catalog and goal cards show **No deadline**.
+Parent-authored measurable goals retain their timed creation contract.
 This release supports gates only on one-time global collection challenges
 whose sole activity is `reading_logged`, without additional filters. Adding
 another source requires its own trusted acceptance hook and behavioral tests.
@@ -48,12 +59,13 @@ next**, with no countdown before acceptance. Requirements can be met while
 the page awaits the next matching saved activity. A one-time prerequisite
 whose only window ended without completion can never be met, so the page omits
 its successors for that child rather than presenting an unreachable step.
-Reading Companion's one-time 14-day window opens at the child's first
-automatic-goal evaluation: any processed activity (a habit tap, chore or
-homework approval, clock-out, journal entry and others), the Today dashboard's
-challenge card, or the Challenges page. A child who misses its three readings
-in that window can never receive the selected Voyager, even if they never
-opened Challenges. Decide whether that is acceptable before publication. Workbench editing, preview,
+The old Reading Companion's one-time 14-day window can open before the child
+begins reading. The selected untimed definition removes that future lockout: a
+child can finish three qualifying Adventures after a late start or a long gap.
+Previously accepted timed Companion promises retain their saved deadline; this
+schema migration does not reopen, extend or pay them. New legacy manual starts
+of untimed definitions are refused; automatic tracking owns their one promise.
+Workbench editing, preview,
 publication, YAML override retention, MCP catalog exports and Lab snapshots
 carry the same exact IDs. Catalog and rules fingerprints invalidate stale
 comparisons when those rules change.
@@ -66,17 +78,19 @@ An operator can explicitly run the command against the intended application:
 python manage.py prepare_reading_voyager --actor-id <active-staff-parent-id>
 ```
 
-This creates a private draft and normal preview for that exact actor. It
+This creates one private draft and normal preview for that exact actor,
+containing both the untimed Companion and gated 56-day Voyager edits. It
 returns the revision, preview ID, content digest and resolved global IDs. It
-refuses baseline/reward drift, ambiguous identities, foreign ownership or
+refuses baseline/reward drift (including Companion item quantities and skill
+weights), ambiguous identities, foreign ownership or
 active legacy conflicts and rolls back draft creation on failure. It never
 simulates or publishes. It is not a deployment/startup command.
 
 Review the returned diff, run normal Workbench comparisons, then obtain
 explicit approval for that exact publication. Its normal stale-preview,
 simulation, ownership and catalog-lock gates remain mandatory. Refresh the
-bounded accepted-goal/legacy preflight before activation; a statement that
-the app has no active users is not evidence of zero saved goals. Coordinate
+bounded accepted-goal/legacy preflight before activation. This is a prelaunch
+change; any synthetic or saved attempts still retain their recorded promises. Coordinate
 active bundled YAML and Lorebook copy when publishing, respecting saved
 database overrides. Existing goals are not migrated to a longer window.
 

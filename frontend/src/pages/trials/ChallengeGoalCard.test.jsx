@@ -10,6 +10,17 @@ vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn()
 beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
+  it.each(['card', 'detail'])('shows an untimed goal without inventing a deadline in its %s', (surface) => {
+    const goal = buildChallengeGoal({ name: 'Reading Companion', origin: 'catalog', ends_at: null, repeat_weekly: false });
+    renderWithProviders(surface === 'card'
+      ? <ChallengeGoalCard goal={goal} onSelect={() => {}} />
+      : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('No deadline')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.queryByText(/Goal period|Counts work before|Period ended|Invalid Date|NaN/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
+  });
+
   it('shows the exact exclusive deadline of a rolling period in its saved timezone', () => {
     const goal = buildChallengeGoal({ timezone: 'America/New_York', starts_at: '2026-10-28T16:15:00Z', ends_at: '2026-11-04T17:15:00Z' });
     renderWithProviders(<ChallengeGoalDetail goal={goal} timezone="Pacific/Auckland" onClose={() => {}} />, { withAuth: false });

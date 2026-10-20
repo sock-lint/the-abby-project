@@ -19,6 +19,23 @@ beforeEach(() => {
 });
 
 describe('CodexSection', () => {
+  it('shows no deadline in an untimed catalog challenge detail', async () => {
+    server.use(
+      http.get('*/api/items/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([
+        { id: 67, name: 'Reading Companion', quest_type: 'collection', quest_type_display: 'Activity count', target_value: 3, duration_days: null, icon: '📖' },
+      ])),
+    );
+    const user = userEvent.setup();
+    render(<CodexSection />);
+    await user.click(await screen.findByRole('tab', { name: /Challenges/ }));
+    await user.click(await screen.findByRole('button', { name: /Reading Companion/ }));
+    const detail = screen.getByRole('dialog', { name: 'Reading Companion' });
+    expect(within(detail).getByText('No deadline')).toBeInTheDocument();
+    expect(within(detail).queryByText(/^days$/)).not.toBeInTheDocument();
+  });
+
   it('renders with empty catalogs', async () => {
     server.use(
       http.get('*/api/items/catalog/', () => HttpResponse.json([])),

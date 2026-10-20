@@ -10,6 +10,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.achievements.models import Skill, SkillCategory
+from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rewards.models import CoinLedger
 from apps.rpg.content.loader import ContentPackError
@@ -40,19 +41,43 @@ class ReadingVoyagerPreparationTests(TestCase):
         self.skill = Skill.objects.create(category=category, name="Reading Comprehension")
         self.title = ItemDefinition.objects.create(slug="title-bookworm", name="Bookworm", item_type="cosmetic_title",
                                                    rarity="uncommon", coin_value=15, metadata={"text": "Bookworm"})
-        self.companion = QuestDefinition.objects.create(name="Reading Companion", description="Start reading", is_system=True,
+        self.companion = QuestDefinition.objects.create(name="Reading Companion", description=("Complete 3 daily Reading Adventures within 14 days. Each Adventure needs ten newly logged reading or listening minutes "
+                "in your family's day. Meet a Chick with an egg, a Base potion and two Birdseed."), is_system=True,
             quest_type="collection", target_value=3, duration_days=14, coin_reward=0, xp_reward=20,
             trigger_filter={"allowed_triggers": ["reading_logged"]})
         self.voyager = QuestDefinition.objects.create(name="Reading Voyager", description=CURRENT_COPY, is_system=True,
             quest_type="collection", target_value=20, duration_days=45, coin_reward=0, xp_reward=50,
             trigger_filter={"allowed_triggers": ["reading_logged"]})
         QuestSkillTag.objects.create(quest_definition=self.voyager, skill=self.skill, xp_weight=1)
+        QuestSkillTag.objects.create(quest_definition=self.companion, skill=self.skill, xp_weight=1)
+        chick = PetSpecies.objects.create(slug="chick", name="Chick", sprite_key="cute-chick")
+        base = PotionType.objects.create(slug="base", name="Base")
+        for item, quantity in (
+            (ItemDefinition.objects.create(slug="base-potion", name="Base Potion", item_type="potion", potion_type=base,
+                metadata={"variant": "base"}), 1),
+            (ItemDefinition.objects.create(slug="chick-egg", name="Chick Egg", item_type="egg", pet_species=chick,
+                metadata={"species": "chick"}), 1),
+            (ItemDefinition.objects.create(slug="food-birdseed", name="Birdseed", item_type="food", food_species=chick,
+                metadata={"growth": 5, "food_type": "birdseed"}), 2),
+        ):
+            QuestRewardItem.objects.create(quest_definition=self.companion, item=item, quantity=quantity)
         QuestRewardItem.objects.create(quest_definition=self.voyager, item=self.title, quantity=1)
 
     def assert_no_prepared_rows(self):
         self.assertEqual(RPGContentDraft.objects.count(), 0)
         self.assertEqual(ContentPackPublication.objects.count(), 0)
         self.assertEqual(RPGContentOverride.objects.count(), 0)
+
+    def test_prepares_untimed_companion_and_gated_voyager_together(self):
+        result = prepare_reading_voyager(self.actor)
+        edits = {row["object_id"]: row["values"] for row in result["changes"]}
+        self.assertEqual(set(edits), {self.companion.pk, self.voyager.pk})
+        self.assertIsNone(edits[self.companion.pk]["duration_days"])
+        self.assertIn("no deadline", edits[self.companion.pk]["description"].lower())
+        self.assertEqual(edits[self.voyager.pk]["duration_days"], 56)
+        self.companion.refresh_from_db()
+        self.assertEqual(self.companion.duration_days, 14)
+        self.assertIsNone(result["published_at"])
 
     def test_reward_value_drift_requires_a_new_review(self):
         self.title.coin_value = 100
@@ -80,7 +105,7 @@ class ReadingVoyagerPreparationTests(TestCase):
 
         self.assertEqual(result["resolved_ids"], {"voyager": self.voyager.pk, "companion": self.companion.pk,
                                                  "reading_skill": self.skill.pk, "bookworm_title": self.title.pk})
-        self.assertEqual(result["changes"], [{"section": "quests", "object_id": self.voyager.pk,
+        self.assertEqual(result["changes"][1:], [{"section": "quests", "object_id": self.voyager.pk,
             "key": "reading-voyager", "values": {"duration_days": 56, "description": PROPOSED_COPY,
                 "prerequisite_quest": self.companion.pk, "required_skill": self.skill.pk, "required_skill_level": 1}}])
         self.assertTrue(result["preparation_only"])
@@ -126,6 +151,20 @@ class ReadingVoyagerPreparationTests(TestCase):
         reward.save()
         self.voyager.skill_tags.update(xp_weight=2)
         with self.assertRaisesMessage(ContentPackError, "skill"):
+            prepare_reading_voyager(self.actor)
+        self.assert_no_prepared_rows()
+
+    def test_companion_reward_drift_refuses_before_private_draft_creation(self):
+        link = self.companion.reward_items.get(item__slug="food-birdseed")
+        link.quantity = 1
+        link.save()
+        with self.assertRaisesMessage(ContentPackError, "Companion item rewards"):
+            prepare_reading_voyager(self.actor)
+        self.assert_no_prepared_rows()
+        link.quantity = 2
+        link.save()
+        self.companion.skill_tags.update(xp_weight=2)
+        with self.assertRaisesMessage(ContentPackError, "Companion skill rewards"):
             prepare_reading_voyager(self.actor)
         self.assert_no_prepared_rows()
 
@@ -183,6 +222,14 @@ class ReadingVoyagerPreparationTests(TestCase):
         self.assert_no_prepared_rows()
         legacy.refresh_from_db()
         self.assertIsNone(legacy.reward_items_snapshot)
+
+    def test_active_companion_legacy_conflict_rolls_back_both_edits(self):
+        Quest.objects.create(definition=self.companion, end_date=timezone.now() + timedelta(days=14))
+        with self.assertRaisesMessage(ContentPackError, "active legacy"):
+            prepare_reading_voyager(self.actor)
+        self.assert_no_prepared_rows()
+        self.companion.refresh_from_db()
+        self.assertEqual(self.companion.duration_days, 14)
 
     def test_preview_failure_rolls_back_private_draft_and_never_publishes(self):
         with patch("apps.rpg.content.reading_voyager.preview_draft", side_effect=ContentPackError("preview rejected")):

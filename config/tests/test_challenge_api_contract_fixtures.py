@@ -340,6 +340,24 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.client.get("/api/challenges/").json(), completed)
         self.assertEqual(self.state(), paid)
 
+    def test_untimed_reading_companion_is_an_actual_open_ended_response(self):
+        self.catalog.delete()
+        QuestDefinition.objects.create(
+            id=52, name="Reading Companion", description="Three Reading Adventures, with no deadline.",
+            quest_type="collection", target_value=3, duration_days=None,
+            trigger_filter={"allowed_triggers": ["reading_logged"]}, is_system=True,
+        )
+        self.authenticate(self.child)
+        self.assertEqual(self.client.get("/api/challenges/").status_code, 200)
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=90)):
+            body = self.assert_response_fixture(self.client.get("/api/challenges/"), "challenges-untimed.json")
+        self.assertEqual(len(body["results"]), 1)
+        row = body["results"][0]
+        self.assertEqual(row["name"], "Reading Companion")
+        self.assertEqual((row["origin"], row["status"]), ("catalog", "active"))
+        self.assertIsNone(row["ends_at"])
+        self.assertFalse(row["catalog_repeatable"])
+
     def test_discovery_receipts_and_same_family_counts_are_actual_endpoints(self):
         from apps.quests.models import ChallengeEnrollment
         # Exercise the real first enrollment rather than inventing old views.

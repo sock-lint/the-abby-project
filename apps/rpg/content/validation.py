@@ -129,6 +129,12 @@ def validate_content(parsed, *, strict=True):
                         raise ValidationError("Unknown rarity.")
                     for field, maximum in (("target_value", 1000000), ("duration_days", 365), ("weight", 1000000)):
                         if field in entry:
+                            if section == "quests" and field == "duration_days" and entry[field] is None:
+                                if (entry.get("quest_type") != "collection" or entry.get("is_repeatable", False)
+                                        or entry.get("is_system", True) is not True
+                                        or entry.get("trigger_filter", {}) != {"allowed_triggers": ["reading_logged"]}):
+                                    raise ValidationError("Untimed challenges must be one-time global reading collections.")
+                                continue
                             number = bounded_number(entry[field], field, 1, maximum)
                             if number != number.to_integral_value():
                                 raise ValidationError(f"{field} must be a whole number.")

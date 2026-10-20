@@ -77,6 +77,19 @@ legacy runs continue with their accepted windows and rewards.
 Installing these schema/services does not activate a
 policy or rewrite bundled or published content.
 
+## Untimed reading onboarding
+
+A null `QuestDefinition.duration_days` means no deadline, only for a one-time
+system collection with no creator and exactly `reading_logged` as its filter.
+`ChallengeGoal.ends_at` and `ChallengeOccurrence.ends_at` may then be null.
+Keep list/process/pin, prerequisite availability and acquisition queries null
+safe; never invent a distant date or treat null as expired. Parent-created
+measurable goals and legacy accepted quests keep their existing timed contract.
+New legacy solo/co-op starts and reroll selections exclude untimed definitions.
+The schema migration changes no saved dates or rewards. Reading Companion and
+Voyager activation is the separate reviewed Workbench draft described in
+`docs/operations/reading-voyager-milestones.md`.
+
 ## Automatic goal tracking
 
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
