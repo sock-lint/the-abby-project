@@ -318,7 +318,7 @@ describe('ChildDashboard', () => {
     await user.click(row);
     // Sheet content renders on document.body via portal.
     await waitFor(() =>
-      expect(document.body.textContent).toMatch(/affix photographic evidence/i),
+      expect(screen.getByRole('dialog', { name: 'Submit homework' })).toBeVisible(),
     );
     expect(document.body.textContent).toMatch(/poem recital/i);
   });

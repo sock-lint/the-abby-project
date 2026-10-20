@@ -13,6 +13,7 @@
       "user_name": "Abby",
       "status": "approved",
       "notes": "Read two chapters",
+      "proof_url": "",
       "decided_at": "2026-10-26T11:00:00-07:00",
       "decided_by": 6,
       "timeliness": "late",
@@ -27,7 +28,7 @@
         "due_on": "2026-10-22",
         "timeliness": "late"
       },
-      "current_due_date": "2026-10-26",
+      "current_due_date": "2026-10-24",
       "proofs": [
         {
           "id": 1,

@@ -16,6 +16,7 @@ from config.tests.factories import make_family
 
 SUBMITTED = datetime(2026, 10, 23, 16, 30, tzinfo=timezone.utc)
 REVIEWED = datetime(2026, 10, 26, 18, tzinfo=timezone.utc)
+PROOF_URL = "https://drive.google.com/file/d/synthetic-homework-proof/view?usp=sharing"
 
 
 @override_settings(
@@ -74,7 +75,7 @@ class SubmissionTimingApiFixtureTests(APITestCase):
         submission = HomeworkService.submit_completion(
             self.child, assignment, images=["homework_proofs/synthetic-timing.png"], notes="Read two chapters",
         )
-        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 26))
+        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 24))
         self.client.force_authenticate(self.parent)
         with patch("django.utils.timezone.now", return_value=REVIEWED):
             self.assertEqual(self.client.post(f"/api/homework-submissions/{submission.pk}/approve/").status_code, 200)
@@ -84,10 +85,53 @@ class SubmissionTimingApiFixtureTests(APITestCase):
         )
         row = reviewed["results"][0]
         self.assertEqual(row["timing_snapshot"]["due_on"], "2026-10-22")
-        self.assertEqual(row["current_due_date"], "2026-10-26")
+        self.assertEqual(row["current_due_date"], "2026-10-24")
         self.assertEqual(row["timeliness"], "late")
         self.client.force_authenticate(self.child)
-        self.assert_response_fixture(
+        detail = self.assert_response_fixture(
             self.client.get(f"/api/homework/{assignment.pk}/"),
             "completion-timing-homework-assignment.json",
         )
+        self.assertEqual(detail["timeliness_preview"]["timeliness"], "on_time")
+        self.assertEqual(detail["submission_status"]["timeliness"], "late")
+
+    def test_link_only_homework_proof_survives_review_and_keeps_original_timing(self):
+        assignment = HomeworkAssignment.objects.create(
+            id=32, created_by=self.parent, assigned_to=self.child,
+            title="Science report", subject="science", due_date=date(2026, 10, 24),
+        )
+        self.client.force_authenticate(self.child)
+        response = self.client.post(
+            f"/api/homework/{assignment.pk}/submit/",
+            {"proof_url": PROOF_URL, "notes": "My finished report"},
+            format="multipart",
+        )
+        self.assertEqual(response.status_code, 201, response.json())
+        pending = self.assert_response_fixture(
+            response, "homework-proof-link-submitted.json", status=201,
+        )
+        self.assertEqual(pending["proof_url"], PROOF_URL)
+        self.assertEqual(pending["proofs"], [])
+        self.assertEqual(pending["timeliness"], "on_time")
+        self.assertEqual(pending["timing_snapshot"]["due_on"], "2026-10-24")
+
+        # A later deadline edit and approval must preserve both the submitted
+        # link and the original on-time classification from the day before.
+        HomeworkAssignment.objects.filter(pk=assignment.pk).update(due_date=date(2026, 10, 22))
+        self.client.force_authenticate(self.parent)
+        with patch("django.utils.timezone.now", return_value=REVIEWED):
+            self.assertEqual(self.client.post(f"/api/homework-submissions/{pending['id']}/approve/").status_code, 200)
+        reviewed = self.assert_response_fixture(
+            self.client.get("/api/homework-submissions/", {"status": "reviewed", "user_id": self.child.pk}),
+            "homework-proof-link-reviewed.json",
+        )["results"][0]
+        self.assertEqual(reviewed["proof_url"], PROOF_URL)
+        self.assertEqual(reviewed["proofs"], [])
+        self.assertEqual(reviewed["current_due_date"], "2026-10-22")
+        self.assertEqual(reviewed["timing_snapshot"], pending["timing_snapshot"])
+        self.assertEqual(reviewed["timeliness"], pending["timeliness"])
+        self.client.force_authenticate(self.child)
+        detail = self.client.get(f"/api/homework-submissions/{pending['id']}/")
+        self.assertEqual(detail.status_code, 200)
+        self.assertEqual(detail.json()["proof_url"], PROOF_URL)
+        self.assertEqual(detail.json()["timing_snapshot"], pending["timing_snapshot"])

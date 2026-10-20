@@ -8,9 +8,10 @@ import ErrorAlert from './ErrorAlert';
 import { getHomeworkDetail, submitHomework } from '../api';
 import { useApi } from '../hooks/useApi';
 import { downscaleImage } from '../utils/image';
+import { getHomeworkProofUrl } from '../utils/homeworkProof';
 import { formLabelClass } from '../constants/styles';
 import Button from './Button';
-import { TextAreaField } from './form';
+import { TextAreaField, TextField } from './form';
 
 function AssignmentInstructions({ description }) {
   if (!description) return null;
@@ -38,6 +39,8 @@ function FetchedAssignmentInstructions({ assignmentId }) {
  */
 export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }) {
   const [images, setImages] = useState([]);
+  const [proofUrl, setProofUrl] = useState('');
+  const [proofUrlError, setProofUrlError] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -47,6 +50,8 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
 
   const reset = () => {
     setImages([]);
+    setProofUrl('');
+    setProofUrlError('');
     setNotes('');
     setError('');
   };
@@ -57,13 +62,20 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   };
 
   const handleSubmit = async () => {
-    if (!images.length) return;
-    setSubmitting(true);
+    if (submitting || (!images.length && !proofUrl.trim())) return;
     setError('');
+    const link = getHomeworkProofUrl(proofUrl);
+    if (proofUrl.trim() && !link) {
+      setProofUrlError('Enter a valid http:// or https:// proof link.');
+      return;
+    }
+    setProofUrlError('');
+    setSubmitting(true);
     try {
       const downscaled = await Promise.all(images.map((img) => downscaleImage(img)));
       const fd = new FormData();
       downscaled.forEach((img) => fd.append('images', img));
+      if (link) fd.append('proof_url', link);
       if (notes) fd.append('notes', notes);
       await submitHomework(assignment.id, fd);
       reset();
@@ -83,9 +95,9 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
   return (
     <BottomSheet
       onClose={handleClose}
-      title="Affix photographic evidence"
+      title="Submit homework"
       disabled={submitting}
-      dirty={images.length > 0 || Boolean(notes)}
+      dirty={images.length > 0 || Boolean(proofUrl) || Boolean(notes)}
       // Sticky footer so the submit button stays reachable while the notes
       // field has focus — the on-screen keyboard overlays the sheet rather
       // than shrinking it, burying anything parked at the end of the scroller.
@@ -94,7 +106,7 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
           variant="success"
           size="sm"
           onClick={handleSubmit}
-          disabled={!images.length || submitting}
+          disabled={(!images.length && !proofUrl.trim()) || submitting}
           className="w-full flex items-center justify-center gap-2"
         >
           <Send size={16} /> {submitting ? 'Submitting…' : 'Submit for review'}
@@ -116,8 +128,10 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
           ? <AssignmentInstructions description={assignment.description} />
           : assignment.id != null && <FetchedAssignmentInstructions key={assignment.id} assignmentId={assignment.id} />}
 
+        <p className="font-body text-body text-ink-secondary">Add proof photos, a link, or both.</p>
+
         <div>
-          <label htmlFor={proofInputId} className={formLabelClass}>Proof photos (required)</label>
+          <label htmlFor={proofInputId} className={formLabelClass}>Proof photos</label>
           <div className="flex gap-2 flex-wrap">
             {images.map((img, i) => (
               <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-ink-page-shadow">
@@ -151,12 +165,26 @@ export default function HomeworkSubmitSheet({ assignment, onClose, onSubmitted }
               <input
                 id={proofInputId}
                 type="file" accept="image/*" multiple className="sr-only"
-                aria-label="Add proof photos (required)"
+                aria-label="Add proof photos"
                 onChange={(e) => setImages([...images, ...Array.from(e.target.files)])}
               />
             </label>
           </div>
         </div>
+
+        <TextField
+          label="Proof link (optional)"
+          type="url"
+          value={proofUrl}
+          onChange={(e) => { setProofUrl(e.target.value); setProofUrlError(''); }}
+          placeholder="https://drive.google.com/…"
+          helpText="Paste a Google Drive or other shareable link your parent can open."
+          error={proofUrlError}
+          maxLength={2048}
+          autoCapitalize="off"
+          spellCheck={false}
+          disabled={submitting}
+        />
 
         <TextAreaField
           label="Notes (optional)"
