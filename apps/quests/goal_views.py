@@ -80,3 +80,13 @@ class ChallengeDiscoveryView(APIView):
         if set(request.query_params) - {"_abby_session", "_abby_retry"}:
             return Response({"error": "Discovery observations accept no targeting parameters."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(discovery_observations(request.user))
+
+
+class VoyagerFeedbackView(APIView):
+    permission_classes = [IsStaffParent]
+
+    def get(self, request):
+        from .voyager_feedback import voyager_feedback
+        if set(request.query_params) - {"_abby_session", "_abby_retry"}:
+            return Response({"error": "Voyager feedback accepts no targeting parameters."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(voyager_feedback(request.user))

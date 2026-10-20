@@ -84,6 +84,23 @@ empty samples remain insufficient evidence. Checkpoints never accept posted
 client totals, enroll users in a live treatment or imply that changing cohorts
 form a causal test. The recent-child window does not establish annual retention.
 
+## Follow Reading Voyager outcomes
+
+**Reading Voyager feedback** is a separate live read for the current staff
+parent's family. It follows children registered within 180 inclusive local
+days and retains their saved windows beyond the generic discovery report's
+30-day creation period. Current gate readiness and child states are separate
+from saved 45-day, selected milestone-56-day, and unknown policy outcomes.
+An independent refresh does not run a simulation or change saved progression.
+
+Completion rates use only resolved windows whose full saved deadline has
+passed. Pending windows include early completions until that deadline;
+unfinished or unknown windows do not become failures. The panel shows the
+resolved denominator and missing evidence explicitly. These are family
+observations, not global retention or a causal comparison of the policies.
+See [Voyager observation rules](reading-voyager-milestones.md#observe-after-rollout)
+for bounds, excluded test families and historical limits.
+
 ## Make a forecast
 
 Choose an editable example routine or enter activities per active day. The

@@ -72,6 +72,41 @@ the app has no active users is not evidence of zero saved goals. Coordinate
 active bundled YAML and Lorebook copy when publishing, respecting saved
 database overrides. Existing goals are not migrated to a longer window.
 
+## Observe after rollout
+
+The staff Lab's **Reading Voyager feedback** panel reads
+`GET /api/challenges/voyager-feedback/` independently of anonymous simulation.
+It reports a current cohort of active nonstaff children in the observer's own
+family registered within 180 inclusive family-local days. All their saved
+Voyager windows are considered, including those created more than 30 days ago.
+Trusted observer families are excluded. The fixed bounds are 100 children and
+10,000 saved records; unavailable totals stay unknown rather than partial.
+
+Current child states distinguish locked, ready, active, completed, expired and
+unknown. Readiness uses today's rules, not a historical unlock timestamp.
+With native gates, ready means waiting for the next qualifying new Reading
+Adventure. Before activation, ungated Voyager retains automatic tracking.
+
+Saved policy groups classify accepted 45-day windows without native milestone
+snapshots, the selected 56-day milestone snapshot, and other or unknown rules.
+The groups use immutable saved promises, not today's catalog configuration.
+Older badge-only eligibility and legacy full policies cannot be reconstructed.
+These groups do not establish identical rewards or a causal policy effect.
+
+Wait for each full saved deadline before including its outcome in a mature
+completion rate. An early completion can already appear completed in the child
+snapshot while its window remains under observation. The denominator is known
+mature completions plus known mature expiries; pending and unresolved evidence
+are excluded. With no resolved mature outcomes, show insufficient evidence
+rather than zero-percent success. Later source processing can resolve an
+earlier unknown outcome; completion timestamps describe processing, not lateness.
+
+Review current gates and active windows as new families arrive; review the
+full-window rates once the accepted cohort has reached its saved deadlines.
+Use low counts and unresolved evidence as a reason to inspect coverage before
+changing content. The report never materializes goals, expires saved rows,
+backfills contributions or awards rewards. It does not publish this policy.
+
 ## Forecast limits
 
 Anonymous Lab trials start at zero and cannot establish retention or total

@@ -27,6 +27,7 @@ import PetIncubationPolicy from './PetIncubationPolicy';
 import PetIncubationState from './PetIncubationState';
 import PetIncubationJourney from './PetIncubationJourney';
 import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
+import VoyagerFeedbackReport from './VoyagerFeedbackReport';
 import ProgressionChallengeGateControls from './ProgressionChallengeGateControls';
 import ProgressionChallengeGateReport from './ProgressionChallengeGateReport';
 
@@ -170,6 +171,7 @@ function AccountProgressionLab() {
         {loading && <Loader />}
         {metadata && config && <>
           <ChallengeDiscoveryReport />
+          <VoyagerFeedbackReport />
           <ParchmentCard className="space-y-4">
             <SectionHeader title="Build a new child’s routine" index={0}>All activity counts apply to active days. Scenarios use anonymous state and do not create accounts or change rewards.</SectionHeader>
             <form aria-label="Progression scenario" onSubmit={simulate} className="space-y-4">
