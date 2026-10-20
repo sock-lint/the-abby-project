@@ -139,6 +139,11 @@ class QuestParticipantSerializer(serializers.ModelSerializer):
 class QuestSerializer(serializers.ModelSerializer):
     definition = serializers.SerializerMethodField()
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["participants"].sort(key=lambda row: (-row["contribution"], row["user"], row["id"]))
+        return data
+
     def get_definition(self, obj):
         from .reward_items import accepted_reward_items
 

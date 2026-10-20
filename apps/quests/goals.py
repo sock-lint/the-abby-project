@@ -722,7 +722,7 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
         "action": None, "pinned": pin_id == key, "repeat_weekly": False, "legacy": True,
         "rage_shield": quest.rage_shield, "participants": [
             {"user": participant.user_id, "user_name": participant.user.display_label, "contribution": participant.contribution}
-            for participant in quest.participants.all()
+            for participant in sorted(quest.participants.all(), key=lambda row: (-row.contribution, row.user_id, row.pk))
         ],
         "reward_receipt": {"id": key, "status": "legacy", "coins_awarded": 0, "xp_awarded": 0, "awarded_at": None},
     }
