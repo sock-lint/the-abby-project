@@ -39,19 +39,25 @@ from ..server import tool
 from ..shapes import homework_assignment_to_dict, homework_submission_to_dict, many
 
 
-@tool()
-@safe_tool
-def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
-    """List homework assignments. Parents see all; children see their own."""
-    user = get_current_user()
-
+def _readable_assignments(user):
+    """Apply the same active, self/family visibility as the REST queryset."""
     qs = HomeworkAssignment.objects.filter(is_active=True).select_related(
         "assigned_to", "created_by",
     ).prefetch_related("skill_tags__skill", "submissions")
-
     if user.role == "child":
-        qs = qs.filter(assigned_to=user)
-    elif params.assigned_to_id:
+        return qs.filter(assigned_to=user)
+    if user.role == "parent" and user.family_id is not None:
+        return qs.filter(assigned_to__family_id=user.family_id)
+    return qs.none()
+
+
+@tool()
+@safe_tool
+def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
+    """List active homework in the parent's family, or the child's own work."""
+    user = get_current_user()
+    qs = _readable_assignments(user)
+    if user.role == "parent" and params.assigned_to_id is not None:
         qs = qs.filter(assigned_to_id=params.assigned_to_id)
 
     if params.subject:
@@ -63,14 +69,10 @@ def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_homework(params: GetHomeworkIn) -> dict[str, Any]:
-    """Get details for a single homework assignment."""
-    get_current_user()
+    """Read an active assignment visible to the caller; inaccessible IDs are not found."""
+    user = get_current_user()
     try:
-        assignment = HomeworkAssignment.objects.select_related(
-            "assigned_to", "created_by",
-        ).prefetch_related(
-            "skill_tags__skill", "submissions",
-        ).get(pk=params.assignment_id)
+        assignment = _readable_assignments(user).get(pk=params.assignment_id)
     except HomeworkAssignment.DoesNotExist:
         raise MCPNotFoundError(f"Assignment {params.assignment_id} not found.")
     return homework_assignment_to_dict(assignment)

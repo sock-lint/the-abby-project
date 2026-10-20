@@ -32,6 +32,7 @@ from ..context import (
     get_current_user, get_in_family, require_parent, resolve_target_user,
 )
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..pagination import paginate_created_history
 from ..schemas import (
     AddCollaboratorIn,
     AddMaterialIn,
@@ -61,6 +62,7 @@ from ..schemas import (
     UpdateStepIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import (
     material_to_dict,
     milestone_to_dict,
@@ -147,7 +149,9 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     """List projects visible to the current user.
 
     Children only ever see projects assigned to themselves. Parents can
-    filter by ``assigned_to_id`` to narrow to a specific child.
+    filter by ``assigned_to_id`` to narrow to a specific child. Follow
+    ``next_cursor`` with the same filters to retrieve the complete history;
+    ``count`` remains this page's size and ``total`` counts the scoped history.
     """
     user = get_current_user()
     qs = Project.objects.work_projects().select_related(
@@ -160,8 +164,9 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     if user.role == "parent":
         family_id = getattr(user, "family_id", None)
         if family_id is None:
-            return {"projects": [], "count": 0}
-        qs = qs.filter(assigned_to__family_id=family_id)
+            qs = qs.none()
+        else:
+            qs = qs.filter(assigned_to__family_id=family_id)
         if params.assigned_to_id is not None:
             qs = qs.filter(assigned_to_id=params.assigned_to_id)
     else:
@@ -170,11 +175,15 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     if params.status is not None:
         qs = qs.filter(status=params.status)
 
-    qs = qs.order_by("-created_at")[: params.limit]
-    projects = list(qs)
+    projects, page = paginate_created_history(
+        qs, actor=user, tool="list_projects",
+        filters={"status": params.status, "assigned_to_id": params.assigned_to_id},
+        limit=params.limit, cursor=params.cursor,
+    )
     return {
         "projects": [project_list_to_dict(p) for p in projects],
         "count": len(projects),
+        **page,
     }
 
 
@@ -202,6 +211,9 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     guidance. Attach videos/docs to a step via a ``NewResource`` with
     ``step_index`` pointing at the step's 0-based position, or leave
     ``step_index`` as ``None`` for a project-level reference.
+
+    Supply a stable request_id UUID for duplicate-safe retries. Changed
+    details under a saved UUID are rejected instead of creating another plan.
     """
     parent = require_parent()
 
@@ -209,6 +221,17 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     # ``resolve_target_user`` raises MCPNotFoundError on miss / cross-family,
     # never leaking existence of foreign users.
     assignee = resolve_target_user(parent, params.assigned_to_id)
+
+    return mutation_once(
+        actor=parent, target=assignee, operation="create_project", request_id=params.request_id,
+        payload=params.model_dump(exclude={"request_id"}), result_model=Project,
+        target_field="assigned_to_id", create=lambda actor, target: _create_project(params, actor, target),
+        serialize=project_detail_to_dict,
+    )
+
+
+def _create_project(params, parent, assignee):
+    """Create the project inside the caller's atomic retry transaction."""
 
     category = None
     if params.category_id is not None:
@@ -311,7 +334,7 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             )
 
     project.refresh_from_db()
-    return project_detail_to_dict(project)
+    return project
 
 
 @tool()

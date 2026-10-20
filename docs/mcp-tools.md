@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 224 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
+> **Total: 228 tools across 31 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -42,6 +42,64 @@ The flag is a client acknowledgement, not proof of human approval or Google
 consent. `delete_content_pack` also requires its existing `params.confirm`.
 See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 
+## Connection resource
+
+`abby://mcp/capabilities` is an authenticated resource, not another tool. It
+reports granted scopes, workflow purposes, required scopes and availability
+without household records. It grants no permission; additional access requires
+explicit OAuth reconnection. Initialization instructions point clients there.
+
+## Result and continuation contracts
+
+Changed project/payment history, project create/detail, payment mutations,
+movement log/detail, redemption, catalog reads and the four reading tools expose
+concrete result fields through `outputSchema`. Other tools retain their existing
+contracts; this does not make all registered results fully typed. Wire tool
+failures set `isError: true` and return matching text JSON and
+`structuredContent.error` with `code`, `message`, `retryable` and `field_errors`.
+Input field paths identify arguments such as `params.title`; unexpected failures
+use a generic `internal_error` rather than exception details.
+
+`list_projects` and `list_payment_ledger` return `total`, `has_more` and nullable
+`next_cursor`. Pass that value as `cursor` with the same actor, family and
+filters. Projects retain their page-length `count`. Cursors are signed, expire
+after 24 hours and sort by descending creation timestamp plus ID. An initial
+maximum ID excludes subsequent inserts. Every page rechecks current permission;
+`total` counts currently matching authorized rows within that ID boundary and
+can change after deletion, reassignment or status edits. It is not a frozen
+database snapshot. Reading shelf pagination separately uses ascending IDs with
+`after`, `next_after` and `has_more`.
+
+## Required retry UUIDs
+
+| Tool | Required UUID field |
+| --- | --- |
+| `create_project` | `request_id` |
+| `adjust_payment` | `request_id` |
+| `request_redemption` | `request_id` |
+| `log_movement_session` | `client_request_id` |
+| `create_reading_book` | `client_request_id` |
+| `log_reading_session` | `client_request_id` |
+
+Preserve the UUID and exact details after an uncertain response. The first four
+use atomic MCP receipts and replay their original response after current
+permission checks. Deleted sources retain request tombstones. Reading uses the
+shared REST service and returns the current saved record on an identical retry.
+Changed details conflict; retries cannot repeat awards, debits or reservations.
+Required transport confirmations still apply. Existing payout, incubation,
+template, challenge, publication and proposal identities retain their own
+contracts; see the [workflow guide](operations/mcp-authoring.md).
+
+## Reading workflow
+
+Parents explicitly choose a same-family child using `user_id`; children remain
+self-scoped. Read the shelf and summary without creating progress, then save a
+book or log minutes/pages/section/reflection through the shared reading service.
+`reading_reward` and `reading_adventure` report actual saved reward evidence.
+Saving a book grants nothing, and reflections do not become reward context.
+Modern goal preview/create support `reading_logged` count/actions goals backed
+by awarded daily Reading Adventure receipts rather than individual log counts.
+
 ## Module counts
 
 | Module | Tools |
@@ -65,10 +123,11 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `movement` | 6 |
 | `notifications` | 4 |
 | `payments` | 4 |
-| `pets` | 7 |
+| `pets` | 9 |
 | `portfolio` | 6 |
 | `projects` | 28 |
 | `quests` | 9 |
+| `reading` | 4 |
 | `rewards` | 9 |
 | `savings` | 4 |
 | `sprite_assets` | 1 |
@@ -244,15 +303,15 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `create_homework_template` | `mcp:write` | No | — | Create a reusable homework template (parent-only). |
 | `delete_homework` | `mcp:write` | No | Required | Soft-delete a homework assignment (sets ``is_active=False``). Parent-only. |
 | `delete_homework_template` | `mcp:write` | No | Required | Delete a homework template (parent-only). |
-| `get_homework` | `mcp:read` | Yes | — | Get details for a single homework assignment. |
+| `get_homework` | `mcp:read` | Yes | — | Read an active assignment visible to the caller; inaccessible IDs are not found. |
 | `get_homework_template` | `mcp:read` | Yes | — | Return a single template owned by the calling parent. |
-| `list_homework` | `mcp:read` | Yes | — | List homework assignments. Parents see all; children see their own. |
+| `list_homework` | `mcp:read` | Yes | — | List active homework in the parent's family, or the child's own work. |
 | `list_homework_submissions` | `mcp:read` | Yes | — | List homework submissions. Parents see all; children see their own. |
 | `list_homework_templates` | `mcp:read` | Yes | — | List homework templates owned by the calling parent. |
 | `plan_homework` | `mcp:write` | No | — | Trigger AI project planning for a homework assignment (parent-only). |
 | `reject_homework_submission` | `mcp:write` | No | Required | Reject a pending homework submission (parent-only). Child can re-submit. |
 | `set_homework_skill_tags` | `mcp:write` | No | Required | Replace the skill-tag set on an assignment (parent-only). |
-| `submit_homework` | `mcp:write` | No | — | Submit homework for review (child-only). Note: images must be uploaded via the REST API. |
+| `submit_homework` | `mcp:write` | No | — | Direct children to the REST API to submit homework proof photos or a link. |
 | `update_homework` | `mcp:write` | No | Required | Edit fields on a homework assignment (parent-only). |
 | `update_homework_template` | `mcp:write` | No | Required | Edit a homework template (parent-only). |
 
@@ -302,7 +361,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | --- | --- | --- | --- | --- |
 | `adjust_payment` | `mcp:write` | No | Required | Apply a positive or negative manual adjustment to a child's balance. |
 | `get_payment_balance` | `mcp:read` | Yes | — | Return money still owed to a child, breakdown and recent entries. |
-| `list_payment_ledger` | `mcp:read` | Yes | — | List PaymentLedger entries, optionally filtered by entry_type/since. |
+| `list_payment_ledger` | `mcp:read` | Yes | — | Read scoped payment history, optionally filtered by entry_type/since. |
 | `record_payout` | `mcp:write` | No | Required | Confirm a completed Greenlight transfer (parent-only, same-family). |
 
 ## pets
@@ -311,13 +370,13 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | --- | --- | --- | --- | --- |
 | `activate_mount` | `mcp:write` | No | — | Mark a mount as active (deactivates any prior active mount). |
 | `activate_pet` | `mcp:write` | No | — | Mark a pet as active (deactivates any prior active pet). |
+| `claim_pet_incubation` | `mcp:write` | No | Required | Explicitly hatch a ready incubation. Early calls grant nothing. |
 | `feed_pet` | `mcp:write` | No | Required | Feed a food item to a pet. Auto-evolves at growth >= 100. |
+| `get_pet_incubation` | `mcp:read` | Yes | — | Read the current incubating or ready egg. Reads never hatch a pet. |
 | `get_pet_stable` | `mcp:read` | Yes | — | Aggregate stable view: pets + mounts + collection stats. |
-| `get_pet_incubation` | `mcp:read` | Yes | — | Read the same-family target's active egg and server-relative incubation clock; never creates a pet. |
-| `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to start timed incubation; reuse the UUID request ID after an uncertain result. |
-| `claim_pet_incubation` | `mcp:write` | No | Required | Explicitly hatch a ready incubation; exact-ID retries return its saved pet without repeating rewards. |
 | `list_mounts` | `mcp:read` | Yes | — | List a user's evolved mounts. |
 | `list_pets` | `mcp:read` | Yes | — | List a user's pets (children forced to self). |
+| `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to begin incubation, without creating a pet. |
 
 ## portfolio
 
@@ -376,6 +435,15 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_quest_catalog` | `mcp:read` | Yes | — | Browse every authored QuestDefinition. Parent-only. |
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
+
+## reading
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_reading_book` | `mcp:write` | No | — | Save a book on a child's shelf once using a stable client_request_id. |
+| `get_reading_summary` | `mcp:read` | Yes | — | Read saved reading totals and today's actual Reading Adventure receipt. |
+| `list_reading_books` | `mcp:read` | Yes | — | Read one child's shelf in stable ID order; follow next_after for more. |
+| `log_reading_session` | `mcp:write` | No | — | Log reading against the child's book using a stable client_request_id. |
 
 ## rewards
 

@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import functools
 import inspect
+import json
+import logging
 from contextlib import asynccontextmanager
 from typing import Annotated, Any, AsyncIterator, Callable
 
@@ -18,11 +20,12 @@ from asgiref.sync import sync_to_async
 from django.conf import settings
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
-from mcp.types import ToolAnnotations
-from pydantic import Field, StrictBool
+from mcp.types import CallToolResult, TextContent, ToolAnnotations
+from pydantic import Field, StrictBool, ValidationError
 
 from .context import get_current_scopes, require_scope, require_staff_parent
-from .errors import MCPValidationError
+from .errors import MCPError, MCPNotFoundError, MCPValidationError
+from .output_schemas import OUTPUT_MODELS
 from .tool_policy import AUTHOR_SCOPE, CATALOG_SCOPE, PUBLISH_SCOPE, policy_for
 
 
@@ -61,17 +64,81 @@ def _build_transport_security() -> TransportSecuritySettings:
 # DNS rebinding middleware whitelists the public hostname this service runs
 # behind. Without it the SDK auto-enables a loopback-only allow-list.
 class ScopedFastMCP(FastMCP):
+    def _setup_handlers(self):
+        super()._setup_handlers()
+        # Validate through the registered Pydantic argument model below so
+        # schema failures use the same safe error contract as domain failures.
+        self._mcp_server.call_tool(validate_input=False)(self.call_tool)
+
     async def list_tools(self):
         tools = await super().list_tools()
         scopes = get_current_scopes()
         return [tool for tool in tools if policy_for(tool.name).scope in scopes]
 
+    async def call_tool(self, name: str, arguments: dict[str, Any]):
+        try:
+            entry = self._tool_manager.get_tool(name)
+            if entry is None:
+                raise MCPNotFoundError("Unknown tool.", code="unknown_tool")
+            require_scope(policy_for(name).scope)
+            try:
+                entry.fn_metadata.arg_model.model_validate(arguments)
+            except ValidationError as exc:
+                fields: dict[str, list[str]] = {}
+                for item in exc.errors(include_input=False, include_url=False):
+                    field = ".".join(str(part) for part in item["loc"])
+                    fields.setdefault(field, []).append(item["msg"])
+                raise MCPValidationError(
+                    "Check the indicated tool arguments.", code="invalid_input", field_errors=fields,
+                ) from exc
+            return await super().call_tool(name, arguments)
+        except Exception as exc:
+            # FastMCP wraps handler exceptions in ToolError. Inspect only the
+            # trusted exception class; never send an arbitrary traceback,
+            # database error or validation input back to an external client.
+            cause = exc
+            while cause.__cause__ is not None and not isinstance(cause, MCPError):
+                cause = cause.__cause__
+            if not isinstance(cause, MCPError):
+                logging.getLogger(__name__).error("MCP tool %s failed (%s)", name, type(cause).__name__)
+                cause = MCPError("The operation could not be completed. Check its saved state before retrying.",
+                                 code="internal_error")
+            data = {"error": cause.as_dict()}
+            return CallToolResult(isError=True, structuredContent=data,
+                                  content=[TextContent(type="text", text=json.dumps(data))])
+
 
 mcp = ScopedFastMCP(
     name=getattr(settings, "MCP_SERVER_NAME", "abby"),
+    instructions=(
+        "Read abby://mcp/capabilities for granted permissions and workflows. "
+        "Catalog access contains no household records. Reuse write request UUIDs "
+        "after uncertain responses; server receipts own rewards and saved state."
+    ),
     stateless_http=True,
     transport_security=_build_transport_security(),
 )
+
+
+@mcp.resource("abby://mcp/capabilities", description="Granted permissions and available Abby workflows; no household data.")
+def mcp_capabilities() -> str:
+    require_staff_parent()
+    scopes = get_current_scopes()
+    workflows = {
+        "catalog": {"required_scopes": ["mcp:catalog"], "purpose": "Global references, audits and anonymous economy previews."},
+        "reading_history": {"required_scopes": ["mcp:read"], "purpose": "Explicit same-family child shelf and reading summary."},
+        "reading_log": {"required_scopes": ["mcp:write"], "purpose": "Save a book or reading session with a stable client_request_id UUID."},
+        "content_drafts": {"required_scopes": ["mcp:author"], "purpose": "Family-owned drafts and publication previews."},
+        "content_publication": {"required_scopes": ["mcp:publish"], "purpose": "Apply the exact reviewed publication plan after confirmation."},
+    }
+    return json.dumps({
+        "schema_version": 1, "granted_scopes": sorted(scopes),
+        "workflows": {name: {**workflow, "available": set(workflow["required_scopes"]) <= scopes}
+                      for name, workflow in workflows.items()},
+        "permissions": "Scopes are independent. New permissions require explicit OAuth reconnection; this resource grants none.",
+        "errors": {"fields": ["code", "message", "retryable", "field_errors"],
+                   "uncertain_writes": "Inspect saved state and retry with the original UUID; never invent a replacement request ID."},
+    })
 
 
 def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -130,7 +197,8 @@ def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], 
                 if confirmation is not True:
                     raise MCPValidationError(
                         "This operation changes or removes saved data. Obtain the user's "
-                        "confirmation, then call again with confirmation=true."
+                        "confirmation, then call again with confirmation=true.",
+                        code="confirmation_required",
                     )
             return await runner(**kwargs)
 
@@ -148,6 +216,9 @@ def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], 
             adapted.__signature__ = signature.replace(  # type: ignore[attr-defined]
                 parameters=[*signature.parameters.values(), confirmation],
             )
+        if name in OUTPUT_MODELS:
+            signature = inspect.signature(adapted, eval_str=True)
+            adapted.__signature__ = signature.replace(return_annotation=OUTPUT_MODELS[name])
         registration = dict(tool_kwargs)
         registration["annotations"] = ToolAnnotations(
             readOnlyHint=policy.read_only,
@@ -188,6 +259,7 @@ def _load_tool_modules() -> None:
         portfolio,
         projects,
         quests,
+        reading,
         rewards,
         savings,
         sprite_assets,

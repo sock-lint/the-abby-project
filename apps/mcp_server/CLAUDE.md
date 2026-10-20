@@ -27,6 +27,12 @@ construction, callback state and its success page; verify terminal completion
 and authenticated discovery, not registration or browser text. Preserve working
 grants; never log codes, tokens or full authorization/callback URLs.
 
+The authenticated `abby://mcp/capabilities` resource reports the current grant,
+workflow purposes, required scopes and availability flags without household
+records. Server initialization instructions direct clients there. It is a
+resource rather than an additional tool, and grants or upgrades no permissions;
+additional scopes require explicit OAuth reconnection.
+
 ## Context helpers (`apps/mcp_server/context.py`)
 
 - `get_current_user` — resolves the requesting user from the Bearer token.
@@ -49,7 +55,86 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 224 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 228 tools across 31 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+
+`list_homework` and `get_homework` share an active-assignment queryset scoped to
+the parent's family or the child's own assignments. Foreign and missing detail
+IDs both return not found; child filters never expand the child's visibility.
+
+### History pagination and results
+
+`list_projects` and `list_payment_ledger` accept a bounded `cursor` alongside
+their existing filters and page limits. Both return `total`, `has_more` and
+nullable `next_cursor`; projects retain `projects` and page-length `count`, and
+payments retain `entries`. Continue with the same actor, family and filters.
+Cursors are signed, expire after 24 hours, and use descending creation time
+plus primary key for tied timestamps. The initial maximum ID excludes later
+inserts, including backdated ones. Every page rechecks authorization. `total`
+counts currently matching authorized rows within that ID boundary; deletions,
+reassignment or filter-field edits can change it. This is not a database snapshot.
+
+Changed project/payment history, project detail/create, payment mutation,
+movement detail/log, redemption and catalog-read results expose concrete field
+schemas through `outputSchema`. The four reading tools also have explicit
+result schemas. Existing serializer extension fields remain supported; this
+does not make every registered result fully typed. See `output_schemas.py` and
+`reading_schemas.py` for the exact field contracts.
+
+Wire tool failures set `isError: true` and include matching JSON text and a
+`structuredContent.error` object with `code`, `message`, `retryable` and `field_errors`.
+Input field errors use argument paths such as `params.title`. Permission,
+not-found, confirmation, validation and retry-conflict codes are distinct;
+unexpected failures return a generic `internal_error` without exception details.
+This tool-result contract is separate from HTTP authentication failures and
+JSON-RPC protocol errors.
+
+### Retry identities
+
+These mutation inputs require a stable UUID for the exact operation:
+
+| Tool | Required UUID field |
+| --- | --- |
+| `create_project` | `request_id` |
+| `adjust_payment` | `request_id` |
+| `request_redemption` | `request_id` |
+| `log_movement_session` | `client_request_id` |
+
+Identical retries return the persisted original response without another
+project, payment, redemption, stock reservation or movement award. Reusing a
+UUID with changed details returns `idempotency_conflict`. Current account,
+family and source ownership are rechecked on replay; a deleted source retains
+the request tombstone and cannot be recreated with its old UUID. Migrate
+`0004_mcpmutationreceipt` before serving these contracts. Destructive tools still
+require transport confirmation on each call.
+
+The first three operations bind UUIDs to actor and operation; movement binds
+them to target and operation, matching its native retry identity across
+authorized callers. Source deletion clears cached response data while retaining
+the UUID tombstone. Member deletion clears the family's cached responses and
+removes actor-scoped receipts; movement tombstones survive the actor's departure
+while the target survives. Cleared receipts fail not-found without re-execution.
+Receipt responses are bounded to 256 KiB and commit with the domain write.
+
+### Reading
+
+`list_reading_books` and `get_reading_summary` require `mcp:read`;
+`create_reading_book` and `log_reading_session` require `mcp:write`. Parents must
+explicitly choose a same-family child with `user_id`; children remain
+self-scoped. Shelf reads paginate in ascending ID order using `after`,
+`next_after` and `has_more`. They do not log reading or award anything.
+
+Reading creates use required UUID `client_request_id` values and the same
+validation, membership locks and services as REST. Identical retries return the
+current saved record; changed details conflict. A session references the child's
+own book and includes minutes, pages, section or reflection. Dates default to the
+family-local day and cannot be in the future. `reading_reward` and summary
+`reading_adventure` report actual saved reward evidence, with the usual daily
+caps; saving a book earns nothing. Reflections never become reward context.
+See [reading guidance](../reading/CLAUDE.md) for reward and retention semantics.
+
+Modern goal preview/create also accept `trigger_type="reading_logged"` with
+`metric="count"` and `unit="actions"`. Each action counts an actual awarded
+daily Reading Adventure receipt, not individual logs, books, pages or minutes.
 
 Pet acquisition uses `get_pet_incubation` (read), `start_pet_incubation` and
 `claim_pet_incubation` (confirmed writes). Start consumes the egg/potion once,
@@ -84,9 +169,22 @@ MCP transfers permitted results to an external client. See the [Google/AI disclo
 
 See [the multi-family scoping rule in root CLAUDE.md](/CLAUDE.md) — the 7 chokepoints include MCP's `resolve_target_user` and `get_in_family`. Cross-family probes return `MCPNotFoundError` (404 semantics), never permission-denied. Chronicle services in MCP tools must use `timezone.localdate()` (Phoenix-local), not naive UTC dates, so chapter-year + birthday-event boundaries don't drift around midnight.
 
+## Connection verification
+
+`scripts/smoke_mcp.py` is a read-only OAuth client. Supply an existing access
+token through `MCP_TOKEN` and choose the server origin with `--base-url` or
+`MCP_BASE_URL` (default `http://127.0.0.1:8000`). It appends `/mcp`, initializes,
+checks permission-filtered discovery and invokes available catalog reads. It
+prints counts and fixed error categories, never tokens or response bodies. It
+does not log in or mutate records. The retired `--full` mode refuses before
+network access; write checks belong in disposable Django tests.
+
 ## Key entry points
 - `auth.py` — staff-parent Bearer authentication with exact scopes and resource bindings.
 - `tool_policy.py` — explicit default-deny scope/annotation/confirmation policy.
+- `pagination.py` — signed, caller-bound project/payment history cursors.
+- `retries.py` — atomic mutation receipts, current authorization and deletion tombstones.
+- `output_schemas.py`, `reading_schemas.py` — concrete result contracts on changed tools.
 - `models.py` — durable authorization-code and token resource bindings.
 - `context.py` — `get_current_user`, `require_parent`, `require_staff_parent`, `resolve_target_user`, `get_in_family`, `MCPNotFoundError`, `MCPValidationError`.
 - `tools/` — per-feature tool modules.

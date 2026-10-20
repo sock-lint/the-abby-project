@@ -253,6 +253,8 @@ _DRAFT_TOOLS = frozenset({
 PUBLISH_TOOLS = (AUTHOR_TOOLS - _DRAFT_TOOLS) | {"publish_content_pack"}
 AUTHOR_TOOLS = _DRAFT_TOOLS
 READ_TOOLS = READ_TOOLS - AUTHOR_TOOLS
+READ_TOOLS = READ_TOOLS | {"list_reading_books", "get_reading_summary"}
+WRITE_TOOLS = WRITE_TOOLS | {"create_reading_book", "log_reading_session"}
 
 DESTRUCTIVE_TOOLS = frozenset({
     "create_challenge_goal",
@@ -351,6 +353,12 @@ DESTRUCTIVE_TOOLS = frozenset({
 })
 
 IDEMPOTENT_WRITES = frozenset({
+    "create_reading_book",
+    "log_reading_session",
+    "create_project",
+    "adjust_payment",
+    "request_redemption",
+    "log_movement_session",
     "claim_pet_incubation",
     "start_pet_incubation",
     "create_challenge_goal",

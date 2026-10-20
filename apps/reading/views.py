@@ -1,20 +1,17 @@
-import json
-
-from django.contrib.auth import get_user_model
-from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Count, Q, RestrictedError, Sum
-from django.utils import timezone
+from django.db.models import RestrictedError
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.quests.activity import household_timezone
 from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
 
 from .models import ReadingBook, ReadingSession
-from .services import ReadingRewardService
+from .services import (
+    create_reading_book, create_reading_session,
+    lock_reading_owner as _lock_target, reading_summary,
+)
 from .serializers import (
     ReadingBookCreateSerializer,
     ReadingBookSerializer,
@@ -52,32 +49,6 @@ def _target_user(request, source="query_params", *, required_for_parent=True):
     if request.user.role == "child" and "user_id" in bucket and int(bucket["user_id"]) != request.user.id:
         raise serializers.ValidationError({"user_id": "You can only access your own reading."})
     return target
-
-
-def _lock_target(target, requester):
-    # Every write takes the same owner lock, including deletes and corrections.
-    # Recheck the family/role after waiting: account management may have changed
-    # the target since request validation. no_key permits unrelated FK inserts.
-    target = (
-        get_user_model().objects.select_for_update(no_key=True, of=("self",))
-        .select_related("family")
-        .filter(pk=target.pk, role="child", family_id=requester.family_id)
-        .first()
-    )
-    if target is None:
-        raise NotFound("Child not found.")
-    return target
-
-
-def _payload(data):
-    return json.loads(json.dumps(data, cls=DjangoJSONEncoder))
-
-
-def _existing_request(model, target, request_id, payload):
-    existing = model.objects.filter(user=target, client_request_id=request_id).first()
-    if existing is not None and existing.create_payload != payload:
-        raise serializers.ValidationError({"client_request_id": "This request was already saved with different details."})
-    return existing
 
 
 class ReadingOwnerViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
@@ -118,19 +89,8 @@ class ReadingBookViewSet(ReadingOwnerViewSet):
         write = ReadingBookCreateSerializer(data=request.data)
         write.is_valid(raise_exception=True)
         target = _target_user(request, source="data")
-        values = dict(write.validated_data)
-        values.pop("user_id", None)
-        request_id = values.pop("client_request_id")
-        payload = _payload(values)
-        with transaction.atomic():
-            target = _lock_target(target, request.user)
-            book = _existing_request(ReadingBook, target, request_id, payload)
-            created = book is None
-            if created:
-                book = ReadingBook.objects.create(
-                    user=target, client_request_id=request_id, create_payload=payload, **values,
-                )
-            return Response(self.get_serializer(book).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        book, created = create_reading_book(request.user, target, write.validated_data)
+        return Response(self.get_serializer(book).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -164,27 +124,8 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
         target = _target_user(request, source="data")
         write = ReadingSessionCreateSerializer(data=request.data, context={"target_user": target})
         write.is_valid(raise_exception=True)
-        values = dict(write.validated_data)
-        values.pop("user_id", None)
-        request_id = values.pop("client_request_id")
-        # Leave an omitted date out of the normalized request. A retry tomorrow
-        # still refers to today's original entry rather than creating another.
-        payload = _payload(values)
-        book_id = values.pop("book")
-        with transaction.atomic():
-            target = _lock_target(target, request.user)
-            session = _existing_request(ReadingSession, target, request_id, payload)
-            created = session is None
-            if created:
-                book = ReadingBook.objects.filter(pk=book_id, user=target).first()
-                if book is None:
-                    raise serializers.ValidationError({"book": "Choose a book from this reader's shelf."})
-                values.setdefault("occurred_on", timezone.localdate(timezone=household_timezone(target)))
-                session = ReadingSession.objects.create(
-                    user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
-                )
-                ReadingRewardService.credit_new_session(target, session)
-            return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        session, created = create_reading_session(request.user, target, write.validated_data)
+        return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -199,18 +140,7 @@ class ReadingSummaryView(APIView):
 
     def get(self, request):
         target = _target_user(request)
-        books = ReadingBook.objects.filter(user=target).aggregate(
-            books_total=Count("id"), books_finished=Count("id", filter=Q(status=ReadingBook.Status.FINISHED)),
-        )
-        sessions = ReadingSession.objects.filter(user=target).aggregate(
-            sessions_total=Count("id"), total_minutes=Sum("duration_minutes", default=0), total_pages=Sum("pages_read", default=0),
-        )
-        tz = household_timezone(target)
-        day = timezone.localdate(timezone=tz)
-        return Response({
-            **books, **sessions, "today": day.isoformat(), "timezone": str(tz),
-            "reading_adventure": ReadingRewardService.daily_payload(target, day=day),
-        })
+        return Response(reading_summary(target))
 
 
 class ReadingRecommendationsView(APIView):

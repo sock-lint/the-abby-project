@@ -16,17 +16,36 @@ from typing import Any, Callable
 class MCPError(Exception):
     """Base class for MCP server errors surfaced to Claude."""
 
+    code = "invalid_request"
+
+    def __init__(self, message: str, *, code: str | None = None,
+                 retryable: bool = False, field_errors: dict | None = None):
+        super().__init__(message)
+        self.code = code or type(self).code
+        self.retryable = retryable
+        self.field_errors = field_errors or {}
+
+    def as_dict(self) -> dict:
+        return {"code": self.code, "message": str(self),
+                "retryable": self.retryable, "field_errors": self.field_errors}
+
 
 class MCPPermissionDenied(MCPError):
     """Raised when the current user's role is insufficient for a tool."""
+
+    code = "permission_denied"
 
 
 class MCPValidationError(MCPError):
     """Raised when tool input fails domain validation."""
 
+    code = "invalid_request"
+
 
 class MCPNotFoundError(MCPError):
     """Raised when a referenced object does not exist or is inaccessible."""
+
+    code = "not_found"
 
 
 def safe_tool(func: Callable[..., Any]) -> Callable[..., Any]:

@@ -38,6 +38,7 @@ class ListProjectsIn(_Base):
     status: Optional[ProjectStatus] = None
     assigned_to_id: Optional[int] = None
     limit: int = Field(default=50, ge=1, le=200)
+    cursor: Optional[str] = Field(default=None, min_length=1, max_length=2048)
 
 
 class GetProjectIn(_Base):
@@ -96,6 +97,7 @@ class NewResource(_Base):
 
 
 class CreateProjectIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this creation; reuse it only with identical inputs after an uncertain response.")
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     assigned_to_id: int
@@ -361,6 +363,7 @@ class GetCoinBalanceIn(_Base):
 
 
 class RequestRedemptionIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this purchase; identical retries never spend Coins or reserve stock twice.")
     reward_id: int
 
 
@@ -447,6 +450,7 @@ class ListPaymentLedgerIn(_Base):
     entry_type: Optional[PaymentEntryType] = None
     since: Optional[date] = None
     limit: int = Field(default=50, ge=1, le=500)
+    cursor: Optional[str] = Field(default=None, min_length=1, max_length=2048)
 
 
 class RecordPayoutIn(_Base):
@@ -460,9 +464,10 @@ class RecordPayoutIn(_Base):
 
 
 class AdjustPaymentIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this accounting adjustment; reuse only with identical inputs.")
     user_id: int
-    amount: Decimal
-    description: str
+    amount: Decimal = Field(max_digits=8, decimal_places=2)
+    description: str = Field(min_length=1, max_length=1000)
 
 
 # ---------------------------------------------------------------------------
@@ -1458,10 +1463,13 @@ class GetMovementSessionIn(_Base):
 
 
 class LogMovementSessionIn(_Base):
+    client_request_id: UUID = Field(description="Stable session UUID, shared with the movement API; identical retries preserve the original rewards.")
     movement_type_id: int
     duration_minutes: int = Field(ge=1, le=600)
     intensity: MovementIntensity = "medium"
     notes: str = Field(default="", max_length=200)
+    distance: Optional[Decimal] = Field(default=None, gt=0, le=1000, max_digits=7, decimal_places=3)
+    distance_unit: Literal["mi", "km"] = "mi"
     user_id: Optional[int] = Field(
         default=None,
         description="Parent-only: log a session on a child's behalf. Children "

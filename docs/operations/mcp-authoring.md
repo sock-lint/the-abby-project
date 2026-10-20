@@ -31,6 +31,68 @@ requires top-level `arguments.confirmation: true` alongside `params`, after the
 client obtains confirmation. This flag is a client acknowledgement, not proof
 of a person's approval or Google-data consent.
 
+## Tool results and safe retries
+
+Discover the tool's current input and `outputSchema` before building a client.
+Project/payment history, project create/detail, payment mutations, movement
+log/detail, redemption and catalog reads expose concrete result fields. The
+four reading tools also declare their result fields. Other tools retain their
+existing response contracts; this is not a claim that every tool result has a
+complete field schema. Existing serializer extension fields remain supported.
+
+Wire tool failures return `isError: true` and the following shape in
+`structuredContent`, with matching JSON in the text content:
+
+```json
+{
+  "error": {
+    "code": "invalid_input",
+    "message": "Check the indicated tool arguments.",
+    "retryable": false,
+    "field_errors": {"params.title": ["Field required"]}
+  }
+}
+```
+
+Use the code and field paths to repair a request. Permission, not-found,
+confirmation, validation and idempotency-conflict failures have distinct codes.
+Unexpected failures use a generic `internal_error`; they do not expose an
+exception or traceback. HTTP authentication and JSON-RPC protocol errors retain
+their separate transport contracts. A timeout or uncertain result is a reason to
+inspect saved state and reuse an operation's retry identity, not invent a new one.
+
+The following writes require UUIDs; omitting the field is an input error:
+
+| Tool | UUID field | Transport confirmation |
+| --- | --- | --- |
+| `create_project` | `request_id` | Not required |
+| `adjust_payment` | `request_id` | Required |
+| `request_redemption` | `request_id` | Required |
+| `log_movement_session` | `client_request_id` | Not required |
+
+Generate one UUID for the intended operation, then preserve its exact details
+and UUID across retries. An identical retry returns its original saved response
+without a second project, ledger entry, Coin debit, stock reservation or movement
+award. Changed details under the same UUID return `idempotency_conflict`.
+Replays recheck current account, family and source ownership. A deleted source
+leaves a request tombstone; retrying its old UUID cannot recreate it. Retry
+identity does not replace authorization or confirmation.
+
+Project creation, payment adjustments and redemption UUIDs are scoped to the
+actor and operation. Movement UUIDs belong to the target child's activity
+history, so another currently authorized caller cannot replay a deleted session
+as new work. Account deletion clears cached household responses; a surviving
+movement tombstone retains no response prose. A cleared response returns
+not-found rather than executing its operation again. Responses larger than
+256 KiB are rejected atomically; use a smaller project request.
+
+Read the authenticated `abby://mcp/capabilities` resource for the connection's
+`granted_scopes` and workflow purposes, `required_scopes` and `available` flags.
+It includes retry/error guidance without household records. Initialization
+instructions point clients to this resource; it adds no tool and grants or
+upgrades no permission. Reconnect through explicit OAuth consent when another
+scope is needed.
+
 ## Connect Codex in a normal browser
 
 An existing Abby account must be an active **staff parent** to authorize MCP.
@@ -123,6 +185,31 @@ URLs out of logs, screenshots, issue/PR evidence and troubleshooting messages.
 Record only versions, sanitized error text and whether terminal authorization
 and authenticated discovery completed.
 
+## Reading shelves and logs
+
+Use `list_reading_books` and `get_reading_summary` with `mcp:read` to inspect
+saved shelves, totals and today's Reading Adventure evidence. Parents must
+choose a same-family child with `user_id`; children access themselves only.
+Shelf lists return `has_more` and `next_after`; pass the latter as `after`
+with the same target and status to continue in ascending ID order. Reads create
+no progress and award nothing.
+
+With `mcp:write`, `create_reading_book` saves a title, author, status and optional
+interests. `log_reading_session` references that child's `book` ID and records
+minutes, pages, a section or a reflection; at least one is required. Print,
+ebook and audiobook formats use the same existing reward rules. Omit
+`occurred_on` for the family-local day; future dates are rejected.
+
+Both writes require a stable UUID `client_request_id`. Identical retries reuse
+the current saved record; changed details conflict. Reading uses the same
+validation and services as REST. Saving a book grants nothing. Session
+`reading_reward` and summary `reading_adventure` report actual persisted awards
+and daily progress; they are not projected rewards. A retry cannot repeat an
+award, and correction/deletion cannot create another daily opportunity.
+Reflections remain reading records and never enter reward context. See
+[reading guidance](../../apps/reading/CLAUDE.md) for the daily threshold,
+correction and retention rules.
+
 ## Challenge coverage
 
 Use `list_challenges` for saved modern goals, frozen reward promises, actual
@@ -134,6 +221,12 @@ Use `preview_challenge_goal` with a same-family child, activity trigger, metric
 (`count`, `minutes`, `distance`), target, matching unit, period and reward/skill
 tags. It shares the app's `GoalWriteSerializer` and writes nothing. Weekly
 goals follow the family's calendar week. XP requires explicit valid skills.
+
+For reading goals, use `trigger_type="reading_logged"`, `metric="count"` and
+`unit="actions"`. One action means an actual awarded daily Reading Adventure,
+backed by its saved reward receipt. Individual sessions, books, pages and
+reflection text do not independently advance that goal. This is a count of
+daily Adventures, not a reading-minutes metric.
 
 After review, call `create_challenge_goal` with the reviewed fields, a stable
 UUID `request_id` and transport confirmation. Repeating the identical request
@@ -234,6 +327,26 @@ requests. A different payload with an existing UUID is rejected. Set
 `create_project_from_template.status` to `draft` to review a plan before
 starting it; the compatibility default remains `in_progress`.
 
+## Complete project and payment history
+
+`list_projects` and `list_payment_ledger` accept an optional `cursor` and return
+`total`, `has_more` and nullable `next_cursor` alongside their existing results.
+Project `count` remains the current page's length; it is not the history total.
+Keep the original target and filters when continuing, and pass `next_cursor`
+as the next request's `cursor`. Page size may change within its existing limit.
+Payments remain money owed and settled in Abby's ledger, not a live external
+Greenlight balance.
+
+Cursors are signed, bound to the tool, actor, role, family and filters, and expire
+after 24 hours. Payment date filters also bind the active timezone. Tied creation
+timestamps use primary-key ordering, so page boundaries do not skip or repeat
+tied rows. The initial maximum ID excludes later inserts, even if backdated.
+Every page checks current authorization again. `total` counts currently
+matching authorized records within that ID boundary; deletion, reassignment or
+changed status can alter it. The cursor does not freeze a database snapshot.
+Invalid, expired or differently scoped cursors are rejected; restart without a
+cursor when deliberately changing filters.
+
 ## Proposing external assets
 
 An assistant can turn catalog findings into `propose_asset` briefs. Each brief
@@ -271,8 +384,31 @@ endpoint or generation provider are configured by this feature.
 
 Run migrations before serving the new tools: MCP proposal history, RPG pack
 provenance/publication receipts and project-template learning/request records
-are persistent database state. Reconnect external clients for the revised
+are persistent database state. The mutation retry contracts additionally need
+`apps.mcp_server` migration `0004_mcpmutationreceipt`. Reconnect external clients for the revised
 permissions. Tool names, real input schemas and annotations are discoverable
 through MCP; [the tool inventory](../mcp-tools.md) records the required grants.
 The [Google/AI disclosure inventory](google-ai-disclosure.md) remains the source
 for provider/data-transfer disclosures and operator evidence requirements.
+
+### Read-only connection check
+
+Supply an existing OAuth access token in `MCP_TOKEN`, then run:
+
+```bash
+python scripts/smoke_mcp.py --base-url http://127.0.0.1:8000
+```
+
+`--base-url` accepts the server origin, without `/mcp`; `MCP_BASE_URL` supplies
+the same option and defaults to `http://127.0.0.1:8000`. Remote origins require
+HTTPS. The script appends `/mcp`, initializes the connection, verifies filtered
+discovery and runs the catalog reads available to that grant. A catalog grant
+allows the two bounded catalog checks; another grant may verify initialization
+and discovery with zero catalog calls. Successful output contains only tool and
+call counts; errors use fixed messages. Tokens and response bodies are not
+printed. The script does not log in or mutate household/catalog records.
+
+The old `--full` mutation smoke mode is retired and refuses before making a
+network request. Write validation runs against disposable data through the
+Django MCP tests; deleting created rows cannot undo ledger/reward opportunities
+or notification history from a production smoke run.

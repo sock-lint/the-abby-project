@@ -1,6 +1,8 @@
 """Tests for payment MCP tools."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from decimal import Decimal
 from datetime import timedelta
 
@@ -123,6 +125,7 @@ class RecordPayoutTests(TestCase):
         with override_user(self.parent):
             payment_tools.adjust_payment(
                 AdjustPaymentIn(
+                    request_id=uuid4(),
                     user_id=self.child.id,
                     amount=Decimal("-5.00"),
                     description="late fee",

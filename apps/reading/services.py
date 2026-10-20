@@ -1,10 +1,13 @@
-"""Server-owned reading progress and once-daily RPG rewards."""
+"""Shared reading writes, saved summaries and once-daily RPG rewards."""
+import json
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Max, Sum
+from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
+from rest_framework.exceptions import NotFound, ValidationError
 
 from apps.achievements.models import Skill
 from apps.achievements.services import AwardService
@@ -14,7 +17,92 @@ from apps.rewards.models import CoinLedger
 from apps.rpg.constants import TriggerType
 from apps.rpg.services import GameLoopService
 
-from .models import ReadingDailyReward, ReadingRewardCredit
+from .models import ReadingBook, ReadingDailyReward, ReadingRewardCredit, ReadingSession
+
+
+def lock_reading_owner(target, requester):
+    """Serialize every reading write and recheck ownership after waiting."""
+    target = (
+        get_user_model().objects.select_for_update(no_key=True, of=("self",))
+        .select_related("family")
+        .filter(pk=target.pk, role="child", family_id=requester.family_id)
+        .first()
+    )
+    if target is None:
+        raise NotFound("Child not found.")
+    return target
+
+
+def reading_payload(data):
+    return json.loads(json.dumps(data, cls=DjangoJSONEncoder))
+
+
+def _create_details(validated_data):
+    values = dict(validated_data)
+    values.pop("user_id", None)
+    request_id = values.pop("client_request_id")
+    payload = reading_payload(values)
+    return values, request_id, payload
+
+
+def _existing_request(model, target, request_id, payload):
+    existing = model.objects.filter(user=target, client_request_id=request_id).first()
+    if existing is not None and existing.create_payload != payload:
+        raise ValidationError({"client_request_id": "This request was already saved with different details."})
+    return existing
+
+
+@transaction.atomic
+def create_reading_book(requester, target, validated_data):
+    """Save shared-serializer data once; identical retries return current state."""
+    values, request_id, payload = _create_details(validated_data)
+    target = lock_reading_owner(target, requester)
+    book = _existing_request(ReadingBook, target, request_id, payload)
+    created = book is None
+    if created:
+        book = ReadingBook.objects.create(
+            user=target, client_request_id=request_id, create_payload=payload, **values,
+        )
+    return book, created
+
+
+@transaction.atomic
+def create_reading_session(requester, target, validated_data):
+    """Save and credit a new session in the same transaction for REST and MCP."""
+    values, request_id, payload = _create_details(validated_data)
+    book_id = values.pop("book")
+    target = lock_reading_owner(target, requester)
+    session = _existing_request(ReadingSession, target, request_id, payload)
+    created = session is None
+    if created:
+        book = ReadingBook.objects.filter(pk=book_id, user=target).first()
+        if book is None:
+            raise ValidationError({"book": "Choose a book from this reader's shelf."})
+        # Default only after constructing the retry identity: an omitted date
+        # still identifies the original request when a client retries tomorrow.
+        values.setdefault("occurred_on", timezone.localdate(timezone=household_timezone(target)))
+        session = ReadingSession.objects.create(
+            user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
+        )
+        ReadingRewardService.credit_new_session(target, session)
+    return session, created
+
+
+def reading_summary(target):
+    """Project saved history and actual daily credit without creating records."""
+    books = ReadingBook.objects.filter(user=target).aggregate(
+        books_total=Count("id"), books_finished=Count("id", filter=Q(status=ReadingBook.Status.FINISHED)),
+    )
+    sessions = ReadingSession.objects.filter(user=target).aggregate(
+        sessions_total=Count("id"), total_minutes=Sum("duration_minutes", default=0),
+        total_pages=Sum("pages_read", default=0),
+    )
+    tz = household_timezone(target)
+    day = timezone.localdate(timezone=tz)
+    return {
+        **books, **sessions, "today": day.isoformat(), "timezone": str(tz),
+        "reading_adventure": ReadingRewardService.daily_payload(target, day=day),
+    }
 
 
 class ReadingRewardService:

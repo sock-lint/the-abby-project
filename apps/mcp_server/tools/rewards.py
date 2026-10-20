@@ -24,6 +24,7 @@ from ..schemas import (
     UpdateRewardIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import (
     coin_ledger_entry_to_dict,
     redemption_to_dict,
@@ -83,7 +84,8 @@ def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
 
     Deducts coins immediately (held) and — depending on the reward —
     either fulfills immediately or creates a PENDING request for parent
-    approval. Delegates to :class:`RewardService.request_redemption`.
+    approval. Supply a stable request_id UUID: an identical retry returns
+    the original receipt without another Coin debit or stock reservation.
     """
     user = get_current_user()
     # Audit C8: Reward is per-family content. Without family-scoping a child
@@ -94,8 +96,12 @@ def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
         Reward, params.reward_id, actor=user, family_path="family",
     )
 
-    redemption = RewardService.request_redemption(user, reward)
-    return redemption_to_dict(redemption)
+    return mutation_once(
+        actor=user, target=user, operation="request_redemption", request_id=params.request_id,
+        payload=params.model_dump(exclude={"request_id"}), result_model=RewardRedemption,
+        create=lambda actor, target: RewardService.request_redemption(target, reward),
+        serialize=redemption_to_dict,
+    )
 
 
 def _get_pending_redemption(redemption_id: int, parent) -> RewardRedemption:
