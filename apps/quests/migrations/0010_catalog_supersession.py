@@ -115,5 +115,4 @@ class Migration(migrations.Migration):
                 help_text="Retained duplicate identity; only its canonical definition is offered for new acceptance.",
                 to="quests.questdefinition"),
         ),
-        migrations.RunPython(reconcile_definitions, migrations.RunPython.noop),
     ]

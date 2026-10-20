@@ -393,7 +393,7 @@ class CatalogSupersessionMigrationTests(SimpleTestCase):
             preserved_apps = {"accounts", "achievements", "rewards", "rpg"}
             others = [node for node in executor.loader.graph.leaf_nodes() if node[0] in preserved_apps]
             before = others + [("quests", "0009_challenge_discovery")]
-            after = others + [("quests", "0010_catalog_supersession")]
+            after = others + [("quests", "0010_reconcile_catalog_definitions")]
             executor.migrate(before)
             old = executor.loader.project_state(before).apps
             Family = old.get_model("families", "Family")

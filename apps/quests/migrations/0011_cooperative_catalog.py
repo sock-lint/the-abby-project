@@ -10,7 +10,7 @@ def identify_cooperative_templates(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("quests", "0010_catalog_supersession")]
+    dependencies = [("quests", "0010_reconcile_catalog_definitions")]
 
     operations = [
         migrations.AddField(

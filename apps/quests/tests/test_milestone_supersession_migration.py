@@ -1,23 +1,40 @@
 """Real historical milestone state precedes catalog identity reconciliation."""
+import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import textwrap
+from unittest import skipUnless
+from uuid import uuid4
 
-from django.test import SimpleTestCase
+from django.db import connection
+from django.test import SimpleTestCase, TransactionTestCase
 
 
 class MilestoneSupersessionMigrationTests(SimpleTestCase):
-    def test_upgrade_preserves_distinct_gates_and_canonicalizes_equivalent_prerequisites(self):
-        script = textwrap.dedent('''
+    @staticmethod
+    def upgrade_script():
+        return textwrap.dedent('''
             from datetime import timedelta
+            import json
+            import os
             import django
+            if "ABBY_HISTORICAL_DATABASE" in os.environ:
+                from django.conf import settings
+                settings.DATABASES["default"] = json.loads(os.environ["ABBY_HISTORICAL_DATABASE"])
             django.setup()
             from django.db import connection
             from django.db.migrations.executor import MigrationExecutor
             from django.utils import timezone
-            assert connection.vendor == "sqlite" and connection.settings_dict["NAME"] == ":memory:"
+            schema = os.environ.get("ABBY_HISTORICAL_SCHEMA")
+            if schema:
+                assert connection.vendor == "postgresql"
+                assert str(connection.settings_dict["NAME"]).startswith("test_")
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT set_config('search_path', %s, false)", [schema])
+            else:
+                assert connection.vendor == "sqlite" and connection.settings_dict["NAME"] == ":memory:"
             executor = MigrationExecutor(connection)
             preserved_apps = {"accounts", "achievements", "rewards", "rpg"}
             others = [node for node in executor.loader.graph.leaf_nodes() if node[0] in preserved_apps]
@@ -84,6 +101,12 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
             saved = {(app, name): list(old.get_model(app, name).objects.order_by("pk").values()) for app, name in tracked}
 
             executor = MigrationExecutor(connection)
+            schema_target = others + [("quests", "0010_catalog_supersession")]
+            executor.migrate(schema_target)
+            schema_apps = executor.loader.project_state(schema_target).apps
+            assert not schema_apps.get_model("quests", "QuestDefinition").objects.filter(
+                superseded_by__isnull=False).exists(), "schema migration must not reconcile data"
+            executor = MigrationExecutor(connection)
             after = others + [("quests", "0013_merge_milestone_and_goal_controls")]
             executor.migrate(after)
             new = executor.loader.project_state(after).apps
@@ -105,11 +128,17 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
                     expected = [{**row, "catalog_definition_id": middles[0].pk}
                                 if row["id"] == alias_goal_id else row for row in rows]
                 assert list(new.get_model(app, name).objects.order_by("pk").values(*rows[0])) == expected, name
-            plan = executor.loader.graph.forwards_plan(("quests", "0010_catalog_supersession"))
-            assert plan.index(("quests", "0010_milestone_gate_acceptance")) < plan.index(
-                ("quests", "0010_catalog_supersession")), "reconciliation lacks historical milestone fields"
+            plan = executor.loader.graph.forwards_plan(("quests", "0013_merge_milestone_and_goal_controls"))
+            order = [plan.index(("quests", name)) for name in (
+                "0010_milestone_gate_acceptance", "0010_catalog_supersession",
+                "0010_reconcile_catalog_definitions", "0011_cooperative_catalog",
+                "0012_goal_attempts_and_schedules", "0013_merge_milestone_and_goal_controls",
+            )]
+            assert order == sorted(order), "milestone/schema/data/cooperative controls must apply in order"
             print("Historical milestone equivalence, prerequisites and saved rewards preserved")
         ''')
+    def test_upgrade_preserves_distinct_gates_and_canonicalizes_equivalent_prerequisites(self):
+        script = self.upgrade_script()
         bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
         env = {key: os.environ[key] for key in bootstrap if key in os.environ}
         env.update({"DATABASE_URL": "sqlite:///:memory:", "DJANGO_SETTINGS_MODULE": "config.settings_test",
@@ -118,3 +147,33 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
                                 capture_output=True, text=True, timeout=90)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Historical milestone equivalence, prerequisites and saved rewards preserved", result.stdout)
+
+
+class PostgreSQLMilestoneSupersessionMigrationTests(TransactionTestCase):
+    @skipUnless(connection.vendor == "postgresql", "PostgreSQL deferred-index migration regression")
+    def test_populated_historical_upgrade_commits_schema_before_reconciliation(self):
+        self.assertFalse(connection.in_atomic_block)
+        self.assertTrue(str(connection.settings_dict["NAME"]).startswith("test_"),
+                        "Historical migration schemas belong only in Django's test database.")
+        schema = "quest_upgrade_" + uuid4().hex
+        quoted_schema = connection.ops.quote_name(schema)
+        with connection.cursor() as cursor:
+            cursor.execute(f"CREATE SCHEMA {quoted_schema}")
+        try:
+            bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
+            env = {key: os.environ[key] for key in bootstrap if key in os.environ}
+            env.update({
+                "DATABASE_URL": "sqlite:///:memory:", "DJANGO_SETTINGS_MODULE": "config.settings_test",
+                "SECRET_KEY": "synthetic-postgresql-upgrade", "SENTRY_DSN": "", "PYTHONDONTWRITEBYTECODE": "1",
+                "ABBY_HISTORICAL_DATABASE": json.dumps(connection.settings_dict),
+                "ABBY_HISTORICAL_SCHEMA": schema,
+            })
+            result = subprocess.run(
+                [sys.executable, "-c", MilestoneSupersessionMigrationTests.upgrade_script()],
+                cwd=Path(__file__).resolve().parents[3], env=env, capture_output=True, text=True, timeout=90,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("Historical milestone equivalence, prerequisites and saved rewards preserved", result.stdout)
+        finally:
+            with connection.cursor() as cursor:
+                cursor.execute(f"DROP SCHEMA {quoted_schema} CASCADE")

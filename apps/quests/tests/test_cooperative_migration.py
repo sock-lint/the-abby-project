@@ -21,7 +21,7 @@ class CooperativeCatalogMigrationTests(unittest.TestCase):
             assert connection.vendor == "sqlite" and connection.settings_dict["NAME"] == ":memory:"
             executor = MigrationExecutor(connection)
             old_targets = [node for node in executor.loader.graph.leaf_nodes() if node[0] != "quests"]
-            old_targets.append(("quests", "0010_catalog_supersession"))
+            old_targets.append(("quests", "0010_reconcile_catalog_definitions"))
             executor.migrate(old_targets)
             old_apps = executor.loader.project_state(old_targets).apps
             models = {name: old_apps.get_model(app, name) for app, name in [
