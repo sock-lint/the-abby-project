@@ -131,7 +131,9 @@ class ExistingCatalogRetirementTests(TestCase):
             with self.subTest(model=model.__name__, pk=pk):
                 self.assertFalse(model.objects.filter(pk=pk).exists())
         self.assertEqual(type(self.user).objects.values().get(pk=self.user.pk), before_user)
-        self.assertEqual(list(CoinLedger.objects.order_by("pk").values_list("pk", "amount")), before_ledger)
+        self.assertEqual(list(CoinLedger.objects.filter(pk__in=[pk for pk, _ in before_ledger])
+                              .order_by("pk").values_list("pk", "amount")), before_ledger)
+        self.assertEqual(CoinLedger.objects.get(reason="refund").amount, 5)
         spend.refresh_from_db()
         self.assertIsNone(spend.redemption_id)
         self.assertTrue(UserPet.objects.filter(pk=kept_pet.pk, growth_points=45).exists())
@@ -230,13 +232,14 @@ class ExistingCatalogRetirementTests(TestCase):
         self.assertTrue(ItemDefinition.objects.filter(pk=self.egg.pk).exists())
         self.assertTrue(PotionType.objects.filter(pk=self.shadow.pk).exists())
 
-    def test_collision_refuses_default_load_before_any_retirement(self):
+    def test_collision_refuses_explicit_cleanup_but_default_startup_continues(self):
         self.legacy_catalog()
         ItemDefinition.objects.filter(pk=self.accessory.pk).update(item_type="food")
         with self.assertRaisesRegex(RetiredCatalogCollision, "different identity"):
             retire_unused_catalog()
-        with self.assertRaisesRegex(CommandError, "different identity"):
-            call_command("loadrpgcontent", stdout=StringIO())
+        output = StringIO()
+        call_command("loadrpgcontent", stdout=output)
+        self.assertIn("retirement skipped", output.getvalue())
         self.assertTrue(PetSpecies.objects.filter(pk=self.wolf.pk).exists())
         self.assertTrue(PotionType.objects.filter(pk=self.shadow.pk).exists())
         self.assertTrue(ItemDefinition.objects.filter(pk=self.egg.pk).exists())
@@ -248,3 +251,37 @@ class ExistingCatalogRetirementTests(TestCase):
             retire_unused_catalog()
         self.assertTrue(PetSpecies.objects.filter(pk=self.wolf.pk).exists())
         self.assertTrue(ItemDefinition.objects.filter(pk=self.egg.pk).exists())
+
+    def test_combined_offer_keeps_its_physical_promise_and_original_debit(self):
+        self.legacy_catalog()
+        offer = self.offer("A celebration and an old egg", self.egg, kind="both")
+        receipt = RewardRedemption.objects.create(user=self.user, reward=offer, coin_cost_snapshot=5)
+        debit = CoinLedger.objects.create(user=self.user, amount=-5, reason="redemption", redemption=receipt)
+
+        report = retire_unused_catalog()
+
+        offer.refresh_from_db()
+        receipt.refresh_from_db()
+        debit.refresh_from_db()
+        self.assertEqual(offer.fulfillment_kind, "real_world")
+        self.assertFalse(offer.is_active)
+        self.assertIsNone(offer.item_definition_id)
+        self.assertEqual(receipt.fulfillment_kind_snapshot, "real_world")
+        self.assertIsNone(receipt.item_definition_snapshot_id)
+        self.assertEqual(receipt.coin_cost_snapshot, 5)
+        self.assertEqual(receipt.status, "pending")
+        self.assertEqual(debit.redemption_id, receipt.pk)
+        self.assertFalse(CoinLedger.objects.filter(reason="refund").exists())
+        self.assertEqual(report["retained_physical_redemption_ids"], [receipt.pk])
+        from django.contrib.auth import get_user_model
+        from apps.rewards.services import RewardService
+
+        parent = get_user_model().objects.create_user(
+            username="retirement-delivering-parent", role="parent", family=self.user.family,
+        )
+        RewardService.approve(receipt, parent)
+        RewardService.deliver(receipt, parent)
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.status, "fulfilled")
+        self.assertIsNotNone(receipt.delivered_at)
+        self.assertEqual(CoinLedger.objects.filter(user=self.user).count(), 1)

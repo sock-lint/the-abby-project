@@ -3,7 +3,8 @@ import json
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog
+from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog, retirement_summary
+from apps.rpg.retirement_resources import RetirementResourceError
 
 
 class Command(BaseCommand):
@@ -16,11 +17,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         try:
             report = retire_unused_catalog(dry_run=options["dry_run"])
-        except RetiredCatalogCollision as exc:
+        except (RetiredCatalogCollision, RetirementResourceError) as exc:
             raise CommandError(str(exc)) from exc
         if options["json"]:
             self.stdout.write(json.dumps(report, sort_keys=True))
         else:
             mode = "[dry-run] would retire" if options["dry_run"] else "retired"
-            self.stdout.write(f"{mode}: {len(report['species'])} species, {len(report['potions'])} potion types, "
-                              f"{len(report['items'])} items; {sum(report['deleted'].values())} dependent/catalog rows")
+            self.stdout.write(f"{mode}: {retirement_summary(report)}; "
+                              f"{sum(report['deleted'].values())} dependent/catalog rows")

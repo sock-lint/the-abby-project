@@ -2,7 +2,7 @@
 
 This list is deliberately independent of artwork availability. Fire and Ice are
 planned content; a temporary art-policy hold must never turn into deletion.
-No account, ledger balance, SpriteAsset row or stored artwork is removed.
+No account, existing ledger entry, SpriteAsset row or stored artwork is removed.
 """
 from django.db import transaction
 from django.db.models import Q
@@ -30,9 +30,10 @@ RETIRED_ACCESSORIES = {
     "accessory-tiny-cape": "Tiny Cape", "accessory-bandana": "Bandana",
     "accessory-armor-plate": "Armor Plate", "accessory-celestial-halo": "Celestial Halo",
     "accessory-backpack-charm": "Lucky Backpack Charm", "accessory-party-horn": "Party Horn",
-    # One optional pack was actually loaded with this exact namespace. Do not
-    # infer other namespaces from the raw authoring key.
+    # Exact known first-party namespace expansions only; never infer arbitrary
+    # namespaces from a matching raw authoring key.
     "hs-prep-2026-accessory-backpack-charm": "Lucky Backpack Charm",
+    "birthday-pack-accessory-party-horn": "Party Horn",
 }
 RETIRED_ITEMS = {
     **{f"{slug}-egg": (f"{name} Egg", "egg") for slug, name in RETIRED_SPECIES.items()},
@@ -43,6 +44,41 @@ RETIRED_ITEMS = {
 
 class RetiredCatalogCollision(ValueError):
     """An expected obsolete slug now identifies different authored content."""
+
+
+RETIREMENT_KEY = "unused-first-party-catalog-2026-10"
+
+
+@transaction.atomic
+def retire_unused_catalog_once():
+    """Default startup applies this approved transition only once.
+
+    The surrounding bundled-load transaction also owns this completion marker,
+    so previews and later loading failures cannot consume the transition.
+    Explicit retirement commands remain available for operator-reviewed retries.
+    """
+    from django.utils import timezone
+    from .models import RPGContentRetirement
+
+    marker, _ = RPGContentRetirement.objects.get_or_create(key=RETIREMENT_KEY)
+    marker = RPGContentRetirement.objects.select_for_update().get(pk=marker.pk)
+    if marker.applied_at is not None:
+        return None
+    report = retire_unused_catalog()
+    marker.applied_at = timezone.now()
+    marker.save(update_fields=["applied_at"])
+    return report
+
+
+def retirement_summary(report):
+    resources = report["resources"]
+    refunded = sum(row["coins"] for row in resources["refunds"])
+    settled = sum(row["coins"] + row["salvage_coins"] for row in resources["expeditions"])
+    return (f"{len(report['species'])} species, {len(report['potions'])} potion types, "
+            f"{len(report['items'])} items; {len(report['pet_ids'])} pets, "
+            f"{len(report['mount_ids'])} mounts, {len(report['incubation_ids'])} incubations, "
+            f"{len(report['redemption_ids'])} redemptions; {refunded} held Coins refunded, "
+            f"{len(resources['ingredient_returns'])} ingredients returned, {settled} saved expedition Coins")
 
 
 def _without_item_slots(value, item_ids):
@@ -56,17 +92,23 @@ def _without_item_slots(value, item_ids):
 def retire_unused_catalog(*, dry_run=False):
     """Atomically discard only the retired identities and their dependencies.
 
-    Protected incubation/redemption receipts are intentionally discarded for
-    these unused identities. Supported, planned and unknown/custom identities
-    keep their ownership and promises. Dry runs execute the same path under a
+    Obsolete receipts are discarded only after settling their supported saved
+    resources. Supported, planned and unknown/custom identities keep their
+    ownership and promises. Dry runs execute the same path under a
     rolled-back savepoint, including cascades and snapshot pruning.
     """
     from apps.pets.models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserMount, UserPet
     from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestRewardItem
     from apps.rewards.models import Reward, RewardRedemption
+    from django.contrib.auth import get_user_model
     from .content.publication import _catalog_lock
     from .models import CharacterProfile, ContentPackEntry, DropTable, ItemDefinition, RPGContentOverride
+    from .retirement_resources import collect_retirement_resource_user_ids, settle_retirement_resources
 
+    # Normal care/shop paths lock the user before inventory/catalog writes.
+    # This one-time global transition follows that order before publication's
+    # catalog table locks; startup must not invert it against a live worker.
+    locked_users = set(get_user_model().objects.select_for_update(no_key=True).order_by("pk").values_list("pk", flat=True))
     _catalog_lock()
     species = list(PetSpecies.objects.select_for_update().filter(slug__in=RETIRED_SPECIES).order_by("pk"))
     potions = list(PotionType.objects.select_for_update().filter(slug__in=RETIRED_POTIONS).order_by("pk"))
@@ -94,12 +136,18 @@ def retire_unused_catalog(*, dry_run=False):
         Q(species_id__in=species_ids) | Q(potion_type_id__in=potion_ids)
         | Q(egg_item_id__in=item_ids) | Q(potion_item_id__in=item_ids),
     )
-    # Real-world offers may happen to carry an unused item FK. Retain them;
-    # ItemDefinition deletion clears that optional reference. Retire digital
-    # offers and exact frozen item promises without touching their coin rows.
-    offers = Reward.objects.filter(item_definition_id__in=item_ids).exclude(fulfillment_kind="real_world")
+    # Preserve physical offers even if their optional digital component retires.
+    # Pending combined promises retain their physical delivery at the saved
+    # price; only their obsolete digital component is removed.
+    combined_offers = Reward.objects.filter(item_definition_id__in=item_ids, fulfillment_kind="both")
+    offers = Reward.objects.filter(item_definition_id__in=item_ids, fulfillment_kind="digital_item")
     offer_ids = set(offers.values_list("pk", flat=True))
-    redemptions = RewardRedemption.objects.filter(item_definition_snapshot_id__in=item_ids)
+    combined_redemptions = RewardRedemption.objects.filter(
+        item_definition_snapshot_id__in=item_ids, fulfillment_kind_snapshot="both",
+    )
+    redemptions = RewardRedemption.objects.filter(item_definition_snapshot_id__in=item_ids).exclude(
+        fulfillment_kind_snapshot="both",
+    )
     # An edited offer can have an older supported frozen promise. Keep that
     # receipt and its required offer row, deactivating only the obsolete offer.
     retained_offer_ids = set(RewardRedemption.objects.filter(reward_id__in=offer_ids).exclude(
@@ -115,6 +163,8 @@ def retire_unused_catalog(*, dry_run=False):
         "incubation_ids": list(incubations.order_by("pk").values_list("pk", flat=True)),
         "offer_ids": sorted(offer_ids), "retained_offer_ids": sorted(retained_offer_ids),
         "redemption_ids": list(redemptions.order_by("pk").values_list("pk", flat=True)),
+        "retained_physical_offer_ids": list(combined_offers.order_by("pk").values_list("pk", flat=True)),
+        "retained_physical_redemption_ids": list(combined_redemptions.order_by("pk").values_list("pk", flat=True)),
         "cleared_food_item_ids": list(ItemDefinition.objects.filter(food_species_id__in=species_ids).order_by("pk").values_list("pk", flat=True)),
         "cleared_equipped_profile_ids": list(CharacterProfile.objects.filter(
             Q(active_frame_id__in=item_ids) | Q(active_title_id__in=item_ids)
@@ -124,6 +174,19 @@ def retire_unused_catalog(*, dry_run=False):
         "occurrence_receipt_ids": [], "expedition_loot_ids": [], "growth_queue_profile_ids": [],
         "deleted": {},
     }
+
+    affected_users = collect_retirement_resource_user_ids(
+        redemption_ids=[*report["redemption_ids"], *report["retained_physical_redemption_ids"]],
+        incubation_ids=report["incubation_ids"], mount_ids=mount_ids,
+    )
+    if not affected_users <= locked_users:
+        raise RetiredCatalogCollision("A new account acquired retiring content during cleanup; retry after its operation completes.")
+    report["resources"] = settle_retirement_resources(
+        redemption_ids=report["redemption_ids"], incubation_ids=report["incubation_ids"],
+        mount_ids=mount_ids, retired_item_ids=item_ids,
+    )
+    combined_redemptions.update(item_definition_snapshot=None, fulfillment_kind_snapshot="real_world")
+    combined_offers.update(item_definition=None, fulfillment_kind="real_world", is_active=False)
 
     # Snapshots are JSON rather than foreign keys. Preserve all unrelated
     # entries, coins, quantities, timestamps and progress while pruning slots.

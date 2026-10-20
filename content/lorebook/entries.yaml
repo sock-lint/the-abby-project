@@ -469,15 +469,14 @@ entries:
       choose Hatch pet. Then care for your baby through its middle
       and grown stages. For Chick, these forms are Chick, Fledgling and Bird.
       Choose an active pet to keep you company.
-      Earlier pets stay in Saved collection, where you can still care for them.
     mechanics:
       - "Every species follows Egg → Baby → Middle → Grown. Babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100."
       - "Starting incubation consumes one egg item and one compatible potion item. One egg can incubate at a time per account, including an egg waiting to be hatched."
       - "Incubation keeps counting while you are away. When the Hatchery confirms your egg is ready, choose Hatch pet to welcome a unique species/potion baby at zero growth. Checking the timer never hatches it or grants rewards."
       - "New hatching supports 15 prepared families with a Base potion. An unavailable species or potion pairing consumes neither ingredient."
-      - "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Higher-rarity saved potion variants retain their rarity."
+      - "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Families range from Common to Legendary."
       - "Base Chick becomes Fledgling at 50 saved growth and Bird after confirmed evolution at 100. These are stages of the same pet; Fledgling grants no extra pet, mount, or reward."
-      - "Earlier saved pets can still be fed, activated and evolved; another species is never displayed as Chick or Bird."
+      - "Care and growth use your own pet's confirmed family and stage; another species is never displayed as Chick or Bird."
       - "Feeding consumes food; preferred food grants more growth than neutral food."
       - "Food gives at least 5/8/10/12/15 base growth from Common through Legendary, plus 10 for a preferred food. Valid authored growth can raise the base; Growth Tonic doubles the total. Check the food's effect before feeding."
       - "Ghost, Wolf, Bomb, Shadow and Dragon Trails guarantee their named companion egg and one Base potion through eligible everyday activities; the challenge card shows the exact reward and progress."
@@ -491,7 +490,7 @@ entries:
         - pet_species_owned
         - full_potion_shelf
       content_sources:
-        - "Pet species and potion types are YAML-authored with typed item references; the supported-art registry separately limits new acquisition."
+        - "Pet species and potion types are YAML-authored with typed item references; the supported-art registry separately limits new acquisition. The prelaunch cleanup retires the explicitly listed unused first-party families, potion types and pet accessories."
     economy:
       money: false
       coins: false
@@ -518,20 +517,19 @@ entries:
     kid_voice: |
       A pet creates a matching mount when it reaches full growth. You can
       choose your grown pet to keep you company or send it on an expedition.
-      Earlier grown pets stay available in Saved collection.
     mechanics:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
       - "Each mount can start one expedition per local day, lasting 2, 4, or 8 hours. Collect a returned trip before starting another; the Pets screen shows when the mount can explore again."
       - "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw."
-      - "Base loot is fixed when the trip starts. New trips choose available items; earlier saved loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
+      - "Base loot is fixed when the trip starts. New trips choose available items; supported recorded loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
     parent_knobs:
       settings: []
       powers_badges:
         - mounts_evolved
       content_sources:
-        - "Mount behavior is service-driven. Base Chick evolves to the owned Bird appearance; saved legacy mounts retain their own 2D presentation and expedition controls."
+        - "Mount behavior is service-driven. Base Chick evolves to the owned Bird appearance; each prepared family uses its own grown form and expedition controls."
     economy:
       money: false
       coins: true
@@ -634,7 +632,7 @@ entries:
       - "Coins can come from tracked time, project/milestone bonuses, badges, chores, challenges, daily check-ins, expeditions, exchanges, drops/salvage, birthdays, and parent adjustments."
       - "Today and Memories → Journal save into the same journal. The first daily entry earns 2 Coins alongside eligible journal rewards; edits and retries do not pay again. Earlier daily-note payouts share this allowance, and older notes receive no retroactive reward."
       - "Reward redemption deducts Coins immediately as a held debit; rejection refunds them."
-      - "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory on approval. Real-world rewards stay approved until a parent confirms handover; combined offers use both steps. Unavailable new offers are omitted while earlier pending promises are preserved."
+      - "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory on approval. Real-world rewards stay approved until a parent confirms handover; combined offers use both steps. Unavailable new offers are omitted while supported pending promises are preserved."
       - "Money-to-Coins exchange is parent-approved and snapshots the exchange rate at request time."
       - "Parents can enable a minutes-per-coin rate for each child's 3D prints. A reviewed time estimate sets a rounded-up fixed quote; coins are spent only when the child accepts it."
       - "Print quotes keep their original rate when settings change. Retries of the same request cost no extra coins; cancelling before any print starts refunds the paid amount once. Monthly print budgets still apply."
@@ -727,7 +725,7 @@ entries:
     mechanics:
       - "Cosmetics are owned in inventory and equipped without being consumed."
       - "Only one item per cosmetic slot can be active at a time."
-      - "Frames, Titles and Covers remain available. Earlier pet accessories stay in Saved collection, but cannot be newly collected or equipped; a previous selection can be removed."
+      - "Frames, Titles and Covers remain available. Pet accessories are unavailable for collection or equipment."
       - "Customize avatar saves the available appearance and compatible accessories for your chosen avatar. These choices are free preferences, separate from earned cosmetics, Coins, XP, and pet accessories. Preview changes become saved appearance only after Save avatar succeeds."
       - "Choose and equip owned journal covers in Settings → Appearance. Profile links to this same Color theme selector."
       - "The trophy badge slot only accepts badges the user has earned."
@@ -739,7 +737,7 @@ entries:
         - cosmetic_set_owned
         - cosmetic_full_set
       content_sources:
-        - "Cosmetic items are YAML-authored in item content packs; sprites are runtime-authored in the sprite catalog."
+        - "Cosmetic items are YAML-authored in item content packs. Prepared artwork is registered separately and referenced by its artwork key; the Content Catalog browses items, pets and challenges."
     economy:
       money: false
       coins: true

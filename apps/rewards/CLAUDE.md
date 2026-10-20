@@ -4,11 +4,27 @@ Non-monetary Coins economy + parent-approved reward shop + money→coins exchang
 
 ## Available offers and earlier promises (October 2026)
 
-The owner-authorized prelaunch unused-content cleanup explicitly discards
-redemptions and digital offers for its fixed obsolete item list while leaving
-ledger balances unchanged. This is separate from ordinary availability changes
-and does not reset accounts or unrelated promises. See
+The owner-authorized prelaunch retirement is an exact, one-time exception to
+ordinary promise preservation. Before deleting matching obsolete redemptions,
+it refunds the net actually recorded Coin hold for pending/approved undelivered
+digital-only requests and restores any reserved finite stock. A frozen price
+without a recorded debit cannot create a refund. Existing ledger entries remain; appended
+refunds can increase the balance. Fulfilled/delivered receipts receive no refund.
+Pure digital obsolete offers can be removed; an edited offer needed by an older
+supported frozen promise remains deactivated. Real-world and combined offer rows
+remain with the obsolete optional item FK cleared. Combined offers are
+deactivated and converted to real-world fulfillment. Their frozen combined
+receipts retain status, cost, audit and actual debits as real-world promises;
+they receive no refund and keep the physical delivery flow. Accounts and
+unrelated promises are not reset. See
 [unused first-party content retirement](../../docs/operations/companion-lifecycle.md#unused-first-party-content-retirement).
+
+Default startup records success transactionally and skips the transition on
+later loads. Identity/protection/resource-validation conflicts roll back all
+retirement changes, warn and continue bundled loading without a success marker.
+Dry runs and later bundled-load failures roll back both refunds and cleanup;
+explicit operator cleanup remains strict. These exceptions do not alter the
+ordinary availability and fulfillment rules below.
 
 `availability.py::reward_is_available` allows real-world rewards and requires
 an available `item_definition` for digital-item or combined fulfillment.

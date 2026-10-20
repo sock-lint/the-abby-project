@@ -271,7 +271,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                         Content Catalog
                       </span>
                       <span className="block font-script text-ink-whisper text-caption leading-tight">
-                        items, pets, challenges, artwork
+                        items, pets, challenges
                       </span>
                     </span>
                   </NavLink>

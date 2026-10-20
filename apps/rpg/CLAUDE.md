@@ -78,7 +78,7 @@ Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
 the existing factual Challenge engine, with no extra Coins or XP.
-- `SpriteAsset` (runtime-authored sprite catalog — slug + ImageField + animation metadata + authoring inputs `prompt / original_intent / motion / style_hint / tile_size / reference_image_url` — persisted so reroll can replay them).
+- `SpriteAsset` (runtime-authored sprite catalog — slug + ImageField + animation metadata + authoring inputs `prompt / original_intent / motion / style_hint / tile_size / reference_image_url` — retained as historical metadata; no in-app generation or reroll).
 
 ## Services (`apps/rpg/services.py`)
 - `StreakService`, `DropService`, `CosmeticService`, `ConsumableService`, `GameLoopService` (central orchestrator).
@@ -269,15 +269,35 @@ links or frozen promises. Use `reconcile_companion_catalog --dry-run --json`
 before rollout. Egg-category weights remain unchanged in live selection. See
 [the adoption runbook](../../docs/operations/companion-lifecycle.md).
 
-`retired_catalog.py` owns the frozen unused-content list. Default
-`loadrpgcontent` runs its atomic cleanup before loading bundled YAML; explicit
-custom pack loads do not. `retire_unused_rpg_content --dry-run --json` previews
-the same cleanup, including exact dependent row identities and cascades. It
-removes matching incubation/redemption receipts, digital offers, ownership and
-obsolete JSON reward/loot slots without changing accounts or ledger balances.
-A supported frozen promise on an edited obsolete offer retains its receipt and
-deactivates that offer. Unknown/custom identities, current families, Fire/Ice,
-SpriteAsset rows and image storage remain outside this list. Changed natural
-identities hold cleanup for reconciliation. Default loader dry runs roll back
-cleanup and bundled upserts together; no standalone production command is
-required for the deployment transition.
+`retired_catalog.py` owns the exact owner-approved prelaunch retirement list.
+Default `loadrpgcontent` attempts it once before bundled upserts and records
+`RPGContentRetirement.applied_at` in the same transaction. Later startup loads
+skip a completed transition rather than continually deleting newly authored
+content. Explicit custom-pack loads do not run it. Changed identity, protected
+reference or resource-validation conflicts roll back the entire retirement
+savepoint, emit a warning and continue ordinary bundled loading without a
+success marker. The standalone `retire_unused_rpg_content` command is strict;
+`--dry-run --json` previews exact catalog/dependent IDs, cascades and settlements.
+
+Before removing obsolete ownership and receipts, `retirement_resources.py`
+refunds the net recorded Coin holds for pending/approved undelivered digital-only
+redemptions, returns matching supported ingredients from an unfinished accepted
+incubation, and settles ACTIVE unclaimed deleted-mount expeditions from their saved Coins
+and surviving supported item loot. This does not roll new rewards, apply current
+boosts, grant XP/badges or run the game loop. Existing ledger entries remain;
+new refund/settlement entries can increase balances. Deletion and settlement
+commit together, so retry cannot pay twice.
+
+Cleanup prunes only the exact retired JSON reward/loot slots and clears their
+equipped references. An edited obsolete digital offer with a supported frozen
+promise retains that receipt and is deactivated. Real-world and combined offer
+rows survive with the obsolete optional item FK cleared. Combined offers are
+deactivated and converted to real-world fulfillment; their frozen combined
+receipts retain status, cost, audit and actual debits as real-world promises,
+without a refund, so physical delivery remains possible. Current fifteen
+families, Base/Fire/Ice, unknown/custom identities, accounts, generic SpriteAsset
+registration/rows and image storage
+are outside the list. No old species is migrated into a different new family.
+Default-loader dry runs and later bundled-load failures roll back the marker,
+settlement and cleanup together. See the adoption runbook for the exact scope;
+this implementation does not establish a production release.
