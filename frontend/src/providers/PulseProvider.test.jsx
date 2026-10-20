@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
+import * as Sentry from '@sentry/react';
 import { http, HttpResponse } from 'msw';
 import { PulseProvider } from './PulseProvider.jsx';
 import { usePulse } from './pulseContext';
@@ -37,6 +38,10 @@ function renderProvider() {
     { pulse: null },
   );
 }
+
+beforeEach(() => {
+  Sentry.captureException.mockClear();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -94,6 +99,73 @@ describe('PulseProvider', () => {
     expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
   });
 
+  describe('gateway outages', () => {
+    const gatewayDown = () => new HttpResponse('upstream timed out', { status: 504 });
+
+    async function advanceBeats(count) {
+      for (let i = 0; i < count; i += 1) {
+        await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      }
+    }
+
+    it('does not report a gateway error that clears on the next beat', async () => {
+      let beats = 0;
+      server.use(http.get('*/api/pulse/', () => {
+        beats += 1;
+        return beats === 1 ? gatewayDown() : HttpResponse.json(pulseBody(7));
+      }));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderProvider();
+      await waitFor(() => expect(beats).toBe(1));
+      await advanceBeats(1);
+      await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:7'));
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('reports an outage once, on the third consecutive gateway failure', async () => {
+      let beats = 0;
+      server.use(http.get('*/api/pulse/', () => {
+        beats += 1;
+        return gatewayDown();
+      }));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderProvider();
+      await waitFor(() => expect(beats).toBe(1));
+      await advanceBeats(1);
+      await waitFor(() => expect(beats).toBe(2));
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+
+      await advanceBeats(1);
+      await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+      expect(Sentry.captureException.mock.calls[0][0].message).toBe('API 504: GET /pulse/ (3 consecutive beats)');
+
+      await advanceBeats(2);
+      await waitFor(() => expect(beats).toBe(5));
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
+    it('restarts the count after a good beat', async () => {
+      let beats = 0;
+      server.use(http.get('*/api/pulse/', () => {
+        beats += 1;
+        return beats === 3 ? HttpResponse.json(pulseBody(1)) : gatewayDown();
+      }));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      renderProvider();
+      await waitFor(() => expect(beats).toBe(1));
+      await advanceBeats(4);
+      await waitFor(() => expect(beats).toBe(5));
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('still reports a plain server error immediately', async () => {
+      server.use(http.get('*/api/pulse/', () =>
+        HttpResponse.json({ error: 'boom' }, { status: 500 })));
+      renderProvider();
+      await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+      expect(Sentry.captureException.mock.calls[0][0].message).toBe('API 500: GET /pulse/');
+    });
+  });
 
   it('rejects a late receipt response from the previous child', async () => {
     let releaseOld;

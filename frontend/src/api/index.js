@@ -48,7 +48,8 @@ export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/cl
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
 // One heartbeat for every background poller — see PulseProvider.
-export const getPulse = () => api.get('/pulse/');
+// Gateway statuses are reported by PulseProvider only once they persist.
+export const getPulse = () => api.get('/pulse/', { deferGatewayReport: true });
 
 // Lorebook — shared mechanics explainer for parents and kids
 export const getLorebook = () => api.get('/lorebook/');

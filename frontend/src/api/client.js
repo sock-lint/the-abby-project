@@ -97,8 +97,20 @@ async function fetchOrOffline(url, config) {
   }
 }
 
+// Statuses a reverse proxy answers with while the app container is restarting
+// or unreachable. A background poller can land on one of these for a beat or
+// two on every deploy.
+export const GATEWAY_STATUSES = [502, 503, 504];
+
 async function request(path, options = {}) {
-  const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
+  const {
+    token: explicitToken,
+    selfHeal = true,
+    // A caller that polls on a timer can ask to own the report for gateway
+    // statuses (see PulseProvider). Every other 5xx is still captured here.
+    deferGatewayReport = false,
+    ...fetchOptions
+  } = options;
   const token = explicitToken ?? getToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
   let url = method === 'GET'
@@ -175,7 +187,8 @@ async function request(path, options = {}) {
       _selfHealReload(token);
     }
 
-    if (res.status >= 500) {
+    const deferred = deferGatewayReport && GATEWAY_STATUSES.includes(res.status);
+    if (res.status >= 500 && !deferred) {
       Sentry.captureException(
         new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
         { extra: { response: errorMessage, status: res.status } },

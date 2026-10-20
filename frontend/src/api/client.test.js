@@ -110,6 +110,33 @@ describe('api errors', () => {
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
   });
 
+  it.each([502, 503, 504])('leaves a %i to the caller when it defers gateway reports', async (status) => {
+    server.use(
+      http.get('*/api/gateway/', () => new HttpResponse('upstream timed out', { status })),
+    );
+    await expect(api.get('/gateway/', { deferGatewayReport: true })).rejects.toMatchObject({ status });
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+    expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+      message: `GET /gateway/ -> ${status}`,
+    }));
+  });
+
+  it('still captures a gateway status when the caller did not defer it', async () => {
+    server.use(
+      http.get('*/api/gateway/', () => new HttpResponse('upstream timed out', { status: 504 })),
+    );
+    await expect(api.get('/gateway/')).rejects.toMatchObject({ status: 504 });
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
+  it('still captures other 5xx responses when gateway reports are deferred', async () => {
+    server.use(
+      http.get('*/api/boom/', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
+    );
+    await expect(api.get('/boom/', { deferGatewayReport: true })).rejects.toThrow('boom');
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
   it('attaches .status + .response to the thrown error so callers can branch on HTTP code', async () => {
     // Pin the error-shape contract used by JournalEntryFormModal (409 → edit)
     // and the 403 "entry locked" path. String-matching .message is fragile;
