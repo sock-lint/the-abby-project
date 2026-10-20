@@ -21,6 +21,10 @@ let experimentDecided;
 let emptyObservations;
 const labReads = ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/', '/api/rpg/progression-lab/experiments/', '/api/rpg/progression-lab/observations/'];
 let discoveryReport;
+let challengeGateReport;
+let challengeGateMetadata;
+let milestoneGateComparison;
+let tenureGateComparison;
 
 const allowedApiRequests = new Set([
   'GET /api/auth/me/',
@@ -31,8 +35,8 @@ const allowedApiRequests = new Set([
   'POST /api/rpg/progression-lab/simulate/',
 ]);
 
-function assertApiIsolation(requests) {
-  expect(requests.every(({ method, path }) => allowedApiRequests.has(`${method} ${path}`))).toBe(true);
+function assertApiIsolation(requests, experimentWrites = []) {
+  expect(requests.every(({ method, path }) => allowedApiRequests.has(`${method} ${path}`) || experimentWrites.includes(`${method} ${path}`))).toBe(true);
   for (const request of requests) {
     if (request.method === 'GET') {
       expect(request.body).toBeNull();
@@ -40,7 +44,7 @@ function assertApiIsolation(requests) {
     } else {
       // The only allowed POST is the anonymous simulation. Discovery stays a
       // separate read; no household targeting or observations enter its URL.
-      expect(request.path).toBe('/api/rpg/progression-lab/simulate/');
+      expect(request.path === '/api/rpg/progression-lab/simulate/' || experimentWrites.includes(`${request.method} ${request.path}`)).toBe(true);
       expect(request.query).toEqual([]);
     }
   }
@@ -59,6 +63,10 @@ test.beforeAll(async () => {
   experimentDecided = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-decided.json', import.meta.url), 'utf8'));
   emptyObservations = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-observations-empty.json', import.meta.url), 'utf8'));
   discoveryReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/challenge-discovery-observed.json', import.meta.url), 'utf8'));
+  challengeGateReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-challenge-gates-report.json', import.meta.url), 'utf8'));
+  challengeGateMetadata = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-challenge-gates-metadata.json', import.meta.url), 'utf8'));
+  milestoneGateComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-milestone-gates-comparison.json', import.meta.url), 'utf8'));
+  tenureGateComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-tenure-gates-comparison.json', import.meta.url), 'utf8'));
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
@@ -86,8 +94,8 @@ test.afterAll(async () => {
   }
 });
 
-async function openLab(page, response = report, { quotaExperiment = false, discovery = discoveryReport } = {}) {
-  const evidence = quotaExperiment ? expeditionComparison : experimentComparison;
+async function openLab(page, response = report, { quotaExperiment = false, gateExperiment = null, discovery = discoveryReport } = {}) {
+  const evidence = gateExperiment === 'milestone_gates' ? milestoneGateComparison : gateExperiment === 'tenure_gates' ? tenureGateComparison : quotaExperiment ? expeditionComparison : experimentComparison;
   const requests = [];
   const external = [];
   let savedExperiment = null;
@@ -101,14 +109,19 @@ async function openLab(page, response = report, { quotaExperiment = false, disco
     requests.push({ method: route.request().method(), path: url.pathname,
       body: route.request().postData(), query: [...url.searchParams.keys()] });
     if (url.pathname === '/api/auth/me/') return route.fulfill({ json: { id: 1, username: 'synthetic-staff', role: 'parent', is_staff: true, theme: 'hyrule', family: { id: 1 } } });
-    if (url.pathname === '/api/rpg/progression-lab/') return route.fulfill({ json: { ...metadata, defaults: response.config } });
+    if (url.pathname === '/api/rpg/progression-lab/') return route.fulfill({ json: { ...(gateExperiment ? challengeGateMetadata : metadata), defaults: response.config } });
     if (url.pathname === '/api/challenges/discovery/') return route.fulfill({ json: discovery });
     if (url.pathname === '/api/rpg/progression-lab/observations/') return route.fulfill({ json: emptyObservations });
     if (url.pathname === experimentRoot && route.request().method() === 'GET') return route.fulfill({ json: experimentList });
     if (url.pathname === experimentRoot && route.request().method() === 'POST') {
       const input = route.request().postDataJSON();
       expect(Object.keys(input).sort()).toEqual(['candidate_daily_coins', 'candidate_expedition_budget', 'candidate_policy', 'config', 'hypothesis', 'name', 'targets']);
-      if (quotaExperiment) {
+      if (gateExperiment) {
+        expect(input.config).toEqual(evidence.control.config);
+        expect(input.candidate_policy).toBe(gateExperiment);
+        expect(input.candidate_daily_coins).toBeNull();
+        expect(input.candidate_expedition_budget).toEqual({ daily_launches: null, daily_items: null });
+      } else if (quotaExperiment) {
         expect(input.config).toEqual(evidence.control.config);
         expect(input.candidate_policy).toBe('expedition_limits');
         expect(input.candidate_daily_coins).toBeNull();
@@ -169,6 +182,49 @@ async function openLab(page, response = report, { quotaExperiment = false, disco
 }
 
 for (const width of [375, 1280]) {
+  for (const policy of ['milestone_gates', 'tenure_gates']) {
+    test(`challenge ${policy} preserves rewards and exposes waiting at ${width}px`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 900 });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      const { requests, external } = await openLab(page, challengeGateReport, { gateExperiment: policy });
+      const controls = page.getByRole('region', { name: 'Challenge gates', exact: true });
+      const mode = controls.getByRole('combobox', { name: 'Challenge gate policy' });
+      for (const value of ['current', 'milestones', 'milestone_tenure']) {
+        await chooseDropdown(mode, value);
+        await expect(controls.getByRole('spinbutton', { name: 'Gate 1 elapsed days since first activity' })).toHaveValue('14');
+      }
+      await controls.getByLabel('Gate 1 available from', { exact: true }).fill('2026-01-05');
+      await controls.getByLabel('Gate 1 available until', { exact: true }).fill('2026-02-01');
+      await expect(controls.getByLabel('Gate 1 available until', { exact: true })).toHaveValue('2026-02-01');
+      await controls.getByLabel('Gate 1 available from', { exact: true }).fill('');
+      await controls.getByLabel('Gate 1 available until', { exact: true }).fill('');
+      await expect(controls.getByText(/14 days unlocks on day 15/)).toBeVisible();
+      await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
+      const result = page.getByRole('region', { name: 'Simulation report', exact: true }).getByRole('region', { name: 'Challenge gate forecast' });
+      await expect(result.getByRole('table', { name: 'Per-challenge eligibility and completion' })).toBeVisible();
+      await expect(result.getByRole('rowheader', { name: 'Visits waiting for a future challenge gate' })).toBeVisible();
+      await expect(result.getByText(/Gate waiting is not additional content/)).toBeVisible();
+      const notebook = page.getByRole('region', { name: 'Progression experiment notebook', exact: true });
+      await chooseDropdown(notebook.getByRole('combobox', { name: 'Candidate reward policy' }), policy);
+      await expect(notebook.getByRole('region', { name: 'Candidate challenge gates', exact: true })).toBeVisible();
+      await expect(notebook.getByRole('spinbutton', { name: 'Candidate Coins per child per day' })).toHaveCount(0);
+      await notebook.getByRole('button', { name: 'Save experiment', exact: true }).click();
+      await expect(notebook.getByText('Experiment saved. Live rewards are unchanged.')).toBeVisible();
+      await notebook.getByRole('button', { name: 'Run control and candidate' }).click();
+      const evidence = notebook.getByRole('region', { name: 'Saved experiment comparison', exact: true });
+      await expect(evidence.getByRole('region', { name: 'Challenge gate forecast' }).getByText('Comparison policy: Current rules.')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(errors).toEqual([]);
+      expect(external).toEqual([]);
+      const experimentPath = `/api/rpg/progression-lab/experiments/${experimentDecided.id}/`;
+      assertApiIsolation(requests, ['POST /api/rpg/progression-lab/experiments/', `POST ${experimentPath}compare/`]);
+      expect(requests.filter(({ method }) => method === 'POST')).toHaveLength(3);
+      await controls.screenshot({ path: testInfo.outputPath(`challenge-${policy}-controls-${width}.png`) });
+      await result.screenshot({ path: testInfo.outputPath(`challenge-${policy}-report-${width}.png`) });
+      await page.screenshot({ path: testInfo.outputPath(`challenge-${policy}-${width}.png`), fullPage: true });
+    });
+  }
   test(`shared expedition limits preserve Coin rules and saved evidence at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 });
     const { requests, external } = await openLab(page, expeditionReport, { quotaExperiment: true });
@@ -324,9 +380,10 @@ test('unreached milestones and empty flows remain honest and keyboard controls w
   await page.keyboard.press('Escape');
   await expect(horizon).toBeFocused();
   await page.getByRole('button', { name: 'Run simulation', exact: true }).click();
-  await expect(page.getByRole('cell', { name: 'Not reached', exact: true })).toHaveCount(report.milestones.length * 3);
+  const milestoneTable = page.getByRole('table', { name: 'Milestone completion and calendar days among successful journeys' });
+  await expect(milestoneTable.getByRole('cell', { name: 'Not reached', exact: true })).toHaveCount(report.milestones.length * 3);
   await expect(page.getByText('No modeled entries.', { exact: true })).toHaveCount(2);
-  await expect(page.getByRole('cell', { name: 'Day 0', exact: true })).toHaveCount(0);
+  await expect(milestoneTable.getByRole('cell', { name: 'Day 0', exact: true })).toHaveCount(0);
   await page.getByText('Load a saved routine', { exact: true }).click();
   await page.getByLabel('Saved routine', { exact: true }).setInputFiles({
     name: 'exported-routine.json', mimeType: 'application/json',

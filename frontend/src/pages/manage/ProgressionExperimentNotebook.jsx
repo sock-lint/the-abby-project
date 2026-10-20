@@ -9,17 +9,21 @@ import ParchmentCard from '../../components/journal/ParchmentCard';
 import SectionHeader from '../../components/SectionHeader';
 import { SelectField, TextAreaField, TextField } from '../../components/form';
 import ProgressionExpeditionBudgetControls from './ProgressionExpeditionBudgetControls';
-import { rewardPolicyLabel, scenariosMatch } from './progressionLabScenario';
+import { challengeGateLabel, expeditionBudgetLabel, rewardPolicyLabel, scenariosMatch } from './progressionLabScenario';
 import { ExperimentComparison, ProgressionObservations, RewardProposal } from './ProgressionExperimentEvidence';
+import ProgressionChallengeGateControls from './ProgressionChallengeGateControls';
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const unlimited = () => ({ daily_launches: null, daily_items: null });
-const controlRoutine = (routine, policy = 'envelope') => ({ ...clone(routine), expedition_budget: unlimited(), ...(policy === 'expedition_limits' ? {} : { reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }) });
+const gatePolicy = (policy) => ['milestone_gates', 'tenure_gates'].includes(policy);
+const controlRoutine = (routine, policy = 'envelope') => gatePolicy(policy)
+  ? { ...clone(routine), challenge_gates: { ...clone(routine.challenge_gates), mode: 'current' } }
+  : { ...clone(routine), expedition_budget: unlimited(), ...(policy === 'expedition_limits' ? {} : { reward_budget: { daily_coins: null }, reward_commitment: { enabled: false } }) };
 const fields = (experiment) => ({ name: experiment.name, hypothesis: experiment.hypothesis, config: clone(experiment.config), candidate_daily_coins: experiment.candidate_daily_coins, candidate_policy: experiment.candidate_policy ?? 'envelope', candidate_expedition_budget: clone(experiment.candidate_expedition_budget ?? unlimited()), targets: experiment.targets.map((target) => ({ metric: target.metric, min: target.min ?? '', max: target.max ?? '' })) });
 const freshEditor = (routine) => ({ name: '100-Coin starting experiment', hypothesis: 'Reduce automatic Coin income while preserving reward pacing.', config: controlRoutine(routine), candidate_daily_coins: 100, candidate_policy: 'envelope', candidate_expedition_budget: unlimited(), targets: [] });
 const decisionLabels = { keep_testing: 'Keep testing', revise: 'Revise', ready_for_design: 'Ready for design' };
 const blankDecision = { outcome: 'keep_testing', rationale: '', next_action: '', review_on: '' };
 
-export default function ProgressionExperimentNotebook({ routine }) {
+export default function ProgressionExperimentNotebook({ routine, gateMetadata }) {
   const [metadata, setMetadata] = useState(null);
   const [observations, setObservations] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,7 +67,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const change = (key, value) => setEditor((previous) => ({ ...previous, [key]: value }));
-  const changePolicy = (policy) => setEditor((previous) => ({ ...previous, candidate_policy: policy, config: controlRoutine(policy === 'expedition_limits' ? routine : previous.config, policy), candidate_daily_coins: policy === 'expedition_limits' ? null : 100, candidate_expedition_budget: policy === 'expedition_limits' ? clone(routine.expedition_budget?.daily_launches != null || routine.expedition_budget?.daily_items != null ? routine.expedition_budget : { daily_launches: 3, daily_items: null }) : unlimited() }));
+  const changePolicy = (policy) => setEditor((previous) => ({ ...previous, candidate_policy: policy, config: controlRoutine(gatePolicy(policy) ? (gatePolicy(previous.candidate_policy) ? previous.config : { ...routine, challenge_gates: routine.challenge_gates ?? gateMetadata.challenge_gates_defaults }) : policy === 'expedition_limits' ? routine : previous.config, policy), candidate_daily_coins: policy === 'expedition_limits' || gatePolicy(policy) ? null : 100, candidate_expedition_budget: policy === 'expedition_limits' ? clone(routine.expedition_budget?.daily_launches != null || routine.expedition_budget?.daily_items != null ? routine.expedition_budget : { daily_launches: 3, daily_items: null }) : unlimited() }));
   const remember = (data) => {
     setSaved(data); setEditor(fields(data));
     setMetadata((previous) => ({ ...previous, experiments: [data, ...previous.experiments.filter((entry) => entry.id !== data.id)] }));
@@ -110,7 +114,7 @@ export default function ProgressionExperimentNotebook({ routine }) {
   if (denied) return <p role="status">Saved experiments are available to staff parents.</p>;
   return <section aria-label="Progression experiment notebook" className="space-y-4">
     <ParchmentCard className="space-y-4">
-      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare Coin policies or shared expedition limits, then record what to do next. No decision here changes live rewards.</SectionHeader>
+      <SectionHeader title="Experiment notebook" index={3}>Save a hypothesis, compare Coin policies, shared expedition limits or challenge gates, then record what to do next. No decision here changes live rewards.</SectionHeader>
       <ErrorAlert message={readError} onRetry={read} />
       {loading && <p role="status">Loading saved experiments…</p>}
       {metadata && <>
@@ -120,11 +124,13 @@ export default function ProgressionExperimentNotebook({ routine }) {
             <TextField label="Experiment name" value={editor.name} maxLength={100} required onChange={(event) => change('name', event.target.value)} />
             <TextAreaField label="Hypothesis" value={editor.hypothesis} maxLength={2000} required onChange={(event) => change('hypothesis', event.target.value)} helpText="Describe the expected improvement. Use anonymous design notes without child names or private family details." />
             <SelectField label="Candidate reward policy" value={editor.candidate_policy} onChange={(event) => changePolicy(event.target.value)}>
-              <option value="envelope">Hypothetical payout envelope</option><option value="commitment100">100-Coin commitment prototype (75 / 25)</option>{metadata.feedback.expedition_budget_limits && <option value="expedition_limits">Shared expedition limits (same Coin rules)</option>}
+              <option value="envelope">Hypothetical payout envelope</option><option value="commitment100">100-Coin commitment prototype (75 / 25)</option>{metadata.feedback.expedition_budget_limits && <option value="expedition_limits">Shared expedition limits (same Coin rules)</option>}{gateMetadata?.challenge_gates_defaults && <><option value="milestone_gates">Milestone gates (same rewards and expeditions)</option><option value="tenure_gates">Milestone plus tenure gates (same rewards and expeditions)</option></>}
             </SelectField>
-            {editor.candidate_policy !== 'expedition_limits' && <TextField disabled={editor.candidate_policy === 'commitment100'} label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />}
+            {editor.candidate_policy !== 'expedition_limits' && !gatePolicy(editor.candidate_policy) && <TextField disabled={editor.candidate_policy === 'commitment100'} label="Candidate Coins per child per day" type="number" min={0} max={100000} step="1" required value={editor.candidate_daily_coins} onChange={(event) => change('candidate_daily_coins', event.target.value === '' ? '' : Number(event.target.value))} />}
             {editor.candidate_policy === 'expedition_limits' && <ProgressionExpeditionBudgetControls label="Candidate expedition limits" budget={editor.candidate_expedition_budget} limits={metadata.feedback.expedition_budget_limits} onChange={(budget) => change('candidate_expedition_budget', budget)} />}
-            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. {editor.candidate_policy === 'expedition_limits' ? `Control and candidate both use ${rewardPolicyLabel(editor.config)}. The control has unlimited expeditions; only the candidate launch or item limits change.` : 'Control uses installed reward rules.'} {editor.candidate_policy === 'expedition_limits' ? '' : editor.candidate_policy === 'commitment100' ? 'The candidate reserves new promises before launch or drop, with 75 Coins for expeditions and 25 for random activity pouches. Existing and authored promises pay fully.' : 'The candidate omits excess expedition and pouch payouts in a hypothetical shared daily envelope.'}</p>
+            {gatePolicy(editor.candidate_policy) && gateMetadata && <ProgressionChallengeGateControls label="Candidate challenge gates" modeLocked gates={{ ...editor.config.challenge_gates, mode: editor.candidate_policy === 'milestone_gates' ? 'milestones' : 'milestone_tenure' }} metadata={gateMetadata} onChange={(gates) => change('config', { ...editor.config, challenge_gates: { ...gates, mode: 'current' } })} />}
+            <p className="text-body text-ink-secondary">Saved routine: {editor.config.horizon_days} days, {editor.config.trials} simulated children, seed {editor.config.seed}. {gatePolicy(editor.candidate_policy) ? `Control uses current challenge rules; the candidate uses ${editor.candidate_policy === 'milestone_gates' ? 'milestone gates' : 'milestone plus tenure gates'}. Both arms keep ${rewardPolicyLabel(editor.config)} and ${expeditionBudgetLabel(editor.config.expedition_budget)}.` : editor.candidate_policy === 'expedition_limits' ? `Control and candidate both use ${rewardPolicyLabel(editor.config)}. The control has unlimited expeditions; only the candidate launch or item limits change.` : 'Control uses installed reward rules.'} {gatePolicy(editor.candidate_policy) ? 'Waiting and unreachable challenges must be reviewed alongside reward timing.' : editor.candidate_policy === 'expedition_limits' ? '' : editor.candidate_policy === 'commitment100' ? 'The candidate reserves new promises before launch or drop, with 75 Coins for expeditions and 25 for random activity pouches. Existing and authored promises pay fully.' : 'The candidate omits excess expedition and pouch payouts in a hypothetical shared daily envelope.'}</p>
+            {!gatePolicy(editor.candidate_policy) && <p className="text-caption text-ink-secondary">Both arms keep the same challenge gates: {challengeGateLabel(editor.config.challenge_gates)}.</p>}
             {!scenariosMatch(controlRoutine(routine, editor.candidate_policy), editor.config) && <p role="status" className="text-ember-deep">The routine above differs from this experiment. Use it explicitly to update the saved assumptions.</p>}
             <Button variant="secondary" onClick={() => change('config', controlRoutine(routine, editor.candidate_policy))}>Use current routine</Button>
             <details><summary className="min-h-11 cursor-pointer py-3 font-semibold">Inspect experiment routine</summary><pre className="max-h-64 overflow-auto text-caption">{JSON.stringify(editor.config, null, 2)}</pre></details>

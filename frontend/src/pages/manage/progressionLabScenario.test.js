@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { importedScenario, scenariosMatch, validateEconomy, withPrintQuotes } from './progressionLabScenario';
 import { economyDefaults, economyMetadata, offerDefaults } from './progressionEconomyTestData';
+import { gateDefaults, gateMetadata, gateRule } from './progressionChallengeGateTestData';
 
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const metadata = { ...economyMetadata, defaults: { seed: 42, economy: economyDefaults }, limits: { seed: { min: 0, max: 2147483647 } } };
@@ -87,5 +88,39 @@ describe('Shared expedition budget imports', () => {
     for (const expedition_budget of [{}, { daily_launches: 1 }, { ...quota, daily_launches: true }, { ...quota, daily_items: 46 }, { ...quota, daily_launches: -1 }, { ...quota, daily_items: '3' }, { ...quota, daily_items: 1.5 }, { ...quota, user_id: 1 }]) {
       expect(() => importedScenario({ schema_version: 1, config: { seed: 42, expedition_budget } }, current)).toThrow();
     }
+  });
+});
+
+describe('Challenge gate imports', () => {
+  const current = { ...metadata, ...gateMetadata, defaults: { ...metadata.defaults, challenge_gates: gateDefaults } };
+  it('keeps historical reports on current rules and restores every explicit gate assumption', () => {
+    expect(importedScenario({ schema_version: 1, config: { seed: 42 } }, current).challenge_gates).toEqual(gateDefaults);
+    const challenge_gates = { ...gateDefaults, mode: 'milestone_tenure', start_date: '2026-01-04', rules: [gateRule] };
+    const result = importedScenario({ schema_version: 1, config: { seed: 42, challenge_gates } }, current);
+    expect(result.challenge_gates).toEqual(challenge_gates);
+    result.challenge_gates.rules[0].min_days = 20;
+    expect(challenge_gates.rules[0].min_days).toBe(14);
+  });
+  it.each([
+    ['unknown policy', (gates) => { gates.mode = 'live'; }],
+    ['private targeting', (gates) => { gates.child_id = 42; }],
+    ['invalid calendar date', (gates) => { gates.start_date = '2026-02-30'; }],
+    ['repeatable target', (gates) => { gates.rules[0].quest_id = 12; }],
+    ['unknown challenge', (gates) => { gates.rules[0].quest_id = 999; }],
+    ['unknown skill', (gates) => { gates.rules[0].skill_id = 999; }],
+    ['duplicate target', (gates) => { gates.rules.push({ ...gateRule }); }],
+    ['own prerequisite', (gates) => { gates.rules[0].prerequisite_quest_id = 11; }],
+    ['prerequisite cycle', (gates) => { gates.rules.push({ ...gateRule, quest_id: 10, prerequisite_quest_id: 11 }); }],
+    ['inverted availability', (gates) => { gates.rules[0].available_until = '2026-01-01'; }],
+    ['unknown rule field', (gates) => { gates.rules[0].reward_coins = 100; }],
+    ['fractional skill', (gates) => { gates.rules[0].skill_level = 1.5; }],
+    ['detached skill level', (gates) => { gates.rules[0].skill_id = null; }],
+    ['string elapsed days', (gates) => { gates.rules[0].min_days = '14'; }],
+    ['excess tenure', (gates) => { gates.rules[0].min_days = 366; }],
+    ['too many rules', (gates) => { gates.rules = Array.from({ length: 21 }, () => ({ ...gateRule })); }],
+  ])('rejects %s while preserving the selected inputs', (_name, edit) => {
+    const challenge_gates = { ...gateDefaults, rules: [{ ...gateRule }] };
+    edit(challenge_gates);
+    expect(() => importedScenario({ schema_version: 1, config: { seed: 42, challenge_gates } }, current)).toThrow();
   });
 });

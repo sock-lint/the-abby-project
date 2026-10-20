@@ -14,6 +14,9 @@ import expeditionBudgetComparison from '../../../contracts/api/fixtures/progress
 import decided from '../../../contracts/api/fixtures/progression-experiment-decided.json';
 import observations from '../../../contracts/api/fixtures/progression-observations-empty.json';
 import observed from '../../../contracts/api/fixtures/progression-experiment-observed.json';
+import challengeGateReport from '../../../contracts/api/fixtures/progression-lab-challenge-gates-report.json';
+import milestoneGateComparison from '../../../contracts/api/fixtures/progression-experiment-milestone-gates-comparison.json';
+import tenureGateComparison from '../../../contracts/api/fixtures/progression-experiment-tenure-gates-comparison.json';
 import { listProgressionExperiments, createProgressionExperiment, getProgressionExperiment, updateProgressionExperiment, compareProgressionExperiment, getProgressionComparison, recordProgressionDecision, getProgressionObservations, saveProgressionObservation } from './progressionExperiments';
 import { getProgressionLab, simulateProgressionLab } from './index';
 import { server } from '../test/server';
@@ -44,6 +47,40 @@ function expectPairedIncubation(response) {
 }
 
 describe('Progression lab shared API fixtures', () => {
+  it('transports real challenge gates and recorded availability separately from unchanged native totals', async () => {
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, challengeGateReport);
+    server.use(simulation.handler);
+    const response = await simulateProgressionLab(challengeGateReport.config);
+    expect(simulation.calls[0].body).toEqual(challengeGateReport.config);
+    expect(response.config.challenge_gates.mode).toBe('milestone_tenure');
+    expect(response.challenge_gates.native_finite_total).toBe(response.summary.finite_content_total);
+    expect(response.challenge_gates.gate_reachable_finite_total + response.challenge_gates.gate_unreachable_finite_total).toBe(response.challenge_gates.native_finite_total);
+    expect(response.challenge_gates.trials).toBe(response.config.trials);
+    expect(response.challenge_gates.targets.length).toBeGreaterThan(0);
+    for (const target of response.challenge_gates.targets) {
+      expect(target.unlocked_trials).toBeLessThanOrEqual(response.config.trials);
+      expect(target.completed_trials).toBeLessThanOrEqual(target.unlocked_trials);
+      if (target.unlocked_trials === 0) expect(target.p50_unlock_days).toBeNull();
+    }
+    expectRecordedIncubation(response);
+  });
+  it.each([['milestone_gates', 'milestones', milestoneGateComparison], ['tenure_gates', 'milestone_tenure', tenureGateComparison]])('keeps reward and expedition rules fixed in a real %s saved comparison', async (policy, mode, evidence) => {
+    const root = '/api/rpg/progression-lab/experiments/';
+    const create = spyHandler('post', new RegExp(`${root}$`), { id: 'gates-fixture', ...evidence.inputs });
+    const compare = spyHandler('post', new RegExp(`${root}gates-fixture/compare/$`), evidence);
+    server.use(create.handler, compare.handler);
+    await createProgressionExperiment(evidence.inputs);
+    expect(create.calls[0].body).toEqual(evidence.inputs);
+    expect(evidence.inputs).toMatchObject({ candidate_policy: policy, candidate_daily_coins: null, candidate_expedition_budget: { daily_launches: null, daily_items: null } });
+    const response = await compareProgressionExperiment('gates-fixture', { revision: 1 });
+    expect(compare.calls[0].body).toEqual({ revision: 1 });
+    expect(response.control.config.challenge_gates.mode).toBe('current');
+    expect(response.candidate.config.challenge_gates.mode).toBe(mode);
+    expect(response.control.config.challenge_gates.rules).toEqual(response.candidate.config.challenge_gates.rules);
+    for (const key of ['reward_budget', 'reward_commitment', 'expedition_budget', 'economy']) expect(response.control.config[key]).toEqual(response.candidate.config[key]);
+    expect(response.control.summary.finite_content_total).toBe(response.candidate.summary.finite_content_total);
+    expectPairedIncubation(response);
+  });
   it('transports server-owned experiment evidence and decisions without accepting client reports', async () => {
     const root = '/api/rpg/progression-lab/experiments/';
     const id = decided.id;

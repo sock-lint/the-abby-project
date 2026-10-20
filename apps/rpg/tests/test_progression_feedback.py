@@ -200,7 +200,9 @@ class ProgressionFeedbackTests(SimpleTestCase):
     def test_metadata_is_detached_and_explicit_about_remaining_live_design_work(self):
         metadata = feedback_metadata()
         self.assertEqual(metadata["max_targets"], 6)
-        self.assertEqual(len(metadata["metrics"]), 12)
+        self.assertEqual(len(metadata["metrics"]), 16)
+        self.assertTrue({"challenge_waiting_visits_p50", "challenge_available_visits_p50", "challenge_unreachable_total"}
+                        <= {row["key"] for row in metadata["metrics"]})
         proposal = metadata["proposal"]
         self.assertEqual(proposal["status"], "lab_prototype")
         self.assertTrue(proposal["evaluated_by_current_engine"])

@@ -441,6 +441,7 @@ class ProgressionExperiment(TimestampedModel):
     candidate_policy = models.CharField(max_length=20, default="envelope", choices=[
         ("envelope", "Daily income envelope"), ("commitment100", "100-Coin commitment prototype"),
         ("expedition_limits", "Shared expedition limits"),
+        ("milestone_gates", "Challenge milestone gates"), ("tenure_gates", "Challenge milestone and tenure gates"),
     ])
     candidate_expedition_budget = models.JSONField(default=dict)
     targets = models.JSONField(default=list)

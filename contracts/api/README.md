@@ -82,6 +82,19 @@ never authority to change live rewards. `progression-observations-empty.json`
 keeps a family cohort with no eligible children as insufficient evidence;
 simulated outcomes never become observed behavior. The same progression
 producer and React consumer modules above verify these contracts.
+
+`progression-lab-challenge-gates-report.json` and the
+`progression-experiment-milestone-gates-comparison.json` /
+`progression-experiment-tenure-gates-comparison.json` fixtures come from the
+same real anonymous endpoints. The recipe targets an explicit shared catalog
+challenge, prior challenge and named skill; the candidate changes only gate
+mode. Coin commitment and expedition quotas are identical in both arms.
+Fourteen elapsed days first allows offering on day 15. Calendar dates govern
+new offerings, while an offered window retains its full promised duration.
+Reached counts accompany conditional unlock/completion days. Active visits
+without an available one-off challenge are separated from waiting and
+exhaustion/expiry. Historical reports can omit this additive section. These
+fixtures contain synthetic global content and never configure live gates.
 `progression-experiment-observed.json` adds an immutable server-captured
 observation checkpoint; even saved empty evidence remains insufficient.
 

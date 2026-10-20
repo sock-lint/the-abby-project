@@ -165,6 +165,14 @@ best-effort policy and leave the quest retryable.
   Coin rules in both arms; the control has unlimited expedition quotas. Never
   conflate unavailable targets with additional runway or charge frozen claims
   against a later allowance. These are simulation policies, never live writers.
+  `challenge_gates` overlays anonymous completion, named-skill, elapsed-tenure
+  and calendar offering requirements. `current` ignores the recipe;
+  `milestones` applies prerequisites/skills/calendar; `milestone_tenure` adds
+  elapsed days from the first modeled visit. Gate notebook policies
+  `milestone_gates` / `tenure_gates` retain identical Coin rules, expedition
+  caps, recipe, seeds and catalog in both arms. Waiting active visits,
+  structurally unreachable targets and expired windows remain separate from
+  playable content. Never write these policies into live challenge definitions.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
 - Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.

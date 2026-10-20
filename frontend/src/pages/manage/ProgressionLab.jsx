@@ -27,6 +27,8 @@ import PetIncubationPolicy from './PetIncubationPolicy';
 import PetIncubationState from './PetIncubationState';
 import PetIncubationJourney from './PetIncubationJourney';
 import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
+import ProgressionChallengeGateControls from './ProgressionChallengeGateControls';
+import ProgressionChallengeGateReport from './ProgressionChallengeGateReport';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -180,8 +182,8 @@ function AccountProgressionLab() {
                 </details>
                 {metadata.presets?.length > 0 && <div className="space-y-2">
                   <p className="text-caption text-ink-secondary">Starting routines are editable examples, not observed player groups.</p>
-                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}), ...(previous.reward_budget ? { reward_budget: previous.reward_budget } : {}), ...(previous.reward_commitment ? { reward_commitment: previous.reward_commitment } : {}), ...(previous.expedition_budget ? { expedition_budget: previous.expedition_budget } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
-                  {(config.economy || config.reward_budget) && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing, Coin policy and expedition limits.</p>}
+                  <div className="flex flex-wrap gap-2">{metadata.presets.map((preset) => <Button key={preset.name} type="button" variant="secondary" onClick={() => { setConfig((previous) => ({ ...preset.config, ...(previous.economy ? { economy: previous.economy } : {}), ...(previous.reward_budget ? { reward_budget: previous.reward_budget } : {}), ...(previous.reward_commitment ? { reward_commitment: previous.reward_commitment } : {}), ...(previous.expedition_budget ? { expedition_budget: previous.expedition_budget } : {}), ...(previous.challenge_gates ? { challenge_gates: previous.challenge_gates } : {}) })); setFieldErrors({}); }}>Use {preset.name.toLowerCase()} routine</Button>)}</div>
+                  {(config.economy || config.reward_budget || config.challenge_gates) && <p className="text-caption text-ink-secondary">Routine presets keep your purchasing, Coin policy, expedition limits and challenge gates.</p>}
                 </div>}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <ChoiceField name="horizon_days" label="Forecast horizon" config={config} limits={metadata.limits} onChange={change} errors={fieldErrors} />
@@ -208,6 +210,7 @@ function AccountProgressionLab() {
                 {metadata.reward_commitment_defaults && <ProgressionCommitmentControls commitment={config.reward_commitment ?? metadata.reward_commitment_defaults}
                   onChange={(commitment) => setConfig((previous) => ({ ...previous, reward_commitment: commitment, ...(commitment.enabled ? { reward_budget: { daily_coins: null } } : {}) }))} error={fieldErrors.reward_commitment ?? fieldErrors['reward_commitment.enabled']} />}
                 {metadata.expedition_budget_defaults && metadata.expedition_budget_limits && <ProgressionExpeditionBudgetControls budget={config.expedition_budget ?? metadata.expedition_budget_defaults} limits={metadata.expedition_budget_limits} onChange={(budget) => change('expedition_budget', budget)} errors={fieldErrors} />}
+                {metadata.challenge_gates_defaults && metadata.challenge_gates_limits && <ProgressionChallengeGateControls gates={config.challenge_gates ?? metadata.challenge_gates_defaults} metadata={metadata} onChange={(gates) => change('challenge_gates', gates)} errors={fieldErrors} />}
                 {metadata.economy_defaults && metadata.economy_limits && <ProgressionEconomyControls economy={config.economy ?? metadata.economy_defaults} metadata={metadata}
                   onChange={(economy) => change('economy', economy)}
                   onExample={() => {
@@ -229,7 +232,7 @@ function AccountProgressionLab() {
             {!scenariosMatch(config, resultInputs ?? result.config) && <p role="status" className="text-body text-ember-deep">Inputs have changed. The report below still shows the last completed scenario.</p>}
             <Report key={`${result.config.seed}:${result.config.horizon_days}:${result.config.trials}`} report={result} baseline={baseline} onBaseline={() => setBaseline(result)} onClearBaseline={() => setBaseline(null)} />
           </>}
-          <ProgressionExperimentNotebook routine={config} />
+          <ProgressionExperimentNotebook routine={config} gateMetadata={metadata} />
           <Coverage coverage={(result ?? metadata).coverage} audit={(result ?? metadata).audit} catalog={(result ?? metadata).catalog} />
         </>}
       </>}
@@ -328,6 +331,7 @@ function Report({ report, baseline, onBaseline, onClearBaseline }) {
     {!report.reward_commitment?.enabled && <ProgressionRewardBudgetReport budget={report.reward_budget} baseline={baseline?.reward_commitment?.enabled ? null : baseline?.reward_budget} />}
     <ProgressionCommitmentReport commitment={report.reward_commitment} />
     <ProgressionExpeditionBudgetReport budget={report.expedition_budget} baseline={baseline?.expedition_budget} />
+    <ProgressionChallengeGateReport gates={report.challenge_gates} baseline={baseline?.challenge_gates} />
     <ProgressionEconomyReport economy={report.economy} baseline={baseline?.economy} config={report.config.economy} />
     <ParchmentCard className="space-y-3">
       <SectionHeader as="h3" title="Inspect a reproducible journey">Representative trial seed: {report.journey?.seed ?? report.config.seed}. This event log describes one child; the summaries above describe the whole group.</SectionHeader>

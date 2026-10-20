@@ -52,6 +52,11 @@
     "expedition_budget": {
       "daily_launches": 1,
       "daily_items": 1
+    },
+    "challenge_gates": {
+      "mode": "current",
+      "start_date": "2026-01-01",
+      "rules": []
     }
   },
   "catalog": {
@@ -65,8 +70,8 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "8c29fc76ef7b36912fa64856dd0fe35db26966d3c752721fc192e4aeb3224319",
-  "engine_version": "2026-10-18.5",
+  "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
+  "engine_version": "2026-10-19.1",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -4447,12 +4452,12 @@
     "longest_novelty_gap_p50": 22,
     "eligible_challenges": 1,
     "finite_breakdown": {
-      "middle": 1,
-      "quest": 1,
+      "cosmetic": 1,
       "mount": 1,
-      "badge": 1,
+      "quest": 1,
       "pet": 1,
-      "cosmetic": 1
+      "middle": 1,
+      "badge": 1
     },
     "level_p50": 6,
     "inventory_units_p50": 72,
@@ -11243,5 +11248,57 @@
       "The unlimited finite denominator removes both expedition quotas while retaining the same Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
       "Authored challenge items, activity drops, boosts and future launch/claim concurrency are outside these expedition slot quotas. This is a design comparison, not a live reservation protocol or retention prediction."
     ]
+  },
+  "challenge_gates": {
+    "mode": "current",
+    "config": {
+      "mode": "current",
+      "start_date": "2026-01-01",
+      "rules": []
+    },
+    "assumptions": [
+      "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
+      "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+      "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
+      "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
+      "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
+      "Waiting visits have no currently available unfinished challenge in that subset and at least one structurally reachable challenge locked by a gate or native badge. Visits after exhaustion or expiration are separate. Inactive dates and blocked challenges are not extra playable content.",
+      "Unlock and completion day percentiles are conditional on the trials that reached each event; reached counts include every trial. Unlocked means a native challenge window was actually offered by a new fact, not merely that its conditions became true on an inactive date.",
+      "Only one-off global challenges can receive new gates; a repeatable challenge may serve as a predecessor after its first completion. Missed direct-predecessor windows and offerings, and definite native completed-challenge badge dead ends, block descendants rather than generating waiting visits. Other native badge paths remain optimistic; a viable alternative or repeatable path prevents a definite dead-end claim.",
+      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses."
+    ],
+    "scope": "One-off global catalog challenges compatible with this routine; not all app activities.",
+    "trials": 3,
+    "targets": [
+      {
+        "quest_id": 561,
+        "name": "Regular lab chores",
+        "in_native_subset": true,
+        "reachable": true,
+        "unreachable_reasons": [],
+        "unlocked_trials": 3,
+        "p10_unlock_days": 1,
+        "p50_unlock_days": 1,
+        "p90_unlock_days": 1,
+        "completed_trials": 3,
+        "p10_completion_days": 1,
+        "p50_completion_days": 1,
+        "p90_completion_days": 1,
+        "temporarily_locked_trials": 0,
+        "expired_trials": 0,
+        "blocked_trials": 0,
+        "blocked_reasons": []
+      }
+    ],
+    "visits": {
+      "active_visits_p50": 22,
+      "with_available_challenge_p50": 1,
+      "without_available_challenge_p50": 21,
+      "waiting_for_gate_p50": 0,
+      "exhausted_or_expired_p50": 21
+    },
+    "native_finite_total": 6,
+    "gate_reachable_finite_total": 6,
+    "gate_unreachable_finite_total": 0
   }
 }
