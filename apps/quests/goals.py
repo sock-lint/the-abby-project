@@ -117,6 +117,9 @@ def _snapshot(goal):
         "skill_tags": goal.skill_tags, "items": items,
         "catalog_name": goal.catalog_definition.name if goal.catalog_definition_id else None,
         "catalog_type": goal.catalog_definition.quest_type if goal.catalog_definition_id else None,
+        **({"catalog_gate": {**goal.catalog_gate_snapshot,
+                              "opening_activity_id": goal.catalog_gate_activity_id}}
+           if goal.catalog_gate_snapshot else {}),
     }
 
 
@@ -143,7 +146,7 @@ def _first_pending_catalog_fact(user, definition, cutoff, offered_at):
     return None
 
 
-def _catalog_goals(user):
+def _catalog_goals(user, *, gate_activity=None, gated_only=False):
     offered_at = timezone.now()
     enrollment = ChallengeEnrollment.objects.filter(user=user).first()
     if enrollment is None:
@@ -165,9 +168,16 @@ def _catalog_goals(user):
     if user.role != "child":
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
-    definitions = list(QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids).prefetch_related(
+    queryset = QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids)
+    if gated_only:
+        queryset = queryset.filter(Q(prerequisite_quest__isnull=False) | Q(required_skill__isnull=False)
+                                   | Q(required_skill_level__gt=0))
+    definitions = list(queryset.select_related("prerequisite_quest", "required_skill", "required_badge").prefetch_related(
         "skill_tags__skill", "reward_items__item",
     ))
+    from .milestone_eligibility import (
+        gate_snapshot, has_milestone_gate, milestone_eligibility, prerequisite_completion,
+    )
     from apps.achievements.models import UserBadge
     earned = dict(UserBadge.objects.filter(user=user).values_list("badge_id", "earned_at"))
     # Legacy catalog promises can suppress enrollment on every read. Resolve
@@ -180,6 +190,14 @@ def _catalog_goals(user):
         if status == "active":
             active_deadlines.setdefault(definition_id, end_date)
     for definition in definitions:
+        gated = has_milestone_gate(definition)
+        # Reads and retries cannot accept a milestone offer or start its clock.
+        # This boundary was captured under the user lock before the fresh fact
+        # could complete a predecessor or earn its completion rewards.
+        if gated and (gate_activity is None or not milestone_eligibility(user, definition)["unlocked"]):
+            continue
+        if gated and any(definition_id == definition.pk for definition_id, _ in legacy_statuses):
+            continue  # A one-time accepted legacy window is not a fresh offer.
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
@@ -196,9 +214,25 @@ def _catalog_goals(user):
         if definition.required_badge_id:
             # Unlocking never retroactively counts facts from before the badge was earned.
             cutoff = max(cutoff, earned[definition.required_badge_id])
-        first_fact = _first_pending_catalog_fact(user, definition, cutoff, offered_at)
+        if gated:
+            if (gate_activity.voided or (gate_activity.trigger_type in {"homework_created", "creation_logged"}
+                    and gate_activity.context.get("catalog_eligible") is not True)):
+                continue
+            matching = {"metric": "damage" if definition.quest_type == "boss" else "count",
+                        "filter": definition.trigger_filter, "unit": "actions"}
+            if _amount(matching, gate_activity) <= 0:
+                continue
+            if definition.prerequisite_quest_id:
+                _, completed_at = prerequisite_completion(user, definition.prerequisite_quest_id)
+                if completed_at:
+                    cutoff = max(cutoff, completed_at)
+            first_fact = gate_activity.occurred_at
+            if first_fact < cutoff or first_fact > offered_at:
+                continue
+        else:
+            first_fact = _first_pending_catalog_fact(user, definition, cutoff, offered_at)
         starts_at = max(cutoff, first_fact or offered_at)
-        ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
+        goal, created = ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
             "is_catalog": True, "family": user.family, "name": definition.name, "description": definition.description,
             "metric": "damage" if definition.quest_type == "boss" else "count",
             "target": definition.target_value, "unit": "damage" if definition.quest_type == "boss" else "actions",
@@ -208,7 +242,11 @@ def _catalog_goals(user):
             "coin_reward": definition.coin_reward, "xp_reward": definition.xp_reward,
             "skill_tags": [{"skill_id": tag.skill_id, "xp_weight": tag.xp_weight} for tag in definition.skill_tags.all()],
             "reward_items": [{"item_id": reward.item_id, "quantity": reward.quantity} for reward in definition.reward_items.all()],
+            "catalog_gate_snapshot": gate_snapshot(definition) if gated else {},
+            "catalog_gate_activity_id": gate_activity.pk if gated else None,
         })
+        if gated and created:
+            _occurrence(goal, starts_at)
 
 
 def _occurrence_window(goal, at):
@@ -349,6 +387,8 @@ def _process(activity):
     if activity.voided:
         return receipts
     for goal in ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related("movement_type", "catalog_definition").order_by("pk"):
+        if goal.catalog_gate_activity_id is not None and activity.pk < goal.catalog_gate_activity_id:
+            continue
         if (goal.is_catalog and activity.trigger_type in {"homework_created", "creation_logged"}
                 and activity.context.get("catalog_eligible") is not True):
             continue
@@ -382,7 +422,8 @@ def _process(activity):
     return receipts
 
 
-def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None, occurred_on=None, context=None):
+def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None, occurred_on=None, context=None,
+                    *, fresh_milestone=False):
     """Persist a source fact, then evaluate it. A failed evaluation stays retryable."""
     if str(trigger_type) not in FACT_TRIGGERS:
         return {"activity": None, "goals": []}
@@ -406,10 +447,15 @@ def ingest_activity(user, source_type, source_id, trigger_type, occurred_at=None
         ChallengeEnrollment.objects.get_or_create(user=user, defaults={
             "starts_at": at, "timezone_name": str(zone), "discovery_tracking_started_at": timezone.now(),
         })
-        activity, _ = ChallengeActivity.objects.get_or_create(
+        activity, created = ChallengeActivity.objects.get_or_create(
             user=user, source_type=source_type, source_id=str(source_id), trigger_type=str(trigger_type),
             defaults={"occurred_at": at, "occurred_on": day, "context": safe_context},
         )
+        # This internal attestation is never inferred from incoming context or
+        # a newly observed old source. Normal live capture uses the trusted
+        # ReadingRewardService hook, before this retryable evaluator runs.
+        if created and fresh_milestone:
+            _catalog_goals(user, gate_activity=activity, gated_only=True)
     with transaction.atomic():
         lock_user(user)
         # Keep related user/family reads out of this row lock. The user gate
@@ -672,8 +718,21 @@ def list_goals(user):
     rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
              for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
+    from .milestone_eligibility import gated_definitions, prerequisite_unavailable
+    from .serializers import QuestDefinitionSerializer
+    accepted_ids = set(goals.values_list("catalog_definition_id", flat=True))
+    accepted_ids.update(Quest.objects.filter(participants__user=user).values_list("definition_id", flat=True))
+    locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
+        "reward_items__item", "skill_tags__skill",
+    ).order_by("quest_type", "name", "pk") if user.role == "child" else []
+    # A one-time prerequisite whose only window ended unfinished can never be
+    # met, so its successor is omitted rather than shown as "Coming next".
+    locked = [definition for definition in locked if not (
+        definition.prerequisite_quest_id and prerequisite_unavailable(user, definition.prerequisite_quest_id)
+    )]
     return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],
-            "challenge_receipts": [activity.context["_receipt"] for activity in receipts]}
+            "challenge_receipts": [activity.context["_receipt"] for activity in receipts],
+            "locked_catalog": QuestDefinitionSerializer(locked, many=True, context={"eligibility_user": user}).data}
 
 
 @transaction.atomic

@@ -185,10 +185,10 @@
       "stale": false,
       "freshness": "current",
       "binding": {
-        "engine_version": "2026-10-19.1",
-        "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
+        "engine_version": "2026-10-20.1",
+        "rules_fingerprint": "740dd59b2a474655767108363be00b69e058ffb6b8e9066cab4c2f029d1256c1",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
-        "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
+        "catalog_fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
         "source_commit": "unavailable"
       }
     }

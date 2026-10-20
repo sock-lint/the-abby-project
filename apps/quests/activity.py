@@ -139,6 +139,34 @@ def freeze_catalog_eligibility(user, trigger_type, context, *, eligible):
 
 
 @transaction.atomic
+def freeze_milestone_eligibility(user, trigger_type, context):
+    """Accept new milestone promises at the trusted new-source boundary only.
+
+    ReadingRewardService calls this once while creating its daily award, under
+    the same source/user transaction. Generic activity replay, source scans and
+    pending repairs must never call it: first observation is not first earning.
+    There is no client context flag or arbitrary timestamp tolerance.
+    """
+    from .goals import _catalog_goals
+    from .models import ChallengeActivity
+    if str(trigger_type) != "reading_logged" or user.role != "child":
+        return
+    from .milestone_eligibility import gated_definitions
+    if not gated_definitions().exists():
+        return  # Inactive support keeps native source/pin ordering unchanged.
+    get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+    data = resolve_activity(user, trigger_type, context)
+    if data is None:
+        return
+    identity = {field: data[field] for field in ("source_type", "source_id", "trigger_type")}
+    activity, created = ChallengeActivity.objects.get_or_create(user=user, **identity, defaults={
+        key: data[key] for key in ("occurred_at", "occurred_on", "context")
+    })
+    if created:
+        _catalog_goals(user, gate_activity=activity, gated_only=True)
+
+
+@transaction.atomic
 def record_activity(user, trigger_type, context=None):
     """Persist before evaluation so a failed downstream step stays retryable."""
     from .models import ChallengeActivity
