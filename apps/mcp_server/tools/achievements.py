@@ -21,6 +21,7 @@ from apps.rpg.content.authoring import (
     require_catalog_ownership, validate_catalog_object, validate_skill_prerequisites,
 )
 from apps.rpg.content.loader import ContentPackError
+from apps.rpg.content.taxonomy_deletion import IN_USE_DETAIL, TaxonomyInUse, delete_taxonomy
 
 from ..context import get_current_user, resolve_target_user, require_staff_parent
 from ..errors import (
@@ -148,6 +149,13 @@ def _subject_to_dict(subject: Subject) -> dict[str, Any]:
 # ---- Category ------------------------------------------------------------
 
 
+def _delete_taxonomy(actor, model, object_id):
+    try:
+        delete_taxonomy(actor, model, object_id)
+    except TaxonomyInUse:
+        raise MCPValidationError(IN_USE_DETAIL, code="taxonomy_in_use") from None
+
+
 def _direct_authoring(function):
     """Give legacy direct tools the same catalog fence and durable ownership."""
     models = {"category": SkillCategory, "subject": Subject, "skill": Skill, "badge": Badge}
@@ -233,21 +241,10 @@ def update_category(params: UpdateCategoryIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-@_direct_authoring
 def delete_category(params: DeleteCategoryIn) -> dict[str, Any]:
-    """Delete a skill category. Cascades to subjects, skills, and dependent rows.
-
-    Parent-only. Use with care — projects tagged to this category will
-    have ``category=None`` (SET_NULL on Project.category).
-    """
-    require_staff_parent()
-    try:
-        category = SkillCategory.objects.get(pk=params.category_id)
-    except SkillCategory.DoesNotExist:
-        raise MCPNotFoundError(f"Category {params.category_id} not found.")
-    category_id = category.pk
-    category.delete()
-    return {"category_id": category_id, "deleted": True}
+    """Delete an unused, unmanaged category; references and saved history block deletion."""
+    _delete_taxonomy(require_staff_parent(), SkillCategory, params.category_id)
+    return {"category_id": params.category_id, "deleted": True}
 
 
 # ---- Subject -------------------------------------------------------------
@@ -314,17 +311,10 @@ def update_subject(params: UpdateSubjectIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-@_direct_authoring
 def delete_subject(params: DeleteSubjectIn) -> dict[str, Any]:
-    """Delete a subject. Skills in it keep their category but lose the subject FK (SET_NULL). Parent-only."""
-    require_staff_parent()
-    try:
-        subject = Subject.objects.get(pk=params.subject_id)
-    except Subject.DoesNotExist:
-        raise MCPNotFoundError(f"Subject {params.subject_id} not found.")
-    subject_id = subject.pk
-    subject.delete()
-    return {"subject_id": subject_id, "deleted": True}
+    """Delete an unused, unmanaged subject without detaching skills or badges."""
+    _delete_taxonomy(require_staff_parent(), Subject, params.subject_id)
+    return {"subject_id": params.subject_id, "deleted": True}
 
 
 # ---- Skill ---------------------------------------------------------------
@@ -437,17 +427,10 @@ def update_skill(params: UpdateSkillIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-@_direct_authoring
 def delete_skill(params: DeleteSkillIn) -> dict[str, Any]:
-    """Delete a skill (staff-parent-only). Cascades to SkillPrerequisite + SkillProgress + tags."""
-    require_staff_parent()
-    try:
-        skill = Skill.objects.get(pk=params.skill_id)
-    except Skill.DoesNotExist:
-        raise MCPNotFoundError(f"Skill {params.skill_id} not found.")
-    skill_id = skill.pk
-    skill.delete()
-    return {"skill_id": skill_id, "deleted": True}
+    """Delete an unused, unmanaged skill; progress, tags and saved promises are preserved."""
+    _delete_taxonomy(require_staff_parent(), Skill, params.skill_id)
+    return {"skill_id": params.skill_id, "deleted": True}
 
 
 @tool()
@@ -581,14 +564,7 @@ def update_badge(params: UpdateBadgeIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
-@_direct_authoring
 def delete_badge(params: DeleteBadgeIn) -> dict[str, Any]:
-    """Delete a badge definition. UserBadge rows referencing it cascade. Parent-only."""
-    require_staff_parent()
-    try:
-        badge = Badge.objects.get(pk=params.badge_id)
-    except Badge.DoesNotExist:
-        raise MCPNotFoundError(f"Badge {params.badge_id} not found.")
-    badge_id = badge.pk
-    badge.delete()
-    return {"badge_id": badge_id, "deleted": True}
+    """Delete an unused, unmanaged badge without removing recognition or quest gates."""
+    _delete_taxonomy(require_staff_parent(), Badge, params.badge_id)
+    return {"badge_id": params.badge_id, "deleted": True}

@@ -12,6 +12,7 @@ import { useApi } from '../../hooks/useApi';
 import Button from '../../components/Button';
 import IconButton from '../../components/IconButton';
 import { normalizeList } from '../../utils/api';
+import { skillDisplayLabel } from '../../utils/skillLabels';
 import CategoryFormModal from './CategoryFormModal';
 import SubjectFormModal from './SubjectFormModal';
 import SkillFormModal from './SkillFormModal';
@@ -34,7 +35,10 @@ export default function ManagePanel({ categories, reloadCategories }) {
   const [error, setError] = useState('');
 
   const subjects = normalizeList(subjectsData);
-  const skills = normalizeList(skillsData);
+  const skills = normalizeList(skillsData).map((skill) => ({
+    ...skill,
+    category_name: skill.category_name || categories.find((category) => category.id === skill.category)?.name,
+  }));
   const badges = normalizeList(badgesData);
 
   const refreshAll = () => {
@@ -61,7 +65,7 @@ export default function ManagePanel({ categories, reloadCategories }) {
     { key: 'badges', label: 'Badges', count: badges.length },
   ];
 
-  const renderRow = (item, type, extra) => (
+  const renderRow = (item, type, extra, actionLabel = item.name) => (
     <ParchmentCard key={item.id} className="flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
         {item.icon && <span className="text-lg shrink-0">{item.icon}</span>}
@@ -75,16 +79,16 @@ export default function ManagePanel({ categories, reloadCategories }) {
           onClick={() => setModal({ type, item })}
           variant="ghost"
           size="sm"
-          aria-label={`Edit ${type} ${item.name}`}
+          aria-label={`Edit ${type} ${actionLabel}`}
           className="hover:bg-ink-page-shadow/60 text-ink-whisper hover:text-ink-primary"
         >
           <Pencil size={14} />
         </IconButton>
         <IconButton
-          onClick={() => setDeleteTarget({ type, id: item.id, label: item.name })}
+          onClick={() => setDeleteTarget({ type, id: item.id, label: actionLabel })}
           variant="ghost"
           size="sm"
-          aria-label={`Delete ${type} ${item.name}`}
+          aria-label={`Delete ${type} ${actionLabel}`}
           className="hover:bg-ember/20 text-ink-whisper hover:text-ember-deep"
         >
           <Trash2 size={14} />
@@ -119,7 +123,7 @@ export default function ManagePanel({ categories, reloadCategories }) {
         })}
         {manageTab === 'skills' && skills.map((s) => {
           const cat = categories.find((c) => c.id === s.category);
-          return renderRow(s, 'skill', `${cat?.icon || ''} ${cat?.name || ''} ${s.subject_name ? `/ ${s.subject_name}` : ''}`);
+          return renderRow(s, 'skill', `${cat?.icon || ''} ${cat?.name || ''} ${s.subject_name ? `/ ${s.subject_name}` : ''}`, skillDisplayLabel(s, skills));
         })}
         {manageTab === 'badges' && badges.map((b) => (
           renderRow(b, 'badge', `${b.criteria_type.replace(/_/g, ' ')} • ${b.rarity}`)

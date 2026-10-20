@@ -636,6 +636,12 @@ the pinned editor and batch-mode commands.
 
 ## Update an intentional API change
 
+Protected taxonomy deletion uses `taxonomy-delete-in-use.json`, produced by
+`config.tests.test_taxonomy_delete_api_contract_fixtures` and consumed by
+`src/api/taxonomyContractFixtures.test.jsx`. REST returns 409 with a readable
+`detail` and `code: taxonomy_in_use`; management retains the row and displays
+the explanation. Successful DELETE responses remain 204 without a JSON body.
+
 Review the server and affected React consumers first. Regenerate only through the
 backend suite so sample payloads cannot drift into invented shapes. In PowerShell,
 after configuring the test environment:

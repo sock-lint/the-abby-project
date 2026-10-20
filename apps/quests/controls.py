@@ -252,6 +252,8 @@ def update_schedule(actor, goal_id, data):
     if changes or data.get("paused") is not True:
         validator = GoalWriteSerializer(data=validation, context={"request": SimpleNamespace(user=goal.user)})
         validator.is_valid(raise_exception=True)
+        from .goals import _lock_reward_skills
+        _lock_reward_skills(snapshot.get("skill_tags", []))
     ChallengeSchedule.objects.update_or_create(goal=goal, starts_at=start, defaults={
         "snapshot": snapshot, "paused": data.get("paused", paused),
     })

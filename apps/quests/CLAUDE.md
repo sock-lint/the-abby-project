@@ -2,6 +2,14 @@
 
 Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+Explicit `trigger_filter.skill_category_id` in private quest creation is rechecked
+by `reference_locks.lock_filter_category` inside the write transaction, after the
+definition INSERT has acquired its catalog-table write lock. PostgreSQL
+`KEY SHARE` then retains the category until commit without reversing taxonomy
+deletion's table/row lock order. Missing IDs roll back the definition and any MCP
+receipt; identical UUID replay retains its original response. Regression coverage
+is in `tests/test_category_reference_safety.py`.
+
 ## Supported rewards and reachable prerequisites (October 2026)
 
 The parent challenge catalog sorts by type, name, then primary key. A system
@@ -163,6 +171,13 @@ retryable expired catalog goal and paused parent rule stays discoverable beyond
 the normal history limit. PostgreSQL races are in `test_goal_control_concurrency`;
 the real upgrade preservation check also covers migration 0012.
 
+New parent goals and validated future setups hold their referenced skill IDs
+with PostgreSQL `KEY SHARE` until the JSON reward promise commits. Safe taxonomy
+deletion takes a full target lock and rechecks committed promises. UUID replays
+return the accepted occurrence; a pure pause can still stop legacy rules with a
+missing skill. `test_goal_skill_reference_safety` covers stale validation and
+both real PostgreSQL writer/deletion races.
+
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
 Catalog detail discovery records presentation separately from progress.
@@ -247,7 +262,7 @@ DST. React includes the year in saved periods and the exact exclusive deadline
 in goal details; showing only the final included date must not imply that a
 rolling period accepts work through the end of that entire day.
 
-The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the explicit Persistence fallback and reports only actual unlocked-skill credit.
+The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit.
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.
 

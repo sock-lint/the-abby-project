@@ -1,4 +1,5 @@
 from rest_framework import viewsets
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -12,21 +13,49 @@ from .serializers import (
     SubjectSerializer, SubjectWriteSerializer, UserBadgeSerializer,
 )
 from .services import SkillService
+from apps.rpg.content.taxonomy_deletion import delete_taxonomy
+from apps.rpg.content.authoring import direct_catalog_write
+from apps.rpg.content.loader import ContentPackError
+
+
+class SafeTaxonomyDeleteMixin:
+    def perform_destroy(self, instance):
+        delete_taxonomy(self.request.user, type(instance), instance.pk)
 
 
 # All four ViewSets author GLOBAL content shared across every family in a
 # deployment. Gate writes on IsStaffParent so a signup-created parent in one
 # family can't rename/delete a Skill or Badge that other families' children
 # are progressing toward. Reads stay open to any authenticated user.
-class SkillCategoryViewSet(StaffParentWritePermissionMixin, viewsets.ModelViewSet):
+class SkillCategoryViewSet(SafeTaxonomyDeleteMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = SkillCategory.objects.all()
     serializer_class = SkillCategorySerializer
 
 
-class BadgeViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
+class BadgeViewSet(SafeTaxonomyDeleteMixin, WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Badge.objects.all()
     serializer_class = BadgeSerializer
     write_serializer_class = BadgeWriteSerializer
+
+    def _save_badge(self, serializer):
+        try:
+            with direct_catalog_write(self.request.user):
+                if serializer.instance is not None:
+                    # A PATCH merges with the row current after the fence,
+                    # rather than saving the pre-validation stale instance.
+                    current = Badge.objects.select_for_update().filter(pk=serializer.instance.pk).first()
+                    if current is None:
+                        raise NotFound("Badge not found.")
+                    serializer.instance = current
+                serializer.save()
+        except ContentPackError:
+            raise PermissionDenied("This taxonomy entry is read-only here.") from None
+
+    def perform_create(self, serializer):
+        self._save_badge(serializer)
+
+    def perform_update(self, serializer):
+        self._save_badge(serializer)
 
     def get_queryset(self):
         user = self.request.user
@@ -45,13 +74,13 @@ class UserBadgeViewSet(viewsets.ReadOnlyModelViewSet):
         ).select_related("badge")
 
 
-class SubjectViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
+class SubjectViewSet(SafeTaxonomyDeleteMixin, WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Subject.objects.select_related("category").all()
     serializer_class = SubjectSerializer
     write_serializer_class = SubjectWriteSerializer
 
 
-class SkillViewSet(WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
+class SkillViewSet(SafeTaxonomyDeleteMixin, WriteReadSerializerMixin, StaffParentWritePermissionMixin, viewsets.ModelViewSet):
     queryset = Skill.objects.select_related("category", "subject").all()
     serializer_class = SkillSerializer
     write_serializer_class = SkillWriteSerializer

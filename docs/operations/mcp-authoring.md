@@ -445,9 +445,26 @@ Direct taxonomy/badge writes validate complete merged candidates and preserve
 original source identities across matching bundled reloads. Another family's
 owned pack/override is read-only. Numeric badge thresholds require JSON numbers;
 numeric strings, booleans and nonfinite values are rejected. Taxonomy must retain
-matching categories/subjects and an acyclic prerequisite graph. Explicit legacy
-hard-delete tools retain their documented destructive semantics; removing a draft
-or pack does not grant permission to cascade-delete earned history.
+matching categories/subjects and an acyclic prerequisite graph. Taxonomy deletes
+remove only unused, unmanaged entries: progress, earned badges, tags, prerequisites,
+saved challenge promises and retained source dependencies block deletion. Managed
+bundled/pack definitions require reviewed source reconciliation. REST returns 409
+with a readable `detail` and `code: taxonomy_in_use`; MCP returns that structured
+code. Errors expose no private dependency names or counts. Unused caller-owned
+direct entries can be deleted with their own override metadata atomically.
+Private quest category filters recheck their explicit IDs within the creation
+transaction; a missing category rolls back both the new definition and its MCP
+receipt. Identical request replay still returns the saved original response.
+
+Skill identities include their category. Duplicate labels show their category in
+the native pickers; MCP writes continue to use numeric IDs. Quest YAML references
+accept a unique bare name or `Category::Skill`; bare prerequisites within a skill
+tree refer to that skill's category. Ambiguous qualified spellings are rejected,
+including collisions caused by literal `::` in category or skill names. Subject
+assignment also resolves the exact category/subject pair. Automatic
+daily bonus fallback XP targets `Life Skills::Persistence`, and sample movement
+tags target Physical skills. An absent canonical skill never selects another
+category's namesake.
 
 Pack relationship edits distinguish omission from explicit clearing:
 `required_badge` omitted retains its value; null clears it. Skill `prereqs`

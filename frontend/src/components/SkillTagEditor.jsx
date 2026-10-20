@@ -3,6 +3,7 @@ import { X, Plus } from 'lucide-react';
 import { SelectField } from './form';
 import Button from './Button';
 import IconButton from './IconButton';
+import { skillDisplayLabel } from '../utils/skillLabels';
 
 /**
  * Parent UI for editing `skill_tags` on chores, habits, and quests.
@@ -103,7 +104,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange, empt
                       <optgroup key={cat} label={cat}>
                         {list.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {s.icon ? `${s.icon} ` : ''}{s.name}
+                            {s.icon ? `${s.icon} ` : ''}{skillDisplayLabel(s, skills)}
                           </option>
                         ))}
                       </optgroup>
@@ -127,7 +128,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange, empt
               </div>
               <IconButton
                 onClick={() => removeRow(idx)}
-                aria-label={`Remove ${skill?.name || 'skill tag'}`}
+                aria-label={`Remove ${skill ? skillDisplayLabel(skill, skills) : 'skill tag'}`}
                 variant="ghost"
                 size="sm"
                 className="mt-1"

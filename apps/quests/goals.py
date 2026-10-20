@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import F, Prefetch, Q, Sum, prefetch_related_objects
 from django.utils import timezone
 from apps.rpg.catalog_icons import challenge_catalog_icon
@@ -529,6 +529,32 @@ def void_activity(user, source_type, source_id):
         occurrence.save(update_fields=["progress", "updated_at"])
 
 
+def _lock_reward_skills(tags):
+    """Hold referenced skill identities until the surrounding JSON write commits.
+
+    JSON promises have no database FK. KEY SHARE cooperates with ordinary XP
+    writers while conflicting with taxonomy deletion's full target-row lock.
+    """
+    from apps.achievements.models import Skill
+    ids = sorted({row["skill_id"] for row in tags})
+    if not ids:
+        return
+    if connection.vendor == "postgresql":
+        table = connection.ops.quote_name(Skill._meta.db_table)
+        column = connection.ops.quote_name(Skill._meta.pk.column)
+        placeholders = ", ".join(["%s"] * len(ids))
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"SELECT {column} FROM {table} WHERE {column} IN ({placeholders}) "
+                f"ORDER BY {column} FOR KEY SHARE", ids,
+            )
+            found = {row[0] for row in cursor.fetchall()}
+    else:
+        found = set(Skill.objects.filter(pk__in=ids).values_list("pk", flat=True))
+    if found != set(ids):
+        raise ValueError("Choose existing skills.")
+
+
 @transaction.atomic
 def create_goal(parent, child, data):
     if parent.role != "parent" or child.role != "child" or child.family_id != parent.family_id:
@@ -546,6 +572,7 @@ def create_goal(parent, child, data):
             if previous.request_fingerprint != fingerprint:
                 raise ValueError("request_id was already used for different goal details")
             return previous.occurrences.order_by("starts_at").first()
+    _lock_reward_skills(data.get("skill_tags", []))
     zone, today = family_zone(child), timezone.localtime(timezone.now(), family_zone(child)).date()
     if data["period"] == "this_week":
         start = today - timedelta(days=today.weekday())

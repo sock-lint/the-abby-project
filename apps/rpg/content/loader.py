@@ -204,8 +204,31 @@ class ContentPack:
             Q(**lookup) | Q(pk__in=overrides.values("object_id")),
         ).order_by("pk")[:2])
 
-    def _resolved_quest_skill_tags(self, entry):
+    def _qualified_skill_matches(self, reference):
+        """Reject spellings shared by different category/skill pairs."""
         from apps.achievements.models import Skill, SkillCategory
+
+        category_limit = SkillCategory._meta.get_field("name").max_length
+        skill_limit = Skill._meta.get_field("name").max_length
+        matches = {}
+        for boundary in range(1, min(len(reference) - 1, category_limit + 1)):
+            if reference[boundary:boundary + 2] != "::":
+                continue
+            category, name = reference[:boundary], reference[boundary + 2:]
+            if not name or len(name) > skill_limit:
+                continue
+            categories = self._source_reference_matches(SkillCategory, name=category)
+            if len(categories) > 1:
+                return []
+            if categories:
+                for skill in self._source_reference_matches(Skill, category=categories[0], name=name):
+                    matches[skill.pk] = skill
+            if len(matches) > 1:
+                break
+        return list(matches.values())
+
+    def _resolved_quest_skill_tags(self, entry):
+        from apps.achievements.models import Skill
         resolved = []
         seen = set()
         for tag in entry.get("skill_tags") or []:
@@ -214,9 +237,7 @@ class ContentPack:
             if not isinstance(reference, str) or not reference:
                 raise ContentPackError("Quest skill references must be nonempty names.")
             if "::" in reference:
-                category, name = reference.split("::", 1)
-                categories = self._source_reference_matches(SkillCategory, name=category)
-                matches = self._source_reference_matches(Skill, category=categories[0], name=name) if len(categories) == 1 else []
+                matches = self._qualified_skill_matches(reference)
             else:
                 matches = self._source_reference_matches(Skill, name=reference)
             if len(matches) != 1:
@@ -451,7 +472,7 @@ class ContentPack:
             self.stats.bump("created" if created else "updated", "skill_category")
 
         # Subjects (grouping tier between Category and Skill). Unique per category.
-        subject_by_key: dict[str, Any] = {}
+        subject_by_key: dict[tuple[str, str], Any] = {}
         for entry in data.get("subjects", []) or []:
             cat_name = entry["category"]
             if cat_name not in cat_by_name:
@@ -467,11 +488,11 @@ class ContentPack:
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
-            subject_by_key[f"{cat_name}::{entry['name']}"] = obj
+            subject_by_key[cat_name, entry["name"]] = obj
             self.stats.bump("created" if created else "updated", "subject")
 
         # Skills (category resolved by name; skill has composite unique (category, name))
-        skill_by_key: dict[str, Any] = {}
+        skill_by_key: dict[tuple[str, str], Any] = {}
         skill_prereqs: list[dict] = []
         explicit_prereqs: dict[int, list[int]] = {}
         for entry in data.get("skills", []) or []:
@@ -489,7 +510,7 @@ class ContentPack:
             }
             subject_name = entry.get("subject")
             if subject_name:
-                subject_key = f"{cat_name}::{subject_name}"
+                subject_key = (cat_name, subject_name)
                 subject = subject_by_key.get(subject_key)
                 if not subject:
                     raise ContentPackError(
@@ -501,8 +522,7 @@ class ContentPack:
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
-            skill_by_key[f"{cat_name}::{entry['name']}"] = obj
-            skill_by_key[entry["name"]] = obj  # allow unscoped lookups
+            skill_by_key[cat_name, entry["name"]] = obj
             self.stats.bump("created" if created else "updated", "skill")
             from .authoring import preserves_skill_prerequisites
             if preserves_skill_prerequisites(obj):
@@ -521,8 +541,11 @@ class ContentPack:
                 })
 
         # Prerequisites (after all skills exist)
+        qualified_skills = {}
+        for (category, name), skill in skill_by_key.items():
+            qualified_skills.setdefault(f"{category}::{name}", {})[skill.pk] = skill
         for p in skill_prereqs:
-            skill = skill_by_key[f"{p['category']}::{p['skill_name']}"]
+            skill = skill_by_key[p["category"], p["skill_name"]]
             req = p["requires"]
             # Accept: "Skill Name" (same category) or "Category::Skill Name"
             if isinstance(req, dict):
@@ -532,9 +555,15 @@ class ContentPack:
                 name = req
                 level = 2
             if "::" in name:
-                req_skill = skill_by_key.get(name)
+                matches = qualified_skills.get(name, {})
+                if len(matches) > 1:
+                    raise ContentPackError(
+                        f"skill {p['skill_name']!r} references ambiguous prereq {name!r}; "
+                        "use an unambiguous category-qualified skill name."
+                    )
+                req_skill = next(iter(matches.values()), None)
             else:
-                req_skill = skill_by_key.get(f"{p['category']}::{name}")
+                req_skill = skill_by_key.get((p["category"], name))
             if not req_skill:
                 raise ContentPackError(
                     f"skill {p['skill_name']!r} references unknown prereq {name!r}"

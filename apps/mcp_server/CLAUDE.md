@@ -211,5 +211,7 @@ for scopes, revisions, replay identities, quotas and publication contracts.
 Private reads/replays and household materialization retain current-account
 checks under family/member locks. Catalog projections omit household usage.
 Editorial publication edits copy/selection; installed mechanics and assets remain
-separate reviewed changes. Explicit legacy hard deletes retain their existing
-semantics; they are not a replacement for reviewed publication/versioning.
+separate reviewed changes. Taxonomy hard deletes remove only unused, unmanaged
+leaves. Referenced or managed definitions report `taxonomy_in_use`; saved progress,
+earned badges, tags and challenge promises are preserved. REST shares the same
+deletion service. Reviewed publication/versioning governs source retirement.

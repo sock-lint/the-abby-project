@@ -151,10 +151,10 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `create_category` | `mcp:publish` | No | — | Create a new skill category (staff-parent-only). |
 | `create_skill` | `mcp:publish` | No | — | Create a skill inside a category/subject (staff-parent-only). |
 | `create_subject` | `mcp:publish` | No | — | Create a subject inside a category (staff-parent-only). |
-| `delete_badge` | `mcp:publish` | No | Required | Delete a badge definition. UserBadge rows referencing it cascade. Parent-only. |
-| `delete_category` | `mcp:publish` | No | Required | Delete a skill category. Cascades to subjects, skills, and dependent rows. |
-| `delete_skill` | `mcp:publish` | No | Required | Delete a skill (staff-parent-only). Cascades to SkillPrerequisite + SkillProgress + tags. |
-| `delete_subject` | `mcp:publish` | No | Required | Delete a subject. Skills in it keep their category but lose the subject FK (SET_NULL). Parent-only. |
+| `delete_badge` | `mcp:publish` | No | Required | Delete an unused, unmanaged badge; earned awards and references block deletion. |
+| `delete_category` | `mcp:publish` | No | Required | Delete an unused, unmanaged category; children and references block deletion. |
+| `delete_skill` | `mcp:publish` | No | Required | Delete an unused, unmanaged skill; progress, tags, prerequisites and saved promises block deletion. |
+| `delete_subject` | `mcp:publish` | No | Required | Delete an unused, unmanaged subject; attached skills and badges block deletion. |
 | `get_skill_tree` | `mcp:read` | Yes | — | Full nested skill tree for a category with the target user's progress. |
 | `list_badges` | `mcp:catalog` | Yes | — | List all defined badges, optionally filtered by rarity. |
 | `list_earned_badges` | `mcp:read` | Yes | — | List badges the target user has earned, newest first. |

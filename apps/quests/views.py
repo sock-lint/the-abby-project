@@ -134,6 +134,8 @@ class CreateQuestView(APIView):
                     trigger_filter=data.get("trigger_filter", {}),
                     created_by=request.user,
                 )
+                from .reference_locks import lock_filter_category
+                lock_filter_category(definition.trigger_filter)
 
                 # Skill tag fanout — dedup on skill_id; bulk_create.
                 if skill_tag_rows:

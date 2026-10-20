@@ -7,6 +7,7 @@ import { TextAreaField, SelectField } from './form';
 import { formLabelClass } from '../constants/styles';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
+import { skillDisplayLabel } from '../utils/skillLabels';
 import { downscaleImage } from '../utils/image';
 import { createCreation, getCreationTodayStatus, getSkills } from '../api';
 
@@ -195,7 +196,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
           {skillsByCategory.map(([catName, catSkills]) => (
             <optgroup key={catName} label={catName}>
               {catSkills.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{skillDisplayLabel(s, skills)}</option>
               ))}
             </optgroup>
           ))}
@@ -213,7 +214,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
               {catSkills
                 .filter((s) => String(s.id) !== primary)
                 .map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{skillDisplayLabel(s, skills)}</option>
                 ))}
             </optgroup>
           ))}

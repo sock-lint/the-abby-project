@@ -39,6 +39,19 @@ live in `tests/test_badge_availability_queries.py`.
 - 58 criterion types in `Badge.CriteriaType` — see "XP/Badges" gotcha for the criterion overview.
 
 ## Services
+
+Taxonomy deletion is shared by REST and MCP through
+`apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be
+removed. Incoming relationships, saved challenge reward/gate snapshots, retained
+source dependencies and managed bundled/pack identities block deletion. REST
+returns HTTP 409 with `detail` and `code: taxonomy_in_use`; MCP reports the same
+code without private dependency names or counts. Another family's authored entry
+is read-only. An unused caller-owned direct entry can be removed with its direct
+override metadata in the same transaction; managed source retirement requires
+reviewed source reconciliation. Full target-row locks prevent incoming FK races.
+REST badge create/update joins the catalog write fence and rechecks current staff
+authority before saving; PATCH merges with the row current after that fence.
+
 - `SkillService` — `distribute_tagged_xp(user, tags, pool)` — splits by `xp_weight`.
 - `BadgeService` — badge evaluation across all criterion types.
 - `AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, xp_tags, xp_source_label, badge_scopes, …)` — **unified distribution helper**. Paired XP + coin + optional money ledger entry. Single entry point for all award flows. Applies `xp_boost_multiplier(user)` from `apps/rpg/services` before distributing XP (boosted total flows through tag-weighted splits; original base preserved in activity extras). Inner `CoinService`/`PaymentService` calls are wrapped in `activity_scope(suppress_inner_ledger=True)` to avoid double-logging. `badge_scopes` limits badge evaluation to the relevant criterion families for performance (see Badge Scopes below).

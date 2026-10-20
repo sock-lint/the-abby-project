@@ -118,9 +118,13 @@ class Command(BaseCommand):
     def _resolve_skill_map(self):
         from apps.achievements.models import Skill
         skill_map = {}
+        by_name = {}
         for skill in Skill.objects.select_related("category").all():
-            skill_map[f"{skill.category.name}::{skill.name}"] = skill
-            skill_map[skill.name] = skill
+            skill_map[(skill.category.name, skill.name)] = skill
+            by_name.setdefault(skill.name, []).append(skill)
+        # Tuple identities cannot collide with literal "::" inside a name.
+        # Retain shorthand only when its name identifies exactly one skill.
+        skill_map.update((name, rows[0]) for name, rows in by_name.items() if len(rows) == 1)
         return skill_map
 
     def _create_users(self):
@@ -220,7 +224,7 @@ class Command(BaseCommand):
 
             for skill_name, weight in proj_data.get("skills", []):
                 cat_name = proj_data["category"]
-                skill = skill_map.get(f"{cat_name}::{skill_name}")
+                skill = skill_map.get((cat_name, skill_name))
                 if skill:
                     ProjectSkillTag.objects.get_or_create(
                         project=project, skill=skill,
@@ -445,7 +449,7 @@ class Command(BaseCommand):
         Each entry maps a session activity to one or more Physical-category
         skills with weights — these become the parent-authored defaults
         that ``MovementSessionService.log_session`` distributes XP across.
-        Skill names lookup against ``skill_map``; missing skills are
+        Skill identities resolve within Physical; missing skills are
         skipped silently so this seed survives a partial skill_tree.yaml
         edit. Re-running is a no-op via ``get_or_create`` on slug.
         """
@@ -489,9 +493,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"  Created movement type: {mt.name}")
             # Idempotent skill-tag fan-out — only inserts missing rows.
             for skill_name, weight in tags:
-                skill = skill_map.get(skill_name) or skill_map.get(
-                    f"Physical::{skill_name}"
-                )
+                skill = skill_map.get(("Physical", skill_name))
                 if skill is None:
                     continue
                 MovementTypeSkillTag.objects.get_or_create(

@@ -197,6 +197,8 @@ def create_quest_definition(
             is_repeatable=params.is_repeatable, is_system=False,
             required_badge=required_badge, created_by=actor,
         )
+        from apps.quests.reference_locks import lock_filter_category
+        lock_filter_category(definition.trigger_filter)
         return QuestService.start_quest(target, definition.pk) if child is not None else definition
 
     def serialize(result):
