@@ -976,6 +976,9 @@ class ConsumableService:
             profile.consumable_effects_used = used
             profile.save(update_fields=["consumable_effects_used", "updated_at"])
 
+        # An effect can grant this same item under the held row lock (e.g. a
+        # badge drop earned by a tonic's XP), so decrement the saved stack.
+        inv.refresh_from_db(fields=["quantity"])
         inv.quantity -= quantity
         if inv.quantity == 0:
             inv.delete()
