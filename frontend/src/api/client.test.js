@@ -557,6 +557,71 @@ describe('upstream HTML recovery', () => {
     } finally { fetchSpy.mockRestore(); }
   });
 
+  // THE-ABBY-PROJECT-3W: the pulse poll got an HTML 200 on both attempts. The
+  // retry fired immediately, so a proxy still swapping containers could answer
+  // both beats in the same window. Opted-in polls now pause like the gateway retry.
+  describe('background poll during a deploy window', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('waits before retrying an HTML response, so a short outage is outlasted', async () => {
+      setToken('pulse-session');
+      const outageEndsAt = Date.now() + GATEWAY_RETRY_DELAY_MS / 2;
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => (
+        Date.now() < outageEndsAt ? htmlResponse() : Response.json({ ok: true })
+      ));
+      try {
+        const pending = api.get('/pulse/', { retryGateway: true });
+        await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+        await expect(pending).resolves.toEqual({ ok: true });
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(Sentry.captureException).not.toHaveBeenCalled();
+      } finally { fetchSpy.mockRestore(); }
+    });
+
+    it('still reports once when the HTML response persists past the pause', async () => {
+      setToken('pulse-session');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => htmlResponse());
+      try {
+        const pending = expect(api.get('/pulse/', { retryGateway: true })).rejects.toThrow(UNAVAILABLE_MESSAGE);
+        await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+        await pending;
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+        expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 200, attempts: 2 });
+      } finally { fetchSpy.mockRestore(); }
+    });
+
+    it('stops without a retry when the caller aborts during the pause', async () => {
+      const controller = new AbortController();
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => htmlResponse());
+      try {
+        const pending = expect(api.get('/pulse/', { retryGateway: true, signal: controller.signal }))
+          .rejects.toThrow();
+        await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+        controller.abort();
+        await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+        await pending;
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(Sentry.captureException).not.toHaveBeenCalled();
+      } finally { fetchSpy.mockRestore(); }
+    });
+
+    it('keeps the immediate retry for callers that did not opt in', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+        .mockResolvedValueOnce(htmlResponse())
+        .mockResolvedValueOnce(Response.json({ ok: true }));
+      try {
+        await expect(api.get('/auth/me/')).resolves.toEqual({ ok: true });
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+      } finally { fetchSpy.mockRestore(); }
+    });
+  });
+
   it('does not retry a real HTTP error or a failed connection', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(htmlResponse(503))

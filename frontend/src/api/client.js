@@ -170,6 +170,13 @@ async function request(path, options = {}) {
         level: 'warning',
         data: { status: res.status, contentType, responseDiagnostics: summarizeResponse(res, url) },
       });
+      // An opted-in background poll pauses first: an immediate replay can land
+      // in the same deploy window as the HTML it is replacing.
+      if (retryGateway) {
+        await sleep(GATEWAY_RETRY_DELAY_MS);
+        config.signal?.throwIfAborted();
+        if (getToken() !== token) continue;
+      }
       const retryUrl = new URL(url, window.location.origin);
       retryUrl.searchParams.set('_abby_retry', crypto.randomUUID());
       url = retryUrl.href;
