@@ -366,6 +366,7 @@ class Command(BaseCommand):
             self.stdout.write("  Created homework template: Weekly Reading Assignment")
 
     def _create_sample_habits(self):
+        from apps.habits.defaults import ensure_starter_habits
         from apps.habits.models import Habit
         from apps.families.models import Family
         from apps.rpg.models import CharacterProfile
@@ -381,12 +382,13 @@ class Command(BaseCommand):
             return
 
         CharacterProfile.objects.get_or_create(user=child)
+        for member in family.members.filter(role="child"):
+            ensure_starter_habits(member, created_by=parent)
 
         habits = [
             {"name": "Read for 15 min", "icon": "\U0001f4d6", "habit_type": "positive", "xp_reward": 10, "max_taps_per_day": 1},
             {"name": "Practice instrument", "icon": "\U0001f3b5", "habit_type": "positive", "xp_reward": 10, "max_taps_per_day": 1},
             {"name": "Drink water", "icon": "\U0001f4a7", "habit_type": "positive", "xp_reward": 5, "max_taps_per_day": 8},
-            {"name": "Brush teeth", "icon": "\U0001fa74", "habit_type": "positive", "xp_reward": 5, "max_taps_per_day": 2},
             {"name": "Exercise / stretch", "icon": "\U0001f3c3", "habit_type": "positive", "xp_reward": 5, "max_taps_per_day": 1},
             {"name": "Screen time snack", "icon": "\U0001f36b", "habit_type": "negative", "xp_reward": 0, "max_taps_per_day": 1},
         ]

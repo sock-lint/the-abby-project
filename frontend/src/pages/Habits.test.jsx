@@ -29,6 +29,215 @@ function renderPage(user = buildUser(), handlers = [], route = '/quests?tab=ritu
 }
 
 describe('Habits', () => {
+  it('shows the brushing starter with morning and evening guidance and two daily check-ins', async () => {
+    const user = userEvent.setup();
+    let tapsToday = 0;
+    const tap = spyHandler('post', /\/api\/habits\/9\/log\/$/, () => {
+      tapsToday += 1;
+      return { direction: 1, new_strength: tapsToday };
+    });
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 9, name: 'Brush your teeth', icon: '🪥', starter_key: 'brush_teeth', max_taps_per_day: 2, taps_today: tapsToday })],
+      )),
+      tap.handler,
+    ]);
+
+    expect(await screen.findByText('Brush your teeth')).toBeInTheDocument();
+    expect(screen.getByText('Twice a day · morning and evening')).toBeInTheDocument();
+    expect(screen.getByText('0/2 today')).toBeInTheDocument();
+    expect(screen.queryByText('5 XP')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'I brushed my teeth' }));
+    await waitFor(() => expect(tap.calls).toHaveLength(1));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'I brushed my teeth' })).toBeEnabled());
+    expect(screen.getByText('1/2 today')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Done for today' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'I brushed my teeth' }));
+    await waitFor(() => expect(tap.calls).toHaveLength(2));
+    expect(await screen.findByText('2/2 today')).toBeInTheDocument();
+    const completed = screen.getByRole('button', { name: 'Done for today' });
+    expect(completed).toBeDisabled();
+    await user.click(completed);
+    expect(tap.calls).toHaveLength(2);
+    for (const call of tap.calls) {
+      expect(call.method).toBe('POST');
+      expect(call.url).toMatch(/\/habits\/9\/log\/$/);
+      expect(call.body).toEqual({ direction: 1 });
+    }
+  });
+
+  it('keeps custom habits generic even when their name matches the starter', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ name: 'Brush your teeth', max_taps_per_day: 2 })],
+      )),
+    ]);
+    expect(await screen.findByRole('button', { name: 'Log progress' })).toBeInTheDocument();
+    expect(screen.getByText('5 XP')).toBeInTheDocument();
+    expect(screen.queryByText('Twice a day · morning and evening')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'I brushed my teeth' })).not.toBeInTheDocument();
+  });
+
+  it('does not show twice-daily guidance when a parent changes the starter target', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 3 })],
+      )),
+    ]);
+    expect(await screen.findByRole('button', { name: 'I brushed my teeth' })).toBeInTheDocument();
+    expect(screen.getByText('0/3 today')).toBeInTheDocument();
+    expect(screen.queryByText('Twice a day · morning and evening')).not.toBeInTheDocument();
+  });
+
+  it('shows the starter XP pool when it has linked skills to earn it', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2, skill_tags: [{ skill: 1, xp_weight: 1 }] })],
+      )),
+    ]);
+    expect(await screen.findByRole('button', { name: 'I brushed my teeth' })).toBeInTheDocument();
+    expect(screen.getByText('5 XP')).toBeInTheDocument();
+  });
+
+  it('rolls back a brushing check-in and keeps it available when saving fails', async () => {
+    const user = userEvent.setup();
+    const tap = spyHandler('post', /\/api\/habits\/9\/log\/$/, HttpResponse.json(
+      { error: 'Could not save your check-in. Try again.' }, { status: 500 },
+    ));
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 9, name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2, taps_today: 1 })],
+      )),
+      tap.handler,
+    ]);
+
+    await user.click(await screen.findByRole('button', { name: 'I brushed my teeth' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not save your check-in. Try again.');
+    expect(screen.getByText('1/2 today')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'I brushed my teeth' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Done for today' })).not.toBeInTheDocument();
+    expect(tap.calls).toHaveLength(1);
+    expect(tap.calls[0].body).toEqual({ direction: 1 });
+  });
+
+  it('lets parents pause and resume a starter without logging for their child', async () => {
+    const user = userEvent.setup();
+    let active = true;
+    const update = spyHandler('patch', /\/api\/habits\/9\/$/, ({ body }) => {
+      active = body.is_active;
+      return { id: 9, is_active: active };
+    });
+    renderPage(buildParent(), [
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 9, name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2, is_active: active })],
+      )),
+      update.handler,
+    ]);
+
+    expect(await screen.findByText('Brush your teeth')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit habit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'I brushed my teeth' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Pause' }));
+    expect(await screen.findByText('Paused')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+    await waitFor(() => expect(update.calls).toHaveLength(2));
+    await screen.findByRole('button', { name: 'Pause' });
+    expect(screen.queryByText('Paused')).not.toBeInTheDocument();
+    expect(update.calls.map((call) => call.body)).toEqual([{ is_active: false }, { is_active: true }]);
+    for (const call of update.calls) {
+      expect(call.method).toBe('PATCH');
+      expect(call.url).toMatch(/\/habits\/9\/$/);
+    }
+  });
+
+  it('hides paused habits from children', async () => {
+    renderPage(buildUser(), [
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [
+            buildHabit({ name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2, is_active: false }),
+            buildHabit({ id: 2, name: 'Read 20 min' }),
+          ],
+      )),
+    ]);
+    expect(await screen.findByText('Read 20 min')).toBeInTheDocument();
+    expect(screen.queryByText('Brush your teeth')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'I brushed my teeth' })).not.toBeInTheDocument();
+  });
+
+  it('keeps a starter assigned to its child when a parent edits it', async () => {
+    const user = userEvent.setup();
+    const update = spyHandler('patch', /\/api\/habits\/9\/$/, { id: 9 });
+    renderPage(buildParent(), [
+      http.get('*/api/children/', () => HttpResponse.json([buildUser(), buildUser({ id: 2, username: 'sibling' })])),
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 9, name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2 })],
+      )),
+      update.handler,
+    ]);
+    await user.click(await screen.findByRole('button', { name: 'Edit habit' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Edit habit' });
+    expect(within(dialog).getByRole('combobox', { name: 'Child' })).toBeDisabled();
+    expect(within(dialog).getByText('This starter habit stays with this child.')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Update habit' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(update.calls[0].body.user).toBe(1);
+    expect(update.calls[0].body).not.toHaveProperty('starter_key');
+    expect(update.calls[0].url).toMatch(/\/habits\/9\/$/);
+  });
+
+  it('prevents repeated pause requests and preserves the active habit when saving fails', async () => {
+    const user = userEvent.setup();
+    let finishSave;
+    const saving = new Promise((resolve) => { finishSave = resolve; });
+    const update = spyHandler('patch', /\/api\/habits\/9\/$/, async () => {
+      await saving;
+      return HttpResponse.json({ error: 'Could not pause this habit.' }, { status: 500 });
+    });
+    renderPage(buildParent(), [
+      http.get('*/api/children/', () => HttpResponse.json([buildUser()])),
+      http.get('*/api/habits/', ({ request }) => HttpResponse.json(
+        new URL(request.url).searchParams.get('pending') === 'true'
+          ? []
+          : [buildHabit({ id: 9, name: 'Brush your teeth', starter_key: 'brush_teeth', max_taps_per_day: 2 })],
+      )),
+      update.handler,
+    ]);
+
+    const pause = await screen.findByRole('button', { name: 'Pause' });
+    await user.click(pause);
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(pause).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Edit habit' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete habit' })).toBeDisabled();
+    await user.click(pause);
+    expect(update.calls).toHaveLength(1);
+    finishSave();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not pause this habit.');
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Resume' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Paused')).not.toBeInTheDocument();
+    expect(update.calls[0].body).toEqual({ is_active: false });
+  });
+
   // Same deep link as Duties — the FAB's "Propose a habit" row.
   it('opens the propose sheet when deep-linked with ?propose=1', async () => {
     renderPage(buildUser(), [

@@ -58,6 +58,11 @@
     "expedition_budget": {
       "daily_launches": null,
       "daily_items": null
+    },
+    "challenge_gates": {
+      "mode": "current",
+      "start_date": "2026-01-01",
+      "rules": []
     }
   },
   "candidate_daily_coins": 100,
@@ -180,9 +185,9 @@
       "stale": false,
       "freshness": "current",
       "binding": {
-        "engine_version": "2026-10-18.5",
-        "rules_fingerprint": "8c29fc76ef7b36912fa64856dd0fe35db26966d3c752721fc192e4aeb3224319",
-        "feedback_fingerprint": "4b82dbb3c382f6242fde602b86b3d6c31ea5cd186c43dca1df44b96b54c7890b",
+        "engine_version": "2026-10-19.1",
+        "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
+        "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
         "source_commit": "unavailable"
       }
@@ -266,8 +271,8 @@
       },
       "binding": {
         "source_commit": "unavailable",
-        "rules_fingerprint": "8c29fc76ef7b36912fa64856dd0fe35db26966d3c752721fc192e4aeb3224319",
-        "feedback_fingerprint": "4b82dbb3c382f6242fde602b86b3d6c31ea5cd186c43dca1df44b96b54c7890b",
+        "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
+        "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "policy": "installed_uncapped",
         "scope": "own_family_recent_children"
       }

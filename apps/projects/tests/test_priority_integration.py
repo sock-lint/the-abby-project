@@ -5,12 +5,14 @@ test_priority_unit.py — this file confirms the wiring works against real
 Django models (queries, signals, etc.)."""
 import datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.chores.models import Chore, ChoreCompletion
 from apps.homework.models import HomeworkAssignment, HomeworkSubmission
-from apps.habits.models import Habit
+from apps.habits.models import Habit, HabitLog
 from apps.projects.models import User
 from apps.projects.priority import build_next_actions
 from apps.rpg.models import CharacterProfile
@@ -111,3 +113,40 @@ class BuildNextActionsIntegrationTests(TestCase):
         actions = build_next_actions(self.child, target_date=today, hour=12)
         titles = [a.title for a in actions]
         self.assertIn("Resubmit this", titles)
+
+    def test_starter_progress_stays_in_today_until_second_positive_tap(self):
+        CharacterProfile.objects.filter(user=self.child).update(login_streak=0)
+        habit = Habit.objects.create(
+            user=self.child, created_by=self.parent, name="Brush your teeth",
+            starter_key="brush_teeth", habit_type="positive", max_taps_per_day=2,
+        )
+        other_child = User.objects.create_user(username="other", role="child")
+        Habit.objects.create(
+            user=other_child, created_by=self.parent, name="Other child's teeth",
+            starter_key="brush_teeth", max_taps_per_day=2,
+        )
+        today = datetime.date(2026, 4, 16)
+        now = timezone.make_aware(datetime.datetime(2026, 4, 16, 7))
+        with patch("django.utils.timezone.now", return_value=now):
+            def actions():
+                return [a for a in build_next_actions(self.child, target_date=today, hour=7)
+                        if a.kind == "habit"]
+
+            self.assertEqual([a.title for a in actions()], ["Brush your teeth"])
+            self.assertEqual(actions()[0].subtitle, "0/2 today · morning and bedtime")
+            HabitLog.objects.create(habit=habit, user=self.child, direction=1)
+            HabitLog.objects.create(habit=habit, user=self.child, direction=-1)
+            self.assertEqual(actions()[0].subtitle, "1/2 today · morning and bedtime")
+            HabitLog.objects.create(habit=habit, user=self.child, direction=1)
+            self.assertEqual(actions(), [])
+
+    def test_paused_or_unapproved_starters_are_not_recommended(self):
+        habit = Habit.objects.create(
+            user=self.child, created_by=self.parent, name="Brush your teeth",
+            starter_key="brush_teeth", max_taps_per_day=2, pending_parent_review=True,
+        )
+        self.assertFalse(any(a.kind == "habit" for a in build_next_actions(self.child, hour=19)))
+        habit.pending_parent_review = False
+        habit.is_active = False
+        habit.save(update_fields=["pending_parent_review", "is_active"])
+        self.assertFalse(any(a.kind == "habit" for a in build_next_actions(self.child, hour=19)))

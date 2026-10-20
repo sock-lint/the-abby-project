@@ -268,11 +268,12 @@ from apps.projects.priority import _habit_actions
 
 
 def _make_habit(*, pk, name, strength=0, icon="", max_taps=1, taps_today=0,
-                habit_type="positive"):
+                habit_type="positive", starter_key=None):
     return SimpleNamespace(
         pk=pk, name=name, strength=strength, icon=icon,
         habit_type=habit_type, max_taps_per_day=max_taps,
         _taps_today=taps_today,
+        starter_key=starter_key,
     )
 
 
@@ -342,6 +343,35 @@ class HabitStreakProtectionTests(TestCase):
             _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19),
             [],
         )
+
+    def test_starter_available_in_morning_without_login_streak(self):
+        self._patch([
+            _make_habit(pk=1, name="Brush your teeth", max_taps=2,
+                        starter_key="brush_teeth"),
+            _make_habit(pk=2, name="Read quietly", strength=9),
+        ], streak=0)
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=7)
+        self.assertEqual([(a.id, a.title) for a in actions], [(1, "Brush your teeth")])
+        self.assertEqual(actions[0].subtitle, "0/2 today · morning and bedtime")
+
+    def test_starter_remains_available_after_first_brushing(self):
+        self._patch([
+            _make_habit(pk=1, name="Brush your teeth", max_taps=2,
+                        taps_today=1, starter_key="brush_teeth"),
+        ], streak=0)
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=12)
+        self.assertEqual(len(actions), 1)
+        self.assertEqual(actions[0].subtitle, "1/2 today · morning and bedtime")
+
+    def test_evening_starter_and_existing_streak_habit_are_both_available(self):
+        self._patch([
+            _make_habit(pk=1, name="Brush your teeth", strength=20,
+                        max_taps=2, starter_key="brush_teeth"),
+            _make_habit(pk=2, name="Read quietly", strength=9),
+        ], streak=3)
+        actions = _habit_actions(_child(), datetime.date(2026, 4, 16), hour=19)
+        self.assertEqual([a.id for a in actions], [1, 2])
+        self.assertIn("3-day streak", actions[1].subtitle)
 
 
 class OrchestratorTests(TestCase):

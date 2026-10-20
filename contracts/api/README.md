@@ -82,6 +82,19 @@ never authority to change live rewards. `progression-observations-empty.json`
 keeps a family cohort with no eligible children as insufficient evidence;
 simulated outcomes never become observed behavior. The same progression
 producer and React consumer modules above verify these contracts.
+
+`progression-lab-challenge-gates-report.json` and the
+`progression-experiment-milestone-gates-comparison.json` /
+`progression-experiment-tenure-gates-comparison.json` fixtures come from the
+same real anonymous endpoints. The recipe targets an explicit shared catalog
+challenge, prior challenge and named skill; the candidate changes only gate
+mode. Coin commitment and expedition quotas are identical in both arms.
+Fourteen elapsed days first allows offering on day 15. Calendar dates govern
+new offerings, while an offered window retains its full promised duration.
+Reached counts accompany conditional unlock/completion days. Active visits
+without an available one-off challenge are separated from waiting and
+exhaustion/expiry. Historical reports can omit this additive section. These
+fixtures contain synthetic global content and never configure live gates.
 `progression-experiment-observed.json` adds an immutable server-captured
 observation checkpoint; even saved empty evidence remains insufficient.
 
@@ -216,6 +229,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
+| `habit-brush-teeth-today.json`, `habit-brush-teeth-partial.json`, `habit-brush-teeth-complete.json` | Child habit detail retains the server-owned starter identity and zero, one or two confirmed daily brushing check-ins |
 | `notifications-page-1.json` | `GET /api/notifications/`, first 20 of 21 self-scoped unread updates; root-relative continuation with a synthetic GET namespace |
 | `notifications-page-2.json` | Final unread update, null `next` and a root-relative `previous` link |
 | `notifications-empty.json` | Same notification endpoint with no updates |
@@ -290,7 +304,12 @@ The login token and all identities are synthetic and exist only in the test DB.
 and companion/item IDs and a fixed clock, sends requests through the real Django
 views, then compares the rendered JSON to these files. It also verifies token rotation, child/family
 scope, pagination, persisted strength and XP, and duplicate-tap rejection. The
-ordinary tap runs the real game loop with fixed random input; only the no-event
+habit read response adds nullable, read-only `starter_key`; `brush_teeth` marks
+the twice-daily starter and custom habits retain null. Its morning/evening copy
+is guidance: logs count two daily check-ins without claiming separate time slots.
+The brushing producer verifies both saved taps, skill XP and rejection of a third
+tap, and the React consumer preserves all three confirmed progress states.
+The ordinary tap runs the real game loop with fixed random input; only the no-event
 scenario replaces that optional service boundary with `None`. Date of birth and
 school grade are unset to avoid date-dependent computed identity values. The
 companion checks use typed food species, verify food consumption, growth and

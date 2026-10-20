@@ -47,6 +47,17 @@ share launches and item promises across mounts. Saved `expedition_limits`
 comparisons preserve the same Coin policy in both arms; show trip quality,
 pending promises and unavailable targets alongside runway. These policies are
 simulation only.
+The Lab's `challenge_gates` overlay keeps current, milestone and milestone-plus-
+tenure scenarios separate from live eligibility. Bounded rules use catalog
+challenge/skill identities, prerequisite completion, inclusive calendar offer
+dates and elapsed days since the simulated first activity. Imports validate all
+fields and keep legacy reports on current rules; presets preserve edited gates.
+Saved `milestone_gates` / `tenure_gates` experiments hold the actual Coin policy
+and expedition caps constant in both arms, with current challenge rules as the
+control. Reports retain the native finite-target denominator and show offer/
+completion counts, conditional dates, waiting visits and expiry separately.
+Waiting for a gate is not extra content or measured retention. Recorded reports
+without gate evidence remain readable without a fabricated gate panel.
 Metadata and completed reports distinguish current from recorded incubation policy.
 Saved comparisons display their recorded policy and never infer current timing
 for legacy reports. Pending/ready eggs remain distinct from owned companions.
