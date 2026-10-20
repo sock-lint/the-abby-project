@@ -67,6 +67,25 @@ function setupMetadata() {
 
 describe('Progression lab', () => {
   beforeEach(() => server.use(http.get('*/api/challenges/discovery/', () => HttpResponse.json(sharedDiscovery))));
+  it('reads and refreshes Voyager feedback independently from anonymous simulation', async () => {
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent({ is_staff: true }))),
+      http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(metadata)),
+    );
+    const feedback = spyHandler('get', /\/api\/challenges\/voyager-feedback\/$/, () => HttpResponse.json({ detail: 'Feedback is temporarily unavailable.' }, { status: 503 }));
+    const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, report);
+    server.use(feedback.handler, simulation.handler);
+    const { user } = renderWithProviders(<ProgressionLab />);
+    const panel = within(await screen.findByRole('region', { name: 'Reading Voyager feedback' }));
+    expect(await panel.findByRole('alert')).toHaveTextContent('Feedback is temporarily unavailable.');
+    await user.click(panel.getByRole('button', { name: 'Refresh Voyager feedback' }));
+    await waitFor(() => expect(feedback.calls).toHaveLength(2));
+    expect(feedback.calls.map(({ method, body }) => ({ method, body }))).toEqual([
+      { method: 'GET', body: null }, { method: 'GET', body: null },
+    ]);
+    expect(simulation.calls).toHaveLength(0);
+    expect(screen.getByRole('form', { name: 'Progression scenario' })).toBeVisible();
+  });
   it('renders actual endpoint gate timing and restores its saved rules without importing old outcomes', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())), http.get('*/api/rpg/progression-lab/', () => HttpResponse.json(sharedGateMetadata)));
     const simulation = spyHandler('post', /\/api\/rpg\/progression-lab\/simulate\/$/, sharedGateReport);

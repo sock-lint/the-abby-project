@@ -117,6 +117,43 @@ unknown counts when its cohort or occurrence bound is exceeded. Only the
 browser client's transport partition/retry query keys are allowed. See
 `tests/test_discovery.py` and the actual challenge response fixtures.
 
+`GET /api/challenges/voyager-feedback/` is a separate read-only staff-parent
+report for the current family's active nonstaff children registered within
+180 inclusive family-local days. It never calls `list_goals`, repairs saved
+facts, opens a window or changes rewards. Trusted `LiveTestFamily` households
+are excluded. Only transport partition/retry query keys are accepted; child
+and family selectors are refused. The response contains aggregate counts,
+without child identities, accepted row IDs, authored prose or reading details.
+
+`voyager_feedback.py` resolves the unique global Reading Voyager identity;
+missing/ambiguous definitions and exceeded child/history limits withhold counts
+rather than fabricating zero outcomes. Current child states are distinct from
+saved-window policy groups. Readiness uses current exact prerequisite, unlocked
+skill and earned badge facts, with bulk identity queries independent of history
+length. It is not a historical first-unlock timestamp. `acceptance_mode`
+distinguishes current automatic tracking from native milestone offers waiting
+for the next new Reading Adventure. Accepted or conflicting history takes
+precedence over new-offer readiness; membership is rechecked before aggregation.
+
+Saved 45-day windows require frozen count-20 reading rules, exactly 45 elapsed
+days and no native milestone snapshot. Their old badge requirements were not
+frozen, so do not describe this bucket as proof of historically ungated access.
+The selected 56-day bucket additionally requires matching strict version-one
+goal/occurrence gate snapshots, the exact unique global Reading Companion and
+Language Arts::Reading Comprehension identities, skill level 1, no badge and
+the saved opening activity ID. Other or malformed policies stay separate.
+Current catalog edits never reclassify an accepted promise from today's rules.
+
+Only fully ended saved windows enter mature outcomes. Early completions remain
+pending until the full deadline; `mature_denominator` is known completed plus
+known expired, excluding pending and unknown evidence. Ended active rows at the
+target may be awaiting repair and remain unknown. Completion recorded after the
+deadline can reflect valid saved work processed later. Legacy quests lack a
+frozen full policy and completion time, so their mature outcome remains unknown.
+Counts are observations within current membership, not causal experimental or
+retention evidence. Tests live in `tests/test_voyager_feedback.py`; actual API
+fixtures are produced alongside the other challenge contracts.
+
 Goal payloads expose server-owned `origin: parent|catalog|legacy` for presentation. Automatic catalog origin uses the saved `is_catalog` marker even after a template is retired; retained `Quest` rows always report `legacy`. Names, pinning and client input do not determine origin or change tracking.
 
 Goal payloads also expose nullable `completed_at` from the saved occurrence.

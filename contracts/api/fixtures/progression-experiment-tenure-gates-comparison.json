@@ -4703,12 +4703,12 @@
       "longest_novelty_gap_p50": 18,
       "eligible_challenges": 2,
       "finite_breakdown": {
+        "pet": 1,
+        "cosmetic": 1,
         "mount": 1,
         "badge": 1,
-        "cosmetic": 1,
         "quest": 2,
-        "middle": 1,
-        "pet": 1
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 10,
@@ -11446,12 +11446,12 @@
       "longest_novelty_gap_p50": 14,
       "eligible_challenges": 2,
       "finite_breakdown": {
+        "pet": 1,
+        "cosmetic": 1,
         "mount": 1,
         "badge": 1,
-        "cosmetic": 1,
         "quest": 2,
-        "middle": 1,
-        "pet": 1
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 10,
