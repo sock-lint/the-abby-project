@@ -970,8 +970,12 @@ responses through authenticated Django endpoints. The React consumer is
 `frontend/src/api/readingContractFixtures.test.js`. All book titles, authors,
 families and reflections in these fixtures are synthetic.
 
-Books use `reading`, `want_to_read`, `finished` and `paused` statuses. Each
-reading session belongs to one saved book and preserves its date, minutes,
+Books use `reading`, `want_to_read`, `finished` and `paused` statuses. A new
+session moves a wanted or paused book to `reading` in the save transaction;
+finished books, session replays and history corrections retain the chosen
+shelf status. `reading-book-wanted.json` and `reading-books-started.json`
+show the original book and refreshed shelf, without a separate book PATCH.
+Each reading session belongs to one saved book and preserves its date, minutes,
 pages, chapter/section, print/ebook/audiobook format, optional reaction and
 optional family-visible reflection. Creates require a `client_request_id` UUID;
 identical retries return the saved record, including subsequent corrections,

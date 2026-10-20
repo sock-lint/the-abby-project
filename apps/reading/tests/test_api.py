@@ -191,6 +191,97 @@ class ReadingAPITests(TestCase):
             self.assertEqual(response.data["reaction"], "loved")
             self.assertNotIn("create_payload", response.data)
 
+    def test_new_log_starts_or_resumes_only_its_readers_book(self):
+        ReadingBook.objects.filter(pk__in=[self.sibling_book.pk, self.other_book.pk]).update(
+            status=ReadingBook.Status.PAUSED,
+        )
+        details = (
+            {"duration_minutes": 3, "format": "print"},
+            {"duration_minutes": 0, "pages_read": 2, "format": "ebook"},
+            {"duration_minutes": 0, "section": "Chapter 1", "format": "audiobook"},
+            {"duration_minutes": 0, "reflection": "A new adventure.", "occurred_on": "2020-01-02"},
+        )
+        for actor in (self.child, self.parent):
+            self.client.force_authenticate(actor)
+            for shelf_status in (ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.PAUSED):
+                for fields in details:
+                    with self.subTest(actor=actor.role, status=shelf_status, fields=fields):
+                        self.book.status = shelf_status
+                        self.book.save(update_fields=["status", "updated_at"])
+                        before = self.book.updated_at
+                        response = self.create_session(
+                            **fields, **({"user_id": self.child.id} if actor == self.parent else {}),
+                        )
+                        self.assertEqual(response.status_code, 201, response.data)
+                        self.book.refresh_from_db()
+                        self.assertEqual(self.book.status, ReadingBook.Status.READING)
+                        self.assertGreater(self.book.updated_at, before)
+                        self.assertEqual(self.book.create_payload, {})
+                        self.sibling_book.refresh_from_db()
+                        self.other_book.refresh_from_db()
+                        self.assertEqual(self.sibling_book.status, ReadingBook.Status.PAUSED)
+                        self.assertEqual(self.other_book.status, ReadingBook.Status.PAUSED)
+
+    def test_new_log_leaves_reading_and_finished_books_unchanged(self):
+        for shelf_status in (ReadingBook.Status.READING, ReadingBook.Status.FINISHED):
+            with self.subTest(status=shelf_status):
+                self.book.status = shelf_status
+                self.book.save(update_fields=["status", "updated_at"])
+                before = self.book.updated_at
+                self.assertEqual(self.create_session(occurred_on="2020-01-02").status_code, 201)
+                self.book.refresh_from_db()
+                self.assertEqual(self.book.status, shelf_status)
+                self.assertEqual(self.book.updated_at, before)
+
+    def test_replay_correction_and_deletion_preserve_later_shelf_choice(self):
+        request_id = str(uuid4())
+        saved = self.create_session(client_request_id=request_id)
+        self.assertEqual(saved.status_code, 201)
+        for shelf_status in (ReadingBook.Status.PAUSED, ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.FINISHED):
+            self.assertEqual(self.client.patch(
+                f"/api/reading-books/{self.book.pk}/", {"status": shelf_status}, format="json",
+            ).status_code, 200)
+            replay = self.create_session(client_request_id=request_id)
+            self.assertEqual(replay.status_code, 200)
+            self.assertEqual(replay.data["id"], saved.data["id"])
+            self.assertEqual(self.client.patch(
+                f"/api/reading-sessions/{saved.data['id']}/", {"reflection": "Corrected."}, format="json",
+            ).status_code, 200)
+            self.book.refresh_from_db()
+            self.assertEqual(self.book.status, shelf_status)
+        self.assertEqual(self.client.delete(f"/api/reading-sessions/{saved.data['id']}/").status_code, 204)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.status, ReadingBook.Status.FINISHED)
+
+    def test_failed_or_foreign_log_does_not_change_shelf(self):
+        ReadingBook.objects.all().update(status=ReadingBook.Status.WANT_TO_READ)
+        for invalid in ({"duration_minutes": 601}, {"book": self.sibling_book.pk}, {"book": self.other_book.pk}):
+            with self.subTest(invalid=invalid):
+                self.assertEqual(self.create_session(**invalid).status_code, 400)
+        self.assertFalse(ReadingSession.objects.exists())
+        self.assertFalse(ReadingBook.objects.exclude(status=ReadingBook.Status.WANT_TO_READ).exists())
+
+    def test_reward_failure_rolls_back_shelf_change_and_new_log(self):
+        self.book.status = ReadingBook.Status.PAUSED
+        self.book.save(update_fields=["status", "updated_at"])
+        before = self.book.updated_at
+        with patch("apps.reading.services.ReadingRewardService.credit_new_session", side_effect=RuntimeError("Reward failed")):
+            with self.assertRaisesMessage(RuntimeError, "Reward failed"):
+                self.create_session()
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.status, ReadingBook.Status.PAUSED)
+        self.assertEqual(self.book.updated_at, before)
+        self.assertFalse(ReadingSession.objects.exists())
+
+    def test_book_creation_retry_returns_automatically_updated_status(self):
+        request_id = str(uuid4())
+        saved = self.create_book(status="want_to_read", client_request_id=request_id)
+        self.assertEqual(saved.status_code, 201)
+        self.assertEqual(self.create_session(book=saved.data["id"]).status_code, 201)
+        replay = self.create_book(status="want_to_read", client_request_id=request_id)
+        self.assertEqual(replay.status_code, 200)
+        self.assertEqual(replay.data["status"], "reading")
+
     def test_chapter_or_reflection_alone_is_a_valid_session(self):
         for details in ({"section": "Chapter 4"}, {"reflection": "A surprising friendship began."}):
             response = self.create_session(duration_minutes=0, **details)
@@ -360,12 +451,15 @@ class ReadingConcurrencyTests(TransactionTestCase):
         self.assertEqual(ReadingBook.objects.filter(user=self.child, client_request_id=request_id).count(), 1)
 
     def test_concurrent_session_retry_saves_once(self):
+        ReadingBook.objects.filter(pk=self.book.pk).update(status=ReadingBook.Status.WANT_TO_READ)
         request_id = str(uuid4())
         payload = {"book": self.book.id, "duration_minutes": 20, "client_request_id": request_id}
         results = self.concurrent_posts("/api/reading-sessions/", [payload, payload])
         self.assertEqual(sorted(code for code, _ in results), [200, 201])
         self.assertEqual(results[0][1]["id"], results[1][1]["id"])
         self.assertEqual(ReadingSession.objects.filter(user=self.child, client_request_id=request_id).count(), 1)
+        self.book.refresh_from_db()
+        self.assertEqual(self.book.status, ReadingBook.Status.READING)
 
     def test_concurrent_conflicting_session_request_rejects_one_without_duplicate(self):
         request_id = str(uuid4())

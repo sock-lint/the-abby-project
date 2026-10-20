@@ -73,6 +73,8 @@ function ReadingWorkspace({ context, credential }) {
   const [discoveryRefresh, setDiscoveryRefresh] = useState(0);
   const [similarBook, setSimilarBook] = useState(null);
   const [filter, setFilter] = useState('reading');
+  const filterSelection = useRef(0);
+  const selectFilter = (value) => { filterSelection.current += 1; setFilter(value); };
   const [modal, setModal] = useState(null);
   const [receipt, setReceipt] = useState('');
   const [removal, setRemoval] = useState(null);
@@ -85,7 +87,11 @@ function ReadingWorkspace({ context, credential }) {
   const sessions = normalizeList(history.data).filter((session) => String(session.user) === String(context.targetUserId));
   const visibleBooks = books.filter((book) => book.status === filter);
   const stats = summary.data;
-  const refresh = () => { void shelf.reload(); void history.reload(); void summary.reload(); setDiscoveryRefresh((value) => value + 1); };
+  const refresh = () => {
+    const refreshedShelf = shelf.reload();
+    void history.reload(); void summary.reload(); setDiscoveryRefresh((value) => value + 1);
+    return refreshedShelf;
+  };
   const savedBook = (book) => {
     if (!current()) return;
     shelf.setData((previous) => [book, ...(previous ?? []).filter((value) => value.id !== book.id)]);
@@ -96,11 +102,19 @@ function ReadingWorkspace({ context, credential }) {
   };
   const savedSession = (session) => {
     if (!current()) return;
+    const book = books.find((value) => value.id === session.book);
+    const mayStartReading = !modal?.session && ['want_to_read', 'paused'].includes(book?.status);
+    const selection = filterSelection.current;
     history.setData((previous) => ({ ...previous, results: [session, ...normalizeList(previous).filter((value) => value.id !== session.id)] }));
     setModal(null);
     const reward = session.reading_reward;
     setReceipt(`Reading ${modal?.session ? 'changes ' : ''}saved for “${session.book_title}”. ${reward ? `Daily reading reward recorded: ${reward.xp_awarded} Reading Comprehension XP and ${reward.coins_awarded} Coins on ${formatDate(reward.day)}.` : 'You can find it in your reading history.'}`);
-    refresh();
+    void refresh().then((refreshedBooks) => {
+      // Use saved server state, and keep any shelf choice made during the read.
+      if (!current() || !mayStartReading || filterSelection.current !== selection) return;
+      const refreshedBook = refreshedBooks?.find((value) => value.id === session.book && String(value.user) === String(context.targetUserId));
+      if (refreshedBook?.status === 'reading') setFilter('reading');
+    });
     // Re-read confirmed balances and notifications through the shared shell.
     // A saved/replayed receipt is never added to a local balance.
     void refreshPulse();
@@ -158,7 +172,7 @@ function ReadingWorkspace({ context, credential }) {
       <SectionHeader as="h3" title="Your bookshelf" index={0} count={shelf.data ? books.length : undefined} />
       <ErrorAlert message={shelf.error} onRetry={shelf.reload} />
       {shelf.loading ? <Loader /> : <>
-        <TomeShelf ariaLabel="Bookshelf status" activeId={filter} onSelect={setFilter} items={BOOK_STATUSES.map(([id, name]) => ({ id, name, icon: id === 'finished' ? '✓' : id === 'want_to_read' ? '♡' : id === 'paused' ? 'Ⅱ' : '▤', chip: books.filter((book) => book.status === id).length, variant: 'vessel' }))} />
+        <TomeShelf ariaLabel="Bookshelf status" activeId={filter} onSelect={selectFilter} items={BOOK_STATUSES.map(([id, name]) => ({ id, name, icon: id === 'finished' ? '✓' : id === 'want_to_read' ? '♡' : id === 'paused' ? 'Ⅱ' : '▤', chip: books.filter((book) => book.status === id).length, variant: 'vessel' }))} />
         {visibleBooks.length ? <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {visibleBooks.map((book) => <BookCard key={book.id} book={book} canLog={Boolean(stats?.today)} onLog={() => setModal({ kind: 'session', selectedBook: book })} onEdit={() => setModal({ kind: 'book', book })} onRemove={() => setRemoval({ kind: 'book', item: book })} onSimilar={() => setSimilarBook(book.catalog_entry)} />)}
         </div> : !shelf.error && <EmptyState icon={<BookOpen className="h-8 w-8" />} action={<Button variant="secondary" onClick={() => setModal({ kind: 'book' })}>Add a book</Button>}>
