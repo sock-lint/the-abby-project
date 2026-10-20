@@ -102,6 +102,33 @@ class StructuredErrorHTTPTests(TransactionTestCase):
         self.assertFalse(error["retryable"])
         self.assertNotIn(private_value, json.dumps(result))
 
+    def test_json_encoded_params_keep_fastmcp_client_compatibility(self):
+        result = self.rpc("tools/call", {
+            "name": "list_projects", "arguments": {"params": "{}"},
+        })
+        payload = self.assert_matching_payloads(result)
+        self.assertEqual(payload["projects"], [])
+        self.assertEqual(payload["total"], 0)
+        invalid = self.rpc("tools/call", {
+            "name": "list_projects", "arguments": {"params": json.dumps({"limit":"synthetic-private-value"})},
+        })
+        error = self.assert_matching_payloads(invalid, failed=True)["error"]
+        self.assertEqual(error["code"], "invalid_input")
+        self.assertIn("params.limit", error["field_errors"])
+        self.assertNotIn("synthetic-private-value", json.dumps(invalid))
+
+    def test_json_encoded_params_do_not_coerce_confirmation(self):
+        project = Project.objects.create(title="Retained project", created_by=self.parent, assigned_to=self.child)
+        result = self.rpc("tools/call", {
+            "name": "delete_project", "arguments": {
+                "params": json.dumps({"project_id":project.pk}), "confirmation":"true",
+            },
+        }, scope="mcp:write")
+        error = self.assert_matching_payloads(result, failed=True)["error"]
+        self.assertEqual(error["code"], "invalid_input")
+        self.assertIn("confirmation", error["field_errors"])
+        self.assertTrue(Project.objects.filter(pk=project.pk).exists())
+
     def test_missing_confirmation_is_distinct_and_never_deletes(self):
         project = Project.objects.create(title="Retained project", created_by=self.parent, assigned_to=self.child)
         for arguments in ({}, {"confirmation": False}):

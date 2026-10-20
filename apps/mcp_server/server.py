@@ -82,7 +82,12 @@ class ScopedFastMCP(FastMCP):
                 raise MCPNotFoundError("Unknown tool.", code="unknown_tool")
             require_scope(policy_for(name).scope)
             try:
-                entry.fn_metadata.arg_model.model_validate(arguments)
+                parsed = entry.fn_metadata.pre_parse_json(arguments)
+                # Preserve FastMCP's JSON-encoded params compatibility, while
+                # retaining the transport's literal-boolean confirmation gate.
+                if "confirmation" in arguments:
+                    parsed["confirmation"] = arguments["confirmation"]
+                entry.fn_metadata.arg_model.model_validate(parsed)
             except ValidationError as exc:
                 fields: dict[str, list[str]] = {}
                 for item in exc.errors(include_input=False, include_url=False):
