@@ -67,6 +67,23 @@ class MilestoneContentTests(TestCase):
         self.target.refresh_from_db()
         self.assertIsNone(self.target.prerequisite_quest_id)
 
+    def test_loader_clears_the_skill_and_level_together(self):
+        self.target.required_skill = self.skill
+        self.target.required_skill_level = 1
+        self.target.save()
+        with tempfile.TemporaryDirectory() as directory:
+            Path(directory, "quests.yaml").write_text("""quests:
+- name: Voyager
+  quest_type: collection
+  target_value: 20
+  duration_days: 56
+  trigger_filter: {allowed_triggers: [reading_logged]}
+  required_skill: null
+""")
+            ContentPack(directory).load()
+        self.target.refresh_from_db()
+        self.assertEqual((self.target.required_skill_id, self.target.required_skill_level), (None, 0))
+
     def test_native_trial_waits_for_both_milestones_and_a_matching_fresh_fact(self):
         catalog = load_catalog()
         quests = []
@@ -137,3 +154,9 @@ class MilestoneContentTests(TestCase):
         SkillProgress.objects.create(user=self.actor, skill=self.skill, level=1,
                                      xp_points=XP_THRESHOLDS[1], unlocked=True)
         self.assertEqual(sources_for_request(SimpleNamespace(user=self.actor))[title.pk][0]["name"], self.target.name)
+        alternate = QuestDefinition.objects.create(name="Another manual quest", description="Legacy start",
+            quest_type="collection", target_value=1, is_system=True)
+        UserInventory.objects.update_or_create(user=self.actor, item=reroll, defaults={"quantity": 1})
+        with patch("apps.rpg.services.random.choice", side_effect=lambda choices: next(q for q in choices if q.pk == alternate.pk)) as choose:
+            ConsumableService.use(self.actor, reroll.pk)
+        self.assertNotIn(self.target.pk, [q.pk for q in choose.call_args.args[0]])

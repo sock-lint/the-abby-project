@@ -135,6 +135,7 @@ class QuestService:
             eligibility = milestone_eligibility(user, definition)
             if not eligibility["unlocked"]:
                 raise ValueError(" ".join(eligibility["locked_reasons"]))
+            raise ValueError("This challenge progresses automatically. Your next Reading Adventure opens its window.")
 
         # Check badge requirement
         if definition.required_badge:
@@ -232,6 +233,7 @@ class QuestService:
                 eligibility = milestone_eligibility(participant, definition)
                 if not eligibility["unlocked"]:
                     raise ValueError("Every participant must qualify: " + " ".join(eligibility["locked_reasons"]))
+            raise ValueError("This challenge progresses automatically. Each child's next Reading Adventure opens their window.")
 
         # Badge gate applies to every participant — don't start if any
         # participant can't satisfy it.

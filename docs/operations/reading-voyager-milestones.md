@@ -37,8 +37,10 @@ timestamp; its displayed calendar uses the saved household timezone.
 Existing goals retain their original dates, prose, rewards and history,
 including unopened 45-day goals. Paid or expired one-time goals and prior
 legacy starts cannot rearm. Active legacy scalar-edit protection still blocks
-publication. Solo, co-op, scroll and reroll starts enforce the same milestones;
-accepted legacy runs keep their own promise. Item hints preserve accepted
+publication. New solo, co-op and scroll starts cannot open gated reading
+challenges manually; after meeting the milestones, the next Reading Adventure
+opens them automatically. Rerolls exclude these automatic definitions.
+Accepted legacy runs keep their own promise. Item hints preserve accepted
 rewards and filter new locked offers.
 
 The child Challenges page displays server-confirmed requirements in **Coming

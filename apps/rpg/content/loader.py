@@ -857,11 +857,10 @@ class ContentPack:
                     if entry[field] and len(matches) != 1:
                         raise ContentPackError(f"Unknown or ambiguous global {field}: {entry[field]!r}.")
                     defaults[field] = matches[0] if matches else None
-            if "required_skill" in entry:
-                tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry["required_skill"] else []
+            if "required_skill" in entry or "required_skill_level" in entry:
+                tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry.get("required_skill") else []
                 defaults["required_skill"] = tags[0][0] if tags else None
-            if "required_skill_level" in entry:
-                defaults["required_skill_level"] = entry["required_skill_level"]
+                defaults["required_skill_level"] = entry.get("required_skill_level", 0)
             if "required_badge" in entry and entry["required_badge"]:
                 try:
                     defaults["required_badge"] = Badge.objects.get(

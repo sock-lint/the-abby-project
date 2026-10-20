@@ -67,7 +67,11 @@ The self/family-scoped `/api/challenges/` response includes `locked_catalog`
 with read-only catalog metadata and server-confirmed `milestone_eligibility`.
 An unlocked row still waits for the next qualifying saved reading receipt;
 it has no accepted window, countdown or pinnable goal identity. Reading this
-metadata awards nothing. Installing these schema/services does not activate a
+metadata awards nothing. New milestone-gated solo, co-op and scroll starts are
+refused after explaining any unmet requirement: a manual legacy start cannot
+begin the clock before the child's next qualifying Reading Adventure. Existing
+legacy runs continue with their accepted windows and rewards.
+Installing these schema/services does not activate a
 policy or rewrite bundled or published content.
 
 ## Automatic goal tracking

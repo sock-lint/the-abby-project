@@ -160,6 +160,46 @@ class MilestoneGateTests(TestCase):
             QuestService.start_co_op_quest(self.voyager.pk, [self.child, self.sibling])
         self.assertFalse(Quest.objects.filter(definition=self.voyager).exists())
 
+    def test_eligible_manual_legacy_start_cannot_open_clock_before_reading(self):
+        self.complete_prior()
+        self.level()
+        with self.assertRaisesMessage(ValueError, "progresses automatically"):
+            QuestService.start_quest(self.child, self.voyager.pk)
+        self.assertFalse(Quest.objects.filter(definition=self.voyager).exists())
+        self.assertFalse(self.accepted().exists())
+        self.assertFalse(ChallengeActivity.objects.exists())
+
+    def test_eligible_scroll_start_refuses_before_consuming_inventory(self):
+        from apps.rpg.models import ItemDefinition, UserInventory
+        self.complete_prior()
+        self.level()
+        scroll = ItemDefinition.objects.create(name="Reading scroll", slug="reading-gate-scroll", item_type="quest_scroll")
+        inventory = UserInventory.objects.create(user=self.child, item=scroll, quantity=1)
+        with self.assertRaisesMessage(ValueError, "progresses automatically"):
+            QuestService.start_quest(self.child, self.voyager.pk, use_scroll_item_id=scroll.pk)
+        inventory.refresh_from_db()
+        self.assertEqual(inventory.quantity, 1)
+        self.assertFalse(Quest.objects.filter(definition=self.voyager).exists())
+
+    def test_eligible_coop_cannot_open_a_reading_clock_before_qualifying_fact(self):
+        for child in [self.child, self.sibling]:
+            self.complete_prior(child)
+            self.level(user=child)
+        with self.assertRaisesMessage(ValueError, "progresses automatically"):
+            QuestService.start_co_op_quest(self.voyager.pk, [self.child, self.sibling])
+        self.assertFalse(Quest.objects.filter(definition=self.voyager).exists())
+        self.assertFalse(ChallengeActivity.objects.exists())
+
+    def test_existing_legacy_run_still_finishes_without_rechecking_new_gates(self):
+        old = Quest.objects.create(definition=self.voyager, current_progress=19,
+                                   end_date=timezone.now() + timedelta(days=2), reward_items_snapshot=[])
+        QuestParticipant.objects.create(quest=old, user=self.child)
+        original_end = old.end_date
+        result = QuestService.record_progress(self.child, "reading_logged", {})
+        old.refresh_from_db()
+        self.assertTrue(result["completed"])
+        self.assertEqual((old.status, old.end_date), ("completed", original_end))
+
     def test_authoring_rejects_private_repeatable_and_cyclic_paths(self):
         self.voyager.is_repeatable = True
         with self.assertRaises(ValidationError):
