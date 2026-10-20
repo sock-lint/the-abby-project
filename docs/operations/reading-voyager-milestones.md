@@ -107,6 +107,13 @@ Use low counts and unresolved evidence as a reason to inspect coverage before
 changing content. The report never materializes goals, expires saved rows,
 backfills contributions or awards rewards. It does not publish this policy.
 
+The MCP `get_voyager_feedback` tool returns the same aggregate with empty
+`params`, without a child/family selector or a date override. It requires an
+active staff parent and an explicitly authorized `mcp:read` grant; catalog-only
+connections cannot discover or invoke it. Deploying this tool does not expand
+an existing connection's permissions. Use the household-read consent flow if
+the owner chooses to make these observations available in a connected chat.
+
 ## Forecast limits
 
 Anonymous Lab trials start at zero and cannot establish retention or total
