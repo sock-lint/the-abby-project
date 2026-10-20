@@ -6,6 +6,7 @@ import EmptyState from '../../components/EmptyState';
 import ChallengeGoalCard from './ChallengeGoalCard';
 import { challengeFocus } from './challengeFocus';
 import { goalProgress } from './goalDisplay';
+import LockedCatalogChallenges from './LockedCatalogChallenges';
 
 function GoalDisclosure({ title, children }) {
   const [open, setOpen] = useState(false);
@@ -20,7 +21,7 @@ function GoalDisclosure({ title, children }) {
   );
 }
 
-export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, busy = false, toolbar = null, dailyBonus = null }) {
+export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, busy = false, toolbar = null, dailyBonus = null }) {
   const focus = challengeFocus(goals, pinnedGoal);
   const cardProps = { timezone, onSelect, onPin, busy, isParent };
   const cards = (rows) => (
@@ -69,6 +70,7 @@ export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezon
         <p className="font-body text-caption text-ink-secondary">These optional bonuses track automatically too. Open a challenge for its activity rules and bonus period.</p>
         {cards(focus.otherBonuses)}
       </GoalDisclosure>}
+      <LockedCatalogChallenges definitions={lockedCatalog} sectionIndex={sectionIndex++} />
       <GoalDisclosure title={`History · ${focus.history.length}`}>
         {focus.history.length ? cards(focus.history) : <p className="font-body text-body text-ink-secondary">No completed or ended challenges yet.</p>}
       </GoalDisclosure>

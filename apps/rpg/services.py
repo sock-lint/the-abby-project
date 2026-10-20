@@ -1146,6 +1146,7 @@ class ConsumableService:
             from apps.achievements.models import UserBadge
             from apps.quests.models import Quest, QuestDefinition
             from apps.quests.services import QuestService
+            from apps.quests.milestone_eligibility import milestone_eligibility
             if Quest.objects.filter(
                 participants__user=profile.user, status=Quest.Status.ACTIVE,
             ).exists():
@@ -1157,7 +1158,8 @@ class ConsumableService:
             )
             candidates = [
                 q for q in QuestDefinition.objects.filter(is_system=True)
-                if q.required_badge_id is None or q.required_badge_id in user_badge_ids
+                if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                and milestone_eligibility(profile.user, q)["unlocked"]
             ]
             if not candidates:
                 raise ValueError("No eligible quests to reroll into")

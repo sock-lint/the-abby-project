@@ -126,6 +126,51 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_milestone_locked_and_ready_catalog_have_no_accepted_window_or_read_awards(self):
+        from apps.quests.models import ChallengeGoal, Quest, QuestParticipant
+        category = SkillCategory.objects.create(id=23, name="Language Arts")
+        reading = Skill.objects.create(id=24, name="Reading Comprehension", category=category)
+        prior = QuestDefinition.objects.create(
+            id=52, name="Reading Companion", description="Three daily Reading Adventures.",
+            quest_type="collection", target_value=3, duration_days=14, is_system=True,
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+        )
+        voyager = QuestDefinition.objects.create(
+            id=53, name="Reading Voyager", description="Complete 20 daily Reading Adventures within 56 days.",
+            quest_type="collection", target_value=20, duration_days=56, is_system=True,
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+            prerequisite_quest=prior, required_skill=reading, required_skill_level=1,
+            coin_reward=0, xp_reward=50,
+        )
+        QuestSkillTag.objects.create(quest_definition=voyager, skill=reading, xp_weight=1)
+        self.authenticate(self.child)
+        before = self.state()
+        locked = self.assert_response_fixture(
+            self.client.get("/api/challenges/"), "challenges-milestone-locked.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertEqual(len(locked["locked_catalog"]), 1)
+        self.assertFalse(locked["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertNotIn("starts_at", locked["locked_catalog"][0])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=voyager).exists())
+        old = Quest.objects.create(id=61, definition=prior, status="completed",
+                                   start_date=FIXED_NOW - timedelta(days=3), end_date=FIXED_NOW)
+        QuestParticipant.objects.create(quest=old, user=self.child)
+        SkillProgress.objects.create(user=self.child, skill=reading, xp_points=100, level=1, unlocked=True)
+        before = self.state()
+        ready = self.assert_response_fixture(
+            self.client.get("/api/challenges/"), "challenges-milestone-ready.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertTrue(ready["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=voyager).exists())
+        self.authenticate(self.parent)
+        selected = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(selected.json()["locked_catalog"], ready["locked_catalog"])
+        sibling = self.client.get(f"/api/challenges/?user_id={self.sibling.pk}")
+        self.assertFalse(sibling.json()["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertEqual(self.client.get(f"/api/challenges/?user_id={self.other_child.pk}").status_code, 404)
+
     def test_parent_reading_goal_counts_the_daily_reward_receipt_after_real_threshold(self):
         from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession
 

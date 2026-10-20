@@ -9,7 +9,7 @@ import { spyHandler } from '../../test/spy';
 import { selectDropdown } from '../../test/selectDropdown';
 import { useAuth } from '../../hooks/useApi';
 
-import { draftId, itemValues, config, draft, change, saved, previewed, metadata, comparison } from '../../test/contentWorkbenchFixtures';
+import { draftId, itemValues, values, config, draft, change, saved, previewed, metadata, comparison } from '../../test/contentWorkbenchFixtures';
 
 function setup(data = metadata, currentDraft = draft) {
   server.use(
@@ -28,6 +28,64 @@ async function openChallenge(user) {
 }
 
 describe('RPG content workbench', () => {
+  it('saves exact challenge and named skill milestone IDs while keeping reward XP tags and publication separate', async () => {
+    const prerequisite = { id: 10, name: 'Reading Companion', is_system: true, coin_reward: 0, xp_reward: 0 };
+    const milestoneMetadata = { ...metadata, catalog: { ...metadata.catalog, quests: [...metadata.catalog.quests, prerequisite] } };
+    setup(milestoneMetadata);
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    const publish = spyHandler('post', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/publish/$`), {});
+    server.use(patch.handler, publish.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Previous challenge' }), 10);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Required skill' }), 4);
+    expect(screen.getByRole('spinbutton', { name: 'Required skill level' })).toHaveValue(1);
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Duration in days' }), { target: { value: '56' } });
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls).toHaveLength(1);
+    expect(patch.calls[0].body.changes[0].values).toMatchObject({ prerequisite_quest: 10, required_skill: 4, required_skill_level: 1, duration_days: 56, skill_tags: values.skill_tags, required_badge: null });
+    expect(publish.calls).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Preview changes and audit rewards' })).toBeEnabled();
+  });
+  it('distinguishes same-name prerequisites by identity and clears a skill together with its level', async () => {
+    const prerequisites = [10, 11].map((id) => ({ id, name: 'Reading Companion', is_system: true, coin_reward: 0, xp_reward: 0 }));
+    const current = metadata.catalog.quests[0];
+    const milestoneMetadata = { ...metadata, catalog: { ...metadata.catalog, quests: [
+      { ...current, values: { ...current.values, prerequisite_quest: 10, required_skill: 4, required_skill_level: 2 } }, ...prerequisites,
+    ] } };
+    setup(milestoneMetadata);
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    server.use(patch.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    const previous = screen.getByRole('combobox', { name: 'Previous challenge' });
+    await user.click(previous);
+    expect(screen.getByRole('option', { name: 'Reading Companion (#10)' })).toBeVisible();
+    expect(screen.getByRole('option', { name: 'Reading Companion (#11)' })).toBeVisible();
+    expect(screen.queryByRole('option', { name: 'Forest reading', exact: true })).toBeNull();
+    await selectDropdown(user, previous, 11);
+    expect(screen.getByRole('spinbutton', { name: 'Required skill level' })).toHaveValue(2);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Required skill' }), '');
+    expect(screen.getByRole('spinbutton', { name: 'Required skill level' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values).toMatchObject({ prerequisite_quest: 11, required_skill: null, required_skill_level: 0, skill_tags: values.skill_tags });
+  });
+  it('retains references absent from the current choices until the author explicitly changes them', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, prerequisite_quest_name: 'Earlier reading', required_skill_name: 'Earlier skill', values: { ...current.values, prerequisite_quest: 999, required_skill: 888, required_skill_level: 3 } }] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    server.use(patch.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('combobox', { name: 'Previous challenge' })).toHaveTextContent('Earlier reading (#999) · not listed');
+    expect(screen.getByRole('combobox', { name: 'Required skill' })).toHaveTextContent('Earlier skill (#888) · not listed');
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Coin reward' }), { target: { value: '25' } });
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values).toMatchObject({ prerequisite_quest: 999, required_skill: 888, required_skill_level: 3 });
+  });
   it('uses server permission checks and does not expose catalog or controls to regular parents', async () => {
     setup();
     server.use(http.get('*/api/rpg/content-workbench/', () => HttpResponse.json({ detail: 'Staff parents only.' }, { status: 403 })));

@@ -33,6 +33,43 @@ requires the actual earned badge; availability does not grant it or relax its
 criteria. Broader reward mechanics remain testable with scoped synthetic asset
 bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 
+## Native reading milestone offers
+
+`QuestDefinition.prerequisite_quest`, `required_skill` and `required_skill_level`
+combine with the existing earned-badge requirement using AND. The target must
+be a one-time global collection challenge with exactly the `reading_logged`
+activity filter; only reading currently has the trusted new-source hook.
+Prerequisites use exact global catalog identities, including completed legacy
+participation or automatic catalog occurrences, never a parent goal's name.
+The named skill must be unlocked and meet the required level. Direct cycles,
+private references and unsupported activity rules are rejected by model and
+publication validation.
+
+`ReadingRewardService` calls `activity.freeze_milestone_eligibility` only while
+earning a genuinely new daily receipt, after reading XP and before game-loop
+evaluation, under the source/user transaction. This captures the eligible
+`ChallengeGoal` and its occurrence before the fact can finish a predecessor.
+An unrelated action, GET, old source first observed later, pending repair or
+replayed daily receipt cannot open a milestone window. The internal
+`ingest_activity(..., fresh_milestone=True)` acceptance seam is for trusted
+callers and synthetic native tests; incoming context never grants it.
+
+New goals freeze `catalog_gate_snapshot` and `catalog_gate_activity_id`; the
+occurrence also stores `snapshot.catalog_gate`. Both the opening source's ID
+lower bound and the saved half-open timestamp window apply to later credit.
+Existing goals retain empty/null defaults, their original deadlines, snapshots,
+contributions, receipts and pins. No accepted milestone automatic or legacy
+window rearms after expiry or failure. Legacy quests have no historical
+completion timestamp, so their saved state time is only a conservative source
+cutoff, never a claimed completion date.
+
+The self/family-scoped `/api/challenges/` response includes `locked_catalog`
+with read-only catalog metadata and server-confirmed `milestone_eligibility`.
+An unlocked row still waits for the next qualifying saved reading receipt;
+it has no accepted window, countdown or pinnable goal identity. Reading this
+metadata awards nothing. Installing these schema/services does not activate a
+policy or rewrite bundled or published content.
+
 ## Automatic goal tracking
 
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.

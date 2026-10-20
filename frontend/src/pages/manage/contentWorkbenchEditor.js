@@ -1,7 +1,11 @@
+export function milestoneReferenceLabel(reference, choices) {
+  return choices.filter((choice) => choice.name === reference.name).length > 1 ? `${reference.name} (#${reference.id})` : reference.name;
+}
+
 export function initialEditor(section, row, key) {
   let values = row?.values ?? (section === 'items'
     ? { slug: '', name: '', description: '', icon: '✨', sprite_key: '', item_type: 'food', rarity: 'common', coin_value: 0, metadata: {} }
-    : { name: '', description: '', icon: '⭐', sprite_key: '', quest_type: 'collection', target_value: 5, duration_days: 7, coin_reward: 0, xp_reward: 0, is_repeatable: false, trigger_filter: {}, required_badge: null, reward_items: [], skill_tags: [] });
+    : { name: '', description: '', icon: '⭐', sprite_key: '', quest_type: 'collection', target_value: 5, duration_days: 7, coin_reward: 0, xp_reward: 0, is_repeatable: false, trigger_filter: {}, required_badge: null, prerequisite_quest: null, required_skill: null, required_skill_level: 0, reward_items: [], skill_tags: [] });
   if (section === 'items' && row?.id) {
     values = Object.fromEntries(Object.entries(values).filter(([field]) => !['rarity', 'coin_value', 'metadata'].includes(field)));
   }

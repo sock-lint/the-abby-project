@@ -218,7 +218,8 @@ class ContentPack:
         if not active:
             return 0, []
         fields =("quest_type", "target_value", "duration_days", "trigger_filter",
-                  "coin_reward", "xp_reward", "is_repeatable", "required_badge")
+                  "coin_reward", "xp_reward", "is_repeatable", "required_badge",
+                  "prerequisite_quest", "required_skill", "required_skill_level")
         changed = []
         for field_name in fields:
             if field_name not in defaults:
@@ -821,7 +822,18 @@ class ContentPack:
         from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
         from apps.rpg.models import ItemDefinition
 
-        for entry in data.get("quests", []) or []:
+        entries = list(data.get("quests", []) or [])
+        # Resolve forward references in dependency order without creating
+        # incomplete placeholder definitions in the runtime catalog.
+        ordered, pending = [], entries[:]
+        while pending:
+            names = {entry["name"] for entry in pending}
+            ready = [entry for entry in pending if not entry.get("prerequisite_quest") or entry["prerequisite_quest"] not in names]
+            if not ready:
+                raise ContentPackError("Challenge prerequisites cannot form a cycle.")
+            ordered.extend(ready)
+            pending = [entry for entry in pending if entry not in ready]
+        for entry in ordered:
             from .workbench import preserved_loader_entry
             if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
                 self.stats.bump("skipped", "database_authored_quest")
@@ -839,6 +851,17 @@ class ContentPack:
                 "is_repeatable": bool(entry.get("is_repeatable", False)),
                 "is_system": bool(entry.get("is_system", True)),
             }
+            for field, model in (("prerequisite_quest", QuestDefinition),):
+                if field in entry:
+                    matches = list(model.objects.filter(name=entry[field], is_system=True, created_by=None)[:2]) if entry[field] else []
+                    if entry[field] and len(matches) != 1:
+                        raise ContentPackError(f"Unknown or ambiguous global {field}: {entry[field]!r}.")
+                    defaults[field] = matches[0] if matches else None
+            if "required_skill" in entry:
+                tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry["required_skill"] else []
+                defaults["required_skill"] = tags[0][0] if tags else None
+            if "required_skill_level" in entry:
+                defaults["required_skill_level"] = entry["required_skill_level"]
             if "required_badge" in entry and entry["required_badge"]:
                 try:
                     defaults["required_badge"] = Badge.objects.get(
@@ -855,6 +878,11 @@ class ContentPack:
             if quest is None:
                 # Left unchanged by an unkeyed load; keep its links as well.
                 continue
+            from django.core.exceptions import ValidationError
+            try:
+                quest.clean()
+            except ValidationError as error:
+                raise ContentPackError("; ".join(error.messages)) from error
             self.stats.bump("created" if created else "updated", "quest")
 
             # Reconcile future links after freezing accepted promises above.

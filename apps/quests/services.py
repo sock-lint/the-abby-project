@@ -128,6 +128,14 @@ class QuestService:
         ).exists():
             raise ValueError("You have already completed this quest")
 
+        from .milestone_eligibility import has_milestone_gate, milestone_eligibility
+        if has_milestone_gate(definition):
+            if Quest.objects.filter(definition=definition, participants__user=user).exists():
+                raise ValueError("This one-time challenge already has an accepted window.")
+            eligibility = milestone_eligibility(user, definition)
+            if not eligibility["unlocked"]:
+                raise ValueError(" ".join(eligibility["locked_reasons"]))
+
         # Check badge requirement
         if definition.required_badge:
             from apps.achievements.models import UserBadge
@@ -215,6 +223,15 @@ class QuestService:
             definition=definition, participants__user__in=users, status=Quest.Status.COMPLETED,
         ).exists():
             raise ValueError("A participant has already completed this quest")
+
+        from .milestone_eligibility import has_milestone_gate, milestone_eligibility
+        if has_milestone_gate(definition):
+            if Quest.objects.filter(definition=definition, participants__user__in=users).exists():
+                raise ValueError("A participant already accepted this one-time challenge.")
+            for participant in users:
+                eligibility = milestone_eligibility(participant, definition)
+                if not eligibility["unlocked"]:
+                    raise ValueError("Every participant must qualify: " + " ".join(eligibility["locked_reasons"]))
 
         # Badge gate applies to every participant — don't start if any
         # participant can't satisfy it.
