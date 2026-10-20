@@ -16,7 +16,7 @@ from apps.mcp_server.schemas import DraftPackEntriesIn, UpdateBadgeIn, WritePack
 from apps.mcp_server.tools import achievements
 from apps.mcp_server.tools import content_packs as tools
 from apps.quests.models import Quest, QuestDefinition
-from apps.rpg.models import ItemDefinition
+from apps.rpg.models import ContentPackEntry, ItemDefinition
 from config.tests.factories import make_family
 
 
@@ -130,6 +130,63 @@ class PackManagementTests(TestCase):
         with self.assertRaises(MCPValidationError):
             tools.draft_pack_entries(DraftPackEntriesIn(pack="managed", filename="quests.yaml", entries=[{**row, "id": "other"}]))
         self.assertEqual(path.read_bytes(), original)
+
+    def test_name_keyed_draft_can_gain_stable_id_without_reordering_neighbors(self):
+        rows = [
+            {"id": "before", "name": "Before", "quest_type": "collection", "target_value": 1},
+            {"name": "Same", "quest_type": "collection", "target_value": 1},
+            {"id": "after", "name": "After", "quest_type": "collection", "target_value": 1},
+        ]
+        rows = [{**row, "description": "Synthetic"} for row in rows]
+        tools.draft_pack_entries(DraftPackEntriesIn(pack="managed", filename="quests.yaml", entries=rows))
+        promoted = {**rows[1], "id": "same", "description": "Reviewed draft"}
+        result = tools.draft_pack_entries(DraftPackEntriesIn(
+            pack="managed", filename="quests.yaml", entries=[promoted],
+        ))
+        self.assertEqual(result["entry_count"], 3)
+        saved = yaml.safe_load((self.root / "content/rpg/packs/managed/quests.yaml").read_text())
+        self.assertEqual(saved["quests"], [rows[0], promoted, rows[2]])
+        self.publish()
+        quest = QuestDefinition.objects.get(name="Same")
+        self.assertEqual(ContentPackEntry.objects.get(
+            model_label=quest._meta.label_lower, object_id=quest.pk,
+        ).key, "same")
+
+    def test_name_keyed_entry_can_gain_stable_id_in_the_same_batch(self):
+        row = {"name": "Same", "description": "Synthetic", "quest_type": "collection", "target_value": 1}
+        result = tools.draft_pack_entries(DraftPackEntriesIn(
+            pack="managed", filename="quests.yaml", entries=[row, {**row, "id": "same"}],
+        ))
+        self.assertEqual(result["entry_count"], 1)
+        self.publish()
+        self.assertEqual(QuestDefinition.objects.filter(name="Same").count(), 1)
+
+    def test_existing_id_cannot_take_another_name_keyed_row_or_be_removed(self):
+        stable = {"id": "stable", "name": "Stable", "quest_type": "collection", "target_value": 1}
+        unnamed = {"name": "Other", "quest_type": "collection", "target_value": 1}
+        tools.draft_pack_entries(DraftPackEntriesIn(pack="managed", filename="quests.yaml", entries=[stable, unnamed]))
+        path = self.root / "content/rpg/packs/managed/quests.yaml"
+        original = path.read_bytes()
+        for update in ({**unnamed, "id": "stable"}, {key: value for key, value in stable.items() if key != "id"}):
+            with self.subTest(update=update), self.assertRaises(MCPValidationError):
+                tools.draft_pack_entries(DraftPackEntriesIn(pack="managed", filename="quests.yaml", entries=[update]))
+            self.assertEqual(path.read_bytes(), original)
+
+    def test_draft_id_promotion_does_not_adopt_an_already_published_identity(self):
+        row = {"name": "Published", "description": "Synthetic", "quest_type": "collection", "target_value": 1}
+        tools.draft_pack_entries(DraftPackEntriesIn(pack="managed", filename="quests.yaml", entries=[row]))
+        self.publish()
+        quest = QuestDefinition.objects.get(name="Published")
+        claim = ContentPackEntry.objects.get(model_label=quest._meta.label_lower, object_id=quest.pk)
+        original_key = claim.key
+        tools.draft_pack_entries(DraftPackEntriesIn(
+            pack="managed", filename="quests.yaml", entries=[{**row, "id": "new-id"}],
+        ))
+        with self.assertRaisesRegex(MCPValidationError, "Unowned.*collision"):
+            self.preview()
+        claim.refresh_from_db()
+        self.assertEqual(claim.key, original_key)
+        self.assertEqual(QuestDefinition.objects.filter(name="Published").count(), 1)
 
     def test_bad_runtime_item_metadata_rejects_before_preview_or_publication(self):
         for metadata in ({"effect": "not-a-runtime-effect"}, {"effect": "xp_boost", "duration_hours": -1}):

@@ -247,6 +247,10 @@ parent goals. Use the modern tools for new challenge authoring and auditing.
    `draft_pack_entries`. The structured merge helper accepts item, species,
    potion, badge, quest and shop-reward entries; raw YAML also supports drop
    rules and skill trees. A draft is not a catalog publication.
+   Name-only draft rows can gain a stable `id` through an append without
+   changing neighboring rows. Keep existing IDs when editing; adding an ID
+   to an already-published name-keyed row still requires explicit ownership
+   migration before publication.
 3. Call `preview_content_pack` (also exposed as `validate_content_pack`). It
    runs strict domain validation and the real loader in a rollback, then saves
    an expiring publication plan. Review exact before/after changes and retained

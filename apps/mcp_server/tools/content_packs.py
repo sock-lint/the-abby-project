@@ -311,6 +311,10 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     writes the merged YAML back through the same safety rails as
     ``write_pack_file`` (size cap, path containment, reserved-name check).
 
+    An unkeyed row can gain a new stable ID without changing its name or
+    position. Existing stable IDs cannot be replaced or removed by name.
+    Published identities still require explicit migration at publication.
+
     ``mode="append"`` (default) merges into any existing rows; ``"replace"``
     discards the current file contents and writes only ``entries``.
 
@@ -390,6 +394,14 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
         by_key[key] = entry
     for entry in params.entries:
         key = identity(entry)
+        legacy_key = (natural_key, entry[natural_key])
+        if stable_ids and key[0] == "id" and key not in by_key and legacy_key in by_key:
+            # Promote a draft's name-only row in place. This does not migrate
+            # saved publication claims; the loader still checks those identities.
+            order[order.index(legacy_key)] = key
+            del by_key[legacy_key]
+            by_key[key] = entry
+            continue
         if key not in by_key:
             order.append(key)
         by_key[key] = entry

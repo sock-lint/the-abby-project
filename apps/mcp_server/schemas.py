@@ -1241,8 +1241,10 @@ class DraftPackEntriesIn(_Base):
 
     For files whose top-level key is a list of rows (items, pet_species,
     potion_types, badges, quests, rewards), this tool parses the existing
-    file, appends or replaces, dedupes by natural key, and writes the
-    result back. Saves the LLM from hand-merging YAML.
+    file, appends or replaces, and dedupes named rows by stable ID where
+    supplied, otherwise by natural key. A name-only draft row can gain a new
+    ID in place; existing IDs cannot be removed or replaced by name. This
+    does not migrate already-published ownership claims.
     """
     pack: str = Field(min_length=1, max_length=40)
     filename: DraftPackFilename

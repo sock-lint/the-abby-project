@@ -492,4 +492,3 @@ class CatalogSupersessionMigrationTests(SimpleTestCase):
                                 capture_output=True, text=True, timeout=90)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("Historical duplicate reconciliation preserves", result.stdout)
-
