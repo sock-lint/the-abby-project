@@ -66,7 +66,10 @@ cutoff, never a claimed completion date.
 The self/family-scoped `/api/challenges/` response includes `locked_catalog`
 with read-only catalog metadata and server-confirmed `milestone_eligibility`.
 An unlocked row still waits for the next qualifying saved reading receipt;
-it has no accepted window, countdown or pinnable goal identity. Reading this
+it has no accepted window, countdown or pinnable goal identity. Rows whose
+one-time prerequisite can no longer finish (its only accepted window ended
+uncompleted, directly or through a gated predecessor chain) are omitted;
+`milestone_eligibility.prerequisite_unavailable` owns that rule. Reading this
 metadata awards nothing. New milestone-gated solo, co-op and scroll starts are
 refused after explaining any unmet requirement: a manual legacy start cannot
 begin the clock before the child's next qualifying Reading Adventure. Existing

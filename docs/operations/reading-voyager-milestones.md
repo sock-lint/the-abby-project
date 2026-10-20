@@ -45,7 +45,13 @@ rewards and filter new locked offers.
 
 The child Challenges page displays server-confirmed requirements in **Coming
 next**, with no countdown before acceptance. Requirements can be met while
-the page awaits the next matching saved activity. Workbench editing, preview,
+the page awaits the next matching saved activity. A one-time prerequisite
+whose only window ended without completion can never be met, so the page omits
+its successors for that child rather than presenting an unreachable step.
+Reading Companion's one-time window opens when a child first views Challenges,
+so a newly enrolled child who misses its three readings in 14 days can never
+receive the selected Voyager. Decide whether that is acceptable before
+publication. Workbench editing, preview,
 publication, YAML override retention, MCP catalog exports and Lab snapshots
 carry the same exact IDs. Catalog and rules fingerprints invalidate stale
 comparisons when those rules change.
