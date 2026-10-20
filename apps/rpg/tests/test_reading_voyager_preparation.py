@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
+from django.db import transaction
 from django.test import TestCase
 from django.utils import timezone
 
@@ -165,6 +166,35 @@ class ReadingVoyagerPreparationTests(TestCase):
         link.save()
         self.companion.skill_tags.update(xp_weight=2)
         with self.assertRaisesMessage(ContentPackError, "Companion skill rewards"):
+            prepare_reading_voyager(self.actor)
+        self.assert_no_prepared_rows()
+
+    def test_starter_types_and_acquisition_bindings_refuse_drift_before_draft_creation(self):
+        changes = [
+            ("chick-egg", {"item_type": "food"}),
+            ("base-potion", {"item_type": "food"}),
+            ("food-birdseed", {"item_type": "consumable"}),
+            ("chick-egg", {"pet_species_id": None}),
+            ("chick-egg", {"metadata": {"species": "other"}}),
+            ("base-potion", {"potion_type_id": None}),
+            ("base-potion", {"metadata": {"variant": "fire"}}),
+            ("food-birdseed", {"food_species_id": None}),
+            ("food-birdseed", {"metadata": {"food_type": "birdseed", "growth": 30}}),
+            ("food-birdseed", {"metadata": {"food_type": "fish", "growth": 5}}),
+        ]
+        for slug, values in changes:
+            with self.subTest(slug=slug, values=values), transaction.atomic():
+                ItemDefinition.objects.filter(slug=slug).update(**values)
+                with self.assertRaises(ContentPackError):
+                    prepare_reading_voyager(self.actor)
+                self.assert_no_prepared_rows()
+                transaction.set_rollback(True)
+
+    def test_starter_pair_must_still_hatch_with_the_promised_base_potion(self):
+        chick = PetSpecies.objects.get(slug="chick")
+        fire = PotionType.objects.create(slug="fire", name="Fire")
+        chick.available_potions.set([fire])
+        with self.assertRaisesMessage(ContentPackError, "starter"):
             prepare_reading_voyager(self.actor)
         self.assert_no_prepared_rows()
 

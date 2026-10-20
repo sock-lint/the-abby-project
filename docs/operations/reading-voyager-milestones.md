@@ -46,8 +46,9 @@ The saved end is exclusive, exactly 56 elapsed days after the accepted source
 timestamp; its displayed calendar uses the saved household timezone.
 
 Existing goals retain their original dates, prose, rewards and history,
-including unopened 45-day goals. Paid or expired one-time goals and prior
-legacy starts cannot rearm. Active legacy scalar-edit protection still blocks
+including unopened 45-day goals. Paid or expired one-time automatic goals
+cannot rearm; a prior accepted legacy Voyager window also blocks a new
+milestone-gated Voyager offer. Active legacy scalar-edit protection still blocks
 publication. New solo, co-op and scroll starts cannot open gated reading
 challenges manually; after meeting the milestones, the next Reading Adventure
 opens them automatically. Rerolls exclude these automatic definitions.
@@ -63,7 +64,11 @@ The old Reading Companion's one-time 14-day window can open before the child
 begins reading. The selected untimed definition removes that future lockout: a
 child can finish three qualifying Adventures after a late start or a long gap.
 Previously accepted timed Companion promises retain their saved deadline; this
-schema migration does not reopen, extend or pay them. New legacy manual starts
+schema migration does not reopen, extend or pay those saved rows. The existing
+automatic-tracking cutover can create a child's first catalog Companion goal
+after an expired or failed legacy Companion if no automatic goal exists; that
+new goal follows the current definition while the legacy row stays unchanged.
+New legacy manual starts
 of untimed definitions are refused; automatic tracking owns their one promise.
 Workbench editing, preview,
 publication, YAML override retention, MCP catalog exports and Lab snapshots
@@ -81,7 +86,8 @@ python manage.py prepare_reading_voyager --actor-id <active-staff-parent-id>
 This creates one private draft and normal preview for that exact actor,
 containing both the untimed Companion and gated 56-day Voyager edits. It
 returns the revision, preview ID, content digest and resolved global IDs. It
-refuses baseline/reward drift (including Companion item quantities and skill
+refuses baseline/reward drift (including Companion item types, typed Chick/Base
+bindings, compatible hatching pair, Birdseed nourishment, quantities and skill
 weights), ambiguous identities, foreign ownership or
 active legacy conflicts and rolls back draft creation on failure. It never
 simulates or publishes. It is not a deployment/startup command.

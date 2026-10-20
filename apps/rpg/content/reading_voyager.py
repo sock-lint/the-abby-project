@@ -7,8 +7,10 @@ checks remain authoritative after preparation.
 from django.db import transaction
 
 from apps.achievements.models import Skill
+from apps.pets.models import PetSpecies, PotionType
+from apps.pets.roster import prepared_base_potion
 from apps.quests.models import QuestDefinition
-from apps.rpg.catalog_support import item_is_available
+from apps.rpg.catalog_support import available_pet_variants, item_is_available
 from apps.rpg.models import ItemDefinition
 
 from .loader import ContentPackError
@@ -80,11 +82,35 @@ def prepare_reading_voyager(actor):
                           "coin_reward": 0, "xp_reward": 20, "required_badge_id": None,
                           "prerequisite_quest_id": None, "required_skill_id": None, "required_skill_level": 0},
               "Reading Companion")
-    companion_rewards = list(companion.reward_items.select_related("item").order_by("item__slug"))
+    companion_rewards = list(companion.reward_items.select_related(
+        "item__pet_species", "item__potion_type", "item__food_species",
+    ).order_by("item__slug"))
     if [(row.item.slug, row.quantity) for row in companion_rewards] != [
         ("base-potion", 1), ("chick-egg", 1), ("food-birdseed", 2),
     ] or any(not item_is_available(row.item) for row in companion_rewards):
         raise ContentPackError("Reading Companion item rewards differ from the reviewed Chick starter promise.")
+    chick = _unique(PetSpecies.objects.filter(slug="chick"), "Chick starter species")
+    base = _unique(PotionType.objects.filter(slug="base"), "Base starter potion")
+    starter = {row.item.slug: row.item for row in companion_rewards}
+    _expected(starter["chick-egg"], {
+        "item_type": ItemDefinition.ItemType.EGG, "pet_species_id": chick.pk,
+        "potion_type_id": None, "food_species_id": None, "metadata": {"species": "chick"},
+    }, "Reading Companion Chick Egg starter reward")
+    _expected(starter["base-potion"], {
+        "item_type": ItemDefinition.ItemType.POTION, "potion_type_id": base.pk,
+        "pet_species_id": None, "food_species_id": None,
+    }, "Reading Companion Base Potion starter reward")
+    if not prepared_base_potion(starter["base-potion"]):
+        raise ContentPackError("Reading Companion Base Potion starter metadata differs from the reviewed binding.")
+    # Potion color is presentation. Birdseed's typed preference and common
+    # five-point base nourishment are part of this reviewed reward.
+    _expected(starter["food-birdseed"], {
+        "item_type": ItemDefinition.ItemType.FOOD, "food_species_id": chick.pk,
+        "pet_species_id": None, "potion_type_id": None, "rarity": "common",
+        "metadata": {"food_type": "birdseed", "growth": 5},
+    }, "Reading Companion Birdseed starter reward")
+    if not available_pet_variants(chick).filter(pk=base.pk).exists():
+        raise ContentPackError("Reading Companion starter ingredients must still hatch the promised Chick with Base Potion.")
     if list(companion.skill_tags.order_by("skill_id").values_list("skill_id", "xp_weight")) != [(skill.pk, 1)]:
         raise ContentPackError("Reading Companion skill rewards differ from the reviewed one-weight Reading Comprehension promise.")
     if skill.is_locked_by_default:
