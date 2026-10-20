@@ -21,7 +21,7 @@ CHALLENGE_GATES_LIMITS = {
 SCOPE = "One-off global catalog challenges compatible with this routine; not all app activities."
 ASSUMPTIONS = [
     "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
-    "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+    "Current mode ignores valid configured gate rules and retains authored challenge, skill and badge requirements. Milestones adds the selected completed-challenge and skill-level requirements using AND. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
     "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
     "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
     "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
@@ -92,11 +92,19 @@ class GateReferenceError(ValueError):
     """An entered gate references unavailable global content or a cyclic path."""
 
 
+def _direct_predecessors(quest, rules):
+    # An experimental prerequisite adds to the authored path; it never replaces it.
+    return tuple(dict.fromkeys(pk for pk in (
+        getattr(quest, "prerequisite_quest_id", None),
+        rules.get(quest.pk, {}).get("prerequisite_quest_id"),
+    ) if pk is not None))
+
+
 def validate_challenge_gate_catalog(config, catalog):
     """Validate IDs and bounded prerequisite graphs against detached values only."""
     quest_ids = {q.pk for q in catalog.quests}
     repeatable_ids = {q.pk for q in catalog.quests if q.is_repeatable}
-    edges = {}
+    rules = {}
     for rule in config["rules"]:
         if rule["quest_id"] not in quest_ids or (rule["prerequisite_quest_id"] is not None
                                                 and rule["prerequisite_quest_id"] not in quest_ids):
@@ -105,14 +113,25 @@ def validate_challenge_gate_catalog(config, catalog):
             raise GateReferenceError("challenge_gates can target only one-off global challenges.")
         if rule["skill_id"] is not None and rule["skill_id"] not in catalog.skills:
             raise GateReferenceError("challenge_gates references a skill outside the global catalog.")
-        edges[rule["quest_id"]] = rule["prerequisite_quest_id"]
-    for start in edges:
-        seen, cursor = set(), start
-        while cursor in edges and cursor is not None:
-            if cursor in seen:
-                raise GateReferenceError("challenge_gates prerequisite challenges must not contain a cycle.")
-            seen.add(cursor)
-            cursor = edges[cursor]
+        rules[rule["quest_id"]] = rule
+    edges = {q.pk: _direct_predecessors(q, rules) for q in catalog.quests}
+    dependents, remaining = defaultdict(set), {}
+    for quest_id, predecessors in edges.items():
+        if any(pk not in quest_ids for pk in predecessors):
+            raise GateReferenceError("A prerequisite references a challenge outside the global catalog.")
+        remaining[quest_id] = len(predecessors)
+        for predecessor in predecessors:
+            dependents[predecessor].add(quest_id)
+    queue = deque(pk for pk, count in remaining.items() if count == 0)
+    visited = 0
+    while queue:
+        visited += 1
+        for dependent in dependents[queue.popleft()]:
+            remaining[dependent] -= 1
+            if remaining[dependent] == 0:
+                queue.append(dependent)
+    if visited != len(quest_ids):
+        raise GateReferenceError("Authored and challenge_gates prerequisites must not contain a cycle.")
 
 
 def challenge_gate_choices(catalog):
@@ -128,23 +147,29 @@ class ChallengeGates:
         validate_challenge_gate_catalog(config, catalog)
         self.enabled = config["mode"] != "current"
         self.start = date.fromisoformat(config["start_date"])
-        self.rules = {row["quest_id"]: row for row in config["rules"]} if self.enabled else {}
+        self.rules = {row["quest_id"]: row for row in self.config["rules"]} if self.enabled else {}
         self.catalog = catalog
+        self.predecessors = {q.pk: _direct_predecessors(q, self.rules) for q in catalog.quests}
+        # These depend only on the immutable policy/catalog, never trial state.
+        # Shared two-parent DAG paths must not enumerate every traversal.
+        self._earliest_days, self._temporal_paths = {}, {}
         self.unlock_days, self.completion_days = {}, {}
         self.visits = Counter()
         self.native_ids, self.reachable_ids = set(), set()
         self.native_finite_total = self.reachable_finite_total = 0
 
     def earliest_day(self, quest_id):
+        if quest_id in self._earliest_days:
+            return self._earliest_days[quest_id]
         rule = self.rules.get(quest_id, {})
         earliest = 1
         if rule.get("available_from"):
             earliest = max(earliest, (date.fromisoformat(rule["available_from"]) - self.start).days + 1)
         if self.config["mode"] == "milestone_tenure":
             earliest = max(earliest, rule.get("min_days", 0) + 1)
-        prerequisite = rule.get("prerequisite_quest_id")
-        if prerequisite is not None:
+        for prerequisite in self.predecessors.get(quest_id, ()):
             earliest = max(earliest, self.earliest_day(prerequisite))
+        self._earliest_days[quest_id] = earliest
         return earliest
 
     def last_day(self, quest_id):
@@ -153,13 +178,19 @@ class ChallengeGates:
                 if rule.get("available_until") else None)
 
     def temporal_possible(self, quest_id):
+        if quest_id in self._temporal_paths:
+            return self._temporal_paths[quest_id]
         last = self.last_day(quest_id)
-        prerequisite = self.rules.get(quest_id, {}).get("prerequisite_quest_id")
-        return ((last is None or last >= self.earliest_day(quest_id))
-                and (prerequisite is None or self.temporal_possible(prerequisite)))
+        possible = ((last is None or last >= self.earliest_day(quest_id))
+                    and all(self.temporal_possible(pk) for pk in self.predecessors.get(quest_id, ())))
+        self._temporal_paths[quest_id] = possible
+        return possible
 
     def prerequisites_met(self, quest, trial):
         if quest.required_badge_id and quest.required_badge_id not in trial.badges:
+            return False
+        if (getattr(quest, "prerequisite_quest_id", None) or getattr(quest, "required_skill_id", None)
+                or getattr(quest, "required_skill_level", 0)) and not trial._milestones_met(quest):
             return False
         rule = self.rules.get(quest.pk, {})
         if rule.get("prerequisite_quest_id") and rule["prerequisite_quest_id"] not in trial.completed_quests:
@@ -218,8 +249,9 @@ class ChallengeGates:
         # offering locks. Only a definite missing prerequisite can close a new path.
         if quest.pk in trial.quest_windows or quest.pk in trial.completed_quests:
             return []
-        prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
-        if prerequisite is not None and prerequisite not in trial.completed_quests:
+        for prerequisite in self.predecessors.get(quest.pk, ()):
+            if prerequisite in trial.completed_quests:
+                continue
             prior = state["quests"][prerequisite]
             if self._known_expired(prior, trial):
                 return ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
@@ -251,8 +283,7 @@ class ChallengeGates:
         badges = {badge.pk: badge for badge in self.catalog.badges}
         rows, dependents, row_badges = {}, defaultdict(set), defaultdict(set)
         for quest in quests.values():
-            prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
-            if prerequisite is not None:
+            for prerequisite in self.predecessors.get(quest.pk, ()):
                 dependents[prerequisite].add(quest.pk)
             badge_id = quest.required_badge_id
             if not badge_id or badge_id in trial.badges:

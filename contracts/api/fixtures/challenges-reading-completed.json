@@ -103,6 +103,7 @@
       "daily_bonus": null
     }
   ],
+  "locked_catalog": [],
   "daily_bonus": {
     "date": "2026-10-14",
     "timezone": "America/Phoenix",

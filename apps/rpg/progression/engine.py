@@ -17,6 +17,8 @@ from types import SimpleNamespace
 from types import MappingProxyType
 
 from django.conf import settings
+from apps.quests import activity as challenge_activity_rules
+from apps.quests import milestone_eligibility as milestone_rules
 
 from apps.achievements.models import XP_THRESHOLDS
 from apps.achievements.criteria import criteria_types_for_scopes
@@ -234,6 +236,9 @@ def rules_fingerprint(*, incubation_policy=None):
     # saved forecasts even when its constants stay the same.
     rules = {
         "engine": ENGINE_VERSION,
+        "milestone_goal_source": inspect.getsource(inspect.getmodule(_amount)),
+        "milestone_source": inspect.getsource(milestone_rules),
+        "milestone_activity_source": inspect.getsource(challenge_activity_rules),
         "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
         "seconds_per_day": SECONDS_PER_DAY,
         "xp": XP_THRESHOLDS,
@@ -604,6 +609,10 @@ class Trial:
         result = []
         for q in self.catalog.quests:
             filters = q.trigger_filter or {}
+            if self._has_milestones(q) and (q.quest_type != "collection" or q.is_repeatable
+                    or set(filters) != {"allowed_triggers"}
+                    or tuple(filters.get("allowed_triggers") or ()) != ("reading_logged",)):
+                continue
             allowed = set(filters.get("allowed_triggers") or EFFORT_TRIGGERS)
             if not allowed & enabled & FACT_TRIGGERS or q.required_badge_id and q.required_badge_id not in badge_ids:
                 continue
@@ -615,7 +624,24 @@ class Trial:
                 continue
             if q.target_value > 0 and q.duration_days > 0 and self._challenge_capacity(q, enabled) >= q.target_value:
                 result.append(q)
-        return result
+        # Keep only structurally usable milestone references. Actual progress
+        # is evaluated at the fresh activity, never predicted as an offer rule.
+        ids = {q.pk for q in result}
+        return [q for q in result if (not getattr(q, "prerequisite_quest_id", None) or q.prerequisite_quest_id in ids)
+                and (not getattr(q, "required_skill_id", None) or q.required_skill_id in self.catalog.skills)]
+
+    @staticmethod
+    def _has_milestones(quest):
+        return bool(getattr(quest, "prerequisite_quest_id", None)
+                    or getattr(quest, "required_skill_id", None) or getattr(quest, "required_skill_level", 0))
+
+    def _milestones_met(self, quest):
+        prerequisite = getattr(quest, "prerequisite_quest_id", None)
+        skill = getattr(quest, "required_skill_id", None)
+        level = getattr(quest, "required_skill_level", 0)
+        return (not prerequisite or prerequisite in self.completed_quests) and (
+            not skill and level == 0 or skill in self.unlocked
+            and 1 <= level <= 6 and SkillService.level_for_xp(self.xp[skill]) >= level)
 
     def _challenge_capacity(self, quest, triggers):
         c = self.config
@@ -861,6 +887,8 @@ class Trial:
                 if respect_gates and (not self.challenge_gates.potential_allows(q, potential)
                                       or self._challenge_capacity(q, potential_triggers) < q.target_value):
                     continue
+                if not potential._milestones_met(q):
+                    continue
                 potential.completed_quests.add(q.pk)
                 obtainable.update(row.item_id for row in q.reward_items.all() if row.item_id in self.catalog.items)
                 potential.counters[f"quest_completed:{q.pk}"] = max_count if q.is_repeatable else 1
@@ -1054,9 +1082,18 @@ class Trial:
         # Production materializes eligible catalog goals once before processing
         # the fact. A completion seal cannot enroll its next chapter halfway
         # through this same fact, regardless of catalog ordering.
-        eligible = [q for q in self.quests if self.challenge_gates.can_offer(q, self)]
+        eligible = [q for q in self.quests if self.challenge_gates.can_offer(q, self)
+                    and (q.pk in self.quest_windows or self._milestones_met(q))]
         for q in eligible:
+            snapshot = {
+                "metric": "damage" if q.quest_type == "boss" else "count",
+                "filter": q.trigger_filter,
+                "unit": "actions",
+            }
+            amount = _amount(snapshot, SimpleNamespace(context=context, trigger_type=trigger))
             if q.pk not in self.quest_windows:
+                if self._has_milestones(q) and amount <= 0:
+                    continue
                 self.quest_windows[q.pk] = {"start": self.day, "progress": Decimal(0), "paid": False}
                 self.challenge_gates.unlock_days.setdefault(q.pk, self.day)
             window = self.quest_windows[q.pk]
@@ -1067,12 +1104,7 @@ class Trial:
                 window.update(start=window["start"] + periods * q.duration_days, progress=Decimal(0), paid=False)
             if window["paid"]:
                 continue
-            snapshot = {
-                "metric": "damage" if q.quest_type == "boss" else "count",
-                "filter": q.trigger_filter,
-                "unit": "actions",
-            }
-            window["progress"] += _amount(snapshot, SimpleNamespace(context=context, trigger_type=trigger))
+            window["progress"] += amount
             if window["progress"] < q.target_value:
                 continue
             window["paid"] = True

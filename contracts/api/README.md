@@ -35,6 +35,16 @@ and legacy rows retain null/false. Producers and consumers are the existing
 challenge fixture modules, including the live Lab report component tests.
 These observations do not assert that details were read or enjoyed.
 
+`challenges-milestone-locked.json` and `challenges-milestone-ready.json` are
+authenticated `/api/challenges/` responses containing the read-only
+`locked_catalog`. Native requirements use exact prerequisite/skill identities
+and server-confirmed `milestone_eligibility`; ready rows await a new qualifying
+daily Reading Adventure and have no accepted window or pinnable goal ID.
+Existing challenge-list fixtures retain their saved rows and add an empty
+`locked_catalog` when no milestone offer is pending. The challenge fixture
+producer tests both readiness states, selected-child family scoping and the
+absence of read awards; React consumes the same fixtures in its Trials tests.
+
 `progression-lab-metadata.json`, `progression-lab-report.json` and
 `progression-lab-economy-report.json` bind anonymous new-child forecasts to
 their real staff-parent endpoints. The economy example uses synthetic reward

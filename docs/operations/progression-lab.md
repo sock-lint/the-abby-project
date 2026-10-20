@@ -415,13 +415,20 @@ and a foreign comparison link that must continue to fail closed.
 
 ## Challenge gate experiments
 
+Current mode retains the installed catalog's authored challenge, unlocked-skill
+and badge requirements. Experimental gates add requirements with AND, including
+their dates and tenure. Native and experimental predecessor paths participate
+in the same availability and expiration diagnostics. Workbench comparisons can
+evaluate an actual authored candidate with the experimental controls left in
+current mode; see [Reading Voyager milestones](reading-voyager-milestones.md).
+
 Challenge gates are anonymous simulation assumptions. They never update the
 live catalog, a child's saved goals, progress, rewards or eligibility. Start
 with a bounded recipe of at most 20 explicit one-time global challenge IDs and choose:
 
-- `current`: ignore the valid recipe and retain native badge prerequisites.
+- `current`: ignore the valid recipe and retain native authored and badge prerequisites.
 - `milestones`: require the selected prior challenge completion and named
-  skill/level, alongside the existing badge prerequisite and offering dates.
+  skill/level, alongside native authored and badge prerequisites and offering dates.
 - `milestone_tenure`: also require the selected elapsed days since first use.
 
 All populated conditions combine with AND. The first modeled active visit is

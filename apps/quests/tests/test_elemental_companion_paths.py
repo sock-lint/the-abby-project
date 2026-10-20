@@ -1,5 +1,6 @@
 """Elemental discoveries promise usable pairs, and never an egg-only fallback."""
 from copy import deepcopy
+from datetime import timedelta
 from io import StringIO
 import json
 from unittest.mock import patch
@@ -77,6 +78,51 @@ class ElementalAvailabilityTests(TestCase):
             with self.assertRaisesRegex(ValueError, "artwork|available|not found"):
                 start()
         ingest_activity(self.child, "chore_complete", "future-pair", "chore_complete")
+        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
+
+    def test_milestone_metadata_requires_both_whole_pair_art_and_a_reachable_prerequisite(self):
+        from apps.mcp_server.catalog import catalog_row
+        from apps.quests.milestone_eligibility import prerequisite_unavailable
+
+        prior = QuestDefinition.objects.create(
+            name="Synthetic elemental reading prerequisite", description="A separate accepted reading window",
+            quest_type="collection", target_value=3, duration_days=14, is_system=True,
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+        )
+        self.definition.prerequisite_quest = prior
+        self.definition.trigger_filter = {"allowed_triggers": ["reading_logged"]}
+        self.definition.save(update_fields=["prerequisite_quest", "trigger_filter", "updated_at"])
+        self.client.force_authenticate(self.child)
+        response = self.client.get("/api/challenges/")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn(self.definition.pk, [row["id"] for row in response.data["locked_catalog"]])
+        self.assertNotIn(self.definition.pk, [row["id"] for row in self.client.get("/api/quests/available/").data])
+        self.client.force_authenticate(self.parent)
+        self.assertNotIn(self.definition.pk, [row["id"] for row in self.client.get("/api/quests/catalog/").data])
+        self.assertFalse(catalog_row("quests", self.definition)["available_for_new_user"])
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("chick", "fire"))):
+            self.client.force_authenticate(self.child)
+            response = self.client.get("/api/challenges/")
+            locked = next(row for row in response.data["locked_catalog"] if row["id"] == self.definition.pk)
+            self.assertEqual(locked["prerequisite_quest"], prior.pk)
+            self.assertFalse(locked["milestone_eligibility"]["unlocked"])
+            self.assertEqual(len(locked["reward_items"]), 2)
+            self.assertTrue(all(row["item_catalog_available"] for row in locked["reward_items"]))
+            self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.definition).exists())
+            self.assertIn(self.definition.pk, [row["id"] for row in self.client.get("/api/quests/available/").data])
+            self.client.force_authenticate(self.parent)
+            self.assertIn(self.definition.pk, [row["id"] for row in self.client.get("/api/quests/catalog/").data])
+            projection = catalog_row("quests", self.definition)
+            self.assertTrue(projection["available_for_new_user"])
+            self.assertEqual(projection["prerequisite_quest"], prior.pk)
+            self.client.force_authenticate(self.child)
+            # Approved art cannot revive an ended one-time prerequisite path.
+            with patch("django.utils.timezone.now", return_value=timezone.now() + timedelta(days=31)):
+                response = self.client.get("/api/challenges/")
+                self.assertEqual(response.status_code, 200)
+                self.assertTrue(prerequisite_unavailable(self.child, prior.pk))
+                self.assertNotIn(self.definition.pk, [row["id"] for row in response.data["locked_catalog"]])
+            self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.definition).exists())
         self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
 
     def test_globally_available_fire_does_not_enable_an_unprepared_species_pair(self):

@@ -4,6 +4,7 @@ import CatalogSearch from '../../components/CatalogSearch';
 import SectionHeader from '../../components/SectionHeader';
 import SkillTagEditor from '../../components/SkillTagEditor';
 import { CheckboxField, IconPicker, SelectField, TextAreaField, TextField } from '../../components/form';
+import { milestoneReferenceLabel } from './contentWorkbenchEditor';
 
 const labels = {
   food: 'Pet food', cosmetic_frame: 'Profile frame', cosmetic_title: 'Title',
@@ -29,6 +30,9 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
   const itemIdentity = (item) => item.id ? `id:${item.id}` : `new:${item.key}`;
   const rewardIdentity = (reward) => reward.item_id ? `id:${reward.item_id}` : `new:${reward.item_key}`;
   const matchingItems = catalog.items.filter((item) => `${item.name} ${item.slug ?? ''}`.toLowerCase().includes(itemSearch.toLowerCase()));
+  const prerequisiteChoices = (catalog.quests ?? []).filter((quest) => quest.id && quest.id !== object_id && quest.is_system !== false);
+  const selectedPrerequisiteListed = prerequisiteChoices.some((quest) => quest.id === values.prerequisite_quest);
+  const selectedSkillListed = catalog.skills.some((skill) => skill.id === values.required_skill);
   const addItem = () => {
     const item = matchingItems.find((candidate) => !rewardItems.some((reward) => rewardIdentity(reward) === itemIdentity(candidate)));
     if (item) set('reward_items', [...rewardItems, { ...(item.id ? { item_id: item.id } : { item_key: item.key }), quantity: 1 }]);
@@ -63,6 +67,27 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
         </div>
         <CheckboxField label="Repeatable challenge" checked={values.is_repeatable ?? false} onChange={(event) => set('is_repeatable', event.target.checked)} />
         <SelectField label="Required badge" value={values.required_badge ?? ''} onChange={(event) => set('required_badge', event.target.value ? Number(event.target.value) : null)}><option value="">No badge required</option>{catalog.badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}</SelectField>
+        <section aria-label="Challenge milestones" className="space-y-3 rounded-lg bg-ink-page-aged p-3">
+          <h4 className="font-semibold text-ink-primary">Milestones before a new offer</h4>
+          <p className="text-caption text-ink-secondary">Every selected milestone and the required badge must be met before a new challenge is offered. Saved goals keep their accepted progress and completion windows.</p>
+          <p className="text-caption text-ink-secondary">Milestone gates currently support daily Reading Adventures: use an activity count challenge with Reading logged as its only qualifying activity and no additional activity filters.</p>
+          <SelectField label="Previous challenge" value={values.prerequisite_quest ?? ''} onChange={(event) => set('prerequisite_quest', event.target.value === '' ? null : Number(event.target.value))} helpText="Require a completion of this exact catalog challenge. This is separate from the new challenge’s qualifying activities.">
+            <option value="">No previous challenge required</option>
+            {values.prerequisite_quest && !selectedPrerequisiteListed && <option value={values.prerequisite_quest} disabled>{source?.prerequisite_quest_name || 'Retained challenge'} (#{values.prerequisite_quest}) · not listed</option>}
+            {prerequisiteChoices.map((quest) => <option key={quest.id} value={quest.id}>{milestoneReferenceLabel(quest, catalog.quests)}</option>)}
+          </SelectField>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <SelectField label="Required skill" value={values.required_skill ?? ''} onChange={(event) => {
+              const skill = event.target.value === '' ? null : Number(event.target.value);
+              onChange({ ...editor, values: { ...values, required_skill: skill, required_skill_level: skill === null ? 0 : Math.max(1, values.required_skill_level || 1) } });
+            }} helpText="Use a named skill’s attained level. XP reward tags below do not create this requirement.">
+              <option value="">No skill required</option>
+              {values.required_skill && !selectedSkillListed && <option value={values.required_skill} disabled>{source?.required_skill_name || 'Retained skill'} (#{values.required_skill}) · not listed</option>}
+              {catalog.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.category_name ? `${skill.category_name} / ` : ''}{milestoneReferenceLabel(skill, catalog.skills)}</option>)}
+            </SelectField>
+            <TextField label="Required skill level" type="number" min="1" max="6" step="1" required={Boolean(values.required_skill)} disabled={!values.required_skill} value={values.required_skill_level ?? 0} onChange={(event) => set('required_skill_level', event.target.value === '' ? '' : Number(event.target.value))} helpText="Levels 1 to 6. Clearing the skill removes the level requirement." />
+          </div>
+        </section>
         <fieldset className="space-y-2"><legend className="font-semibold text-ink-primary">Qualifying activities</legend><p className="text-caption text-ink-secondary">Leave all unchecked to use the default everyday activities.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{triggerChoices.map((trigger) => {
           const label = supportedTriggers.has(trigger) ? choiceLabel(supportedTriggers.get(trigger)) : `${title(trigger)} · not tracked by current challenges`;
           return <CheckboxField key={trigger} label={label} checked={selectedTriggers.includes(trigger)} onChange={(event) => set('trigger_filter', { ...values.trigger_filter, allowed_triggers: event.target.checked ? [...selectedTriggers, trigger] : selectedTriggers.filter((entry) => entry !== trigger) })} />;

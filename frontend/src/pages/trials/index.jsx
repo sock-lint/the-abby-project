@@ -82,7 +82,7 @@ function TrialsWorkspace({ context }) {
       {error && <Button variant="secondary" onClick={reload}>Try again</Button>}
       {selected && <TrackedChallengeDetail key={selected.id} user={user} onConfirmed={confirmOpening} goal={selected} {...cardProps} onClose={() => setSelectedId('')} />}
       <ChallengesFolio
-        goals={goals} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
+        goals={goals} lockedCatalog={data?.locked_catalog ?? []} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
         dailyBonus={!isParent && <DailyChallengeCard challenge={data?.daily_bonus ?? null} />}
         toolbar={isParent && <div className="flex flex-wrap items-end gap-3">
           <ChildContext children={children} selectedChildId={targetChild} onSelect={selectChild} />

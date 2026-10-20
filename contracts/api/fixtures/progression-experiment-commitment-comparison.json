@@ -105,9 +105,9 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-20.1",
-    "rules_fingerprint": "72b4708abf72fff84831382fa237d550623d7e5252a0826b4de6deac703e4ef3",
+    "rules_fingerprint": "7afbf9b2bfe2e567f3368abe5e6052312028bba02885483cf8a2f9fcd07e2a64",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
-    "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
+    "catalog_fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
     "source_commit": "unavailable"
   },
   "inputs": {
@@ -241,7 +241,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
+      "fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -251,7 +251,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "72b4708abf72fff84831382fa237d550623d7e5252a0826b4de6deac703e4ef3",
+    "rules_fingerprint": "7afbf9b2bfe2e567f3368abe5e6052312028bba02885483cf8a2f9fcd07e2a64",
     "engine_version": "2026-10-20.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -4186,11 +4186,11 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "mount": 1,
-        "pet": 1,
         "quest": 1,
-        "middle": 1,
+        "badge": 1,
         "cosmetic": 1,
-        "badge": 1
+        "middle": 1,
+        "pet": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 86,
@@ -10914,7 +10914,7 @@
       },
       "assumptions": [
         "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
-        "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+        "Current mode ignores valid configured gate rules and retains authored challenge, skill and badge requirements. Milestones adds the selected completed-challenge and skill-level requirements using AND. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
         "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
         "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
         "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
@@ -11020,7 +11020,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
+      "fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -11030,7 +11030,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "72b4708abf72fff84831382fa237d550623d7e5252a0826b4de6deac703e4ef3",
+    "rules_fingerprint": "7afbf9b2bfe2e567f3368abe5e6052312028bba02885483cf8a2f9fcd07e2a64",
     "engine_version": "2026-10-20.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -15415,11 +15415,11 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "mount": 1,
-        "pet": 1,
         "quest": 1,
-        "middle": 1,
+        "badge": 1,
         "cosmetic": 1,
-        "badge": 1
+        "middle": 1,
+        "pet": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 91,
@@ -22527,7 +22527,7 @@
       },
       "assumptions": [
         "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
-        "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+        "Current mode ignores valid configured gate rules and retains authored challenge, skill and badge requirements. Milestones adds the selected completed-challenge and skill-level requirements using AND. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
         "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
         "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
         "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",

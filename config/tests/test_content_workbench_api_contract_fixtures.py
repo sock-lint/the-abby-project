@@ -25,16 +25,22 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
         self.client.force_authenticate(self.designer)
         category = SkillCategory.objects.create(id=901, name="Life Skills")
         skill = Skill.objects.create(id=902, name="Persistence", category=category)
+        prerequisite = QuestDefinition.objects.create(
+            id=908, name="Starter practice", description="Complete one approved chore.",
+            quest_type="collection", target_value=1, duration_days=7, is_system=True,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+        )
         self.item = ItemDefinition.objects.create(
             id=903, slug="fixture-studio-food", name="Practice snack", icon="🍎",
             item_type="food", rarity="common", coin_value=2,
             metadata={"growth": 5},
         )
         quest = QuestDefinition.objects.create(
-            id=904, name="Practice challenge", description="Complete two approved chores.",
+            id=904, name="Practice challenge", description="Complete two daily Reading Adventures.",
             quest_type="collection", target_value=2, duration_days=7,
-            trigger_filter={"allowed_triggers": ["chore_complete"]},
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
             coin_reward=10, xp_reward=15, is_system=True,
+            prerequisite_quest=prerequisite, required_skill=skill, required_skill_level=1,
         )
         QuestSkillTag.objects.create(id=905, quest_definition=quest, skill=skill, xp_weight=1)
         QuestRewardItem.objects.create(id=906, quest_definition=quest, item=self.item, quantity=1)
@@ -45,7 +51,9 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
             self.client.get("/api/rpg/content-workbench/"), "content-workbench-catalog.json",
         )
         self.assertEqual(len(body["catalog"]["items"]), 1)
-        self.assertEqual(len(body["catalog"]["quests"]), 1)
+        self.assertEqual(len(body["catalog"]["quests"]), 2)
+        target = next(row for row in body["catalog"]["quests"] if row["id"] == 904)
+        self.assertEqual((target["prerequisite_quest"], target["required_skill"], target["required_skill_level"]), (908, 902, 1))
         self.assertEqual(body["drafts"], [])
         self.assertEqual(body["simulation"]["pet_incubation_policy"], INCUBATION_POLICY)
 
