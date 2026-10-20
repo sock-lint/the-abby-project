@@ -126,6 +126,102 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_expired_unpaid_catalog_retry_has_a_fresh_window_and_one_lifetime_reward(self):
+        from apps.quests.models import ChallengeOccurrence
+
+        self.authenticate(self.child)
+        original = self.client.get("/api/challenges/").json()["results"][0]
+        self.assertEqual(self.log_run("0.75").status_code, 201)
+        old = ChallengeOccurrence.objects.get(pk=int(original["id"].split(":")[1]))
+        old.refresh_from_db()
+        self.assertEqual(old.progress, 1)
+        original_snapshot = old.snapshot.copy()
+        later = FIXED_NOW + timedelta(days=8)
+        with patch("django.utils.timezone.now", return_value=later):
+            self.authenticate(self.other_parent)
+            self.assertEqual(self.client.post(
+                f"/api/challenges/{original['id']}/retry/", {}, format="json",
+            ).status_code, 404)
+            self.authenticate(self.child)
+            retried = self.assert_response_fixture(self.client.post(
+                f"/api/challenges/{original['id']}/retry/", {}, format="json",
+            ), "challenge-retried.json", status=201)
+            self.assertNotEqual(retried["id"], original["id"])
+            self.assertEqual((retried["progress"], retried["status"]), ("0", "active"))
+            self.assertEqual(retried["rewards"], original["rewards"])
+            replay = self.client.post(f"/api/challenges/{original['id']}/retry/", {}, format="json")
+            self.assertEqual(replay.status_code, 200)
+            self.assertEqual(replay.json()["id"], retried["id"])
+            for index in range(2):
+                response = self.client.post("/api/movement-sessions/", {
+                    "movement_type_id": self.running.pk, "duration_minutes": 20,
+                    "distance": "1", "distance_unit": "mi",
+                    "client_request_id": f"55555555-5555-4555-8555-{index + 1:012d}",
+                }, format="json")
+                self.assertEqual(response.status_code, 201, response.data)
+            completed = self.assert_response_fixture(
+                self.client.get("/api/challenges/"), "challenges-retry-completed.json",
+            )
+            paid = next(row for row in completed["results"] if row["id"] == retried["id"])
+            self.assertEqual((paid["status"], paid["progress"]), ("completed", "2"))
+            self.assertEqual(paid["reward_receipt"]["coins_awarded"], 5)
+            self.assertEqual(paid["reward_receipt"]["xp_awarded"], 10)
+            saved = self.state()
+            self.assertEqual(self.client.post(
+                f"/api/challenges/{retried['id']}/retry/", {}, format="json",
+            ).status_code, 409)
+            self.client.get("/api/challenges/")
+            self.assertEqual(self.state(), saved)
+        old.refresh_from_db()
+        self.assertEqual((old.snapshot, old.progress, old.awarded_at), (original_snapshot, 1, None))
+        self.assertEqual(CoinLedger.objects.filter(
+            user=self.child, description="Challenge complete: Two movement sessions",
+        ).count(), 1)
+
+    def test_parent_pause_and_edit_apply_to_future_weeks_without_changing_accepted_promises(self):
+        from apps.quests.models import ChallengeOccurrence
+
+        created_response = self.create_goal()
+        self.assertEqual(created_response.status_code, 201)
+        created = created_response.json()
+        self.assertIsNotNone(created.get("schedule"))
+        original = ChallengeOccurrence.objects.get(pk=int(created["id"].split(":")[1]))
+        frozen = original.snapshot.copy()
+        route = f"/api/challenges/goals/{created['goal_definition_id']}/schedule/"
+        paused = self.assert_response_fixture(self.client.patch(route, {
+            "expected_revision": created["schedule"]["revision"], "paused": True,
+        }, format="json"), "challenge-schedule-paused.json")
+        self.assertTrue(paused["schedule"]["next_week"]["paused"])
+        unchanged = self.client.get("/api/challenges/", {"user_id": self.child.pk}).json()
+        current = next(row for row in unchanged["results"] if row["id"] == created["id"])
+        self.assertEqual((current["name"], current["target"], current["rewards"]),
+                         (created["name"], created["target"], created["rewards"]))
+        monday = datetime(2026, 10, 19, 19, tzinfo=timezone.utc)
+        before = self.state()
+        with patch("django.utils.timezone.now", return_value=monday):
+            rows = self.client.get("/api/challenges/", {"user_id": self.child.pk}).json()["results"]
+            self.assertFalse(any(row["origin"] == "parent" and row["status"] == "active" for row in rows))
+            resumed = self.assert_response_fixture(self.client.patch(route, {
+                "expected_revision": paused["schedule"]["revision"], "paused": False,
+                "next_week": {"name": "Run four miles next week", "target": "4", "coin_reward": 11},
+            }, format="json"), "challenge-schedule-edited.json")
+            self.assertTrue(resumed["schedule"]["paused"])
+            self.assertFalse(resumed["schedule"]["next_week"]["paused"])
+            self.assertEqual(self.client.patch(route, {
+                "expected_revision": paused["schedule"]["revision"], "paused": True,
+            }, format="json").status_code, 409)
+        with patch("django.utils.timezone.now", return_value=monday + timedelta(days=7)):
+            next_week = self.assert_response_fixture(self.client.get(
+                "/api/challenges/", {"user_id": self.child.pk},
+            ), "challenges-scheduled-week.json")
+            active = next(row for row in next_week["results"] if row["origin"] == "parent" and row["status"] == "active")
+            self.assertEqual((active["name"], active["target"], active["progress"], active["rewards"]["coins"]),
+                             ("Run four miles next week", "4", "0", 11))
+            self.assertEqual(active["what_counts"], created["what_counts"])
+        original.refresh_from_db()
+        self.assertEqual(original.snapshot, frozen)
+        self.assertEqual(self.state(), before)
+
     def test_parent_shared_catalog_assignment_and_pooled_approved_work_preserve_the_real_contract(self):
         from apps.chores.models import Chore, ChoreCompletion
         from apps.quests.models import ChallengeGoal, Quest, QuestParticipant
@@ -428,7 +524,15 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         })
         for row in body["results"]:
             if row["id"] in saved:
-                self.assertEqual(row, saved[row["id"]])
+                expected = saved[row["id"]]
+                if row["origin"] == "catalog":
+                    # Retirement changes future retry eligibility, while the
+                    # accepted window, progress and reward remain identical.
+                    self.assertEqual(row["retry"], {
+                        "allowed": False, "reason": "retired", "latest_attempt_id": row["id"],
+                    })
+                    expected = {**expected, "retry": row["retry"]}
+                self.assertEqual(row, expected)
         self.assertEqual(self.state(), ([], []))
         self.assertEqual(self.client.get("/api/challenges/").json(), body)
         self.assert_response_fixture(response, "challenges-origins.json")

@@ -254,3 +254,26 @@ class ModernChallengeToolsTests(TestCase):
         for extra in ({"progress": 5}, {"reward_receipt": {"coins": 999}}, {"is_catalog": True}):
             with self.subTest(extra=extra), self.assertRaises(ValidationError):
                 PreviewChallengeGoalIn(**self.fields(), **extra)
+
+    def test_saved_history_controls_do_not_add_queries_per_occurrence_or_create_new_weeks(self):
+        occurrence = self.occurrence(repeat_weekly=True)
+        with override_user(self.parent), CaptureQueriesContext(connection) as single:
+            before = self.assert_no_database_writes(
+                lambda: challenges.list_challenges(ListChallengesIn(user_id=self.child.pk)),
+            )
+        self.assertEqual(before["results"][0]["schedule"]["revision"], 0)
+        self.assertEqual(before["results"][0]["qualifying_triggers"], ["movement_session"])
+        ChallengeOccurrence.objects.bulk_create([
+            ChallengeOccurrence(
+                goal=occurrence.goal, starts_at=occurrence.starts_at - timedelta(days=7 * index),
+                ends_at=occurrence.ends_at - timedelta(days=7 * index), snapshot=occurrence.snapshot,
+            ) for index in range(1, 25)
+        ])
+        with override_user(self.parent), CaptureQueriesContext(connection) as history:
+            result = self.assert_no_database_writes(
+                lambda: challenges.list_challenges(ListChallengesIn(user_id=self.child.pk)),
+            )
+        self.assertEqual(len(result["results"]), 25)
+        self.assertLessEqual(len(history), len(single) + 3)
+        self.assertEqual(ChallengeOccurrence.objects.count(), 25)
+        self.assertFalse(CoinLedger.objects.exists())

@@ -25,14 +25,78 @@ import openedDetails from '../../../contracts/api/fixtures/challenge-details-ope
 import discoveryObserved from '../../../contracts/api/fixtures/challenge-discovery-observed.json';
 import familyAssigned from '../../../contracts/api/fixtures/challenge-family-assigned.json';
 import familyCompleted from '../../../contracts/api/fixtures/challenges-family-completed.json';
+import retriedGoal from '../../../contracts/api/fixtures/challenge-retried.json';
+import retryCompleted from '../../../contracts/api/fixtures/challenges-retry-completed.json';
+import pausedSchedule from '../../../contracts/api/fixtures/challenge-schedule-paused.json';
+import editedSchedule from '../../../contracts/api/fixtures/challenge-schedule-edited.json';
+import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-week.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
   createChallengeGoal, createReadingSession, getActiveQuest, getChallenges, getQuestHistory, logMovementSession, pinChallenge, unpinChallenge,
   recordChallengeOpening, getChallengeDiscovery, getQuestCatalog, startCoOpQuest,
+  retryChallenge, updateChallengeSchedule,
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('opens a fresh catalog attempt and keeps one actual award separate from closed unpaid history', async () => {
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?:%3A|:)1\/retry\/$/, retriedGoal);
+    server.use(
+      retry.handler,
+      http.get('*/api/challenges/', () => HttpResponse.json(retryCompleted)),
+    );
+    expect(await retryChallenge('goal:1')).toEqual(retriedGoal);
+    expect(retry.calls).toEqual([{
+      method: 'POST', url: expect.stringMatching(/\/api\/challenges\/goal(?:%3A|:)1\/retry\/$/), body: {},
+    }]);
+    expect(retriedGoal).toMatchObject({ retry_of: 'goal:1', status: 'active', progress: '0', origin: 'catalog' });
+    expect(retriedGoal.qualifying_triggers).toEqual(['movement_session']);
+    const saved = await getChallenges();
+    expect(saved).toEqual(retryCompleted);
+    const paid = saved.results.find((row) => row.id === retriedGoal.id);
+    expect(paid).toMatchObject({
+      status: 'completed', progress: '2', retry: { allowed: false },
+      reward_receipt: { status: 'awarded', coins_awarded: 5, xp_awarded: 10 },
+    });
+    const closed = saved.results.find((row) => row.id === 'goal:1');
+    expect(closed).toMatchObject({
+      status: 'closed', closed_reason: expect.any(String),
+      reward_receipt: { status: 'pending', awarded_at: null, coins_awarded: 0, xp_awarded: 0 },
+    });
+  });
+
+  it('sends versioned parent schedule changes and reads the next accepted weekly promise', async () => {
+    const writes = [];
+    server.use(
+      http.patch(`*/api/challenges/goals/${createdGoal.goal_definition_id}/schedule/`, async ({ request }) => {
+        writes.push(await request.json());
+        return HttpResponse.json(writes.length === 1 ? pausedSchedule : editedSchedule);
+      }),
+      http.get('*/api/challenges/', () => HttpResponse.json(scheduledWeek)),
+    );
+    const pause = { expected_revision: createdGoal.schedule.revision, paused: true };
+    expect(await updateChallengeSchedule(createdGoal.goal_definition_id, pause)).toEqual(pausedSchedule);
+    expect(pausedSchedule.schedule.next_week.paused).toBe(true);
+    const edit = {
+      expected_revision: pausedSchedule.schedule.revision, paused: false,
+      next_week: { name: 'Run four miles next week', target: '4', coin_reward: 11 },
+    };
+    expect(await updateChallengeSchedule(createdGoal.goal_definition_id, edit)).toEqual(editedSchedule);
+    expect(editedSchedule.schedule.paused).toBe(true);
+    expect(editedSchedule.schedule.next_week).toMatchObject({ paused: false, target: '4', coin_reward: 11 });
+    expect(writes).toEqual([pause, edit]);
+    const saved = await getChallenges(7);
+    expect(saved).toEqual(scheduledWeek);
+    const active = saved.results.find((row) => row.origin === 'parent' && row.status === 'active');
+    expect(active).toMatchObject({
+      goal_definition_id: createdGoal.goal_definition_id, name: 'Run four miles next week',
+      target: '4', progress: '0', rewards: { coins: 11, xp: 15 },
+      qualifying_triggers: ['movement_session'],
+    });
+    const original = saved.results.find((row) => row.id === createdGoal.id);
+    expect(original).toMatchObject({ name: createdGoal.name, target: createdGoal.target, rewards: createdGoal.rewards });
+  });
+
   it('assigns a parent-selected family catalog goal and preserves the completed pooled contributions', async () => {
     const assign = spyHandler('post', /\/api\/quests\/52\/co-op\/$/, familyAssigned);
     const selectedChildren = [];

@@ -112,6 +112,14 @@ class CooperativeCatalogMigrationTests(unittest.TestCase):
                 (definition.pk, True), (alias.pk, True), (private.pk, False),
                 (owned_system.pk, False), (other.pk, False),
             ]
+            # The follow-up schema adds explicit attempts and future setup,
+            # without turning any historical window into a retry or schedule.
+            Goal = new_apps.get_model("quests", "ChallengeGoal")
+            Occurrence = new_apps.get_model("quests", "ChallengeOccurrence")
+            assert set(Goal.objects.values_list("schedule_revision", flat=True)) == {0}
+            assert not Occurrence.objects.filter(retry_of__isnull=False).exists()
+            assert set(Occurrence.objects.values_list("closed_reason", flat=True)) == {""}
+            assert not new_apps.get_model("quests", "ChallengeSchedule").objects.exists()
         '''
         bootstrap = ("PATH", "HOME", "LD_LIBRARY_PATH", "SystemRoot", "WINDIR", "TEMP", "TMP")
         env = {key: os.environ[key] for key in bootstrap if key in os.environ}

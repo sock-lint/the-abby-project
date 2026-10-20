@@ -97,12 +97,12 @@ def _midnight(day, zone):
     return datetime.combine(day, time.min, tzinfo=zone)
 
 
-def _snapshot(goal):
+def _snapshot(goal, item_catalog=None):
     from apps.rpg.models import ItemDefinition
     from apps.rpg.catalog_support import item_is_available
     from .reward_items import reward_item_details
     items = []
-    catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+    catalog = item_catalog if item_catalog is not None else ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
         [row["item_id"] for row in goal.reward_items],
     )
     for row in goal.reward_items:
@@ -243,6 +243,14 @@ def _occurrence(goal, at):
     # Only list_goals supplies these freshly read windows. Other callers still
     # recheck retirement, including goals loaded before catalog maintenance.
     saved = getattr(goal, "_listed_occurrences", None)
+    if goal.is_catalog and not goal.repeat_weekly and not goal.repeat_days:
+        current = (next((row for row in saved if row.starts_at <= at < row.ends_at), None)
+                   if saved is not None else goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first())
+        if current is not None:
+            return current
+        if (any(row.retry_of_id for row in saved) if saved is not None
+                else goal.occurrences.filter(retry_of__isnull=False).exists()):
+            return None
     if saved is not None:
         if goal.is_catalog and goal.catalog_definition_id is None:
             return next((row for row in saved if row.starts_at <= at < row.ends_at), None)
@@ -265,8 +273,18 @@ def _occurrence(goal, at):
     if at < goal.starts_at:
         return None
     start, end = _occurrence_window(goal, at)
+    if goal.repeat_weekly:
+        existing = goal.occurrences.filter(starts_at=start).first()
+        if existing is not None:
+            return existing
+        from .controls import effective_setup
+        snapshot, paused = effective_setup(goal, start)
+        if paused:
+            return None
+    else:
+        snapshot = None
     occurrence, _ = ChallengeOccurrence.objects.get_or_create(
-        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": lambda: _snapshot(goal)},
+        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": snapshot or (lambda: _snapshot(goal))},
     )
     return occurrence
 
@@ -306,6 +324,13 @@ def _amount(snapshot, activity):
 def _award(occurrence, user):
     if occurrence.awarded_at:
         return occurrence.reward_receipt
+    from .controls import close_unpaid_attempts, lifetime_context, lifetime_paid
+    lifetime = lifetime_context(occurrence, user)
+    if lifetime is not None and lifetime_paid(occurrence, lifetime):
+        close_unpaid_attempts(occurrence, lifetime, include_current=True)
+        occurrence.status = "closed"
+        occurrence.closed_reason = "reward_already_awarded"
+        return None
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
     from apps.rpg.models import ItemDefinition
@@ -352,6 +377,8 @@ def _award(occurrence, user):
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt
     occurrence.save(update_fields=["awarded_at", "reward_receipt", "updated_at"])
+    if lifetime is not None:
+        close_unpaid_attempts(occurrence, lifetime)
     return receipt
 
 
@@ -370,7 +397,9 @@ def _process(activity):
             # A late approval belongs to the recorded work day, not today's week.
             at = datetime.combine(activity.occurred_on, time(12), tzinfo=ZoneInfo(goal.timezone_name))
         occurrence = _occurrence(goal, at)
-        if not occurrence or at >= occurrence.ends_at or occurrence.awarded_at:
+        if not occurrence or at >= occurrence.ends_at or occurrence.awarded_at or occurrence.status == "closed":
+            continue
+        if occurrence.retry_of_id and activity.pk <= occurrence.snapshot.get("_retry_after_activity_id", 0):
             continue
         amount = _amount(occurrence.snapshot, activity)
         if amount <= 0:
@@ -524,6 +553,13 @@ def _what_counts(snapshot, *, catalog=False):
         text = f"{snapshot['movement_type_name']} sessions"
     if snapshot.get("filter", {}).get("on_time"):
         text += " submitted on time"
+    filters = snapshot.get("filter", {})
+    for key, detail in (("project_id", "for the selected project"),
+                        ("skill_category_id", "in the selected skill category"),
+                        ("chore_ids", "from the selected chores"),
+                        ("savings_goal_id", "for the selected savings goal")):
+        if filters.get(key):
+            text += f" {detail}"
     return text
 
 
@@ -544,7 +580,21 @@ def _reward_preview(snapshot, item_catalog=None, item_details_cache=None):
     return available
 
 
-def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None):
+def qualifying_triggers(snapshot, *, legacy=False):
+    from apps.rpg.constants import TriggerType
+    from .services import TRIGGER_DAMAGE
+    defaults = set(TriggerType.values) if legacy else EFFORT_TRIGGERS
+    allowed = set(snapshot.get("filter", {}).get("allowed_triggers") or defaults)
+    allowed &= set(TriggerType.values) if legacy else FACT_TRIGGERS
+    if snapshot.get("metric") == "damage":
+        allowed = {trigger for trigger in allowed if TRIGGER_DAMAGE.get(trigger, 0) > 0}
+    return sorted(allowed)
+
+
+def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None, controls=None):
+    from .controls import control_context, retry_state, schedule_payload
+    if controls is None:
+        controls = control_context(occurrence.goal.user)
     snapshot = occurrence.snapshot
     allowed = snapshot.get("filter", {}).get("allowed_triggers") or []
     action = None
@@ -564,6 +614,11 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
     receipt = occurrence.reward_receipt
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
+        "goal_definition_id": occurrence.goal_id, "qualifying_triggers": qualifying_triggers(snapshot),
+        "retry": retry_state(occurrence, controls),
+        "retry_of": f"goal:{occurrence.retry_of_id}" if occurrence.retry_of_id else None,
+        "closed_reason": occurrence.closed_reason or None,
+        "schedule": schedule_payload(occurrence.goal, controls),
         "origin": "catalog" if occurrence.goal.is_catalog else "parent",
         "first_details_opened_at": (occurrence.first_details_opened_at.isoformat()
                                     if occurrence.goal.is_catalog and occurrence.first_details_opened_at else None),
@@ -603,6 +658,11 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
     ).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
+        "goal_definition_id": None,
+        "qualifying_triggers": qualifying_triggers({"filter": definition.trigger_filter,
+            "metric": "damage" if definition.quest_type == "boss" else "count"}, legacy=True),
+        "retry": {"allowed": False, "reason": "not_catalog", "latest_attempt_id": None},
+        "retry_of": None, "closed_reason": None, "schedule": None,
         "origin": "legacy",
         "first_details_opened_at": None, "catalog_repeatable": False,
         "catalog_icon": challenge_catalog_icon(definition),
@@ -634,9 +694,13 @@ def list_goals(user):
         "occurrences",
         queryset=ChallengeOccurrence.objects.filter(
             Q(starts_at__lte=now, ends_at__gt=now)
-            | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at")),
+            | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at"))
+            | Q(retry_of__isnull=False),
         ),
         to_attr="_listed_occurrences",
+    ), Prefetch(
+        "occurrences", queryset=ChallengeOccurrence.objects.filter(goal__is_catalog=False, goal__repeat_weekly=True)
+        .order_by("-starts_at", "-pk")[:1], to_attr="_listed_latest",
     )).order_by("pk")
     # Ordered so newly materialized occurrences get the same ids on every
     # database and query plan, as in the receipt loop below.
@@ -660,6 +724,20 @@ def list_goals(user):
     terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at", "-pk")[:20])
     future = list(occurrences.filter(starts_at__gt=now, goal__is_catalog=False))
     unique = {row.pk: row for row in active + recent + terminal + future}
+    for goal in goals:
+        if not goal.is_catalog and goal.repeat_weekly and goal.pk not in current and goal._listed_latest:
+            # Pausing a long-lived rule must not hide its resume controls
+            # behind the general twenty-row history limit.
+            previous = goal._listed_latest[0]
+            unique[previous.pk] = previous
+    from .controls import control_context, retry_state
+    controls = control_context(user)
+    # Every expired one-time offer remains discoverable even beyond the
+    # general history limit, so a large catalog cannot strand retry actions.
+    for group in controls["groups"].values():
+        latest = max(group, key=lambda row: (row.starts_at, row.pk), default=None)
+        if latest is not None and retry_state(latest, controls)["allowed"]:
+            unique[latest.pk] = latest
     if pin.occurrence_id:
         pinned = occurrences.filter(pk=pin.occurrence_id).first()
         if pinned:
@@ -680,12 +758,12 @@ def list_goals(user):
     item_ids.update(item["item_id"] for row in legacy_rows for item in (row.reward_items_snapshot or []))
     item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(item_ids)
     item_details_cache = {}
-    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
+    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache, controls=controls)
             for row in unique.values()]
     rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
              for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
-    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],
+    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache, controls=controls) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts]}
 
 

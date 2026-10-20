@@ -4,6 +4,18 @@
       "id": "legacy:1",
       "name": "Fixture family teamwork",
       "description": "Complete twenty approved chores together.",
+      "goal_definition_id": null,
+      "qualifying_triggers": [
+        "chore_complete"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_catalog",
+        "latest_attempt_id": null
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "legacy",
       "first_details_opened_at": null,
       "catalog_repeatable": false,

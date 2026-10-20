@@ -793,7 +793,7 @@ definitions. Retained legacy rows use `legacy:91`. Each goal reports server-owne
 `origin: parent|catalog|legacy`; catalog origin survives template retirement and
 legacy rows retain `legacy` regardless of their original author. Clients can group
 these for presentation without inferring origin from a name or pin. `target` and `progress` are
-decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
+decimal strings. Goal status is `upcoming`, `active`, `completed`, `expired` or `closed`.
 New catalog goals receive their full window on first automatic offer/evaluation,
 subject to cutover, template creation, badge and legacy cutoffs. Pending eligible
 saved work can anchor the first window; processed history does not replay, and
@@ -804,6 +804,56 @@ describes the activity filter and catalog eligibility. Catalog planning says
 (first two per day)”; parent-created goals count all valid matching records.
 The eligibility flag is private server state and is never authorable through the
 API. The action may include a movement type ID.
+
+`qualifying_triggers` supplies actual trigger names for presentation filters;
+`what_counts` remains the readable rule, including additional restrictions.
+Clients show the rule, target and saved period beneath themed titles instead of
+inferring requirements from a name. Deadline filters use the last included date
+in the saved timezone; they do not change server eligibility.
+
+`challenge-retried.json` and `challenges-retry-completed.json` exercise explicit
+retry through `POST /api/challenges/<occurrence_id>/retry/` with `{}`. An eligible
+unpaid expired one-time personal catalog challenge receives a new window, zero
+progress and its saved promise. Earlier facts and progress do not carry over.
+The predecessor occurrence is the retry identity: replay returns the same
+successor with HTTP 200 instead of creating another attempt; first creation is
+HTTP 201. Child self and parent same-family access use the saved goal owner.
+An ineligible attempt returns HTTP 409, while inaccessible IDs return HTTP 404.
+The producer logs real movement before and after retry and verifies one actual
+challenge payout. Repeated requests and reads award nothing.
+
+Goal payloads expose `retry: {allowed, reason, latest_attempt_id}`, nullable
+`retry_of` and nullable `closed_reason`. Only an explicit retry opts an identity
+into the lifetime limit across equivalent automatic and legacy attempts. The
+first completed attempt earns its bonus once; other unpaid attempts close with
+`status: closed` and a reason, retaining their original progress and promise.
+A closed attempt has no award timestamp or fabricated paid receipt. Old accepted
+duplicate promises without an explicit retry retain their earlier behavior.
+Paid, recurring, parent-authored, cooperative and retired offers cannot open a
+new personal retry. Eligible expired catalog attempts remain discoverable beyond
+the bounded recent-history list.
+
+Recurring parent goals expose `goal_definition_id` and `schedule` with an integer
+`revision`, the current pause state, and a complete `next_week` setup. Other goals
+have no editable schedule. `PATCH /api/challenges/goals/<goal_definition_id>/schedule/`
+accepts the exact `expected_revision` and at least one of `paused` or `next_week`.
+The latter may change name, description, target, Coins, XP and skill tags; the
+activity, metric and unit remain fixed. The response is
+`{goal_definition_id, schedule}`. Stale revisions return HTTP 409 without a write.
+Only a same-family parent can change this schedule.
+The merged future setup uses the ordinary goal validator. A pure pause can still
+stop future promises if a previously selected skill was deleted; resuming or
+editing requires repairing that reference.
+
+`challenge-schedule-paused.json`, `challenge-schedule-edited.json` and
+`challenges-scheduled-week.json` bind pause, later resume and edited setup to
+real endpoints. Revisions take effect from the next Monday in the goal's saved
+timezone. Existing current and already accepted future occurrences keep their
+snapshots; paused unmaterialized weeks create no new promise, including after
+late approval. The producer verifies a skipped week, an edited later week, the
+unchanged original promise, and no payment from schedule changes or reads.
+Both new workflows use the existing challenge producer and React consumer
+modules in required API validation.
 
 Catalog image IDs are presentation only. `catalog_icon` is an approved asset ID
 or null, resolved by Django from `shared/catalog/icon-bindings.json` using exact

@@ -71,7 +71,11 @@ when accounts are deleted; do not block existing account deletion with PROTECT.
 
 `challenges.py` uses the current goal serializer/service, required UUID creation,
 saved-state-only audit and self/family pins. Reads never call materializing
-`list_goals`. `economy.py` separates actual ledger accounting from anonymous
+`list_goals`. Saved rows include retry eligibility, closed-attempt reasons,
+qualifying triggers and versioned future-week setup through the shared payload;
+the audit batches this metadata without creating attempts or weekly promises.
+Explicit retry and schedule changes remain REST operations pending a separate
+MCP authoring review. `economy.py` separates actual ledger accounting from anonymous
 projections; receipt totals overlap ledger amounts. `catalog.py` paginates
 global content and audits runtime eligibility without private player records.
 `asset_proposals.py` saves family briefs and paginated history, exports reviewed
