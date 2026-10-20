@@ -1,6 +1,6 @@
 # apps/rpg/
 
-Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14 effects), cosmetics, the central `GameLoopService` orchestrator, and the runtime-authored sprite catalog. **The single entry point into this subsystem is `GameLoopService.on_task_completed(user, trigger_type, context)`** — every task-completion flow in the codebase routes through it.
+Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14 effects), cosmetics, the central `GameLoopService` orchestrator, and the runtime-authored sprite catalog. **Qualifying activity enters through `GameLoopService.on_task_completed(user, trigger_type, context)`.** Badge, quest and Perfect Day completion loot uses the separate drop-only accomplishment hook described below.
 
 ## Supported-art catalog (October 2026)
 
@@ -70,6 +70,19 @@ challenges honor badge/completion gates, shop names stay family-scoped, and
 drop paths honor level/positive-weight eligibility. Reading hints awards
 nothing. No source is advertised for an unavailable item.
 
+Each newly earned badge, completed quest/automatic goal (per recipient), and
+Perfect Day receives one accomplishment drop through
+`DropService.award_accomplishment`. The draw shares the existing earned badge,
+quest payout or daily receipt transaction and account lock: retries and
+concurrent completions cannot duplicate it, and a drop failure rolls the award
+back for retry. Previously completed accomplishments are not backfilled.
+Declared quest items remain separate from this extra loot. The helper never
+replays streaks, check-in Coins, daily bonuses or challenge progress. Supported
+catalog, level and salvage rules still apply; an empty eligible pool never
+substitutes unsupported loot. Perfect Day filters out Common items before
+selection, retaining its Uncommon-or-better reward. `drop_tier_weights` is shared
+with the Lab. Drop notifications are best effort, with push deferred to commit.
+
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
@@ -83,7 +96,7 @@ the existing factual Challenge engine, with no extra Coins or XP.
 - `storage.py::sprite_storage()` — lazy-helper for the dedicated sprites STORAGES key.
 - `constants.py`: shared `TriggerType` TextChoices.
 
-Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, retains the configured local worker/streak date (currently America/Phoenix), and awards `perfect_days_count += 1` and 15 bonus coins once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
+Celery tasks: `evaluate_perfect_day_task` — runs at 23:55 in the configured scheduler timezone, retains the configured local worker/streak date (currently America/Phoenix), and awards `perfect_days_count += 1`, 15 bonus coins and an Uncommon-or-better accomplishment drop once per child/day when the child was active and every eligible scheduled daily chore is approved. Pending/rejected/withdrawn submissions cannot qualify. The "at least one scheduled" guard prevents zero-chore days from auto-qualifying; a unique receipt and user/profile row locks protect duplicate/concurrent delivery, with all award state rolling back together on failure. `streak_at_risk_warning_task` — runs at 19:00 local, sends a `streak_at_risk` notification (child only, no parent fan-out, max one per local day) to any kid with `login_streak >= 3` (`STREAK_AT_RISK_MIN`) whose `last_active_date` is before today; kids with an armed `streak_freeze_expires_at` covering today are skipped. Companion in-page signal: `StreakAtRiskBanner` on `ChildDashboard` renders the same condition from the dashboard payload's `rpg` block and self-clears once any activity advances `last_active_date`.
 
 Perfect Day reads new daily chore approvals using the frozen
 `timing_snapshot.submitted_at` converted to Django's default worker timezone.

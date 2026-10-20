@@ -157,6 +157,31 @@ weights, automatic challenge matching, supported badge criteria, hatching,
 food growth and expedition tier rules. Simulated state is held in memory.
 The model never calls award writers inside a rolled-back transaction.
 
+Each newly earned modeled badge and each completed automatic challenge
+occurrence receives one additional guaranteed loot draw from its authored
+completion pool. Repeatable challenges receive a new draw only for a newly
+completed window; retries and later source facts in an already paid window
+do not draw again. Promised challenge items remain separate from this random
+reward. Badge loot follows its XP/Coins, and challenge loot follows its XP,
+Coins, badge evaluation and promised items, matching the live award order.
+Celebration loot awards no streak credit or daily effort and does not advance
+other challenges. Its obtainable items are included in finite-content and
+companion reachability only when the corresponding accomplishment is reachable.
+Finite completion pools retain their physical capacity: each reachable badge
+or one-time challenge supplies one draw, and each authored item promise keeps
+its exact quantity. A draw cannot pay for both an egg and a potion, or be
+reused as food. Growth checks use the live per-food growth and preference
+bonus, with separate middle/grown thresholds. Direct activity pools and
+reachable repeatable challenges remain renewable structural sources.
+Compound pet/collection badge prerequisites consume a feasible proof before
+their reward becomes another source; expeditions first require a funded grown
+companion. These bounded, conservative proofs may omit an alternative item
+acquisition order. Reachability remains per-target structural feasibility,
+not proof that all finite targets can be collected jointly or within the
+forecast horizon.
+The rules fingerprint binds these capacity checks, live completion hooks and rarity selector, so
+saved comparisons from before these hooks changed must be rerun.
+
 Companion care includes the installed incubation duration, currently 24 elapsed
 hours. Each report records its `pet_incubation_policy`; that snapshot is bound
 to its rules fingerprint. The duration is a server rule, not a scenario control.
@@ -203,6 +228,11 @@ weekly payment settlement, birthdays, grades, consumable use/boosts,
 Perfect Day and legacy/co-op campaigns remain outside the model. Unmodeled badge criteria
 are listed individually. The workbench does not verify production deployment
 or artwork delivery and does not inspect existing children's progress.
+Live Perfect Day awards one Uncommon-or-better draw per new daily receipt.
+Its Common tier is excluded before selection, with remaining supported tiers
+renormalized. The Lab binds that live rarity rule but adds no Perfect Day
+forecast reward: its synthetic approved chore count does not establish an
+actual scheduled daily-chore set or scheduler timing.
 
 ## Purchasing and family costs
 

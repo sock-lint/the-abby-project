@@ -13,6 +13,14 @@ ACCOMPLISHMENT_TRIGGERS = {"milestone_complete", "project_complete", "badge_earn
 COSMETIC_TYPES = {"cosmetic_frame", "cosmetic_title", "cosmetic_theme", "cosmetic_pet_accessory"}
 
 
+def drop_tier_weights(trigger_type):
+    """Successful-draw budgets, including Perfect Day's Uncommon floor."""
+    weights = dict(ACCOMPLISHMENT_TIER_WEIGHTS if trigger_type in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS)
+    if trigger_type == "perfect_day":
+        weights["common"] = 0
+    return weights
+
+
 def tier_balanced_weights(entries, tier_weights, *, authored_weights=None, owned_item_ids=()):
     """Return one weight per entry without another random roll.
 

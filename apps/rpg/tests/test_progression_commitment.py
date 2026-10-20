@@ -23,7 +23,7 @@ def item(pk, *, kind="food", coins=0, rarity="common"):
     return SimpleNamespace(pk=pk, item_type=kind, coin_value=coins,
                            metadata={"coins": coins} if kind == "coin_pouch" else {},
                            rarity=rarity, display_name=f"Item {pk}", slug=f"item-{pk}",
-                           pet_species_id=None, potion_type_id=None)
+                           pet_species_id=None, potion_type_id=None, food_species_id=None)
 
 
 def catalog_with(*items, trigger="chore_complete"):
@@ -38,6 +38,23 @@ def with_mounts(trial, count):
                                          species=SimpleNamespace(name=f"Mount {pk}"))
                   for pk in range(1, count + 1)}
     return trial
+
+
+def with_renewable_mount_source(catalog):
+    """Give comparator tests a physical mount path outside expedition limits."""
+    species = SimpleNamespace(pk=101, slug="synthetic-species", name="Synthetic companion", food_preference="")
+    potion = SimpleNamespace(pk=102, slug="base")
+    egg = item(1001, kind="egg")
+    egg.pet_species_id = species.pk
+    ingredient = item(1002, kind="potion")
+    ingredient.potion_type_id = potion.pk
+    food = item(1003)
+    entries = [SimpleNamespace(pk=value.pk, trigger_type="chore_complete", item_id=value.pk,
+                               item=value, weight=1, min_level=0) for value in (egg, ingredient, food)]
+    return Catalog(dict(catalog.skills), {**catalog.items, **{value.pk: value for value in (egg, ingredient, food)}},
+                   {**catalog.pools, "chore_complete": [*catalog.pools.get("chore_complete", []), *entries]},
+                   {(species.pk, potion.pk): (species, potion)}, list(catalog.badges), list(catalog.quests),
+                   dict(catalog.excluded_badges), "synthetic-with-mount")
 
 
 class ProgressionCommitmentTests(SimpleTestCase):
@@ -170,13 +187,11 @@ class ProgressionCommitmentTests(SimpleTestCase):
         self.assertEqual(summary["outstanding_pouch_coins"], 0)
 
     def test_unaffordable_expedition_cosmetic_is_unavailable_content_not_extra_runway(self):
-        catalog = catalog_with(item(1, kind="cosmetic_frame", coins=50), trigger="expedition_returned")
-        # Mount possibility is synthetic here so the source is included in reachability.
-        with patch.object(Trial, "_initial_mount_possible", return_value=True):
-            trial = Trial(config(chores_per_day=1, expeditions_per_day=1), catalog, 42)
+        catalog = with_renewable_mount_source(catalog_with(item(1, kind="cosmetic_frame", coins=50), trigger="expedition_returned"))
+        trial = Trial(config(chores_per_day=1, expeditions_per_day=1), catalog, 42)
         self.assertNotIn("cosmetic:1", trial.finite_keys)
         policy = trial.report()["reward_commitment"]
-        self.assertEqual(policy["installed_finite_total"], 1)
+        self.assertEqual(policy["installed_finite_total"], 4)  # Three companion stages plus the cosmetic.
         self.assertEqual(policy["unavailable_finite_total"], 1)
         self.assertEqual(policy["removed_finite_targets"], {"cosmetic": 1})
         self.assertEqual(policy["affected_paths"][0]["maximum_available_coins"], 25)
@@ -185,8 +200,8 @@ class ProgressionCommitmentTests(SimpleTestCase):
         catalog = catalog_with(item(1, kind="cosmetic_frame", coins=50), trigger="expedition_returned")
         catalog = Catalog({}, dict(catalog.items), {**catalog.pools, "chore_complete": catalog.pools["expedition_returned"]},
                           {}, [], [], {}, "synthetic")
-        with patch.object(Trial, "_initial_mount_possible", return_value=True):
-            trial = Trial(config(chores_per_day=1, expeditions_per_day=1), catalog, 42)
+        catalog = with_renewable_mount_source(catalog)
+        trial = Trial(config(chores_per_day=1, expeditions_per_day=1), catalog, 42)
         self.assertIn("cosmetic:1", trial.finite_keys)
         policy = trial.report()["reward_commitment"]
         self.assertEqual(policy["unavailable_finite_total"], 0)
