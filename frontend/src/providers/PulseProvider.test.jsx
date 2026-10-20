@@ -191,6 +191,32 @@ describe('PulseProvider', () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
+  it("keeps counting the new child's failed beats when the previous child's late beat succeeds", async () => {
+    let releaseOld;
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', async () => {
+      requests += 1;
+      if (requests === 1) return await new Promise((resolve) => { releaseOld = () => resolve(HttpResponse.json(pulseBody(999))); });
+      return failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { user } = renderProvider(BEAT_MS);
+    await waitFor(() => expect(requests).toBe(1));
+    await user.click(screen.getByRole('button', { name: 'Switch child' }));
+    // Two failed beats (two requests each) for the new child, then the old answer lands.
+    for (let beat = 1; beat < PULSE_OUTAGE_BEATS; beat += 1) {
+      await waitFor(() => expect(requests).toBe(1 + (beat - 1) * 2 + 1));
+      await runBeat();
+      await waitFor(() => expect(requests).toBe(1 + beat * 2));
+      await act(async () => { await vi.advanceTimersByTimeAsync(BEAT_MS - GATEWAY_RETRY_DELAY_MS); });
+    }
+    await act(async () => { releaseOld(); });
+    await waitFor(() => expect(requests).toBe(1 + (PULSE_OUTAGE_BEATS - 1) * 2 + 1));
+    await runBeat();
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+    expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ consecutiveFailedBeats: PULSE_OUTAGE_BEATS });
+  });
+
   it('rejects a late receipt response from the previous child', async () => {
     let releaseOld;
     let requests = 0;

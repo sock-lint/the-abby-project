@@ -35,8 +35,11 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
     if (!requestedAccount) return;
     try {
       const data = await getPulse();
-      failedBeatsRef.current = 0;
-      if (!cancelledRef.current && accountRef.current === requestedAccount) setSavedPulse({ account: requestedAccount, data });
+      if (!cancelledRef.current && accountRef.current === requestedAccount) {
+        // A late answer for a previous account must not reset this one's count.
+        failedBeatsRef.current = 0;
+        setSavedPulse({ account: requestedAccount, data });
+      }
     } catch (err) {
       // Silent, like every poller before it — a missed beat must never break
       // the shell, and the next one is 30s away. A deploy swaps containers for
