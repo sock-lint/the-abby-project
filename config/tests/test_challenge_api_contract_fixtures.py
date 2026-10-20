@@ -34,6 +34,125 @@ FIXED_NOW = datetime(2026, 10, 14, 19, tzinfo=timezone.utc)
 @override_settings(
     ALLOWED_HOSTS=["testserver"], TIME_ZONE="America/Phoenix", USE_TZ=True,
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
+    CACHES={"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}},
+    VAPID_PUBLIC_KEY="", VAPID_PRIVATE_KEY="",
+)
+class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
+    """Real bounded GET responses; only the saved synthetic facts and clock are fixed."""
+
+    assert_response_fixture = shared_fixtures.SharedApiResponseFixtureTests.assert_response_fixture
+
+    def setUp(self):
+        super().setUp()
+        clock = patch("django.utils.timezone.now", return_value=FIXED_NOW)
+        clock.start()
+        self.addCleanup(clock.stop)
+        household = make_family(
+            "Voyager feedback fixture", family_id=81,
+            parents=[{"id": 80, "username": "voyager-feedback-parent", "is_staff": True}],
+            children=[{"id": index, "username": f"voyager-feedback-child-{index}"}
+                      for index in range(101, 108)],
+        )
+        self.parent, self.children = household.parents[0], household.children
+        household.family.timezone = "America/Phoenix"
+        household.family.save(update_fields=["timezone"])
+        type(self.parent).objects.filter(pk__in=[child.pk for child in self.children]).update(
+            date_joined=FIXED_NOW - timedelta(days=120),
+        )
+        category = SkillCategory.objects.create(id=71, name="Language Arts")
+        self.reading = Skill.objects.create(id=72, name="Reading Comprehension", category=category)
+        self.companion = QuestDefinition.objects.create(
+            id=73, name="Reading Companion", quest_type="collection", target_value=3,
+            duration_days=14, is_system=True, trigger_filter={"allowed_triggers": ["reading_logged"]},
+        )
+        self.voyager = QuestDefinition.objects.create(
+            id=74, name="Reading Voyager", quest_type="collection", target_value=20,
+            duration_days=56, is_system=True, prerequisite_quest=self.companion,
+            required_skill=self.reading, required_skill_level=1,
+            trigger_filter={"allowed_triggers": ["reading_logged"]}, coin_reward=0, xp_reward=50,
+        )
+        QuestDefinition.objects.filter(pk__in=[73, 74]).update(created_at=FIXED_NOW - timedelta(days=150))
+        Token.objects.create(user=self.parent, key="v" * 40)
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + "v" * 40)
+
+    def saved_window(self, child, index, *, days, age, status="active", progress=0, completed_age=None):
+        from apps.quests.goals import _snapshot
+        from apps.quests.milestone_eligibility import gate_snapshot
+        from apps.quests.models import ChallengeActivity, ChallengeGoal, ChallengeOccurrence
+
+        start = FIXED_NOW - timedelta(days=age)
+        gated = days == 56
+        activity_id = None
+        if gated:
+            activity = ChallengeActivity.objects.create(
+                id=500 + index, user=child, source_type="reading_logged", source_id=str(900 + index),
+                trigger_type="reading_logged", occurred_at=start, occurred_on=start.date(),
+            )
+            activity_id = activity.pk
+        goal = ChallengeGoal.objects.create(
+            id=300 + index, user=child, family=child.family, is_catalog=True,
+            catalog_definition=self.voyager, name="Reading Voyager", description="Private fixture detail.",
+            catalog_gate_snapshot=gate_snapshot(self.voyager) if gated else {},
+            catalog_gate_activity_id=activity_id, metric="count", target=20, unit="actions",
+            trigger_filter={"allowed_triggers": ["reading_logged"]}, timezone_name="America/Phoenix",
+            starts_at=start, ends_at=start + timedelta(days=days), coin_reward=0, xp_reward=50,
+        )
+        row = ChallengeOccurrence.objects.create(
+            id=400 + index, goal=goal, starts_at=goal.starts_at, ends_at=goal.ends_at,
+            snapshot=_snapshot(goal), status=status, progress=progress,
+            completed_at=FIXED_NOW - timedelta(days=completed_age) if completed_age is not None else None,
+        )
+        ChallengeGoal.objects.filter(pk=goal.pk).update(created_at=start, updated_at=start)
+        ChallengeOccurrence.objects.filter(pk=row.pk).update(created_at=start, updated_at=start)
+        return row
+
+    def test_saved_policy_maturity_and_current_states_are_actual_read_only_responses(self):
+        from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestParticipant
+
+        locked, ready, active, old_complete, expired, early_complete, unknown = self.children
+        previous = Quest.objects.create(
+            id=601, definition=self.companion, status="completed",
+            start_date=FIXED_NOW - timedelta(days=20), end_date=FIXED_NOW - timedelta(days=5),
+        )
+        Quest.objects.filter(pk=previous.pk).update(updated_at=FIXED_NOW - timedelta(days=5))
+        QuestParticipant.objects.create(id=602, quest=previous, user=ready)
+        SkillProgress.objects.create(id=603, user=ready, skill=self.reading, xp_points=100, level=1, unlocked=True)
+        self.saved_window(active, 1, days=56, age=10)
+        self.saved_window(old_complete, 2, days=45, age=80, status="completed", progress=20, completed_age=40)
+        self.saved_window(expired, 3, days=56, age=70, progress=18)
+        self.saved_window(early_complete, 4, days=56, age=15, status="completed", progress=20, completed_age=1)
+        self.saved_window(unknown, 5, days=56, age=90, status="completed", progress=20)
+        models = (ChallengeGoal, ChallengeOccurrence, CoinLedger, SkillProgress, UserInventory)
+        before = {model._meta.label: list(model.objects.order_by("pk").values()) for model in models}
+        body = self.assert_response_fixture(
+            self.client.get("/api/challenges/voyager-feedback/"), "voyager-feedback-observed.json",
+        )
+        self.assertEqual(body["current_states"], {
+            "locked": 1, "ready": 1, "active": 1, "completed": 2, "expired": 1, "unknown": 1,
+        })
+        groups = {row["policy"]: row for row in body["policy_groups"]}
+        self.assertEqual(groups["saved_45_day"]["mature_completed"], 1)
+        self.assertEqual(groups["milestone_56_day"]["pending_windows"], 2)
+        self.assertEqual(groups["milestone_56_day"]["mature_expired"], 1)
+        self.assertEqual(groups["milestone_56_day"]["mature_unknown"], 1)
+        self.assertEqual(groups["milestone_56_day"]["mature_denominator"], 1)
+        self.assertEqual(before, {model._meta.label: list(model.objects.order_by("pk").values()) for model in models})
+        self.assertNotIn("Private fixture detail", str(body))
+        self.assertNotIn(locked.username, str(body))
+
+    def test_no_new_children_remains_insufficient_without_mutations(self):
+        type(self.parent).objects.filter(pk__in=[child.pk for child in self.children]).update(is_active=False)
+        body = self.assert_response_fixture(
+            self.client.get("/api/challenges/voyager-feedback/"), "voyager-feedback-empty.json",
+        )
+        self.assertEqual(body["status"], "insufficient_evidence")
+        self.assertEqual(body["cohort"]["eligible_children"], 0)
+        self.assertTrue(all(row["completion_rate"] is None for row in body["policy_groups"]))
+
+
+@override_settings(
+    ALLOWED_HOSTS=["testserver"], TIME_ZONE="America/Phoenix", USE_TZ=True,
+    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
     CACHES={"default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
         "LOCATION": "challenge-api-contract-fixtures",
@@ -78,7 +197,8 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             trigger_filter={"allowed_triggers": ["movement_session"]},
             coin_reward=5, xp_reward=10, is_system=True,
         )
-        QuestSkillTag.objects.create(quest_definition=self.catalog, skill=self.skill, xp_weight=1)
+        # Catalog previews expose tag IDs; pin these synthetic identities too.
+        QuestSkillTag.objects.create(id=1, quest_definition=self.catalog, skill=self.skill, xp_weight=1)
         # Reset only fixture tables so endpoint-generated identities survive
         # PostgreSQL's nontransactional sequences and arbitrary suite order.
         from apps.quests.models import (
@@ -125,6 +245,51 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "distance": distance, "distance_unit": "mi", "notes": "A fixture run.",
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
+
+    def test_milestone_locked_and_ready_catalog_have_no_accepted_window_or_read_awards(self):
+        from apps.quests.models import ChallengeGoal, Quest, QuestParticipant
+        category = SkillCategory.objects.create(id=23, name="Language Arts")
+        reading = Skill.objects.create(id=24, name="Reading Comprehension", category=category)
+        prior = QuestDefinition.objects.create(
+            id=52, name="Reading Companion", description="Three daily Reading Adventures.",
+            quest_type="collection", target_value=3, duration_days=14, is_system=True,
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+        )
+        voyager = QuestDefinition.objects.create(
+            id=53, name="Reading Voyager", description="Complete 20 daily Reading Adventures within 56 days.",
+            quest_type="collection", target_value=20, duration_days=56, is_system=True,
+            trigger_filter={"allowed_triggers": ["reading_logged"]},
+            prerequisite_quest=prior, required_skill=reading, required_skill_level=1,
+            coin_reward=0, xp_reward=50,
+        )
+        QuestSkillTag.objects.create(id=2, quest_definition=voyager, skill=reading, xp_weight=1)
+        self.authenticate(self.child)
+        before = self.state()
+        locked = self.assert_response_fixture(
+            self.client.get("/api/challenges/"), "challenges-milestone-locked.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertEqual(len(locked["locked_catalog"]), 1)
+        self.assertFalse(locked["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertNotIn("starts_at", locked["locked_catalog"][0])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=voyager).exists())
+        old = Quest.objects.create(id=61, definition=prior, status="completed",
+                                   start_date=FIXED_NOW - timedelta(days=3), end_date=FIXED_NOW)
+        QuestParticipant.objects.create(quest=old, user=self.child)
+        SkillProgress.objects.create(user=self.child, skill=reading, xp_points=100, level=1, unlocked=True)
+        before = self.state()
+        ready = self.assert_response_fixture(
+            self.client.get("/api/challenges/"), "challenges-milestone-ready.json",
+        )
+        self.assertEqual(self.state(), before)
+        self.assertTrue(ready["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=voyager).exists())
+        self.authenticate(self.parent)
+        selected = self.client.get(f"/api/challenges/?user_id={self.child.pk}")
+        self.assertEqual(selected.json()["locked_catalog"], ready["locked_catalog"])
+        sibling = self.client.get(f"/api/challenges/?user_id={self.sibling.pk}")
+        self.assertFalse(sibling.json()["locked_catalog"][0]["milestone_eligibility"]["unlocked"])
+        self.assertEqual(self.client.get(f"/api/challenges/?user_id={self.other_child.pk}").status_code, 404)
 
     def test_parent_reading_goal_counts_the_daily_reward_receipt_after_real_threshold(self):
         from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession

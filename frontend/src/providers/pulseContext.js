@@ -4,6 +4,10 @@ import { createContext, useContext } from 'react';
 // and together woke a phone's radio every ~7 seconds.
 export const PULSE_INTERVAL_MS = 30000;
 
+// Consecutive failed beats (gateway status or HTML page, each already retried)
+// before PulseProvider reports an outage; a deploy window ends sooner.
+export const PULSE_OUTAGE_BEATS = 3;
+
 export const PulseContext = createContext(null);
 
 /**

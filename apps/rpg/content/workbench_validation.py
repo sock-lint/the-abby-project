@@ -17,7 +17,8 @@ ITEM_FIELDS = {"name", "description", "icon", "sprite_key", "rarity", "coin_valu
 ITEM_BEHAVIOR_FIELDS = {"rarity", "coin_value", "metadata"}
 NEW_ITEM_FIELDS = ITEM_FIELDS | {"slug", "item_type", "food_species_id"}
 QUEST_FIELDS = {"name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days",
-                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "required_badge", "reward_items", "skill_tags"}
+                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "required_badge", "reward_items", "skill_tags",
+                "prerequisite_quest", "required_skill", "required_skill_level"}
 CREATE_ITEM_TYPES = set(ItemDefinition.ItemType.values) - {"egg", "potion"}
 MODELS = {"items": ItemDefinition, "quests": QuestDefinition}
 
@@ -139,6 +140,18 @@ def _validate_values(section, values, *, new):
         _positive_id(values["required_badge"], "required_badge")
         if not Badge.objects.filter(pk=values["required_badge"]).exists():
             raise ContentPackError("Unknown required badge.")
+    for field, model in (("prerequisite_quest", QuestDefinition), ("required_skill", Skill)):
+        if values.get(field) is not None:
+            _positive_id(values[field], field)
+            matches = model.objects.filter(pk=values[field])
+            if field == "prerequisite_quest":
+                matches = matches.filter(is_system=True, created_by=None)
+            if not matches.exists():
+                raise ContentPackError(f"Unknown global {field}.")
+    if "required_skill_level" in values:
+        if type(values["required_skill_level"]) is not int:
+            raise ContentPackError("required_skill_level must be a whole number.")
+        whole_number(values["required_skill_level"], "required_skill_level", 0, 6)
     for field in ("reward_items", "skill_tags"):
         if field not in values:
             continue
@@ -232,6 +245,29 @@ def validate_changes(actor, changes):
             for row in change["values"].get("reward_items", []):
                 if "item_key" in row and row["item_key"] not in new_items:
                     raise ContentPackError("Reward item_key must select a new item in this draft.")
+        # Validate the proposed graph together: individually safe edits can
+        # form a cycle when applied in the same draft.
+        from copy import copy
+        graph = dict(QuestDefinition.objects.values_list("pk", "prerequisite_quest_id"))
+        for change in changes:
+            if change["section"] != "quests":
+                continue
+            obj = copy(editable_object(actor, "quests", change["object_id"])) if change["object_id"] else QuestDefinition(is_system=True)
+            for field, value in change["values"].items():
+                if field not in {"reward_items", "skill_tags"}:
+                    setattr(obj, field + "_id" if field in {"required_badge", "prerequisite_quest", "required_skill"} else field, value)
+            obj.clean()
+            if obj.pk:
+                graph[obj.pk] = obj.prerequisite_quest_id
+        for start in [change["object_id"] for change in changes if change["section"] == "quests" and change["object_id"]]:
+            seen, current = set(), start
+            while current is not None:
+                if current in seen:
+                    raise ContentPackError("Challenge prerequisites cannot form a cycle.")
+                seen.add(current)
+                if len(seen) > 100:
+                    raise ContentPackError("Challenge prerequisite chains contain at most 100 entries.")
+                current = graph.get(current)
     except ValidationError as error:
         raise ContentPackError("; ".join(error.messages)) from error
     return changes

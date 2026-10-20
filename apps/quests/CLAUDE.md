@@ -33,6 +33,50 @@ requires the actual earned badge; availability does not grant it or relax its
 criteria. Broader reward mechanics remain testable with scoped synthetic asset
 bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 
+## Native reading milestone offers
+
+`QuestDefinition.prerequisite_quest`, `required_skill` and `required_skill_level`
+combine with the existing earned-badge requirement using AND. The target must
+be a one-time global collection challenge with exactly the `reading_logged`
+activity filter; only reading currently has the trusted new-source hook.
+Prerequisites use exact global catalog identities, including completed legacy
+participation or automatic catalog occurrences, never a parent goal's name.
+The named skill must be unlocked and meet the required level. Direct cycles,
+private references and unsupported activity rules are rejected by model and
+publication validation.
+
+`ReadingRewardService` calls `activity.freeze_milestone_eligibility` only while
+earning a genuinely new daily receipt, after reading XP and before game-loop
+evaluation, under the source/user transaction. This captures the eligible
+`ChallengeGoal` and its occurrence before the fact can finish a predecessor.
+An unrelated action, GET, old source first observed later, pending repair or
+replayed daily receipt cannot open a milestone window. The internal
+`ingest_activity(..., fresh_milestone=True)` acceptance seam is for trusted
+callers and synthetic native tests; incoming context never grants it.
+
+New goals freeze `catalog_gate_snapshot` and `catalog_gate_activity_id`; the
+occurrence also stores `snapshot.catalog_gate`. Both the opening source's ID
+lower bound and the saved half-open timestamp window apply to later credit.
+Existing goals retain empty/null defaults, their original deadlines, snapshots,
+contributions, receipts and pins. No accepted milestone automatic or legacy
+window rearms after expiry or failure. Legacy quests have no historical
+completion timestamp, so their saved state time is only a conservative source
+cutoff, never a claimed completion date.
+
+The self/family-scoped `/api/challenges/` response includes `locked_catalog`
+with read-only catalog metadata and server-confirmed `milestone_eligibility`.
+An unlocked row still waits for the next qualifying saved reading receipt;
+it has no accepted window, countdown or pinnable goal identity. Rows whose
+one-time prerequisite can no longer finish (its only accepted window ended
+uncompleted, directly or through a gated predecessor chain) are omitted;
+`milestone_eligibility.prerequisite_unavailable` owns that rule. Reading this
+metadata awards nothing. New milestone-gated solo, co-op and scroll starts are
+refused after explaining any unmet requirement: a manual legacy start cannot
+begin the clock before the child's next qualifying Reading Adventure. Existing
+legacy runs continue with their accepted windows and rewards.
+Installing these schema/services does not activate a
+policy or rewrite bundled or published content.
+
 ## Automatic goal tracking
 
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
@@ -84,6 +128,43 @@ endpoint excludes trusted observer families, identities and prose, and returns
 unknown counts when its cohort or occurrence bound is exceeded. Only the
 browser client's transport partition/retry query keys are allowed. See
 `tests/test_discovery.py` and the actual challenge response fixtures.
+
+`GET /api/challenges/voyager-feedback/` is a separate read-only staff-parent
+report for the current family's active nonstaff children registered within
+180 inclusive family-local days. It never calls `list_goals`, repairs saved
+facts, opens a window or changes rewards. Trusted `LiveTestFamily` households
+are excluded. Only transport partition/retry query keys are accepted; child
+and family selectors are refused. The response contains aggregate counts,
+without child identities, accepted row IDs, authored prose or reading details.
+
+`voyager_feedback.py` resolves the unique global Reading Voyager identity;
+missing/ambiguous definitions and exceeded child/history limits withhold counts
+rather than fabricating zero outcomes. Current child states are distinct from
+saved-window policy groups. Readiness uses current exact prerequisite, unlocked
+skill and earned badge facts, with bulk identity queries independent of history
+length. It is not a historical first-unlock timestamp. `acceptance_mode`
+distinguishes current automatic tracking from native milestone offers waiting
+for the next new Reading Adventure. Accepted or conflicting history takes
+precedence over new-offer readiness; membership is rechecked before aggregation.
+
+Saved 45-day windows require frozen count-20 reading rules, exactly 45 elapsed
+days and no native milestone snapshot. Their old badge requirements were not
+frozen, so do not describe this bucket as proof of historically ungated access.
+The selected 56-day bucket additionally requires matching strict version-one
+goal/occurrence gate snapshots, the exact unique global Reading Companion and
+Language Arts::Reading Comprehension identities, skill level 1, no badge and
+the saved opening activity ID. Other or malformed policies stay separate.
+Current catalog edits never reclassify an accepted promise from today's rules.
+
+Only fully ended saved windows enter mature outcomes. Early completions remain
+pending until the full deadline; `mature_denominator` is known completed plus
+known expired, excluding pending and unknown evidence. Ended active rows at the
+target may be awaiting repair and remain unknown. Completion recorded after the
+deadline can reflect valid saved work processed later. Legacy quests lack a
+frozen full policy and completion time, so their mature outcome remains unknown.
+Counts are observations within current membership, not causal experimental or
+retention evidence. Tests live in `tests/test_voyager_feedback.py`; actual API
+fixtures are produced alongside the other challenge contracts.
 
 Goal payloads expose server-owned `origin: parent|catalog|legacy` for presentation. Automatic catalog origin uses the saved `is_catalog` marker even after a template is retired; retained `Quest` rows always report `legacy`. Names, pinning and client input do not determine origin or change tracking.
 

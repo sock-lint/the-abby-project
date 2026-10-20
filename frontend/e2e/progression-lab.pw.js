@@ -19,8 +19,10 @@ let experimentList;
 let experimentComparison;
 let experimentDecided;
 let emptyObservations;
-const labReads = ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/', '/api/rpg/progression-lab/experiments/', '/api/rpg/progression-lab/observations/'];
+const labReads = ['/api/auth/me/', '/api/rpg/progression-lab/', '/api/rpg/progression-lab/simulate/', '/api/rpg/progression-lab/experiments/', '/api/rpg/progression-lab/observations/', '/api/challenges/voyager-feedback/'];
 let discoveryReport;
+let voyagerFeedback;
+let emptyVoyagerFeedback;
 let challengeGateReport;
 let challengeGateMetadata;
 let milestoneGateComparison;
@@ -30,6 +32,7 @@ const allowedApiRequests = new Set([
   'GET /api/auth/me/',
   'GET /api/rpg/progression-lab/',
   'GET /api/challenges/discovery/',
+  'GET /api/challenges/voyager-feedback/',
   'GET /api/rpg/progression-lab/experiments/',
   'GET /api/rpg/progression-lab/observations/',
   'POST /api/rpg/progression-lab/simulate/',
@@ -63,6 +66,8 @@ test.beforeAll(async () => {
   experimentDecided = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-decided.json', import.meta.url), 'utf8'));
   emptyObservations = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-observations-empty.json', import.meta.url), 'utf8'));
   discoveryReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/challenge-discovery-observed.json', import.meta.url), 'utf8'));
+  voyagerFeedback = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/voyager-feedback-observed.json', import.meta.url), 'utf8'));
+  emptyVoyagerFeedback = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/voyager-feedback-empty.json', import.meta.url), 'utf8'));
   challengeGateReport = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-challenge-gates-report.json', import.meta.url), 'utf8'));
   challengeGateMetadata = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-lab-challenge-gates-metadata.json', import.meta.url), 'utf8'));
   milestoneGateComparison = JSON.parse(await readFile(new URL('../../contracts/api/fixtures/progression-experiment-milestone-gates-comparison.json', import.meta.url), 'utf8'));
@@ -94,7 +99,7 @@ test.afterAll(async () => {
   }
 });
 
-async function openLab(page, response = report, { quotaExperiment = false, gateExperiment = null, discovery = discoveryReport } = {}) {
+async function openLab(page, response = report, { quotaExperiment = false, gateExperiment = null, discovery = discoveryReport, voyager = voyagerFeedback } = {}) {
   const evidence = gateExperiment === 'milestone_gates' ? milestoneGateComparison : gateExperiment === 'tenure_gates' ? tenureGateComparison : quotaExperiment ? expeditionComparison : experimentComparison;
   const requests = [];
   const external = [];
@@ -111,6 +116,7 @@ async function openLab(page, response = report, { quotaExperiment = false, gateE
     if (url.pathname === '/api/auth/me/') return route.fulfill({ json: { id: 1, username: 'synthetic-staff', role: 'parent', is_staff: true, theme: 'hyrule', family: { id: 1 } } });
     if (url.pathname === '/api/rpg/progression-lab/') return route.fulfill({ json: { ...(gateExperiment ? challengeGateMetadata : metadata), defaults: response.config } });
     if (url.pathname === '/api/challenges/discovery/') return route.fulfill({ json: discovery });
+    if (url.pathname === '/api/challenges/voyager-feedback/') return route.fulfill({ json: voyager });
     if (url.pathname === '/api/rpg/progression-lab/observations/') return route.fulfill({ json: emptyObservations });
     if (url.pathname === experimentRoot && route.request().method() === 'GET') return route.fulfill({ json: experimentList });
     if (url.pathname === experimentRoot && route.request().method() === 'POST') {
@@ -182,6 +188,28 @@ async function openLab(page, response = report, { quotaExperiment = false, gateE
 }
 
 for (const width of [375, 1280]) {
+  test(`Voyager feedback separates saved promises and refreshes independently at ${width}px`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 375 ? 640 : 900 });
+    const { requests, external } = await openLab(page);
+    const panel = page.getByRole('region', { name: 'Reading Voyager feedback', exact: true });
+    await expect(panel.getByRole('definition')).toHaveText(['1', '1', '1', '2', '1', '1']);
+    await expect(panel.getByText('Ready for next Reading Adventure', { exact: true })).toBeVisible();
+    const table = panel.getByRole('table', { name: 'Voyager outcomes by saved policy' });
+    await expect(table.getByRole('row', { name: /^Saved 45-day windows/ })).toContainText('1 of 1 resolved mature windows');
+    await expect(table.getByRole('row', { name: /^56 days/ })).toContainText('0 of 1 resolved mature windows');
+    await expect(panel.getByText(/Still observing includes early completions/)).toBeVisible();
+    const scrolling = panel.getByRole('region', { name: 'Saved Voyager policies, horizontally scrollable' });
+    await scrolling.focus();
+    await expect(scrolling).toBeFocused();
+    await panel.getByRole('button', { name: 'Refresh Voyager feedback' }).click();
+    await expect.poll(() => requests.filter(({ path }) => path === '/api/challenges/voyager-feedback/').length).toBe(2);
+    await expect(panel.getByRole('button', { name: 'Refresh Voyager feedback' })).toBeEnabled();
+    expect(requests.every(({ method }) => method === 'GET')).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(external).toEqual([]);
+    assertApiIsolation(requests);
+    await panel.screenshot({ path: testInfo.outputPath(`voyager-feedback-${width}.png`) });
+  });
   for (const policy of ['milestone_gates', 'tenure_gates']) {
     test(`challenge ${policy} preserves rewards and exposes waiting at ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
@@ -364,6 +392,29 @@ for (const width of [375, 1280]) {
     expect(external).toEqual([]);
     assertApiIsolation(requests);
     await page.screenshot({ path: testInfo.outputPath(`progression-lab-${width}.png`), fullPage: true });
+  });
+}
+
+for (const status of ['insufficient_evidence', 'cohort_limit_exceeded']) {
+  test(`Voyager ${status} preserves unknown outcomes without a failure percentage`, async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 640 });
+    const voyager = status === 'insufficient_evidence' ? emptyVoyagerFeedback : {
+      ...emptyVoyagerFeedback, status,
+      cohort: { ...emptyVoyagerFeedback.cohort, eligible_children: null, truncated: true },
+      current_states: Object.fromEntries(Object.keys(emptyVoyagerFeedback.current_states).map((key) => [key, null])),
+      policy_groups: emptyVoyagerFeedback.policy_groups.map((group) => Object.fromEntries(
+        Object.entries(group).map(([key, value]) => [key, ['policy', 'label'].includes(key) ? value : null]),
+      )),
+    };
+    const { requests, external } = await openLab(page, report, { voyager });
+    const panel = page.getByRole('region', { name: 'Reading Voyager feedback', exact: true });
+    await expect(panel.getByText(status === 'insufficient_evidence' ? /not enough evidence to evaluate Voyager/ : /no partial sample is shown/)).toBeVisible();
+    await expect(panel.getByRole('definition')).toHaveCount(0);
+    await expect(panel.getByRole('table')).toHaveCount(0);
+    await expect(panel.getByText('0%', { exact: true })).toHaveCount(0);
+    expect(requests.every(({ method }) => method === 'GET')).toBe(true);
+    expect(external).toEqual([]);
+    assertApiIsolation(requests);
   });
 }
 

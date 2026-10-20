@@ -33,7 +33,9 @@ class AvailableQuestsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        system_quests = QuestDefinition.objects.filter(is_system=True)
+        system_quests = QuestDefinition.objects.filter(is_system=True).select_related(
+            "prerequisite_quest", "required_skill", "required_badge",
+        ).prefetch_related("reward_items__item", "skill_tags__skill")
         return Response(QuestDefinitionSerializer(system_quests, many=True, context={"request": request}).data)
 
 
@@ -166,7 +168,9 @@ class QuestCatalogView(ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return definitions_visible_to(self.request.user).prefetch_related(
+        return definitions_visible_to(self.request.user).select_related(
+            "prerequisite_quest", "required_skill", "required_badge",
+        ).prefetch_related(
             "reward_items", "reward_items__item",
         ).order_by("quest_type", "name", "pk")
 

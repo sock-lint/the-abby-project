@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "status": "observations_available",
+  "period": {
+    "since": "2026-04-18",
+    "until": "2026-10-14",
+    "timezone": "America/Phoenix",
+    "starts_at": "2026-04-18T00:00:00-07:00",
+    "ends_before": "2026-10-15T00:00:00-07:00",
+    "as_of": "2026-10-14T19:00:00+00:00"
+  },
+  "catalog": {
+    "status": "available",
+    "name": "Reading Voyager",
+    "acceptance_mode": "next_qualifying_reading"
+  },
+  "cohort": {
+    "registered_within_days": 180,
+    "eligible_children": 7,
+    "max_children": 100,
+    "truncated": false,
+    "observer_family_excluded": false
+  },
+  "current_states": {
+    "locked": 1,
+    "ready": 1,
+    "active": 1,
+    "completed": 2,
+    "expired": 1,
+    "unknown": 1
+  },
+  "policy_groups": [
+    {
+      "policy": "saved_45_day",
+      "label": "Saved 45-day windows",
+      "accepted_windows": 1,
+      "pending_windows": 0,
+      "mature_completed": 1,
+      "mature_expired": 0,
+      "mature_unknown": 0,
+      "unknown_windows": 0,
+      "mature_denominator": 1,
+      "completion_rate": 1.0
+    },
+    {
+      "policy": "milestone_56_day",
+      "label": "56 days · selected milestones",
+      "accepted_windows": 4,
+      "pending_windows": 2,
+      "mature_completed": 0,
+      "mature_expired": 1,
+      "mature_unknown": 1,
+      "unknown_windows": 0,
+      "mature_denominator": 1,
+      "completion_rate": 0.0
+    },
+    {
+      "policy": "other_or_unknown",
+      "label": "Other or unknown policy",
+      "accepted_windows": 0,
+      "pending_windows": 0,
+      "mature_completed": 0,
+      "mature_expired": 0,
+      "mature_unknown": 0,
+      "unknown_windows": 0,
+      "mature_denominator": 0,
+      "completion_rate": null
+    }
+  ],
+  "notes": [
+    "This is a current snapshot of active nonstaff children in your family registered within 180 inclusive family-local days. It is not an all-time cohort or a retention measurement; membership and active status are not reconstructed historically.",
+    "Locked and ready describe current server rules, not the exact first time a child unlocked Voyager. With native milestone gates, ready waits for the next qualifying new Reading Adventure; an ungated catalog uses automatic tracking instead.",
+    "Saved windows are not restricted to the last 30 days. Policy groups use frozen count-20 Reading Adventure rules, elapsed duration and native gate snapshots. They do not certify identical rewards or prove a causal policy effect; older badge-only gates were not frozen.",
+    "Only windows whose full saved deadline has passed enter mature outcomes. Early completions remain pending until that deadline. Mature completion rate is completed divided by completed plus expired; pending, unknown timing and unknown outcomes are excluded, never counted as failures.",
+    "Completion must be consistent with saved progress and a recorded completion time. That time records processing, not necessarily when the child did the work. Legacy quests have no frozen full policy or completion time, so their policy and mature outcomes remain unknown.",
+    "Duplicate, future-dated, malformed or conflicting accepted evidence is unknown. A saved goal without an occurrence and orphaned same-name catalog history cannot establish a new offer. These reads never materialize, start, expire, backfill or reward a challenge.",
+    "Trusted provisioned test families are excluded. Counts expose no child identities, row identifiers, descriptions, reading details or private journal text. Capacity failures withhold totals rather than returning partial counts. Bounded saved rows are not a repeatable-read historical snapshot."
+  ]
+}

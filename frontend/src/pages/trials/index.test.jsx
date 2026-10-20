@@ -11,17 +11,59 @@ import Trials from './index';
 import { useLocation } from 'react-router-dom';
 function LocationProbe() { const location = useLocation(); return <span data-testid="challenge-location">{location.pathname}{location.search}</span>; }
 
-function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child', route = '/quests?tab=trials' } = {}) {
+function renderGoals({ goals = [buildChallengeGoal()], lockedCatalog = [], pin = null, role = 'child', route = '/quests?tab=trials' } = {}) {
   let savedPin = pin;
   server.use(
     http.get('*/api/auth/me/', () => HttpResponse.json(role === 'parent' ? buildParent() : buildUser())),
     http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7, display_name: 'Abby' })])),
-    http.get('*/api/challenges/', () => HttpResponse.json({ results: goals.map((goal) => ({ ...goal, pinned: goal.id === savedPin })), pin: savedPin, daily_bonus: buildDailyBonus() })),
+    http.get('*/api/challenges/', () => HttpResponse.json({ results: goals.map((goal) => ({ ...goal, pinned: goal.id === savedPin })), locked_catalog: lockedCatalog, pin: savedPin, daily_bonus: buildDailyBonus() })),
   );
   return { ...renderWithProviders(<><Trials /><LocationProbe /></>, { route }), setPin: (value) => { savedPin = value; } };
 }
 
 describe('Automatic challenges', () => {
+  it('shows server-confirmed milestone requirements without creating a goal, timer, opening receipt or pin', async () => {
+    const definition = { id: 77, name: 'Reading Voyager', description: 'Complete 20 daily Reading Adventures within 56 days.', duration_days: 56,
+      required_skill: 4, required_skill_level: 1, prerequisite_quest: 76,
+      milestone_eligibility: { unlocked: false, locked_reasons: ['Complete Reading Companion'], requirements: [
+        { kind: 'challenge', met: false, description: 'Complete Reading Companion' },
+        { kind: 'skill', met: true, description: 'Reach Reading Comprehension level 1' },
+      ] } };
+    const writes = spyHandler('post', /\/api\/(?:challenges|quests)\/.*/, {});
+    const { user } = renderGoals({ lockedCatalog: [definition] });
+    server.use(writes.handler);
+    const coming = await screen.findByRole('region', { name: 'Coming next' });
+    expect(within(coming).getByText('Reading Voyager')).toBeVisible();
+    expect(within(coming).getByText('Locked challenge')).toBeVisible();
+    await user.click(within(coming).getByRole('button', { name: 'View requirements for Reading Voyager' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Reading Voyager requirements' });
+    const requirements = within(within(dialog).getByRole('list', { name: 'Reading Voyager milestone requirements' }));
+    expect(requirements.getByText('Complete Reading Companion')).toBeVisible();
+    expect(requirements.getByText('Reach Reading Comprehension level 1')).toBeVisible();
+    expect(within(dialog).getByText(/56 days after it starts/)).toBeVisible();
+    expect(within(dialog).getByText(/No deadline is running yet/)).toBeVisible();
+    expect(within(dialog).queryByRole('progressbar')).toBeNull();
+    expect(within(dialog).queryByRole('button', { name: /Pin|Start|Begin|Log reading/i })).toBeNull();
+    expect(writes.calls).toHaveLength(0);
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(within(coming).getByRole('button', { name: 'View requirements for Reading Voyager' })).toHaveFocus();
+  });
+  it('shows met milestones as ready for the next qualifying activity and removes the catalog row only after a fresh server offer', async () => {
+    const definition = { id: 77, name: 'Reading Voyager', description: 'Read on 20 qualifying days.', duration_days: 56,
+      milestone_eligibility: { unlocked: true, requirements: [{ kind: 'challenge', met: true, description: 'Complete Reading Companion' }], locked_reasons: [] } };
+    const { user } = renderGoals({ lockedCatalog: [definition] });
+    const coming = await screen.findByRole('region', { name: 'Coming next' });
+    expect(within(coming).getByText('Requirements met')).toBeVisible();
+    expect(within(coming).getByText(/next matching saved activity/)).toBeVisible();
+    const accepted = buildChallengeGoal({ id: 'goal:77', name: definition.name, origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0', description: definition.description });
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json({ results: [accepted], locked_catalog: [], pin: null, daily_bonus: null })));
+    server.use(http.post('*/api/challenges/goal:77/opened/', () => HttpResponse.json({ id: accepted.id, first_details_opened_at: '2026-10-20T18:00:00Z' })));
+    act(() => window.dispatchEvent(new Event(CHALLENGES_CHANGED)));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Coming next' })).toBeNull());
+    await user.click(screen.getByRole('button', { name: `View ${accepted.name}` }));
+    expect(within(await screen.findByRole('dialog', { name: accepted.name })).getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0');
+  });
   it('records only mounted child catalog details and keeps prose visible while confirmation is pending', async () => {
     const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
     let finish;

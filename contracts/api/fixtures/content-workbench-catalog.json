@@ -23,14 +23,14 @@
         "edit_reason": "",
         "values": {
           "name": "Practice snack",
-          "rarity": "common",
+          "sprite_key": "",
           "description": "",
-          "icon": "🍎",
           "metadata": {
             "growth": 5
           },
           "coin_value": 2,
-          "sprite_key": ""
+          "rarity": "common",
+          "icon": "🍎"
         },
         "has_database_override": false,
         "used_by": {
@@ -57,7 +57,7 @@
       {
         "id": 904,
         "name": "Practice challenge",
-        "description": "Complete two approved chores.",
+        "description": "Complete two daily Reading Adventures.",
         "icon": "⚔️",
         "sprite_key": "",
         "quest_type": "collection",
@@ -65,7 +65,7 @@
         "duration_days": 7,
         "trigger_filter": {
           "allowed_triggers": [
-            "chore_complete"
+            "reading_logged"
           ]
         },
         "coin_reward": 10,
@@ -74,6 +74,11 @@
         "is_system": true,
         "required_badge": null,
         "required_badge_name": null,
+        "prerequisite_quest": 908,
+        "prerequisite_quest_name": "Starter practice",
+        "required_skill": 902,
+        "required_skill_name": "Persistence",
+        "required_skill_level": 1,
         "available_for_new_user": true,
         "skill_tags": [
           {
@@ -95,22 +100,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "name": "Practice challenge",
-          "xp_reward": 15,
-          "description": "Complete two approved chores.",
+          "coin_reward": 10,
           "trigger_filter": {
             "allowed_triggers": [
-              "chore_complete"
+              "reading_logged"
             ]
           },
-          "duration_days": 7,
           "sprite_key": "",
-          "is_repeatable": false,
+          "description": "Complete two daily Reading Adventures.",
+          "xp_reward": 15,
           "target_value": 2,
-          "quest_type": "collection",
-          "coin_reward": 10,
+          "name": "Practice challenge",
           "icon": "⚔️",
+          "is_repeatable": false,
+          "required_skill_level": 1,
+          "quest_type": "collection",
+          "duration_days": 7,
           "required_badge": null,
+          "prerequisite_quest": 908,
+          "required_skill": 902,
           "reward_items": [
             {
               "item_id": 903,
@@ -123,6 +131,63 @@
               "xp_weight": 1
             }
           ]
+        },
+        "has_database_override": false,
+        "automatic_tracking_available": true,
+        "unsupported_triggers": []
+      },
+      {
+        "id": 908,
+        "name": "Starter practice",
+        "description": "Complete one approved chore.",
+        "icon": "⚔️",
+        "sprite_key": "",
+        "quest_type": "collection",
+        "target_value": 1,
+        "duration_days": 7,
+        "trigger_filter": {
+          "allowed_triggers": [
+            "chore_complete"
+          ]
+        },
+        "coin_reward": 0,
+        "xp_reward": 0,
+        "is_repeatable": false,
+        "is_system": true,
+        "required_badge": null,
+        "required_badge_name": null,
+        "prerequisite_quest": null,
+        "prerequisite_quest_name": null,
+        "required_skill": null,
+        "required_skill_name": null,
+        "required_skill_level": 0,
+        "available_for_new_user": true,
+        "skill_tags": [],
+        "reward_items": [],
+        "editable": true,
+        "edit_reason": "",
+        "values": {
+          "coin_reward": 0,
+          "trigger_filter": {
+            "allowed_triggers": [
+              "chore_complete"
+            ]
+          },
+          "sprite_key": "",
+          "description": "Complete one approved chore.",
+          "xp_reward": 0,
+          "target_value": 1,
+          "name": "Starter practice",
+          "icon": "⚔️",
+          "is_repeatable": false,
+          "required_skill_level": 0,
+          "quest_type": "collection",
+          "duration_days": 7,
+          "required_badge": null,
+          "prerequisite_quest": null,
+          "required_skill": null,
+          "reward_items": [],
+          "skill_tags": []
         },
         "has_database_override": false,
         "automatic_tracking_available": true,
@@ -214,8 +279,11 @@
       "icon",
       "is_repeatable",
       "name",
+      "prerequisite_quest",
       "quest_type",
       "required_badge",
+      "required_skill",
+      "required_skill_level",
       "reward_items",
       "skill_tags",
       "sprite_key",
@@ -621,7 +689,7 @@
     },
     "challenge_gates_assumptions": [
       "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
-      "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+      "Current mode ignores valid configured gate rules and retains authored challenge, skill and badge requirements. Milestones adds the selected completed-challenge and skill-level requirements using AND. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
       "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
       "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
       "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
@@ -636,6 +704,11 @@
           "id": 904,
           "name": "Practice challenge",
           "is_repeatable": false
+        },
+        {
+          "id": 908,
+          "name": "Starter practice",
+          "is_repeatable": false
         }
       ],
       "skills": [
@@ -647,15 +720,15 @@
       ]
     },
     "catalog": {
-      "fingerprint": "a8f2cc85f285bef9e9cdfb61cf91881efa1b84d5c0318d58fcc3c4ad37c0d7ff",
+      "fingerprint": "a2e5486abadd36f194adc843ccddfba1202bb10a545c7c13df069a960112df7c",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
       "modeled_badges": 0,
       "excluded_badges": 0,
       "excluded_badge_criteria": {},
-      "system_challenges": 1,
-      "nonrepeatable_challenges": 1
+      "system_challenges": 2,
+      "nonrepeatable_challenges": 2
     },
     "coverage": {
       "modeled": [
@@ -775,8 +848,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "a38dd155dd57e294c3d36aeaa425e568ee93a41110f8737c87b716f53bc5bd17",
-    "engine_version": "2026-10-20.2",
+    "rules_fingerprint": "f651a21057b39d814a41942bc93d506503ecb75d79da641784121b0fcfcc58d3",
+    "engine_version": "2026-10-20.3",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

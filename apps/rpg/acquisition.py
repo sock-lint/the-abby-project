@@ -13,6 +13,7 @@ def sources_for_request(request):
     from apps.achievements.models import UserBadge
     from apps.quests.goals import ACTION_PATHS, FACT_TRIGGERS, TRIGGER_LABELS
     from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestRewardItem
+    from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.rewards.models import Reward
     from .models import CharacterProfile, DropTable
     from .rarity import drop_tier_weights
@@ -57,12 +58,18 @@ def sources_for_request(request):
     # Only public system challenges belong in global item hints. Private
     # parent-authored goal names are never exposed through another household.
     rewards = QuestRewardItem.objects.filter(quest_definition__is_system=True).select_related(
-        "quest_definition",
+        "quest_definition", "quest_definition__prerequisite_quest", "quest_definition__required_skill", "quest_definition__required_badge",
     ).order_by("quest_definition__name", "pk")
+    milestone_cache = {}
     for reward in rewards:
         definition = reward.quest_definition
         if definition.pk in accepted_definitions or definition.pk in completed_definitions or (definition.required_badge_id and definition.required_badge_id not in earned):
             continue
+        if has_milestone_gate(definition):
+            if definition.pk not in milestone_cache:
+                milestone_cache[definition.pk] = milestone_eligibility(user, definition)["unlocked"]
+            if not milestone_cache[definition.pk]:
+                continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
         if allowed and not FACT_TRIGGERS.intersection(allowed):
             continue

@@ -184,11 +184,17 @@ async function request(path, options = {}) {
       res = await fetchOrOffline(url, config);
       continue;
     }
-    Sentry.captureException(
-      new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
-      { extra: { contentType, preview, url, status: res.status, attempts, responseDiagnostics: summarizeResponse(res, url) } },
-    );
-    throw new Error(UNAVAILABLE_MESSAGE);
+    const report = {
+      error: new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
+      extra: { contentType, preview, url, status: res.status, attempts, responseDiagnostics: summarizeResponse(res, url) },
+    };
+    const unavailable = new Error(UNAVAILABLE_MESSAGE);
+    if (retryGateway && method === 'GET') {
+      unavailable.deferredReport = report;
+      throw unavailable;
+    }
+    Sentry.captureException(report.error, { extra: report.extra });
+    throw unavailable;
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -214,18 +220,25 @@ async function request(path, options = {}) {
       _selfHealReload(token);
     }
 
+    const apiError = new Error(errorMessage);
     if (res.status >= 500) {
-      Sentry.captureException(
-        new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
-        { extra: { response: errorMessage, status: res.status, attempts } },
-      );
+      const report = {
+        error: new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
+        extra: { response: errorMessage, status: res.status, attempts },
+      };
+      // An opted-in GET poll hands a gateway status that outlasted its retry to
+      // the caller, which reports once the outage persists across polls.
+      if (retryGateway && method === 'GET' && GATEWAY_STATUSES.includes(res.status)) {
+        apiError.deferredReport = report;
+      } else {
+        Sentry.captureException(report.error, { extra: report.extra });
+      }
     }
 
     // Attach status + parsed body so callers can branch on specific codes
     // (e.g., the Journal modal treats 409 as "already wrote today, switch
     // to edit mode" using `err.response.existing`). The default human
     // message stays on .message so untyped `catch` blocks still work.
-    const apiError = new Error(errorMessage);
     apiError.status = res.status;
     apiError.response = err;
     throw apiError;
