@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useId, useState } from 'react';
 import { createChallengeGoal, getSkills, listMovementTypes } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import useMountedRef from '../../hooks/useMountedRef';
@@ -11,6 +11,7 @@ import { TextField, SelectField, CheckboxField } from '../../components/form';
 import SkillTagEditor from '../../components/SkillTagEditor';
 import { goalUnit } from './goalDisplay';
 import { createRequestId } from '../../utils/requestId';
+import { formErrorClass } from '../../constants/styles';
 
 const ACTIVITIES = [
   ['chore_complete', 'Approved chores'], ['homework_complete', 'Approved homework'],
@@ -26,6 +27,7 @@ const INITIAL = {
 
 export default function CreateGoalForm({ children = [], initialChildId, onCreated, requestOpen = false, onRequestConsumed }) {
   const mounted = useMountedRef();
+  const skillErrorId = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(INITIAL);
   const [saving, setSaving] = useState(false);
@@ -43,9 +45,11 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
   const fetchTypes = useCallback(() => open ? listMovementTypes() : Promise.resolve([]), [open]);
   const fetchSkills = useCallback(() => open ? getSkills() : Promise.resolve([]), [open]);
   const { data: typesData, loading: typesLoading, error: typesError, reload: reloadTypes } = useApi(fetchTypes, [open]);
-  const { data: skillsData } = useApi(fetchSkills, [open]);
+  const { data: skillsData, loading: skillsLoading, refreshing: skillsRefreshing, error: skillsError, reload: reloadSkills } = useApi(fetchSkills, [open]);
   const types = normalizeList(typesData);
   const skills = normalizeList(skillsData);
+  const wantsXp = Number(form.xp_reward) > 0;
+  const skillsPending = skillsLoading || skillsRefreshing;
   const movement = form.trigger_type === 'movement_session';
   const timed = movement || form.trigger_type === 'clock_out';
   const type = types.find((row) => String(row.id) === form.movement_type_id);
@@ -54,11 +58,20 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
   const generatedName = `${activityLabel} · ${form.target} ${goalUnit(form.unit, form.target)} ${periodLabel}`;
   const patch = (values) => {
     setForm((previous) => ({ ...previous, ...values }));
+    if ('skill_tags' in values || 'xp_reward' in values) {
+      setErrors((previous) => ({ ...previous, skill_tags: undefined }));
+    }
   };
   const set = (field) => (event) => patch({ [field]: event.target.value });
 
   const submit = async (event) => {
     event.preventDefault();
+    if (wantsXp && (skillsPending || skillsError)) return;
+    if (wantsXp && !form.skill_tags.length) {
+      setErrors({ skill_tags: 'Choose a skill to receive the XP bonus.' });
+      setError('');
+      return;
+    }
     setSaving(true);
     setError('');
     setErrors({});
@@ -107,7 +120,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
         setOpen(true);
       }}>Create challenge</Button>
       {open && <BottomSheet title="Create a challenge" onClose={() => setOpen(false)} disabled={saving} dirty footer={(
-        <ModalActions formId="create-challenge-goal" fullWidth onClose={() => setOpen(false)} submitLabel="Create challenge" savingLabel="Creating…" saving={saving} submitDisabled={!form.user_id || (movement && !form.movement_type_id)} />
+        <ModalActions formId="create-challenge-goal" fullWidth onClose={() => setOpen(false)} submitLabel="Create challenge" savingLabel="Creating…" saving={saving} submitDisabled={!form.user_id || (movement && !form.movement_type_id) || (wantsXp && (skillsPending || Boolean(skillsError)))} />
       )}>
         <form id="create-challenge-goal" onSubmit={submit} className="space-y-4">
           <fieldset disabled={saving} className="space-y-4 min-w-0">
@@ -149,7 +162,15 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
             <TextField label="Coin bonus" type="number" min="0" max="10000" step="1" value={form.coin_reward} onChange={set('coin_reward')} error={errors.coin_reward} required />
             <TextField label="XP bonus" type="number" min="0" max="10000" step="1" value={form.xp_reward} onChange={set('xp_reward')} error={errors.xp_reward} required />
           </div>
-          {Number(form.xp_reward) > 0 && <SkillTagEditor skills={skills} value={form.skill_tags} onChange={(skill_tags) => patch({ skill_tags })} />}
+          {(wantsXp || errors.skill_tags) && <div role="group" aria-label="Skills this rewards" aria-invalid={errors.skill_tags ? true : undefined} aria-describedby={errors.skill_tags ? skillErrorId : undefined} className="space-y-2">
+            {skillsPending && <p role="status" className="font-body text-caption text-ink-secondary">Loading skills…</p>}
+            {skillsError && <><ErrorAlert message={skillsError} /><Button variant="secondary" disabled={skillsPending} onClick={reloadSkills}>Retry skills</Button></>}
+            <fieldset disabled={skillsPending || Boolean(skillsError)} className="min-w-0">
+              <SkillTagEditor skills={skills} value={form.skill_tags} onChange={(skill_tags) => patch({ skill_tags })} emptyMessage="Choose at least one skill to receive the XP bonus." />
+            </fieldset>
+            {!skillsPending && !skillsError && !skills.length && <p className="font-body text-caption text-ink-secondary">No skills are available for XP rewards. You can create this challenge with an XP bonus of 0.</p>}
+            {errors.skill_tags && <p id={skillErrorId} role="alert" className={formErrorClass}>{errors.skill_tags}</p>}
+          </div>}
           <section aria-label="Challenge preview" className="rounded-xl bg-ink-page-aged border border-ink-page-shadow p-3 space-y-1">
             <h3 className="font-body font-bold text-body text-ink-primary">Preview</h3>
             <p className="font-body text-body text-ink-primary">{form.name.trim() || generatedName}</p>

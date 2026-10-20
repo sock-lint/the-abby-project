@@ -16,7 +16,7 @@ import IconButton from './IconButton';
  * keyed by `skill_id` so the same skill can't be picked twice (the
  * dropdown filters out already-used skills).
  */
-export default function SkillTagEditor({ skills = [], value = [], onChange }) {
+export default function SkillTagEditor({ skills = [], value = [], onChange, emptyMessage = 'No skills tagged — this awards coins only, nothing in the skill tree.' }) {
   const tags = Array.isArray(value) ? value : [];
   const skillById = useMemo(() => {
     const m = new Map();
@@ -71,7 +71,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
       </p>
       {tags.length === 0 && (
         <p className="font-body text-caption text-ink-secondary italic">
-          No skills tagged — this awards coins only, nothing in the skill tree.
+          {emptyMessage}
         </p>
       )}
       <ul className="space-y-2">

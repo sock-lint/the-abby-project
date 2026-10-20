@@ -35,12 +35,21 @@ class QuestDefinition(TimestampedModel):
     xp_reward = models.PositiveIntegerField(default=0)
     is_repeatable = models.BooleanField(default=False)
     is_system = models.BooleanField(default=False)
+    is_cooperative = models.BooleanField(
+        default=False,
+        help_text="A parent assigns this shared challenge to at least two children.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="created_quests",
+    )
+    superseded_by = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, editable=False,
+        related_name="retained_aliases",
+        help_text="Retained duplicate identity; only its canonical definition is offered for new acceptance.",
     )
 
     class Meta:
@@ -246,7 +255,7 @@ class ChallengeEnrollment(models.Model):
 
 
 class ChallengeGoal(TimestampedModel):
-    """An immutable personal goal, from the catalog or a family assignment."""
+    """A personal goal with frozen occurrences and versioned future family setup."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
@@ -281,6 +290,7 @@ class ChallengeGoal(TimestampedModel):
     reward_items = models.JSONField(default=list)
     request_id = models.UUIDField(null=True, blank=True)
     request_fingerprint = models.CharField(max_length=64, blank=True)
+    schedule_revision = models.PositiveIntegerField(default=0, editable=False)
 
     class Meta:
         constraints = [
@@ -299,7 +309,13 @@ class ChallengeOccurrence(TimestampedModel):
     progress = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     status = models.CharField(max_length=12, default="active", choices=[
         ("active", "Active"), ("completed", "Completed"), ("expired", "Expired"),
+        ("closed", "Closed"),
     ])
+    retry_of = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, editable=False,
+        related_name="retry_attempt",
+    )
+    closed_reason = models.CharField(max_length=32, blank=True, default="", editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     first_details_opened_at = models.DateTimeField(null=True, blank=True, editable=False)
     awarded_at = models.DateTimeField(null=True, blank=True)
@@ -310,6 +326,19 @@ class ChallengeOccurrence(TimestampedModel):
             fields=["goal", "starts_at"], name="unique_challenge_window",
         )]
         ordering = ["-starts_at", "pk"]
+
+
+class ChallengeSchedule(TimestampedModel):
+    """A parent setup effective from a future household calendar week."""
+
+    goal = models.ForeignKey(ChallengeGoal, on_delete=models.CASCADE, related_name="schedules")
+    starts_at = models.DateTimeField()
+    paused = models.BooleanField(default=False)
+    snapshot = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["starts_at", "pk"]
+        constraints = [models.UniqueConstraint(fields=["goal", "starts_at"], name="unique_goal_schedule_week")]
 
 
 class ChallengeActivity(TimestampedModel):

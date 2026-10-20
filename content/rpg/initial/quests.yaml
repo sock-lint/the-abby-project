@@ -735,6 +735,7 @@ quests:
     coin_reward: 100
     xp_reward: 100
     is_system: true
+    is_cooperative: true
     reward_items:
       - slug: pouch-large
         quantity: 1

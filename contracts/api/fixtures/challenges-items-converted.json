@@ -4,6 +4,18 @@
       "id": "goal:1",
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
+      "goal_definition_id": 1,
+      "qualifying_triggers": [
+        "movement_session"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "already_awarded",
+        "latest_attempt_id": "goal:1"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,
@@ -77,6 +89,18 @@
       "id": "goal:1",
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
+      "goal_definition_id": 1,
+      "qualifying_triggers": [
+        "movement_session"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "already_awarded",
+        "latest_attempt_id": "goal:1"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,

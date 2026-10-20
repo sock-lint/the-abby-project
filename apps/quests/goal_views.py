@@ -80,3 +80,45 @@ class ChallengeDiscoveryView(APIView):
         if set(request.query_params) - {"_abby_session", "_abby_retry"}:
             return Response({"error": "Discovery observations accept no targeting parameters."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(discovery_observations(request.user))
+
+
+class ChallengeRetryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, goal_id):
+        from .controls import retry_challenge
+        from rest_framework.exceptions import NotFound
+        if request.query_params or not isinstance(request.data, dict) or request.data:
+            return Response({"error": "Supply an empty object without query parameters."}, status=400)
+        try:
+            kind, identifier = goal_id.split(":", 1)
+            if kind != "goal":
+                raise ValueError
+            identifier = int(identifier)
+        except (ValueError, AttributeError):
+            raise NotFound("Challenge not found")
+        try:
+            occurrence, created = retry_challenge(request.user, identifier)
+        except ValueError as error:
+            return Response({"error": str(error)}, status=409)
+        from .goals import _pin_id
+        from .models import ChallengePin
+        pin = ChallengePin.objects.filter(user_id=occurrence.goal.user_id).first()
+        return Response(occurrence_payload(occurrence, _pin_id(pin) if pin else None), status=201 if created else 200)
+
+
+class GoalScheduleView(APIView):
+    permission_classes = [IsParent]
+
+    def patch(self, request, goal_definition_id):
+        from .controls import update_schedule
+        from .goal_serializers import GoalScheduleSerializer
+        if request.query_params:
+            return Response({"error": "Schedule changes accept no query parameters."}, status=400)
+        serializer = GoalScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            result = update_schedule(request.user, goal_definition_id, serializer.validated_data)
+        except ValueError as error:
+            return Response({"error": str(error)}, status=409)
+        return Response(result)

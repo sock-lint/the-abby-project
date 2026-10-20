@@ -36,7 +36,7 @@ ENTRY_FIELDS = {
     "items": set("id slug name icon sprite_key item_type rarity coin_value metadata description food_species".split()),
     "rules": set("id trigger triggers item_slugs weight min_level".split()),
     "macros": set("id triggers item_type item_type_startswith weight_by_rarity weight min_level".split()),
-    "quests": set("id name description icon sprite_key quest_type target_value duration_days trigger_filter coin_reward xp_reward is_repeatable is_system required_badge reward_items skill_tags".split()),
+    "quests": set("id name description icon sprite_key quest_type target_value duration_days trigger_filter coin_reward xp_reward is_repeatable is_system is_cooperative required_badge reward_items skill_tags".split()),
     "rewards": set("id name description icon cost_coins rarity stock requires_parent_approval is_active order fulfillment_kind item_definition".split()),
 }
 SECTION_KEYS = {"skill_tree": {"categories", "subjects", "skills"}, "badges": {"badges"},
@@ -116,7 +116,7 @@ def validate_content(parsed, *, strict=True):
                             number = bounded_number(entry[field], field)
                             if number != number.to_integral_value():
                                 raise ValidationError(f"{field} must be a whole number.")
-                    for field in ("is_active", "is_repeatable", "is_system", "requires_parent_approval", "award_coins", "locked"):
+                    for field in ("is_active", "is_repeatable", "is_system", "is_cooperative", "requires_parent_approval", "award_coins", "locked"):
                         if field in entry and type(entry[field]) is not bool:
                             raise ValidationError(f"{field} must be a boolean.")
                     if "weight_by_rarity" in entry:

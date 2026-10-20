@@ -562,7 +562,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
     require_parent()
     from apps.achievements.models import Badge
     from apps.pets.models import PetSpecies, PotionType
-    from apps.quests.models import QuestDefinition
+    from apps.quests.queries import active_system_definitions
     from apps.rpg.models import DropTable, ItemDefinition
 
     limit = params.limit_per_section
@@ -630,7 +630,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "min_level": d.min_level,
         })
 
-    quests_qs = QuestDefinition.objects.filter(is_system=True).prefetch_related(
+    quests_qs = active_system_definitions().prefetch_related(
         "reward_items__item",
     ).all()[:limit]
     quests = [
@@ -642,6 +642,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "coin_reward": q.coin_reward,
             "xp_reward": q.xp_reward,
             "is_repeatable": q.is_repeatable,
+            "is_cooperative": q.is_cooperative,
             "reward_items": [
                 {
                     "item_slug": r.item.slug,
@@ -674,7 +675,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "items": items_qs.count(),
             "pet_species": PetSpecies.objects.count(),
             "potion_types": PotionType.objects.count(),
-            "quests": QuestDefinition.objects.filter(is_system=True).count(),
+            "quests": active_system_definitions().count(),
             "badges": Badge.objects.count(),
         },
         "pagination": "This legacy summary is bounded. Use read_rpg_catalog with section/after for complete details and runtime availability.",

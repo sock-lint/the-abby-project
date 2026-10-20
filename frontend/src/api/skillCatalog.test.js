@@ -19,6 +19,25 @@ beforeEach(() => {
 });
 
 describe('getAllSkills', () => {
+  it('binds a paginated picker read to its captured token and stops when its owner aborts', async () => {
+    const controller = new AbortController();
+    const requests = [];
+    let finish;
+    server.use(http.get('*/api/skills/', ({ request }) => {
+      requests.push({ authorization: request.headers.get('Authorization'), page: new URL(request.url).searchParams.get('page') });
+      return new Promise((resolve) => { finish = () => resolve(HttpResponse.json({ next: '/api/skills/?page=2', results: skills.slice(0, 1) })); });
+    }));
+    localStorage.setItem('abby_auth_token', 'original-session');
+    const pending = getAllSkills({ token: 'original-session', signal: controller.signal });
+    const rejected = expect(pending).rejects.toMatchObject({ name: 'AbortError' });
+    await waitFor(() => expect(requests).toHaveLength(1));
+    localStorage.setItem('abby_auth_token', 'replacement-session');
+    controller.abort();
+    finish();
+    await rejected;
+    expect(requests).toEqual([{ authorization: 'Token original-session', page: null }]);
+  });
+
   it('loads every skill page without requesting unused subjects', async () => {
     const paths = [];
     let subjectRequests = 0;

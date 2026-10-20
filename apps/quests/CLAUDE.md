@@ -35,6 +35,21 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 
 ## Automatic goal tracking
 
+Canonical system offers exclude superseded definitions and unresolved same-name
+conflicts. Supersession preserves all saved history and accepted reward promises;
+only future duplicate enrollment/repeat windows stop. Use the shared query helpers
+for new offers and equivalent definition identities for legacy completion guards.
+The reconciliation migration never replays activity or pays rewards.
+
+`QuestDefinition.is_cooperative` marks catalog offers that require parent
+assignment to at least two same-family children. They use the existing shared
+`Quest`/`QuestParticipant` engine, never new individual automatic enrollment or
+solo starts. Existing personal windows remain accepted. Any saved nonrepeatable
+personal version prevents a second shared assignment, even if unpaid/expired,
+because late approval can still fulfill its promise. Repeatable personal windows
+must end before a co-op start.
+React exposes this assignment under Family challenges and retains server errors.
+
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
 - `ChallengeGoal` stores a personal catalog or parent-authored goal. Its private `is_catalog` origin survives a deleted template; the optional `catalog_definition` uses `SET_NULL`. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise, including catalog name/type metadata for saved catalog history.
 - `ChallengeActivity` records a durable source identity and safe context; `ChallengeContribution` credits a source once per occurrence. Private journal prose never belongs in this context.
@@ -51,6 +66,46 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 - Catalog goals use their actual trigger filters; themes and XP reward tags do not restrict qualifying activities. Reward-only definitions (`badge_earned`/`perfect_day`) are omitted from new automatic enrollment, while saved legacy instances remain readable. Default unfiltered goals count effort events; expedition returns need an explicit trigger filter. Newly offered/evaluated goals get a fresh full-duration window, with enrollment/cutover, definition creation, actual badge unlock and active legacy deadline as lower cutoffs. The earliest eligible pending fact can anchor the initial window so saved work/retries count; processed history is never replayed into a new catalog goal. Nonrepeatable goals keep one window, repeatable goals keep successive frozen-duration windows from their saved anchor, and no existing dates reset on return, pinning or completion.
 - Catalog retirement preserves saved paid/unpaid occurrences and contributions. A remaining saved window can finish with its frozen reward promise, but a detached catalog goal creates no future repeat windows. Eligibility and achievement queries use the durable catalog origin and frozen name/type after deletion, keeping parent-authored goals outside catalog badge history. Migration `0007` backfills this origin/metadata without changing progress, rewards or ledgers.
 - Completion responses distinguish reward previews from actual `reward_receipt` amounts. Awarded automatic receipts include their persisted `items` outcomes; converted egg rows have `salvaged_to_coins`, already included in `coins_awarded`. Pending and legacy receipts omit actual item outcomes. Source replay and reward retries must not rerun streaks, random drops or already-paid awards.
+
+### Explicit attempts and future weekly setup
+
+`POST /api/challenges/goal:<occurrence_id>/retry/` accepts only `{}` from the
+owning child or a same-family parent. An expired unpaid personal one-time
+catalog goal receives a fresh saved occurrence with `retry_of`; replaying that
+specific predecessor returns its exact existing successor (201 first, 200 on
+replay). Parent-authored, cooperative, repeatable, retired, already-paid or
+otherwise active identities are ineligible. No saved source is replayed into
+the new attempt: its private activity-ID floor and timestamp window are both
+enforced. An existing pin follows the successor and the response reports it.
+
+An explicit retry establishes one lifetime reward across that catalog identity,
+including retained aliases and legacy completion history. The first completed
+attempt wins, including delayed processing of earlier accepted work. Other
+unpaid attempts become `status: closed`, `closed_reason: reward_already_awarded`,
+with no completion/award timestamp or invented receipt. Earlier snapshots,
+progress, contributions and paid history remain saved. Grandfathered duplicate
+promises without an explicit retry retain their existing policy.
+
+Recurring parent goals expose `goal_definition_id` and `schedule` with a
+revision and the next saved-timezone Monday's setup. Parent-only
+`PATCH /api/challenges/goals/<goal_definition_id>/schedule/` requires
+`expected_revision` plus `paused` and/or partial `next_week` fields (`name`,
+`description`, `target`, `coin_reward`, `xp_reward`, `skill_tags`). Stale parents
+receive 409. Metric, unit and activity identity remain fixed; normal goal
+validation applies on resume or future edits. A pure pause can retain a deleted
+saved skill reference because it creates no new reward promise. `ChallengeSchedule`
+versions start next Monday and never change current/already accepted future
+occurrences. Resuming does not materialize skipped earlier weeks, even on late
+approval. These writes do not evaluate facts or replay source rewards.
+
+`controls.py` owns these writes and batched read-only presentation. Payloads
+include validated `qualifying_triggers`, `retry`, nullable `retry_of`,
+`closed_reason`, and `schedule`; legacy rows have no new writable identity.
+Keep only the latest catalog occurrence per goal, existence flags for lifetime
+history and at most two schedule revisions in presentation context. Every
+retryable expired catalog goal and paused parent rule stays discoverable beyond
+the normal history limit. PostgreSQL races are in `test_goal_control_concurrency`;
+the real upgrade preservation check also covers migration 0012.
 
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 

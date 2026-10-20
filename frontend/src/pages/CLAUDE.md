@@ -271,9 +271,20 @@ Tasks → Challenges (`/quests?tab=trials`) uses the shared Task folio shell.
 The pinned challenge and parent-created goals lead the working list. Up to three
 bonus challenges with positive progress appear next, ranked by proportion toward
 completion. The remaining bonus goals and history stay in collapsed disclosures.
+The bonus browser includes the complete available bonus list beyond the pin,
+with search, server-qualified activity filters, saved-zone deadline dates and
+deadline/progress/name sorting. Expanded browsing replaces duplicate preview
+cards, leaving parent goals and pinned focus visible. History has an explicit
+"Can try again" filter and shortcut for server-eligible expired catalog attempts.
 Every matching goal continues tracking regardless of its placement or whether a
 disclosure is open. A pin only features one active goal on Today and in the header;
 children do not start or claim goals to make their work count.
+An explicit Try again action opens a fresh period at zero progress for an
+eligible unpaid one-time catalog challenge. The predecessor occurrence is its
+idempotency identity, so manual retries of an uncertain POST request the same
+attempt. Parents can retry a verified child's occurrence too. One lifetime
+reward remains server-owned; closed sibling attempts explain that another
+attempt earned it and never show a pending payout.
 
 - `trials/index.jsx` owns the parent's child selector, goal details and pin actions.
   `ChallengesFolio.jsx` presents the shared `QuestFolio` layout; `challengeFocus.js`
@@ -281,7 +292,21 @@ children do not start or claim goals to make their work count.
   Parents use `CreateGoalForm.jsx`
   to assign count, minute or distance goals, with a period and optional weekly
   repeat. The form previews the activity, date window and reward and retains a
-  UUID for identical save retries.
+  UUID for identical save retries. XP bonuses require a selected skill; inline
+  errors and a skills-read retry preserve the draft. `FamilyChallengeForm.jsx`
+  separately offers available `is_cooperative` catalog definitions to parents
+  with at least two verified family children. Parents explicitly select the
+  participants for one pooled target with the full reward per child. Assignment
+  uses the existing co-op endpoint, preserves failed drafts without replaying
+  writes, refreshes challenge reads on success, and resets across account,
+  credential and roster changes.
+- `GoalScheduleControls.jsx` gives parents pause/resume and six-field changes
+  for future weekly periods. The saved next-Monday boundary, metric and activity
+  remain authoritative. Writes carry an expected revision; a conflict retains
+  the draft until the parent explicitly loads refreshed settings. Current and
+  already accepted occurrence promises are preserved. Skills reads and schedule
+  writes bind the captured credential; old account/child responses cannot update
+  the new workspace.
 - `ChallengeGoalCard.jsx` presents the server's decimal progress, origin, activity
   rule, planned reward and actual completion receipt. Parent and pinned deadlines
   remain visible; background bonus dates stay in full details. Origin is the
@@ -291,6 +316,10 @@ children do not start or claim goals to make their work count.
   pin change moved its original opener.
 - `goalDisplay.js` formats progress and household-local deadlines. Do not derive
   eligibility, paid amounts or recurrence from the browser clock.
+  Card subtitles use the server's qualifying rule text, saved target/unit and
+  actual period; themed names never determine activity filters. Missing rule or
+  deadline evidence stays explicit, and unknown deadlines cannot match a date
+  filter.
 - `hooks/useChallenges.js` shares scoped server data, refreshes after Pulse and
   pin changes, and fences responses by account/credential/selected-child identity.
 - Existing boss/collection components and routes remain reference and legacy

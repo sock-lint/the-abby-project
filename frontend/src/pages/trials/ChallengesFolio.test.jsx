@@ -2,8 +2,35 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderWithProviders, screen, within } from '../../test/render';
 import { buildChallengeGoal } from '../../test/challenges';
 import ChallengesFolio from './ChallengesFolio';
+import { selectDropdown } from '../../test/selectDropdown';
 
 describe('Challenges Task folio', () => {
+  it('searches and filters the full bonus catalog without duplicating preview cards or hiding parent goals', async () => {
+    const bonuses = Array.from({ length: 7 }, (_, index) => buildChallengeGoal({
+      id: `goal:bonus-${index}`, origin: 'catalog', name: `Story ${index}`, progress: '0',
+      metric: 'count', target: '5', unit: 'actions',
+      catalog_repeatable: false, first_details_opened_at: null,
+      qualifying_triggers: [index < 4 ? 'habit_log' : 'chore_complete'],
+      what_counts: index < 4 ? 'positive habit taps' : 'approved chores',
+      ends_at: `2026-10-${20 + index}T07:00:00Z`, timezone: 'America/Phoenix',
+    }));
+    const parent = buildChallengeGoal({ id: 'goal:parent', name: 'Parent running goal' });
+    const { user } = renderWithProviders(<ChallengesFolio goals={[parent, ...bonuses]} onSelect={vi.fn()} />, { withAuth: false });
+    await user.click(screen.getByText('Browse bonus challenges'));
+    expect(screen.getAllByRole('article')).toHaveLength(8);
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Qualifying activity' }), 'chore_complete');
+    expect(screen.getByText('3 of 7 bonus challenges')).toHaveAttribute('role', 'status');
+    await user.type(screen.getByRole('searchbox', { name: 'Search bonus challenges' }), 'Story 6');
+    expect(screen.getByText('1 of 7 bonus challenges')).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Story 6' })).toHaveTextContent('5 activities · approved chores');
+    expect(screen.getByRole('article', { name: 'Parent running goal' })).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Ends on or before'), '2026-10-23');
+    expect(screen.getByText('No bonus challenges match these filters.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(screen.getByText('7 of 7 bonus challenges')).toBeInTheDocument();
+    expect(screen.getAllByRole('article')).toHaveLength(8);
+  });
+
   it('makes unopened one-time catalog details accessible without expanding the bonus browser', async () => {
     const goal = buildChallengeGoal({ origin: 'catalog', progress: '0', catalog_repeatable: false, first_details_opened_at: null });
     const select = vi.fn();
@@ -13,6 +40,24 @@ describe('Challenges Task folio', () => {
     await user.click(within(explore).getByRole('button', { name: `View ${goal.name}` }));
     expect(select).toHaveBeenCalledWith(goal);
     expect(goal.progress).toBe('0');
+  });
+
+  it('filters legacy deadlines in the displayed family zone and leaves unknown dates out of date-filtered results', async () => {
+    const goals = [
+      buildChallengeGoal({ id: 'legacy:1', name: 'Legacy day', origin: 'legacy', legacy: true, progress: '0', timezone: undefined, ends_at: '2026-10-20T07:00:00Z', qualifying_triggers: null }),
+      buildChallengeGoal({ id: 'goal:unknown', name: 'Unknown rule', origin: 'catalog', progress: '0', ends_at: 'invalid-date', what_counts: null, qualifying_triggers: null }),
+    ];
+    const { user } = renderWithProviders(<ChallengesFolio goals={goals} timezone="America/Phoenix" onSelect={vi.fn()} />, { withAuth: false });
+    await user.click(screen.getByText('Browse bonus challenges'));
+    expect(screen.getByText('2 of 2 bonus challenges')).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Unknown rule' })).toHaveTextContent('Qualifying activity unavailable');
+    await user.type(screen.getByLabelText('Ends on or before'), '2026-10-19');
+    expect(screen.getByText('1 of 2 bonus challenges')).toBeInTheDocument();
+    expect(screen.getByRole('article', { name: 'Legacy day' })).toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Unknown rule' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear filters' }));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Qualifying activity' }), 'unknown');
+    expect(screen.getByText('2 of 2 bonus challenges')).toBeInTheDocument();
   });
 
   it('identifies parent goals by server origin even when catalog names match', () => {

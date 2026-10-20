@@ -122,11 +122,14 @@
               "skill_id": 902,
               "xp_weight": 1
             }
-          ]
+          ],
+          "is_cooperative": false
         },
         "has_database_override": false,
         "automatic_tracking_available": true,
-        "unsupported_triggers": []
+        "unsupported_triggers": [],
+        "is_cooperative": false,
+        "superseded_by": null
       }
     ],
     "skills": [
@@ -212,6 +215,7 @@
       "description",
       "duration_days",
       "icon",
+      "is_cooperative",
       "is_repeatable",
       "name",
       "quest_type",

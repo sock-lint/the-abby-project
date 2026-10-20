@@ -9,6 +9,37 @@ Named and collection-quest badges require completion of the real catalog
 challenge. A parent goal's title or measurement does not grant those badges or
 unlock a catalog storyline.
 
+## Canonical offers and family challenges
+
+System templates with the same name and identical activity rules, periods and
+rewards are reconciled to one canonical definition. Superseded definitions stay
+in the database for saved promises and history; new offers use the canonical
+definition. Conflicting same-name system rules are withheld from new enrollment
+and reported by the catalog audit until reconciled. Parent-authored templates
+retain their separate household identity.
+
+Reconciliation never removes paid receipts, contributions or accepted windows.
+If only a superseded personal goal exists, its identity and saved promises move
+to the canonical definition. If both exist, their already accepted windows remain
+payable, while the superseded goal cannot create another repeat window. Legacy
+completion and active-window guards consider equivalent definition identities.
+There is no retroactive reward clawback or activity replay.
+
+An explicitly cooperative catalog definition requires a parent to choose at
+least two children from the same family under Family challenges. The resulting
+saved campaign has one shared progress total and uses the existing co-op payout
+rules: every assigned participant receives the full accepted completion reward.
+Cooperative templates do not create new individual automatic goals or enter a
+single-child Progression Lab forecast. Existing individual promises keep their
+accepted windows. Any accepted individual version of a nonrepeatable challenge
+prevents a second shared assignment, including an expired unpaid version: a late
+approval can still fulfill that original promise. For repeatable definitions,
+new shared assignments wait for accepted individual windows to end.
+
+MCP parent goal preview and creation accept Daily Reading Adventures through the
+same count rule as REST. A saved daily reading reward is the source identity;
+extra sessions and retries do not add another daily contribution.
+
 ## Activity, periods and rewards
 
 Use the original activity date to assign challenge progress to a period. Parent approval
@@ -95,6 +126,42 @@ the configured reward preview is not proof of payment. Daily Coins remain
 Lucky Coin eligible; goal Coins retain the existing unboosted quest policy.
 Before completion, a correction removes or replaces the source contribution. A paid occurrence never
 rearms because its source was changed or deleted.
+
+## Explicit retries and parent weekly controls
+
+Expired unpaid one-time catalog goals offer an explicit retry. The owning child
+or a parent in that child's current family posts `{}` to
+`/api/challenges/goal:<occurrence_id>/retry/`. The predecessor ID is the
+idempotency key: repeating it returns the same successor, even after that
+successor ends. No read, pin or background task starts an attempt. A retry gets
+the saved full-duration promise and fresh progress, and accepts only newly
+recorded facts within its new window. A private activity-ID floor excludes even
+earlier pending facts whose timestamp equals the new start.
+
+Explicit attempts share one lifetime reward across the canonical catalog
+identity, retained aliases and legacy completions. The first attempt to finish
+earns it; delayed processing may finish the older attempt first. Remaining
+unpaid attempts close with `reward_already_awarded`, preserving their saved
+progress and rules without claiming another payout. Original grandfathered
+promises that have never been explicitly retried keep their original policy.
+Paid, repeatable, shared, parent-authored and retired goals cannot start retries.
+The list retains eligible expired offers beyond its general history limit.
+
+Parents can pause/resume future weeks or edit next week's name, description,
+target, Coins, XP and skill tags for their household's recurring parent goals.
+`PATCH /api/challenges/goals/<goal_definition_id>/schedule/` takes
+`expected_revision` and `paused` and/or partial `next_week` setup. Every accepted
+change becomes effective next Monday in the goal's saved timezone. A stale
+revision returns 409 and requires reading the saved version. Activity type,
+metric and unit stay fixed. Resume and setup edits use the normal goal validator;
+a pure pause remains possible even if an old saved reward skill was deleted.
+
+Current and already accepted future occurrences keep their exact snapshots and
+receipts. Paused weeks have no new occurrences; a later resume cannot reopen
+them through delayed approval. Paused rules remain visible for parent controls.
+Schedule changes do not process source work, backfill progress or award rewards.
+Migration 0012 only adds schema/defaults; it creates no attempts or schedules
+and changes no saved history or account rewards.
 
 ## Daily bonus
 

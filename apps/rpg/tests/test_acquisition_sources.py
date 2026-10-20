@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 from datetime import timedelta
+from unittest.mock import patch
 from rest_framework.test import APIClient
 
 from apps.projects.models import User
@@ -60,6 +61,21 @@ class AcquisitionSourcesTests(TestCase):
         row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
         self.assertEqual(row["acquisition_sources"], [])
 
+    def test_retained_alias_does_not_advertise_a_second_challenge(self):
+        alias = QuestDefinition.objects.create(
+            name="Retained duplicate", quest_type="collection", target_value=10,
+            is_system=True, superseded_by=self.quest,
+        )
+        QuestRewardItem.objects.create(quest_definition=alias, item=self.frame)
+        row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
+        self.assertEqual([source["name"] for source in row["acquisition_sources"]], [self.quest.name])
+
+    def test_unassigned_family_campaign_is_not_an_individual_acquisition_offer(self):
+        self.quest.is_cooperative = True
+        self.quest.save(update_fields=["is_cooperative"])
+        row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
+        self.assertEqual(row["acquisition_sources"], [])
+
     def test_current_occurrence_uses_its_frozen_item_list(self):
         from apps.quests.models import ChallengeGoal, ChallengeOccurrence
         now = timezone.now()
@@ -87,6 +103,47 @@ class AcquisitionSourcesTests(TestCase):
             ends_at=goal.ends_at, status="completed", awarded_at=now)
         row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
         self.assertEqual(row["acquisition_sources"], [])
+
+    def test_active_retried_goal_remains_an_item_acquisition_source(self):
+        from apps.quests.controls import retry_challenge
+        from apps.quests.goals import list_goals
+        from apps.quests.models import ChallengeOccurrence
+
+        now = timezone.now()
+        with patch("django.utils.timezone.now", return_value=now - timedelta(days=10)):
+            definition = QuestDefinition.objects.create(
+                name="Two-day chore trail", quest_type="collection", target_value=2,
+                duration_days=2, is_system=True, trigger_filter={"allowed_triggers": ["chore_complete"]},
+            )
+            QuestRewardItem.objects.create(quest_definition=definition, item=self.frame)
+            list_goals(self.user)
+        original = ChallengeOccurrence.objects.get(goal__catalog_definition=definition)
+        self.assertLess(original.goal.ends_at, now)
+        with patch("django.utils.timezone.now", return_value=now):
+            retry, created = retry_challenge(self.user, original.pk)
+            response = self.client.get("/api/cosmetics/catalog/")
+        self.assertTrue(created)
+        self.assertEqual(retry.status, "active")
+        self.assertIsNone(retry.awarded_at)
+        self.assertGreater(retry.ends_at, now)
+        self.assertEqual(response.status_code, 200)
+        frame = next(row for row in response.data["active_frame"] if row["id"] == self.frame.pk)
+        self.assertIn(
+            {"kind": "challenge", "name": definition.name, "path": "/quests?tab=trials"},
+            frame["acquisition_sources"],
+        )
+        replacement = ItemDefinition.objects.create(name="Changed future frame", item_type="cosmetic_frame")
+        definition.reward_items.all().delete()
+        QuestRewardItem.objects.create(quest_definition=definition, item=replacement)
+        rows = {row["id"]: row for row in self.client.get("/api/cosmetics/catalog/").data["active_frame"]}
+        self.assertTrue(any(source["name"] == definition.name for source in rows[self.frame.pk]["acquisition_sources"]))
+        self.assertFalse(any(source["name"] == definition.name for source in rows[replacement.pk]["acquisition_sources"]))
+        retry.status = "closed"
+        retry.closed_reason = "reward_already_awarded"
+        retry.save(update_fields=["status", "closed_reason"])
+        frame = next(row for row in self.client.get("/api/cosmetics/catalog/").data["active_frame"]
+                     if row["id"] == self.frame.pk)
+        self.assertFalse(any(source["name"] == definition.name for source in frame["acquisition_sources"]))
 
     def test_hints_are_batched_and_catalog_reads_create_no_progress(self):
         from apps.quests.models import ChallengeGoal

@@ -11,7 +11,7 @@ from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
-from apps.quests.models import QuestDefinition
+from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item, random_item_is_available
 from apps.rpg.models import DropTable, ItemDefinition
 
@@ -164,7 +164,7 @@ def snapshot_catalog():
         else:
             excluded[badge.criteria_type] += 1
     quests = _bounded(
-        QuestDefinition.objects.filter(is_system=True)
+        active_system_definitions().filter(is_cooperative=False)
         .order_by("pk")
         .prefetch_related("skill_tags__skill", "reward_items__item"),
         256,

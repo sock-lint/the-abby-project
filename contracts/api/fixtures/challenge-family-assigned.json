@@ -1,0 +1,61 @@
+{
+  "id": 1,
+  "definition": {
+    "id": 52,
+    "name": "Fixture family teamwork",
+    "description": "Complete twenty approved chores together.",
+    "icon": "⚔️",
+    "sprite_key": "",
+    "catalog_icon": null,
+    "quest_type": "collection",
+    "quest_type_display": "Collection Quest",
+    "target_value": 20,
+    "duration_days": 7,
+    "trigger_filter": {
+      "allowed_triggers": [
+        "chore_complete"
+      ]
+    },
+    "coin_reward": 100,
+    "xp_reward": 30,
+    "reward_items": [],
+    "skill_tags": [
+      {
+        "id": 72,
+        "skill": 22,
+        "skill_name": "Running",
+        "skill_category": "Physical",
+        "xp_weight": 1
+      }
+    ],
+    "required_badge": null,
+    "required_badge_name": null,
+    "is_repeatable": false,
+    "is_system": true,
+    "is_cooperative": true,
+    "created_at": "2026-10-14T12:00:00-07:00",
+    "catalog_available": true
+  },
+  "status": "active",
+  "start_date": "2026-10-14T12:00:00-07:00",
+  "end_date": "2026-10-21T12:00:00-07:00",
+  "current_progress": 0,
+  "rage_shield": 0,
+  "effective_target": 20,
+  "progress_percent": 0,
+  "participants": [
+    {
+      "id": 1,
+      "user": 7,
+      "user_name": "challenge-fixture-child",
+      "contribution": 0
+    },
+    {
+      "id": 2,
+      "user": 8,
+      "user_name": "challenge-fixture-sibling",
+      "contribution": 0
+    }
+  ],
+  "created_at": "2026-10-14T12:00:00-07:00"
+}

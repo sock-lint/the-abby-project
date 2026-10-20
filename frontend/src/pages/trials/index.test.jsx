@@ -9,6 +9,8 @@ import { buildChallengeGoal, buildDailyBonus } from '../../test/challenges';
 import { CHALLENGES_CHANGED } from '../../hooks/useChallenges';
 import Trials from './index';
 import { useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 function LocationProbe() { const location = useLocation(); return <span data-testid="challenge-location">{location.pathname}{location.search}</span>; }
 
 function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child', route = '/quests?tab=trials' } = {}) {
@@ -22,6 +24,128 @@ function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child
 }
 
 describe('Automatic challenges', () => {
+  it('starts a fresh attempt from retryable history with an exact empty POST and preserves the old period', async () => {
+    const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', catalog_repeatable: false, retry: { allowed: true, reason: null, latest_attempt_id: null } });
+    const fresh = buildChallengeGoal({ id: 'goal:12', origin: 'catalog', progress: '0', catalog_repeatable: false, starts_at: '2026-10-20T07:00:00Z', ends_at: '2026-10-27T07:00:00Z', retry: { allowed: false, reason: 'active', latest_attempt_id: null } });
+    let retried = false;
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, () => { retried = true; return fresh; });
+    server.use(retry.handler);
+    const { user } = renderGoals({ goals: [expired] });
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json({ results: retried ? [{ ...expired, retry: { allowed: false, reason: 'superseded', latest_attempt_id: fresh.id } }, fresh] : [expired], pin: null, daily_bonus: null })));
+    await user.click(await screen.findByText('History · 1'));
+    await user.click(screen.getByRole('button', { name: `Try ${expired.name} again` }));
+    await waitFor(() => expect(retry.calls).toHaveLength(1));
+    expect(retry.calls[0]).toMatchObject({ url: expect.stringMatching(/\/api\/challenges\/goal(?::|%3A)11\/retry\/$/), body: {} });
+    const detail = await screen.findByRole('dialog', { name: fresh.name });
+    expect(within(detail).getByText('0 / 2 miles')).toBeInTheDocument();
+    expect(within(detail).getByText(/Goal period/)).toHaveTextContent('Oct 20, 2026');
+    expect(screen.getByText('History · 1')).toBeInTheDocument();
+  });
+
+  it('lets a parent pause future weeks without changing the current goal promise', async () => {
+    const next_week = { starts_at: '2026-10-26T07:00:00Z', paused: false, name: 'Weekly running', description: 'Make time to move.', metric: 'distance', target: '2', unit: 'mi', trigger_type: 'movement_session', movement_type_id: 3, coin_reward: 10, xp_reward: 0, skill_tags: [] };
+    const schedule = { revision: 1, paused: false, next_week };
+    const goal = buildChallengeGoal({ name: 'Weekly running', repeat_weekly: true, goal_definition_id: 21, schedule });
+    const pause = spyHandler('patch', /\/api\/challenges\/goals\/21\/schedule\/$/, () => {
+      goal.schedule = { ...schedule, revision: 2, next_week: { ...next_week, paused: true } };
+      return { goal_definition_id: 21, schedule: goal.schedule };
+    });
+    server.use(pause.handler);
+    const { user } = renderGoals({ role: 'parent', goals: [goal] });
+    await user.click(await screen.findByRole('button', { name: `View ${goal.name}` }));
+    const detail = screen.getByRole('dialog');
+    await user.click(within(detail).getByRole('button', { name: 'Pause future weeks' }));
+    await waitFor(() => expect(pause.calls).toHaveLength(1));
+    expect(pause.calls[0].body).toEqual({ expected_revision: 1, paused: true });
+    expect(await within(detail).findByRole('button', { name: 'Resume future weeks' })).toBeInTheDocument();
+    expect(within(detail).getByText('0.75 / 2 miles')).toBeInTheDocument();
+    expect(within(detail).getByText('Completion bonus · 10 coins')).toBeInTheDocument();
+  });
+
+  it('shows a retry failure inside the details and retries only after another explicit click', async () => {
+    const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', retry: { allowed: true, reason: null, latest_attempt_id: null } });
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, () => HttpResponse.json({ error: 'Could not start this period.' }, { status: 503 }));
+    server.use(retry.handler);
+    const { user } = renderGoals({ goals: [expired] });
+    await user.click(await screen.findByRole('button', { name: 'Find challenges to try again' }));
+    expect(screen.getByRole('combobox', { name: 'Show history' })).toHaveValue('retryable');
+    await user.click(screen.getByRole('button', { name: `Try ${expired.name} again` }));
+    const detail = screen.getByRole('dialog');
+    expect(await within(detail).findByRole('alert')).toHaveTextContent('Could not start this period.');
+    expect(retry.calls).toHaveLength(1);
+    expect(within(detail).getByText('0.75 / 2 miles')).toBeInTheDocument();
+    await user.click(within(detail).getByRole('button', { name: `Try ${expired.name} again` }));
+    await waitFor(() => expect(retry.calls).toHaveLength(2));
+    expect(retry.calls.map((call) => call.body)).toEqual([{}, {}]);
+  });
+
+  it.each(['child', 'credential'])('ignores a parent retry response after the selected %s changes', async (change) => {
+    const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', retry: { allowed: true, reason: null, latest_attempt_id: null } });
+    const other = buildChallengeGoal({ id: 'goal:other', name: 'Other child goal' });
+    const fresh = buildChallengeGoal({ id: 'goal:fresh', name: 'Fresh retry window', origin: 'catalog' });
+    let finish;
+    let changeChild;
+    function ChangeChild() {
+      const [, setParams] = useSearchParams();
+      useEffect(() => { changeChild = () => setParams({ tab: 'trials', child: '8' }); }, [setParams]);
+      return null;
+    }
+    const reads = [];
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7 }), buildUser({ id: 8 })])),
+      http.get('*/api/challenges/', ({ request }) => {
+        const child = new URL(request.url).searchParams.get('user_id'); reads.push(child);
+        return HttpResponse.json({ results: child === '8' ? [other] : [expired], pin: null, daily_bonus: null });
+      }),
+    );
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, () => new Promise((resolve) => { finish = () => resolve(fresh); }));
+    server.use(retry.handler);
+    const { user } = renderWithProviders(<><Trials /><ChangeChild /></>, { route: '/quests?tab=trials&child=7' });
+    await user.click(await screen.findByRole('button', { name: 'Find challenges to try again' }));
+    await user.click(screen.getByRole('button', { name: `Try ${expired.name} again` }));
+    await waitFor(() => expect(retry.calls).toHaveLength(1));
+    if (change === 'child') {
+      act(() => changeChild());
+      await screen.findByRole('article', { name: other.name });
+    } else localStorage.setItem('abby_auth_token', 'replacement-session');
+    const before = reads.length;
+    await act(async () => finish());
+    expect(reads).toHaveLength(before);
+    expect(screen.queryByRole('dialog', { name: fresh.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: fresh.name })).not.toBeInTheDocument();
+  });
+
+  it('assigns a catalog family challenge to the verified children and refreshes their shared goal', async () => {
+    let assigned = false;
+    const shared = buildChallengeGoal({ id: 'legacy:51', name: 'Family workshop', origin: 'legacy', legacy: true, unit: 'actions', action: null });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7, display_name: 'Abby' }), buildUser({ id: 8, display_name: 'Beck' })])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([{ id: 31, name: 'Family workshop', description: 'Build together.', is_cooperative: true, catalog_available: true, quest_type: 'collection', target_value: 5, duration_days: 7, coin_reward: 20, xp_reward: 40, reward_items: [] }])),
+      http.get('*/api/challenges/', () => HttpResponse.json({ results: assigned ? [shared] : [], pin: null, daily_bonus: null })),
+    );
+    const assign = spyHandler('post', /\/api\/quests\/31\/co-op\/$/, () => { assigned = true; return { id: 51 }; });
+    server.use(assign.handler);
+    const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials&child=7' });
+    await user.click(await screen.findByRole('button', { name: 'Family challenges' }));
+    const dialog = screen.getByRole('dialog', { name: 'Assign a family challenge' });
+    await selectDropdown(user, await within(dialog).findByLabelText('Family challenge'), '31');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Abby' }));
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Beck' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Assign family challenge' }));
+    await waitFor(() => expect(assign.calls).toHaveLength(1));
+    expect(assign.calls[0].url).toMatch(/\/api\/quests\/31\/co-op\/$/);
+    expect(assign.calls[0].body).toEqual({ user_ids: [7, 8] });
+    expect(await screen.findByRole('article', { name: 'Family workshop' })).toBeInTheDocument();
+  });
+
+  it('keeps family challenge assignment out of the child workspace', async () => {
+    renderGoals();
+    await screen.findByRole('article', { name: 'Run 2 miles this week' });
+    expect(screen.queryByRole('button', { name: 'Family challenges' })).not.toBeInTheDocument();
+  });
+
   it('records only mounted child catalog details and keeps prose visible while confirmation is pending', async () => {
     const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
     let finish;

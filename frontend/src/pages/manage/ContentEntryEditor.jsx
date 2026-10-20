@@ -62,6 +62,7 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
           {numeric('duration_days', 'Duration in days', 1)}
         </div>
         <CheckboxField label="Repeatable challenge" checked={values.is_repeatable ?? false} onChange={(event) => set('is_repeatable', event.target.checked)} />
+        <CheckboxField label="Shared family challenge" checked={values.is_cooperative ?? false} onChange={(event) => set('is_cooperative', event.target.checked)} helpText="A parent selects at least two children to work toward one shared target. Each participant receives the full completion reward." />
         <SelectField label="Required badge" value={values.required_badge ?? ''} onChange={(event) => set('required_badge', event.target.value ? Number(event.target.value) : null)}><option value="">No badge required</option>{catalog.badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}</SelectField>
         <fieldset className="space-y-2"><legend className="font-semibold text-ink-primary">Qualifying activities</legend><p className="text-caption text-ink-secondary">Leave all unchecked to use the default everyday activities.</p><div className="grid grid-cols-1 sm:grid-cols-2 gap-2">{triggerChoices.map((trigger) => {
           const label = supportedTriggers.has(trigger) ? choiceLabel(supportedTriggers.get(trigger)) : `${title(trigger)} · not tracked by current challenges`;
