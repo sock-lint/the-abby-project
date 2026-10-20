@@ -147,7 +147,7 @@ class ProgressionPetBadgeParityTests(TestCase):
         for item in (self.egg, self.potion):
             DropTable.objects.create(trigger_type="habit_log", item=item, weight=1)
         goal = self.quest("Care-gated food", self.hatch_badge)
-        QuestRewardItem.objects.create(quest_definition=goal, item=self.food)
+        QuestRewardItem.objects.create(quest_definition=goal, item=self.food, quantity=7)
 
         trial = self.trial(habits_per_day=1, habit_xp=0)
 
@@ -161,7 +161,7 @@ class ProgressionPetBadgeParityTests(TestCase):
         for item in (self.egg, self.potion):
             QuestRewardItem.objects.create(quest_definition=first, item=item)
         second = self.quest("Hatch-gated food", self.hatch_badge)
-        QuestRewardItem.objects.create(quest_definition=second, item=self.food)
+        QuestRewardItem.objects.create(quest_definition=second, item=self.food, quantity=7)
 
         trial = self.trial(habits_per_day=1, habit_xp=1)
 

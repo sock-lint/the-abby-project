@@ -100,7 +100,8 @@ class ProgressionEngineTests(TestCase):
         for day in range(1, 31):
             trial.daily(day)
         self.assertEqual(trial.counters["project_sessions"], 30)
-        self.assertEqual(trial.counters["drop_opportunities"], 0)
+        self.assertEqual(trial.counters["drop_opportunities:clock_out"], 0)
+        self.assertEqual(trial.counters["drop_opportunities:quest_complete"], 1)
         self.assertEqual(len(trial.pets), 0)
         self.assertIn(goal.pk, trial.completed_quests)
 
@@ -132,7 +133,8 @@ class ProgressionEngineTests(TestCase):
             trial.source_totals["movement"]["xp"],
             MovementSessionService.DAILY_REWARD_LIMIT * MovementSessionService.compute_xp_pool(20, "medium"),
         )
-        self.assertEqual(trial.counters["drop_opportunities"], 3)
+        self.assertEqual(trial.counters["drop_opportunities:movement_session"], 3)
+        self.assertEqual(trial.counters["drop_opportunities"], 3 + len(trial.badges) + trial.counters["quest_completions"])
         self.assertEqual(trial.source_totals["daily_bonus"]["coins"], 10)
 
     def test_creation_limit_keeps_lifetime_count_but_caps_rewards(self):
@@ -140,7 +142,8 @@ class ProgressionEngineTests(TestCase):
         trial.daily(1)
         self.assertEqual(trial.counters["creations"], 4)
         self.assertEqual(trial.source_totals["creations"]["xp"], 20)
-        self.assertEqual(trial.counters["drop_opportunities"], 2)
+        self.assertEqual(trial.counters["drop_opportunities:creation_logged"], 2)
+        self.assertEqual(trial.counters["drop_opportunities"], 2 + len(trial.badges) + trial.counters["quest_completions"])
         self.assertEqual(trial.counters["daily_bonus_day"], 0)
 
     def test_attendance_does_not_earn_completed_time_entry_streak_badge(self):

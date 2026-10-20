@@ -450,6 +450,7 @@
       "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+      "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
       "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
       "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -460,7 +461,7 @@
       "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
       "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
       "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
-      "Perfect Day, manual grants, time-of-day and approval-delay effects",
+      "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
       "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
       "Production deployment/asset delivery verification and player retention/engagement predictions"
     ],
@@ -475,6 +476,8 @@
       "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
       "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
       "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+      "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
+      "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
       "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
       "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
       "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content"
@@ -561,8 +564,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "7afbf9b2bfe2e567f3368abe5e6052312028bba02885483cf8a2f9fcd07e2a64",
-  "engine_version": "2026-10-20.1",
+  "rules_fingerprint": "52c66b658ce40bd8c4c12f71f9cf9e269e6780c1aaf90d8ed3d5a72c9380b180",
+  "engine_version": "2026-10-20.3",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,

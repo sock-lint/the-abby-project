@@ -108,7 +108,7 @@ class CompanionConsumableProgressionTests(TestCase):
             for call in child_notice.call_args_list
         ), 1)
         self.assertTrue(all(
-            call.kwargs.get("notification_type") in {"pet_evolved", "badge_earned"}
+            call.kwargs.get("notification_type") in {"pet_evolved", "badge_earned", "drop_received"}
             for call in child_notice.call_args_list
         ))
         parent_notice.assert_called_once()

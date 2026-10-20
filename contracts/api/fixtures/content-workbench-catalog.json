@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "description": "",
           "rarity": "common",
+          "name": "Practice snack",
+          "sprite_key": "",
+          "coin_value": 2,
           "metadata": {
             "growth": 5
           },
-          "description": "",
-          "sprite_key": "",
-          "coin_value": 2,
-          "icon": "🍎",
-          "name": "Practice snack"
+          "icon": "🍎"
         },
         "has_database_override": false,
         "used_by": {
@@ -100,25 +100,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "sprite_key": "",
           "description": "Complete two daily Reading Adventures.",
-          "icon": "⚔️",
+          "xp_reward": 15,
+          "name": "Practice challenge",
+          "required_skill_level": 1,
+          "coin_reward": 10,
+          "sprite_key": "",
+          "quest_type": "collection",
+          "target_value": 2,
+          "is_repeatable": false,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "xp_reward": 15,
-          "name": "Practice challenge",
-          "coin_reward": 10,
-          "quest_type": "collection",
+          "icon": "⚔️",
           "duration_days": 7,
-          "target_value": 2,
-          "is_repeatable": false,
-          "required_skill_level": 1,
-          "required_skill": 902,
-          "required_badge": null,
           "prerequisite_quest": 908,
+          "required_badge": null,
+          "required_skill": 902,
           "reward_items": [
             {
               "item_id": 903,
@@ -167,25 +167,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "sprite_key": "",
           "description": "Complete one approved chore.",
-          "icon": "⚔️",
+          "xp_reward": 0,
+          "name": "Starter practice",
+          "required_skill_level": 0,
+          "coin_reward": 0,
+          "sprite_key": "",
+          "quest_type": "collection",
+          "target_value": 1,
+          "is_repeatable": false,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "xp_reward": 0,
-          "name": "Starter practice",
-          "coin_reward": 0,
-          "quest_type": "collection",
+          "icon": "⚔️",
           "duration_days": 7,
-          "target_value": 1,
-          "is_repeatable": false,
-          "required_skill_level": 0,
-          "required_skill": null,
-          "required_badge": null,
           "prerequisite_quest": null,
+          "required_badge": null,
+          "required_skill": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -736,6 +736,7 @@
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+        "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -746,7 +747,7 @@
         "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
         "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
         "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
-        "Perfect Day, manual grants, time-of-day and approval-delay effects",
+        "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
         "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
         "Production deployment/asset delivery verification and player retention/engagement predictions"
       ],
@@ -761,6 +762,8 @@
         "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
         "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+        "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
+        "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
         "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content"
@@ -847,8 +850,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "7afbf9b2bfe2e567f3368abe5e6052312028bba02885483cf8a2f9fcd07e2a64",
-    "engine_version": "2026-10-20.1",
+    "rules_fingerprint": "52c66b658ce40bd8c4c12f71f9cf9e269e6780c1aaf90d8ed3d5a72c9380b180",
+    "engine_version": "2026-10-20.3",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

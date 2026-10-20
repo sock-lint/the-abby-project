@@ -10,7 +10,7 @@ from apps.quests.models import QuestDefinition
 from apps.rpg.content.loader import ContentPack
 from apps.rpg.progression.catalog import load_catalog
 from apps.rpg.progression.engine import Trial, normalize_config, run_trial, simulate_progression
-from apps.rpg.tests.test_progression_commitment import catalog_with, item, with_mounts
+from apps.rpg.tests.test_progression_commitment import catalog_with, item, with_mounts, with_renewable_mount_source
 from apps.rpg.tests.test_progression_economy import empty_catalog, quiet_config
 
 
@@ -128,19 +128,19 @@ class ExpeditionBudgetTests(SimpleTestCase):
         self.assertEqual(trial.report()["reward_commitment"]["summary"]["expedition_direct_committed"], 75)
 
     def test_zero_launch_or_item_capacity_removes_unavailable_targets_not_extends_runway(self):
-        catalog = catalog_with(item(1, kind="cosmetic_frame", coins=5), trigger="expedition_returned")
+        catalog = with_renewable_mount_source(catalog_with(item(1, kind="cosmetic_frame", coins=5), trigger="expedition_returned"))
         for limits in ({"launches": 0}, {"items": 0}):
-            with self.subTest(limits=limits), patch.object(Trial, "_initial_mount_possible", return_value=True):
+            with self.subTest(limits=limits):
                 trial = Trial(scenario(**limits, chores_per_day=1, expeditions_per_day=15), catalog, 42)
             self.assertNotIn("cosmetic:1", trial.finite_keys)
             report = trial.report()["expedition_budget"]
-            self.assertEqual((report["unlimited_finite_total"], report["unavailable_finite_total"]), (1, 1))
+            self.assertEqual((report["unlimited_finite_total"], report["unavailable_finite_total"]), (4, 1))
             self.assertEqual(report["removed_finite_targets"], {"cosmetic": 1})
 
     def test_unlimited_quota_and_installed_coin_comparators_keep_the_other_policy_fixed(self):
         for value, limits, expected_quota_loss, expected_coin_loss in ((5, 0, 1, 0), (50, 1, 0, 1)):
-            catalog = catalog_with(item(1, kind="cosmetic_frame", coins=value), trigger="expedition_returned")
-            with self.subTest(value=value), patch.object(Trial, "_initial_mount_possible", return_value=True):
+            catalog = with_renewable_mount_source(catalog_with(item(1, kind="cosmetic_frame", coins=value), trigger="expedition_returned"))
+            with self.subTest(value=value):
                 trial = Trial(scenario(items=limits, chores_per_day=1, expeditions_per_day=1,
                                        reward_commitment={"enabled": True}), catalog, 42)
             self.assertEqual(trial.report()["expedition_budget"]["unavailable_finite_total"], expected_quota_loss)

@@ -109,6 +109,18 @@ policy or rewrite bundled or published content.
 - Catalog retirement preserves saved paid/unpaid occurrences and contributions. A remaining saved window can finish with its frozen reward promise, but a detached catalog goal creates no future repeat windows. Eligibility and achievement queries use the durable catalog origin and frozen name/type after deletion, keeping parent-authored goals outside catalog badge history. Migration `0007` backfills this origin/metadata without changing progress, rewards or ledgers.
 - Completion responses distinguish reward previews from actual `reward_receipt` amounts. Awarded automatic receipts include their persisted `items` outcomes; converted egg rows have `salvaged_to_coins`, already included in `coins_awarded`. Pending and legacy receipts omit actual item outcomes. Source replay and reward retries must not rerun streaks, random drops or already-paid awards.
 
+Each newly paid automatic occurrence (catalog or parent goal) and each legacy
+quest participant receives one `quest_complete` accomplishment drop opportunity
+after its authored item rewards. Parallel goals each earn their own completion
+drop, and a new repeat window can earn another. `DropService.award_accomplishment`
+runs only the drop path under the existing account/campaign locks and payout
+transaction; it never re-enters the game loop, advances other goals or creates
+extra streak/check-in rewards. Drop failure rolls back the completion payout for
+retry. Existing completed markers are never backfilled. Bonus items remain in
+`DropLog` and the existing drop-toasts flow, separate from the frozen authored
+reward/receipt shape. Active catalog filtering, level gates and duplicate salvage
+continue to apply to the bonus roll.
+
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
 Catalog detail discovery records presentation separately from progress.

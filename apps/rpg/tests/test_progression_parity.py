@@ -172,7 +172,11 @@ class ProgressionCatalogParityTests(TestCase):
             repeated = simulate_progression(config, catalog=proposed)
         self.assertEqual(before["config"], after["config"])
         self.assertNotEqual(before["catalog"]["fingerprint"], after["catalog"]["fingerprint"])
-        self.assertEqual(after["summary"]["coins_p50"] - before["summary"]["coins_p50"], 10)
+        # Added loot can change later badge timing and salvage. Compare the
+        # explicitly edited promise rather than all downstream income.
+        def challenge_coins(report):
+            return next(row["coins"] for row in report["flows"]["sources"] if row["source"] == "challenges")
+        self.assertEqual(challenge_coins(after) - challenge_coins(before), 10)
         self.assertEqual(after, repeated)
 
     def test_project_and_expedition_pools_match_real_service_weights(self):
@@ -425,8 +429,10 @@ class ProgressionCatalogParityTests(TestCase):
                          MovementSessionService.DAILY_REWARD_LIMIT * MovementSessionService.compute_xp_pool(240, "high"))
         self.assertEqual(trial.source_totals["creations"]["xp"], 20)
         # 2 chores + 1 habit + 1 reading + 3 rewarded movement +
-        # 2 rewarded creations + 1 journal; later saves get no fresh roll.
-        self.assertEqual(trial.counters["drop_opportunities"], 10)
+        # 2 rewarded creations + 1 journal; accomplishments draw separately.
+        self.assertEqual(trial.counters["drop_opportunities:movement_session"], 3)
+        self.assertEqual(trial.counters["drop_opportunities:creation_logged"], 2)
+        self.assertEqual(trial.counters["drop_opportunities"], 10 + len(trial.badges) + trial.counters["quest_completions"])
 
     def test_maximum_horizon_keeps_trace_and_journey_bounded(self):
         config = {**CONFIG, "horizon_days": 365, "trials": 1,
