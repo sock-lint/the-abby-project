@@ -521,6 +521,11 @@ class BadgeService:
                         "rarity": badge.rarity,
                     },
                 )
+                # The unique earned marker, payouts and drop share this
+                # transaction. Existing badges never receive a retroactive roll.
+                from apps.rpg.constants import TriggerType
+                from apps.rpg.services import DropService
+                DropService.award_accomplishment(user, TriggerType.BADGE_EARNED)
 
         return newly_earned
 

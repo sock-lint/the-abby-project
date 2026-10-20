@@ -28,7 +28,8 @@ from apps.pets.expeditions import ExpeditionService, TIER_CONFIG
 from apps.pets.lifecycle import growth_thresholds
 from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
-from apps.quests.services import TRIGGER_DAMAGE
+from apps.quests.services import QuestService, TRIGGER_DAMAGE
+from apps.quests import goals
 from apps.quests.models import DailyBonus
 from apps.quests.daily_bonus import process_daily_bonus
 from apps.timecards.services import ClockService, TimecardService
@@ -39,8 +40,10 @@ from apps.rpg.companion_catalog import companion_drop_weights
 from apps.rpg.catalog_support import random_item_is_available, available_random_items
 from apps.rpg.item_effects import FOOD_GROWTH_BY_RARITY, MAX_AUTHORED_FOOD_GROWTH, PREFERRED_FOOD_BONUS, food_base_growth
 from apps.rpg.rarity import (
-    ACCOMPLISHMENT_TIER_WEIGHTS, ACCOMPLISHMENT_TRIGGERS, BASE_TIER_WEIGHTS, tier_balanced_weights,
+    ACCOMPLISHMENT_TIER_WEIGHTS, ACCOMPLISHMENT_TRIGGERS, BASE_TIER_WEIGHTS,
+    drop_tier_weights, tier_balanced_weights,
 )
+from apps.rpg.tasks import _award_perfect_day
 from apps.rpg.services import (
     BASE_CHECK_IN_COINS,
     BASE_DROP_RATES,
@@ -48,6 +51,7 @@ from apps.rpg.services import (
     STREAK_DROP_BONUS_PER_DAY,
     STREAK_MULTIPLIER_CAP,
     STREAK_MULTIPLIER_PER_DAY,
+    DropService,
 )
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
@@ -78,7 +82,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-19.1"
+ENGINE_VERSION = "2026-10-20.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -242,6 +246,12 @@ def rules_fingerprint(*, incubation_policy=None):
         "streak_drops": [STREAK_DROP_BONUS_PER_DAY, STREAK_DROP_BONUS_CAP],
         "growth": [FOOD_GROWTH_BY_RARITY, PREFERRED_FOOD_BONUS, MAX_AUTHORED_FOOD_GROWTH],
         "rarity": [BASE_TIER_WEIGHTS, ACCOMPLISHMENT_TIER_WEIGHTS, sorted(ACCOMPLISHMENT_TRIGGERS)],
+        "accomplishment_loot": {
+            "badge_earned": "one draw per newly saved badge",
+            "quest_complete": "one draw per first payout of each occurrence or participant",
+            "perfect_day": "one draw per new daily receipt; omitted from the activity model",
+            "perfect_day_tier_weights": drop_tier_weights("perfect_day"),
+        },
         "tiers": TIER_CONFIG,
         "damage": TRIGGER_DAMAGE,
         "coins_per_hour": settings.COINS_PER_HOUR,
@@ -278,6 +288,11 @@ def rules_fingerprint(*, incubation_policy=None):
                 random_item_is_available,
                 available_random_items,
                 tier_balanced_weights,
+                drop_tier_weights,
+                DropService.award_accomplishment,
+                goals._award,
+                QuestService._award_quest_rewards,
+                _award_perfect_day,
                 food_base_growth,
                 growth_thresholds,
                 process_daily_bonus,
@@ -315,6 +330,7 @@ def coverage(catalog):
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+            "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
             "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
             "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
             "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -325,7 +341,7 @@ def coverage(catalog):
             "Homework, completed projects/milestones, savings, actual cash payments/bonuses, birthdays and grade progression",
             "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
             "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
-            "Perfect Day, manual grants, time-of-day and approval-delay effects",
+            "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
             "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
             "Production deployment/asset delivery verification and player retention/engagement predictions",
         ],
@@ -338,6 +354,7 @@ def coverage(catalog):
             "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+            "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
             "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
             "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
             "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content",
@@ -459,6 +476,7 @@ class Trial:
         self.event_count = 0
         self._level_cache_key, self._level_cache = -1, {}
         self._pool_cache = {}
+        self._initial_mount_possible_cache = {}
         self._badge_scope_cache = {}
         self.last_novelty_day = self.longest_novelty_gap = 0
         self.tags = {
@@ -576,25 +594,22 @@ class Trial:
         }
 
     def _initial_mount_possible(self, triggers):
-        obtainable = {
-            e.item_id
-            for trigger in self._direct_drop_triggers(triggers)
-            for e in self.catalog.pools.get(trigger, [])
-            if e.min_level <= max(XP_THRESHOLDS) and e.weight > 0
-        }
-        for quest in self.catalog.quests:
-            filters = quest.trigger_filter or {}
-            allowed = set(filters.get("allowed_triggers") or EFFORT_TRIGGERS)
-            if not allowed & triggers or any(
-                filters.get(key)
-                for key in ("project_id", "skill_category_id", "chore_ids", "savings_goal_id", "on_time")
-            ):
-                continue
-            obtainable.update(row.item_id for row in quest.reward_items.all() if row.item_id in self.catalog.items)
-        return any(key.startswith("mount:") for key in self._partial_finite_keys(obtainable))
+        key = frozenset(triggers)
+        if key in self._initial_mount_possible_cache:
+            return self._initial_mount_possible_cache[key]
+        obtainable = set().union(*(self._obtainable_drop_items(trigger) for trigger in self._direct_drop_triggers(triggers)))
+        # Determine whether source facts can reach a first mount without
+        # assuming future expedition loot. Celebration pools can supply the
+        # first ingredients or food, but cannot bootstrap an unreachable badge.
+        potential = copy(self)
+        potential.quests = potential._eligible_quests(enabled=triggers)
+        potential._reachable_badges(obtainable, triggers=triggers)
+        possible = any(target.startswith("mount:") for target in self._partial_finite_keys(obtainable))
+        self._initial_mount_possible_cache[key] = possible
+        return possible
 
-    def _eligible_quests(self):
-        enabled = self._enabled_triggers()
+    def _eligible_quests(self, *, enabled=None):
+        enabled = self._enabled_triggers() if enabled is None else enabled
         badge_ids = {b.pk for b in self.catalog.badges}
         result = []
         for q in self.catalog.quests:
@@ -665,6 +680,15 @@ class Trial:
             self._pool_cache[cache_key] = entries, companion_drop_weights(entries)
         return self._pool_cache[cache_key]
 
+    def _obtainable_drop_items(self, trigger, *, installed=False):
+        budgets = drop_tier_weights(trigger)
+        return {
+            entry.item_id for entry in self.catalog.pools.get(trigger, [])
+            if entry.min_level <= max(XP_THRESHOLDS) and entry.weight > 0
+            and budgets.get(entry.item.rarity, 0) > 0
+            and (installed or not self.reward_commitment.enabled or self.reward_commitment.allows(entry.item))
+        }
+
     def eligible_pool(self, trigger, *, expedition_tier=None, owned_item_ids=None, record_filtered=False):
         entries, authored = self._source_pool(trigger, self.level, expedition_tier)
         if self.reward_commitment.enabled:
@@ -677,7 +701,12 @@ class Trial:
             entries = filtered
             authored = companion_drop_weights(entries)
         budgets = (TIER_CONFIG[expedition_tier]["rarity_weights"] if expedition_tier is not None
-                   else ACCOMPLISHMENT_TIER_WEIGHTS if trigger in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS)
+                   else drop_tier_weights(trigger))
+        if expedition_tier is None:
+            eligible = [(entry, weight) for entry, weight in zip(entries, authored)
+                        if weight > 0 and budgets.get(entry.item.rarity, 0) > 0]
+            entries = [entry for entry, _weight in eligible]
+            authored = [weight for _entry, weight in eligible]
         if owned_item_ids is None:
             owned_item_ids = {pk for pk, quantity in self.inventory.items()
                               if quantity > 0 and self.catalog.items[pk].item_type in COSMETIC_TYPES}
@@ -690,13 +719,8 @@ class Trial:
         # Scenario-reachable means a compatible source exists in this model,
         # not that the target can be completed within the requested horizon.
         triggers = self._enabled_triggers()
-        obtainable = {
-            e.item_id
-            for trigger in self._direct_drop_triggers(triggers)
-            for e in self.catalog.pools.get(trigger, [])
-            if e.min_level <= max(XP_THRESHOLDS) and e.weight > 0
-            and (installed or not self.reward_commitment.enabled or self.reward_commitment.allows(e.item))
-        }
+        obtainable = set().union(*(self._obtainable_drop_items(trigger, installed=installed)
+                                  for trigger in self._direct_drop_triggers(triggers)))
         if not respect_gates and "expedition_returned" in triggers and self.config["expedition_budget"]["daily_items"] != 0:
             tier = self.config["expedition_tier"]
             budgets = TIER_CONFIG[tier]["rarity_weights"]
@@ -709,7 +733,7 @@ class Trial:
                                   if weight > 0 and budgets.get(e.item.rarity, 0) > 0
                                   and (installed or not self.reward_commitment.enabled
                                        or self.reward_commitment.allows(e.item, tier=tier)))
-        reachable_badges = self._reachable_badges(obtainable, respect_gates=respect_gates)
+        reachable_badges = self._reachable_badges(obtainable, respect_gates=respect_gates, installed=installed)
         egg_species = {
             self.catalog.items[pk].pet_species_id for pk in obtainable if self.catalog.items[pk].item_type == "egg"
         }
@@ -733,13 +757,16 @@ class Trial:
         paths = {}
         triggers = self._enabled_triggers()
         sources = [(trigger, None) for trigger in self._direct_drop_triggers(triggers)]
+        if any(key.startswith("badge:") for key in self.finite_keys):
+            sources.append(("badge_earned", None))
+        if self.reachable_quest_ids:
+            sources.append(("quest_complete", None))
         if "expedition_returned" in triggers and self.config["expedition_budget"]["daily_items"] != 0:
             sources.append(("expedition_returned", self.config["expedition_tier"]))
         for trigger, tier in sources:
             for level in XP_THRESHOLDS:
                 entries, _weights = self._source_pool(trigger, level, tier)
-                budgets = (TIER_CONFIG[tier]["rarity_weights"] if tier else ACCOMPLISHMENT_TIER_WEIGHTS
-                           if trigger in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS)
+                budgets = TIER_CONFIG[tier]["rarity_weights"] if tier else drop_tier_weights(trigger)
                 for entry in entries:
                     if entry.weight <= 0 or budgets.get(entry.item.rarity, 0) <= 0:
                         continue
@@ -751,7 +778,7 @@ class Trial:
                         }
         return [paths[key] for key in sorted(paths)]
 
-    def _reachable_badges(self, obtainable, *, respect_gates=False):
+    def _reachable_badges(self, obtainable, *, respect_gates=False, installed=False, triggers=None):
         """Filter finite targets by the scenario's eventual source capacity.
 
         An unbounded potential state is only a reachability calculation. It is
@@ -800,7 +827,8 @@ class Trial:
         potential.counters["journal_best_streak"] = streak_cap if c["journal_per_day"] else 0
         strength_cap = max_count if c["active_days_per_week"] >= 4 else c["active_days_per_week"]
         potential.habit_strength = [strength_cap] * c["habits_per_day"]
-        potential.earned_coins = max_count if self._enabled_triggers() else 0
+        enabled_triggers = self._enabled_triggers() if triggers is None else triggers
+        potential.earned_coins = max_count if enabled_triggers else 0
         for pair, (species, potion) in self.catalog.pairs.items():
             if f"pet:{pair}" in self._partial_finite_keys(obtainable):
                 grown = f"mount:{pair}" in self._partial_finite_keys(obtainable)
@@ -836,7 +864,7 @@ class Trial:
                 potential.xp[pk] = max(XP_THRESHOLDS.values())
             potential.total_xp = sum(potential.xp.values())
             potential.evaluate_unlocks()
-            potential_triggers = self._enabled_triggers()
+            potential_triggers = set(enabled_triggers)
             if respect_gates:
                 # A gate on the only first companion path cannot bootstrap
                 # itself from future expedition loot before any mount exists.
@@ -858,6 +886,7 @@ class Trial:
                     continue
                 potential.completed_quests.add(q.pk)
                 obtainable.update(row.item_id for row in q.reward_items.all() if row.item_id in self.catalog.items)
+                obtainable.update(self._obtainable_drop_items("quest_complete", installed=installed))
                 potential.counters[f"quest_completed:{q.pk}"] = max_count if q.is_repeatable else 1
                 if q.xp_reward > 0:
                     earning.update(tag.skill_id for tag in q.skill_tags.all())
@@ -884,6 +913,8 @@ class Trial:
                     badge
                 ):
                     potential.badges.add(badge.pk)
+            if potential.badges:
+                obtainable.update(self._obtainable_drop_items("badge_earned", installed=installed))
             if previous == (
                 len(potential.badges),
                 len(potential.completed_quests),
@@ -981,6 +1012,7 @@ class Trial:
             1.0,
         )
         self.counters["drop_opportunities"] += 1
+        self.counters[f"drop_opportunities:{trigger}"] += 1
         if self.rng.random() > rate:
             return
         entries, weights = self.eligible_pool(trigger, record_filtered=True)
@@ -1078,6 +1110,7 @@ class Trial:
             for row in q.reward_items.all():
                 self.grant_item(row.item_id, row.quantity, "challenges", salvage_egg=True)
             self.record("challenge_completed", target=q.name)
+            self.drop("quest_complete")
             self.milestones.setdefault("first_challenge", self.day)
 
     def _badge_matches(self, badge):
@@ -1196,6 +1229,7 @@ class Trial:
                 self.evaluate_unlocks()
                 self.record("badges", xp=each * len(active), target=badge.name)
             self.record("badge_earned", target=badge.name)
+            self.drop("badge_earned")
 
     def start_incubation(self):
         if self.pending_incubation is not None:
