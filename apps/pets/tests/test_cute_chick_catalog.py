@@ -47,12 +47,12 @@ class CuteChickCatalogTests(TestCase):
 
     def test_stable_total_counts_only_art_supported_authored_variants(self):
         self.assertEqual(PetSpecies.objects.count(), 32)
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 19)
 
     def test_unprepared_legacy_species_does_not_expand_available_completion_total(self):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 19)
         self.assertEqual(self.chick.available_potions.count(), 3)
 
     def test_reload_keeps_existing_pet_mount_and_inventory(self):
@@ -156,11 +156,12 @@ class CuteChickCatalogTests(TestCase):
         assert_chick_identity(activate_mount.json(), "bird")
 
     def test_unsupported_potion_leaves_both_ingredients_intact(self):
+        unsupported_potion = ItemDefinition.objects.get(slug="cosmic-potion")
         egg_inventory = self.give(self.egg, quantity=2)
-        potion_inventory = self.give(self.fire_potion, quantity=3)
+        potion_inventory = self.give(unsupported_potion, quantity=3)
 
-        with self.assertRaisesMessage(ValueError, "This companion is not available to hatch with the current artwork"):
-            hatch_ready_pet(self.child, self.egg.pk, self.fire_potion.pk)
+        with self.assertRaisesMessage(ValueError, "Chick cannot hatch with a Cosmic potion"):
+            hatch_ready_pet(self.child, self.egg.pk, unsupported_potion.pk)
 
         egg_inventory.refresh_from_db()
         potion_inventory.refresh_from_db()

@@ -21,9 +21,10 @@ replacement Coins. Ordinary XP/coin payouts and progress remain unchanged.
 System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
-legacy starts. The current production art policy remains Base-only, so Ember
-Nest, Frost Nest, Ember Trail and Frost Trail stay hidden until their respective
-assets are approved. Each is one-time, 180 days, zero authored Coins/XP, with
+legacy starts. The activation branch art policy enables Ember Nest, Frost
+Nest, Ember Trail and Frost Trail for exact Chick/Wolf Fire/Ice pairs; production
+rollout remains held on canonical publication of the pinned release and MAIN
+merge/deployment gates. Each is one-time, 180 days, zero authored Coins/XP, with
 targets 5 (Chick) or 20 (Wolf Pup); approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
 Saved elemental promises survive retirement. Their egg salvage checks the

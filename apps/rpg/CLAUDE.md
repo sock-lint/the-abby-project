@@ -7,8 +7,11 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Chick and fourteen prepared
-namespaced families accept Base only. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and exact namespaced Wolf
+accept Base, Fire and Ice; the other thirteen prepared families accept Base
+only. Fire/Ice potions remain excluded from random pools and their four
+one-time challenges guarantee exact egg/potion bundles. The activation branch
+awaits canonical asset publication and the ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Authored YAML and database rows remain intact; artwork filenames and generic
 icons do not establish supported acquisition.
@@ -256,8 +259,9 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `ConsumableService.SUPPORTED_EFFECTS` in `services.py` — canonical effect names shared by runtime dispatch and catalog audits; handler tests keep them aligned.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
-Prepared roster adoption registers 14 namespaced families plus retained Chick,
-all Base-only. The content loader rejects existing identity collisions before
+Prepared roster adoption registers 14 namespaced families plus retained Chick.
+The Fire/Ice activation branch adds only exact Chick/Wolf elemental pairs;
+the other thirteen families remain Base only. The content loader rejects existing identity collisions before
 upserts, applies the namespace once and preserves legacy definitions.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward

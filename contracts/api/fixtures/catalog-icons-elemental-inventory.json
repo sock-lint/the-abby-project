@@ -22,13 +22,19 @@
       "pet_species_name": null,
       "potion_type_name": "Fire",
       "food_species_name": null,
-      "catalog_available": false,
+      "catalog_available": true,
       "lifecycle_stage": null,
       "pet_species_slug": null
     },
     "quantity": 2,
     "updated_at": "2026-10-10T12:00:00-07:00",
-    "available_actions": []
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
   },
   {
     "id": 103,
@@ -84,13 +90,19 @@
       "pet_species_name": null,
       "potion_type_name": "Ice",
       "food_species_name": null,
-      "catalog_available": false,
+      "catalog_available": true,
       "lifecycle_stage": null,
       "pet_species_slug": null
     },
     "quantity": 2,
     "updated_at": "2026-10-10T12:00:00-07:00",
-    "available_actions": []
+    "available_actions": [
+      {
+        "id": "hatch",
+        "label": "Hatch a companion",
+        "to": "/bestiary?tab=hatchery"
+      }
+    ]
   },
   {
     "id": 104,

@@ -1,4 +1,4 @@
-"""Real elemental image wire IDs do not authorize acquisition or grant items."""
+"""Exact elemental offers use the shipped policy and reads grant nothing."""
 from unittest.mock import patch
 
 from django.test import override_settings
@@ -10,19 +10,6 @@ from apps.rewards.models import CoinLedger
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests import test_api_contract_fixtures as shared
 from config.tests.factories import make_family
-
-
-# Synthetic support is scoped to the catalog fixture's receiving check only.
-# The checked-in production registry remains Base-only and is tested separately.
-ELEMENTAL_FIXTURE_POLICY = {
-    "schema_version": 1,
-    "potion_slugs": ["base", "fire", "ice"],
-    "disabled_item_types": ["cosmetic_pet_accessory"],
-    "pets": [
-        {"species_slug": species, "sprite_key": sprite, "potion_slugs": ["base", "fire", "ice"]}
-        for species, sprite in (("chick", "cute-chick"), ("meshtint-wolf", "meshtint-wolf"))
-    ],
-}
 
 
 @override_settings(ALLOWED_HOSTS=["testserver"], RPG_ASSET_SUPPORT_POLICY=None,
@@ -60,7 +47,7 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
                                children=[{"id": 8, "username": "elemental-art-outsider"}]).children[0]
         UserInventory.objects.create(id=111, user=outsider, item=self.potions["fire"], quantity=9)
 
-    def test_owned_elemental_potion_images_preserve_identity_without_enabling_new_acquisition(self):
+    def test_owned_canonical_elemental_potions_offer_hatching_but_copies_remain_unavailable(self):
         before = list(UserInventory.objects.order_by("pk").values())
         self.client.force_authenticate(self.child)
         rows = self.assert_response_fixture(self.client.get("/api/inventory/"), "catalog-icons-elemental-inventory.json")
@@ -70,12 +57,15 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
         self.assertEqual({row["id"] for row in rows}, {101, 102, 103, 104})
         for row in rows:
             self.assertEqual(row["quantity"], 2)
-            self.assertFalse(row["item"]["catalog_available"])
-            self.assertEqual(row["available_actions"], [])
+            canonical = row["item"]["id"] in {51, 52}
+            self.assertEqual(row["item"]["catalog_available"], canonical)
+            self.assertEqual(row["available_actions"], [{
+                "id": "hatch", "label": "Hatch a companion", "to": "/bestiary?tab=hatchery",
+            }] if canonical else [])
         self.assertEqual(list(UserInventory.objects.order_by("pk").values()), before)
         self.assertFalse(CoinLedger.objects.exists())
 
-    def test_exact_system_challenge_images_and_whole_reward_pairs_use_explicit_synthetic_support(self):
+    def test_exact_system_challenge_images_and_whole_reward_pairs_use_shipped_support(self):
         eggs = {}
         for species_id, slug, sprite, name, egg_id in (
             (61, "chick", "cute-chick", "Chick", 71),
@@ -104,13 +94,8 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
         QuestDefinition.objects.create(id=95, name="Ember Nest", quest_type="collection", target_value=5,
                                        is_system=False, created_by=self.parent)
         self.client.force_authenticate(self.parent)
-        # A valid image ID cannot expose an unapproved whole acquisition bundle.
-        production = self.client.get("/api/quests/catalog/")
-        self.assertEqual(production.status_code, 200)
-        self.assertEqual([row["id"] for row in production.json()], [95])
         before = list(UserInventory.objects.order_by("pk").values())
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=ELEMENTAL_FIXTURE_POLICY):
-            rows = self.assert_response_fixture(self.client.get("/api/quests/catalog/"), "catalog-icons-elemental-challenges.json")
+        rows = self.assert_response_fixture(self.client.get("/api/quests/catalog/"), "catalog-icons-elemental-challenges.json")
         self.assertEqual({row["id"]: row["catalog_icon"] for row in rows}, {
             **{definition_id: asset_id for definition_id, _, _, _, _, asset_id in paths}, 95: None,
         })
@@ -123,5 +108,27 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             self.assertEqual(next(reward["item_catalog_icon"] for reward in rewards if reward["item_type"] == "potion"), f"item-{potion}-potion")
         self.assertEqual(list(UserInventory.objects.order_by("pk").values()), before)
         self.assertFalse(Quest.objects.exists())
+        self.assertFalse(ChallengeGoal.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_codex_advertises_only_exact_elemental_pairs_under_shipped_policy(self):
+        base = PotionType.objects.create(id=43, slug="base", name="Base", rarity="common")
+        for species_id, slug, sprite, name in (
+            (61, "chick", "cute-chick", "Chick"),
+            (62, "meshtint-wolf", "meshtint-wolf", "Wolf"),
+            (63, "meshtint-bat", "meshtint-bat", "Bat"),
+        ):
+            species = PetSpecies.objects.create(id=species_id, slug=slug, name=name, sprite_key=sprite, icon="S")
+            # Deliberately broad authored compatibility cannot expand the art policy.
+            species.available_potions.add(base, self.fire, self.ice)
+        self.client.force_authenticate(self.child)
+        before = list(UserInventory.objects.order_by("pk").values())
+        body = self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-elemental-supported-catalog.json")
+        self.assertEqual({row["slug"] for row in body["potions"]}, {"base", "fire", "ice"})
+        self.assertEqual({row["slug"]: {potion["slug"] for potion in row["available_potions"]}
+                          for row in body["species"]}, {
+            "chick": {"base", "fire", "ice"}, "meshtint-wolf": {"base", "fire", "ice"}, "meshtint-bat": {"base"},
+        })
+        self.assertEqual(list(UserInventory.objects.order_by("pk").values()), before)
         self.assertFalse(ChallengeGoal.objects.exists())
         self.assertFalse(CoinLedger.objects.exists())

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from apps.pets.models import PetSpecies
 from apps.pets.serializers import PetSpeciesCatalogSerializer, PetSpeciesSerializer
@@ -17,10 +17,11 @@ from apps.rpg.serializers import DropLogSerializer, ItemDefinitionSerializer
 from config.tests.factories import make_family
 
 
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class ElementalCatalogImageIdentityTests(SimpleTestCase):
-    def test_canonical_elemental_potions_receive_their_own_art_without_enabling_acquisition(self):
+    def test_elemental_art_identity_and_acquisition_follow_separate_policy(self):
         from apps.rpg.catalog_icons import item_catalog_icon
-        from apps.rpg.catalog_support import item_is_available
+        from apps.rpg.catalog_support import item_is_available, random_item_is_available
 
         for index, element in enumerate(("fire", "ice"), start=900):
             potion = SimpleNamespace(slug=element)
@@ -28,7 +29,13 @@ class ElementalCatalogImageIdentityTests(SimpleTestCase):
                                   item_type="potion", potion_type_id=index, metadata={"variant": element})
             item._state.fields_cache["potion_type"] = potion
             self.assertEqual(item_catalog_icon(item), f"item-{element}-potion")
-            self.assertFalse(item_is_available(item))
+            self.assertTrue(item_is_available(item))
+            self.assertFalse(random_item_is_available(item))
+            with override_settings(RPG_ASSET_SUPPORT_POLICY={
+                "schema_version": 1, "pets": [], "potion_slugs": ["base"],
+            }):
+                self.assertEqual(item_catalog_icon(item), f"item-{element}-potion")
+                self.assertFalse(item_is_available(item))
             for updates in ({"name": "Custom Potion"}, {"slug": "custom-potion"}, {"item_type": "food"},
                             {"metadata": {"variant": "base"}}, {"potion_type_id": None}):
                 changed = SimpleNamespace(slug=item.slug, name=item.name, item_type=item.item_type,

@@ -37,6 +37,11 @@ TRIGGERS = {
 
 def art_policy(*pairs):
     policy = deepcopy(json.loads(POLICY_PATH.read_text()))
+    # Explicit retired/partial policies keep these availability scenarios
+    # independent from the four pairs enabled in the shipped registry.
+    policy["potion_slugs"] = ["base"]
+    for row in policy["pets"]:
+        row["potion_slugs"] = ["base"]
     for species, potion in pairs:
         if potion not in policy["potion_slugs"]:
             policy["potion_slugs"].append(potion)
@@ -44,7 +49,8 @@ def art_policy(*pairs):
     return policy
 
 
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+@override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(),
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class ElementalAvailabilityTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -171,7 +177,8 @@ class ElementalAvailabilityTests(TestCase):
                 QuestService.start_quest(self.child, self.definition.pk)
 
 
-@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None,
+                   PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class ElementalCompanionPathTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -203,58 +210,57 @@ class ElementalCompanionPathTests(TestCase):
                                  {"base", "fire", "ice"})
 
     def test_releasing_one_exact_pair_enables_only_its_goal(self):
-        self.assertEqual(list_goals(self.child)["results"], [])
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy()):
+            self.assertEqual(list_goals(self.child)["results"], [])
         with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("chick", "fire"))):
             self.assertEqual({row["name"] for row in list_goals(self.child)["results"]}, {"Ember Nest"})
 
     def test_both_elements_count_same_facts_and_pay_exact_bundles_only_once(self):
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(*[(s, p) for s, p, _ in PATHS.values()])):
-            self.assertEqual(len(list_goals(self.child)["results"]), 4)
-            for index in range(20):
-                trigger = ["chore_complete", "homework_complete", "milestone_complete", "project_complete"][index % 4]
-                ingest_activity(self.child, trigger, f"elemental-fact-{index}", trigger)
-                if index == 4:
-                    completed = ChallengeOccurrence.objects.filter(goal__user=self.child, status="completed")
-                    self.assertEqual({row.snapshot["name"] for row in completed}, {"Ember Nest", "Frost Nest"})
-            receipts = {row.pk: row.reward_receipt for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}
-            self.assertEqual(len(receipts), 4)
-            for receipt in receipts.values():
-                self.assertEqual((receipt["coins"], receipt["xp"]), (0, 0))
-                self.assertEqual(len(receipt["items"]), 2)
-            ingest_activity(self.child, "chore_complete", "elemental-fact-0", "chore_complete")
-            ingest_activity(self.child, "chore_complete", "extra-elemental", "chore_complete")
-            list_goals(self.child)
-            self.assertEqual({row.pk: row.reward_receipt for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, receipts)
-            self.assertEqual(dict(UserInventory.objects.filter(user=self.child).values_list("item__slug", "quantity")),
-                             {"chick-egg": 2, "meshtint-wolf-egg": 2, "fire-potion": 2, "ice-potion": 2})
+        self.assertEqual(len(list_goals(self.child)["results"]), 4)
+        for index in range(20):
+            trigger = ["chore_complete", "homework_complete", "milestone_complete", "project_complete"][index % 4]
+            ingest_activity(self.child, trigger, f"elemental-fact-{index}", trigger)
+            if index == 4:
+                completed = ChallengeOccurrence.objects.filter(goal__user=self.child, status="completed")
+                self.assertEqual({row.snapshot["name"] for row in completed}, {"Ember Nest", "Frost Nest"})
+        receipts = {row.pk: row.reward_receipt for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}
+        self.assertEqual(len(receipts), 4)
+        for receipt in receipts.values():
+            self.assertEqual((receipt["coins"], receipt["xp"]), (0, 0))
+            self.assertEqual(len(receipt["items"]), 2)
+        ingest_activity(self.child, "chore_complete", "elemental-fact-0", "chore_complete")
+        ingest_activity(self.child, "chore_complete", "extra-elemental", "chore_complete")
+        list_goals(self.child)
+        self.assertEqual({row.pk: row.reward_receipt for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, receipts)
+        self.assertEqual(dict(UserInventory.objects.filter(user=self.child).values_list("item__slug", "quantity")),
+                         {"chick-egg": 2, "meshtint-wolf-egg": 2, "fire-potion": 2, "ice-potion": 2})
 
     def test_reading_uses_earned_daily_receipt_once_and_excludes_micro_actions(self):
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(*[(s, p) for s, p, _ in PATHS.values()])):
-            self.assertEqual(len(list_goals(self.child)["results"]), 4)
-            receipt = ReadingDailyReward.objects.create(user=self.child, day=timezone.localdate(),
-                                                       minutes_credited=10, awarded_at=timezone.now())
-            for _ in range(2):
-                record_activity(self.child, "reading_logged", {"reading_reward_id": receipt.pk})
-            for trigger in ("habit_log", "clock_out", "homework_created", "expedition_returned", "reading_logged"):
-                # An invalid reading session/quantity cannot manufacture another receipt.
-                record_activity(self.child, trigger, {"duration_minutes": 1000, "reading_session_id": 999})
-            self.assertEqual({row.progress for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, {1})
+        self.assertEqual(len(list_goals(self.child)["results"]), 4)
+        receipt = ReadingDailyReward.objects.create(user=self.child, day=timezone.localdate(),
+                                                   minutes_credited=10, awarded_at=timezone.now())
+        for _ in range(2):
+            record_activity(self.child, "reading_logged", {"reading_reward_id": receipt.pk})
+        for trigger in ("habit_log", "clock_out", "homework_created", "expedition_returned", "reading_logged"):
+            # An invalid reading session/quantity cannot manufacture another receipt.
+            record_activity(self.child, trigger, {"duration_minutes": 1000, "reading_session_id": 999})
+        self.assertEqual({row.progress for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, {1})
 
     def test_creation_daily_cap_applies_to_every_elemental_path(self):
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(*[(s, p) for s, p, _ in PATHS.values()])):
-            self.assertEqual(len(list_goals(self.child)["results"]), 4)
-            skill = Skill.objects.filter(category__name="Art & Crafts").first()
-            with patch("apps.rpg.services.safe_game_loop_call"):
-                creations = [CreationService.log_creation(self.child, image="synthetic-element.jpg", primary_skill_id=skill.pk)
-                             for _ in range(3)]
-            record_activity(self.child, "creation_logged", {"creation_id": creations[-1].pk, "catalog_eligible": True})
-            self.assertEqual({row.progress for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, {2})
+        self.assertEqual(len(list_goals(self.child)["results"]), 4)
+        skill = Skill.objects.filter(category__name="Art & Crafts").first()
+        with patch("apps.rpg.services.safe_game_loop_call"):
+            creations = [CreationService.log_creation(self.child, image="synthetic-element.jpg", primary_skill_id=skill.pk)
+                         for _ in range(3)]
+        record_activity(self.child, "creation_logged", {"creation_id": creations[-1].pk, "catalog_eligible": True})
+        self.assertEqual({row.progress for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, {2})
 
     def test_saved_pair_promise_still_pays_after_art_policy_retirement(self):
         with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("chick", "fire"))):
             list_goals(self.child)
-        for index in range(5):
-            ingest_activity(self.child, "chore_complete", f"retired-element-{index}", "chore_complete")
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy()):
+            for index in range(5):
+                ingest_activity(self.child, "chore_complete", f"retired-element-{index}", "chore_complete")
         receipt = ChallengeOccurrence.objects.get(goal__user=self.child).reward_receipt
         self.assertEqual({row["item_id"] for row in receipt["items"]},
                          set(ItemDefinition.objects.filter(slug__in=["chick-egg", "fire-potion"]).values_list("pk", flat=True)))

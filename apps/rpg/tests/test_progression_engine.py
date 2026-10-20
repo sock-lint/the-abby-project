@@ -78,7 +78,7 @@ class ProgressionEngineTests(TestCase):
                 "inventory": 0,
             },
         )
-        self.assertEqual(result["catalog"]["supported_pet_variants"], 15)
+        self.assertEqual(result["catalog"]["supported_pet_variants"], 19)
         self.assertEqual(len(result["rules_fingerprint"]), 64)
 
     def test_short_project_facts_cannot_bootstrap_drops_or_expeditions(self):

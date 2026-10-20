@@ -119,7 +119,7 @@
         "color_hex": "#8B7355",
         "rarity": "uncommon",
         "description": "",
-        "catalog_available": false
+        "catalog_available": true
       },
       "rarity": "uncommon",
       "name": "",
@@ -131,7 +131,7 @@
       "last_fed_at": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": false,
+      "catalog_available": true,
       "evolution_stage": null,
       "lifecycle_stage": "grown"
     },
@@ -164,7 +164,7 @@
         "color_hex": "#8B7355",
         "rarity": "uncommon",
         "description": "",
-        "catalog_available": false
+        "catalog_available": true
       },
       "rarity": "uncommon",
       "name": "",
@@ -176,7 +176,7 @@
       "last_fed_at": null,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": false,
+      "catalog_available": true,
       "evolution_stage": null,
       "lifecycle_stage": "grown"
     }
@@ -257,7 +257,7 @@
         "color_hex": "#8B7355",
         "rarity": "uncommon",
         "description": "",
-        "catalog_available": false
+        "catalog_available": true
       },
       "rarity": "uncommon",
       "is_active": false,
@@ -270,7 +270,7 @@
       "expedition_available_in_seconds": 43200,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": false,
+      "catalog_available": true,
       "evolution_stage": null,
       "lifecycle_stage": "grown"
     },
@@ -303,7 +303,7 @@
         "color_hex": "#8B7355",
         "rarity": "uncommon",
         "description": "",
-        "catalog_available": false
+        "catalog_available": true
       },
       "rarity": "uncommon",
       "is_active": false,
@@ -316,7 +316,7 @@
       "expedition_available_in_seconds": 43200,
       "created_at": "2026-10-10T12:00:00-07:00",
       "updated_at": "2026-10-10T12:00:00-07:00",
-      "catalog_available": false,
+      "catalog_available": true,
       "evolution_stage": null,
       "lifecycle_stage": "grown"
     }

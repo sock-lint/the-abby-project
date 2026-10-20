@@ -3,21 +3,26 @@
 The owner approved Fire and Ice appearances for exact species `chick`
 (`cute-chick`) and `meshtint-wolf`, four guaranteed ingredient challenges,
 and a daily expedition allowance shared by each account's species. Pet stats
-are deferred. The application integrates the verified private candidate;
-publication, production activation and deployment remain separate.
+are deferred. The owner accepted the in-app previews and authorized publication and deployment.
+The application integrates the verified private candidate, and its branch now
+prepares acquisition activation. Publication and deployment have not completed.
 
 ## Delivery state
 
-The production acquisition registry remains Base only for these species.
-All eight existing release pins are preserved, with a ninth pin for
+The branch acquisition registry enables Base, Fire and Ice only for exact
+Chick and Wolf identities; every other prepared family remains Base only.
+These code changes are not production activation until the guarded release
+and application merge/deployment complete. All eight existing release pins
+are preserved, with a ninth pin for
 `abby-elemental-companions` 1.0.0 at manifest SHA-256
 `fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048`.
 Authored `available_potions` declares Base, Fire
 and Ice compatibility; that declaration does not establish art availability.
 Registered Chick/Wolf starts require the canonical ingredient slug, typed
 potion FK and matching metadata, plus the exact art policy and authored pair.
-A scoped synthetic art policy exercises all four real start/wait/claim paths
-in tests only.
+Tests exercise all four real start/wait/claim paths under the checked-in
+policy, including preserved claims after an explicit policy retirement.
+Other prepared families still reject elemental starts without consumption.
 
 New elemental challenges are entirely omitted until their exact egg, potion
 and species/potion pair are available. They cannot materialize an egg-only
@@ -67,7 +72,7 @@ not distinct or consecutive days. Matching goals advance together regardless
 of pin, with one contribution per source per occurrence.
 
 Fire and Ice potions are excluded from random drops, expeditions and random
-consumable pools even under a supported synthetic policy. The first release's
+consumable pools under the checked-in policy. The first release's
 guarantee comes from the fixed bundles. A Base mount does not cause an egg in
 an elemental bundle to be salvaged: the egg remains useful until all elemental
 forms promised by that bundle already have grown ownership. Other bundles
@@ -134,12 +139,23 @@ performance and acceptance remain pending, separately from desktop viewports.
 
 ## Activation and rollback
 
-Keep PR #307 in draft while publication and acceptance remain pending. A
-verified local candidate and ninth pin do not publish its runtime version.
-Use the existing separate owner-reviewed intake process; this change does not
-publish or deploy. Only a later reviewed activation may expand the production
-positive registry for the exact Chick/Wolf Fire/Ice pairs. Whole-bundle
-challenge gating and random-pool exclusions remain in force until then.
+Keep PR #307 in draft until exact canonical publication is proved and the
+normal MAIN merge/deployment gates can complete. Owner visual acceptance is
+recorded; it does not make private candidate objects a canonical runtime release.
+The branch positive registry prepares only the exact Chick/Wolf Fire/Ice pairs,
+with provenance bound to the pinned 1.0.0 manifest. Whole-bundle challenge
+gating, typed ingredient checks and random-pool exclusions remain in force.
+
+Publication is held on the installed operator connection: its approved release
+helper supports the legacy avatar bundle (at most 83 files), while this verified
+asset pack has 200 runtime payloads. An approved asset-pack publisher/coordinator
+route is required. Do not split or relabel the bundle to fit the legacy schema,
+use read-only credentials for writes, substitute the candidates namespace for
+the canonical version index, or merge code that requires an unpublished pin.
+The operator must publish this exact immutable release through an approved route,
+then verify the canonical index, manifest and every pinned file before MAIN
+merges and the existing deployment pipeline builds the app. No publication,
+application merge or deployment has been performed by this preparation.
 
 The application rollback baseline before asset adoption is foundations commit
 `bf0a0fbab74fc1968d4fd4d582449dfa223c5d8e`. A fresh rollback PR restores its

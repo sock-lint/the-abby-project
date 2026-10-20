@@ -18,6 +18,7 @@ import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json
 import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
 import elementalInventory from '../../../contracts/api/fixtures/catalog-icons-elemental-inventory.json';
 import elementalChallenges from '../../../contracts/api/fixtures/catalog-icons-elemental-challenges.json';
+import elementalCatalog from '../../../contracts/api/fixtures/pets-elemental-supported-catalog.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
@@ -27,7 +28,7 @@ import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-b
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
-  it('retains verified Fire/Ice potion artwork on saved inventory without enabling acquisition or accepting same-name copies', async () => {
+  it('offers hatching for canonical Fire/Ice potions while same-name copies stay unavailable', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json(elementalInventory)));
     const rows = await getInventory();
     expect(rows).toEqual(elementalInventory);
@@ -35,7 +36,12 @@ describe('current owned-art API contracts', () => {
       [51, 'item-fire-potion'], [52, 'item-ice-potion'], [53, null], [54, null],
     ]));
     expect(new Set(rows.map((row) => row.id))).toEqual(new Set([101, 102, 103, 104]));
-    expect(rows.every((row) => row.quantity === 2 && row.item.catalog_available === false && row.available_actions.length === 0)).toBe(true);
+    expect(rows.every((row) => row.quantity === 2)).toBe(true);
+    for (const row of rows) {
+      const canonical = [51, 52].includes(row.item.id);
+      expect(row.item.catalog_available).toBe(canonical);
+      expect(row.available_actions).toEqual(canonical ? [{ id: 'hatch', label: 'Hatch a companion', to: '/bestiary?tab=hatchery' }] : []);
+    }
     expect(rows.find((row) => row.item.id === 51).item).toMatchObject({
       slug: 'fire-potion', item_type: 'potion', potion_type_name: 'Fire', metadata: { variant: 'fire' },
     });
@@ -45,7 +51,7 @@ describe('current owned-art API contracts', () => {
     expect(rows.filter((row) => row.item.name === 'Fire Potion').map((row) => row.item.catalog_icon)).toEqual(['item-fire-potion', null]);
   });
 
-  it('transports four exact elemental challenge images and complete synthetic reward pairs while custom names stay unbound', async () => {
+  it('transports four shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
     server.use(http.get('*/api/quests/catalog/', () => HttpResponse.json(elementalChallenges)));
     const rows = await getQuestCatalog();
     expect(rows).toEqual(elementalChallenges);
@@ -61,6 +67,15 @@ describe('current owned-art API contracts', () => {
       expect(challenge.reward_items.find((reward) => reward.item_type === 'potion').item_catalog_icon).toBe(potion === 51 ? 'item-fire-potion' : 'item-ice-potion');
     }
     expect(rows.find((row) => row.id === 95)).toMatchObject({ name: 'Ember Nest', is_system: false, catalog_icon: null, reward_items: [] });
+  });
+  it('uses server-confirmed Fire/Ice compatibility for Chick and Wolf while another prepared family stays Base only', async () => {
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(elementalCatalog)));
+    const codex = await getPetCodex();
+    expect(codex).toEqual(elementalCatalog);
+    expect(new Set(codex.potions.map((potion) => potion.slug))).toEqual(new Set(['base', 'fire', 'ice']));
+    expect(Object.fromEntries(codex.species.map((species) => [species.slug, species.available_potions.map((potion) => potion.slug)]))).toEqual({
+      chick: ['base', 'fire', 'ice'], 'meshtint-wolf': ['base', 'fire', 'ice'], 'meshtint-bat': ['base'],
+    });
   });
   it('uses the shared species allowance for every saved potion appearance', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));

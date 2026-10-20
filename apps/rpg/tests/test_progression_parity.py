@@ -75,8 +75,11 @@ class ProgressionCatalogParityTests(TestCase):
             ) if item_is_available(item)
         }
         self.assertEqual(set(catalog.items), expected)
-        self.assertEqual(len(catalog.pairs), 15)
-        self.assertTrue(all(potion.slug == "base" for _species, potion in catalog.pairs.values()))
+        self.assertEqual(len(catalog.pairs), 19)
+        self.assertEqual({(species.slug, potion.slug) for species, potion in catalog.pairs.values()
+                          if potion.slug != "base"}, {
+            (species, potion) for species in ("chick", "meshtint-wolf") for potion in ("fire", "ice")
+        })
         self.assertFalse(any(item.item_type == "cosmetic_pet_accessory" for item in catalog.items.values()))
         self.assertTrue(all(entry.item_id in expected for pool in catalog.pools.values() for entry in pool))
 
@@ -363,16 +366,24 @@ class ProgressionCatalogParityTests(TestCase):
         for row in report["trace"]:
             self.assertEqual((row["coins"], row["total_xp"], row["pets"], row["mounts"]), (0, 0, 0, 0))
 
-    def test_reading_only_cannot_bootstrap_mounts_from_expedition_loot(self):
+    def test_reading_without_ingredient_promises_cannot_bootstrap_mounts_from_expedition_loot(self):
         config = {**CONFIG, "trials": 1, "chores_per_day": 0, "habits_per_day": 0,
                   "journal_per_day": False}
-        catalog = load_catalog()
+        catalog = replace(load_catalog(), quests=[])
         trial = Trial(config, catalog, 42)
         self.assertFalse(any(key.startswith(("pet:", "middle:", "mount:")) for key in trial.finite_keys))
         report = run_trial(config, catalog, 42)
         self.assertGreater(report["trace"][-1]["coins"], 0)
         self.assertNotIn("first_pet", report["milestones"])
         self.assertEqual(report["trace"][-1]["pets"], 0)
+
+    def test_reading_only_can_earn_elemental_pets_from_guaranteed_challenges_without_drops(self):
+        config = {**CONFIG, "trials": 1, "chores_per_day": 0, "habits_per_day": 0,
+                  "journal_per_day": False, "expeditions_per_day": 0}
+        with patch.object(Trial, "drop"):
+            report = run_trial(config, load_catalog(), 42)
+        self.assertIn("first_pet", report["milestones"])
+        self.assertGreater(report["trace"][-1]["pets"], 0)
 
     def test_expedition_duplicate_cosmetic_outcomes_match_real_materialization(self):
         species = PetSpecies.objects.get(slug="chick")

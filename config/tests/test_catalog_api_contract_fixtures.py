@@ -34,7 +34,8 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.cat = PetSpecies.objects.create(id=43, slug="cat", name="Cat", icon="K", sprite_key="cat")
         self.cat.available_potions.add(self.base)
         # The production codex contains 15 species identities, independently of
-        # their 45 post-hatch artwork forms. All new pairs use global Base.
+        # their 45 Base post-hatch artwork forms. This fixture explicitly authors
+        # only Base compatibility; elemental-policy fixtures cover Fire/Ice.
         roster = json.loads((Path(settings.BASE_DIR) / "shared/catalog/companion-roster.json").read_text())
         species_content = yaml.safe_load((Path(settings.BASE_DIR) / "content/rpg/initial/pet_species.yaml").read_text())
         rarities = {entry["slug"]: entry.get("egg_rarity", "common") for entry in species_content["species"]}

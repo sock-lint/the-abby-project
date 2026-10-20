@@ -5,10 +5,11 @@ Collectible pets + timed incubation + growth/evolution + offline expeditions. Ev
 ## Active asset policy (October 2026)
 
 New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
-through `apps/rpg/catalog_support.py`. Production supports exact species slug
-`chick` / `cute-chick` plus the 14 exact namespaced families in
-`shared/catalog/companion-roster.json`, all with the existing global `base`
-potion only. Registered eggs require exact slug, typed FK and canonical metadata
+through `apps/rpg/catalog_support.py`. The checked-in activation policy supports
+exact `chick` / `cute-chick` and `meshtint-wolf` with global `base`, `fire` and
+`ice` potions. The other thirteen exact namespaced families in
+`shared/catalog/companion-roster.json` retain only `base`. Canonical publication
+and the MAIN gates still precede production rollout. Registered eggs require exact slug, typed FK and canonical metadata
 agreement. See [prepared roster adoption](../../docs/operations/companion-lifecycle.md#prepared-roster-adoption).
 The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
 The authored catalog remains in the database as generic engine/reference
@@ -37,9 +38,10 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ## Models
 
-Fire/Ice application foundations declare Chick/Wolf compatibility and four
-guaranteed challenges, while production acquisition remains Base-only pending
-the exact private asset intake. Expedition starts now share one allowance per
+The Fire/Ice activation branch enables exact Chick/Wolf compatibility and
+four guaranteed challenges under the checked-in art policy; the other
+thirteen prepared families remain Base only. Production rollout is held on
+canonical publication of the exact private release and the MAIN gates. Expedition starts now share one allowance per
 account/species across potion appearances, including any unclaimed trip.
 Accepted trips retain their frozen rewards. See
 [Fire/Ice delivery state](../../docs/operations/fire-ice-companions.md).
@@ -48,7 +50,7 @@ Accepted trips retain their frozen rewards. See
 - `PetSpecies.rarity` is its acquisition tier, shared with the canonical egg.
   Owned pet/mount responses expose the higher of species rarity and a saved
   potion rarity, preserving legacy variants. Growth stages never change rarity.
-- `PetSpecies` (32 retained/authored definitions; 15 active Base-only families), `PotionType` (6 variants), `PetSpecies.available_potions` M2M declares compatible combinations.
+- `PetSpecies` (32 retained/authored definitions; 15 active families with 19 approved species/potion pairs), `PotionType` (6 variants), `PetSpecies.available_potions` M2M declares compatible combinations.
 - `UserPet` (growth 0-100, `last_fed_at`, `evolved_to_mount`, `consumable_growth_today` + `consumable_growth_date`), `UserMount` (`last_bred_at`).
 - `MountExpedition` (offline adventure rows; `status`, `tier`, `started_at`, `ready_at`, `loot` JSON).
 
@@ -171,7 +173,7 @@ check-in rewards, XP or growth rules are introduced by these interactions.
 
 ## Gotchas
 
-- **Potion compatibility** (October 2026): hatching checks a species's nonempty `available_potions` before consuming ingredients. The loader populates omitted lists with all current potion types; an empty legacy relation means unrestricted authored compatibility, still intersected with the active asset policy for new hatching. Chick accepts Base only and prefers Birdseed food. Its licensed Chick / Fledgling / Bird appearances describe one species with server-derived growth stages, not three ownership identities. Fledgling at 50 adds no reward or mount; the existing 100-growth evolution remains authoritative. Existing species, owned pets, mounts and inventory remain intact on repeated content loads. [`test_cute_chick_catalog.py`](tests/test_cute_chick_catalog.py) covers the additive catalog, preservation and lifecycle rules.
+- **Potion compatibility** (October 2026): hatching checks a species's nonempty `available_potions` before consuming ingredients. The loader populates omitted lists with all current potion types; an empty legacy relation means unrestricted authored compatibility, still intersected with the active asset policy for new hatching. Chick accepts Base, Fire and Ice and prefers Birdseed food. Its licensed Chick / Fledgling / Bird appearances describe one species with server-derived growth stages, not three ownership identities. Fledgling at 50 adds no reward or mount; the existing 100-growth evolution remains authoritative. Existing species, owned pets, mounts and inventory remain intact on repeated content loads. [`test_cute_chick_catalog.py`](tests/test_cute_chick_catalog.py) covers the additive catalog, preservation and lifecycle rules.
 
 - **Pets & mounts**: Lifecycle is **Egg + Potion → Baby → Middle → Grown → Expeditions**. `PetService.start_incubation` consumes one egg item and one potion item from `UserInventory`, reads `egg.pet_species` and `potion.potion_type` FKs (registered production eggs require canonical metadata agreement; only retained nonregistered legacy rows may use metadata fallback), enforces one pet per `(user, species, potion)` combo, and reserves the accepted pair until its saved deadline. `PetService.hatch_incubation` explicitly creates a `UserPet` with `growth_points=0` when ready. `PetSpecies.available_potions` M2M declares which species × potion combos are valid (defaults to all potions when unspecified in a content pack). `PetService.feed_pet` consumes a food item, stamps `UserPet.last_fed_at`, and adds the food rarity/authored base plus 10 if `food.food_species == pet.species` (preferred, FK-driven); tonic doubles the total. **Consumable growth daily cap** (2026-04-23): direct-grant consumables `growth_surge` (+30 to active pet) and `feast_platter` (+10 to every unevolved pet) route through `UserPet.apply_consumable_growth(amount)` which enforces `CONSUMABLE_GROWTH_DAILY_CAP=50` per pet per local day. `growth_surge` returns `{growth_requested, growth_added, growth_capped, ...}` so callers can see when the cap clamped the boost; `feast_platter` returns a per-pet array. Tonic-doubled feeds are NOT capped — they require food items to exist, which is a natural limiter. Without the cap, hoarded consumables could fully evolve a pet (0 → 100) in a single sitting; the design intent is real-world weeks of bonding. Pinned by `ConsumableGrowthDailyCapTests` in [`apps/rpg/tests/test_new_consumable_effects.py`](/apps/rpg/tests/test_new_consumable_effects.py). At `growth_points >= 100`, the pet auto-evolves: `UserPet.evolved_to_mount=True` and a matching `UserMount` row is created (the original pet is retained in the stable). Only one `UserPet` and one `UserMount` can be `is_active=True` per user at a time — `set_active_pet`/`set_active_mount` deactivate any current one in the same transaction. Dashboard displays the active pet with a growth bar.
 

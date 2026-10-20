@@ -13,19 +13,19 @@ from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 
 
-ELEMENTAL_POLICY = {
+RETIRED_POLICY = {
     "schema_version": 1,
     "pets": [
-        {"species_slug": slug, "sprite_key": sprite, "potion_slugs": ["base", "fire", "ice"]}
+        {"species_slug": slug, "sprite_key": sprite, "potion_slugs": ["base"]}
         for slug, sprite in (("chick", "cute-chick"), ("meshtint-wolf", "meshtint-wolf"))
     ],
-    "potion_slugs": ["base", "fire", "ice"],
+    "potion_slugs": ["base"],
     "disabled_item_types": ["cosmetic_pet_accessory"],
 }
 NOW = datetime(2026, 10, 20, 18, tzinfo=dt_timezone.utc)
 
 
-@override_settings(RPG_ASSET_SUPPORT_POLICY=ELEMENTAL_POLICY, PET_INCUBATION_DURATION_SECONDS=86400,
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None, PET_INCUBATION_DURATION_SECONDS=86400,
                    PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class ElementalIncubationTests(TestCase):
     @classmethod
@@ -70,7 +70,7 @@ class ElementalIncubationTests(TestCase):
         with patch("django.utils.timezone.now", return_value=NOW + timedelta(seconds=86399)):
             self.assertEqual(self.client.post(claim_url, {}, format="json").status_code, 409)
         # A retired art policy cannot revoke an already reserved exact pair.
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=None), patch("django.utils.timezone.now", return_value=NOW + timedelta(days=1)):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY), patch("django.utils.timezone.now", return_value=NOW + timedelta(days=1)):
             claimed = self.client.post(claim_url, {}, format="json")
             retry = self.client.post(claim_url, {}, format="json")
         self.assertEqual((claimed.status_code, retry.status_code), (201, 200))
@@ -96,12 +96,20 @@ class ElementalIncubationTests(TestCase):
     def test_ice_wolf_waits_then_claims_exact_variant(self):
         self.assert_pair_waits_and_hatches("meshtint-wolf", "ice")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=None)
-    def test_default_policy_denies_all_four_unprepared_pairs_without_consumption(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY)
+    def test_retired_policy_denies_all_four_pairs_without_consumption(self):
         for species_slug in self.species:
             for potion_slug in ("fire", "ice"):
                 with self.subTest(species=species_slug, potion=potion_slug):
                     egg, potion = self.ingredients(species_slug, potion_slug)
+                    self.assertEqual(self.start(egg, potion).status_code, 400)
+                    self.assert_unspent(egg, potion)
+
+    def test_other_prepared_species_still_reject_elemental_potions_without_consumption(self):
+        for species in PetSpecies.objects.filter(slug__startswith="meshtint-").exclude(slug="meshtint-wolf"):
+            for potion_slug in ("fire", "ice"):
+                with self.subTest(species=species.slug, potion=potion_slug):
+                    egg, potion = self.ingredients(species.slug, potion_slug)
                     self.assertEqual(self.start(egg, potion).status_code, 400)
                     self.assert_unspent(egg, potion)
 

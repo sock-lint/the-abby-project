@@ -225,7 +225,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `report-card-invalid.json` | Report card rejected with HTTP 400 for an unknown subject field; indexed nested errors and no saved result or reward |
 | `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
-| `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy advertises 15 exact Base-only families |
+| `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy with 15 exact families and synthetic Base-only authored compatibility |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with catalog availability flags and preserved growth |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
@@ -450,8 +450,9 @@ The broader hatch scenarios in `test_api_contract_fixtures.py` use an explicit
 scoped synthetic asset policy to exercise ingredient compatibility. They do not
 advertise those identities as production art.
 `test_catalog_api_contract_fixtures.py` uses the production default: retained
-`chick` / `cute-chick` plus 14 exact `meshtint-*` families, all Base-only, with
-explicit server lifecycle rules. It seeds supported and unavailable saved rows,
+`chick` / `cute-chick` plus 14 exact `meshtint-*` families, with synthetic
+Base-only authored compatibility and explicit server lifecycle rules. The
+elemental codex fixture separately exercises the four newly approved pairs. It seeds supported and unavailable saved rows,
 compares real catalog/stable/inventory responses, verifies rejected hatch/equip
 requests consume nothing, and confirms even two supported grown companions cannot
 breed. `frontend/src/api/catalogContractFixtures.test.js` consumes the current
@@ -1094,12 +1095,14 @@ stale and blocks decisions without replacing saved report bodies. The quota,
 commitment and incubation fixtures are regenerated together against that model.
 
 
-`catalog-icons-elemental-inventory.json` preserves owned canonical Fire/Ice
-potion image IDs while the production acquisition policy remains Base-only;
-spoofed ingredients retain null image IDs. `catalog-icons-elemental-challenges.json`
-uses an explicit scoped synthetic art policy to expose the four existing system
-challenge images and complete egg/potion reward pairs, with a same-name parent
-challenge remaining unbound. The producer is
+`catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
+image IDs and hatch actions under the checked-in activation policy; spoofed
+ingredients retain null image IDs and no action.
+`catalog-icons-elemental-challenges.json` exposes the four exact system
+challenge images and complete available egg/potion reward pairs under that
+same policy, with a same-name parent challenge remaining unbound.
+`pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick
+and Wolf while a deliberately broadly authored Bat remains Base only. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
-API responses, award nothing and do not authorize new production acquisition.
+API responses, award nothing and do not establish publication or deployment.

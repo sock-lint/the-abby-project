@@ -202,7 +202,7 @@ def item_is_available(item):
     if kind == "potion":
         if getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None:
             # Canonical typed ingredients still need their own approved art.
-            # The checked-in policy remains Base-only until asset intake.
+            # The checked-in policy binds the exact accepted potion variants.
             return prepared_potion(item) and potion_is_available(_value(item, "potion_type"))
         if str(_value(item, "slug", "")).startswith("meshtint-"):
             return False
