@@ -86,6 +86,10 @@ class CatalogApiResponseFixtureTests(APITestCase):
         )
         body = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-shared-expedition-allowance.json")
         self.assertEqual(len(body["mounts"]), 3)
+        mount_response = self.client.get("/api/mounts/")
+        self.assertEqual(mount_response.status_code, 200)
+        self.assertEqual([mount["id"] for mount in mount_response.json()], [81, 82, 83])
+        self.assertEqual(mount_response.json(), body["mounts"])
         for mount in body["mounts"]:
             self.assertFalse(mount["expedition_available"])
             self.assertIsNotNone(mount["expedition_available_at"])

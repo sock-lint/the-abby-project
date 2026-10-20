@@ -550,13 +550,14 @@ class PetService:
             MountExpedition, PetSpecies, UserMount, UserPet,
         )
 
-        pets = list(UserPet.objects.filter(user=user).select_related("species", "potion"))
+        pets = list(UserPet.objects.filter(user=user).select_related("species", "potion").order_by("-is_active", "species__name", "pk"))
         # Same prefetch as MountsView — keep ``UserMountSerializer``'s
         # active-expedition lookup at O(2 queries) regardless of mount count.
         mounts = list(
             UserMount.objects
             .filter(user=user)
             .select_related("species", "potion")
+            .order_by("-is_active", "species__name", "pk")
             .prefetch_related(Prefetch(
                 "expeditions",
                 queryset=MountExpedition.objects.filter(
