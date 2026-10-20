@@ -517,6 +517,12 @@ class QuestService:
             grant_item(user, item, reward_item.quantity)
             rewards["items"].append(details)
 
+        # Completion and every recipient's payout share the campaign/user
+        # locks. Its status guard makes this extra roll one-time, including
+        # co-op members who did not land the finishing hit.
+        from apps.rpg.services import DropService
+        DropService.award_accomplishment(user, TriggerType.QUEST_COMPLETE)
+
         notify(
             user,
             title=f"Challenge complete: {definition.name}!",

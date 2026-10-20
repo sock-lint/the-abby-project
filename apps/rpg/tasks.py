@@ -115,6 +115,9 @@ def _award_perfect_day(child, today):
             "perfect_days_count": profile.perfect_days_count,
         },
     )
+    from apps.rpg.constants import TriggerType
+    from apps.rpg.services import DropService
+    DropService.award_accomplishment(child, TriggerType.PERFECT_DAY)
     notify(
         child,
         title="Perfect Day!",

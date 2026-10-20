@@ -373,6 +373,12 @@ def _award(occurrence, user):
         else:
             grant_item(user, item, quantity)
             items.append(details)
+    # The occurrence's existing payout marker and account lock cover this
+    # bonus too. Keep it separate from the frozen authored item promise and
+    # never replay the activity/progression pipeline for a reward event.
+    from apps.rpg.constants import TriggerType
+    from apps.rpg.services import DropService
+    DropService.award_accomplishment(user, TriggerType.QUEST_COMPLETE)
     receipt = {"coins": coins, "xp": actual_xp, "items": items}
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt

@@ -282,7 +282,7 @@ Seed "Bronze Saver" (500 coins) and "Gold Saver" (5000 coins) badges ship in [ba
 ### Perfect Day
 **Purpose:** Rewards fully completing a day's chores while staying active.
 **Paths:**
-- `evaluate_perfect_day_task` Celery at 23:55 local ([apps/rpg/tasks.py:10](../apps/rpg/tasks.py)) — if active today AND **at least one daily chore is scheduled** AND every daily chore approved: `perfect_days_count += 1`, +15 coins, `perfect_day` notification, triggers a `perfect_day` drop roll (base rate 1.00). The "at least one daily chore" guard (added 2026-04-26) prevents days with zero scheduled chores from auto-qualifying for the bonus — pinned by [apps/rpg/tests/test_tasks.py](../apps/rpg/tests/test_tasks.py).
+- `evaluate_perfect_day_task` Celery at 23:55 local ([apps/rpg/tasks.py:10](../apps/rpg/tasks.py)) — if active today AND **at least one daily chore is scheduled** AND every daily chore approved: `perfect_days_count += 1`, +15 coins, `perfect_day` notification, awards one `perfect_day` drop (base rate 1.00), filtered to Uncommon or better; the daily receipt prevents repeat awards. The "at least one daily chore" guard (added 2026-04-26) prevents days with zero scheduled chores from auto-qualifying for the bonus — pinned by [apps/rpg/tests/test_tasks.py](../apps/rpg/tests/test_tasks.py).
 
 ---
 

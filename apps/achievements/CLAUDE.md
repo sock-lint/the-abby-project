@@ -46,6 +46,13 @@ live in `tests/test_badge_availability_queries.py`.
 The `perfect_timecard` criterion recognizes approved and closed weeks. Closing
 an approved zero-dollar week preserves its eligibility for later badge evaluation.
 
+Every newly created `UserBadge` also receives one `badge_earned` drop through
+`DropService.award_accomplishment`, including badges with no XP or Coin bonus.
+The earned marker, payout, loot and salvage share the existing account-locked
+transaction. Re-evaluation does not backfill old badges, and a failed drop rolls
+the award back for retry. This hook never invokes the activity game loop or
+advances another challenge. See `apps/rpg/tests/test_accomplishment_drops.py`.
+
 ## XP transactions and lock order
 
 Every skill-progress or badge-evaluation mutation entry point opens an atomic
