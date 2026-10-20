@@ -25,6 +25,7 @@ from typing import Any, Callable
 
 import yaml
 from django.db import transaction
+from django.db.models import Q
 
 
 # File names inside a pack (all optional).
@@ -181,8 +182,30 @@ class ContentPack:
                 # Retaining is explicit in the reviewed plan; never cascade-delete them.
                 self.stats.bump("skipped", f"retained_{claim.kind}")
 
+    def _source_reference_matches(self, model, **lookup):
+        """Resolve exact current or preserved source identities, rejecting ties.
+
+        A durable rename leaves dependent YAML unchanged. Include that source
+        identity without preferring it over a conflicting new current name.
+        The same catalog lock protects these reads and all following writes.
+        """
+        from apps.rpg.models import RPGContentOverride
+        overrides = RPGContentOverride.objects.filter(model_label=model._meta.label_lower)
+        for name, value in lookup.items():
+            attname = model._meta.get_field(name).attname
+            overrides = overrides.filter(**{f"source_lookup__{attname}": getattr(value, "pk", value)})
+        if model._meta.app_label == "achievements":
+            overrides = overrides.filter(values___authoring={"version": 1, "source": "mcp"})
+        queryset = model.objects.all()
+        if model._meta.label_lower == "quests.questdefinition":
+            from apps.quests.queries import active_system_definitions
+            queryset = active_system_definitions().filter(created_by__isnull=True)
+        return list(queryset.filter(
+            Q(**lookup) | Q(pk__in=overrides.values("object_id")),
+        ).order_by("pk")[:2])
+
     def _resolved_quest_skill_tags(self, entry):
-        from apps.achievements.models import Skill
+        from apps.achievements.models import Skill, SkillCategory
         resolved = []
         seen = set()
         for tag in entry.get("skill_tags") or []:
@@ -192,9 +215,10 @@ class ContentPack:
                 raise ContentPackError("Quest skill references must be nonempty names.")
             if "::" in reference:
                 category, name = reference.split("::", 1)
-                matches = list(Skill.objects.filter(category__name=category, name=name))
+                categories = self._source_reference_matches(SkillCategory, name=category)
+                matches = self._source_reference_matches(Skill, category=categories[0], name=name) if len(categories) == 1 else []
             else:
-                matches = list(Skill.objects.filter(name=reference))
+                matches = self._source_reference_matches(Skill, name=reference)
             if len(matches) != 1:
                 raise ContentPackError(f"quest {entry['name']!r} skill_tag references unknown or ambiguous skill {reference!r}; use Category::Skill Name.")
             skill = matches[0]
@@ -218,7 +242,8 @@ class ContentPack:
         if not active:
             return 0, []
         fields =("quest_type", "target_value", "duration_days", "trigger_filter",
-                  "coin_reward", "xp_reward", "is_repeatable", "is_cooperative", "required_badge")
+                  "coin_reward", "xp_reward", "is_repeatable", "is_cooperative", "required_badge",
+                  "prerequisite_quest", "required_skill", "required_skill_level")
         changed = []
         for field_name in fields:
             if field_name not in defaults:
@@ -862,7 +887,18 @@ class ContentPack:
         from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
         from apps.rpg.models import ItemDefinition
 
-        for entry in data.get("quests", []) or []:
+        entries = list(data.get("quests", []) or [])
+        # Resolve forward references in dependency order without creating
+        # incomplete placeholder definitions in the runtime catalog.
+        ordered, pending = [], entries[:]
+        while pending:
+            names = {entry["name"] for entry in pending}
+            ready = [entry for entry in pending if not entry.get("prerequisite_quest") or entry["prerequisite_quest"] not in names]
+            if not ready:
+                raise ContentPackError("Challenge prerequisites cannot form a cycle.")
+            ordered.extend(ready)
+            pending = [entry for entry in pending if entry not in ready]
+        for entry in ordered:
             from .workbench import preserved_loader_entry
             if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
                 self.stats.bump("skipped", "database_authored_quest")
@@ -881,24 +917,37 @@ class ContentPack:
                 "is_system": bool(entry.get("is_system", True)),
                 "is_cooperative": bool(entry.get("is_cooperative", False)),
             }
+            if "prerequisite_quest" in entry:
+                reference = entry["prerequisite_quest"]
+                matches = self._source_reference_matches(QuestDefinition, name=reference) if reference else []
+                if reference and len(matches) != 1:
+                    raise ContentPackError(f"Unknown or ambiguous global prerequisite_quest: {reference!r}.")
+                defaults["prerequisite_quest"] = matches[0] if matches else None
+            if "required_skill" in entry or "required_skill_level" in entry:
+                tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry.get("required_skill") else []
+                defaults["required_skill"] = tags[0][0] if tags else None
+                defaults["required_skill_level"] = entry.get("required_skill_level", 0)
             if "required_badge" in entry:
                 defaults["required_badge"] = None
             if entry.get("required_badge") is not None:
-                try:
-                    defaults["required_badge"] = Badge.objects.get(
-                        name=entry["required_badge"]
-                    )
-                except Badge.DoesNotExist as exc:
+                matches = self._source_reference_matches(Badge, name=entry["required_badge"])
+                if len(matches) != 1:
                     raise ContentPackError(
-                        f"quest {entry['name']!r} references unknown badge "
+                        f"quest {entry['name']!r} references unknown badge or ambiguous source "
                         f"{entry['required_badge']!r}"
-                    ) from exc
+                    )
+                defaults["required_badge"] = matches[0]
             quest, created = self._upsert(QuestDefinition, entry=entry,
                 name=entry["name"], defaults=defaults,
             )
             if quest is None:
                 # Left unchanged by an unkeyed load; keep its links as well.
                 continue
+            from django.core.exceptions import ValidationError
+            try:
+                quest.clean()
+            except ValidationError as error:
+                raise ContentPackError("; ".join(error.messages)) from error
             self.stats.bump("created" if created else "updated", "quest")
 
             # Reconcile future links after freezing accepted promises above.

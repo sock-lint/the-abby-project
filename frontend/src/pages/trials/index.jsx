@@ -114,7 +114,7 @@ function TrialsWorkspace({ context }) {
       {selected && <TrackedChallengeDetail key={selected.id} user={user} onConfirmed={confirmOpening} goal={selected} {...cardProps} actionError={actionError} onClose={() => { setSelectedId(''); setActionError(''); }}
         futureControls={isParent && <GoalScheduleControls goal={selected} onChanged={handleScheduleChanged} onReload={reload} />} />}
       <ChallengesFolio
-        goals={goals} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
+        goals={goals} lockedCatalog={data?.locked_catalog ?? []} pinnedGoal={pinnedGoal} {...cardProps} isParent={isParent}
         dailyBonus={!isParent && <DailyChallengeCard challenge={data?.daily_bonus ?? null} />}
         toolbar={isParent && <div className="flex flex-wrap items-end gap-3">
           <ChildContext children={children} selectedChildId={targetChild} onSelect={selectChild} />

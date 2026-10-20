@@ -31,12 +31,14 @@ def control_context(user):
     from .goals import _snapshot
     item_ids = {row["item_id"] for goal in goals if not goal.is_catalog and goal.repeat_weekly for row in goal.reward_items}
     items = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(item_ids)
-    offered = list(active_system_definitions().values_list("pk", "is_cooperative", "is_repeatable"))
+    offered = {row.pk: row for row in active_system_definitions().select_related(
+        "prerequisite_quest", "required_skill", "required_badge",
+    )}
     ctx = {"goals": {row.pk: row for row in goals}, "groups": {}, "group_goals": {}, "legacy": {},
            "paid": set(), "retried": set(),
-           "definitions": definitions, "offered": {pk for pk, _, _ in offered},
-           "cooperative": {pk for pk, cooperative, _ in offered if cooperative},
-           "repeatable": {pk for pk, _, repeatable in offered if repeatable},
+           "definitions": definitions, "offered": set(offered),
+           "cooperative": {pk for pk, row in offered.items() if row.is_cooperative},
+           "repeatable": {pk for pk, row in offered.items() if row.is_repeatable},
            "now": timezone.now()}
     ctx["base"] = {goal.pk: _snapshot(goal, item_catalog=items) for goal in goals
                    if not goal.is_catalog and goal.repeat_weekly}
@@ -52,6 +54,12 @@ def control_context(user):
     for definition_id, status in Quest.objects.filter(participants__user=user).values_list("definition_id", "status"):
         canonical = definitions.get(definition_id) or definition_id
         ctx["legacy"].setdefault(canonical, []).append(status)
+    from .milestone_eligibility import has_milestone_gate, retry_milestone_states
+    current_definitions = {identity(goal, ctx) for goal in goals if goal.is_catalog}
+    gated = [row for pk, row in offered.items() if pk in current_definitions and has_milestone_gate(row)]
+    ctx["milestone_retry"] = retry_milestone_states(
+        user, gated, catalog=offered, identities=definitions, legacy=ctx["legacy"],
+    )
     return ctx
 
 
@@ -91,7 +99,7 @@ def retry_state(occurrence, ctx):
     elif occurrence.ends_at > ctx["now"]:
         reason = "not_expired"
     else:
-        reason = None
+        reason = "milestone_locked" if ctx["milestone_retry"].get(canonical) is False else None
     result.update(allowed=reason is None, reason=reason)
     return result
 

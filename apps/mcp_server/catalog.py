@@ -30,7 +30,7 @@ def catalog_queryset(section):
         "subjects": lambda: Subject.objects.all(),
         "skills": lambda: Skill.objects.select_related("subject").prefetch_related("prerequisites"),
         "badges": lambda: Badge.objects.select_related("subject"),
-        "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge").prefetch_related(
+        "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge", "prerequisite_quest", "required_skill").prefetch_related(
             "reward_items__item__pet_species", "reward_items__item__potion_type", "skill_tags__skill",
         ),
         "items": lambda: ItemDefinition.objects.select_related("pet_species", "potion_type", "food_species"),
@@ -63,6 +63,18 @@ def _item_availability(item):
     return {"runtime_available": item_is_available(item), "unavailable_reason": item_unavailable_reason(item)}
 
 
+def _quest_available(quest):
+    """Structural catalog availability, without inspecting a child's state."""
+    from apps.quests.milestone_eligibility import validate_milestone_gate
+    try:
+        validate_milestone_gate(quest)
+    except ValidationError:
+        return False
+    return active_system_definitions().filter(pk=quest.pk).exists() and (
+        not quest.required_badge_id or _badge_available(quest.required_badge)
+    )
+
+
 def catalog_row(section, row):
     common = {"id": row.pk}
     if section == "categories":
@@ -90,8 +102,12 @@ def catalog_row(section, row):
         )}, "required_badge": row.required_badge_id,
                 "required_badge_name": row.required_badge.name if row.required_badge_id else None,
                 "superseded_by": row.superseded_by_id,
-                "available_for_new_user": active_system_definitions().filter(pk=row.pk).exists()
-                    and (not row.required_badge_id or _badge_available(row.required_badge)),
+                "prerequisite_quest": row.prerequisite_quest_id,
+                "prerequisite_quest_name": row.prerequisite_quest.name if row.prerequisite_quest_id else None,
+                "required_skill": row.required_skill_id,
+                "required_skill_name": row.required_skill.name if row.required_skill_id else None,
+                "required_skill_level": row.required_skill_level,
+                "available_for_new_user": _quest_available(row),
                 "skill_tags": [{"skill_id": tag.skill_id, "skill_name": tag.skill.name, "xp_weight": tag.xp_weight}
                                for tag in row.skill_tags.all()],
                 "reward_items": [{"item_id": reward.item_id, "slug": reward.item.slug, "name": reward.item.name,
@@ -166,6 +182,11 @@ def audit_catalog_rows(section, rows):
             ).exclude(pk=row.pk).exists():
                 findings.append(_finding("ambiguous_system_quest", section, row,
                     "Multiple unreconciled system definitions share this name; new offers and starts are held.", "error"))
+            from apps.quests.milestone_eligibility import validate_milestone_gate
+            try:
+                validate_milestone_gate(row)
+            except ValidationError as exc:
+                findings.append(_finding("invalid_milestone_gate", section, row, "; ".join(exc.messages), "error"))
             try:
                 validate_trigger_filter(row.trigger_filter)
             except (ValidationError, TypeError, ValueError) as exc:

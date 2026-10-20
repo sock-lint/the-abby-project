@@ -36,7 +36,7 @@ ENTRY_FIELDS = {
     "items": set("id slug name icon sprite_key item_type rarity coin_value metadata description food_species".split()),
     "rules": set("id trigger triggers item_slugs weight min_level".split()),
     "macros": set("id triggers item_type item_type_startswith weight_by_rarity weight min_level".split()),
-    "quests": set("id name description icon sprite_key quest_type target_value duration_days trigger_filter coin_reward xp_reward is_repeatable is_system is_cooperative required_badge reward_items skill_tags".split()),
+    "quests": set("id name description icon sprite_key quest_type target_value duration_days trigger_filter coin_reward xp_reward is_repeatable is_system is_cooperative required_badge reward_items skill_tags prerequisite_quest required_skill required_skill_level".split()),
     "rewards": set("id name description icon cost_coins rarity stock requires_parent_approval is_active order fulfillment_kind item_definition".split()),
 }
 SECTION_KEYS = {"skill_tree": {"categories", "subjects", "skills"}, "badges": {"badges"},
@@ -151,6 +151,12 @@ def validate_content(parsed, *, strict=True):
                             raise ValidationError("trigger_filter.chore_ids must be a list of positive integers.")
                         if "on_time" in filters and type(filters["on_time"]) is not bool:
                             raise ValidationError("trigger_filter.on_time must be a boolean.")
+                        for reference in ("prerequisite_quest", "required_skill"):
+                            if entry.get(reference) is not None and (not isinstance(entry[reference], str) or not entry[reference].strip()):
+                                raise ValidationError(f"{reference} must be a nonempty global name or null.")
+                        level = entry.get("required_skill_level", 0)
+                        if type(level) is not int or not 0 <= level <= 6 or bool(entry.get("required_skill")) != bool(level):
+                            raise ValidationError("required_skill needs a whole level from 1 to 6; without a skill use level 0.")
                         for reward in entry.get("reward_items", []):
                             whole_number(reward.get("quantity", 1), "reward quantity", 1, 10000)
                         for tag in entry.get("skill_tags", []):

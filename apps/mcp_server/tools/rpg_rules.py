@@ -1,6 +1,8 @@
 """Inspect installed mechanics and global dependencies without player state."""
 from copy import deepcopy
 
+from django.db.models import Q
+
 from apps.achievements.models import Badge, Skill, SkillPrerequisite
 from apps.pets.expeditions import TIER_CONFIG
 from apps.pets.services import COMPANION_DAILY_GROWTH, EVOLUTION_THRESHOLD, PetService
@@ -68,13 +70,17 @@ def explain_rpg_catalog_entry(params: ExplainCatalogEntryIn) -> CatalogExplanati
         references.extend({"section": "skills", "id": link.skill_id} for link in SkillPrerequisite.objects.filter(
             required_skill_id=row.pk).order_by("pk")[:params.limit + 1])
         references.extend({"section": "quests", "id": q.pk, "name": q.name} for q in QuestDefinition.objects.filter(
-            is_system=True, skill_tags__skill_id=row.pk).distinct().order_by("pk")[:params.limit + 1])
+            Q(skill_tags__skill_id=row.pk) | Q(required_skill_id=row.pk),
+            is_system=True).distinct().order_by("pk")[:params.limit + 1])
     elif params.section == "badges":
         references.extend({"section": "quests", "id": q.pk, "name": q.name} for q in QuestDefinition.objects.filter(
             is_system=True, required_badge_id=row.pk).order_by("pk")[:params.limit + 1])
     elif params.section in {"categories", "subjects"}:
         references.extend({"section": "skills", "id": skill.pk, "name": skill.name} for skill in Skill.objects.filter(
             **{"category_id" if params.section == "categories" else "subject_id": row.pk}).order_by("pk")[:params.limit + 1])
+    elif params.section == "quests":
+        references.extend({"section": "quests", "id": q.pk, "name": q.name} for q in QuestDefinition.objects.filter(
+            is_system=True, prerequisite_quest_id=row.pk).order_by("pk")[:params.limit + 1])
     return to_plain({"section": params.section, "entry": catalog_row(params.section, row), "findings": findings,
         "references": references[:params.limit], "references_truncated": len(references) > params.limit,
         "scope": "global_definitions_only"})

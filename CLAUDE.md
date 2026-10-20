@@ -28,7 +28,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md) | 3D print requests · Bambu MQTT listener · HMS decoding · filament budget |
 | [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md) | MCP OAuth 2.1 surface ladder · context helpers |
 | [`apps/ingestion/CLAUDE.md`](apps/ingestion/CLAUDE.md) | Scrapy-style ingestion pipeline · AI enrichment |
-| [`apps/achievements/CLAUDE.md`](apps/achievements/CLAUDE.md) | Skill tree · 48 badge criterion types · XP entry-point table |
+| [`apps/achievements/CLAUDE.md`](apps/achievements/CLAUDE.md) | Skill tree · 58 badge criterion types · XP entry-point table |
 | [`frontend/CLAUDE.md`](frontend/CLAUDE.md) | Design system · Atlas cohort · PWA · journal covers · testing |
 | [`frontend/src/pages/CLAUDE.md`](frontend/src/pages/CLAUDE.md) | Page primitives · Quests hub · Atlas hub · Frontispiece · Yearbook |
 

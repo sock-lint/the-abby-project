@@ -9,6 +9,7 @@ import { challengeFocus } from './challengeFocus';
 import { goalProgress } from './goalDisplay';
 import BonusChallengeBrowser from './BonusChallengeBrowser';
 import { SelectField } from '../../components/form';
+import LockedCatalogChallenges from './LockedCatalogChallenges';
 
 function GoalDisclosure({ title, children, onOpenChange, controlledOpen }) {
   const [open, setOpen] = useState(false);
@@ -24,7 +25,7 @@ function GoalDisclosure({ title, children, onOpenChange, controlledOpen }) {
   );
 }
 
-export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, onRetry, busy = false, toolbar = null, dailyBonus = null }) {
+export default function ChallengesFolio({ goals = [], lockedCatalog = [], pinnedGoal = null, timezone = 'UTC', isParent = false, onSelect, onPin, onRetry, busy = false, toolbar = null, dailyBonus = null }) {
   const [browsing, setBrowsing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
@@ -78,6 +79,7 @@ export default function ChallengesFolio({ goals = [], pinnedGoal = null, timezon
       {bonusGoals.length > 0 && <GoalDisclosure title="Browse bonus challenges" onOpenChange={setBrowsing}>
         <BonusChallengeBrowser goals={bonusGoals} renderCards={cards} timezone={timezone} />
       </GoalDisclosure>}
+      <LockedCatalogChallenges definitions={lockedCatalog} sectionIndex={sectionIndex++} />
       {retryable.length > 0 && <div className="space-y-2"><p className="font-body text-caption text-ink-secondary">{retryable.length} ended {retryable.length === 1 ? 'challenge can' : 'challenges can'} be tried again with a fresh period. Each challenge&apos;s bonus can be earned once.</p><Button variant="secondary" onClick={() => { setHistoryFilter('retryable'); setHistoryOpen(true); }}>Find challenges to try again</Button></div>}
       <GoalDisclosure title={`History · ${focus.history.length}`} controlledOpen={historyOpen} onOpenChange={setHistoryOpen}>
         {retryable.length > 0 && <SelectField label="Show history" value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value)}><option value="all">All completed and ended challenges</option><option value="retryable">Can try again</option></SelectField>}

@@ -30,6 +30,8 @@ import retryCompleted from '../../../contracts/api/fixtures/challenges-retry-com
 import pausedSchedule from '../../../contracts/api/fixtures/challenge-schedule-paused.json';
 import editedSchedule from '../../../contracts/api/fixtures/challenge-schedule-edited.json';
 import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-week.json';
+import milestoneLocked from '../../../contracts/api/fixtures/challenges-milestone-locked.json';
+import milestoneReady from '../../../contracts/api/fixtures/challenges-milestone-ready.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
@@ -136,6 +138,32 @@ describe('automatic challenge responses through the shared React API client', ()
     expect(saved.results[0].reward_receipt).toEqual({
       id: `legacy:${assigned.id}`, status: 'legacy', coins_awarded: 0, xp_awarded: 0, awarded_at: null,
     });
+  });
+
+  it.each([
+    ['locked', milestoneLocked, false], ['ready for a new qualifying activity', milestoneReady, true],
+  ])('preserves the %s milestone catalog independently of accepted personal goals', async (_label, body, unlocked) => {
+    const calls = [];
+    server.use(http.all('*/api/challenges/', ({ request }) => {
+      calls.push({ method: request.method, authorization: request.headers.get('Authorization') });
+      return HttpResponse.json(body);
+    }));
+    const response = await getChallenges();
+    expect(response).toEqual(body);
+    expect(calls).toEqual([{ method: 'GET', authorization: 'Token test-session' }]);
+    const voyager = response.locked_catalog.find((definition) => definition.name === 'Reading Voyager');
+    expect(voyager).toMatchObject({
+      id: 53, duration_days: 56, target_value: 20,
+      prerequisite_quest: 52, prerequisite_quest_name: 'Reading Companion',
+      required_skill: 24, required_skill_name: 'Reading Comprehension', required_skill_level: 1,
+      milestone_eligibility: { unlocked, requirements: [
+        { kind: 'challenge', met: unlocked, description: expect.any(String) },
+        { kind: 'skill', met: unlocked, description: expect.any(String) },
+      ] },
+    });
+    for (const field of ['starts_at', 'expires_at', 'progress', 'reward_receipt', 'pinned']) expect(voyager).not.toHaveProperty(field);
+    expect(response.results).toEqual(body.results);
+    expect(response.recent_receipts).toEqual(body.recent_receipts);
   });
 
   it('preserves daily Reading Adventure rules and the goal receipt after the real reading threshold', async () => {

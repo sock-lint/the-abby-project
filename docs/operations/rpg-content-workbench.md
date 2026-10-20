@@ -5,6 +5,13 @@ and item definitions. This combines the catalog and publication services from
 the MCP authoring work with Progression Lab's anonymous new-child simulator.
 Ordinary parents and children cannot edit the global catalog. MCP exposes the same revisioned draft, preview, simulation and publication services; its catalog references omit family shop usage.
 
+Milestone fields select exact prerequisite challenge and skill IDs plus a
+minimum unlocked skill level. They currently support only one-time daily
+Reading Adventure collection challenges, whose source service captures the
+new acceptance boundary. See [Reading Voyager milestones](reading-voyager-milestones.md)
+for the inactive candidate preparation command, preservation rules and separate
+publication workflow.
+
 ## Edit, evaluate and publish
 
 1. Browse challenges or items. Inspect reward quantities, XP destinations,

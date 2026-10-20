@@ -25,6 +25,13 @@ describe('Content workbench shared API contract', () => {
     expect(item.effect_summary).toBe('Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.');
     const quest = response.catalog.quests[0];
     expect(quest.values.reward_items).toEqual([{ item_id: item.id, quantity: 1 }]);
+    expect(quest).toMatchObject({
+      prerequisite_quest: 908, prerequisite_quest_name: 'Starter practice',
+      required_skill: 902, required_skill_name: 'Persistence', required_skill_level: 1,
+    });
+    expect(quest.values).toMatchObject({ prerequisite_quest: 908, required_skill: 902, required_skill_level: 1 });
+    expect(response.catalog.quests.find((row) => row.id === quest.prerequisite_quest).name).toBe(quest.prerequisite_quest_name);
+    expect(response.catalog.skills.find((row) => row.id === quest.required_skill).name).toBe(quest.required_skill_name);
     expect(item.used_by.quests).toEqual([{ id: quest.id, name: quest.name, quantity: 1 }]);
     expect(response.simulation.catalog.fingerprint).toMatch(/^[a-f0-9]{64}$/);
     expect(response.simulation.pet_incubation_policy).toEqual({
@@ -45,6 +52,9 @@ describe('Content workbench shared API contract', () => {
     expect(within(editor).getByRole('spinbutton', { name: 'Coin reward' })).toHaveValue(10);
     expect(within(editor).getByRole('spinbutton', { name: 'XP reward' })).toHaveValue(15);
     expect(within(editor).getByRole('combobox', { name: 'Reward item 1' })).toHaveTextContent('Practice snack');
+    expect(within(editor).getByRole('combobox', { name: 'Previous challenge' })).toHaveTextContent('Starter practice');
+    expect(within(editor).getByRole('combobox', { name: 'Required skill', exact: true })).toHaveTextContent('Life Skills / Persistence');
+    expect(within(editor).getByRole('spinbutton', { name: 'Required skill level' })).toHaveValue(1);
     await user.click(screen.getByRole('button', { name: 'Items', exact: true }));
     await user.click(screen.getByRole('button', { name: /Practice snack/ }));
     const uses = screen.getByRole('region', { name: 'Item connections' });

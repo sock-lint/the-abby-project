@@ -37,6 +37,16 @@
     "skill_tags": [],
     "required_badge": null,
     "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
     "is_repeatable": false,
     "is_system": true,
     "is_cooperative": false,
@@ -61,6 +71,16 @@
     "skill_tags": [],
     "required_badge": null,
     "required_badge_name": null,
+    "prerequisite_quest": null,
+    "prerequisite_quest_name": null,
+    "required_skill": null,
+    "required_skill_name": null,
+    "required_skill_level": 0,
+    "milestone_eligibility": {
+      "unlocked": true,
+      "requirements": [],
+      "locked_reasons": []
+    },
     "is_repeatable": false,
     "is_system": false,
     "is_cooperative": false,

@@ -1143,10 +1143,13 @@ class ConsumableService:
             # Rolls a random eligible QuestDefinition and starts it. Eligibility
             # mirrors QuestService.start_quest's guards: not already active,
             # system quest (parent quests can be hand-picked), badge gate passed.
+            # Milestone reading definitions open automatically on fresh reading;
+            # picking one here cannot create a legacy countdown instead.
             from apps.achievements.models import UserBadge
             from apps.quests.models import Quest
             from apps.quests.queries import active_system_definitions
             from apps.quests.services import QuestService
+            from apps.quests.milestone_eligibility import has_milestone_gate
             if Quest.objects.filter(
                 participants__user=profile.user, status=Quest.Status.ACTIVE,
             ).exists():
@@ -1158,7 +1161,8 @@ class ConsumableService:
             )
             candidates = [
                 q for q in active_system_definitions().filter(is_cooperative=False)
-                if q.required_badge_id is None or q.required_badge_id in user_badge_ids
+                if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                and not has_milestone_gate(q)
             ]
             if not candidates:
                 raise ValueError("No eligible quests to reroll into")

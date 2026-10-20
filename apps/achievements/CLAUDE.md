@@ -1,6 +1,6 @@
 # apps/achievements/
 
-Skill tree (Category → Subject → Skill → Badge), the unified `AwardService.grant` dispatch, and 48 badge criterion types grouped by subsystem. The skill XP routing in this app is shared across every major activity in the codebase.
+Skill tree (Category → Subject → Skill → Badge), the unified `AwardService.grant` dispatch, and 58 badge criterion types grouped by subsystem. The skill XP routing in this app is shared across every major activity in the codebase.
 
 ## Reachable collectible goals (October 2026)
 
@@ -36,7 +36,7 @@ live in `tests/test_badge_availability_queries.py`.
 - `SkillPrerequisite` — allows cross-category and cross-subject requirements.
 - `SkillProgress` — per-user skill state.
 - `ProjectSkillTag`, `MilestoneSkillTag` — XP fan-out tables (chores/habits/quests/homework use sibling tables in their apps).
-- 21 criterion types in `Badge.CriteriaType` — see "XP/Badges" gotcha for the 48-criterion overview.
+- 58 criterion types in `Badge.CriteriaType` — see "XP/Badges" gotcha for the criterion overview.
 
 ## Services
 - `SkillService` — `distribute_tagged_xp(user, tags, pool)` — splits by `xp_weight`.
@@ -136,7 +136,7 @@ saves overwriting XP.
   - **`write_only=True` is load-bearing.** The write serializers declare `skill_tags = ListField(child=DictField(), required=False, write_only=True)`. Without `write_only`, DRF's `create()` response-body serialization would try to iterate the reverse-FK `chore.skill_tags` RelatedManager through `ListField.to_representation` and 500 with `'RelatedManager' object is not iterable`. The read surface comes from the nested `ChoreSkillTagSerializer`/`HabitSkillTagSerializer` on `ChoreSerializer`/`HabitSerializer` (which emit the friendly shape with `skill_name` + `skill_category`). Pinned by `test_skill_tags_are_only_write` in [`apps/chores/tests/test_views.py`](/apps/chores/tests/test_views.py).
   - **Atomic apply.** `ChoreViewSet.perform_create/update` and `HabitViewSet.perform_create/update` wrap in `@transaction.atomic`, and the `_apply_skill_tags` helper pre-validates every `skill_id` before `bulk_create`. This matters on SQLite (dev/test) because it defers FK constraint checks to commit — without pre-validation a bad `skill_id` would return 201 and then rollback on IntegrityError, leaving callers confused. Pinned by `test_invalid_skill_id_in_skill_tags_returns_400`.
 
-- **XP/Badges:** clock-out distributes 10 XP/hour across project skill tags (`ProjectSkillTag.xp_weight`); milestone completion awards `MilestoneSkillTag.xp_amount`. Triggers badge evaluation across 48 criterion types grouped by subsystem:
+- **XP/Badges:** clock-out distributes 10 XP/hour across project skill tags (`ProjectSkillTag.xp_weight`); milestone completion awards `MilestoneSkillTag.xp_amount`. Triggers badge evaluation across 58 criterion types grouped by subsystem:
   - **time:** `hours_worked`, `hours_in_day`, `days_worked`, `first_clock_in`, `early_bird` (before 8 AM), `late_night` (after 9 PM)
   - **projects/milestones:** `projects_completed`, `first_project`, `category_projects`, `materials_under_budget`, `perfect_timecard`, `photos_uploaded`, `bounty_completed`, `milestones_completed`, `fast_project` (completed in ≤ N days), `co_op_project_completed` (ProjectCollaborator rows)
   - **skills:** `skill_level_reached`, `skills_unlocked`, `skill_categories_breadth`, `subjects_completed`, `cross_category_unlock`, `category_mastery` (excludes locked-by-default skills — see "Category Mastery" gotcha)

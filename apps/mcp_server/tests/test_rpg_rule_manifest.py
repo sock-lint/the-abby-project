@@ -43,6 +43,33 @@ class EffectiveRulesTests(SimpleTestCase):
 
 
 class RuleInspectionPrivacyTests(TestCase):
+    def test_milestone_dependency_explanations_include_only_global_successors(self):
+        from apps.achievements.models import Skill, SkillCategory
+        from apps.mcp_server.context import override_user
+        from apps.mcp_server.rpg_rule_schemas import ExplainCatalogEntryIn
+        from apps.mcp_server.tools.rpg_rules import explain_rpg_catalog_entry
+        from apps.quests.models import QuestDefinition
+        from config.tests.factories import make_family
+
+        actor = make_family("Milestone references", parents=[{"username": "gate-reference-parent"}]).parents[0]
+        skill = Skill.objects.create(name="Reading", category=SkillCategory.objects.create(name="Practice"))
+        predecessor = QuestDefinition.objects.create(name="First chapter", is_system=True,
+            quest_type="collection", target_value=1)
+        successor = QuestDefinition.objects.create(name="Next chapter", is_system=True,
+            quest_type="collection", target_value=2, prerequisite_quest=predecessor,
+            required_skill=skill, required_skill_level=1,
+            trigger_filter={"allowed_triggers": ["reading_logged"]})
+        QuestDefinition.objects.create(name="Private family plan", created_by=actor,
+            quest_type="collection", target_value=2, prerequisite_quest=predecessor,
+            required_skill=skill, required_skill_level=1)
+        expected = [{"section": "quests", "id": successor.pk, "name": successor.name}]
+        with override_user(actor):
+            for section, object_id in (("quests", predecessor.pk), ("skills", skill.pk)):
+                with self.subTest(section=section):
+                    result = explain_rpg_catalog_entry(ExplainCatalogEntryIn(section=section, object_id=object_id))
+                    self.assertEqual(result["references"], expected)
+                    self.assertFalse(result["references_truncated"])
+
     def test_rule_manifest_uses_no_household_queries_and_binds_effective_food_rules(self):
         from apps.mcp_server.context import override_user
         from apps.mcp_server.rpg_rule_schemas import GetRpgRulesIn, RpgRulesResult

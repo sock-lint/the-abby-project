@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -31,6 +32,15 @@ class QuestDefinition(TimestampedModel):
         blank=True,
         related_name="gated_quests",
     )
+    prerequisite_quest = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="milestone_successors",
+    )
+    required_skill = models.ForeignKey(
+        "achievements.Skill", on_delete=models.PROTECT, null=True, blank=True,
+        related_name="gated_quests",
+    )
+    required_skill_level = models.PositiveSmallIntegerField(default=0, validators=[MaxValueValidator(6)])
     coin_reward = models.PositiveIntegerField(default=0)
     xp_reward = models.PositiveIntegerField(default=0)
     is_repeatable = models.BooleanField(default=False)
@@ -54,10 +64,18 @@ class QuestDefinition(TimestampedModel):
 
     class Meta:
         ordering = ["-is_system", "name"]
+        constraints = [models.CheckConstraint(
+            condition=(models.Q(required_skill__isnull=True, required_skill_level=0)
+                       | models.Q(required_skill__isnull=False, required_skill_level__gte=1,
+                                  required_skill_level__lte=6)),
+            name="valid_quest_milestone_skill",
+        )]
 
     def clean(self):
         super().clean()
         validate_trigger_filter(self.trigger_filter)
+        from .milestone_eligibility import validate_milestone_gate
+        validate_milestone_gate(self)
 
     def __str__(self):
         return f"{self.icon} {self.name} ({self.get_quest_type_display()})"
@@ -267,6 +285,8 @@ class ChallengeGoal(TimestampedModel):
         QuestDefinition, on_delete=models.SET_NULL, null=True, blank=True,
     )
     is_catalog = models.BooleanField(default=False)
+    catalog_gate_snapshot = models.JSONField(default=dict, blank=True, editable=False)
+    catalog_gate_activity_id = models.PositiveBigIntegerField(null=True, blank=True, editable=False)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
     metric = models.CharField(max_length=12, choices=[

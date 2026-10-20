@@ -46,6 +46,14 @@ minutes (including zero), so deleting and retrying a historical, notes-only or
 over-cap entry cannot create a fresh reward opportunity tomorrow. Neither
 corrections, date changes, book status nor retries advance or revoke rewards.
 Existing and backdated logs are not rewarded retrospectively.
+
+The new daily reward also calls `freeze_milestone_eligibility` before the game
+loop, under the same account/source transaction. This is the trusted acceptance
+hook for authored reading milestone gates: it freezes a new goal/occurrence
+before that fact can complete its predecessor. Generic source replay, scans and
+pending repairs cannot create a milestone window. With no authored gates this
+hook leaves the previous activity pipeline unchanged. See
+[`reading-voyager-milestones.md`](../../docs/operations/reading-voyager-milestones.md).
 Migration `0003` preserves existing live session UUIDs as zero-credit identities;
 it reads only owner, UUID and date, without creating progress or awards. Requests
 deleted before that migration have no surviving identity evidence to preserve.

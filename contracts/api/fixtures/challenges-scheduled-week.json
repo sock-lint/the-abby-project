@@ -200,6 +200,7 @@
   "pin": null,
   "recent_receipts": [],
   "challenge_receipts": [],
+  "locked_catalog": [],
   "daily_bonus": {
     "date": "2026-10-26",
     "timezone": "America/Phoenix",

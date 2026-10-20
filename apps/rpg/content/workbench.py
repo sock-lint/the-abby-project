@@ -110,8 +110,9 @@ def _state(snapshot):
 def _values(section, obj):
     if section == "items":
         return {field: deepcopy(getattr(obj, field)) for field in ITEM_FIELDS}
-    result = {field: deepcopy(getattr(obj, field)) for field in QUEST_FIELDS - {"required_badge", "reward_items", "skill_tags"}}
-    result["required_badge"] = obj.required_badge_id
+    references = {"required_badge", "prerequisite_quest", "required_skill"}
+    result = {field: deepcopy(getattr(obj, field)) for field in QUEST_FIELDS - references - {"reward_items", "skill_tags"}}
+    result.update({field: getattr(obj, field + "_id") for field in references})
     result["reward_items"] = [{"item_id": r.item_id, "quantity": r.quantity}
                               for r in sorted(obj.reward_items.all(), key=lambda row: row.item_id)]
     result["skill_tags"] = [{"skill_id": tag.skill_id, "xp_weight": tag.xp_weight}
@@ -166,7 +167,7 @@ def _apply(draft, *, publication=None):
         for field, value in values.items():
             if field in {"reward_items", "skill_tags"}:
                 continue
-            setattr(obj, "required_badge_id" if field == "required_badge" else field, value)
+            setattr(obj, field + "_id" if field in {"required_badge", "prerequisite_quest", "required_skill"} else field, value)
         if not obj.icon:
             obj.icon = "🎁" if section == "items" else "⚔️"
         if section == "quests":
