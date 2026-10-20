@@ -126,7 +126,7 @@ describe('api errors', () => {
           ? new HttpResponse('upstream timed out', { status })
           : HttpResponse.json({ ok: true });
       }));
-      const pending = api.get('/gateway/');
+      const pending = api.get('/gateway/', { retryGateway: true });
       await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
       await expect(pending).resolves.toEqual({ ok: true });
       expect(calls).toBe(2);
@@ -142,7 +142,7 @@ describe('api errors', () => {
         calls += 1;
         return new HttpResponse('upstream timed out', { status: 504 });
       }));
-      const pending = expect(api.get('/gateway/')).rejects.toMatchObject({ status: 504 });
+      const pending = expect(api.get('/gateway/', { retryGateway: true })).rejects.toMatchObject({ status: 504 });
       await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
       await pending;
       expect(calls).toBe(2);
@@ -156,7 +156,7 @@ describe('api errors', () => {
         calls += 1;
         return new HttpResponse('upstream timed out', { status: 504 });
       }));
-      await expect(api.post('/gateway/', { a: 1 })).rejects.toMatchObject({ status: 504 });
+      await expect(api.post('/gateway/', { a: 1 }, { retryGateway: true })).rejects.toMatchObject({ status: 504 });
       expect(calls).toBe(1);
       expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     });
@@ -167,7 +167,17 @@ describe('api errors', () => {
         calls += 1;
         return HttpResponse.json({ error: 'boom' }, { status: 500 });
       }));
-      await expect(api.get('/boom/')).rejects.toThrow('boom');
+      await expect(api.get('/boom/', { retryGateway: true })).rejects.toThrow('boom');
+      expect(calls).toBe(1);
+    });
+
+    it('does not retry unless the caller opts in', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 503 });
+      }));
+      await expect(api.get('/gateway/')).rejects.toMatchObject({ status: 503 });
       expect(calls).toBe(1);
     });
 
@@ -178,7 +188,7 @@ describe('api errors', () => {
         return new HttpResponse('upstream timed out', { status: 504 });
       }));
       const controller = new AbortController();
-      const pending = expect(api.get('/gateway/', { signal: controller.signal })).rejects.toThrow();
+      const pending = expect(api.get('/gateway/', { retryGateway: true, signal: controller.signal })).rejects.toThrow();
       await vi.waitFor(() => expect(calls).toBe(1));
       controller.abort();
       await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
@@ -549,10 +559,10 @@ describe('upstream HTML recovery', () => {
 
   it('does not retry a real HTTP error or a failed connection', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(htmlResponse(500))
+      .mockResolvedValueOnce(htmlResponse(503))
       .mockRejectedValueOnce(new TypeError('Failed to fetch'));
     try {
-      await expect(api.get('/auth/me/')).rejects.toMatchObject({ status: 500 });
+      await expect(api.get('/auth/me/')).rejects.toMatchObject({ status: 503 });
       expect(fetchSpy).toHaveBeenCalledTimes(1);
       await expect(api.get('/auth/me/')).rejects.toThrow(OFFLINE_MESSAGE);
       expect(fetchSpy).toHaveBeenCalledTimes(2);

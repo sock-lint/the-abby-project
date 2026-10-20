@@ -105,7 +105,14 @@ export const GATEWAY_RETRY_DELAY_MS = 1500;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 async function request(path, options = {}) {
-  const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
+  const {
+    token: explicitToken,
+    selfHeal = true,
+    // Opt-in: retry a GET once after a gateway status. Background polls ask
+    // for it; foreground reads keep surfacing the first failure at once.
+    retryGateway = false,
+    ...fetchOptions
+  } = options;
   const token = explicitToken ?? getToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
   let url = method === 'GET'
@@ -130,11 +137,11 @@ async function request(path, options = {}) {
   const hadAuth = Boolean(config.headers?.Authorization);
   let res = await fetchOrOffline(url, config);
   let attempts = 1;
-  // The proxy answers 502/503/504 while a deploy swaps containers. Retry a read
-  // once after a short wait so the caller gets its data; a persistent failure
-  // falls through to the normal error path and Sentry capture. Never replay a
-  // possible write.
-  if (GATEWAY_STATUSES.includes(res.status) && method === 'GET' && getToken() === token) {
+  // The proxy answers 502/503/504 while a deploy swaps containers. A caller
+  // that asked for it retries a read once after a short wait so it gets its
+  // data; a persistent failure falls through to the normal error path and
+  // Sentry capture. Never replay a possible write.
+  if (retryGateway && GATEWAY_STATUSES.includes(res.status) && method === 'GET' && getToken() === token) {
     Sentry.addBreadcrumb({
       category: 'api',
       message: `Retrying ${method} ${path} after a ${res.status}`,
