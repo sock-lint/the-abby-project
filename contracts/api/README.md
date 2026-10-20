@@ -35,6 +35,19 @@ and legacy rows retain null/false. Producers and consumers are the existing
 challenge fixture modules, including the live Lab report component tests.
 These observations do not assert that details were read or enjoyed.
 
+`voyager-feedback-observed.json` and `voyager-feedback-empty.json` come from
+the staff parent's read-only `/api/challenges/voyager-feedback/` endpoint.
+They separate current child states from saved window outcomes in one family's
+180-day registration cohort. Saved 45-day windows and the selected 56-day
+milestone snapshots remain distinct after catalog edits. Only ended windows
+with resolved outcomes enter the completion rate; early completions remain
+under observation until their saved deadline, and unknown outcomes are not
+failures. The seven synthetic children include an early completion and a
+completed row without a known completion timestamp. Producers live in
+`config/tests/test_challenge_api_contract_fixtures.py`; the React consumer is
+`src/api/voyagerFeedbackContractFixtures.test.js`. The required fixture job runs
+both. This report neither starts challenges nor reconstructs first eligibility.
+
 `challenges-milestone-locked.json` and `challenges-milestone-ready.json` are
 authenticated `/api/challenges/` responses containing the read-only
 `locked_catalog`. Native requirements use exact prerequisite/skill identities

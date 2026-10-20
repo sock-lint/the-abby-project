@@ -14,6 +14,7 @@ PUBLISH_SCOPE = "mcp:publish"
 MCP_SCOPES = frozenset({READ_SCOPE, WRITE_SCOPE, CATALOG_SCOPE, AUTHOR_SCOPE, PUBLISH_SCOPE})
 
 READ_TOOLS = frozenset({
+    "get_voyager_feedback",
     "list_challenges",
     "preview_challenge_goal",
     "list_coin_ledger",

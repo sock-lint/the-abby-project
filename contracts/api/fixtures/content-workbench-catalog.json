@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "icon": "🍎",
+          "rarity": "common",
           "metadata": {
             "growth": 5
           },
+          "description": "",
           "sprite_key": "",
-          "rarity": "common",
-          "name": "Practice snack",
           "coin_value": 2,
-          "description": ""
+          "icon": "🍎",
+          "name": "Practice snack"
         },
         "has_database_override": false,
         "used_by": {
@@ -100,25 +100,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 10,
-          "duration_days": 7,
-          "xp_reward": 15,
-          "is_repeatable": false,
           "sprite_key": "",
-          "name": "Practice challenge",
-          "quest_type": "collection",
+          "description": "Complete two daily Reading Adventures.",
+          "icon": "⚔️",
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
+          "xp_reward": 15,
+          "name": "Practice challenge",
+          "coin_reward": 10,
+          "quest_type": "collection",
+          "duration_days": 7,
           "target_value": 2,
+          "is_repeatable": false,
           "required_skill_level": 1,
-          "icon": "⚔️",
-          "description": "Complete two daily Reading Adventures.",
-          "prerequisite_quest": 908,
-          "required_badge": null,
           "required_skill": 902,
+          "required_badge": null,
+          "prerequisite_quest": 908,
           "reward_items": [
             {
               "item_id": 903,
@@ -167,25 +167,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 0,
-          "duration_days": 7,
-          "xp_reward": 0,
-          "is_repeatable": false,
           "sprite_key": "",
-          "name": "Starter practice",
-          "quest_type": "collection",
+          "description": "Complete one approved chore.",
+          "icon": "⚔️",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
+          "xp_reward": 0,
+          "name": "Starter practice",
+          "coin_reward": 0,
+          "quest_type": "collection",
+          "duration_days": 7,
           "target_value": 1,
+          "is_repeatable": false,
           "required_skill_level": 0,
-          "icon": "⚔️",
-          "description": "Complete one approved chore.",
-          "prerequisite_quest": null,
-          "required_badge": null,
           "required_skill": null,
+          "required_badge": null,
+          "prerequisite_quest": null,
           "reward_items": [],
           "skill_tags": []
         },

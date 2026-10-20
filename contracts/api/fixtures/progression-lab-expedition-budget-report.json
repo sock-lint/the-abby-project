@@ -4454,12 +4454,12 @@
     "longest_novelty_gap_p50": 22,
     "eligible_challenges": 1,
     "finite_breakdown": {
+      "pet": 1,
       "mount": 1,
-      "quest": 1,
       "badge": 1,
+      "quest": 1,
       "cosmetic": 1,
-      "middle": 1,
-      "pet": 1
+      "middle": 1
     },
     "level_p50": 6,
     "inventory_units_p50": 72,

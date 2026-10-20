@@ -24,6 +24,19 @@ materialized tracked one-time windows, not visits or screen impressions.
 Untracked earlier history and capacity failures remain explicit. Opening does
 not establish reading, enjoyment or retention; see the backend quest guidance.
 
+The separate Reading Voyager feedback panel reads `/api/challenges/voyager-feedback/`
+for the staff parent's own family. Its 180-day new-child cohort includes all
+bounded saved Voyager windows, rather than only recent window starts. Current
+locked/ready/active/completed/expired/unknown child states are a snapshot, not a
+first-eligibility history. Saved 45-day windows, verified native 56-day milestone
+promises and other/unknown policies remain separate. Mature rates use only
+resolved windows whose full saved deadline passed. Pending windows, including
+early completions, and unknown histories are excluded rather than counted as
+failures. Refresh is
+independent of simulation, preserves explicitly stale evidence after a failed
+read, and fences account, family and credential changes. Shared real endpoint
+fixtures and colocated report tests cover this contract.
+
 `/manage/rpg-content` adds the staff-parent content workspace alongside the lab.
 It browses challenges and items, saves revisioned server drafts, shows reward
 wiring and audits, and compares the published and proposed catalogs before
