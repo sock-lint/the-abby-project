@@ -48,10 +48,10 @@ code-only packages are contracts 1.4.0, avatar-runtime 1.3.0 and release-tools
 vendor packages and npm lock. Models, PNGs, authoring sources and review
 evidence stay private and outside Git.
 
-Private adoption uses the existing importer's local `releaseRoot` with the
+Private adoption used the existing importer's local `releaseRoot` with the
 verified candidate and unchanged Base releases, including seven retained
-supplemental portraits. It does not repoint the ordinary production reader
-to `candidates/`: no canonical version index exists for this candidate.
+supplemental portraits. Production uses the now-verified canonical version
+index and immutable release; the reader never points to `candidates/`.
 Required private production builds must continue to fail on absent or changed
 payloads. Public validation builds retain their optional-art fallbacks.
 
