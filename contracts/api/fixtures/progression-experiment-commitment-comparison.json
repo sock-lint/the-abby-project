@@ -104,8 +104,8 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-19.1",
-    "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
+    "engine_version": "2026-10-20.1",
+    "rules_fingerprint": "40244b1cbe09e416549963428f8050a8b86d664e5d6a343a68e534cb3507dd7b",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
     "source_commit": "unavailable"
@@ -251,8 +251,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
-    "engine_version": "2026-10-19.1",
+    "rules_fingerprint": "40244b1cbe09e416549963428f8050a8b86d664e5d6a343a68e534cb3507dd7b",
+    "engine_version": "2026-10-20.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -282,6 +282,8 @@
         "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
         "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+        "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+        "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
@@ -4183,12 +4185,12 @@
       "longest_novelty_gap_p50": 22,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "cosmetic": 1,
         "mount": 1,
+        "badge": 1,
         "quest": 1,
         "pet": 1,
         "middle": 1,
-        "badge": 1
+        "cosmetic": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 86,
@@ -11028,8 +11030,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
-    "engine_version": "2026-10-19.1",
+    "rules_fingerprint": "40244b1cbe09e416549963428f8050a8b86d664e5d6a343a68e534cb3507dd7b",
+    "engine_version": "2026-10-20.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -11059,6 +11061,8 @@
         "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
         "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+        "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+        "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
@@ -15410,12 +15414,12 @@
       "longest_novelty_gap_p50": 22,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "cosmetic": 1,
         "mount": 1,
+        "badge": 1,
         "quest": 1,
         "pet": 1,
         "middle": 1,
-        "badge": 1
+        "cosmetic": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 91,

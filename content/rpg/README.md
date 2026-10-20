@@ -46,6 +46,13 @@ tiers without changing their Base-only artwork bindings. Nonrepeatable Ghost,
 Wolf, Bomb, Shadow and Dragon Trails provide deterministic Rare+ collection
 paths through supported eggs plus a Base potion.
 
+Ember/Frost Nest and Ember/Frost Trail author guaranteed Chick/Wolf egg plus
+Fire/Ice potion bundles (5/20 qualifying actions, once, within 180 days).
+These four offers remain hidden under the Base-only production art policy;
+authored compatibility alone cannot enable them. Each exact approved art pair
+enables only its matching offer. Reading counts its saved ten-minute daily
+achievement; other qualifying work follows the ordinary source limits.
+
 | File                  | What it authors                                             |
 | --------------------- | ----------------------------------------------------------- |
 | `skill_tree.yaml`     | SkillCategory + Skill + SkillPrerequisite                   |

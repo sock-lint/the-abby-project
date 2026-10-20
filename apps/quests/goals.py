@@ -166,8 +166,9 @@ def _catalog_goals(user):
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
     definitions = list(QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids).prefetch_related(
-        "skill_tags__skill", "reward_items__item",
+        "skill_tags__skill", "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
     ))
+    from .availability import definition_is_available
     from apps.achievements.models import UserBadge
     earned = dict(UserBadge.objects.filter(user=user).values_list("badge_id", "earned_at"))
     # Legacy catalog promises can suppress enrollment on every read. Resolve
@@ -180,6 +181,8 @@ def _catalog_goals(user):
         if status == "active":
             active_deadlines.setdefault(definition_id, end_date)
     for definition in definitions:
+        if not definition_is_available(definition):
+            continue
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
@@ -297,9 +300,8 @@ def _award(occurrence, user):
     from apps.achievements.services import AwardService
     from apps.rpg.models import ItemDefinition
     from apps.rpg.inventory import grant_item
-    from apps.pets.models import UserMount
     from apps.rewards.services import CoinService
-    from .reward_items import reward_item_details
+    from .reward_items import egg_reward_is_duplicate, reward_item_details
     snapshot = occurrence.snapshot
     rows = snapshot.get("skill_tags", [])
     skills = Skill.objects.in_bulk([row["skill_id"] for row in rows])
@@ -327,7 +329,7 @@ def _award(occurrence, user):
             continue
         quantity = row["quantity"]
         details = {"item_id": item.pk, **reward_item_details(item, snapshot=row), "quantity": quantity}
-        if item.item_type == "egg" and item.pet_species_id and UserMount.objects.filter(user=user, species_id=item.pet_species_id).exists() and item.coin_value > 0:
+        if item.coin_value > 0 and egg_reward_is_duplicate(user, item, catalog.values()):
             salvage = item.coin_value * quantity
             CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}")
             coins += salvage

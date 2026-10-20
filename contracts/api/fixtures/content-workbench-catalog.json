@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "icon": "🍎",
-          "rarity": "common",
-          "sprite_key": "",
           "description": "",
+          "rarity": "common",
+          "name": "Practice snack",
+          "icon": "🍎",
           "metadata": {
             "growth": 5
           },
           "coin_value": 2,
-          "name": "Practice snack"
+          "sprite_key": ""
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 10,
-          "icon": "⚔️",
-          "is_repeatable": false,
-          "quest_type": "collection",
           "description": "Complete two approved chores.",
-          "name": "Practice challenge",
-          "xp_reward": 15,
+          "duration_days": 7,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "sprite_key": "",
+          "name": "Practice challenge",
+          "icon": "⚔️",
+          "is_repeatable": false,
+          "xp_reward": 15,
+          "coin_reward": 10,
+          "quest_type": "collection",
           "target_value": 2,
-          "duration_days": 7,
+          "sprite_key": "",
           "required_badge": null,
           "reward_items": [
             {
@@ -685,6 +685,8 @@
         "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
         "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+        "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+        "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
@@ -772,8 +774,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
-    "engine_version": "2026-10-19.1",
+    "rules_fingerprint": "40244b1cbe09e416549963428f8050a8b86d664e5d6a343a68e534cb3507dd7b",
+    "engine_version": "2026-10-20.1",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

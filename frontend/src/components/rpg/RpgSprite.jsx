@@ -26,6 +26,13 @@ const POTION_FILTERS = {
   cosmic:  'hue-rotate(230deg) saturate(1.4) brightness(0.9) contrast(1.1)',
 };
 
+// These prepared families need exact elemental portraits from the asset
+// release. A CSS recolor of a Base image cannot stand in for that artwork.
+const ELEMENTAL_PORTRAIT_KEYS = new Set([
+  'cute-chick', 'cute-chick-fledgling', 'cute-chick-mount',
+  'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
+]);
+
 // Gentle-nudge dimming applied to pet sprites whose happiness has slipped.
 // Purely visual — never penalizes coins / XP / drops / growth. ``happy`` is
 // the default state and renders unaffected so the sprite stays vibrant.
@@ -64,12 +71,16 @@ export default function RpgSprite({
   // Bind failures to the URL that failed. A late error from the previous
   // portrait must not hide a new species or a refreshed catalog URL.
   const [failedUrls, setFailedUrls] = useState(() => new Set());
+  const exactElemental = ['fire', 'ice'].includes(potionSlug)
+    && [spriteKey, fallbackSpriteKey].some((key) => ELEMENTAL_PORTRAIT_KEYS.has(key));
   const meta = [spriteKey, fallbackSpriteKey].filter(Boolean)
-    .flatMap((key) => [resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon'), getLicensedRpgSprite(key, size > 96 ? 'native' : 'icon'), getSpriteMeta(key)])
+    .flatMap((key) => exactElemental
+      ? [resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon')]
+      : [resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon'), getLicensedRpgSprite(key, size > 96 ? 'native' : 'icon'), getSpriteMeta(key)])
     .find((candidate) => candidate?.url && !failedUrls.has(candidate.url));
   const onImageError = () => setFailedUrls((previous) => new Set(previous).add(meta.url));
   const imageRendering = rendering === 'pixelated' ? 'pixelated' : 'auto';
-  const potionFilter = potionSlug ? POTION_FILTERS[potionSlug] : undefined;
+  const potionFilter = potionSlug && !exactElemental ? POTION_FILTERS[potionSlug] : undefined;
   const dimFilter = dim ? DIM_FILTERS[dim] : undefined;
   const composedFilter = [potionFilter, dimFilter].filter(Boolean).join(' ') || undefined;
 

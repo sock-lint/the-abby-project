@@ -87,7 +87,11 @@ def pet_is_available(species, potion=None):
     if rule is None:
         return False
     if str(_value(species, "slug", "")).startswith("meshtint-"):
-        if prepared_family(species) is None or (potion is not None and _value(potion, "slug") != "base"):
+        # Production remains pinned to the received Base-only roster. An
+        # explicit synthetic policy can exercise future exact pairs in tests;
+        # it never changes the checked-in release or production registry.
+        production = getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None
+        if prepared_family(species) is None or (production and potion is not None and _value(potion, "slug") != "base"):
             return False
     return potion is None or _value(potion, "slug") in rule.potion_slugs
 
@@ -218,6 +222,8 @@ def available_items(queryset):
 def random_item_is_available(item):
     """Keep earned-only rewards out of new random grants, retaining ownership."""
     metadata = _value(item, "metadata")
+    if _value(item, "item_type") == "potion" and _value(potion_type_for_item(item), "slug") in {"fire", "ice"}:
+        return False
     return item_is_available(item) and not (
         isinstance(metadata, Mapping) and metadata.get("no_random_drop") is True
     )

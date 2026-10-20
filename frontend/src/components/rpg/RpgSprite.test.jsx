@@ -39,6 +39,17 @@ describe('RpgSprite', () => {
     getLicensedRpgSprite.mockReset().mockReturnValue(null);
   });
 
+  it.each(['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount'])
+    ('keeps %s elemental artwork unavailable instead of recoloring its Base portrait', (spriteKey) => {
+      useSyntheticLicensedPortraits();
+      renderWithCatalog(<RpgSprite spriteKey={spriteKey} icon="🐾" alt="Fire companion" potionSlug="fire" dim="stale" />,
+        { [spriteKey]: { url: '/assets/base-only.png', frames: 1 } });
+      const portrait = screen.getByRole('img', { name: 'Fire companion' });
+      expect(portrait.tagName).toBe('SPAN');
+      expect(portrait).toHaveTextContent('🐾');
+      expect(portrait).toHaveStyle({ filter: 'grayscale(0.5) opacity(0.7)' });
+    });
+
   it.each([
     ['cute-chick', '/assets/synthetic-chick.png'],
     ['cute-chick-mount', '/assets/synthetic-bird.png'],

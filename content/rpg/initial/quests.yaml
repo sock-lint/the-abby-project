@@ -1104,6 +1104,89 @@ quests:
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}
 
+  # Elemental discovery bundles are offered only when their exact species +
+  # potion art pair is approved. Existing Base trails remain independent.
+  # Reading contributes its earned ten-minute daily receipt, once per day.
+  - name: Ember Nest
+    description: "Discover a Fire Chick: finish 5 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Chick Egg and one Fire potion."
+    icon: "🔥"
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: chick-egg
+        quantity: 1
+      - slug: fire-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Frost Nest
+    description: "Discover an Ice Chick: finish 5 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Chick Egg and one Ice potion."
+    icon: "❄️"
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: chick-egg
+        quantity: 1
+      - slug: ice-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Ember Trail
+    description: "Discover a Fire Wolf Pup: finish 20 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and one Fire potion."
+    icon: "🔥"
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-wolf-egg
+        quantity: 1
+      - slug: fire-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Frost Trail
+    description: "Discover an Ice Wolf Pup: finish 20 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and one Ice potion."
+    icon: "❄️"
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-wolf-egg
+        quantity: 1
+      - slug: ice-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
   - name: Bomb Trail
     description: "Welcome a rare Bomb companion: finish 30 approved chores or homework assignments, project milestones, whole projects, or logged creations within 180 days. The first two creations each day count. Earn one Bomb Egg and a compatible Base potion."
     icon: "💣"

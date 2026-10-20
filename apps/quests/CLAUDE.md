@@ -18,6 +18,18 @@ their original item IDs and quantities once after catalog retirement,
 including existing egg-salvage rules. Unavailable new offers receive no
 replacement Coins. Ordinary XP/coin payouts and progress remain unchanged.
 
+System discovery bundles containing an egg and a Fire/Ice potion are indivisible
+new offers: `availability.definition_is_available` requires approved exact-pair
+art and authored compatibility before automatic enrollment, catalog reads or
+legacy starts. The current production art policy remains Base-only, so Ember
+Nest, Frost Nest, Ember Trail and Frost Trail stay hidden until their respective
+assets are approved. Each is one-time, 180 days, zero authored Coins/XP, with
+targets 5 (Chick) or 20 (Wolf Pup); approved chores/homework, completed projects
+or milestones, eligible creations and earned daily reading receipts count.
+Saved elemental promises survive retirement. Their egg salvage checks the
+promised grown potion variant, so owning a grown Base pet never consumes an
+egg needed for a new elemental form. Other saved bundles retain prior salvage.
+
 Pre-cutover legacy quests have a null item snapshot and retain their current
 `QuestRewardItem` links. Reconciliation freezes active null snapshots once,
 without rewards or timestamp/progress changes; its dry-run reports affected

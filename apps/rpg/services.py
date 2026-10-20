@@ -1146,6 +1146,7 @@ class ConsumableService:
             from apps.achievements.models import UserBadge
             from apps.quests.models import Quest, QuestDefinition
             from apps.quests.services import QuestService
+            from apps.quests.availability import definition_is_available
             if Quest.objects.filter(
                 participants__user=profile.user, status=Quest.Status.ACTIVE,
             ).exists():
@@ -1156,8 +1157,11 @@ class ConsumableService:
                 UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
             )
             candidates = [
-                q for q in QuestDefinition.objects.filter(is_system=True)
-                if q.required_badge_id is None or q.required_badge_id in user_badge_ids
+                q for q in QuestDefinition.objects.filter(is_system=True).prefetch_related(
+                    "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
+                )
+                if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                and definition_is_available(q)
             ]
             if not candidates:
                 raise ValueError("No eligible quests to reroll into")

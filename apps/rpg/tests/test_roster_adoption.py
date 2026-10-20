@@ -31,14 +31,17 @@ ROSTER = json.loads(Path("shared/catalog/companion-roster.json").read_text())
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class RosterLoadingTests(TestCase):
-    def test_initial_load_keeps_legacy_definitions_and_adds_exact_base_only_roster(self):
+    def test_initial_load_keeps_legacy_definitions_and_base_only_art_support(self):
         ContentPack("content/rpg/initial").load(stdout=StringIO())
         self.assertEqual(PetSpecies.objects.count(), 32)
         self.assertEqual(sum(pet_is_available(species) for species in PetSpecies.objects.all()), 15)
         for family in ROSTER["families"]:
             species = PetSpecies.objects.get(slug=family["species_slug"])
             self.assertEqual(species.sprite_key, family["sprite_key"])
-            self.assertEqual(list(species.available_potions.values_list("slug", flat=True)), ["base"])
+            compatible = {"base", "fire", "ice"} if species.slug == "meshtint-wolf" else {"base"}
+            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
+            for potion in PotionType.objects.exclude(slug="base"):
+                self.assertFalse(pet_is_available(species, potion))
             egg = ItemDefinition.objects.get(slug=family["egg"]["item_slug"])
             self.assertEqual(egg.pet_species_id, species.pk)
             self.assertEqual(egg.metadata, {"species": species.slug})

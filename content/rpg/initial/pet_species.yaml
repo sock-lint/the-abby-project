@@ -188,14 +188,15 @@ species:
     egg_coin_value: 3
 
   # Owned Cute Series woodland bird. The three licensed post-hatch forms are
-  # Baby/Middle/Grown of this species; its egg is the inventory stage; recolored variants are not authored.
+  # Baby/Middle/Grown of this species; its egg is the inventory stage.
+  # Fire/Ice compatibility is dormant until each exact art pair is approved.
   - slug: chick
     name: Chick
     icon: "🐤"
     sprite_key: cute-chick
     description: A friendly woodland chick that grows alongside your adventures
     food_preference: birdseed
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: common
     egg_coin_value: 3
 
@@ -271,7 +272,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-wolf
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: rare
     egg_coin_value: 3
 

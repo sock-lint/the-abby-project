@@ -5,6 +5,26 @@ from types import SimpleNamespace
 from django.db import transaction
 
 
+def egg_reward_is_duplicate(user, item, companion_items):
+    """Elemental bundles retain their egg until that exact grown color is owned.
+
+    Existing non-elemental promises keep their established species-wide egg
+    salvage. The companion items come from the accepted snapshot, so later
+    catalog retirement cannot change which potion the egg was intended for.
+    """
+    from apps.pets.models import UserMount
+    from .availability import elemental_potion_ids
+
+    if item.item_type != "egg" or item.pet_species_id is None:
+        return False
+    mounts = UserMount.objects.filter(user=user, species_id=item.pet_species_id)
+    potion_ids = elemental_potion_ids(companion_items)
+    if potion_ids:
+        # An egg remains useful if any of the promised elemental forms is new.
+        return potion_ids.issubset(set(mounts.values_list("potion_id", flat=True)))
+    return mounts.exists()
+
+
 def reward_item_details(item, *, snapshot=None, cache=None):
     """Describe a reward without changing its accepted identity or payout.
 

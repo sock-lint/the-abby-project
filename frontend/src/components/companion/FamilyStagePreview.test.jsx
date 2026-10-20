@@ -23,4 +23,18 @@ describe('Hatchery family stage previews', () => {
     expect(screen.queryByRole('button', { name: 'Baby' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
   });
+
+  it.each(['fire', 'ice'])('never presents Base artwork as a missing %s appearance', async (element) => {
+    const user = userEvent.setup();
+    const name = element === 'fire' ? 'Fire' : 'Ice';
+    renderWithProviders(<FamilyStagePreview item={{ ...rosterEgg(), name: 'Wolf Egg' }} potion={{ slug: element, name }} />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: 'Baby' }));
+    expect(screen.getByRole('heading', { name: `${name} Wolf Pup` })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(`${name} artwork is not available yet.`);
+    expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
+    expect(document.querySelector('img[src*="wolf"]')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Grown' }));
+    expect(screen.getByRole('heading', { name: `${name} Werewolf` })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Grown' })).toHaveAttribute('aria-pressed', 'true');
+  });
 });

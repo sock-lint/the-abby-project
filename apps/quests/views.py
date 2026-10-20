@@ -8,6 +8,7 @@ from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import QuestDefinition, Quest
 from .queries import definitions_visible_to
+from .availability import definition_is_available
 from .serializers import (
     DailyChallengeSerializer,
     QuestSerializer,
@@ -33,7 +34,9 @@ class AvailableQuestsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        system_quests = QuestDefinition.objects.filter(is_system=True)
+        system_quests = [row for row in QuestDefinition.objects.filter(is_system=True).prefetch_related(
+            "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
+        ) if definition_is_available(row)]
         return Response(QuestDefinitionSerializer(system_quests, many=True, context={"request": request}).data)
 
 
@@ -166,9 +169,9 @@ class QuestCatalogView(ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return definitions_visible_to(self.request.user).prefetch_related(
-            "reward_items", "reward_items__item",
-        ).order_by("quest_type", "name", "pk")
+        return [row for row in definitions_visible_to(self.request.user).prefetch_related(
+            "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
+        ).order_by("quest_type", "name", "pk") if definition_is_available(row)]
 
 
 class FamilyActiveQuestsView(APIView):

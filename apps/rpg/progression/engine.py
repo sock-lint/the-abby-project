@@ -28,6 +28,7 @@ from apps.pets.expeditions import ExpeditionService, TIER_CONFIG
 from apps.pets.lifecycle import growth_thresholds
 from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
+from apps.quests.availability import elemental_potion_ids
 from apps.quests.services import TRIGGER_DAMAGE
 from apps.quests.models import DailyBonus
 from apps.quests.daily_bonus import process_daily_bonus
@@ -78,7 +79,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-19.1"
+ENGINE_VERSION = "2026-10-20.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -280,6 +281,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 tier_balanced_weights,
                 food_base_growth,
                 growth_thresholds,
+                elemental_potion_ids,
                 process_daily_bonus,
                 ClockService.clock_out,
                 PetService.feed_pet,
@@ -337,6 +339,8 @@ def coverage(catalog):
             "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
             "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+            "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+            "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
             "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
             "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
@@ -453,6 +457,7 @@ class Trial:
         }
         self.badges, self.completed_quests, self.seen_items = set(), set(), set()
         self.pets, self.pending_expeditions, self.quest_windows = {}, [], {}
+        self.expedition_launch_day_by_species = {}
         self.habit_strength = [0] * self.config["habits_per_day"]
         self.source_totals, self.sink_totals = defaultdict(Counter), defaultdict(Counter)
         self.milestones, self.trace, self.events = {}, [], []
@@ -952,16 +957,20 @@ class Trial:
             if all(self.xp[required] >= XP_THRESHOLDS.get(level, math.inf) for required, level in prerequisites):
                 self.unlocked.add(pk)
 
-    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False):
+    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False, egg_potion_ids=()):
         item = self.catalog.items.get(pk)
         if not item or quantity <= 0:
             return
+        duplicate_egg = False
+        if salvage_egg and item.item_type == "egg":
+            grown_potions = {potion for species, potion in self.mounts if species == item.pet_species_id}
+            duplicate_egg = set(egg_potion_ids).issubset(grown_potions) if egg_potion_ids else bool(grown_potions)
         if (
             salvage_cosmetic
             and item.item_type in COSMETIC_TYPES
             and self.inventory[pk] > 0
             and (source != "expeditions" or item.coin_value > 0)
-        ) or (salvage_egg and item.item_type == "egg" and any(pair[0] == item.pet_species_id for pair in self.mounts)):
+        ) or duplicate_egg:
             self.coin_award(item.coin_value * quantity, f"{source}_salvage")
             return
         self.inventory[pk] += quantity
@@ -1075,8 +1084,13 @@ class Trial:
             self.coin_award(q.coin_reward, "challenges")
             self.award_xp(q.xp_reward, list(q.skill_tags.all()), "challenges")
             self.evaluate_badges(scopes={"quest", "coin", "skill_xp", "badges"})
-            for row in q.reward_items.all():
-                self.grant_item(row.item_id, row.quantity, "challenges", salvage_egg=True)
+            rewards = tuple(q.reward_items.all())
+            promised_potions = elemental_potion_ids(
+                self.catalog.items[row.item_id] for row in rewards if row.item_id in self.catalog.items
+            )
+            for row in rewards:
+                self.grant_item(row.item_id, row.quantity, "challenges", salvage_egg=True,
+                                egg_potion_ids=promised_potions)
             self.record("challenge_completed", target=q.name)
             self.milestones.setdefault("first_challenge", self.day)
 
@@ -1288,11 +1302,18 @@ class Trial:
         self.pending_expeditions = remaining
 
     def launch_expeditions(self):
-        active = {e["pair"] for e in self.pending_expeditions}
+        active_species = {e["pair"][0] for e in self.pending_expeditions}
         tier = self.config["expedition_tier"]
         tier_config = TIER_CONFIG[tier]
         item_slots = COMMITMENT_POLICY["tiers"][tier]["item_slots"] if self.reward_commitment.enabled else tier_config["item_slots"]
-        available = [pair for pair in self.mounts if pair not in active]
+        available = []
+        seen_species = set(active_species)
+        for pair in sorted(self.mounts):
+            species_id = pair[0]
+            if species_id in seen_species or self.expedition_launch_day_by_species.get(species_id) == self.day:
+                continue
+            available.append(pair)
+            seen_species.add(species_id)
         allowed_launches = self.expedition_budget.prepare_launches(self.day, self.config["expeditions_per_day"], len(available))
         for pair in available[:allowed_launches]:
             coins = (self.reward_commitment.reserve_direct(self.day, tier) if self.reward_commitment.enabled
@@ -1327,6 +1348,7 @@ class Trial:
                     **({"salvage_reserve": salvage_reserve} if self.reward_commitment.enabled else {}),
                 }
             )
+            self.expedition_launch_day_by_species[pair[0]] = self.day
             if self.reward_commitment.enabled:
                 totals = self.reward_commitment.totals
                 totals["expedition_launches"] += 1

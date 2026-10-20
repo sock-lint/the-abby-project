@@ -1,5 +1,11 @@
 # Shared API response fixtures
 
+`pets-shared-expedition-allowance.json` is a real stable response with synthetic
+saved Base/Fire/Ice Chick mounts. A claimed Base trip uses the species's daily
+allowance for all three appearances. Saved elemental ownership does not enable
+new acquisition. Producer: `config.tests.test_catalog_api_contract_fixtures`;
+consumer: `frontend/src/api/catalogContractFixtures.test.js`.
+
 `journal-created.json`, `journal-replayed.json`, `journal-today.json` and
 `journal-edited.json` bind the Today capture and Memories journal to the same
 saved entry and measured reward receipt. Journal receipts add whole-number

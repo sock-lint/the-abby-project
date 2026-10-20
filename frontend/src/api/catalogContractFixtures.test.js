@@ -5,6 +5,7 @@ import { spyHandler } from '../test/spy';
 import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, startIncubation, hatchIncubation } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
+import sharedExpeditionStable from '../../../contracts/api/fixtures/pets-shared-expedition-allowance.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
 import inventory from '../../../contracts/api/fixtures/items-preserved-inventory.json';
 import appearanceInventory from '../../../contracts/api/fixtures/inventory-appearance.json';
@@ -24,6 +25,14 @@ import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-b
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('uses the shared species allowance for every saved potion appearance', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));
+    const stable = await getStable();
+    expect(new Set(stable.mounts.map((mount) => mount.potion.slug))).toEqual(new Set(['base', 'fire', 'ice']));
+    expect(stable.mounts.every((mount) => mount.expedition_available === false)).toBe(true);
+    expect(new Set(stable.mounts.map((mount) => mount.expedition_available_at)).size).toBe(1);
+    expect(stable.mounts.every((mount) => mount.expedition_available_in_seconds > 0 && mount.active_expedition === null)).toBe(true);
+  });
   it('preserves base coin bonuses in catalog and earned badge responses', async () => {
     server.use(
       http.get('*/api/badges/', () => HttpResponse.json(badgeCatalog)),

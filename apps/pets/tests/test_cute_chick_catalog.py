@@ -36,7 +36,7 @@ class CuteChickCatalogTests(TestCase):
         return hatch_ready_pet(self.child, self.egg.pk, self.base_potion.pk)
 
     def test_catalog_wires_ingredients_and_existing_drop_macros(self):
-        self.assertEqual(list(self.chick.available_potions.values_list("slug", flat=True)), ["base"])
+        self.assertEqual(set(self.chick.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
         self.assertEqual(self.egg.pet_species, self.chick)
         self.assertEqual(self.egg.sprite_key, "big-egg")
         self.assertEqual(self.birdseed.food_species, self.chick)
@@ -53,7 +53,7 @@ class CuteChickCatalogTests(TestCase):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
         self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
-        self.assertEqual(self.chick.available_potions.count(), 1)
+        self.assertEqual(self.chick.available_potions.count(), 3)
 
     def test_reload_keeps_existing_pet_mount_and_inventory(self):
         wolf = PetSpecies.objects.get(slug="wolf")
@@ -79,7 +79,7 @@ class CuteChickCatalogTests(TestCase):
         self.assertEqual(dict(PetSpecies.objects.values_list("slug", "pk")), species_before)
         self.assertEqual(dict(ItemDefinition.objects.values_list("slug", "pk")), item_ids_before)
         self.assertEqual(DropTable.objects.count(), drop_count)
-        self.assertEqual(list(self.chick.available_potions.values_list("slug", flat=True)), ["base"])
+        self.assertEqual(set(self.chick.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
 
     def test_hatch_base_chick_consumes_one_of_each_ingredient(self):
         egg_inventory = self.give(self.egg, quantity=2)
@@ -159,7 +159,7 @@ class CuteChickCatalogTests(TestCase):
         egg_inventory = self.give(self.egg, quantity=2)
         potion_inventory = self.give(self.fire_potion, quantity=3)
 
-        with self.assertRaisesMessage(ValueError, "Chick cannot hatch with a Fire potion"):
+        with self.assertRaisesMessage(ValueError, "This companion is not available to hatch with the current artwork"):
             hatch_ready_pet(self.child, self.egg.pk, self.fire_potion.pk)
 
         egg_inventory.refresh_from_db()

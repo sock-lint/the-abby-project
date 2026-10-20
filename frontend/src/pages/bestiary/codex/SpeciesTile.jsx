@@ -4,6 +4,7 @@ import ParchmentCard from '../../../components/journal/ParchmentCard';
 import RpgSprite from '../../../components/rpg/RpgSprite';
 import { loreOneLiner } from './bestiary.constants';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
+import { isCatalogAvailable } from '../../../utils/catalogAvailability';
 
 /**
  * Single tile in the Codex grid. Discovered species show their sprite +
@@ -12,7 +13,9 @@ import { RARITY_TEXT_COLORS } from '../../../constants/colors';
  * visual vocabulary as the Reliquary Codex's locked sigils.
  */
 export default function SpeciesTile({ species, totalPotions, onSelect }) {
-  const owned = species.owned_mount_potion_ids?.length || 0;
+  const variants = Array.isArray(species.available_potions) ? species.available_potions.filter(isCatalogAvailable) : null;
+  const total = variants ? variants.length : totalPotions;
+  const owned = variants ? variants.filter((potion) => species.owned_mount_potion_ids?.includes(potion.id)).length : species.owned_mount_potion_ids?.length || 0;
   const discovered = !!species.discovered;
 
   if (!discovered) {
@@ -50,7 +53,7 @@ export default function SpeciesTile({ species, totalPotions, onSelect }) {
       type="button"
       whileHover={{ y: -2 }}
       onClick={() => onSelect(species)}
-      aria-label={`${species.name} — ${owned} of ${totalPotions} grown pets collected`}
+      aria-label={`${species.name} — ${owned} of ${total} grown pets collected`}
       className="block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep rounded-2xl"
     >
       <ParchmentCard className="text-center cursor-pointer transition-all">
@@ -71,7 +74,7 @@ export default function SpeciesTile({ species, totalPotions, onSelect }) {
         <div className="font-script text-micro text-ink-whisper mt-1 line-clamp-2 min-h-[1.6em]">
           {loreOneLiner(species.description) || ' '}
         </div>
-        <PotionStrand owned={owned} total={totalPotions} />
+        <PotionStrand owned={owned} total={total} />
       </ParchmentCard>
     </motion.button>
   );

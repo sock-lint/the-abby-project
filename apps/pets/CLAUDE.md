@@ -36,6 +36,14 @@ Compatibility fields are inert: `can_breed` and `breeding_available` are always
 false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ## Models
+
+Fire/Ice application foundations declare Chick/Wolf compatibility and four
+guaranteed challenges, while production acquisition remains Base-only pending
+the exact private asset intake. Expedition starts now share one allowance per
+account/species across potion appearances, including any unclaimed trip.
+Accepted trips retain their frozen rewards. See
+[Fire/Ice delivery state](../../docs/operations/fire-ice-companions.md).
+
 - `PetIncubation` saves one accepted ingredient pair, request UUID, frozen display identities and start/ready timestamps. One unfinished row per account includes ready eggs awaiting explicit hatch. Completed rows retain their request receipt and hatch marker; deleting a saved pet cannot make that receipt award it again. User deletion cascades the row; ingredient deletion clears its optional FK while retaining its snapshot. Species/potion deletion is protected so accepted identities remain fulfillable; ordinary catalog retirement never prevents claim.
 - `PetSpecies.rarity` is its acquisition tier, shared with the canonical egg.
   Owned pet/mount responses expose the higher of species rarity and a saved
@@ -120,8 +128,9 @@ the shared user-before-profile/inventory/progress order.
 
 Every mount read/activation response carries `expedition_available`,
 `expedition_available_at` and `expedition_available_in_seconds`. A mount is
-available only with no active/unclaimed expedition and no expedition started
-that Django local day. Claimed and expired runs still use today's allowance.
+available only with no active/unclaimed expedition on any owned appearance of
+its species and no species expedition started that Django local day. Claimed
+and expired runs still use today's allowance.
 When that allowance is used, the timestamp names the next local midnight and
 the integer gives a rounded-up server-relative wait. Available mounts return
 null/zero; active trips return null/null because collecting the return requires

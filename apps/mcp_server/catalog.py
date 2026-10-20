@@ -9,6 +9,7 @@ from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject, XP_THRESHOLDS
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition
+from apps.quests.availability import definition_is_available
 from apps.quests.validators import validate_trigger_filter
 from apps.rpg.catalog_support import (
     available_pet_variants, egg_species, item_is_available, item_unavailable_reason,
@@ -29,7 +30,7 @@ def catalog_queryset(section):
         "skills": lambda: Skill.objects.select_related("subject").prefetch_related("prerequisites"),
         "badges": lambda: Badge.objects.select_related("subject"),
         "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge").prefetch_related(
-            "reward_items__item__pet_species", "reward_items__item__potion_type", "skill_tags__skill",
+            "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
         ),
         "items": lambda: ItemDefinition.objects.select_related("pet_species", "potion_type", "food_species"),
         "drops": lambda: DropTable.objects.select_related("item__pet_species", "item__potion_type"),
@@ -87,7 +88,8 @@ def catalog_row(section, row):
             "coin_reward", "xp_reward", "is_repeatable", "is_system",
         )}, "required_badge": row.required_badge_id,
                 "required_badge_name": row.required_badge.name if row.required_badge_id else None,
-                "available_for_new_user": not row.required_badge_id or _badge_available(row.required_badge),
+                "available_for_new_user": definition_is_available(row) and (
+                    not row.required_badge_id or _badge_available(row.required_badge)),
                 "skill_tags": [{"skill_id": tag.skill_id, "skill_name": tag.skill.name, "xp_weight": tag.xp_weight}
                                for tag in row.skill_tags.all()],
                 "reward_items": [{"item_id": reward.item_id, "slug": reward.item.slug, "name": reward.item.name,
