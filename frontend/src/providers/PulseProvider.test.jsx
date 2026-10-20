@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, afterEach, beforeEach } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
+import * as Sentry from '@sentry/react';
 import { http, HttpResponse } from 'msw';
 import { PulseProvider } from './PulseProvider.jsx';
 import { usePulse } from './pulseContext';
@@ -7,6 +8,7 @@ import { renderWithProviders } from '../test/render';
 import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import { useAuth } from '../hooks/useApi';
+import { GATEWAY_RETRY_DELAY_MS } from '../api/client';
 
 function Probe() {
   const { pulse } = usePulse();
@@ -37,6 +39,10 @@ function renderProvider() {
     { pulse: null },
   );
 }
+
+beforeEach(() => {
+  Sentry.captureException.mockClear();
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -94,6 +100,38 @@ describe('PulseProvider', () => {
     expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
   });
 
+
+  it('recovers a beat the proxy answered with a 504 during a deploy', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return requests === 1
+        ? new HttpResponse('upstream timed out', { status: 504 })
+        : HttpResponse.json(pulseBody(7));
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderProvider();
+    await waitFor(() => expect(requests).toBe(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS); });
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:7'));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it('still reports a 504 that outlasts the retry', async () => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return new HttpResponse('upstream timed out', { status: 504 });
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderProvider();
+    await waitFor(() => expect(requests).toBe(1));
+    await act(async () => { await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS); });
+    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
+    expect(requests).toBeGreaterThanOrEqual(2);
+    expect(Sentry.captureException.mock.calls[0][0].message).toBe('API 504: GET /pulse/');
+    expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
+  });
 
   it('rejects a late receipt response from the previous child', async () => {
     let releaseOld;

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as Sentry from '@sentry/react';
 import { server } from '../test/server.js';
 import {
-  api, getBlob, getToken, setToken, OFFLINE_MESSAGE,
+  api, getBlob, getToken, setToken, OFFLINE_MESSAGE, GATEWAY_RETRY_DELAY_MS,
 } from './client.js';
 
 const UNAVAILABLE_MESSAGE = 'Abby is temporarily unavailable. Please try again in a moment.';
@@ -108,6 +108,93 @@ describe('api errors', () => {
     );
     await expect(api.get('/boom/')).rejects.toThrow('boom');
     expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+  });
+
+  describe('gateway statuses during a deploy', () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it.each([502, 503, 504])('retries a GET once after a %i and returns the recovered data', async (status) => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return calls === 1
+          ? new HttpResponse('upstream timed out', { status })
+          : HttpResponse.json({ ok: true });
+      }));
+      const pending = api.get('/gateway/', { retryGateway: true });
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await expect(pending).resolves.toEqual({ ok: true });
+      expect(calls).toBe(2);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+      expect(Sentry.addBreadcrumb).toHaveBeenCalledWith(expect.objectContaining({
+        message: `Retrying GET /gateway/ after a ${status}`,
+      }));
+    });
+
+    it('captures a gateway status that persists after the retry, with the attempt count', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      const pending = expect(api.get('/gateway/', { retryGateway: true })).rejects.toMatchObject({ status: 504 });
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await pending;
+      expect(calls).toBe(2);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+      expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 504, attempts: 2 });
+    });
+
+    it('never replays a write after a gateway status', async () => {
+      let calls = 0;
+      server.use(http.post('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      await expect(api.post('/gateway/', { a: 1 }, { retryGateway: true })).rejects.toMatchObject({ status: 504 });
+      expect(calls).toBe(1);
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry other server errors', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/boom/', () => {
+        calls += 1;
+        return HttpResponse.json({ error: 'boom' }, { status: 500 });
+      }));
+      await expect(api.get('/boom/', { retryGateway: true })).rejects.toThrow('boom');
+      expect(calls).toBe(1);
+    });
+
+    it('does not retry unless the caller opts in', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 503 });
+      }));
+      await expect(api.get('/gateway/')).rejects.toMatchObject({ status: 503 });
+      expect(calls).toBe(1);
+    });
+
+    it('stops without a retry when the caller aborts during the wait', async () => {
+      let calls = 0;
+      server.use(http.get('*/api/gateway/', () => {
+        calls += 1;
+        return new HttpResponse('upstream timed out', { status: 504 });
+      }));
+      const controller = new AbortController();
+      const pending = expect(api.get('/gateway/', { retryGateway: true, signal: controller.signal })).rejects.toThrow();
+      await vi.waitFor(() => expect(calls).toBe(1));
+      controller.abort();
+      await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
+      await pending;
+      expect(calls).toBe(1);
+    });
   });
 
   it('attaches .status + .response to the thrown error so callers can branch on HTTP code', async () => {
