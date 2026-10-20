@@ -10,8 +10,8 @@ selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and exact namespaced Wolf
 accept Base, Fire and Ice; the other thirteen prepared families accept Base
 only. Fire/Ice potions remain excluded from random pools and their four
-one-time challenges guarantee exact egg/potion bundles. The activation branch
-awaits canonical asset publication and the ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
+one-time challenges guarantee exact egg/potion bundles. The exact canonical
+asset release is verified; application rollout uses ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Authored YAML and database rows remain intact; artwork filenames and generic
 icons do not establish supported acquisition.
@@ -260,7 +260,7 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus retained Chick.
-The Fire/Ice activation branch adds only exact Chick/Wolf elemental pairs;
+The Fire/Ice policy adds only exact Chick/Wolf elemental pairs;
 the other thirteen families remain Base only. The content loader rejects existing identity collisions before
 upserts, applies the namespace once and preserves legacy definitions.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
@@ -274,6 +274,6 @@ before rollout. Egg-category weights remain unchanged in live selection. See
 `shared/catalog/elemental-bindings.json`. Canonical Fire/Ice potion ingredients
 require the matching typed potion FK, metadata variant, slug, name and type;
 challenge images require the exact system collection definition. These read-only
-image IDs do not enable acquisition. Fire/Ice presentation is privately
-integrated, with production positive-policy activation and publication separate;
+image IDs do not enable acquisition. The exact Fire/Ice runtime is canonically
+published and verified, with application rollout through the ordinary MAIN gates;
 see `docs/operations/fire-ice-companions.md`.

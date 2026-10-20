@@ -438,9 +438,9 @@ take IDs. Each take owns its rig/materials/mixer; four Chick transition payloads
 preload the confirmed destination, while reduced motion skips directly to it.
 `sharedElementalPortraits` selects the declared `icon` variant at every size;
 missing art never substitutes Base or a CSS recolor. Only exact elemental
-Chick/Wolf identities receive those model/portrait bindings. The activation
-branch registry enables only these four elemental pairs; production rollout
-awaits canonical publication of the pinned release and MAIN deployment gates.
+Chick/Wolf identities receive those model/portrait bindings. The application
+registry enables only these four elemental pairs. The pinned canonical release
+is verified; application rollout uses the ordinary MAIN deployment gates.
 Read [Fire and Ice companions](../docs/operations/fire-ice-companions.md) for
 verification, remaining acceptance and rollback. With private art installed,
 `ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js` exercises

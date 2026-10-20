@@ -85,8 +85,9 @@ allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
 identities in `shared/catalog/companion-roster.json`, with Base for all fifteen.
 The approved Fire/Ice release prepares four additional pairs for exact `chick`
 and `meshtint-wolf` identities; the other thirteen families remain Base only.
-The owner accepted their actual app previews. PR #307 remains held until the
-exact canonical release is published and the normal MAIN rollout gates pass;
+The owner accepted their actual app previews. The exact canonical release
+was published and independently verified on October 20, 2026. PR #307 uses
+the normal MAIN rollout gates;
 see [Fire and Ice companions](../../docs/operations/fire-ice-companions.md).
 Exact egg slug, typed species FK and canonical metadata must agree. Native take
 order does not set gameplay thresholds; explicit server rules select stages.

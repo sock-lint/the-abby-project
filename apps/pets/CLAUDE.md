@@ -5,11 +5,11 @@ Collectible pets + timed incubation + growth/evolution + offline expeditions. Ev
 ## Active asset policy (October 2026)
 
 New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
-through `apps/rpg/catalog_support.py`. The checked-in activation policy supports
+through `apps/rpg/catalog_support.py`. The checked-in policy supports
 exact `chick` / `cute-chick` and `meshtint-wolf` with global `base`, `fire` and
 `ice` potions. The other thirteen exact namespaced families in
-`shared/catalog/companion-roster.json` retain only `base`. Canonical publication
-and the MAIN gates still precede production rollout. Registered eggs require exact slug, typed FK and canonical metadata
+`shared/catalog/companion-roster.json` retain only `base`. The exact canonical
+asset release is verified; production rollout uses the ordinary MAIN gates. Registered eggs require exact slug, typed FK and canonical metadata
 agreement. See [prepared roster adoption](../../docs/operations/companion-lifecycle.md#prepared-roster-adoption).
 The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
 The authored catalog remains in the database as generic engine/reference
@@ -38,10 +38,10 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ## Models
 
-The Fire/Ice activation branch enables exact Chick/Wolf compatibility and
+The Fire/Ice policy enables exact Chick/Wolf compatibility and
 four guaranteed challenges under the checked-in art policy; the other
-thirteen prepared families remain Base only. Production rollout is held on
-canonical publication of the exact private release and the MAIN gates. Expedition starts now share one allowance per
+thirteen prepared families remain Base only. Canonical publication is verified;
+production rollout uses the ordinary MAIN gates. Expedition starts now share one allowance per
 account/species across potion appearances, including any unclaimed trip.
 Accepted trips retain their frozen rewards. See
 [Fire/Ice delivery state](../../docs/operations/fire-ice-companions.md).

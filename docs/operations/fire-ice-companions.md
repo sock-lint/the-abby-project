@@ -4,15 +4,16 @@ The owner approved Fire and Ice appearances for exact species `chick`
 (`cute-chick`) and `meshtint-wolf`, four guaranteed ingredient challenges,
 and a daily expedition allowance shared by each account's species. Pet stats
 are deferred. The owner accepted the in-app previews and authorized publication and deployment.
-The application integrates the verified private candidate, and its branch now
-prepares acquisition activation. Publication and deployment have not completed.
+The exact runtime release was canonically published and independently verified
+on October 20, 2026. The application policy enables its four approved pairs;
+application merge and deployment remain separate from asset publication.
 
 ## Delivery state
 
-The branch acquisition registry enables Base, Fire and Ice only for exact
+The application acquisition registry enables Base, Fire and Ice only for exact
 Chick and Wolf identities; every other prepared family remains Base only.
-These code changes are not production activation until the guarded release
-and application merge/deployment complete. All eight existing release pins
+Production activation requires the ordinary guarded application merge and
+deployment, independently from the completed asset publication. All eight existing release pins
 are preserved, with a ninth pin for
 `abby-elemental-companions` 1.0.0 at manifest SHA-256
 `fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048`.
@@ -139,23 +140,33 @@ performance and acceptance remain pending, separately from desktop viewports.
 
 ## Activation and rollback
 
-Keep PR #307 in draft until exact canonical publication is proved and the
-normal MAIN merge/deployment gates can complete. Owner visual acceptance is
-recorded; it does not make private candidate objects a canonical runtime release.
-The branch positive registry prepares only the exact Chick/Wolf Fire/Ice pairs,
-with provenance bound to the pinned 1.0.0 manifest. Whole-bundle challenge
-gating, typed ingredient checks and random-pool exclusions remain in force.
+The owner accepted all twelve in-app appearances and authorized publication and
+application deployment. The asset team used its scoped publisher and permanent
+write coordinator for the exact immutable release. On October 20, 2026 the
+application team independently read back the canonical version index, manifest
+and all 200 runtime payloads with the established read-only credentials. Every
+hash and size matched: 182 GLBs and 18 PNGs, 97,693,404 payload bytes.
 
-Publication is held on the installed operator connection: its approved release
-helper supports the legacy avatar bundle (at most 83 files), while this verified
-asset pack has 200 runtime payloads. An approved asset-pack publisher/coordinator
-route is required. Do not split or relabel the bundle to fit the legacy schema,
-use read-only credentials for writes, substitute the candidates namespace for
-the canonical version index, or merge code that requires an unpublished pin.
-The operator must publish this exact immutable release through an approved route,
-then verify the canonical index, manifest and every pinned file before MAIN
-merges and the existing deployment pipeline builds the app. No publication,
-application merge or deployment has been performed by this preparation.
+The canonical version index is
+`s3://abby-assets-releases/releases/versions/abby-elemental-companions/1.0.0.json`,
+SHA-256 `bcd2df0083956912e0ddc878599aa7453ef2632b023fd2eef35d24f0070f2f94`.
+It binds the pinned manifest SHA-256 above. The application registry enables
+only exact Chick/Wolf Fire/Ice pairs. Whole-bundle challenge gating, typed
+ingredient checks and random-pool exclusions remain in force. Economy scenario
+previews must use the same random-item selector as actual drops.
+
+Application merge and deployment remain MAIN/controller responsibilities through
+the normal current-head/base CI, independent-review and trusted live gates.
+Canonical publication clears the asset-availability prerequisite; it does not
+prove that the application is serving the new code. Preserve the prior eight
+pins and existing private build inputs. Require the exact merged/deployed commit,
+verified served asset inventory, actual renderer and dedicated-family browser
+checks before claiming production completion.
+
+The application station's legacy avatar release helper cannot accept this
+200-file asset pack. Publication used the asset team's supported route; do not
+split or relabel the bundle, reuse read-only credentials for writes, substitute
+the candidates namespace for the canonical index or mutate immutable releases.
 
 The application rollback baseline before asset adoption is foundations commit
 `bf0a0fbab74fc1968d4fd4d582449dfa223c5d8e`. A fresh rollback PR restores its

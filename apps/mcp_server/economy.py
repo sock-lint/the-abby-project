@@ -27,7 +27,7 @@ from apps.quests.activity import household_timezone
 from apps.reading.services import ReadingRewardService
 from apps.rewards.models import CoinLedger
 from apps.rpg import services as rpg
-from apps.rpg.catalog_support import item_is_available
+from apps.rpg.catalog_support import random_item_is_available
 from apps.rpg.companion_catalog import companion_drop_weights
 from apps.rpg.constants import TriggerType
 from apps.rpg.models import DropTable
@@ -292,7 +292,7 @@ def _drop_pools(level, triggers):
     pools = {}
     for trigger in sorted(triggers):
         authored = [entry for entry in entries if entry.trigger_type == trigger]
-        eligible = [entry for entry in authored if item_is_available(entry.item)]
+        eligible = [entry for entry in authored if random_item_is_available(entry.item)]
         weights = companion_drop_weights(eligible)
         if any(not math.isfinite(float(weight)) or weight < 0 for weight in weights):
             raise MCPValidationError("The drop catalog contains invalid effective weights.")
