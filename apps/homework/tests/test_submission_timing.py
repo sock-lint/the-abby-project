@@ -95,6 +95,34 @@ class HomeworkSubmissionTimingTests(TestCase):
         self.assertEqual(after.timeliness, "late")
         self.assertEqual(after.timing_snapshot["submitted_on"], "2026-10-18")
 
+    def test_preview_and_saved_submission_share_the_two_day_on_time_window(self):
+        self.set_zone("America/New_York")
+        self.client.force_authenticate(self.child)
+        cases = [
+            (datetime(2026, 10, 17, 3, 59, tzinfo=dt_timezone.utc), "2026-10-16", "early"),
+            (datetime(2026, 10, 17, 4, 0, tzinfo=dt_timezone.utc), "2026-10-17", "on_time"),
+            (datetime(2026, 10, 19, 3, 59, tzinfo=dt_timezone.utc), "2026-10-18", "on_time"),
+            (datetime(2026, 10, 19, 4, 0, tzinfo=dt_timezone.utc), "2026-10-19", "late"),
+        ]
+        for at, local_day, expected in cases:
+            with self.subTest(at=at):
+                assignment = self.assignment()
+                with patch("django.utils.timezone.now", return_value=at):
+                    preview = self.client.get(f"/api/homework/{assignment.pk}/")
+                    response = self.client.post(
+                        f"/api/homework/{assignment.pk}/submit/",
+                        {"images": [proof()]}, format="multipart",
+                    )
+                self.assertEqual(preview.status_code, 200)
+                self.assertEqual(response.status_code, 201)
+                saved = HomeworkSubmission.objects.get(pk=response.data["id"])
+                self.assertEqual(preview.data["timeliness_preview"]["timeliness"], expected)
+                self.assertEqual(response.data["timeliness"], expected)
+                self.assertEqual(saved.timeliness, expected)
+                self.assertEqual(saved.timing_snapshot["timeliness"], expected)
+                self.assertEqual(saved.timing_snapshot["submitted_on"], local_day)
+                self.assertEqual(saved.timing_snapshot["due_on"], "2026-10-18")
+
     def test_dst_repeated_hour_keeps_one_calendar_deadline(self):
         self.set_zone("America/New_York")
         instants = [datetime(2026, 11, 1, hour, 30, tzinfo=dt_timezone.utc) for hour in (5, 6)]

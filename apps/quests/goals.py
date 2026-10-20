@@ -718,13 +718,18 @@ def list_goals(user):
     rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
              for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
-    from .milestone_eligibility import gated_definitions
+    from .milestone_eligibility import gated_definitions, prerequisite_unavailable
     from .serializers import QuestDefinitionSerializer
     accepted_ids = set(goals.values_list("catalog_definition_id", flat=True))
     accepted_ids.update(Quest.objects.filter(participants__user=user).values_list("definition_id", flat=True))
     locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
         "reward_items__item", "skill_tags__skill",
     ).order_by("quest_type", "name", "pk") if user.role == "child" else []
+    # A one-time prerequisite whose only window ended unfinished can never be
+    # met, so its successor is omitted rather than shown as "Coming next".
+    locked = [definition for definition in locked if not (
+        definition.prerequisite_quest_id and prerequisite_unavailable(user, definition.prerequisite_quest_id)
+    )]
     return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts],
             "locked_catalog": QuestDefinitionSerializer(locked, many=True, context={"eligibility_user": user}).data}

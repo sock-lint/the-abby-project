@@ -62,6 +62,39 @@ def prerequisite_completion(user, prerequisite_id):
     return automatic.exists() or legacy.exists(), min(times) if times else None
 
 
+def prerequisite_unavailable(user, prerequisite_id):
+    """True once ``user`` can no longer complete a one-time prerequisite path.
+
+    A nonrepeatable catalog goal keeps exactly one accepted window, and new
+    legacy starts are refused once that goal exists, so an ended window without
+    completion is final. A prerequisite that has no accepted goal yet and is
+    itself milestone-gated inherits its own prerequisite's state. Unknown
+    shapes, such as a goal without occurrences, stay available.
+    """
+    from django.utils import timezone
+    from .models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition
+
+    now = timezone.now()
+    seen = set()
+    while prerequisite_id is not None and prerequisite_id not in seen and len(seen) < 100:
+        seen.add(prerequisite_id)
+        if prerequisite_completion(user, prerequisite_id)[0]:
+            return False
+        prior = QuestDefinition.objects.filter(pk=prerequisite_id).values(
+            "is_repeatable", "prerequisite_quest_id",
+        ).first()
+        if prior is None or prior["is_repeatable"]:
+            return False
+        if Quest.objects.filter(participants__user=user, definition_id=prerequisite_id, status="active").exists():
+            return False
+        goals = ChallengeGoal.objects.filter(user=user, catalog_definition_id=prerequisite_id, is_catalog=True)
+        if goals.exists():
+            occurrences = ChallengeOccurrence.objects.filter(goal__in=goals)
+            return occurrences.exists() and not occurrences.filter(status="active", ends_at__gt=now).exists()
+        prerequisite_id = prior["prerequisite_quest_id"]
+    return False
+
+
 def milestone_eligibility(user, definition):
     from apps.achievements.models import SkillProgress, UserBadge
 

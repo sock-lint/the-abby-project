@@ -72,7 +72,7 @@ class HomeworkSubmissionSerializer(serializers.ModelSerializer):
             "id", "assignment", "assignment_title", "assignment_subject",
             "assignment_created_by_role",
             "user", "user_name",
-            "status", "notes",
+            "status", "notes", "proof_url",
             "decided_at", "decided_by",
             "timeliness", "timing_snapshot", "current_due_date",
             "proofs",

@@ -97,8 +97,22 @@ async function fetchOrOffline(url, config) {
   }
 }
 
+// Statuses a reverse proxy answers with while the app container is restarting
+// or unreachable; a request in flight during a deploy can land on one.
+const GATEWAY_STATUSES = [502, 503, 504];
+export const GATEWAY_RETRY_DELAY_MS = 1500;
+
+const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
 async function request(path, options = {}) {
-  const { token: explicitToken, selfHeal = true, ...fetchOptions } = options;
+  const {
+    token: explicitToken,
+    selfHeal = true,
+    // Opt-in: retry a GET once after a gateway status. Background polls ask
+    // for it; foreground reads keep surfacing the first failure at once.
+    retryGateway = false,
+    ...fetchOptions
+  } = options;
   const token = explicitToken ?? getToken();
   const method = (fetchOptions.method || 'GET').toUpperCase();
   let url = method === 'GET'
@@ -123,6 +137,24 @@ async function request(path, options = {}) {
   const hadAuth = Boolean(config.headers?.Authorization);
   let res = await fetchOrOffline(url, config);
   let attempts = 1;
+  // The proxy answers 502/503/504 while a deploy swaps containers. A caller
+  // that asked for it retries a read once after a short wait so it gets its
+  // data; a persistent failure falls through to the normal error path and
+  // Sentry capture. Never replay a possible write.
+  if (retryGateway && GATEWAY_STATUSES.includes(res.status) && method === 'GET' && getToken() === token) {
+    Sentry.addBreadcrumb({
+      category: 'api',
+      message: `Retrying ${method} ${path} after a ${res.status}`,
+      level: 'warning',
+      data: { status: res.status },
+    });
+    await sleep(GATEWAY_RETRY_DELAY_MS);
+    config.signal?.throwIfAborted();
+    if (getToken() === token) {
+      attempts += 1;
+      res = await fetchOrOffline(url, config);
+    }
+  }
   // A deployment proxy can return a cacheable HTML error page with a success
   // status. Retry reads once at a fresh URL, since no-store alone cannot evict
   // a response already cached upstream. Never replay a possible write.
@@ -138,6 +170,13 @@ async function request(path, options = {}) {
         level: 'warning',
         data: { status: res.status, contentType, responseDiagnostics: summarizeResponse(res, url) },
       });
+      // An opted-in background poll pauses first: an immediate replay can land
+      // in the same deploy window as the HTML it is replacing.
+      if (retryGateway) {
+        await sleep(GATEWAY_RETRY_DELAY_MS);
+        config.signal?.throwIfAborted();
+        if (getToken() !== token) continue;
+      }
       const retryUrl = new URL(url, window.location.origin);
       retryUrl.searchParams.set('_abby_retry', crypto.randomUUID());
       url = retryUrl.href;
@@ -145,11 +184,17 @@ async function request(path, options = {}) {
       res = await fetchOrOffline(url, config);
       continue;
     }
-    Sentry.captureException(
-      new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
-      { extra: { contentType, preview, url, status: res.status, attempts, responseDiagnostics: summarizeResponse(res, url) } },
-    );
-    throw new Error(UNAVAILABLE_MESSAGE);
+    const report = {
+      error: new Error(`API ${res.status} with non-JSON body: ${method} ${path}`),
+      extra: { contentType, preview, url, status: res.status, attempts, responseDiagnostics: summarizeResponse(res, url) },
+    };
+    const unavailable = new Error(UNAVAILABLE_MESSAGE);
+    if (retryGateway && method === 'GET') {
+      unavailable.deferredReport = report;
+      throw unavailable;
+    }
+    Sentry.captureException(report.error, { extra: report.extra });
+    throw unavailable;
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -175,18 +220,25 @@ async function request(path, options = {}) {
       _selfHealReload(token);
     }
 
+    const apiError = new Error(errorMessage);
     if (res.status >= 500) {
-      Sentry.captureException(
-        new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
-        { extra: { response: errorMessage, status: res.status } },
-      );
+      const report = {
+        error: new Error(`API ${res.status}: ${options.method || 'GET'} ${path}`),
+        extra: { response: errorMessage, status: res.status, attempts },
+      };
+      // An opted-in GET poll hands a gateway status that outlasted its retry to
+      // the caller, which reports once the outage persists across polls.
+      if (retryGateway && method === 'GET' && GATEWAY_STATUSES.includes(res.status)) {
+        apiError.deferredReport = report;
+      } else {
+        Sentry.captureException(report.error, { extra: report.extra });
+      }
     }
 
     // Attach status + parsed body so callers can branch on specific codes
     // (e.g., the Journal modal treats 409 as "already wrote today, switch
     // to edit mode" using `err.response.existing`). The default human
     // message stays on .message so untyped `catch` blocks still work.
-    const apiError = new Error(errorMessage);
     apiError.status = res.status;
     apiError.response = err;
     throw apiError;

@@ -38,6 +38,7 @@ function unifyHomework(h) {
     // from the queue instead of hopping to Quests → Study to see it.
     notes: h.notes || null,
     proofs: normalizeList(h.proofs),
+    proof_url: h.proof_url || '',
   };
 }
 

@@ -83,7 +83,7 @@ describe('HomeworkSubmitSheet', () => {
 
   it('renders nothing when assignment is null', () => {
     render(<HomeworkSubmitSheet assignment={null} onClose={vi.fn()} onSubmitted={vi.fn()} />);
-    expect(screen.queryByText(/affix photographic evidence/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: 'Submit homework' })).not.toBeInTheDocument();
   });
 
   it('renders the assignment title and subject when opened', () => {
@@ -95,6 +95,110 @@ describe('HomeworkSubmitSheet', () => {
     render(<HomeworkSubmitSheet assignment={assignment} onClose={vi.fn()} onSubmitted={vi.fn()} />);
     const btn = inSheet().getByRole('button', { name: /submit for review/i });
     expect(btn).toBeDisabled();
+  });
+
+  it('submits a shareable proof link without photos and preserves its query and fragment', async () => {
+    const user = userEvent.setup();
+    let submitted;
+    const spy = spyHandler('post', /\/api\/homework\/42\/submit\/$/, async ({ request }) => {
+      submitted = await request.formData();
+      return { ok: true };
+    });
+    server.use(spy.handler);
+    const onSubmitted = vi.fn();
+    render(<HomeworkSubmitSheet assignment={assignment} onSubmitted={onSubmitted} />);
+    const link = 'https://drive.google.com/file/d/synthetic/view?usp=sharing#page=2';
+    await user.type(screen.getByRole('textbox', { name: /proof link/i }), `  ${link}  `);
+    await user.type(screen.getByRole('textbox', { name: /notes/i }), 'My finished worksheet');
+    await user.click(screen.getByRole('button', { name: /submit for review/i }));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+    expect(spy.calls).toHaveLength(1);
+    expect(spy.calls[0].url).toMatch(/\/homework\/42\/submit\/$/);
+    expect(spy.calls[0].method).toBe('POST');
+    expect(Object.fromEntries(submitted)).toEqual({ proof_url: link, notes: 'My finished worksheet' });
+    expect(screen.getByRole('textbox', { name: /proof link/i })).toHaveValue('');
+  });
+
+  it('can include a proof link alongside a photo', async () => {
+    const user = userEvent.setup();
+    let submitted;
+    const spy = spyHandler('post', /\/api\/homework\/42\/submit\/$/, async ({ request }) => {
+      submitted = await request.formData();
+      return { ok: true };
+    });
+    server.use(spy.handler);
+    const onSubmitted = vi.fn();
+    render(<HomeworkSubmitSheet assignment={assignment} onSubmitted={onSubmitted} />);
+    await user.upload(screen.getByLabelText(/add proof photos/i), new File(['x'], 'proof.jpg', { type: 'image/jpeg' }));
+    await user.type(screen.getByRole('textbox', { name: /proof link/i }), 'https://docs.google.com/document/d/synthetic/edit');
+    await user.click(screen.getByRole('button', { name: /submit for review/i }));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+    expect(spy.calls).toHaveLength(1);
+    expect(spy.calls[0].url).toMatch(/\/homework\/42\/submit\/$/);
+    expect(submitted.get('proof_url')).toBe('https://docs.google.com/document/d/synthetic/edit');
+    expect(submitted.getAll('images')).toHaveLength(1);
+    expect(submitted.get('images').type).toBe('image/jpeg');
+    expect(submitted.get('images').size).toBeGreaterThan(0);
+  });
+
+  it('keeps an invalid proof link for correction and sends no request even with a photo', async () => {
+    const user = userEvent.setup();
+    const spy = spyHandler('post', /\/api\/homework\/42\/submit\/$/, { ok: true });
+    server.use(spy.handler);
+    render(<HomeworkSubmitSheet assignment={assignment} />);
+    await user.upload(screen.getByLabelText(/add proof photos/i), new File(['x'], 'proof.jpg', { type: 'image/jpeg' }));
+    const input = screen.getByRole('textbox', { name: /proof link/i });
+    await user.type(input, 'javascript:alert(1)');
+    await user.click(screen.getByRole('button', { name: /submit for review/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/valid http:\/\/ or https:\/\/ proof link/i);
+    expect(input).toHaveValue('javascript:alert(1)');
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: /remove photo/i })).toBeInTheDocument();
+    expect(spy.calls).toHaveLength(0);
+  });
+
+  it('preserves the link and notes after an error until an explicit retry succeeds', async () => {
+    const user = userEvent.setup();
+    const submitted = [];
+    const spy = spyHandler('post', /\/api\/homework\/42\/submit\/$/, async ({ request }) => {
+      submitted.push(Object.fromEntries(await request.formData()));
+      return submitted.length === 1
+        ? HttpResponse.json({ error: 'Try again later.' }, { status: 503 })
+        : { ok: true };
+    });
+    server.use(spy.handler);
+    const onSubmitted = vi.fn();
+    render(<HomeworkSubmitSheet assignment={assignment} onSubmitted={onSubmitted} />);
+    const link = 'https://drive.google.com/file/d/synthetic/view';
+    await user.type(screen.getByRole('textbox', { name: /proof link/i }), link);
+    await user.type(screen.getByRole('textbox', { name: /notes/i }), 'Finished');
+    await user.click(screen.getByRole('button', { name: /submit for review/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Try again later.');
+    expect(screen.getByRole('textbox', { name: /proof link/i })).toHaveValue(link);
+    expect(screen.getByRole('textbox', { name: /notes/i })).toHaveValue('Finished');
+    expect(spy.calls).toHaveLength(1);
+    expect(onSubmitted).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: /submit for review/i }));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalledTimes(1));
+    expect(spy.calls).toHaveLength(2);
+    expect(spy.calls.every((call) => /\/homework\/42\/submit\/$/.test(call.url))).toBe(true);
+    expect(submitted).toEqual([
+      { proof_url: link, notes: 'Finished' },
+      { proof_url: link, notes: 'Finished' },
+    ]);
+  });
+
+  it('guards a link-only draft when closing the sheet', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<HomeworkSubmitSheet assignment={assignment} onClose={onClose} />);
+    const link = 'https://drive.google.com/file/d/synthetic/view';
+    await user.type(screen.getByRole('textbox', { name: /proof link/i }), link);
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('alertdialog', { name: 'Discard changes?' })).toBeVisible();
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('textbox', { name: /proof link/i })).toHaveValue(link);
   });
 
   it('submitting posts images + notes to /homework/{id}/submit/ and calls onSubmitted', async () => {
@@ -133,7 +237,7 @@ describe('HomeworkSubmitSheet', () => {
     expect(input).toHaveClass('sr-only');
 
     // The visible heading names the same control.
-    expect(inSheet().getByText(/proof photos \(required\)/i)).toHaveAttribute('for', input.id);
+    expect(inSheet().getByText(/^proof photos$/i)).toHaveAttribute('for', input.id);
 
     // Reachable by Tab, not just programmatically focusable.
     for (let i = 0; i < 10 && document.activeElement !== input; i += 1) {
