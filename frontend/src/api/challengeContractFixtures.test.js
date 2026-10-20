@@ -23,13 +23,57 @@ import readingThreshold from '../../../contracts/api/fixtures/challenge-reading-
 import readingCompleted from '../../../contracts/api/fixtures/challenges-reading-completed.json';
 import openedDetails from '../../../contracts/api/fixtures/challenge-details-opened.json';
 import discoveryObserved from '../../../contracts/api/fixtures/challenge-discovery-observed.json';
+import familyAssigned from '../../../contracts/api/fixtures/challenge-family-assigned.json';
+import familyCompleted from '../../../contracts/api/fixtures/challenges-family-completed.json';
 import { server } from '../test/server';
+import { spyHandler } from '../test/spy';
 import {
   createChallengeGoal, createReadingSession, getActiveQuest, getChallenges, getQuestHistory, logMovementSession, pinChallenge, unpinChallenge,
-  recordChallengeOpening, getChallengeDiscovery,
+  recordChallengeOpening, getChallengeDiscovery, getQuestCatalog, startCoOpQuest,
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('assigns a parent-selected family catalog goal and preserves the completed pooled contributions', async () => {
+    const assign = spyHandler('post', /\/api\/quests\/52\/co-op\/$/, familyAssigned);
+    const selectedChildren = [];
+    server.use(
+      // The producer verifies this exact nested definition equals the real
+      // parent catalog row before accepting the shared assignment.
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([familyAssigned.definition])),
+      assign.handler,
+      http.get('*/api/challenges/', ({ request }) => {
+        selectedChildren.push(new URL(request.url).searchParams.get('user_id'));
+        return HttpResponse.json(familyCompleted);
+      }),
+    );
+    const catalog = await getQuestCatalog();
+    expect(catalog).toEqual([familyAssigned.definition]);
+    expect(catalog[0]).toMatchObject({ id: 52, is_cooperative: true, catalog_available: true, target_value: 20 });
+    const assigned = await startCoOpQuest(catalog[0].id, [7, 8]);
+    expect(assigned).toEqual(familyAssigned);
+    expect(assigned.participants.map(({ user, contribution }) => ({ user, contribution }))).toEqual([
+      { user: 7, contribution: 0 }, { user: 8, contribution: 0 },
+    ]);
+    expect(assign.calls).toEqual([{ url: expect.stringMatching(/\/api\/quests\/52\/co-op\/$/), method: 'POST', body: { user_ids: [7, 8] } }]);
+    const saved = await getChallenges(7);
+    expect(selectedChildren).toEqual(['7']);
+    expect(saved).toEqual(familyCompleted);
+    expect(saved.results).toHaveLength(1);
+    expect(saved.results[0]).toMatchObject({
+      id: `legacy:${assigned.id}`, origin: 'legacy', legacy: true,
+      progress: '20', target: '20', status: 'completed',
+      rewards: { coins: 100, xp: 30, items: [] },
+      participants: [
+        { user: 7, contribution: 10 }, { user: 8, contribution: 10 },
+      ],
+    });
+    // Legacy history exposes an unavailable receipt, rather than inventing
+    // paid amounts. The producer checks both participants' actual ledgers.
+    expect(saved.results[0].reward_receipt).toEqual({
+      id: `legacy:${assigned.id}`, status: 'legacy', coins_awarded: 0, xp_awarded: 0, awarded_at: null,
+    });
+  });
+
   it('preserves daily Reading Adventure rules and the goal receipt after the real reading threshold', async () => {
     const writes = [];
     const payload = {

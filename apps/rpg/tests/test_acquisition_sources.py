@@ -60,6 +60,21 @@ class AcquisitionSourcesTests(TestCase):
         row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
         self.assertEqual(row["acquisition_sources"], [])
 
+    def test_retained_alias_does_not_advertise_a_second_challenge(self):
+        alias = QuestDefinition.objects.create(
+            name="Retained duplicate", quest_type="collection", target_value=10,
+            is_system=True, superseded_by=self.quest,
+        )
+        QuestRewardItem.objects.create(quest_definition=alias, item=self.frame)
+        row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
+        self.assertEqual([source["name"] for source in row["acquisition_sources"]], [self.quest.name])
+
+    def test_unassigned_family_campaign_is_not_an_individual_acquisition_offer(self):
+        self.quest.is_cooperative = True
+        self.quest.save(update_fields=["is_cooperative"])
+        row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
+        self.assertEqual(row["acquisition_sources"], [])
+
     def test_current_occurrence_uses_its_frozen_item_list(self):
         from apps.quests.models import ChallengeGoal, ChallengeOccurrence
         now = timezone.now()

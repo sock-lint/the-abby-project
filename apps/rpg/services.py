@@ -1144,7 +1144,8 @@ class ConsumableService:
             # mirrors QuestService.start_quest's guards: not already active,
             # system quest (parent quests can be hand-picked), badge gate passed.
             from apps.achievements.models import UserBadge
-            from apps.quests.models import Quest, QuestDefinition
+            from apps.quests.models import Quest
+            from apps.quests.queries import active_system_definitions
             from apps.quests.services import QuestService
             if Quest.objects.filter(
                 participants__user=profile.user, status=Quest.Status.ACTIVE,
@@ -1156,7 +1157,7 @@ class ConsumableService:
                 UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
             )
             candidates = [
-                q for q in QuestDefinition.objects.filter(is_system=True)
+                q for q in active_system_definitions().filter(is_cooperative=False)
                 if q.required_badge_id is None or q.required_badge_id in user_badge_ids
             ]
             if not candidates:

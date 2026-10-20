@@ -218,7 +218,7 @@ class ContentPack:
         if not active:
             return 0, []
         fields =("quest_type", "target_value", "duration_days", "trigger_filter",
-                  "coin_reward", "xp_reward", "is_repeatable", "required_badge")
+                  "coin_reward", "xp_reward", "is_repeatable", "is_cooperative", "required_badge")
         changed = []
         for field_name in fields:
             if field_name not in defaults:
@@ -264,7 +264,8 @@ class ContentPack:
                 # global scope is part of the lookup: a family's identically
                 # named template must never be adopted or rewritten, even if
                 # its legacy is_system flag is true.
-                lookup = {**lookup, "is_system": defaults["is_system"], "created_by": None}
+                lookup = {**lookup, "is_system": defaults["is_system"], "created_by": None,
+                          "superseded_by__isnull": True}
                 # This load runs before gunicorn on every container start, so
                 # a quest it cannot safely update is left unchanged and
                 # reported. Failing here would keep the whole app down.
@@ -319,7 +320,12 @@ class ContentPack:
             except model.DoesNotExist:
                 raise ContentPackError(f"Owned {kind} {key} is missing; reconcile its publication history.") from None
             # Prevent a stable ID rename from colliding with someone else's natural key.
-            if model.objects.filter(**lookup).exclude(pk=obj.pk).exists():
+            matches = model.objects.filter(**lookup).exclude(pk=obj.pk)
+            if kind == "questdefinition":
+                matches = matches.filter(superseded_by__isnull=True)
+                if obj.superseded_by_id:
+                    raise ContentPackError("This quest identity is a retained alias; reconcile its publication claim before editing.")
+            if matches.exists():
                 raise ContentPackError(f"{kind} display/natural key collides with existing content.")
             if kind == "questdefinition":
                 self._protect_active_quest(obj, defaults, entry or {})
@@ -838,6 +844,7 @@ class ContentPack:
                 "xp_reward": int(entry.get("xp_reward", 0)),
                 "is_repeatable": bool(entry.get("is_repeatable", False)),
                 "is_system": bool(entry.get("is_system", True)),
+                "is_cooperative": bool(entry.get("is_cooperative", False)),
             }
             if "required_badge" in entry and entry["required_badge"]:
                 try:

@@ -281,7 +281,14 @@ children do not start or claim goals to make their work count.
   Parents use `CreateGoalForm.jsx`
   to assign count, minute or distance goals, with a period and optional weekly
   repeat. The form previews the activity, date window and reward and retains a
-  UUID for identical save retries.
+  UUID for identical save retries. XP bonuses require a selected skill; inline
+  errors and a skills-read retry preserve the draft. `FamilyChallengeForm.jsx`
+  separately offers available `is_cooperative` catalog definitions to parents
+  with at least two verified family children. Parents explicitly select the
+  participants for one pooled target with the full reward per child. Assignment
+  uses the existing co-op endpoint, preserves failed drafts without replaying
+  writes, refreshes challenge reads on success, and resets across account,
+  credential and roster changes.
 - `ChallengeGoalCard.jsx` presents the server's decimal progress, origin, activity
   rule, planned reward and actual completion receipt. Parent and pinned deadlines
   remain visible; background bonus dates stay in full details. Origin is the

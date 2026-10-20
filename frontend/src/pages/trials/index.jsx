@@ -11,6 +11,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import Button from '../../components/Button';
 import DailyChallengeCard from '../../components/dashboard/DailyChallengeCard';
 import CreateGoalForm from './CreateGoalForm';
+import FamilyChallengeForm from './FamilyChallengeForm';
 import { ChallengeGoalDetail } from './ChallengeGoalCard';
 import ChallengesFolio from './ChallengesFolio';
 
@@ -92,6 +93,7 @@ function TrialsWorkspace({ context }) {
               next.delete('new');
               setSearchParams(next, { replace: true });
             }} />
+          <FamilyChallengeForm children={children} onAssigned={() => window.dispatchEvent(new Event(CHALLENGES_CHANGED))} />
         </div>}
       />
     </div>

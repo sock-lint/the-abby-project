@@ -173,7 +173,9 @@ def _apply(draft, *, publication=None):
             obj.is_system = True
             # A quest name is also used by authored badge conditions. Retain
             # explicit IDs, refuse collisions, and surface named dependencies.
-            if QuestDefinition.objects.filter(name=obj.name).exclude(pk=obj.pk).exists():
+            if obj.superseded_by_id:
+                raise ContentPackError("This challenge identity is a retained alias; edit its canonical definition.")
+            if QuestDefinition.objects.filter(name=obj.name, superseded_by__isnull=True).exclude(pk=obj.pk).exists():
                 raise ContentPackError("Challenge name collides with existing content; choose a distinct name.")
         else:
             validate_item_runtime(obj)

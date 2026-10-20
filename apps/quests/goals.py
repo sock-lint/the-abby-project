@@ -16,6 +16,7 @@ from .models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
     ChallengeOccurrence, ChallengePin, Quest, QuestDefinition, QuestParticipant, QuestRewardItem,
 )
+from .queries import active_system_definitions
 
 DISTANCE_FACTORS = {"mi": Decimal("1609.344"), "km": Decimal("1000")}
 FACT_TRIGGERS = {
@@ -165,7 +166,10 @@ def _catalog_goals(user):
     if user.role != "child":
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
-    definitions = list(QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids).prefetch_related(
+    existing_ids.update(QuestDefinition.objects.filter(pk__in=existing_ids).exclude(
+        superseded_by__isnull=True,
+    ).values_list("superseded_by_id", flat=True))
+    definitions = list(active_system_definitions().filter(is_cooperative=False).exclude(pk__in=existing_ids).prefetch_related(
         "skill_tags__skill", "reward_items__item",
     ))
     from apps.achievements.models import UserBadge
@@ -173,12 +177,18 @@ def _catalog_goals(user):
     # Legacy catalog promises can suppress enrollment on every read. Resolve
     # their status and latest active deadline once for all pending definitions.
     legacy_statuses, active_deadlines = set(), {}
+    canonical_ids = {definition.pk for definition in definitions}
+    legacy_ids = {pk: pk for pk in canonical_ids}
+    legacy_ids.update(QuestDefinition.objects.filter(superseded_by_id__in=canonical_ids).values_list(
+        "pk", "superseded_by_id",
+    ))
     for definition_id, status, end_date in Quest.objects.filter(
-        participants__user=user, definition_id__in=[definition.pk for definition in definitions],
+        participants__user=user, definition_id__in=legacy_ids,
     ).values_list("definition_id", "status", "end_date"):
-        legacy_statuses.add((definition_id, status))
+        canonical_id = legacy_ids[definition_id]
+        legacy_statuses.add((canonical_id, status))
         if status == "active":
-            active_deadlines.setdefault(definition_id, end_date)
+            active_deadlines[canonical_id] = max(active_deadlines.get(canonical_id, end_date), end_date)
     for definition in definitions:
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
@@ -244,7 +254,10 @@ def _occurrence(goal, at):
             return existing
     retired = goal.is_catalog and (
         goal.catalog_definition_id is None
-        or not ChallengeGoal.objects.filter(pk=goal.pk, catalog_definition__isnull=False).exists()
+        or not ChallengeGoal.objects.filter(
+            pk=goal.pk, catalog_definition__isnull=False,
+            catalog_definition__superseded_by__isnull=True, catalog_definition__is_cooperative=False,
+        ).exists()
     )
     if retired:
         # Retirement retains saved promises and history, without new cycles.

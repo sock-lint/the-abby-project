@@ -7,7 +7,7 @@ from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import QuestDefinition, Quest
-from .queries import definitions_visible_to
+from .queries import active_system_definitions, definitions_visible_to
 from .serializers import (
     DailyChallengeSerializer,
     QuestSerializer,
@@ -33,7 +33,7 @@ class AvailableQuestsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        system_quests = QuestDefinition.objects.filter(is_system=True)
+        system_quests = active_system_definitions()
         return Response(QuestDefinitionSerializer(system_quests, many=True, context={"request": request}).data)
 
 

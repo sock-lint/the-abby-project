@@ -110,7 +110,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items", "skill_tags",
             "required_badge", "required_badge_name",
-            "is_repeatable", "is_system", "created_at", "catalog_available",
+            "is_repeatable", "is_system", "is_cooperative", "created_at", "catalog_available",
         ]
         read_only_fields = fields
 

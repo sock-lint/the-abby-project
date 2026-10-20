@@ -126,6 +126,89 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_parent_shared_catalog_assignment_and_pooled_approved_work_preserve_the_real_contract(self):
+        from apps.chores.models import Chore, ChoreCompletion
+        from apps.quests.models import ChallengeGoal, Quest, QuestParticipant
+
+        self.catalog.is_system = False
+        self.catalog.save(update_fields=["is_system"])
+        shared = QuestDefinition.objects.create(
+            id=52, name="Fixture family teamwork", description="Complete twenty approved chores together.",
+            quest_type="collection", target_value=20, duration_days=7,
+            trigger_filter={"allowed_triggers": ["chore_complete"]},
+            coin_reward=100, xp_reward=30, is_system=True, is_cooperative=True,
+        )
+        QuestSkillTag.objects.create(id=72, quest_definition=shared, skill=self.skill, xp_weight=1)
+        catalog = self.client.get("/api/quests/catalog/")
+        self.assertEqual(catalog.status_code, 200, catalog.data)
+        self.assertEqual(len(catalog.data), 1)
+        self.assertIs(catalog.data[0]["is_cooperative"], True)
+
+        assigned = self.assert_response_fixture(self.client.post(
+            f"/api/quests/{shared.pk}/co-op/", {"user_ids": [self.child.pk, self.sibling.pk]}, format="json",
+        ), "challenge-family-assigned.json", status=201)
+        # The exact catalog definition used by the parent picker is also
+        # retained in the real assignment body; no separate invented shape.
+        self.assertEqual(assigned["definition"], catalog.json()[0])
+        self.assertEqual([row["user"] for row in assigned["participants"]], [self.child.pk, self.sibling.pk])
+        quest = Quest.objects.get(pk=assigned["id"])
+        for child in (self.child, self.sibling):
+            self.authenticate(child)
+            rows = self.client.get("/api/challenges/").json()["results"]
+            self.assertEqual([(row["id"], row["origin"], row["progress"]) for row in rows],
+                             [(f"legacy:{quest.pk}", "legacy", "0")])
+        self.assertFalse(ChallengeGoal.objects.filter(catalog_definition=shared).exists())
+
+        chores = [Chore.objects.create(
+            id=201 + index, family_id=self.child.family_id, created_by=self.parent,
+            title=f"Fixture teamwork chore {index + 1}", coin_reward=0, xp_reward=0,
+        ) for index in range(10)]
+        final_completion_id = None
+        for child in (self.child, self.sibling):
+            for chore in chores:
+                self.authenticate(child)
+                submitted = self.client.post(f"/api/chores/{chore.pk}/complete/", {}, format="json")
+                self.assertEqual(submitted.status_code, 201, submitted.data)
+                self.authenticate(self.parent)
+                # Co-op progress follows the committed accepted source. Run
+                # that real callback inside this outer fixture transaction.
+                final_completion_id = submitted.json()["id"]
+                with self.captureOnCommitCallbacks(execute=True):
+                    approved = self.client.post(f"/api/chore-completions/{final_completion_id}/approve/", {}, format="json")
+                self.assertEqual(approved.status_code, 200, approved.data)
+                self.assertEqual(ChoreCompletion.objects.get(pk=final_completion_id).status, "approved")
+            quest.refresh_from_db()
+            self.assertEqual(quest.current_progress, 10 if child == self.child else 20)
+        self.assertEqual(quest.status, "completed")
+        self.assertEqual(dict(QuestParticipant.objects.filter(quest=quest).values_list("user_id", "contribution")),
+                         {self.child.pk: 10, self.sibling.pk: 10})
+        for child in (self.child, self.sibling):
+            self.assertEqual(list(CoinLedger.objects.filter(
+                user=child, description=f"Quest complete: {shared.name}",
+            ).values_list("amount", flat=True)), [100])
+            self.assertEqual(SkillProgress.objects.get(user=child, skill=self.skill).xp_points, 30)
+
+        self.authenticate(self.child)
+        completed = self.assert_response_fixture(self.client.get("/api/challenges/"), "challenges-family-completed.json")
+        row = completed["results"][0]
+        self.assertEqual((row["id"], row["origin"], row["progress"], row["target"], row["status"]),
+                         (f"legacy:{quest.pk}", "legacy", "20", "20", "completed"))
+        self.assertEqual(row["rewards"], {"coins": 100, "xp": 30, "items": []})
+        # Retained Quest rows expose no saved per-recipient receipt. Preserve
+        # its explicit legacy marker; actual payouts are verified above.
+        self.assertEqual(row["reward_receipt"]["status"], "legacy")
+        self.authenticate(self.sibling)
+        self.assertEqual(self.client.get("/api/challenges/").json()["results"], completed["results"])
+        paid = self.state()
+        self.authenticate(self.parent)
+        with self.captureOnCommitCallbacks(execute=True):
+            repeated = self.client.post(f"/api/chore-completions/{final_completion_id}/approve/", {}, format="json")
+        self.assertEqual(repeated.status_code, 200)
+        self.authenticate(self.child)
+        self.assertEqual(self.client.get("/api/challenges/").json(), completed)
+        self.assertEqual(self.state(), paid)
+        self.assertFalse(CoinLedger.objects.filter(user=self.other_child).exists())
+
     def test_parent_reading_goal_counts_the_daily_reward_receipt_after_real_threshold(self):
         from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession
 

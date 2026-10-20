@@ -35,6 +35,21 @@ bindings. See `apps/rpg/tests/test_catalog_consumers.py`.
 
 ## Automatic goal tracking
 
+Canonical system offers exclude superseded definitions and unresolved same-name
+conflicts. Supersession preserves all saved history and accepted reward promises;
+only future duplicate enrollment/repeat windows stop. Use the shared query helpers
+for new offers and equivalent definition identities for legacy completion guards.
+The reconciliation migration never replays activity or pays rewards.
+
+`QuestDefinition.is_cooperative` marks catalog offers that require parent
+assignment to at least two same-family children. They use the existing shared
+`Quest`/`QuestParticipant` engine, never new individual automatic enrollment or
+solo starts. Existing personal windows remain accepted. Any saved nonrepeatable
+personal version prevents a second shared assignment, even if unpaid/expired,
+because late approval can still fulfill its promise. Repeatable personal windows
+must end before a co-op start.
+React exposes this assignment under Family challenges and retains server errors.
+
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
 - `ChallengeGoal` stores a personal catalog or parent-authored goal. Its private `is_catalog` origin survives a deleted template; the optional `catalog_definition` uses `SET_NULL`. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise, including catalog name/type metadata for saved catalog history.
 - `ChallengeActivity` records a durable source identity and safe context; `ChallengeContribution` credits a source once per occurrence. Private journal prose never belongs in this context.

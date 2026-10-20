@@ -9,6 +9,37 @@ Named and collection-quest badges require completion of the real catalog
 challenge. A parent goal's title or measurement does not grant those badges or
 unlock a catalog storyline.
 
+## Canonical offers and family challenges
+
+System templates with the same name and identical activity rules, periods and
+rewards are reconciled to one canonical definition. Superseded definitions stay
+in the database for saved promises and history; new offers use the canonical
+definition. Conflicting same-name system rules are withheld from new enrollment
+and reported by the catalog audit until reconciled. Parent-authored templates
+retain their separate household identity.
+
+Reconciliation never removes paid receipts, contributions or accepted windows.
+If only a superseded personal goal exists, its identity and saved promises move
+to the canonical definition. If both exist, their already accepted windows remain
+payable, while the superseded goal cannot create another repeat window. Legacy
+completion and active-window guards consider equivalent definition identities.
+There is no retroactive reward clawback or activity replay.
+
+An explicitly cooperative catalog definition requires a parent to choose at
+least two children from the same family under Family challenges. The resulting
+saved campaign has one shared progress total and uses the existing co-op payout
+rules: every assigned participant receives the full accepted completion reward.
+Cooperative templates do not create new individual automatic goals or enter a
+single-child Progression Lab forecast. Existing individual promises keep their
+accepted windows. Any accepted individual version of a nonrepeatable challenge
+prevents a second shared assignment, including an expired unpaid version: a late
+approval can still fulfill that original promise. For repeatable definitions,
+new shared assignments wait for accepted individual windows to end.
+
+MCP parent goal preview and creation accept Daily Reading Adventures through the
+same count rule as REST. A saved daily reading reward is the source identity;
+extra sessions and retries do not add another daily contribution.
+
 ## Activity, periods and rewards
 
 Use the original activity date to assign challenge progress to a period. Parent approval

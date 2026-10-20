@@ -224,6 +224,8 @@ export const reconcileGreenlightCsv = (payload) =>
 export const getItemCatalog = () => api.get('/items/catalog/');
 export const getPetSpeciesCatalog = () => api.get('/pets/species/catalog/');
 export const getQuestCatalog = () => api.get('/quests/catalog/');
+export const startCoOpQuest = (id, userIds, options) =>
+  withParentReviewRefresh(api.post(`/quests/${id}/co-op/`, { user_ids: userIds }, options));
 
 // Achievements
 export const getBadges = () => api.get('/badges/');

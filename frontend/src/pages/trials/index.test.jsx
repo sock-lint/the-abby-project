@@ -22,6 +22,36 @@ function renderGoals({ goals = [buildChallengeGoal()], pin = null, role = 'child
 }
 
 describe('Automatic challenges', () => {
+  it('assigns a catalog family challenge to the verified children and refreshes their shared goal', async () => {
+    let assigned = false;
+    const shared = buildChallengeGoal({ id: 'legacy:51', name: 'Family workshop', origin: 'legacy', legacy: true, unit: 'actions', action: null });
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())),
+      http.get('*/api/children/', () => HttpResponse.json([buildUser({ id: 7, display_name: 'Abby' }), buildUser({ id: 8, display_name: 'Beck' })])),
+      http.get('*/api/quests/catalog/', () => HttpResponse.json([{ id: 31, name: 'Family workshop', description: 'Build together.', is_cooperative: true, catalog_available: true, quest_type: 'collection', target_value: 5, duration_days: 7, coin_reward: 20, xp_reward: 40, reward_items: [] }])),
+      http.get('*/api/challenges/', () => HttpResponse.json({ results: assigned ? [shared] : [], pin: null, daily_bonus: null })),
+    );
+    const assign = spyHandler('post', /\/api\/quests\/31\/co-op\/$/, () => { assigned = true; return { id: 51 }; });
+    server.use(assign.handler);
+    const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials&child=7' });
+    await user.click(await screen.findByRole('button', { name: 'Family challenges' }));
+    const dialog = screen.getByRole('dialog', { name: 'Assign a family challenge' });
+    await selectDropdown(user, await within(dialog).findByLabelText('Family challenge'), '31');
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Abby' }));
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Beck' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Assign family challenge' }));
+    await waitFor(() => expect(assign.calls).toHaveLength(1));
+    expect(assign.calls[0].url).toMatch(/\/api\/quests\/31\/co-op\/$/);
+    expect(assign.calls[0].body).toEqual({ user_ids: [7, 8] });
+    expect(await screen.findByRole('article', { name: 'Family workshop' })).toBeInTheDocument();
+  });
+
+  it('keeps family challenge assignment out of the child workspace', async () => {
+    renderGoals();
+    await screen.findByRole('article', { name: 'Run 2 miles this week' });
+    expect(screen.queryByRole('button', { name: 'Family challenges' })).not.toBeInTheDocument();
+  });
+
   it('records only mounted child catalog details and keeps prose visible while confirmation is pending', async () => {
     const goal = buildChallengeGoal({ origin: 'catalog', catalog_repeatable: false, first_details_opened_at: null, progress: '0' });
     let finish;

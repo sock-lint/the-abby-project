@@ -35,12 +35,21 @@ class QuestDefinition(TimestampedModel):
     xp_reward = models.PositiveIntegerField(default=0)
     is_repeatable = models.BooleanField(default=False)
     is_system = models.BooleanField(default=False)
+    is_cooperative = models.BooleanField(
+        default=False,
+        help_text="A parent assigns this shared challenge to at least two children.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="created_quests",
+    )
+    superseded_by = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, editable=False,
+        related_name="retained_aliases",
+        help_text="Retained duplicate identity; only its canonical definition is offered for new acceptance.",
     )
 
     class Meta:

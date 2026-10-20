@@ -368,6 +368,7 @@ export const handlers = [
   http.get('*/api/challenges/daily/', () => HttpResponse.json(null)),
   http.get('*/api/quests/available/', empty),
   http.post('*/api/quests/start/', ok),
+  http.post('*/api/quests/:id/co-op/', ok),
   http.get('*/api/quests/history/', empty),
   http.post('*/api/quests/', ok),
   http.post(/\/api\/quests\/\d+\/assign\/$/, ok),

@@ -1,5 +1,15 @@
 # Shared API response fixtures
 
+`challenge-family-assigned.json` and `challenges-family-completed.json` bind
+parent assignment to a real shared campaign. The producer checks the parent's
+catalog `is_cooperative` flag, assigns two same-family children, and approves ten
+real chores per child toward one 20-action target. Saved participants retain
+their separate ten-action contributions. It independently verifies each child's
+actual Coin/skill XP award once; the legacy response retains its truthful
+unavailable historical receipt shape. The existing challenge React consumer
+checks the exact assignment request and the shared completed goal. Catalog and
+nested quest responses expose additive `is_cooperative` for this distinction.
+
 `journal-created.json`, `journal-replayed.json`, `journal-today.json` and
 `journal-edited.json` bind the Today capture and Memories journal to the same
 saved entry and measured reward receipt. Journal receipts add whole-number
@@ -169,6 +179,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `printing-cancel-refunded.json` | Cancellation before the first job returns the exact charge once |
 | `printing-exchange-invalid.json`, `printing-request-not-owned.json` | Caller-supplied prices/accounts and another family's request are rejected without spending |
 | `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
+| `challenge-family-assigned.json`, `challenges-family-completed.json` | Parent catalog mode and real co-op assignment to two family children, then ten approved chores each toward one shared target; producer verifies the full reward once per child, while retained legacy history keeps its explicit unavailable receipt marker |
 | `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
 | `challenges-origins.json` | Same list endpoint; parent, retired catalog and saved legacy goals retain distinct server-owned origins despite identical names |
 | `challenge-pinned.json`, `challenge-unpinned.json` | `POST`/`DELETE /api/challenges/goal:1/pin/`; self-scoped presentation preference, without progress or rewards |

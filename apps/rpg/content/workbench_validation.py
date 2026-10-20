@@ -17,7 +17,7 @@ ITEM_FIELDS = {"name", "description", "icon", "sprite_key", "rarity", "coin_valu
 ITEM_BEHAVIOR_FIELDS = {"rarity", "coin_value", "metadata"}
 NEW_ITEM_FIELDS = ITEM_FIELDS | {"slug", "item_type", "food_species_id"}
 QUEST_FIELDS = {"name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days",
-                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "required_badge", "reward_items", "skill_tags"}
+                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "is_cooperative", "required_badge", "reward_items", "skill_tags"}
 CREATE_ITEM_TYPES = set(ItemDefinition.ItemType.values) - {"egg", "potion"}
 MODELS = {"items": ItemDefinition, "quests": QuestDefinition}
 
@@ -98,8 +98,9 @@ def _validate_values(section, values, *, new):
             whole_number(values[field], field, minimum, maximum)
     if "rarity" in values and values["rarity"] not in ItemDefinition.Rarity.values:
         raise ContentPackError("Unknown rarity.")
-    if "is_repeatable" in values and type(values["is_repeatable"]) is not bool:
-        raise ContentPackError("is_repeatable must be a boolean.")
+    for field in ("is_repeatable", "is_cooperative"):
+        if field in values and type(values[field]) is not bool:
+            raise ContentPackError(f"{field} must be a boolean.")
     if "quest_type" in values and values["quest_type"] not in QuestDefinition.QuestType.values:
         raise ContentPackError("Unknown quest_type.")
     if section == "items":

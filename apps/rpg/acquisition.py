@@ -12,7 +12,8 @@ def sources_for_request(request):
         return request._rpg_acquisition_sources
     from apps.achievements.models import UserBadge
     from apps.quests.goals import ACTION_PATHS, FACT_TRIGGERS, TRIGGER_LABELS
-    from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestRewardItem
+    from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestRewardItem
+    from apps.quests.queries import active_system_definitions
     from apps.rewards.models import Reward
     from .models import CharacterProfile, DropTable
 
@@ -27,7 +28,7 @@ def sources_for_request(request):
         participants__user=user, status="completed", definition__is_repeatable=False,
     ).values_list("definition_id", flat=True))
     now = timezone.now()
-    saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).prefetch_related(
+    saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).select_related("catalog_definition").prefetch_related(
         Prefetch("occurrences", queryset=ChallengeOccurrence.objects.filter(
             starts_at__lte=now, ends_at__gt=now,
         ), to_attr="current_windows"),
@@ -38,6 +39,11 @@ def sources_for_request(request):
                 or (goal.ends_at <= now and not goal.repeat_days and not goal.repeat_weekly)):
             continue
         current = goal.current_windows[0] if goal.current_windows else None
+        if current is None and goal.catalog_definition_id and (
+            goal.catalog_definition.superseded_by_id or goal.catalog_definition.is_cooperative
+        ):
+            # Retained personal promises do not advertise a future retired cycle.
+            continue
         if current is not None and current.status != "active":
             continue
         promised = current.snapshot.get("items", []) if current is not None else goal.reward_items
@@ -53,9 +59,17 @@ def sources_for_request(request):
         for reward in accepted_reward_items(quest):
             result[reward.item_id].append({"kind": "challenge", "name": quest.definition.name, "path": "/quests?tab=trials"})
 
+    canonical_ids = dict(QuestDefinition.objects.filter(
+        pk__in=accepted_definitions | completed_definitions,
+    ).values_list("pk", "superseded_by_id"))
+    accepted_definitions |= {canonical_ids.get(pk) or pk for pk in accepted_definitions}
+    completed_definitions |= {canonical_ids.get(pk) or pk for pk in completed_definitions}
+
     # Only public system challenges belong in global item hints. Private
     # parent-authored goal names are never exposed through another household.
-    rewards = QuestRewardItem.objects.filter(quest_definition__is_system=True).select_related(
+    rewards = QuestRewardItem.objects.filter(
+        quest_definition__in=active_system_definitions().filter(is_cooperative=False),
+    ).select_related(
         "quest_definition",
     ).order_by("quest_definition__name", "pk")
     for reward in rewards:
