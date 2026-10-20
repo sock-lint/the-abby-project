@@ -55,7 +55,8 @@ def retire_unused_catalog_once():
 
     The surrounding bundled-load transaction also owns this completion marker,
     so previews and later loading failures cannot consume the transition.
-    Explicit retirement commands remain available for operator-reviewed retries.
+    Explicit retirement commands remain available for operator-reviewed retries
+    and record the same marker when they succeed.
     """
     from django.utils import timezone
     from .models import RPGContentRetirement
@@ -67,6 +68,25 @@ def retire_unused_catalog_once():
     report = retire_unused_catalog()
     marker.applied_at = timezone.now()
     marker.save(update_fields=["applied_at"])
+    return report
+
+
+@transaction.atomic
+def retire_unused_catalog_explicitly():
+    """Apply the strict operator retry and complete the one-time transition.
+
+    Without the marker, every later default startup would repeat the cleanup
+    and delete content re-authored with an exact retired identity.
+    """
+    from django.utils import timezone
+    from .models import RPGContentRetirement
+
+    report = retire_unused_catalog()
+    marker, _ = RPGContentRetirement.objects.get_or_create(key=RETIREMENT_KEY)
+    marker = RPGContentRetirement.objects.select_for_update().get(pk=marker.pk)
+    if marker.applied_at is None:
+        marker.applied_at = timezone.now()
+        marker.save(update_fields=["applied_at"])
     return report
 
 

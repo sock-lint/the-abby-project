@@ -175,7 +175,9 @@ python manage.py retire_unused_rpg_content --dry-run --json
 ```
 
 Without `--dry-run`, the explicit command applies the exact cleanup or fails on
-a conflict; it does not use startup's warn-and-continue behavior. It does not
+a conflict; it does not use startup's warn-and-continue behavior. A successful
+run records the same one-time completion marker, so later default startups
+skip the retirement instead of deleting newly authored content. It does not
 remove `SpriteAsset` records, local artwork or stored image objects. Generic
 prepared-art registration and rendering remain available for newly authored
 content. The Content Catalog no longer exposes its obsolete Sprites section.

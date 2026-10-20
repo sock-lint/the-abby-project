@@ -290,6 +290,7 @@ content. Explicit custom-pack loads do not run it. Changed identity, protected
 reference or resource-validation conflicts roll back the entire retirement
 savepoint, emit a warning and continue ordinary bundled loading without a
 success marker. The standalone `retire_unused_rpg_content` command is strict;
+a successful non-dry run records the same marker, so later startups skip it.
 `--dry-run --json` previews exact catalog/dependent IDs, cascades and settlements.
 
 Before removing obsolete ownership and receipts, `retirement_resources.py`

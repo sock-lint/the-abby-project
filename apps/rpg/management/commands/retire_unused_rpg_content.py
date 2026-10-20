@@ -3,7 +3,9 @@ import json
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog, retirement_summary
+from apps.rpg.retired_catalog import (
+    RetiredCatalogCollision, retire_unused_catalog, retire_unused_catalog_explicitly, retirement_summary,
+)
 from apps.rpg.retirement_resources import RetirementResourceError
 
 
@@ -16,7 +18,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         try:
-            report = retire_unused_catalog(dry_run=options["dry_run"])
+            if options["dry_run"]:
+                report = retire_unused_catalog(dry_run=True)
+            else:
+                report = retire_unused_catalog_explicitly()
         except (RetiredCatalogCollision, RetirementResourceError) as exc:
             raise CommandError(str(exc)) from exc
         if options["json"]:

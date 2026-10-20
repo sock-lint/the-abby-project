@@ -244,3 +244,43 @@ class RetirementStartupTests(TestCase):
         self.load_default()
         self.assertFalse(ItemDefinition.objects.filter(pk=item.pk).exists())
         self.assertEqual(PetSpecies.objects.count(), 15)
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class ExplicitRetirementMarkerTests(TestCase):
+    def accessory(self):
+        return ItemDefinition.objects.create(
+            slug="accessory-party-hat", name="Party Hat", icon="H",
+            item_type="cosmetic_pet_accessory",
+        )
+
+    def marker_applied(self):
+        from apps.rpg.models import RPGContentRetirement
+        return RPGContentRetirement.objects.filter(applied_at__isnull=False).exists()
+
+    def test_explicit_retry_completes_the_transition_for_later_startups(self):
+        original = self.accessory()
+        call_command("retire_unused_rpg_content", stdout=StringIO())
+        self.assertFalse(ItemDefinition.objects.filter(pk=original.pk).exists())
+        self.assertTrue(self.marker_applied())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "items.yaml").write_text(
+                "items:\n  - slug: accessory-party-hat\n    name: Party Hat\n"
+                "    icon: H\n    item_type: cosmetic_pet_accessory\n"
+                "    description: Explicitly authored after an operator retry.\n",
+                encoding="utf-8",
+            )
+            ContentPack(path).load(stdout=StringIO())
+        authored = ItemDefinition.objects.get(slug="accessory-party-hat")
+        before = ItemDefinition.objects.values().get(pk=authored.pk)
+
+        call_command("loadrpgcontent", stdout=StringIO(), stderr=StringIO())
+
+        self.assertEqual(ItemDefinition.objects.values().get(pk=authored.pk), before)
+
+    def test_explicit_dry_run_does_not_complete_the_transition(self):
+        item = self.accessory()
+        call_command("retire_unused_rpg_content", "--dry-run", stdout=StringIO())
+        self.assertTrue(ItemDefinition.objects.filter(pk=item.pk).exists())
+        self.assertFalse(self.marker_applied())
