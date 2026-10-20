@@ -22,6 +22,7 @@ describe('Content workbench shared API contract', () => {
     expect(response).toEqual(catalog);
     expect(calls).toEqual([{ path: '/api/rpg/content-workbench/', auth: 'Token test-session' }]);
     const item = response.catalog.items[0];
+    expect(item.effect_summary).toBe('Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.');
     const quest = response.catalog.quests[0];
     expect(quest.values.reward_items).toEqual([{ item_id: item.id, quantity: 1 }]);
     expect(item.used_by.quests).toEqual([{ id: quest.id, name: quest.name, quantity: 1 }]);

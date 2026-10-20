@@ -30,6 +30,7 @@ from apps.rpg import services as rpg
 from apps.rpg.catalog_support import item_is_available
 from apps.rpg.companion_catalog import companion_drop_weights
 from apps.rpg.constants import TriggerType
+from apps.rpg import rarity
 from apps.rpg.models import DropTable
 from apps.timecards.services import ClockService
 
@@ -70,7 +71,9 @@ def economy_rules():
             "streak_bonus_per_day": rpg.STREAK_DROP_BONUS_PER_DAY,
             "streak_bonus_cap": rpg.STREAK_DROP_BONUS_CAP,
             "effective_rate_cap": 1.0,
-            "eligibility": "Source-owned opportunity gates, fixed character level, supported acquisition policy, then companion_drop_weights. No eligible entries means no item.",
+            "rarity_budgets": {"ordinary": dict(rarity.BASE_TIER_WEIGHTS), "accomplishment": dict(rarity.ACCOMPLISHMENT_TIER_WEIGHTS)},
+            "accomplishment_triggers": sorted(rarity.ACCOMPLISHMENT_TRIGGERS),
+            "eligibility": "Source-owned opportunity gates, fixed character level, supported acquisition policy, companion category weights, then runtime rarity-tier balancing. Anonymous previews assume no owned cosmetics. No eligible entries means no item.",
         },
         "reading": {
             "target_minutes": ReadingRewardService.TARGET_MINUTES,
@@ -293,7 +296,8 @@ def _drop_pools(level, triggers):
     for trigger in sorted(triggers):
         authored = [entry for entry in entries if entry.trigger_type == trigger]
         eligible = [entry for entry in authored if item_is_available(entry.item)]
-        weights = companion_drop_weights(eligible)
+        budgets = rarity.ACCOMPLISHMENT_TIER_WEIGHTS if trigger in rarity.ACCOMPLISHMENT_TRIGGERS else rarity.BASE_TIER_WEIGHTS
+        weights = rarity.tier_balanced_weights(eligible, budgets, authored_weights=companion_drop_weights(eligible))
         if any(not math.isfinite(float(weight)) or weight < 0 for weight in weights):
             raise MCPValidationError("The drop catalog contains invalid effective weights.")
         total = sum(weights)
@@ -413,7 +417,7 @@ def preview_scenarios(scenarios):
             "Selected boosts remain active throughout the horizon. XP/coin multipliers do not stack with themselves; check-in adjustments are not Lucky Coin eligible.",
             "starting_streak assumes activity yesterday. An inactive modeled day breaks the streak before the next qualifying activity; fixed character level determines every drop pool. XP does not change drop eligibility in this preview.",
             "Reading requires genuinely new present-day minutes. Reading XP requires the existing Reading Comprehension skill. Creations assume valid selected creative skills; movement/chore XP assumes valid skills with the supplied anonymous weights.",
-            "All successful source and game-loop steps complete. Drop expectations use current supported catalog eligibility and companion category weights; no RNG is executed.",
+            "All successful source and game-loop steps complete. Drop expectations use current supported catalog eligibility, companion category weights and runtime rarity budgets; no owned cosmetics or RNG is executed.",
         ],
         "conditional_rewards_excluded": [
             "Badges, unsupplied modern goal rewards, daily bonuses, legacy quests, perfect-day completion, companion growth/expeditions, creation parent bonuses, birthdays, purchases, exchanges, consumable use and ownership-dependent salvage. A supplied automatic challenge is an assumed conditional payout, not evaluated goal progress.",

@@ -304,7 +304,8 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     """Merge a batch of YAML entries into a pack file.
 
     Parses the existing file (creating it if absent), combines the new
-    rows with the old ones, dedupes by natural key (``slug`` for items /
+    rows with the old ones, dedupes by stable ``id`` for named entities
+    where supplied, otherwise their natural key (``slug`` for items /
     pet_species / potion_types, ``name`` for badges / quests / rewards)
     with last-write-wins semantics — matching the loader's upsert — and
     writes the merged YAML back through the same safety rails as
@@ -332,7 +333,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"entries[{i}] must be a mapping, got {type(entry).__name__}.",
             )
-        if natural_key not in entry or not entry[natural_key]:
+        if not isinstance(entry.get(natural_key), str) or not entry[natural_key].strip():
             raise MCPValidationError(
                 f"entries[{i}] is missing required field "
                 f"{natural_key!r} (the natural key for "
@@ -362,27 +363,41 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
             )
         existing = [e for e in raw_existing if isinstance(e, dict)]
 
-    # Last-write-wins dedup by natural key. Preserve order: existing rows
+    # Match the loader's stable IDs for named entities. Slug-owned items,
+    # species and potions retain their existing natural-key identities.
+    stable_ids = natural_key == "name"
+
+    def identity(entry):
+        if stable_ids and "id" in entry:
+            value = entry["id"]
+            if not isinstance(value, str) or not value or len(value) > 150:
+                raise MCPValidationError("Entry id must be nonempty text of at most 150 characters.")
+            return "id", value
+        value = entry.get(natural_key)
+        if not isinstance(value, str) or not value.strip():
+            raise MCPValidationError(f"Every entry requires a nonempty {natural_key}.")
+        return natural_key, value
+
+    # Last-write-wins dedup by identity. Preserve order: existing rows
     # first (with their key unchanged), new/updated rows added or replacing
     # in place.
     by_key: dict[Any, dict] = {}
     order: list[Any] = []
     for entry in existing:
-        key = entry.get(natural_key)
-        if key is None:
-            # Skip rows without a natural key — the loader would reject
-            # them anyway, and they'd create ambiguous merges here.
-            continue
+        key = identity(entry)
         if key not in by_key:
             order.append(key)
         by_key[key] = entry
     for entry in params.entries:
-        key = entry[natural_key]
+        key = identity(entry)
         if key not in by_key:
             order.append(key)
         by_key[key] = entry
 
     merged = [by_key[k] for k in order]
+    names = [entry[natural_key] for entry in merged]
+    if len(names) != len(set(names)):
+        raise MCPValidationError("Competing entry identities use the same natural key; reconcile them before writing.")
     doc = {top_key: merged}
     yaml_content = yaml.safe_dump(
         doc,

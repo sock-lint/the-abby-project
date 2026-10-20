@@ -1120,3 +1120,7 @@ awards. Notebook control/candidate reports share a single immutable incubation
 snapshot with their rule binding. Real setting drift marks historical evidence
 stale and blocks decisions without replacing saved report bodies. The quota,
 commitment and incubation fixtures are regenerated together against that model.
+
+The content-workbench item catalog includes read-only `effect_summary`, shared
+with authoritative item calculations. Its real Django producer and React consumer
+pin the rarity floor and preferred-food explanation alongside saved identity.

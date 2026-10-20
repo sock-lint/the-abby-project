@@ -3,7 +3,7 @@
 Staff parents open **Manage → Admin → RPG content** to manage global challenge
 and item definitions. This combines the catalog and publication services from
 the MCP authoring work with Progression Lab's anonymous new-child simulator.
-Ordinary parents and children cannot edit the global catalog.
+Ordinary parents and children cannot edit the global catalog. MCP exposes the same revisioned draft, preview, simulation and publication services; its catalog references omit family shop usage.
 
 ## Edit, evaluate and publish
 

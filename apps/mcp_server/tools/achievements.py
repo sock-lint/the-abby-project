@@ -1,9 +1,10 @@
 """Achievement-related MCP tools (skill categories, skills, tree, badges)."""
 from __future__ import annotations
 
+from functools import wraps
 from typing import Any
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 
 from apps.achievements.models import (
@@ -15,6 +16,11 @@ from apps.achievements.models import (
 )
 from apps.achievements.services import SkillService
 from apps.achievements.models import SkillCategory
+from apps.rpg.content.authoring import (
+    direct_catalog_write, natural_lookup, record_direct_override,
+    require_catalog_ownership, validate_catalog_object, validate_skill_prerequisites,
+)
+from apps.rpg.content.loader import ContentPackError
 
 from ..context import get_current_user, resolve_target_user, require_staff_parent
 from ..errors import (
@@ -142,8 +148,47 @@ def _subject_to_dict(subject: Subject) -> dict[str, Any]:
 # ---- Category ------------------------------------------------------------
 
 
+def _direct_authoring(function):
+    """Give legacy direct tools the same catalog fence and durable ownership."""
+    models = {"category": SkillCategory, "subject": Subject, "skill": Skill, "badge": Badge}
+    if function.__name__ in {"add_skill_prerequisite", "remove_skill_prerequisite"}:
+        kind, creating = "skill", False
+    else:
+        action, kind = function.__name__.split("_", 1)
+        creating = action == "create"
+    model = models[kind]
+
+    @wraps(function)
+    def wrapped(params):
+        actor = require_staff_parent()
+        try:
+            with direct_catalog_write(actor) as fresh_actor:
+                original, before = None, None
+                if not creating:
+                    original = model.objects.filter(pk=getattr(params, f"{kind}_id")).first()
+                    if original is not None:
+                        require_catalog_ownership(fresh_actor, original)
+                        before = natural_lookup(original)
+                result = function(params)
+                result_id = result["id"] if creating else original.pk if original is not None else None
+                current = model.objects.filter(pk=result_id).first()
+                if current is not None:
+                    validate_catalog_object(current)
+                    if kind == "skill":
+                        validate_skill_prerequisites(current)
+                    record_direct_override(fresh_actor, current, before or natural_lookup(current))
+                return result
+        except ContentPackError as error:
+            raise MCPValidationError(str(error)) from error
+        except IntegrityError as error:
+            raise MCPValidationError("The catalog update conflicts with an existing name or prerequisite.") from error
+
+    return wrapped
+
+
 @tool()
 @safe_tool
+@_direct_authoring
 def create_category(params: CreateCategoryIn) -> dict[str, Any]:
     """Create a new skill category (staff-parent-only)."""
     require_staff_parent()
@@ -151,17 +196,20 @@ def create_category(params: CreateCategoryIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"A category named {params.name!r} already exists.",
         )
-    category = SkillCategory.objects.create(
+    category = SkillCategory(
         name=params.name,
         icon=params.icon,
         color=params.color,
         description=params.description,
     )
+    validate_catalog_object(category)
+    category.save()
     return skill_category_to_dict(category)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def update_category(params: UpdateCategoryIn) -> dict[str, Any]:
     """Edit a skill category (staff-parent-only)."""
     require_staff_parent()
@@ -178,12 +226,14 @@ def update_category(params: UpdateCategoryIn) -> dict[str, Any]:
         )
     for field, value in data.items():
         setattr(category, field, value)
+    validate_catalog_object(category)
     category.save()
     return skill_category_to_dict(category)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def delete_category(params: DeleteCategoryIn) -> dict[str, Any]:
     """Delete a skill category. Cascades to subjects, skills, and dependent rows.
 
@@ -205,6 +255,7 @@ def delete_category(params: DeleteCategoryIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_direct_authoring
 def create_subject(params: CreateSubjectIn) -> dict[str, Any]:
     """Create a subject inside a category (staff-parent-only).
 
@@ -223,18 +274,21 @@ def create_subject(params: CreateSubjectIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"Subject {params.name!r} already exists in this category.",
         )
-    subject = Subject.objects.create(
+    subject = Subject(
         category=category,
         name=params.name,
         description=params.description,
         icon=params.icon,
         order=params.order,
     )
+    validate_catalog_object(subject)
+    subject.save()
     return _subject_to_dict(subject)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def update_subject(params: UpdateSubjectIn) -> dict[str, Any]:
     """Edit a subject (staff-parent-only)."""
     require_staff_parent()
@@ -253,12 +307,14 @@ def update_subject(params: UpdateSubjectIn) -> dict[str, Any]:
         del data["category_id"]
     for field, value in data.items():
         setattr(subject, field, value)
+    validate_catalog_object(subject)
     subject.save()
     return _subject_to_dict(subject)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def delete_subject(params: DeleteSubjectIn) -> dict[str, Any]:
     """Delete a subject. Skills in it keep their category but lose the subject FK (SET_NULL). Parent-only."""
     require_staff_parent()
@@ -276,6 +332,7 @@ def delete_subject(params: DeleteSubjectIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_direct_authoring
 def create_skill(params: CreateSkillIn) -> dict[str, Any]:
     """Create a skill inside a category/subject (staff-parent-only).
 
@@ -302,7 +359,7 @@ def create_skill(params: CreateSkillIn) -> dict[str, Any]:
             f"Skill {params.name!r} already exists in this category.",
         )
     with transaction.atomic():
-        skill = Skill.objects.create(
+        skill = Skill(
             category=category,
             subject=subject,
             name=params.name,
@@ -312,6 +369,8 @@ def create_skill(params: CreateSkillIn) -> dict[str, Any]:
             is_locked_by_default=params.is_locked_by_default,
             order=params.order,
         )
+        validate_catalog_object(skill)
+        skill.save()
         if params.prerequisites:
             prereq_ids = [p.required_skill_id for p in params.prerequisites]
             known = set(
@@ -335,6 +394,7 @@ def create_skill(params: CreateSkillIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_direct_authoring
 def update_skill(params: UpdateSkillIn) -> dict[str, Any]:
     """Edit a skill (staff-parent-only).
 
@@ -370,12 +430,14 @@ def update_skill(params: UpdateSkillIn) -> dict[str, Any]:
             )
     for field, value in data.items():
         setattr(skill, field, value)
+    validate_catalog_object(skill)
     skill.save()
     return skill_to_dict(skill)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def delete_skill(params: DeleteSkillIn) -> dict[str, Any]:
     """Delete a skill (staff-parent-only). Cascades to SkillPrerequisite + SkillProgress + tags."""
     require_staff_parent()
@@ -390,6 +452,7 @@ def delete_skill(params: DeleteSkillIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_direct_authoring
 def add_skill_prerequisite(params: AddSkillPrerequisiteIn) -> dict[str, Any]:
     """Add a prerequisite to a skill (staff-parent-only).
 
@@ -421,6 +484,7 @@ def add_skill_prerequisite(params: AddSkillPrerequisiteIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_direct_authoring
 def remove_skill_prerequisite(params: RemoveSkillPrerequisiteIn) -> dict[str, Any]:
     """Remove a prerequisite edge from the skill graph (staff-parent-only)."""
     require_staff_parent()
@@ -442,11 +506,12 @@ def remove_skill_prerequisite(params: RemoveSkillPrerequisiteIn) -> dict[str, An
 
 @tool()
 @safe_tool
+@_direct_authoring
 def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
     """Create a badge with a criteria rule (staff-parent-only).
 
-    ``criteria_type`` is one of the 17 evaluator types — see the
-    ``BadgeCriteriaType`` enum. ``criteria_value`` is a JSON dict whose
+    ``criteria_type`` uses the complete runtime criterion vocabulary.
+    ``criteria_value`` is a JSON dict whose
     shape depends on the type (e.g. ``{"count": 5}`` for
     ``projects_completed``, ``{"category_id": 3, "count": 3}`` for
     ``category_projects``).
@@ -462,7 +527,7 @@ def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"subject_id {params.subject_id} does not match any subject.",
             )
-    badge = Badge.objects.create(
+    badge = Badge(
         name=params.name,
         description=params.description,
         icon=params.icon,
@@ -471,12 +536,16 @@ def create_badge(params: CreateBadgeIn) -> dict[str, Any]:
         criteria_value=params.criteria_value,
         xp_bonus=params.xp_bonus,
         rarity=params.rarity,
+        award_coins=params.award_coins,
     )
+    validate_catalog_object(badge)
+    badge.save()
     return badge_to_dict(badge)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def update_badge(params: UpdateBadgeIn) -> dict[str, Any]:
     """Edit a badge (staff-parent-only)."""
     require_staff_parent()
@@ -505,12 +574,14 @@ def update_badge(params: UpdateBadgeIn) -> dict[str, Any]:
         )
     for field, value in data.items():
         setattr(badge, field, value)
+    validate_catalog_object(badge)
     badge.save()
     return badge_to_dict(badge)
 
 
 @tool()
 @safe_tool
+@_direct_authoring
 def delete_badge(params: DeleteBadgeIn) -> dict[str, Any]:
     """Delete a badge definition. UserBadge rows referencing it cascade. Parent-only."""
     require_staff_parent()

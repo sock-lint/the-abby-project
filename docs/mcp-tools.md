@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 228 tools across 31 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
+> **Total: 263 tools across 36 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -52,7 +52,7 @@ explicit OAuth reconnection. Initialization instructions point clients there.
 ## Result and continuation contracts
 
 Changed project/payment history, project create/detail, payment mutations,
-movement log/detail, redemption, catalog reads and the four reading tools expose
+movement log/detail, redemption, catalog reads reading, content workbench, editorial and RPG management tools expose
 concrete result fields through `outputSchema`. Other tools retain their existing
 contracts; this does not make all registered results fully typed. Wire tool
 failures set `isError: true` and return matching text JSON and
@@ -136,6 +136,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `timecards` | 9 |
 | `users` | 3 |
 
+
 ## achievements
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -160,6 +161,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `update_skill` | `mcp:publish` | No | Required | Edit a skill (staff-parent-only). |
 | `update_subject` | `mcp:publish` | No | Required | Edit a subject (staff-parent-only). |
 
+
 ## asset_proposals
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -172,12 +174,14 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `review_asset_proposal` | `mcp:author` | No | Required | Mark a reviewed exact brief ready for external production, or cancel it. |
 | `update_asset_proposal` | `mcp:author` | No | Required | Replace a brief at an expected revision; changes reset its ready review. |
 
+
 ## catalog
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `audit_rpg_catalog` | `mcp:catalog` | Yes | — | Inspect one bounded catalog page without modifying rules or player state. |
 | `read_rpg_catalog` | `mcp:catalog` | Yes | — | Read one global section in primary-key order with a stable after cursor. |
+
 
 ## challenges
 
@@ -189,19 +193,21 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `preview_challenge_goal` | `mcp:read` | Yes | — | Validate a parent goal without creating records or computing an award. |
 | `unpin_challenge` | `mcp:write` | No | — | Clear a matching saved pin; progress, periods and reward promises stay intact. |
 
+
 ## chores
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `approve_chore_completion` | `mcp:write` | No | Required | Approve a pending chore completion (parent-only). Awards money and coins. |
 | `complete_chore` | `mcp:write` | No | — | Mark a chore as done (creates a pending completion for parent approval). |
-| `create_chore` | `mcp:write` | No | — | Create a new chore (parent-only). |
+| `create_chore` | `mcp:write` | No | — | Create a chore with the web workflow's reward and schedule validation. |
 | `get_chore` | `mcp:read` | Yes | — | Get details for a single chore (family-scoped). |
 | `list_chore_completions` | `mcp:read` | Yes | — | List chore completions. Parents see all; children see their own. |
 | `list_chores` | `mcp:read` | Yes | — | List chores. Parents see all in their family; children see assigned + unassigned active chores in their family with today's availability. |
 | `reject_chore_completion` | `mcp:write` | No | Required | Reject a pending chore completion (parent-only). |
 | `set_chore_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a chore (parent-only). |
 | `update_chore` | `mcp:write` | No | Required | Update an existing chore (parent-only, same-family). |
+
 
 ## chronicle
 
@@ -217,6 +223,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `update_journal` | `mcp:write` | No | Required | Edit today's journal entry. Locked to owner; 403 after midnight. |
 | `update_manual_entry` | `mcp:write` | No | Required | Edit a manual chronicle entry (parent-only, MANUAL-kind only). |
 | `write_journal` | `mcp:write` | No | — | Write today's journal entry (caller is always the author). |
+
 
 ## content_packs
 
@@ -236,6 +243,23 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `validate_content_pack` | `mcp:author` | No | — | Compatibility alias for preview_content_pack; returns an exact expiring plan. |
 | `write_pack_file` | `mcp:author` | No | Required | Write YAML content to ``<pack>/<filename>.yaml``. |
 
+
+## content_workbench
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_content_draft` | `mcp:author` | No | — | Create a private database draft without changing the live catalog. |
+| `get_content_draft` | `mcp:author` | Yes | — | Read one private database draft, its exact preview and saved evaluation identity. |
+| `get_content_workbench` | `mcp:catalog` | Yes | — | Read bounded global workbench references and authoring rules without household usage. |
+| `get_progression_lab` | `mcp:catalog` | Yes | — | Read global simulator rules, scenario limits and supported catalog coverage. |
+| `list_content_drafts` | `mcp:author` | Yes | — | Read only this author's same-family draft summaries, in stable UUID order. |
+| `preview_content_draft` | `mcp:author` | No | — | Validate the exact saved revision and review its changes without publishing. |
+| `publish_content_draft` | `mcp:publish` | No | Required | Publish the exact reviewed and simulated revision with explicit confirmation. |
+| `save_content_draft` | `mcp:author` | No | Required | Replace draft changes at the expected revision, invalidating its previous review. |
+| `simulate_content_draft` | `mcp:author` | No | — | Compare the reviewed draft with the baseline using one bounded anonymous scenario. |
+| `simulate_progression_scenario` | `mcp:catalog` | Yes | — | Run a bounded anonymous baseline scenario, including supported 365-day horizons. |
+
+
 ## creations
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -249,6 +273,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `reject_creation` | `mcp:write` | No | Required | Reject a Creation's bonus (parent-only). Baseline XP stays intact. |
 | `submit_creation` | `mcp:write` | No | — | Submit a Creation for parent bonus approval (owner or parent). |
 
+
 ## daily_challenges
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -256,11 +281,13 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `claim_daily_challenge` | `mcp:write` | No | — | Claim today's reward (idempotent — second claim returns already_claimed=True). |
 | `get_daily_challenge` | `mcp:write` | No | — | Return today's DailyChallenge for the user, creating one if missing. |
 
+
 ## dashboard
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `get_dashboard` | `mcp:read` | Yes | — | Return an aggregated dashboard view. |
+
 
 ## economy
 
@@ -271,6 +298,20 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_coin_ledger` | `mcp:read` | Yes | — | Read persisted Coin amounts through a signed cursor, scoped to self or an authorized same-family user. |
 | `preview_economy_scenario` | `mcp:catalog` | Yes | — | Compare up to four anonymous 31-day plans using explicit assumptions and current eligible drop pools. |
 
+
+## editorial
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_editorial_draft` | `mcp:author` | No | — | Create a private textual draft; this publishes nothing. |
+| `get_editorial_draft` | `mcp:author` | Yes | — | Read one draft and its exact saved preview/publication receipt. |
+| `list_editorial_content` | `mcp:catalog` | Yes | — | Read global Lorebook/affirmation copy, including retired affirmation IDs. |
+| `list_editorial_drafts` | `mcp:author` | Yes | — | Read only the acting author's family-bound editorial drafts. |
+| `preview_editorial_draft` | `mcp:author` | No | — | Validate exact textual changes and save a preview valid for 30 minutes. |
+| `publish_editorial_draft` | `mcp:publish` | No | Required | Publish the exact reviewed revision after explicit transport confirmation. |
+| `save_editorial_draft` | `mcp:author` | No | Required | Save a revisioned copy edit, invalidating the previous preview. |
+
+
 ## exchange
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -280,6 +321,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_exchange_requests` | `mcp:read` | Yes | — | List exchange requests. Children see their own; parents see any child. |
 | `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange (parent-only). No ledger side-effects. |
 | `request_exchange` | `mcp:write` | No | Required | Request a money → coins exchange (child self-scoped). |
+
 
 ## habits
 
@@ -292,6 +334,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `log_habit` | `mcp:write` | No | — | Tap a habit +1 (positive) or -1 (negative). |
 | `set_habit_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a habit (parent-only for other users' |
 | `update_habit` | `mcp:write` | No | Required | Edit a habit. Parent-only (mirrors REST). |
+
 
 ## homework
 
@@ -315,6 +358,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `update_homework` | `mcp:write` | No | Required | Edit fields on a homework assignment (parent-only). |
 | `update_homework_template` | `mcp:write` | No | Required | Edit a homework template (parent-only). |
 
+
 ## ingestion
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -323,6 +367,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `get_ingestion_job` | `mcp:read` | Yes | — | Fetch a single ingestion job by UUID (parent-only). |
 | `list_ingestion_jobs` | `mcp:read` | Yes | — | List the current parent's recent ingestion jobs. |
 | `submit_ingestion_job` | `mcp:write` | No | — | Create an ingestion job for an Instructables/URL source and enqueue it. |
+
 
 ## inventory
 
@@ -335,6 +380,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `unequip_cosmetic` | `mcp:write` | No | — | Clear a cosmetic slot. |
 | `use_consumable` | `mcp:write` | No | Required | Use one of a CONSUMABLE-type item. |
 
+
 ## movement
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -346,6 +392,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `log_movement_session` | `mcp:write` | No | — | Log a self-reported physical-activity session. |
 | `set_movement_type_skill_tags` | `mcp:publish` | No | Required | Replace the skill-tag fan-out on a MovementType (staff-parent-only). |
 
+
 ## notifications
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -355,6 +402,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `mark_all_notifications_read` | `mcp:write` | No | — | Bulk mark every unread notification for the caller as read. |
 | `mark_notification_read` | `mcp:write` | No | — | Mark a single notification as read. |
 
+
 ## payments
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -363,6 +411,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `get_payment_balance` | `mcp:read` | Yes | — | Return money still owed to a child, breakdown and recent entries. |
 | `list_payment_ledger` | `mcp:read` | Yes | — | Read scoped payment history, optionally filtered by entry_type/since. |
 | `record_payout` | `mcp:write` | No | Required | Confirm a completed Greenlight transfer (parent-only, same-family). |
+
 
 ## pets
 
@@ -378,6 +427,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_pets` | `mcp:read` | Yes | — | List a user's pets (children forced to self). |
 | `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to begin incubation, without creating a pet. |
 
+
 ## portfolio
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -388,6 +438,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `get_portfolio_summary` | `mcp:read` | Yes | — | Aggregate counts for a user's portfolio: projects, photos, hours. |
 | `list_portfolio_media` | `mcp:read` | Yes | — | Aggregated recent work: project photos + approved homework proofs. |
 | `list_project_photos` | `mcp:read` | Yes | — | List ProjectPhoto rows attached to a project (read-only). |
+
 
 ## projects
 
@@ -422,6 +473,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `update_resource` | `mcp:write` | No | Required | Edit a reference link (parent-only). |
 | `update_step` | `mcp:write` | No | Required | Edit a step. Parent-only. |
 
+
 ## quests
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -436,6 +488,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
 
+
 ## reading
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -444,6 +497,20 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `get_reading_summary` | `mcp:read` | Yes | — | Read saved reading totals and today's actual Reading Adventure receipt. |
 | `list_reading_books` | `mcp:read` | Yes | — | Read one child's shelf in stable ID order; follow next_after for more. |
 | `log_reading_session` | `mcp:write` | No | — | Log reading against the child's book using a stable client_request_id. |
+
+
+## reading_maintenance
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `delete_reading_book` | `mcp:write` | No | Required | Remove a confirmed shelf book only when it has no reading entries. |
+| `delete_reading_session` | `mcp:write` | No | Required | Remove a confirmed reading entry while retaining original daily credit. |
+| `get_reading_book` | `mcp:read` | Yes | — | Read one saved shelf book for the explicitly selected child or child self. |
+| `get_reading_session` | `mcp:read` | Yes | — | Read a saved reading entry, including its reflection and actual receipt. |
+| `list_reading_sessions` | `mcp:read` | Yes | — | Read a child's saved entries in newest-created order with signed pagination. |
+| `update_reading_book` | `mcp:write` | No | Required | Correct saved shelf details or status after confirming the exact changes. |
+| `update_reading_session` | `mcp:write` | No | Required | Correct saved reading details after confirming the entry and exact changes. |
+
 
 ## rewards
 
@@ -459,6 +526,30 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `request_redemption` | `mcp:write` | No | Required | Request a reward redemption on behalf of the current user. |
 | `update_reward` | `mcp:write` | No | Required | Edit an existing reward (parent-only). |
 
+
+## rpg_management
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `claim_expedition` | `mcp:write` | No | Required | Explicitly claim a ready saved expedition through its server-owned receipt. |
+| `deliver_reward_redemption` | `mcp:write` | No | Required | Parent confirms an approved real-world reward was physically handed over. |
+| `get_expedition` | `mcp:read` | Yes | — | Read a saved trip's current readiness and frozen loot, without claiming. |
+| `get_reward_redemption` | `mcp:read` | Yes | — | Read one child's saved reward promise, approval and physical-delivery state. |
+| `list_expeditions` | `mcp:read` | Yes | — | Read saved trips and frozen loot through a caller-bound history cursor. |
+| `list_reward_redemptions` | `mcp:read` | Yes | — | Read saved shop requests and their accepted promises, without approving. |
+| `retry_challenge` | `mcp:write` | No | Required | Explicitly retry one expired, unpaid personal catalog challenge. |
+| `start_expedition` | `mcp:write` | No | Required | Launch a mount once, retaining the service-owned allowance and frozen loot. |
+| `update_challenge_schedule` | `mcp:write` | No | Required | Parent-only pause/resume or edits to a recurring goal's next weekly setup. |
+
+
+## rpg_rules
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `explain_rpg_catalog_entry` | `mcp:catalog` | Yes | — | Explain a global definition's effective rules, audit and incoming links. |
+| `get_rpg_rules` | `mcp:catalog` | Yes | — | Read installed mechanics and the boundary between content and code edits. |
+
+
 ## savings
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -468,11 +559,13 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_savings_goals` | `mcp:read` | Yes | — | List a user's savings goals (children forced to self). |
 | `update_savings_goal` | `mcp:write` | No | Required | Edit a savings goal's metadata (owner or parent only). |
 
+
 ## sprite_assets
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `register_sprite_assets` | `mcp:publish` | No | Required | Register spritesheets and sprites for a content pack and slice artwork. |
+
 
 ## sprite_authoring
 
@@ -485,6 +578,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `register_sprite_batch` | `mcp:publish` | No | Required | Upload one spritesheet and register many named tiles in one call. |
 | `update_sprite_metadata` | `mcp:publish` | No | Required | Update metadata (fps, pack) on an existing sprite without |
 
+
 ## templates
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -496,6 +590,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_templates` | `mcp:read` | Yes | — | List project templates visible to the current user. |
 | `save_project_as_template` | `mcp:write` | No | — | Save a family project as a reusable template, preserving all skill tags. |
 | `update_template` | `mcp:write` | No | Required | Edit template metadata and skill wiring or atomically replace its plan. |
+
 
 ## timecards
 
@@ -510,6 +605,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_timecards` | `mcp:read` | Yes | — | List weekly timecards for a user (children forced to self). |
 | `mark_timecard_paid` | `mcp:write` | No | Required | Mark a timecard PAID and post a negative PaymentLedger payout (parent-only). |
 | `void_time_entry` | `mcp:write` | No | Required | Void a completed TimeEntry (parent-only). Status flips to ``voided``. |
+
 
 ## users
 

@@ -35,7 +35,7 @@ class StructuredErrorHTTPTests(TransactionTestCase):
         self.parent, self.child = household.parents[0], household.children[0]
         self.headers_by_scope = {
             scope: make_oauth_token(self.parent, scope=scope)[1]
-            for scope in ("mcp:read", "mcp:write", "mcp:catalog")
+            for scope in ("mcp:read", "mcp:write", "mcp:catalog", "mcp:author", "mcp:publish")
         }
         self.request_id = 0
         self.protocol = "2025-11-25"
@@ -92,6 +92,31 @@ class StructuredErrorHTTPTests(TransactionTestCase):
         self.assertEqual(len(text_blocks), 1, result)
         self.assertEqual(json.loads(text_blocks[0]), result["structuredContent"])
         return result["structuredContent"]
+
+    def test_editorial_workflow_separates_catalog_drafts_and_confirmed_publication(self):
+        created = self.assert_matching_payloads(self.call("create_editorial_draft", {
+            "section": "lorebook", "name": "HTTP copy review",
+        }, scope="mcp:author"))
+        values = {"draft_id": created["id"], "revision": 1,
+                  "changes": [{"slug": "duties", "values": {"title": "Shared chores"}}]}
+        rejected = self.call("save_editorial_draft", values, scope="mcp:author", confirmation="true")
+        self.assert_matching_payloads(rejected, failed=True)
+        saved = self.assert_matching_payloads(self.call("save_editorial_draft", values,
+            scope="mcp:author", confirmation=True))
+        reviewed = self.assert_matching_payloads(self.call("preview_editorial_draft", {
+            "draft_id": saved["id"], "revision": saved["revision"],
+        }, scope="mcp:author"))
+        publish = {"draft_id": saved["id"], "revision": saved["revision"],
+                   "preview_id": reviewed["preview"]["id"], "content_digest": reviewed["preview"]["content_digest"]}
+        denied = self.call("publish_editorial_draft", publish, scope="mcp:author", confirmation=True)
+        self.assertEqual(self.assert_matching_payloads(denied, failed=True)["error"]["code"], "permission_denied")
+        result = self.assert_matching_payloads(self.call("publish_editorial_draft", publish,
+            scope="mcp:publish", confirmation=True))
+        self.assertIsNotNone(result["published_at"])
+        self.assertEqual(self.assert_matching_payloads(self.call("publish_editorial_draft", publish,
+            scope="mcp:publish", confirmation=True)), result)
+        catalog = self.assert_matching_payloads(self.call("list_editorial_content", {"section": "lorebook"}, scope="mcp:catalog"))
+        self.assertEqual(next(row for row in catalog["entries"] if row["slug"] == "duties")["title"], "Shared chores")
 
     def test_invalid_arguments_have_safe_field_errors_over_http(self):
         private_value = "synthetic-private-user-input"

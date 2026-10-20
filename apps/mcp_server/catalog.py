@@ -18,6 +18,7 @@ from apps.rpg.catalog_support import (
 from apps.rpg.constants import TriggerType
 from apps.rpg.content.validation import validate_badge_criteria
 from apps.rpg.models import DropTable, ItemDefinition
+from apps.rpg.item_effects import effect_summary
 
 from .shapes import to_plain
 
@@ -81,7 +82,7 @@ def catalog_row(section, row):
         return {**common, **{key: getattr(row, key) for key in (
             "slug", "name", "description", "icon", "sprite_key", "item_type", "rarity", "coin_value", "metadata",
             "pet_species_id", "potion_type_id", "food_species_id",
-        )}, **_item_availability(row)}
+        )}, "effect_summary": effect_summary(row), **_item_availability(row)}
     if section == "quests":
         return {**common, **{key: getattr(row, key) for key in (
             "name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days", "trigger_filter",

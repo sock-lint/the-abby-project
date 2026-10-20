@@ -12,7 +12,8 @@ class MCPServerConfig(AppConfig):
         from .retries import clear_deleted_member_responses, clear_deleted_mutation_response
 
         for label in ("movement.MovementSession", "payments.PaymentLedger",
-                      "projects.Project", "rewards.RewardRedemption"):
+                      "projects.Project", "rewards.RewardRedemption",
+                      "pets.MountExpedition", "quests.ChallengeGoal", "quests.QuestDefinition", "quests.Quest"):
             pre_delete.connect(
                 clear_deleted_mutation_response, sender=label,
                 dispatch_uid=f"mcp-mutation-receipt-delete-{label}",

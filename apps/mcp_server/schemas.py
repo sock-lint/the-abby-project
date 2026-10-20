@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.achievements.models import Badge
+
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -536,25 +538,7 @@ class ListEarnedBadgesIn(_Base):
 # --- Tier 2.1: Skill tree taxonomy ---------------------------------------
 
 
-BadgeCriteriaType = Literal[
-    "projects_completed",
-    "hours_worked",
-    "category_projects",
-    "streak_days",
-    "first_project",
-    "first_clock_in",
-    "materials_under_budget",
-    "perfect_timecard",
-    "skill_level_reached",
-    "skills_unlocked",
-    "skill_categories_breadth",
-    "subjects_completed",
-    "hours_in_day",
-    "photos_uploaded",
-    "total_earned",
-    "days_worked",
-    "cross_category_unlock",
-]
+BadgeCriteriaType = Badge.CriteriaType
 
 
 class CreateCategoryIn(_Base):
@@ -643,6 +627,7 @@ class RemoveSkillPrerequisiteIn(_Base):
 
 
 class CreateBadgeIn(_Base):
+    award_coins: bool = True
     name: str = Field(min_length=1, max_length=100)
     description: str
     icon: str = ""
@@ -654,6 +639,7 @@ class CreateBadgeIn(_Base):
 
 
 class UpdateBadgeIn(_Base):
+    award_coins: Optional[bool] = None
     badge_id: int
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     description: Optional[str] = None
@@ -691,6 +677,7 @@ class ListQuestCatalogIn(_Base):
 
 
 class CreateQuestDefinitionIn(_Base):
+    request_id: Optional[UUID] = Field(default=None, description="Supply a stable UUID to replay the exact create/assignment safely.")
     name: str = Field(min_length=1, max_length=100)
     description: str
     icon: str = "⚔️"
@@ -954,6 +941,8 @@ class GetChoreIn(_Base):
 
 
 class CreateChoreIn(_Base):
+    xp_reward: int = Field(default=10, ge=0)
+    due_date: Optional[date] = None
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     icon: str = ""
@@ -968,6 +957,8 @@ class CreateChoreIn(_Base):
 
 
 class UpdateChoreIn(_Base):
+    xp_reward: Optional[int] = Field(default=None, ge=0)
+    due_date: Optional[date] = None
     chore_id: int
     title: Optional[str] = None
     description: Optional[str] = None

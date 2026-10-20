@@ -412,3 +412,99 @@ The old `--full` mutation smoke mode is retired and refuses before making a
 network request. Write validation runs against disposable data through the
 Django MCP tests; deleting created rows cannot undo ledger/reward opportunities
 or notification history from a production smoke run.
+
+
+## Existing catalog editing and progression evaluation
+
+`get_content_workbench` supplies bounded global references without family shop
+usage or private drafts. `get_rpg_rules` and `explain_rpg_catalog_entry` expose
+installed calculations, effective effects, audits and bounded incoming global
+references. Household shops, goals, inventory and saved progress are omitted.
+XP curves, new effect handlers, incubation rules and asset support remain
+reviewed source/configuration changes.
+
+Use `create_content_draft` → `save_content_draft` → `preview_content_draft` →
+`simulate_content_draft` → `publish_content_draft`. List/get tools resume only the
+acting author's drafts. Save requires the current revision and confirmation.
+Publication requires its exact revision, preview ID, digest, matching paired
+simulation and explicit confirmation. Private drafts use `mcp:author`, publication
+uses `mcp:publish`, and references use `mcp:catalog`; grants remain independent.
+Private reads and replays recheck the current author under family/member locks.
+
+`get_progression_lab` describes the installed simulator. The catalog-only
+`simulate_progression_scenario` runs an anonymous baseline, including supported
+365-day horizons. It shares native work limits and the ten-per-minute quota;
+paired draft simulations share the five-per-minute quota. Reports preserve
+coverage/exclusions and never create real rewards or household state.
+
+Direct taxonomy/badge writes validate complete merged candidates and preserve
+original source identities across matching bundled reloads. Another family's
+owned pack/override is read-only. Numeric badge thresholds require JSON numbers;
+numeric strings, booleans and nonfinite values are rejected. Taxonomy must retain
+matching categories/subjects and an acyclic prerequisite graph. Explicit legacy
+hard-delete tools retain their documented destructive semantics; removing a draft
+or pack does not grant permission to cascade-delete earned history.
+
+Pack relationship edits distinguish omission from explicit clearing:
+`required_badge` omitted retains its value; null clears it. Skill `prereqs`
+omitted retains edges; an explicit list replaces the owned skill's edges,
+including an empty list. Direct prerequisite overrides take precedence over YAML.
+Structured badge/quest/shop merges use stable IDs when supplied. Pack items use
+the same bounded runtime metadata validation as the database workbench.
+
+## Household RPG management
+
+Parents explicitly select a same-family child with `user_id`; children remain
+self-scoped. All new writes require literal top-level `confirmation: true`.
+
+- `retry_challenge` takes `challenge_id="goal:<occurrence_id>"` for an eligible
+  expired unpaid attempt. Native predecessor replay and lifetime reward guards
+  remain authoritative; no synthetic progress is created.
+- `update_challenge_schedule` takes `goal_definition_id`, `expected_revision`,
+  UUID `request_id`, and `paused` and/or partial `next_week` fields. Only parents
+  edit schedules; accepted/current periods keep their frozen promises.
+- `list_expeditions`, `get_expedition`, `start_expedition` and `claim_expedition`
+  retain native allowance/timers and frozen loot. Start requires UUID `request_id`;
+  claim uses the exact expedition ID. Neither can shorten waits or reroll loot.
+- `list_reward_redemptions`, `get_reward_redemption` and
+  `deliver_reward_redemption` expose saved promises and explicit parent physical
+  handover. Delivery never spends Coins or repeats a digital grant.
+
+Start/schedule UUIDs replay the original saved response; use reads for current
+state. Changed details conflict. Native retry/claim/delivery use exact saved IDs.
+Reads and writes recheck current authority while materializing results. Expedition
+and redemption cursors share caller-bound signed history pagination and its
+24-hour validity/initial-insert boundary.
+
+Legacy `create_quest_definition` commits definition/assignment atomically. Its
+optional `request_id` enables exact safe replay; preserve it after uncertain
+responses. Without a UUID, the legacy non-idempotent contract remains. Chores
+expose `xp_reward` and one-time `due_date`, sharing REST merged validation;
+recurrence changes clear the old one-time deadline. Shop restocking shares the
+REST wishlist/notification workflow.
+
+## Reading maintenance
+
+`get_reading_book`, `get_reading_session` and `list_reading_sessions` supplement
+shelf/summary reads; session history uses signed continuation cursors.
+`update_reading_book` corrects metadata and status, including finished books.
+`update_reading_session`, `delete_reading_session` and `delete_reading_book` share
+REST owner locks and validation. Books with history keep their deletion guard.
+Confirmed corrections/deletions never rearm daily rewards, rewrite UUID credit,
+or award more XP/Coins. Parents can maintain inactive-child history in their family.
+
+## Textual editorial content
+
+`list_editorial_content` reads global Lorebook/affirmation copy without learner
+state or private writing. Create/save/preview/publish editorial draft tools use
+private actor/family revisions. Save requires confirmation; publish additionally
+requires `mcp:publish` and the exact revision/preview/digest. Previews expire after
+30 minutes or a source/catalog change. List/get resume the author's own drafts.
+
+Lorebook edits cover existing titles, audience titles, summaries, kid voice and
+mechanics prose. Trial handlers, unlock conditions and reward flags stay in source.
+Affirmations support bounded single-line text, tone, new slugs and retirement.
+Retirement excludes future selection but preserves historical slug resolution;
+at least one active affirmation remains. Published copy overlays cached YAML on
+each read, without a worker cache-flush operation. Apply migration
+`rpg.0038_editorial_content_publication` before serving these workflows.

@@ -47,6 +47,7 @@ from ..schemas import (
     SetQuestDefinitionSkillTagsIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import to_plain
 
 
@@ -150,6 +151,7 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@transaction.atomic
 def create_quest_definition(
     params: CreateQuestDefinitionIn,
 ) -> dict[str, Any]:
@@ -160,7 +162,9 @@ def create_quest_definition(
     author outside of any pack. The new row lands with ``is_system=False``.
 
     Pass ``assigned_to_id`` to simultaneously start a live Quest instance
-    for a specific child. Omit to just author the definition.
+    for a specific child. Omit to just author the definition. Creation and
+    assignment commit together. Supply request_id for duplicate-safe retries;
+    reuse that UUID only with identical details.
     """
     parent = require_parent()
     required_badge = None
@@ -171,49 +175,42 @@ def create_quest_definition(
             raise MCPValidationError(
                 f"required_badge_id {params.required_badge_id} not found.",
             )
-    if definitions_visible_to(parent).filter(name=params.name).exists():
-        raise MCPValidationError(
-            f"A quest named {params.name!r} already exists.",
-        )
-
     try:
         validate_trigger_filter(params.trigger_filter)
     except DjangoValidationError as exc:
         raise MCPValidationError("; ".join(exc.messages))
 
-    definition = QuestDefinition.objects.create(
-        name=params.name,
-        description=params.description,
-        icon=params.icon,
-        quest_type=params.quest_type,
-        target_value=params.target_value,
-        duration_days=params.duration_days,
-        trigger_filter=params.trigger_filter,
-        coin_reward=params.coin_reward,
-        xp_reward=params.xp_reward,
-        is_repeatable=params.is_repeatable,
-        is_system=False,
-        required_badge=required_badge,
-        created_by=parent,
-    )
-
-    result: dict[str, Any] = {
-        "definition": _definition_to_dict(definition),
-        "quest": None,
-    }
+    child = None
     if params.assigned_to_id is not None:
         child = resolve_target_user(parent, params.assigned_to_id)
         if getattr(child, "role", None) != "child":
-            raise MCPValidationError(
-                f"assigned_to_id {params.assigned_to_id} does not match any child.",
-            )
-        try:
-            quest = QuestService.start_quest(child, definition.pk)
-        except ValueError as exc:
-            raise MCPValidationError(str(exc))
-        result["quest"] = _quest_to_dict(quest)
+            raise MCPValidationError(f"assigned_to_id {params.assigned_to_id} does not match any child.")
 
-    return result
+    def create(actor, target):
+        if definitions_visible_to(actor).filter(name=params.name).exists():
+            raise MCPValidationError(f"A quest named {params.name!r} already exists.")
+        definition = QuestDefinition.objects.create(
+            name=params.name, description=params.description, icon=params.icon,
+            quest_type=params.quest_type, target_value=params.target_value,
+            duration_days=params.duration_days, trigger_filter=params.trigger_filter,
+            coin_reward=params.coin_reward, xp_reward=params.xp_reward,
+            is_repeatable=params.is_repeatable, is_system=False,
+            required_badge=required_badge, created_by=actor,
+        )
+        return QuestService.start_quest(target, definition.pk) if child is not None else definition
+
+    def serialize(result):
+        assigned = result if child is not None else None
+        definition = assigned.definition if assigned else result
+        return {"definition": _definition_to_dict(definition), "quest": _quest_to_dict(assigned) if assigned else None}
+
+    if params.request_id is not None:
+        return mutation_once(
+            actor=parent, target=child or parent, operation="create_quest_definition", request_id=params.request_id,
+            payload=params.model_dump(exclude={"request_id"}), result_model=Quest if child is not None else QuestDefinition,
+            target_field="participants__user_id" if child is not None else "created_by_id", create=create, serialize=serialize,
+        )
+    return serialize(create(parent, child or parent))
 
 
 @tool()

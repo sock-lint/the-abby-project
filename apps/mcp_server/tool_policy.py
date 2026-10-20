@@ -380,6 +380,15 @@ OPEN_WORLD_TOOLS = frozenset({
     "submit_ingestion_job",
 })
 
+# Content management keeps global reference, private draft and household grants independent.
+CATALOG_TOOLS = CATALOG_TOOLS | {"get_content_workbench", "get_progression_lab", "simulate_progression_scenario", "get_rpg_rules", "explain_rpg_catalog_entry", "list_editorial_content"}
+AUTHOR_TOOLS = AUTHOR_TOOLS | {"list_content_drafts", "get_content_draft", "create_content_draft", "save_content_draft", "preview_content_draft", "simulate_content_draft", "create_editorial_draft", "save_editorial_draft", "get_editorial_draft", "list_editorial_drafts", "preview_editorial_draft"}
+PUBLISH_TOOLS = PUBLISH_TOOLS | {"publish_content_draft", "publish_editorial_draft"}
+READ_TOOLS = READ_TOOLS | {"get_reading_book", "get_reading_session", "list_reading_sessions", "list_expeditions", "get_expedition", "list_reward_redemptions", "get_reward_redemption"}
+WRITE_TOOLS = WRITE_TOOLS | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
+DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "save_content_draft", "publish_content_draft", "save_editorial_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
+IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "publish_content_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
+
 @dataclass(frozen=True)
 class ToolPolicy:
     scope: str
@@ -405,6 +414,7 @@ def policy_for(name: str) -> ToolPolicy:
     read_only = name in READ_TOOLS | CATALOG_TOOLS | {
         "list_asset_proposals", "get_asset_proposal", "export_asset_proposal",
         "get_content_pack", "list_content_packs", "read_pack_file",
+        "get_content_draft", "list_content_drafts", "get_editorial_draft", "list_editorial_drafts",
     }
     return ToolPolicy(
         scope=scope,

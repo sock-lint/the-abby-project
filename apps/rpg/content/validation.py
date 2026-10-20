@@ -80,6 +80,11 @@ def validate_badge_criteria(criteria_type, value):
             if not isinstance(item, list) or not item or not all(isinstance(s, str) and s.strip() for s in item):
                 raise ValidationError(f"criteria_value.{key} must be a nonempty list of names.")
         else:
+            # Validating a coerced Decimal without changing the saved JSON
+            # leaves strings such as "2" to crash numeric runtime checkers.
+            # Accept actual JSON numbers only, consistently for every writer.
+            if type(item) not in {int, float}:
+                raise ValidationError(f"criteria_value.{key} must be a number.")
             maximum = 23 if key == "hour" else 12 if key == "grade" else 1000000
             minimum = 0 if key in {"hour", "grade", "days_ahead"} else 1
             number = bounded_number(item, f"criteria_value.{key}", minimum, maximum)

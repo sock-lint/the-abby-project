@@ -45,6 +45,8 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
             self.client.get("/api/rpg/content-workbench/"), "content-workbench-catalog.json",
         )
         self.assertEqual(len(body["catalog"]["items"]), 1)
+        self.assertEqual(body["catalog"]["items"][0]["effect_summary"],
+            "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.")
         self.assertEqual(len(body["catalog"]["quests"]), 1)
         self.assertEqual(body["drafts"], [])
         self.assertEqual(body["simulation"]["pet_incubation_policy"], INCUBATION_POLICY)

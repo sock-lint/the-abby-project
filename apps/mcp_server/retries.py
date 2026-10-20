@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from contextlib import contextmanager
 import hashlib
 import json
 from datetime import date, datetime
@@ -30,18 +31,9 @@ def _request_value(value):
     raise TypeError(f"Unsupported request value: {type(value).__name__}")
 
 
-def mutation_once(*, actor, target, operation, request_id, payload, result_model,
-                  target_field="user_id", shared_target_request=False, create, serialize):
-    """Commit the domain operation and immutable response in one transaction.
-
-    Family -> sorted member locks match account-lifecycle ordering. Replays
-    revalidate current membership/roles and source ownership, including calls
-    authenticated before a concurrent departure or reassignment. Most UUIDs
-    belong to an actor/operation; movement shares the native target/UUID
-    identity across authorized callers. Neither may cross a family boundary.
-    """
-    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=_request_value)
-    digest = hashlib.sha256(encoded.encode()).hexdigest()
+@contextmanager
+def authorized_household(actor, target, *, allow_inactive_target=False):
+    """Recheck authority under Family -> sorted member locks for native writes."""
     User = get_user_model()
     with transaction.atomic():
         family = Family.objects.select_for_update(no_key=True).filter(pk=actor.family_id).first()
@@ -56,10 +48,31 @@ def mutation_once(*, actor, target, operation, request_id, payload, result_model
         if (fresh_actor is None or not fresh_actor.is_active
                 or (fresh_actor.role, fresh_actor.is_staff) != (actor.role, actor.is_staff)):
             raise MCPPermissionDenied("Your account permissions have changed. Reconnect before retrying.")
-        if fresh_target is None or fresh_target.role != target.role:
+        if (fresh_target is None or (not allow_inactive_target and not fresh_target.is_active)
+                or fresh_target.role != target.role):
             raise MCPNotFoundError("The target account is no longer available in your family.")
         if fresh_actor.role != "parent" and fresh_target.pk != fresh_actor.pk:
             raise MCPPermissionDenied("Children can only change their own records.")
+
+        fresh_actor.family = family
+        fresh_target.family = family
+        yield fresh_actor, fresh_target
+
+
+def mutation_once(*, actor, target, operation, request_id, payload, result_model,
+                  target_field="user_id", shared_target_request=False, create, serialize):
+    """Commit the domain operation and immutable response in one transaction.
+
+    Family -> sorted member locks match account-lifecycle ordering. Replays
+    revalidate current membership/roles and source ownership, including calls
+    authenticated before a concurrent departure or reassignment. Most UUIDs
+    belong to an actor/operation; movement shares the native target/UUID
+    identity across authorized callers. Neither may cross a family boundary.
+    """
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=_request_value)
+    digest = hashlib.sha256(encoded.encode()).hexdigest()
+    with authorized_household(actor, target) as (fresh_actor, fresh_target):
+        family = fresh_actor.family
 
         identity = {"target": fresh_target} if shared_target_request else {"actor": fresh_actor}
         receipt = MCPMutationReceipt.objects.filter(

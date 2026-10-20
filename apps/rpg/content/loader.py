@@ -250,6 +250,14 @@ class ContentPack:
 
     def _upsert(self, model, *, defaults, entry=None, **lookup):
         """Only a pack's previously claimed stable IDs can update existing rows."""
+        if model._meta.label_lower in {
+            "achievements.skillcategory", "achievements.subject", "achievements.skill", "achievements.badge",
+        }:
+            from .authoring import preserved_authoring_entry
+            override = preserved_authoring_entry(model._meta.label_lower, lookup, pack_key=self.pack_key, entry=entry)
+            if override:
+                self.stats.bump("skipped", "database_authored_" + model._meta.model_name)
+                return model.objects.get(pk=override.object_id), False
         if model._meta.label_lower == "rpg.itemdefinition":
             from .workbench import preserved_loader_entry
             override = preserved_loader_entry(model._meta.label_lower, lookup, pack_key=self.pack_key, entry=entry)
@@ -346,6 +354,9 @@ class ContentPack:
         # Icons are optional presentation in pack schemas; provide a generic fallback.
         if hasattr(obj, "icon") and not obj.icon:
             obj.icon = "🎁"
+        if kind == "itemdefinition":
+            from .workbench_validation import validate_item_runtime
+            validate_item_runtime(obj)
         try:
             # Empty parameter objects are valid for parameterless badge criteria;
             # their schema was checked before loading (JSONField.blank is False).
@@ -435,6 +446,7 @@ class ContentPack:
         # Skills (category resolved by name; skill has composite unique (category, name))
         skill_by_key: dict[str, Any] = {}
         skill_prereqs: list[dict] = []
+        explicit_prereqs: dict[int, list[int]] = {}
         for entry in data.get("skills", []) or []:
             cat_name = entry["category"]
             if cat_name not in cat_by_name:
@@ -465,6 +477,15 @@ class ContentPack:
             skill_by_key[f"{cat_name}::{entry['name']}"] = obj
             skill_by_key[entry["name"]] = obj  # allow unscoped lookups
             self.stats.bump("created" if created else "updated", "skill")
+            from .authoring import preserves_skill_prerequisites
+            if preserves_skill_prerequisites(obj):
+                # The direct editor saved the complete current relationship
+                # set, including an explicitly empty set. YAML cannot re-add it.
+                continue
+            if self.pack_key and "prereqs" in entry:
+                # Omission retains existing links. An explicit list replaces
+                # only the relationships of this pack's own skill identity.
+                explicit_prereqs[obj.pk] = []
             for prereq in entry.get("prereqs", []) or []:
                 skill_prereqs.append({
                     "category": cat_name,
@@ -496,6 +517,20 @@ class ContentPack:
                 defaults={"required_level": level},
             )
             self.stats.bump("created" if created else "updated", "skill_prereq")
+            if skill.pk in explicit_prereqs:
+                explicit_prereqs[skill.pk].append(req_skill.pk)
+
+        if explicit_prereqs:
+            from apps.rpg.models import ContentPackEntry
+            owned = set(ContentPackEntry.objects.filter(
+                pack=self.pack_key, family=self.family, kind="skill",
+                model_label=Skill._meta.label_lower, object_id__in=explicit_prereqs,
+            ).values_list("object_id", flat=True))
+            for skill_id in owned:
+                removed, _ = SkillPrerequisite.objects.filter(skill_id=skill_id).exclude(
+                    required_skill_id__in=explicit_prereqs[skill_id],
+                ).delete()
+                self.stats.bump("retired", "skill_prereq", removed)
 
     # ---- badges --------------------------------------------------------
 
@@ -846,7 +881,9 @@ class ContentPack:
                 "is_system": bool(entry.get("is_system", True)),
                 "is_cooperative": bool(entry.get("is_cooperative", False)),
             }
-            if "required_badge" in entry and entry["required_badge"]:
+            if "required_badge" in entry:
+                defaults["required_badge"] = None
+            if entry.get("required_badge") is not None:
                 try:
                     defaults["required_badge"] = Badge.objects.get(
                         name=entry["required_badge"]

@@ -107,8 +107,8 @@ class LorebookParityTests(SimpleTestCase):
     """Drift guards. Failures here mean either YAML or the maps above are out of date."""
 
     def setUp(self):
-        services.load_lorebook_catalog.cache_clear()
-        self.catalog = services.load_lorebook_catalog()
+        services.load_lorebook_source.cache_clear()
+        self.catalog = services.load_lorebook_source()
         self.slugs = {entry["slug"] for entry in self.catalog}
 
     def test_catalog_matches_expected_slugs(self):

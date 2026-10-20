@@ -55,7 +55,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 228 tools across 31 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 263 tools across 36 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 `list_homework` and `get_homework` share an active-assignment queryset scoped to
 the parent's family or the child's own assignments. Foreign and missing detail
@@ -195,3 +195,16 @@ network access; write checks belong in disposable Django tests.
 - `tests/test_family_scoping.py` — cross-family probe tests.
 - `/config/oauth_views.py`, `/config/oauth_validator.py` — DOT integration + resource binding.
 - `/config/tests/test_oauth.py::EndToEndPKCEFlowTests` — end-to-end PKCE coverage.
+
+
+### Content and RPG management
+
+The workbench, editorial, effective-rule, household RPG and reading maintenance
+modules wrap native services and publish explicit result schemas. See the
+[authoring guide](../../docs/operations/mcp-authoring.md#existing-catalog-editing-and-progression-evaluation)
+for scopes, revisions, replay identities, quotas and publication contracts.
+Private reads/replays and household materialization retain current-account
+checks under family/member locks. Catalog projections omit household usage.
+Editorial publication edits copy/selection; installed mechanics and assets remain
+separate reviewed changes. Explicit legacy hard deletes retain their existing
+semantics; they are not a replacement for reviewed publication/versioning.
