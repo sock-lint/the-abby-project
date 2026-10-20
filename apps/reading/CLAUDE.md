@@ -25,8 +25,10 @@ reflection must be present. Minutes are bounded to 600 and pages to 2000.
 Session dates default to the family's local day and cannot be future dates.
 
 Every create requires a UUID `client_request_id`. All reading writes lock the
-owner user row, then recheck family membership. Each model uniquely binds the
-owner and UUID. `create_payload` retains the normalized original request so an
+owner user row, then recheck the current actor's role, activity and family
+membership after waiting. Parents can still maintain an inactive child's saved
+history. Each model uniquely binds the owner and UUID. `create_payload` retains
+the normalized original request so an
 identical retry returns the current record even after a correction. Conflicting
 reuse returns 400. An omitted session date stays omitted from that payload,
 allowing retries across midnight without changing the original entry date.
@@ -46,6 +48,13 @@ Existing and backdated logs are not rewarded retrospectively.
 Migration `0003` preserves existing live session UUIDs as zero-credit identities;
 it reads only owner, UUID and date, without creating progress or awards. Requests
 deleted before that migration have no surviving identity evidence to preserve.
+
+MCP reading maintenance uses these same shared correction and deletion services.
+Parents explicitly choose a same-family child; children select only themselves.
+Book and session detail reads and signed, paginated session history are saved-state
+reads. Confirmed edits preserve omitted fields and the original create identity;
+confirmed removal of a book with sessions returns a history conflict. Deleting a
+session retains its daily receipt and UUID reward credit, including on later retries.
 
 `ReadingRewardService.credit_new_session` runs only after a new session insert,
 under the same account lock as every reading write. The inserted log, request

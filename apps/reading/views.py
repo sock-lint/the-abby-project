@@ -1,5 +1,3 @@
-from django.db import transaction
-from django.db.models import RestrictedError
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
@@ -10,15 +8,14 @@ from config.viewsets import RoleFilteredQuerySetMixin, resolve_target_user
 from .models import ReadingBook, ReadingSession
 from .services import (
     create_reading_book, create_reading_session,
-    lock_reading_owner as _lock_target, reading_summary,
+    delete_reading_book, delete_reading_session, reading_summary,
+    update_reading_book, update_reading_session,
 )
 from .serializers import (
     ReadingBookCreateSerializer,
     ReadingBookSerializer,
-    ReadingBookWriteSerializer,
     ReadingSessionCreateSerializer,
     ReadingSessionSerializer,
-    ReadingSessionWriteSerializer,
     DiscoveryFilterSerializer,
 )
 
@@ -64,26 +61,14 @@ class ReadingOwnerViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
 
     def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
-        with transaction.atomic():
-            target = _lock_target(instance.user, request.user)
-            # Read again after the lock, avoiding lost fields from stale PATCHes.
-            instance = self.get_queryset().filter(pk=instance.pk, user=target).first()
-            if instance is None:
-                raise NotFound("Reading record not found.")
-            write = self.write_serializer_class(
-                instance, data=request.data, partial=True, context={"target_user": target},
-            )
-            write.is_valid(raise_exception=True)
-            for field, value in write.validated_data.items():
-                setattr(instance, field, value)
-            instance.save()
-            return Response(self.get_serializer(instance).data)
+        updated = self.update_record(request.user, instance.user, instance.pk, request.data)
+        return Response(self.get_serializer(updated).data)
 
 
 class ReadingBookViewSet(ReadingOwnerViewSet):
     queryset = ReadingBook.objects.select_related("user", "user__family")
     serializer_class = ReadingBookSerializer
-    write_serializer_class = ReadingBookWriteSerializer
+    update_record = staticmethod(update_reading_book)
 
     def create(self, request, *args, **kwargs):
         write = ReadingBookCreateSerializer(data=request.data)
@@ -94,25 +79,14 @@ class ReadingBookViewSet(ReadingOwnerViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        with transaction.atomic():
-            target = _lock_target(instance.user, request.user)
-            instance = self.get_queryset().filter(pk=instance.pk, user=target).first()
-            if instance is None:
-                raise NotFound("Book not found.")
-            try:
-                instance.delete()
-            except RestrictedError:
-                return Response(
-                    {"detail": "This book has reading entries. Keep it on your shelf to preserve your reading history."},
-                    status=status.HTTP_409_CONFLICT,
-                )
+        delete_reading_book(request.user, instance.user, instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ReadingSessionViewSet(ReadingOwnerViewSet):
     queryset = ReadingSession.objects.select_related("user", "user__family", "book", "reading_daily_reward")
     serializer_class = ReadingSessionSerializer
-    write_serializer_class = ReadingSessionWriteSerializer
+    update_record = staticmethod(update_reading_session)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -129,9 +103,7 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        with transaction.atomic():
-            target = _lock_target(instance.user, request.user)
-            self.get_queryset().filter(pk=instance.pk, user=target).delete()
+        delete_reading_session(request.user, instance.user, instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

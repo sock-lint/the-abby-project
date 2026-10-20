@@ -5,9 +5,9 @@ from types import SimpleNamespace
 from django.contrib.auth import get_user_model
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Count, Max, Q, Sum
+from django.db.models import Count, Max, Q, RestrictedError, Sum
 from django.utils import timezone
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.achievements.models import Skill
 from apps.achievements.services import AwardService
@@ -22,13 +22,24 @@ from .models import ReadingBook, ReadingDailyReward, ReadingRewardCredit, Readin
 
 def lock_reading_owner(target, requester):
     """Serialize every reading write and recheck ownership after waiting."""
+    users = get_user_model().objects
+    actor = users.filter(pk=requester.pk, is_active=True).first()
+    if actor is None:
+        raise NotFound("Child not found.")
     target = (
-        get_user_model().objects.select_for_update(no_key=True, of=("self",))
+        users.select_for_update(no_key=True, of=("self",))
         .select_related("family")
-        .filter(pk=target.pk, role="child", family_id=requester.family_id)
+        .filter(pk=target.pk, role="child", family_id=actor.family_id)
         .first()
     )
-    if target is None:
+    # The request's actor object may predate a role/family change, including
+    # while this transaction waited for another reading write to finish.
+    actor = users.filter(pk=requester.pk, is_active=True).first()
+    if (
+        target is None or actor is None or actor.family_id != target.family_id
+        or actor.role not in {"parent", "child"}
+        or (actor.role == "child" and actor.pk != target.pk)
+    ):
         raise NotFound("Child not found.")
     return target
 
@@ -86,6 +97,75 @@ def create_reading_session(requester, target, validated_data):
         )
         ReadingRewardService.credit_new_session(target, session)
     return session, created
+
+
+class ReadingHistoryConflict(APIException):
+    status_code = 409
+    default_code = "reading_history_conflict"
+    default_detail = "This book has reading entries. Keep it on your shelf to preserve your reading history."
+
+
+def _locked_reading_record(requester, target, record_id, model):
+    # The same account lock protects creates, corrections and removals. Always
+    # fetch again after waiting so partial edits merge with the current record.
+    if requester.role not in {"parent", "child"} or (
+        requester.role == "child" and requester.pk != target.pk
+    ):
+        raise NotFound("Reading record not found.")
+    target = lock_reading_owner(target, requester)
+    queryset = model.objects.select_related("user", "user__family")
+    if model is ReadingSession:
+        queryset = queryset.select_related("book", "reading_daily_reward")
+    record = queryset.filter(pk=record_id, user=target).first()
+    if record is None:
+        raise NotFound("Reading record not found.")
+    return target, record
+
+
+@transaction.atomic
+def _update_reading_record(requester, target, record_id, data, *, model, serializer_class):
+    target, record = _locked_reading_record(requester, target, record_id, model)
+    write = serializer_class(record, data=data, partial=True, context={"target_user": target})
+    write.is_valid(raise_exception=True)
+    for field, value in write.validated_data.items():
+        setattr(record, field, value)
+    record.save()
+    # Corrections deliberately leave create_payload and all daily credit alone.
+    return record
+
+
+def update_reading_book(requester, target, book_id, data):
+    from .serializers import ReadingBookWriteSerializer
+
+    return _update_reading_record(
+        requester, target, book_id, data,
+        model=ReadingBook, serializer_class=ReadingBookWriteSerializer,
+    )
+
+
+def update_reading_session(requester, target, session_id, data):
+    from .serializers import ReadingSessionWriteSerializer
+
+    return _update_reading_record(
+        requester, target, session_id, data,
+        model=ReadingSession, serializer_class=ReadingSessionWriteSerializer,
+    )
+
+
+@transaction.atomic
+def delete_reading_book(requester, target, book_id):
+    _, book = _locked_reading_record(requester, target, book_id, ReadingBook)
+    try:
+        book.delete()
+    except RestrictedError:
+        raise ReadingHistoryConflict() from None
+
+
+@transaction.atomic
+def delete_reading_session(requester, target, session_id):
+    _, session = _locked_reading_record(requester, target, session_id, ReadingSession)
+    # SET_NULL preserves an awarded daily receipt; UUID credit survives too.
+    session.delete()
 
 
 def reading_summary(target):
