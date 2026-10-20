@@ -125,6 +125,26 @@ class ReadingApiResponseFixtureTests(APITestCase):
             self.assertFalse(ReadingSession.objects.filter(user=self.child).exists())
             self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
 
+    def test_first_log_moves_wanted_book_to_reading_in_refreshed_shelf(self):
+        payload = {**self.book_payload, "status": "want_to_read"}
+        book = self.assert_response_fixture(self.client.post(
+            "/api/reading-books/", payload, format="json",
+        ), "reading-book-wanted.json", status=201)
+        self.assertEqual(book["status"], "want_to_read")
+        saved = self.client.post("/api/reading-sessions/", {
+            "book": book["id"], "pages_read": 4,
+            "client_request_id": "22222222-2222-4222-8222-222222222222",
+        }, format="json")
+        self.assertEqual(saved.status_code, 201, saved.data)
+        shelf = self.assert_response_fixture(self.client.get(
+            "/api/reading-books/"), "reading-books-started.json")
+        self.assertEqual(shelf["results"][0]["id"], book["id"])
+        self.assertEqual(shelf["results"][0]["status"], "reading")
+        retry = self.client.post("/api/reading-books/", payload, format="json")
+        self.assertEqual(retry.status_code, 200)
+        self.assertEqual(retry.json(), shelf["results"][0])
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
+
     def test_saved_book_log_correction_and_summary(self):
         book = self.assert_response_fixture(self.client.post(
             "/api/reading-books/", self.book_payload, format="json",
