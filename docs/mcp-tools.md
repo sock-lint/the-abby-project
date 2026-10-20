@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 263 tools across 36 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
+> **Total: 264 tools across 36 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -107,7 +107,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `achievements` | 19 |
 | `asset_proposals` | 7 |
 | `catalog` | 2 |
-| `challenges` | 5 |
+| `challenges` | 6 |
 | `chores` | 9 |
 | `chronicle` | 10 |
 | `content_packs` | 13 |
@@ -188,6 +188,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `create_challenge_goal` | `mcp:write` | No | Required | Create the reviewed same-family parent goal once, using a stable UUID. |
+| `get_voyager_feedback` | `mcp:read` | Yes | — | Read the same bounded current-family Voyager feedback aggregate as the web report (staff-parent-only); no selectors, private identities or state changes. |
 | `list_challenges` | `mcp:read` | Yes | — | Read saved modern goals, legacy history and actual reward receipts. |
 | `pin_challenge` | `mcp:write` | No | — | Pin a saved challenge for self or a parent's same-family child. Awards nothing. |
 | `preview_challenge_goal` | `mcp:read` | Yes | — | Validate a parent goal without creating records or computing an award. |
@@ -306,7 +307,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `create_editorial_draft` | `mcp:author` | No | — | Create a private textual draft; this publishes nothing. |
 | `get_editorial_draft` | `mcp:author` | Yes | — | Read one draft and its exact saved preview/publication receipt. |
 | `list_editorial_content` | `mcp:catalog` | Yes | — | Read global Lorebook/affirmation copy, including retired affirmation IDs. |
-| `list_editorial_drafts` | `mcp:author` | Yes | — | Read only the acting author's family-bound editorial drafts. |
+| `list_editorial_drafts` | `mcp:author` | Yes | — | Paginate compact identity and state summaries of the acting author's family-bound drafts. |
 | `preview_editorial_draft` | `mcp:author` | No | — | Validate exact textual changes and save a preview valid for 30 minutes. |
 | `publish_editorial_draft` | `mcp:publish` | No | Required | Publish the exact reviewed revision after explicit transport confirmation. |
 | `save_editorial_draft` | `mcp:author` | No | Required | Save a revisioned copy edit, invalidating the previous preview. |

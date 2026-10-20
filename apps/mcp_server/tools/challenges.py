@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 from typing import Any
 
+from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
 from rest_framework.exceptions import ValidationError
 
 from apps.quests.controls import control_context
@@ -18,12 +19,13 @@ from apps.quests.models import ChallengeActivity, ChallengeOccurrence, Challenge
 
 from ..challenge_schemas import (
     CreateChallengeGoalIn,
+    GetVoyagerFeedbackIn,
     ListChallengesIn,
     PinChallengeIn,
     PreviewChallengeGoalIn,
 )
-from ..context import get_current_user, require_parent, resolve_child_in_family, resolve_target_user
-from ..errors import MCPValidationError, safe_tool
+from ..context import get_current_user, require_parent, require_staff_parent, resolve_child_in_family, resolve_target_user
+from ..errors import MCPPermissionDenied, MCPValidationError, safe_tool
 from ..server import tool
 from ..shapes import to_plain
 
@@ -40,6 +42,27 @@ def _validated_goal(params):
     except ValidationError as exc:
         raise MCPValidationError(str(exc.detail)) from None
     return parent, child, serializer.validated_data
+
+
+@tool()
+@safe_tool
+def get_voyager_feedback(params: GetVoyagerFeedbackIn) -> dict[str, Any]:
+    """Read the current family's bounded Voyager feedback aggregate as a staff parent.
+
+    Requires the separate household mcp:read grant. This returns the same saved
+    policy, current readiness and mature-outcome counts as the web report, with
+    no child identities or reading details. It accepts no selectors and never
+    starts, repairs, publishes, expires or rewards a challenge.
+    """
+    from apps.quests.voyager_feedback import voyager_feedback
+    from ..retries import authorized_household
+
+    actor = require_staff_parent()
+    try:
+        with authorized_household(actor, actor) as (fresh_actor, _):
+            return to_plain(voyager_feedback(fresh_actor))
+    except DRFPermissionDenied as exc:
+        raise MCPPermissionDenied(str(exc.detail)) from None
 
 
 @tool()

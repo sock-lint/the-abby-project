@@ -9,6 +9,10 @@ from pydantic import Field
 from .schemas import _Base
 
 
+class GetVoyagerFeedbackIn(_Base):
+    """The current household aggregate accepts no child, policy or date selector."""
+
+
 class ListChallengesIn(_Base):
     user_id: int | None = Field(default=None, ge=1)
     limit: int = Field(default=50, ge=1, le=100)

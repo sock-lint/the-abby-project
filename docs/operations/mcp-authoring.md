@@ -495,6 +495,9 @@ or award more XP/Coins. Parents can maintain inactive-child history in their fam
 
 ## Textual editorial content
 
+`list_editorial_drafts` returns compact identity, revision and preview/publication
+summaries. Use `get_editorial_draft` for the full saved edits and exact preview.
+
 `list_editorial_content` reads global Lorebook/affirmation copy without learner
 state or private writing. Create/save/preview/publish editorial draft tools use
 private actor/family revisions. Save requires confirmation; publish additionally

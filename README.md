@@ -156,7 +156,7 @@ the-abby-project/
 │   │   └── transports/      # PrinterTransport ABC + local / cloud / in-memory
 │   ├── lorebook/            # Static mechanics explainer API backed by
 │   │                        #   content/lorebook/entries.yaml
-│   └── mcp_server/          # FastMCP server with 36 tool modules / 263 tools
+│   └── mcp_server/          # FastMCP server with 36 tool modules / 264 tools
 │                            #   (full inventory in docs/mcp-tools.md)
 ├── content/
 │   ├── lorebook/            # Dual-audience mechanics explainer entries
@@ -690,13 +690,13 @@ Async job tracked in `ProjectIngestionJob` (UUID pk). Frontend preview page lets
 The [AI and Google data disclosure inventory](docs/operations/google-ai-disclosure.md) maps remaining LLM calls, Google-selected PDF inference, external MCP clients, browser dictation, retention, consent limits and reviewer evidence. It does not claim Google approval. In-app AI image/sprite generation is retired; existing prepared artwork remains available.
 
 ### MCP Server
-FastMCP server mounted inside Django ASGI at `/mcp`. **36 tool modules / 263 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
+FastMCP server mounted inside Django ASGI at `/mcp`. **36 tool modules / 264 tools** total. Authoritative per-tool inventory lives at [`docs/mcp-tools.md`](docs/mcp-tools.md); this section is the high-level map.
 
 Grouped by domain:
 
 - **Productivity surface** — `projects` (28), `homework` (17), `chores` (9), `habits` (7), `creations` (8), `chronicle` (10), `templates` (7), `ingestion` (4), `movement` (6), `reading` (4), `reading_maintenance` (7), `dashboard` (1)
 - **Economy + recognition** — `economy` (4), `payments` (4), `rewards` (9), `exchange` (5), `savings` (4), `achievements` (19), `portfolio` (6), `notifications` (4)
-- **RPG layer** — `challenges` (5), `rpg_management` (9), `inventory` (6), `pets` (9), `quests` (9), `daily_challenges` (2)
+- **RPG layer** — `challenges` (6), `rpg_management` (9), `inventory` (6), `pets` (9), `quests` (9), `daily_challenges` (2)
 - **Authoring + content** — `catalog` (2), `rpg_rules` (2), `content_workbench` (10), `editorial` (7), `content_packs` (13), `asset_proposals` (7), `sprite_authoring` (6), `sprite_assets` (1)
 - **Family ops** — `users` (3), `timecards` (9)
 

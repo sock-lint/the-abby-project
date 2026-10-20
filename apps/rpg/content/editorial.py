@@ -110,14 +110,21 @@ def get_editorial_draft(actor, draft_id):
 
 @transaction.atomic
 def list_editorial_drafts(actor, *, after=None, limit=30):
+    from django.db.models import Q
+
     actor = _actor(actor)
-    rows = RPGEditorialDraft.objects.filter(actor=actor, family=actor.family).order_by("pk")
+    rows = RPGEditorialDraft.objects.filter(actor=actor, family=actor.family).annotate(
+        has_preview=~Q(preview={}),
+    ).values("id", "section", "name", "revision", "published_at", "has_preview").order_by("pk")
     if after:
         rows = rows.filter(pk__gt=after)
     selected = list(rows[:limit + 1])
     more = len(selected) > limit
     selected = selected[:limit]
-    return {"drafts": [_payload(row) for row in selected], "next_after": str(selected[-1].pk) if more else None}
+    return {"drafts": [{**row, "id": str(row["id"]),
+                       "published_at": row["published_at"].isoformat() if row["published_at"] else None}
+                      for row in selected],
+            "next_after": str(selected[-1]["id"]) if more else None}
 
 
 def _proposal(actor, section, changes):

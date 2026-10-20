@@ -698,6 +698,7 @@ export const pinChallenge = (id) => api.post(`/challenges/${id}/pin/`, {});
 export const unpinChallenge = (id) => api.delete(`/challenges/${id}/pin/`);
 export const recordChallengeOpening = (id, options) => api.post(`/challenges/${encodeURIComponent(id)}/opened/`, {}, options);
 export const getChallengeDiscovery = (options) => api.get('/challenges/discovery/', options);
+export const getVoyagerFeedback = (options) => api.get('/challenges/voyager-feedback/', options);
 
 // Cosmetics
 export const getCosmetics = () => api.get('/cosmetics/');

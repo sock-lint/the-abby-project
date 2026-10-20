@@ -55,7 +55,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 263 tools across 36 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 264 tools across 36 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 `list_homework` and `get_homework` share an active-assignment queryset scoped to
 the parent's family or the child's own assignments. Foreign and missing detail
@@ -159,8 +159,13 @@ saved-state-only audit and self/family pins. Reads never call materializing
 `list_goals`. Saved rows include retry eligibility, closed-attempt reasons,
 qualifying triggers and versioned future-week setup through the shared payload;
 the audit batches this metadata without creating attempts or weekly promises.
-Explicit retry and schedule changes remain REST operations pending a separate
-MCP authoring review. `economy.py` separates actual ledger accounting from anonymous
+Explicit retry and schedule changes use `rpg_management.py` with confirmed
+`mcp:write` operations. The `challenges.py` reader `get_voyager_feedback` accepts only empty
+`params` and returns the bounded current-family aggregate, saved policy groups,
+mature-outcome denominators, unknown evidence and trusted-test-family exclusion.
+It requires a staff parent and the separate `mcp:read` grant. The observer's
+current family, role, activity and staff authority remain locked through report
+materialization. `economy.py` separates actual ledger accounting from anonymous
 projections; receipt totals overlap ledger amounts. `catalog.py` paginates
 global content and audits runtime eligibility without private player records.
 `asset_proposals.py` saves family briefs and paginated history, exports reviewed

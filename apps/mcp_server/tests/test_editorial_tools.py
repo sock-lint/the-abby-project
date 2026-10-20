@@ -1,6 +1,7 @@
 """Textual publication is private, revisioned and inert until exact approval."""
 from copy import deepcopy
 from datetime import timedelta
+import json
 from uuid import uuid4
 
 from django.test import TestCase
@@ -9,8 +10,8 @@ from django.utils import timezone
 from apps.lorebook.services import load_lorebook_catalog
 from apps.mcp_server.context import override_user
 from apps.mcp_server.editorial_schemas import (
-    CreateEditorialDraftIn, EditorialDraftIn, EditorialRevisionIn, PublishEditorialDraftIn,
-    SaveEditorialDraftIn,
+    CreateEditorialDraftIn, EditorialDraftIn, EditorialDraftPage, EditorialDraftResult,
+    EditorialRevisionIn, ListEditorialDraftsIn, PublishEditorialDraftIn, SaveEditorialDraftIn,
 )
 from apps.mcp_server.errors import MCPValidationError
 from apps.mcp_server.tools import editorial as tools
@@ -53,6 +54,47 @@ class EditorialPublicationTests(TestCase):
         self.assertEqual(row["trial"], original["trial"])
         self.assertEqual(self.publish(draft), published)
         self.assertEqual(RPGEditorialOverride.objects.count(), 1)
+
+    def test_large_editorial_drafts_have_compact_summary_pages_and_complete_details(self):
+        # Each valid save stays below the tool's 200 KB input limit, while
+        # its reviewed before/after copy makes the detail response larger.
+        changes = [{"slug": row["slug"], "values": {
+            "kid_voice": "Draft copy only. " + "x" * 9983,
+            "mechanics": [f"Reviewed line {index}. " + "y" * 970 for index in range(30)],
+        }} for row in load_lorebook_catalog()[:4]]
+        self.assertGreater(len(json.dumps(changes).encode()), 150000)
+        self.assertLess(len(json.dumps(changes).encode()), 200000)
+        reviewed = [self.preview(self.draft(changes=changes)) for _ in range(4)]
+        empty = self.call(tools.create_editorial_draft, CreateEditorialDraftIn,
+                          section="affirmations", name="Unreviewed copy")
+        own = {row["id"]: row for row in [*reviewed, empty]}
+        with override_user(self.other):
+            tools.create_editorial_draft(CreateEditorialDraftIn(section="lorebook", name="Private other family"))
+
+        rows, after = [], None
+        while True:
+            page = self.call(tools.list_editorial_drafts, ListEditorialDraftsIn, after=after, limit=2)
+            self.assertLess(len(json.dumps(page).encode()), 4096,
+                            "Listing must not multiply large saved copy or previews by the page size.")
+            EditorialDraftPage.model_validate(page)
+            self.assertLessEqual(len(page["drafts"]), 2)
+            for row in page["drafts"]:
+                self.assertEqual(set(row), {"id", "section", "name", "revision", "published_at", "has_preview"})
+                self.assertEqual(row["has_preview"], bool(own[row["id"]]["preview"]))
+            rows.extend(page["drafts"])
+            if page["next_after"] is None:
+                break
+            self.assertNotEqual(page["next_after"], after)
+            after = page["next_after"]
+        self.assertEqual(len(rows), len(own))
+        self.assertEqual({row["id"] for row in rows}, set(own))
+        self.assertEqual([row["id"] for row in rows], sorted(own))
+
+        detail = self.call(tools.get_editorial_draft, EditorialDraftIn, draft_id=reviewed[0]["id"])
+        EditorialDraftResult.model_validate(detail)
+        self.assertGreater(len(json.dumps(detail).encode()), 300000)
+        self.assertEqual(detail["changes"], changes)
+        self.assertEqual(detail["preview"], reviewed[0]["preview"])
 
     def test_drafts_are_bound_to_actor_and_family(self):
         draft = self.preview(self.draft())

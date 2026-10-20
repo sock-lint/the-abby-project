@@ -52,8 +52,17 @@ class EditorialDraftResult(_Base):
     published_at: str | None
 
 
+class EditorialDraftSummary(_Base):
+    id: UUID
+    section: Literal["lorebook", "affirmations"]
+    name: str
+    revision: int
+    published_at: str | None
+    has_preview: bool
+
+
 class EditorialDraftPage(_Base):
-    drafts: list[EditorialDraftResult]
+    drafts: list[EditorialDraftSummary]
     next_after: UUID | None
 
 

@@ -7,6 +7,7 @@ urlpatterns = [
     path("challenges/goals/", goal_views.CreateGoalView.as_view(), name="challenge-create"),
     path("challenges/goals/<int:goal_definition_id>/schedule/", goal_views.GoalScheduleView.as_view(), name="challenge-schedule"),
     path("challenges/discovery/", goal_views.ChallengeDiscoveryView.as_view(), name="challenge-discovery"),
+    path("challenges/voyager-feedback/", goal_views.VoyagerFeedbackView.as_view(), name="voyager-feedback"),
     path("challenges/<str:goal_id>/opened/", goal_views.ChallengeOpenedView.as_view(), name="challenge-opened"),
     path("challenges/<str:goal_id>/pin/", goal_views.ChallengePinView.as_view(), name="challenge-pin"),
     path("challenges/<str:goal_id>/retry/", goal_views.ChallengeRetryView.as_view(), name="challenge-retry"),
