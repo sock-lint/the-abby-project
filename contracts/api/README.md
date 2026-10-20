@@ -29,6 +29,29 @@ and legacy rows retain null/false. Producers and consumers are the existing
 challenge fixture modules, including the live Lab report component tests.
 These observations do not assert that details were read or enjoyed.
 
+`voyager-feedback-observed.json` and `voyager-feedback-empty.json` come from
+the staff parent's read-only `/api/challenges/voyager-feedback/` endpoint.
+They separate current child states from saved window outcomes in one family's
+180-day registration cohort. Saved 45-day windows and the selected 56-day
+milestone snapshots remain distinct after catalog edits. Only ended windows
+with resolved outcomes enter the completion rate; early completions remain
+under observation until their saved deadline, and unknown outcomes are not
+failures. The seven synthetic children include an early completion and a
+completed row without a known completion timestamp. Producers live in
+`config/tests/test_challenge_api_contract_fixtures.py`; the React consumer is
+`src/api/voyagerFeedbackContractFixtures.test.js`. The required fixture job runs
+both. This report neither starts challenges nor reconstructs first eligibility.
+
+`challenges-milestone-locked.json` and `challenges-milestone-ready.json` are
+authenticated `/api/challenges/` responses containing the read-only
+`locked_catalog`. Native requirements use exact prerequisite/skill identities
+and server-confirmed `milestone_eligibility`; ready rows await a new qualifying
+daily Reading Adventure and have no accepted window or pinnable goal ID.
+Existing challenge-list fixtures retain their saved rows and add an empty
+`locked_catalog` when no milestone offer is pending. The challenge fixture
+producer tests both readiness states, selected-child family scoping and the
+absence of read awards; React consumes the same fixtures in its Trials tests.
+
 `progression-lab-metadata.json`, `progression-lab-report.json` and
 `progression-lab-economy-report.json` bind anonymous new-child forecasts to
 their real staff-parent endpoints. The economy example uses synthetic reward

@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 224 tools across 30 modules.** Checked against the live registry and `tool_policy.py` on October 17, 2026.
+> **Total: 225 tools across 30 modules.** Checked against the application registry and `tool_policy.py` on October 20, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -49,7 +49,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `achievements` | 19 |
 | `asset_proposals` | 7 |
 | `catalog` | 2 |
-| `challenges` | 5 |
+| `challenges` | 6 |
 | `chores` | 9 |
 | `chronicle` | 10 |
 | `content_packs` | 13 |
@@ -125,6 +125,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `create_challenge_goal` | `mcp:write` | No | Required | Create the reviewed same-family parent goal once, using a stable UUID. |
+| `get_voyager_feedback` | `mcp:read` | Yes | — | Read the same bounded current-family Voyager feedback aggregate as the web report (staff-parent-only); no selectors, private identities or state changes. |
 | `list_challenges` | `mcp:read` | Yes | — | Read saved modern goals, legacy history and actual reward receipts. |
 | `pin_challenge` | `mcp:write` | No | — | Pin a saved challenge for self or a parent's same-family child. Awards nothing. |
 | `preview_challenge_goal` | `mcp:read` | Yes | — | Validate a parent goal without creating records or computing an award. |

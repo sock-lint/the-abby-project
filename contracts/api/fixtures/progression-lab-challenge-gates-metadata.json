@@ -388,7 +388,7 @@
   },
   "challenge_gates_assumptions": [
     "Availability gates are anonymous simulation assumptions. No live challenge, saved goal, reward, calendar or child account is changed.",
-    "Current mode ignores valid configured gate rules. Milestones adds the selected completed-challenge and skill-level requirements, alongside existing native badge requirements. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
+    "Current mode ignores valid configured gate rules and retains authored challenge, skill and badge requirements. Milestones adds the selected completed-challenge and skill-level requirements using AND. Milestone plus tenure adds elapsed days since the child's first modeled visit.",
     "Day 1 is start_date and the child's first modeled visit. min_days=14 first permits offering on day 15; inactive days advance this elapsed clock. This is neither active-day tenure nor a consecutive-day streak.",
     "Calendar dates govern new offerings inclusively in both gated modes. An offered challenge keeps its full native duration, even after the offering window closes. Requirements are evaluated once before processing each new fact; past facts are never replayed and a predecessor completion cannot unlock its successor on the same fact.",
     "Visit availability is sampled at the start of each active visit, before that visit's activities. It covers only native-reachable one-off global catalog challenges compatible with the configured routine, including unconfigured challenges. It is not a screen impression, all-app availability, engagement or retention measure.",
@@ -439,7 +439,7 @@
     ]
   },
   "catalog": {
-    "fingerprint": "110552aa2679efa2ad8b744cf2fc31ccc6060a455a2ad777bae20a079766abd3",
+    "fingerprint": "d13a29973927a5c08eab1aa6fe694793d697dce439a2ec143381b4632f27fe20",
     "skills": 5,
     "supported_items": 5,
     "supported_pet_variants": 1,
@@ -564,8 +564,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
-  "engine_version": "2026-10-19.1",
+  "rules_fingerprint": "740dd59b2a474655767108363be00b69e058ffb6b8e9066cab4c2f029d1256c1",
+  "engine_version": "2026-10-20.1",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,

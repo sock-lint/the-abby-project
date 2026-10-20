@@ -97,6 +97,7 @@ class ToolPermissionTests(TransactionTestCase):
         for name, params in [
             ("get_skill_tree", {"category_id": 1, "user_id": self.child.pk}),
             ("list_children", {}), ("list_coin_ledger", {}), ("list_challenges", {}),
+            ("get_voyager_feedback", {}),
             ("get_today_journal", {}), ("list_asset_proposals", {}),
             ("create_category", {"name": "No"}),
         ]:

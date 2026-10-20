@@ -81,6 +81,12 @@ class ReadingRewardService:
             daily.save(update_fields=[
                 "minutes_credited", "xp_awarded", "coins_awarded", "source_session", "awarded_at", "updated_at",
             ])
+            # Only this genuinely new, accepted daily receipt may capture a
+            # prospective milestone offer. Replays and repair jobs cannot
+            # infer when a previously observed skill level was reached.
+            from apps.quests.activity import freeze_milestone_eligibility
+            freeze_milestone_eligibility(user, TriggerType.READING_LOGGED,
+                                         {"reading_reward_id": daily.pk})
             # Other task flows tolerate a failed optional step. This reward is
             # one transaction; pushes must not escape a later strict rollback.
             GameLoopService.on_task_completed(

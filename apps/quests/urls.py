@@ -6,6 +6,7 @@ urlpatterns = [
     path("challenges/", goal_views.ChallengesView.as_view(), name="challenges"),
     path("challenges/goals/", goal_views.CreateGoalView.as_view(), name="challenge-create"),
     path("challenges/discovery/", goal_views.ChallengeDiscoveryView.as_view(), name="challenge-discovery"),
+    path("challenges/voyager-feedback/", goal_views.VoyagerFeedbackView.as_view(), name="voyager-feedback"),
     path("challenges/<str:goal_id>/opened/", goal_views.ChallengeOpenedView.as_view(), name="challenge-opened"),
     path("challenges/<str:goal_id>/pin/", goal_views.ChallengePinView.as_view(), name="challenge-pin"),
     path("quests/active/", views.ActiveQuestView.as_view(), name="quest-active"),

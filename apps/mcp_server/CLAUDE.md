@@ -49,7 +49,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 224 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 225 tools. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 Pet acquisition uses `get_pet_incubation` (read), `start_pet_incubation` and
 `claim_pet_incubation` (confirmed writes). Start consumes the egg/potion once,
@@ -71,7 +71,14 @@ when accounts are deleted; do not block existing account deletion with PROTECT.
 
 `challenges.py` uses the current goal serializer/service, required UUID creation,
 saved-state-only audit and self/family pins. Reads never call materializing
-`list_goals`. `economy.py` separates actual ledger accounting from anonymous
+`list_goals`. Its `get_voyager_feedback` reader accepts only empty `params` and
+returns the same bounded current-family aggregate as the native web report,
+including saved policy groups, mature-outcome denominators, unknown evidence
+and trusted-test-family exclusion. It requires a staff parent and the separate
+household `mcp:read` grant; a catalog-only connection cannot discover or invoke
+it. The native service freshly revalidates the actor's saved family, role,
+activity and staff status. It never changes grants or starts, repairs, publishes
+or rewards a challenge. `economy.py` separates actual ledger accounting from anonymous
 projections; receipt totals overlap ledger amounts. `catalog.py` paginates
 global content and audits runtime eligibility without private player records.
 `asset_proposals.py` saves family briefs and paginated history, exports reviewed

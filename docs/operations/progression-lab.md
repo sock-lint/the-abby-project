@@ -84,6 +84,23 @@ empty samples remain insufficient evidence. Checkpoints never accept posted
 client totals, enroll users in a live treatment or imply that changing cohorts
 form a causal test. The recent-child window does not establish annual retention.
 
+## Follow Reading Voyager outcomes
+
+**Reading Voyager feedback** is a separate live read for the current staff
+parent's family. It follows children registered within 180 inclusive local
+days and retains their saved windows beyond the generic discovery report's
+30-day creation period. Current gate readiness and child states are separate
+from saved 45-day, selected milestone-56-day, and unknown policy outcomes.
+An independent refresh does not run a simulation or change saved progression.
+
+Completion rates use only resolved windows whose full saved deadline has
+passed. Pending windows include early completions until that deadline;
+unfinished or unknown windows do not become failures. The panel shows the
+resolved denominator and missing evidence explicitly. These are family
+observations, not global retention or a causal comparison of the policies.
+See [Voyager observation rules](reading-voyager-milestones.md#observe-after-rollout)
+for bounds, excluded test families and historical limits.
+
 ## Make a forecast
 
 Choose an editable example routine or enter activities per active day. The
@@ -415,13 +432,20 @@ and a foreign comparison link that must continue to fail closed.
 
 ## Challenge gate experiments
 
+Current mode retains the installed catalog's authored challenge, unlocked-skill
+and badge requirements. Experimental gates add requirements with AND, including
+their dates and tenure. Native and experimental predecessor paths participate
+in the same availability and expiration diagnostics. Workbench comparisons can
+evaluate an actual authored candidate with the experimental controls left in
+current mode; see [Reading Voyager milestones](reading-voyager-milestones.md).
+
 Challenge gates are anonymous simulation assumptions. They never update the
 live catalog, a child's saved goals, progress, rewards or eligibility. Start
 with a bounded recipe of at most 20 explicit one-time global challenge IDs and choose:
 
-- `current`: ignore the valid recipe and retain native badge prerequisites.
+- `current`: ignore the valid recipe and retain native authored and badge prerequisites.
 - `milestones`: require the selected prior challenge completion and named
-  skill/level, alongside the existing badge prerequisite and offering dates.
+  skill/level, alongside native authored and badge prerequisites and offering dates.
 - `milestone_tenure`: also require the selected elapsed days since first use.
 
 All populated conditions combine with AND. The first modeled active visit is

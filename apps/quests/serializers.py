@@ -83,6 +83,16 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
     required_badge_name = serializers.CharField(
         source="required_badge.name", read_only=True, default=None,
     )
+    prerequisite_quest = serializers.PrimaryKeyRelatedField(read_only=True)
+    prerequisite_quest_name = serializers.CharField(source="prerequisite_quest.name", read_only=True, default=None)
+    required_skill = serializers.PrimaryKeyRelatedField(read_only=True)
+    required_skill_name = serializers.CharField(source="required_skill.name", read_only=True, default=None)
+    milestone_eligibility = serializers.SerializerMethodField()
+
+    def get_milestone_eligibility(self, obj):
+        from .milestone_eligibility import milestone_eligibility
+        user = self.context.get("eligibility_user") or getattr(self.context.get("request"), "user", None)
+        return milestone_eligibility(user, obj)
 
     def get_reward_items(self, obj):
         from apps.rpg.catalog_support import item_is_available
@@ -95,7 +105,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
         from apps.achievements.availability import badge_goal_is_available
         from apps.achievements.models import UserBadge
         request = self.context.get("request")
-        user = getattr(request, "user", None)
+        user = self.context.get("eligibility_user") or getattr(request, "user", None)
         if user and UserBadge.objects.filter(user=user, badge_id=obj.required_badge_id).exists():
             return True
         return badge_goal_is_available(obj.required_badge, user)
@@ -110,6 +120,8 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "reward_items", "skill_tags",
             "required_badge", "required_badge_name",
+            "prerequisite_quest", "prerequisite_quest_name", "required_skill", "required_skill_name",
+            "required_skill_level", "milestone_eligibility",
             "is_repeatable", "is_system", "created_at", "catalog_available",
         ]
         read_only_fields = fields
