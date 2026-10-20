@@ -4,6 +4,8 @@ from decimal import Decimal
 from unittest.mock import patch
 from uuid import uuid4
 
+from asgiref.sync import sync_to_async
+from django.db import connections
 from django.test import TransactionTestCase, override_settings
 from starlette.testclient import TestClient
 
@@ -39,6 +41,12 @@ class StructuredErrorHTTPTests(TransactionTestCase):
         self.protocol = "2025-11-25"
         mcp._session_manager = None
         self.http = self.enterContext(TestClient(build_http_app()))
+        # TestClient's portal and the thread-sensitive ORM executor have
+        # different lifetimes. Close that executor's connection before its
+        # portal exits so PostgreSQL can drop the disposable test database.
+        async def close_worker_connections():
+            await sync_to_async(connections.close_all, thread_sensitive=True)()
+        self.addCleanup(self.http.portal.call, close_worker_connections)
         initialized = self.rpc("initialize", {
             "protocolVersion": self.protocol, "capabilities": {},
             "clientInfo": {"name": "abby-result-contract-tests", "version": "1"},

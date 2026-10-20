@@ -59,8 +59,13 @@ def safe_tool(func: Callable[..., Any]) -> Callable[..., Any]:
     `MCPNotFoundError`. `MCPPermissionDenied` is passed through unchanged.
     """
     # Imported lazily so this module stays importable without Django set up.
-    from django.core.exceptions import ObjectDoesNotExist
-    from apps.rewards.services import InsufficientCoinsError, RewardUnavailableError
+    from django.core.exceptions import ObjectDoesNotExist, ValidationError as DjangoValidationError
+    from rest_framework.exceptions import (
+        NotFound, PermissionDenied, ValidationError as APIValidationError,
+    )
+    from apps.chores.services import ChoreNotAvailableError
+    from apps.homework.services import HomeworkError
+    from apps.rewards.services import InsufficientCoinsError, InsufficientFundsError, RewardUnavailableError
 
     @functools.wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -70,6 +75,18 @@ def safe_tool(func: Callable[..., Any]) -> Callable[..., Any]:
             raise
         except ObjectDoesNotExist as exc:
             raise MCPNotFoundError(str(exc) or "Object not found") from exc
+        except NotFound as exc:
+            raise MCPNotFoundError(str(exc.detail)) from exc
+        except PermissionDenied as exc:
+            raise MCPPermissionDenied(str(exc.detail)) from exc
+        except APIValidationError as exc:
+            fields = exc.detail if isinstance(exc.detail, dict) else {"non_field_errors": exc.detail}
+            raise MCPValidationError("Check the supplied values.", field_errors=fields) from exc
+        except DjangoValidationError as exc:
+            fields = exc.message_dict if hasattr(exc, "message_dict") else {"non_field_errors": exc.messages}
+            raise MCPValidationError("Check the supplied values.", field_errors=fields) from exc
+        except (HomeworkError, ChoreNotAvailableError, InsufficientFundsError) as exc:
+            raise MCPValidationError(str(exc)) from exc
         except (InsufficientCoinsError, RewardUnavailableError) as exc:
             raise MCPValidationError(str(exc)) from exc
         except ValueError as exc:

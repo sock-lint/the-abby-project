@@ -53,3 +53,10 @@ class ResultContractTests(SimpleTestCase):
         self.assertEqual(result.structuredContent["error"]["code"], "internal_error")
         self.assertFalse(result.structuredContent["error"]["retryable"])
         self.assertNotIn("synthetic-private-value", str(result))
+
+    def test_expected_domain_failure_retains_the_supported_next_action(self):
+        result = self.call("submit_homework", {"assignment_id": 123}, scopes=frozenset({"mcp:write"}))
+        self.assertTrue(result.isError)
+        error = result.structuredContent["error"]
+        self.assertEqual(error["code"], "invalid_request")
+        self.assertIn("/api/homework/", error["message"])
