@@ -113,6 +113,10 @@ observation checkpoint; even saved empty evidence remains insufficient.
 `completion-timing-homework-assignment.json` come from the real submission/read
 endpoints. They distinguish the weekly Monday period from a Friday submission,
 the original homework deadline from a later edit, and a later parent approval.
+The homework assignment previews the day before its current deadline as on time,
+while its saved submission retains the original late classification. Homework
+submitted on the day before its deadline or the deadline itself is on time;
+earlier submissions are early, and later submissions are late.
 `timing_snapshot` v1 freezes `timezone`, `submitted_at`, `submitted_on`,
 `schedule`, `period_start`, `period_end`, `due_on` and `timeliness`. Legacy rows
 remain null. Read-only nullable `current_due_date` is today's editable deadline,
@@ -122,6 +126,15 @@ nullable `completed_at`; legacy quest history does not invent a timestamp.
 The producer is `config.tests.test_submission_timing_api_contract_fixtures` and
 the React consumer is `src/api/submissionTimingContractFixtures.test.jsx`;
 both run in the required API fixtures workflow.
+
+`homework-proof-link-submitted.json` and `homework-proof-link-reviewed.json`
+come from a real URL-only homework submission and its later parent review.
+Submission responses add `proof_url`, an optional HTTP(S) link with an empty
+string for photo-only and older submissions. A proof link can accompany photos
+or supply the evidence on its own; Abby saves the link without retrieving it.
+The synthetic Drive link survives approval and a later deadline edit while the
+original on-time snapshot remains unchanged. The same submission-timing
+producer and React consumer verify transport and the reviewed-history link.
 
 `content-workbench-catalog.json` and `content-workbench-denied.json` bind the
 staff content editor's catalog, exact reward references, reverse item uses,

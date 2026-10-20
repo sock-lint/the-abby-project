@@ -104,14 +104,14 @@ def create_homework(params: CreateHomeworkIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def submit_homework(params: SubmitHomeworkIn) -> dict[str, Any]:
-    """Submit homework for review (child-only). Note: images must be uploaded via the REST API."""
+    """Direct children to the REST API to submit homework proof photos or a link."""
     # Audit H12: the previous version did a cross-family ``HomeworkAssignment.get``
     # before raising — letting any caller probe assignment existence by id
     # via the 404-vs-500 distinction. The error is unconditional, so the
     # lookup served no purpose; just raise.
     raise HomeworkError(
-        "Homework submission requires image uploads. "
-        "Use the REST API endpoint POST /api/homework/{id}/submit/ with multipart form data."
+        "Submit homework through POST /api/homework/{id}/submit/ with proof photos, "
+        "a proof_url link, or both. Use multipart form data when uploading photos."
     )
 
 

@@ -6,6 +6,16 @@ import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 
 describe('useParentDashboard', () => {
+  it('carries the homework proof URL into the Today review queue', async () => {
+    const proofUrl = 'https://drive.google.com/file/d/synthetic-proof/view';
+    server.use(http.get('*/api/homework/dashboard/', () => HttpResponse.json({
+      pending_submissions: [{ id: 94, user: 2, assignment_title: 'Reading report', proof_url: proofUrl, proofs: [] }],
+    })));
+    const { result } = renderHook(() => useParentDashboard());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.pending.find((row) => row.id === 94)).toMatchObject({ proof_url: proofUrl, proofs: [] });
+  });
+
   it('keeps a chore receipt and uses its saved marked-complete timestamp for queue age', async () => {
     const completion = { id: 93, chore_title: 'Weekly watering', user: 2,
       created_at: '2026-10-12T00:00:00Z', completed_date: '2026-10-12',

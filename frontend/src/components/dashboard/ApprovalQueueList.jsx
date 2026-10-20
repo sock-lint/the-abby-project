@@ -9,6 +9,7 @@ import ParchmentCard from '../journal/ParchmentCard';
 import RuneBadge from '../journal/RuneBadge';
 import BottomSheet from '../BottomSheet';
 import ProofGallery from '../ProofGallery';
+import HomeworkProofEvidence from '../HomeworkProofEvidence';
 import SubmissionTiming from '../SubmissionTiming';
 import ConfirmDialog from '../ConfirmDialog';
 import Button from '../Button';
@@ -16,6 +17,7 @@ import ModalActions from '../ModalActions';
 import { TextAreaField, SelectField } from '../form';
 import CheckboxField from '../form/CheckboxField';
 import { formatCurrency } from '../../utils/format';
+import { getHomeworkProofUrl } from '../../utils/homeworkProof';
 import {
   approveChoreCompletion, rejectChoreCompletion,
   approveHomeworkSubmission, rejectHomeworkSubmission,
@@ -94,7 +96,7 @@ function thumbFor(item) {
 }
 
 function hasDetail(item) {
-  return Boolean(thumbFor(item) || item.notes || item.timingRecord);
+  return Boolean(thumbFor(item) || item.notes || item.timingRecord || (item.kind === 'homework' && getHomeworkProofUrl(item.proof_url)));
 }
 
 function Row({ item, timezone, isHidden, onApprove, onOpenReject, onProposalReview, onOpenDetail, selected, onSelect, groupBusy }) {
@@ -272,9 +274,9 @@ function DetailSheet({ item, timezone, onClose, onApprove, onReject }) {
           </span>
         </div>
         {item.timingRecord && <SubmissionTiming record={item.timingRecord} kind={item.kind} timezone={timezone} />}
-        {photos.length > 0 && (
-          <ProofGallery proofs={photos} />
-        )}
+        {item.kind === 'homework'
+          ? <HomeworkProofEvidence proofs={photos} proofUrl={item.proof_url} />
+          : <ProofGallery proofs={photos} />}
         {item.notes && (
           <p className="font-body text-body text-ink-secondary whitespace-pre-line">
             {item.notes}

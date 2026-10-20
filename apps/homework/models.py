@@ -110,6 +110,7 @@ class HomeworkSubmission(ApprovalWorkflowModel, CreatedAtModel):
         max_length=15, choices=Status.choices, default=Status.PENDING,
     )
     notes = models.TextField(blank=True, help_text="Optional child submission notes.")
+    proof_url = models.URLField(max_length=2048, blank=True, default="")
     timeliness = models.CharField(
         max_length=15, choices=Timeliness.choices,
         help_text="Computed at submission time by comparing submit date to due_date.",

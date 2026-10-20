@@ -379,6 +379,24 @@ describe('ApprovalQueueList', () => {
   });
 
   describe('evidence detail sheet', () => {
+    it('opens link-only homework proof and preserves the approval request contract', async () => {
+      const user = userEvent.setup();
+      const approval = spyHandler('post', /\/api\/homework-submissions\/22\/approve\/$/, { ok: true });
+      server.use(approval.handler);
+      renderList([{ ...homework, proofs: [], proof_url: 'https://drive.google.com/file/d/synthetic-proof/view' }]);
+
+      await user.click(screen.getByRole('button', { name: /tap to see the work/i }));
+      const sheet = await screen.findByRole('dialog', { name: 'Math p.14' });
+      const link = within(sheet).getByRole('link', { name: /open proof link/i });
+      expect(link).toHaveAttribute('href', 'https://drive.google.com/file/d/synthetic-proof/view');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+      expect(approval.calls).toHaveLength(0);
+      await user.click(within(sheet).getByRole('button', { name: /^approve$/i }));
+      await waitFor(() => expect(approval.calls).toHaveLength(1));
+      expect(approval.calls[0].body).toBeNull();
+    });
+
     const withProof = {
       id: 51, kind: 'homework', kidId: 3, kidName: 'Abby',
       title: 'Math packet', subtitle: 'submitted on time', reward: null,
