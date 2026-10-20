@@ -102,6 +102,134 @@ describe('Reading bookshelf', () => {
 });
 
 describe('Reading sessions', () => {
+  it.each([
+    ['want_to_read', 'Want to read'], ['paused', 'Paused'],
+  ])('shows a newly logged %s book on Reading only after the server confirms its shelf', async (status, label) => {
+    stub({ books: [{ ...BOOK, status }] });
+    let saved = false;
+    let release;
+    let shelfReads = 0;
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => {
+      saved = true;
+      return { ...SESSION, ...body };
+    });
+    server.use(post.handler, http.get('*/api/reading-books/', async () => {
+      shelfReads += 1;
+      if (!saved) return HttpResponse.json([{ ...BOOK, status }]);
+      await new Promise((resolve) => { release = resolve; });
+      return HttpResponse.json([BOOK]);
+    }));
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('tab', { name: new RegExp(label) }));
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Pages read (optional)'), '2');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await screen.findByText(/Reading saved for/)).toBeInTheDocument();
+    expect(post.calls).toHaveLength(1);
+    expect(post.calls[0].body).toMatchObject({ book: BOOK.id, pages_read: 2, client_request_id: expect.any(String) });
+    expect(screen.getByRole('tab', { name: new RegExp(label) })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(release).toBeDefined());
+    await act(async () => { release(); });
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Reading/ })).toHaveAttribute('aria-selected', 'true'));
+    expect(screen.getByRole('article', { name: BOOK.title })).toBeInTheDocument();
+    expect(shelfReads).toBe(2);
+  });
+
+  it.each([
+    { status: 'finished', label: 'Finished', editing: false, action: 'logging a finished book' },
+    { status: 'paused', label: 'Paused', editing: true, action: 'editing an existing log' },
+  ])('keeps the current shelf after $action', async ({ status, label, editing }) => {
+    stub({ books: [{ ...BOOK, status }], sessions: editing ? [SESSION] : [] });
+    const write = editing
+      ? spyHandler('patch', /\/api\/reading-sessions\/42\/$/, ({ body }) => ({ ...SESSION, ...body }))
+      : spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => ({ ...SESSION, ...body }));
+    let saved = false;
+    server.use(write.handler, http.get('*/api/reading-books/', () => {
+      saved = write.calls.length > 0;
+      // An edit must not navigate even if another client changed the shelf.
+      return HttpResponse.json([{ ...BOOK, author: saved ? 'Updated shelf author' : BOOK.author, status: editing && saved ? 'reading' : status }]);
+    }));
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('tab', { name: new RegExp(label) }));
+    await user.click(await screen.findByRole('button', { name: `${editing ? 'Edit log' : 'Log reading'}: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: editing ? 'Edit reading log' : 'Log your reading' });
+    if (!editing) await user.type(within(dialog).getByLabelText('Pages read (optional)'), '2');
+    await user.click(within(dialog).getByRole('button', { name: editing ? 'Save changes' : 'Save reading' }));
+    expect(await screen.findByText(editing ? /Reading changes saved for/ : /Reading saved for/)).toBeInTheDocument();
+    if (editing) await waitFor(() => expect(screen.getByRole('tab', { name: /^Reading/ })).toHaveTextContent('1'));
+    else expect(await screen.findByText('Updated shelf author')).toBeInTheDocument();
+    expect(write.calls).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: new RegExp(label) })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('keeps Want to read and the form open when a new log is rejected', async () => {
+    stub({ books: [{ ...BOOK, status: 'want_to_read' }] });
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, HttpResponse.json({ pages_read: ['Please correct the page count.'] }, { status: 400 }));
+    server.use(post.handler);
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('tab', { name: /Want to read/ }));
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Pages read (optional)'), '2');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await within(dialog).findByText('Please correct the page count.')).toBeInTheDocument();
+    expect(post.calls).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: /Want to read/ })).toHaveAttribute('aria-selected', 'true');
+    expect(within(dialog).getByLabelText('Pages read (optional)')).toHaveValue(2);
+  });
+
+  it('keeps the saved receipt and current shelf when its refresh fails', async () => {
+    stub({ books: [{ ...BOOK, status: 'paused' }] });
+    let saved = false;
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => {
+      saved = true;
+      return { ...SESSION, ...body };
+    });
+    server.use(post.handler, http.get('*/api/reading-books/', () => saved
+      ? HttpResponse.json({ detail: 'Bookshelf refresh unavailable.' }, { status: 503 })
+      : HttpResponse.json([{ ...BOOK, status: 'paused' }])));
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('tab', { name: /Paused/ }));
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Pages read (optional)'), '2');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    expect(await screen.findByText('Bookshelf refresh unavailable.')).toBeInTheDocument();
+    expect(screen.getByText(/Reading saved for/)).toBeInTheDocument();
+    expect(post.calls).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: /Paused/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('article', { name: BOOK.title })).toBeInTheDocument();
+  });
+
+  it('preserves a shelf choice made while the saved log refresh is pending', async () => {
+    stub({ books: [{ ...BOOK, status: 'want_to_read' }] });
+    let saved = false;
+    let release;
+    const post = spyHandler('post', /\/api\/reading-sessions\/$/, ({ body }) => {
+      saved = true;
+      return { ...SESSION, ...body };
+    });
+    server.use(post.handler, http.get('*/api/reading-books/', async () => {
+      if (!saved) return HttpResponse.json([{ ...BOOK, status: 'want_to_read' }]);
+      await new Promise((resolve) => { release = resolve; });
+      return HttpResponse.json([BOOK]);
+    }));
+    const { user } = renderWithProviders(<Reading />);
+    await user.click(await screen.findByRole('tab', { name: /Want to read/ }));
+    await user.click(await screen.findByRole('button', { name: `Log reading: ${BOOK.title}` }));
+    const dialog = await screen.findByRole('dialog', { name: 'Log your reading' });
+    await user.type(within(dialog).getByLabelText('Pages read (optional)'), '2');
+    await user.click(within(dialog).getByRole('button', { name: 'Save reading' }));
+    await screen.findByText(/Reading saved for/);
+    await waitFor(() => expect(release).toBeDefined());
+    await user.click(screen.getByRole('tab', { name: /Finished/ }));
+    await act(async () => { release(); });
+    await waitFor(() => expect(screen.getByRole('tab', { name: /^Reading/ })).toHaveTextContent('1'));
+    expect(post.calls).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: /Finished/ })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('logs the selected saved book, family date, listening time and a guided reflection; keeps its receipt when refresh fails', async () => {
     stub();
     let saved = false;

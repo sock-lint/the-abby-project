@@ -190,6 +190,11 @@ be deleted. Totals come from `/reading/summary/`; local curated recommendations
 use book topics/age and publisher sources, without sending notes externally or
 granting rewards.
 
+After a new log starts a wanted or paused book, the workspace opens Reading
+only once the refreshed shelf confirms that status. A manual shelf choice
+during refresh is preserved. Editing history, logging a finished book and
+failed saves or shelf refreshes do not trigger that navigation.
+
 `ReadingDiscovery` presents 64 locally curated publisher-sourced books with
 edition details and covers. It sends `interest`, `mood`, `style`, `book_format`,
 `length`, `theme`, `q`, `similar_to` and `rotation` to the server; length labels

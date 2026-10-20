@@ -183,6 +183,9 @@ class ReadingSessionViewSet(ReadingOwnerViewSet):
                 session = ReadingSession.objects.create(
                     user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
                 )
+                if book.status in (ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.PAUSED):
+                    book.status = ReadingBook.Status.READING
+                    book.save(update_fields=["status", "updated_at"])
                 ReadingRewardService.credit_new_session(target, session)
             return Response(self.get_serializer(session).data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
