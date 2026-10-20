@@ -150,7 +150,19 @@ Coins, badge evaluation and promised items, matching the live award order.
 Celebration loot awards no streak credit or daily effort and does not advance
 other challenges. Its obtainable items are included in finite-content and
 companion reachability only when the corresponding accomplishment is reachable.
-The rules fingerprint binds the live completion hooks and rarity selector, so
+Finite completion pools retain their physical capacity: each reachable badge
+or one-time challenge supplies one draw, and each authored item promise keeps
+its exact quantity. A draw cannot pay for both an egg and a potion, or be
+reused as food. Growth checks use the live per-food growth and preference
+bonus, with separate middle/grown thresholds. Direct activity pools and
+reachable repeatable challenges remain renewable structural sources.
+Compound pet/collection badge prerequisites consume a feasible proof before
+their reward becomes another source; expeditions first require a funded grown
+companion. These bounded, conservative proofs may omit an alternative item
+acquisition order. Reachability remains per-target structural feasibility,
+not proof that all finite targets can be collected jointly or within the
+forecast horizon.
+The rules fingerprint binds these capacity checks, live completion hooks and rarity selector, so
 saved comparisons from before these hooks changed must be rerun.
 
 Companion care includes the installed incubation duration, currently 24 elapsed

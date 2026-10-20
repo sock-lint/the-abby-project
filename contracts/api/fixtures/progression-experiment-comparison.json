@@ -104,8 +104,8 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-20.1",
-    "rules_fingerprint": "76621767313f98057b7d34c1e9122802578e7b76bb8b8b3c71a190bffadfa583",
+    "engine_version": "2026-10-20.2",
+    "rules_fingerprint": "a38dd155dd57e294c3d36aeaa425e568ee93a41110f8737c87b716f53bc5bd17",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "177f25b6d8175696fc1254646149cc0f5423e252f3f1fffbd9b42f63912f239a",
     "source_commit": "unavailable"
@@ -251,8 +251,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "76621767313f98057b7d34c1e9122802578e7b76bb8b8b3c71a190bffadfa583",
-    "engine_version": "2026-10-20.1",
+    "rules_fingerprint": "a38dd155dd57e294c3d36aeaa425e568ee93a41110f8737c87b716f53bc5bd17",
+    "engine_version": "2026-10-20.2",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -285,6 +285,7 @@
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
+        "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
         "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content"
@@ -4186,8 +4187,8 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "pet": 1,
-        "quest": 1,
         "mount": 1,
+        "quest": 1,
         "cosmetic": 1,
         "middle": 1,
         "badge": 1
@@ -6284,8 +6285,8 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "76621767313f98057b7d34c1e9122802578e7b76bb8b8b3c71a190bffadfa583",
-    "engine_version": "2026-10-20.1",
+    "rules_fingerprint": "a38dd155dd57e294c3d36aeaa425e568ee93a41110f8737c87b716f53bc5bd17",
+    "engine_version": "2026-10-20.2",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -6318,6 +6319,7 @@
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
+        "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
         "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
         "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
         "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content"
@@ -10219,8 +10221,8 @@
       "eligible_challenges": 1,
       "finite_breakdown": {
         "pet": 1,
-        "quest": 1,
         "mount": 1,
+        "quest": 1,
         "cosmetic": 1,
         "middle": 1,
         "badge": 1

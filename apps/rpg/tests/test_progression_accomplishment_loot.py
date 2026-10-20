@@ -7,7 +7,7 @@ from apps.achievements.models import Badge, UserBadge
 from apps.achievements.services import BadgeService
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.goals import ingest_activity
-from apps.quests.models import ChallengeOccurrence, QuestDefinition
+from apps.quests.models import ChallengeOccurrence, QuestDefinition, QuestRewardItem
 from apps.rpg.models import DropLog, DropTable, ItemDefinition, UserInventory
 from apps.rpg.progression.catalog import load_catalog
 from apps.rpg.progression.engine import Trial, coverage, rules_fingerprint
@@ -107,7 +107,7 @@ class ProgressionAccomplishmentLootTests(TestCase):
         self.assertNotIn(f"cosmetic:{item.pk}", self.trial().finite_keys)
 
     def test_badge_only_ingredients_can_reach_first_mount_and_expedition_challenge(self):
-        for index in range(3):
+        for index in range(22):
             self.badge(f"Ingredient badge {index}")
         species = PetSpecies.objects.create(slug="chick", name="Chick", sprite_key="cute-chick")
         potion = PotionType.objects.create(slug="base", name="Base")
@@ -125,6 +125,121 @@ class ProgressionAccomplishmentLootTests(TestCase):
         self.assertIn(f"mount:{(species.pk, potion.pk)}", trial.finite_keys)
         self.assertIn("expedition_returned", trial._enabled_triggers())
         self.assertIn(f"quest:{expedition_goal.pk}", trial.finite_keys)
+
+    def companion_pool(self, trigger):
+        species = PetSpecies.objects.create(slug="chick", name="Chick", sprite_key="cute-chick")
+        potion = PotionType.objects.create(slug="base", name="Base")
+        species.available_potions.add(potion)
+        for item in (
+            ItemDefinition.objects.create(slug="chick-egg", name="Egg", item_type="egg", pet_species=species,
+                                          metadata={"species": "chick"}),
+            ItemDefinition.objects.create(slug="base-potion", name="Potion", item_type="potion", potion_type=potion,
+                                          metadata={"variant": "base"}),
+        ):
+            DropTable.objects.create(trigger_type=trigger, item=item, weight=1)
+        return (species.pk, potion.pk)
+
+    def test_single_badge_cannot_supply_both_hatch_ingredients_or_bootstrap_expeditions(self):
+        self.badge()
+        pair = self.companion_pool("badge_earned")
+        trial = self.trial(expeditions_per_day=1)
+        self.assertNotIn(f"pet:{pair}", trial.finite_keys)
+        self.assertNotIn(f"mount:{pair}", trial.finite_keys)
+        self.assertNotIn("expedition_returned", trial._enabled_triggers())
+
+    def test_finite_quest_draws_cover_ingredients_and_each_needed_food_unit(self):
+        pair = self.companion_pool("quest_complete")
+        self.quest("Only draw")
+        self.assertNotIn(f"pet:{pair}", self.trial().finite_keys)
+        self.quest("Second draw")
+        trial = self.trial(expeditions_per_day=1)
+        self.assertIn(f"pet:{pair}", trial.finite_keys)
+        self.assertNotIn(f"middle:{pair}", trial.finite_keys)
+        self.assertNotIn(f"mount:{pair}", trial.finite_keys)
+        self.assertNotIn("expedition_returned", trial._enabled_triggers())
+        for index in range(19):
+            self.quest(f"Food draw {index}")
+        trial = self.trial(expeditions_per_day=1)
+        self.assertIn(f"middle:{pair}", trial.finite_keys)
+        self.assertNotIn(f"mount:{pair}", trial.finite_keys)
+        self.quest("Last food draw")
+        self.assertIn(f"mount:{pair}", self.trial(expeditions_per_day=1).finite_keys)
+
+    def test_repeatable_quest_draws_remain_a_renewable_companion_source(self):
+        pair = self.companion_pool("quest_complete")
+        self.quest(is_repeatable=True)
+        trial = self.trial(expeditions_per_day=1)
+        self.assertIn(f"mount:{pair}", trial.finite_keys)
+        self.assertIn("expedition_returned", trial._enabled_triggers())
+
+    def test_authored_food_quantity_is_finite_and_credited_once(self):
+        pair = self.companion_pool("quest_complete")
+        # This case uses only the authored promise, without a random pool.
+        DropTable.objects.all().delete()
+        quest = self.quest()
+        for item in ItemDefinition.objects.filter(item_type__in=["egg", "potion"]):
+            QuestRewardItem.objects.create(quest_definition=quest, item=item, quantity=1)
+        food = QuestRewardItem.objects.create(quest_definition=quest, item=self.quest_loot, quantity=1)
+        for quantity, middle, mount in ((1, False, False), (10, True, False), (20, True, True)):
+            with self.subTest(quantity=quantity):
+                food.quantity = quantity
+                food.save(update_fields=["quantity"])
+                trial = self.trial(expeditions_per_day=1)
+                self.assertIn(f"pet:{pair}", trial.finite_keys)
+                self.assertEqual(f"middle:{pair}" in trial.finite_keys, middle)
+                self.assertEqual(f"mount:{pair}" in trial.finite_keys, mount)
+                self.assertEqual("expedition_returned" in trial._enabled_triggers(), mount)
+
+    def test_distinct_completion_pools_cannot_reuse_the_potion_slot_as_food(self):
+        pair = self.companion_pool("quest_complete")
+        egg = ItemDefinition.objects.get(item_type="egg")
+        DropTable.objects.filter(trigger_type="badge_earned").delete()
+        DropTable.objects.filter(trigger_type="quest_complete", item=egg).delete()
+        DropTable.objects.create(trigger_type="badge_earned", item=egg, weight=1)
+        self.badge()
+        self.quest()
+        trial = self.trial(expeditions_per_day=1)
+        self.assertIn(f"pet:{pair}", trial.finite_keys)
+        self.assertNotIn(f"middle:{pair}", trial.finite_keys)
+        self.assertNotIn(f"mount:{pair}", trial.finite_keys)
+        self.assertNotIn("expedition_returned", trial._enabled_triggers())
+
+    def test_multi_item_badge_cannot_create_draws_from_a_single_slot(self):
+        self.badge("A first draw")
+        slugs = []
+        for index in range(2):
+            item = ItemDefinition.objects.create(slug=f"collection-frame-{index}", name=f"Frame {index}",
+                                                  item_type="cosmetic_frame")
+            slugs.append(item.slug)
+            DropTable.objects.create(trigger_type="badge_earned", item=item, weight=1)
+        collection = Badge.objects.create(name="B impossible collection", criteria_type="cosmetic_set_owned",
+            criteria_value={"slugs": slugs}, award_coins=False)
+        trial = self.trial(movement_sessions_per_day=1)
+        self.assertNotIn(f"badge:{collection.pk}", trial.finite_keys)
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY={
+        "schema_version": 1, "potion_slugs": ["base"], "disabled_item_types": [],
+        "pets": [
+            {"species_slug": "chick", "sprite_key": "cute-chick", "potion_slugs": ["base"]},
+            {"species_slug": "fox", "sprite_key": "fox", "potion_slugs": ["base"]},
+        ],
+    })
+    def test_one_shared_potion_cannot_pay_multi_pet_badges_or_generate_extra_draws(self):
+        self.companion_pool("quest_complete")
+        DropTable.objects.all().delete()
+        fox = PetSpecies.objects.create(slug="fox", name="Fox", sprite_key="fox")
+        potion = PotionType.objects.get(slug="base")
+        fox.available_potions.add(potion)
+        ItemDefinition.objects.create(slug="fox-egg", name="Fox egg", item_type="egg", pet_species=fox)
+        quest = self.quest()
+        for item in ItemDefinition.objects.filter(item_type__in=["egg", "potion"]):
+            QuestRewardItem.objects.create(quest_definition=quest, item=item)
+        QuestRewardItem.objects.create(quest_definition=quest, item=self.quest_loot, quantity=40)
+        DropTable.objects.create(trigger_type="badge_earned", item=ItemDefinition.objects.get(item_type="potion"), weight=1)
+        badges = [Badge.objects.create(name=kind, criteria_type=kind, criteria_value={"count": 2}, award_coins=False)
+                  for kind in ("pets_hatched", "pet_species_owned", "mounts_evolved")]
+        trial = self.trial()
+        self.assertFalse({f"badge:{badge.pk}" for badge in badges} & trial.finite_keys)
 
     def test_repeatable_only_completion_reports_withheld_commitment_pool_path(self):
         repeat = self.quest(is_repeatable=True)

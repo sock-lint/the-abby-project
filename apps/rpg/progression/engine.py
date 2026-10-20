@@ -56,6 +56,7 @@ from apps.rpg.services import (
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
 from .catalog import load_catalog
+from .capacity import ItemCapacity
 from .economy import (
     ECONOMY_DEFAULTS, ECONOMY_LIMITS, OFFER_DEFAULTS, Economy,
     aggregate_economy, normalize_economy, project_money_cents, exchange_quote_cents,
@@ -82,7 +83,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-20.1"
+ENGINE_VERSION = "2026-10-20.2"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -265,6 +266,7 @@ def rules_fingerprint(*, incubation_policy=None):
         "reward_commitment_source": inspect.getsource(inspect.getmodule(RewardCommitment)),
         "expedition_budget_source": inspect.getsource(inspect.getmodule(ExpeditionBudget)),
         "challenge_gates_source": inspect.getsource(inspect.getmodule(ChallengeGates)),
+        "item_capacity_source": inspect.getsource(inspect.getmodule(ItemCapacity)),
         "challenge_gates_assumptions": list(inspect.getmodule(ChallengeGates).ASSUMPTIONS),
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
@@ -355,6 +357,7 @@ def coverage(catalog):
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
             "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
+            "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
             "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
             "Finite content counts modeled badges, one-off challenges, obtainable cosmetic identities and companion stages only; it is not total app runway",
             "Remaining finite targets means uncompleted, including missed one-off deadlines; expired unfinished challenges are reported separately and are not future playable content",
@@ -604,7 +607,8 @@ class Trial:
         potential = copy(self)
         potential.quests = potential._eligible_quests(enabled=triggers)
         potential._reachable_badges(obtainable, triggers=triggers)
-        possible = any(target.startswith("mount:") for target in self._partial_finite_keys(obtainable))
+        possible = any(target.startswith("mount:") for target in potential._reachability_capacity.companion_keys(
+            feeding=self.config["feed_strategy"] != "none"))
         self._initial_mount_possible_cache[key] = possible
         return possible
 
@@ -721,33 +725,11 @@ class Trial:
         triggers = self._enabled_triggers()
         obtainable = set().union(*(self._obtainable_drop_items(trigger, installed=installed)
                                   for trigger in self._direct_drop_triggers(triggers)))
-        if not respect_gates and "expedition_returned" in triggers and self.config["expedition_budget"]["daily_items"] != 0:
-            tier = self.config["expedition_tier"]
-            budgets = TIER_CONFIG[tier]["rarity_weights"]
-            # A dedicated pool suppresses fallback at that level even if all
-            # its rarities are excluded. Only positive supported draws count
-            # as finite targets; early-level fallback remains reachable.
-            for level in XP_THRESHOLDS:
-                entries, weights = self._source_pool("expedition_returned", level, tier)
-                obtainable.update(e.item_id for e, weight in zip(entries, weights)
-                                  if weight > 0 and budgets.get(e.item.rarity, 0) > 0
-                                  and (installed or not self.reward_commitment.enabled
-                                       or self.reward_commitment.allows(e.item, tier=tier)))
         reachable_badges = self._reachable_badges(obtainable, respect_gates=respect_gates, installed=installed)
-        egg_species = {
-            self.catalog.items[pk].pet_species_id for pk in obtainable if self.catalog.items[pk].item_type == "egg"
-        }
-        potions = {
-            self.catalog.items[pk].potion_type_id for pk in obtainable if self.catalog.items[pk].item_type == "potion"
-        }
-        keys = {f"cosmetic:{pk}" for pk in obtainable if self.catalog.items[pk].item_type in COSMETIC_TYPES}
-        for pair in self.catalog.pairs:
-            if pair[0] in egg_species and pair[1] in potions:
-                keys.add(f"pet:{pair}")
-                if self.config["feed_strategy"] != "none" and any(
-                    self.catalog.items[pk].item_type == "food" for pk in obtainable
-                ):
-                    keys.update({f"middle:{pair}", f"mount:{pair}"})
+        capacity = self._reachability_capacity
+        keys = {f"cosmetic:{pk}" for pk in obtainable if self.catalog.items[pk].item_type in COSMETIC_TYPES
+                and capacity.prove_collection([pk]) is not None}
+        keys.update(capacity.companion_keys(feeding=self.config["feed_strategy"] != "none"))
         keys.update(f"quest:{q.pk}" for q in self.quests if not q.is_repeatable and q.pk in self.reachable_quest_ids)
         keys.update(f"badge:{pk}" for pk in reachable_badges)
         return keys
@@ -791,6 +773,7 @@ class Trial:
         potential.badges, potential.completed_quests = set(), set()
         potential.inventory = Counter({pk: 1 for pk in obtainable})
         potential.pets = {}
+        capacity = ItemCapacity(self.catalog, obtainable)
         max_count = 10**9
         c = self.config
         unscoped = (c["journal_per_day"] and self.tags["journal"]) or (
@@ -829,10 +812,6 @@ class Trial:
         potential.habit_strength = [strength_cap] * c["habits_per_day"]
         enabled_triggers = self._enabled_triggers() if triggers is None else triggers
         potential.earned_coins = max_count if enabled_triggers else 0
-        for pair, (species, potion) in self.catalog.pairs.items():
-            if f"pet:{pair}" in self._partial_finite_keys(obtainable):
-                grown = f"mount:{pair}" in self._partial_finite_keys(obtainable)
-                potential.pets[pair] = SimPet(species, potion, 100 if grown else 0, grown)
         earning = set()
         for source, enabled in {
             "reading": c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES,
@@ -865,33 +844,51 @@ class Trial:
             potential.total_xp = sum(potential.xp.values())
             potential.evaluate_unlocks()
             potential_triggers = set(enabled_triggers)
-            if respect_gates:
-                # A gate on the only first companion path cannot bootstrap
-                # itself from future expedition loot before any mount exists.
-                if not any(pet.evolved_to_mount for pet in potential.pets.values()):
+            if "expedition_returned" in potential_triggers:
+                # Spend the first mount's physical ingredients/food before
+                # treating trips as a renewable reward source. An expedition
+                # cannot finance its own prerequisite mount.
+                proof = capacity.prove_companions(1, grown=True)
+                if proof is None:
                     potential_triggers.discard("expedition_returned")
-                elif "expedition_returned" in potential_triggers and self.config["expedition_budget"]["daily_items"] != 0:
+                else:
+                    capacity = proof
+                if "expedition_returned" in potential_triggers and self.config["expedition_budget"]["daily_items"] != 0:
                     tier = self.config["expedition_tier"]
                     for level in XP_THRESHOLDS:
                         entries, weights = self._source_pool("expedition_returned", level, tier)
-                        obtainable.update(entry.item_id for entry, weight in zip(entries, weights)
+                        renewable = {entry.item_id for entry, weight in zip(entries, weights)
                                           if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0
-                                          and (not self.reward_commitment.enabled
-                                               or self.reward_commitment.allows(entry.item, tier=tier)))
+                                          and (installed or not self.reward_commitment.enabled
+                                               or self.reward_commitment.allows(entry.item, tier=tier))}
+                        obtainable.update(renewable)
+                        capacity.renewable.update(renewable)
             for q in self.quests:
+                if q.pk in potential.completed_quests:
+                    continue
                 if q.required_badge_id and q.required_badge_id not in potential.badges:
                     continue
-                if respect_gates and (not self.challenge_gates.potential_allows(q, potential)
-                                      or self._challenge_capacity(q, potential_triggers) < q.target_value):
+                if self._challenge_capacity(q, potential_triggers) < q.target_value:
+                    continue
+                if respect_gates and not self.challenge_gates.potential_allows(q, potential):
                     continue
                 potential.completed_quests.add(q.pk)
                 obtainable.update(row.item_id for row in q.reward_items.all() if row.item_id in self.catalog.items)
-                obtainable.update(self._obtainable_drop_items("quest_complete", installed=installed))
+                pool = self._obtainable_drop_items("quest_complete", installed=installed)
+                obtainable.update(pool)
+                capacity.add_draws("quest_complete", pool, repeatable=q.is_repeatable)
+                for row in q.reward_items.all():
+                    if row.item_id in self.catalog.items:
+                        if q.is_repeatable:
+                            capacity.renewable.add(row.item_id)
+                        else:
+                            capacity.fixed[row.item_id] += row.quantity
                 potential.counters[f"quest_completed:{q.pk}"] = max_count if q.is_repeatable else 1
                 if q.xp_reward > 0:
                     earning.update(tag.skill_id for tag in q.skill_tags.all())
             potential.inventory.update({pk: 1 for pk in obtainable if pk not in potential.inventory})
-            potential_pairs = self._partial_finite_keys(obtainable)
+            potential_pairs = capacity.companion_keys(feeding=self.config["feed_strategy"] != "none")
+            potential.pets = {}
             for pair, (species, potion) in self.catalog.pairs.items():
                 if f"pet:{pair}" in potential_pairs:
                     grown = f"mount:{pair}" in potential_pairs
@@ -912,9 +909,23 @@ class Trial:
                 if (reachable_types is None or badge.criteria_type in reachable_types) and potential._badge_matches(
                     badge
                 ):
+                    if badge.pk in potential.badges:
+                        continue
+                    proof = capacity
+                    count = int((badge.criteria_value or {}).get("count", 1))
+                    if badge.criteria_type in {"pets_hatched", "pet_species_owned", "mounts_evolved"}:
+                        proof = capacity.prove_companions(count, grown=badge.criteria_type == "mounts_evolved",
+                            distinct_species=badge.criteria_type == "pet_species_owned")
+                    elif badge.criteria_type == "cosmetic_set_owned":
+                        slugs = set((badge.criteria_value or {}).get("slugs", []))
+                        proof = capacity.prove_collection([pk for pk, item in self.catalog.items.items() if item.slug in slugs])
+                    if proof is None:
+                        continue
+                    capacity = proof
                     potential.badges.add(badge.pk)
-            if potential.badges:
-                obtainable.update(self._obtainable_drop_items("badge_earned", installed=installed))
+                    pool = self._obtainable_drop_items("badge_earned", installed=installed)
+                    obtainable.update(pool)
+                    capacity.add_draws("badge_earned", pool)
             if previous == (
                 len(potential.badges),
                 len(potential.completed_quests),
@@ -924,24 +935,8 @@ class Trial:
             ):
                 break
         self.reachable_quest_ids = potential.completed_quests
+        self._reachability_capacity = capacity
         return potential.badges
-
-    def _partial_finite_keys(self, obtainable):
-        species = {
-            self.catalog.items[pk].pet_species_id for pk in obtainable if self.catalog.items[pk].item_type == "egg"
-        }
-        potions = {
-            self.catalog.items[pk].potion_type_id for pk in obtainable if self.catalog.items[pk].item_type == "potion"
-        }
-        keys = set()
-        for pair in self.catalog.pairs:
-            if pair[0] in species and pair[1] in potions:
-                keys.add(f"pet:{pair}")
-                if self.config["feed_strategy"] != "none" and any(
-                    self.catalog.items[pk].item_type == "food" for pk in obtainable
-                ):
-                    keys.add(f"mount:{pair}")
-        return keys
 
     def record(self, source, *, coins=0, xp=0, items=0, target="", **details):
         self.event_count += 1
