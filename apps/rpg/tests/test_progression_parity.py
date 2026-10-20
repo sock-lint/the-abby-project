@@ -177,7 +177,9 @@ class ProgressionCatalogParityTests(TestCase):
         food = ItemDefinition.objects.filter(item_type="food").first()
         gated = ItemDefinition.objects.create(slug="parity-high-level-food", name="Later food", item_type="food")
         DropTable.objects.create(trigger_type="clock_out", item=gated, weight=111, min_level=6)
-        unsupported = ItemDefinition.objects.filter(item_type="cosmetic_pet_accessory").first()
+        unsupported = ItemDefinition.objects.create(
+            slug="parity-unsupported-accessory", name="Unsupported accessory", item_type="cosmetic_pet_accessory",
+        )
         DropTable.objects.create(trigger_type="clock_out", item=unsupported, weight=999999)
         catalog = load_catalog()
         trial = Trial(CONFIG, catalog, 1)
