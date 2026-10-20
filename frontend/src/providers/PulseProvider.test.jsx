@@ -9,6 +9,7 @@ import { server } from '../test/server.js';
 import { buildUser } from '../test/factories.js';
 import { useAuth } from '../hooks/useApi';
 import { GATEWAY_RETRY_DELAY_MS } from '../api/client';
+import { PULSE_OUTAGE_BEATS } from './pulseContext';
 
 function Probe() {
   const { pulse } = usePulse();
@@ -28,10 +29,10 @@ const pulseBody = (coins) => ({
   header: { active_timer: null, coin_balance: coins, streak_days: 0 },
 });
 
-function renderProvider() {
+function renderProvider(intervalMs = 1000) {
   server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())));
   return renderWithProviders(
-    <PulseProvider intervalMs={1000}>
+    <PulseProvider intervalMs={intervalMs}>
       <Probe />
     </PulseProvider>,
     // The outer MockPulse from the helper is overridden by the real provider
@@ -117,20 +118,77 @@ describe('PulseProvider', () => {
     expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
-  it('still reports a 504 that outlasts the retry', async () => {
+  const BEAT_MS = 10000;
+  const failedBeat = (kind) => (kind === 'html'
+    ? new HttpResponse('<!doctype html><title>starting</title>', { status: 200, headers: { 'content-type': 'text/html' } })
+    : new HttpResponse('upstream timed out', { status: 504 }));
+  const runBeat = async () => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS); });
+  };
+
+  // THE-ABBY-PROJECT-3X: a deploy answered both attempts of a beat with HTML.
+  it.each(['html', 'gateway'])('does not report a deploy window that spans one whole %s beat', async (kind) => {
     let requests = 0;
     server.use(http.get('*/api/pulse/', () => {
       requests += 1;
-      return new HttpResponse('upstream timed out', { status: 504 });
+      return requests <= 2 ? failedBeat(kind) : HttpResponse.json(pulseBody(9));
     }));
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    renderProvider();
+    renderProvider(BEAT_MS);
     await waitFor(() => expect(requests).toBe(1));
-    await act(async () => { await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS); });
-    await waitFor(() => expect(Sentry.captureException).toHaveBeenCalledTimes(1));
-    expect(requests).toBeGreaterThanOrEqual(2);
-    expect(Sentry.captureException.mock.calls[0][0].message).toBe('API 504: GET /pulse/');
+    await runBeat();
+    await waitFor(() => expect(requests).toBe(2));
+    await act(async () => { await vi.advanceTimersByTimeAsync(BEAT_MS); });
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveTextContent('coins:9'));
+    expect(Sentry.captureException).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['html', 'API 200 with non-JSON body: GET /pulse/'],
+    ['gateway', 'API 504: GET /pulse/'],
+  ])('reports once when %s failures persist across consecutive beats', async (kind, message) => {
+    let requests = 0;
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return failedBeat(kind);
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderProvider(BEAT_MS);
+    for (let beat = 1; beat <= PULSE_OUTAGE_BEATS + 2; beat += 1) {
+      await waitFor(() => expect(requests).toBe((beat - 1) * 2 + 1));
+      await runBeat();
+      await waitFor(() => expect(requests).toBe(beat * 2));
+      if (beat < PULSE_OUTAGE_BEATS) expect(Sentry.captureException).not.toHaveBeenCalled();
+      await act(async () => { await vi.advanceTimersByTimeAsync(BEAT_MS - GATEWAY_RETRY_DELAY_MS); });
+    }
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1);
+    const [error, { extra }] = Sentry.captureException.mock.calls[0];
+    expect(error.message).toBe(message);
+    expect(extra).toMatchObject({ attempts: 2, consecutiveFailedBeats: PULSE_OUTAGE_BEATS });
     expect(screen.getByTestId('probe')).toHaveTextContent('no-beat');
+  });
+
+  it('restarts the outage count after a beat succeeds', async () => {
+    let requests = 0;
+    // Two failed beats (four requests), one good beat, then failures again.
+    server.use(http.get('*/api/pulse/', () => {
+      requests += 1;
+      return requests === 5 ? HttpResponse.json(pulseBody(3)) : failedBeat('html');
+    }));
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    renderProvider(BEAT_MS);
+    let expected = 0;
+    // Beats 1-2 fail (2 requests each), beat 3 succeeds (1 request), beats 4-5 fail.
+    for (const requestsInBeat of [2, 2, 1, 2, 2]) {
+      await waitFor(() => expect(requests).toBe(expected + 1));
+      if (requestsInBeat === 2) await runBeat();
+      expected += requestsInBeat;
+      await waitFor(() => expect(requests).toBe(expected));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(requestsInBeat === 2 ? BEAT_MS - GATEWAY_RETRY_DELAY_MS : BEAT_MS);
+      });
+    }
+    expect(Sentry.captureException).not.toHaveBeenCalled();
   });
 
   it('rejects a late receipt response from the previous child', async () => {

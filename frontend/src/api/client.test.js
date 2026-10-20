@@ -136,18 +136,36 @@ describe('api errors', () => {
       }));
     });
 
-    it('captures a gateway status that persists after the retry, with the attempt count', async () => {
+    it('hands a gateway status that persists after the retry to the caller to report, with the attempt count', async () => {
       let calls = 0;
       server.use(http.get('*/api/gateway/', () => {
         calls += 1;
         return new HttpResponse('upstream timed out', { status: 504 });
       }));
-      const pending = expect(api.get('/gateway/', { retryGateway: true })).rejects.toMatchObject({ status: 504 });
+      const pending = expect(api.get('/gateway/', { retryGateway: true })).rejects.toMatchObject({
+        status: 504,
+        deferredReport: {
+          error: expect.objectContaining({ message: 'API 504: GET /gateway/' }),
+          extra: expect.objectContaining({ status: 504, attempts: 2 }),
+        },
+      });
       await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
       await pending;
       expect(calls).toBe(2);
+      expect(Sentry.captureException).not.toHaveBeenCalled();
+    });
+
+    it('still captures a gateway status at once for callers that did not opt in', async () => {
+      server.use(http.get('*/api/gateway/', () => new HttpResponse('upstream timed out', { status: 504 })));
+      await expect(api.get('/gateway/')).rejects.toMatchObject({ status: 504 });
       expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-      expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 504, attempts: 2 });
+      expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 504, attempts: 1 });
+    });
+
+    it('still captures a non-gateway 5xx at once when the caller opted in', async () => {
+      server.use(http.get('*/api/gateway/', () => HttpResponse.json({ error: 'boom' }, { status: 500 })));
+      await expect(api.get('/gateway/', { retryGateway: true })).rejects.toMatchObject({ status: 500 });
+      expect(Sentry.captureException).toHaveBeenCalledTimes(1);
     });
 
     it('never replays a write after a gateway status', async () => {
@@ -583,16 +601,24 @@ describe('upstream HTML recovery', () => {
       } finally { fetchSpy.mockRestore(); }
     });
 
-    it('still reports once when the HTML response persists past the pause', async () => {
+    // THE-ABBY-PROJECT-3X: a deploy outlasted the single paused retry. The
+    // opted-in poll no longer reports that itself; its caller reports an outage
+    // that persists across several polls.
+    it('hands an HTML response that persists past the pause to the caller to report', async () => {
       setToken('pulse-session');
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => htmlResponse());
       try {
-        const pending = expect(api.get('/pulse/', { retryGateway: true })).rejects.toThrow(UNAVAILABLE_MESSAGE);
+        const pending = expect(api.get('/pulse/', { retryGateway: true })).rejects.toMatchObject({
+          message: UNAVAILABLE_MESSAGE,
+          deferredReport: {
+            error: expect.objectContaining({ message: 'API 200 with non-JSON body: GET /pulse/' }),
+            extra: expect.objectContaining({ status: 200, attempts: 2 }),
+          },
+        });
         await vi.advanceTimersByTimeAsync(GATEWAY_RETRY_DELAY_MS);
         await pending;
         expect(fetchSpy).toHaveBeenCalledTimes(2);
-        expect(Sentry.captureException).toHaveBeenCalledTimes(1);
-        expect(Sentry.captureException.mock.calls[0][1].extra).toMatchObject({ status: 200, attempts: 2 });
+        expect(Sentry.captureException).not.toHaveBeenCalled();
       } finally { fetchSpy.mockRestore(); }
     });
 

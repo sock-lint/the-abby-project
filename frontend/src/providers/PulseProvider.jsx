@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as Sentry from '@sentry/react';
 import { getPulse } from '../api';
 import { useAuth } from '../hooks/useApi';
-import { PulseContext, PULSE_INTERVAL_MS } from './pulseContext';
+import { PulseContext, PULSE_INTERVAL_MS, PULSE_OUTAGE_BEATS } from './pulseContext';
 import { getToken } from '../api/client';
 
 /**
@@ -25,6 +26,8 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
   const [savedPulse, setSavedPulse] = useState(null);
   const pulse = savedPulse?.account === account ? savedPulse.data : null;
   const cancelledRef = useRef(false);
+  // Consecutive beats the proxy answered with a gateway status or an HTML page.
+  const failedBeatsRef = useRef(0);
 
   const beat = useCallback(async () => {
     if (typeof document !== 'undefined' && document.hidden) return;
@@ -32,10 +35,21 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
     if (!requestedAccount) return;
     try {
       const data = await getPulse();
+      failedBeatsRef.current = 0;
       if (!cancelledRef.current && accountRef.current === requestedAccount) setSavedPulse({ account: requestedAccount, data });
-    } catch {
+    } catch (err) {
       // Silent, like every poller before it — a missed beat must never break
-      // the shell, and the next one is 30s away.
+      // the shell, and the next one is 30s away. A deploy swaps containers for
+      // longer than one beat's retry, so a transient failure is reported only
+      // when it persists across several beats, i.e. a real outage.
+      if (err?.deferredReport && accountRef.current === requestedAccount) {
+        failedBeatsRef.current += 1;
+        if (failedBeatsRef.current === PULSE_OUTAGE_BEATS) {
+          Sentry.captureException(err.deferredReport.error, {
+            extra: { ...err.deferredReport.extra, consecutiveFailedBeats: failedBeatsRef.current },
+          });
+        }
+      }
     }
   }, []);
 
@@ -44,6 +58,7 @@ export function PulseProvider({ children, intervalMs = PULSE_INTERVAL_MS }) {
       return undefined;
     }
     cancelledRef.current = false;
+    failedBeatsRef.current = 0;
     beat();
     const interval = setInterval(beat, intervalMs);
     const onVisibility = () => {
