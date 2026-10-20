@@ -78,7 +78,8 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             trigger_filter={"allowed_triggers": ["movement_session"]},
             coin_reward=5, xp_reward=10, is_system=True,
         )
-        QuestSkillTag.objects.create(quest_definition=self.catalog, skill=self.skill, xp_weight=1)
+        # Catalog previews expose tag IDs; pin these synthetic identities too.
+        QuestSkillTag.objects.create(id=1, quest_definition=self.catalog, skill=self.skill, xp_weight=1)
         # Reset only fixture tables so endpoint-generated identities survive
         # PostgreSQL's nontransactional sequences and arbitrary suite order.
         from apps.quests.models import (
@@ -142,7 +143,7 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             prerequisite_quest=prior, required_skill=reading, required_skill_level=1,
             coin_reward=0, xp_reward=50,
         )
-        QuestSkillTag.objects.create(quest_definition=voyager, skill=reading, xp_weight=1)
+        QuestSkillTag.objects.create(id=2, quest_definition=voyager, skill=reading, xp_weight=1)
         self.authenticate(self.child)
         before = self.state()
         locked = self.assert_response_fixture(
