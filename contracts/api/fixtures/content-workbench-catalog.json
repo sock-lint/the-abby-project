@@ -23,14 +23,14 @@
         "edit_reason": "",
         "values": {
           "description": "",
+          "rarity": "common",
           "coin_value": 2,
-          "name": "Practice snack",
           "icon": "🍎",
+          "sprite_key": "",
+          "name": "Practice snack",
           "metadata": {
             "growth": 5
-          },
-          "sprite_key": "",
-          "rarity": "common"
+          }
         },
         "has_database_override": false,
         "used_by": {
@@ -95,21 +95,21 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "xp_reward": 15,
-          "name": "Practice challenge",
-          "icon": "⚔️",
-          "quest_type": "collection",
           "coin_reward": 10,
-          "target_value": 2,
-          "duration_days": 7,
-          "description": "Complete two approved chores.",
           "sprite_key": "",
+          "name": "Practice challenge",
+          "description": "Complete two approved chores.",
+          "xp_reward": 15,
+          "quest_type": "collection",
+          "duration_days": 7,
+          "is_repeatable": false,
+          "target_value": 2,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "is_repeatable": false,
+          "icon": "⚔️",
           "required_badge": null,
           "reward_items": [
             {
@@ -772,7 +772,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "d0c19f4f1be83225f97a760fa63eafdd4fe431a2e92c26cd5d32f3eca75a8307",
+    "rules_fingerprint": "cd53081bf7e06b85bdd65f7bf7d0e5b48872595c7435e53b345963dced6649c7",
     "engine_version": "2026-10-19.1",
     "source_commit": "unavailable",
     "work_budget": {

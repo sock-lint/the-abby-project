@@ -409,3 +409,30 @@ class MutuallyGatedChapterCostTests(TestCase):
                 trial.daily(day)
         self.assertGreater(len(calls), 0)
         self.assertLess(len(calls), 2000)
+
+
+class CyclicNativeBadgeDeadEndTests(TestCase):
+    """A definite dead end behind mutually gated badges is still reported."""
+
+    def test_quest_needing_a_cycle_whose_only_exit_expired_is_blocked(self):
+        from collections import Counter
+        from apps.rpg.progression.challenge_gates import ChallengeGates, normalize_challenge_gates
+
+        expired = N(pk=1, name="E", is_repeatable=False, required_badge_id=None, duration_days=3)
+        first = N(pk=2, name="A", is_repeatable=False, required_badge_id=10, duration_days=7)
+        second = N(pk=3, name="B", is_repeatable=False, required_badge_id=11, duration_days=7)
+        reader = N(pk=4, name="R", is_repeatable=False, required_badge_id=12, duration_days=7)
+        badges = [
+            # A needs E (expired) and B; B needs A; R needs either A or B.
+            N(pk=10, criteria_type="quest_completed", criteria_value={"quest_names": ["E", "B"], "count": 2}),
+            N(pk=11, criteria_type="quest_completed", criteria_value={"quest_name": "A"}),
+            N(pk=12, criteria_type="quest_completed", criteria_value={"quest_names": ["A", "B"], "count": 1}),
+        ]
+        quests = [expired, first, second, reader]
+        gates = ChallengeGates(normalize_challenge_gates({"mode": "current"}), N(quests=quests, badges=badges, skills={}))
+        trial = N(day=5, quest_windows={1: {"start": 1, "progress": 0, "paid": False}}, completed_quests=set(),
+                  badges=set(), counters=Counter(), quests=quests)
+        blocking = gates.blocking(trial)
+        for quest in (first, second, reader):
+            self.assertEqual(gates.blocked_reasons(quest, trial, blocking), ["native_badge_prerequisite_expired"], quest.name)
+        self.assertEqual(gates.blocked_reasons(expired, trial, blocking), [])

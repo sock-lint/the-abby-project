@@ -188,22 +188,28 @@ class ChallengeGates:
         last = self.last_day(quest.pk)
         return last is not None and trial.day > last
 
-    def _native_badge_expired(self, quest, trial, seen, memo):
+    def _native_badge_expired(self, quest, trial, blocked, cache):
         if not quest.required_badge_id or quest.required_badge_id in trial.badges:
             return False
-        badge = next((row for row in self.catalog.badges if row.pk == quest.required_badge_id), None)
+        if quest.required_badge_id not in cache:
+            cache[quest.required_badge_id] = self._badge_dead_end(quest.required_badge_id, trial, blocked)
+        return cache[quest.required_badge_id]
+
+    def _badge_dead_end(self, badge_id, trial, blocked):
+        badge = next((row for row in self.catalog.badges if row.pk == badge_id), None)
         if badge is None or badge.criteria_type != "quest_completed":
             return False  # Other native criteria retain optimistic reachability.
         criteria = badge.criteria_value or {}
         names = criteria.get("quest_names")
         if names is None:
             names = [criteria["quest_name"]] if criteria.get("quest_name") else []
+        names = set(names)
         matched = [row for row in trial.quests if not names or row.name in names]
         needed = int(criteria.get("count", 1))
         possible = sum(trial.counters[f"quest_completed:{row.pk}"] for row in matched)
         expired_evidence = False
         for row in matched:
-            expired = self._known_expired(row, trial) or bool(self._blocked(row, trial, seen, memo))
+            expired = self._known_expired(row, trial) or row.pk in blocked
             if expired:
                 expired_evidence = True
             elif row.is_repeatable:
@@ -212,42 +218,56 @@ class ChallengeGates:
                 possible += 1
         return expired_evidence and possible < needed
 
-    def blocked_reasons(self, quest, trial, seen=None):
-        # One evaluation reuses finished sub-results and treats a quest still
-        # on the current path as an unproven cycle. Copying the path per frame
-        # without reuse enumerated every ordering of mutually badge-gated
-        # quests (roughly K! calls), which stalled simulations for authored
-        # chapter sets such as "finish any 3 chapters to unlock the rest".
-        return self._blocked(quest, trial, set() if seen is None else set(seen), {})
-
-    def _blocked(self, quest, trial, seen, memo):
+    def _reasons(self, quest, trial, blocked, quests, cache):
         # Accepted promises keep their original window independently of later
         # offering locks. Only a definite missing prerequisite can close a new path.
         if quest.pk in trial.quest_windows or quest.pk in trial.completed_quests:
             return []
-        if quest.pk in memo:
-            return memo[quest.pk]
-        if quest.pk in seen:
-            return []  # Unknown/cyclic native badge paths are not proven expired.
-        seen.add(quest.pk)
-        reasons = []
         prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
         if prerequisite is not None and prerequisite not in trial.completed_quests:
-            prior = next(q for q in self.catalog.quests if q.pk == prerequisite)
+            prior = quests[prerequisite]
             if self._known_expired(prior, trial):
-                reasons = ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
-            elif self._blocked(prior, trial, seen, memo):
-                reasons = ["prerequisite_path_expired"]
-        if not reasons and self._native_badge_expired(quest, trial, seen, memo):
-            reasons = ["native_badge_prerequisite_expired"]
-        seen.discard(quest.pk)
-        memo[quest.pk] = reasons
-        return reasons
+                return ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
+            if prerequisite in blocked:
+                return ["prerequisite_path_expired"]
+        return ["native_badge_prerequisite_expired"] if self._native_badge_expired(quest, trial, blocked, cache) else []
+
+    def blocking(self, trial):
+        """Blocked reasons for every quest in this trial state.
+
+        A quest is blocked only with a non-circular proof: a missed predecessor
+        or a native completed-challenge badge that can no longer be earned.
+        Cyclic badge paths therefore stay unproven. The rules only add
+        blocked quests as others become blocked, so their least fixed point,
+        built from nothing, gives exactly that answer in polynomial time.
+        (A depth-first search that copied its path per frame gave the same
+        answer but took roughly K! steps for K mutually gated chapters.)
+        """
+        quests = {q.pk: q for q in self.catalog.quests}
+        quests.update((q.pk, q) for q in trial.quests)
+        blocked = set()
+        while True:
+            # One pass reads the set from its start, so each badge's dead-end
+            # result is computed once per pass and shared by its gated quests.
+            cache = {}
+            newly = [pk for pk, quest in quests.items()
+                     if pk not in blocked and self._reasons(quest, trial, blocked, quests, cache)]
+            if not newly:
+                break
+            blocked.update(newly)
+        # Each blocked quest reports its first applicable reason under the final set.
+        cache = {}
+        return {pk: self._reasons(quests[pk], trial, blocked, quests, cache) for pk in blocked}
+
+    def blocked_reasons(self, quest, trial, blocking=None):
+        blocking = self.blocking(trial) if blocking is None else blocking
+        return blocking.get(quest.pk, [])
 
     def visit(self, trial):
         """Sample once before the active visit; this method never materializes goals."""
         self.visits["active_visits"] += 1
         available = waiting = False
+        blocking = None
         for quest in trial.quests:
             if quest.is_repeatable or quest.pk not in self.native_ids or quest.pk in trial.completed_quests:
                 continue
@@ -257,15 +277,16 @@ class ChallengeGates:
                 continue
             if self.can_offer(quest, trial):
                 available = True
-            elif (quest.pk in self.reachable_ids and not self.blocked_reasons(quest, trial)
-                  and (self.last_day(quest.pk) is None or trial.day <= self.last_day(quest.pk))):
-                waiting = True
+            elif quest.pk in self.reachable_ids and (self.last_day(quest.pk) is None or trial.day <= self.last_day(quest.pk)):
+                blocking = self.blocking(trial) if blocking is None else blocking
+                if not self.blocked_reasons(quest, trial, blocking):
+                    waiting = True
         self.visits["with_available_challenge"] += int(available)
         self.visits["without_available_challenge"] += int(not available)
         self.visits["waiting_for_gate"] += int(not available and waiting)
         self.visits["exhausted_or_expired"] += int(not available and not waiting)
 
-    def target_report(self, quest, trial):
+    def target_report(self, quest, trial, blocking=None):
         window = trial.quest_windows.get(quest.pk)
         last = self.last_day(quest.pk)
         completed = quest.pk in self.completion_days
@@ -274,7 +295,7 @@ class ChallengeGates:
         native = quest.pk in self.native_ids
         reachable = quest.pk in self.reachable_ids
         reasons = []
-        blocked_reasons = self.blocked_reasons(quest, trial) if native and not completed else []
+        blocked_reasons = self.blocked_reasons(quest, trial, blocking) if native and not completed else []
         if not native:
             reasons.append("outside_native_routine_subset")
         elif not self.temporal_possible(quest.pk):
@@ -289,7 +310,8 @@ class ChallengeGates:
                                       and not self.can_offer(quest, trial)}
 
     def report(self, trial):
-        return {"targets": [self.target_report(q, trial) for q in self.catalog.quests if not q.is_repeatable],
+        blocking = self.blocking(trial)
+        return {"targets": [self.target_report(q, trial, blocking) for q in self.catalog.quests if not q.is_repeatable],
                 "visits": {key: self.visits[key] for key in VISIT_METRICS},
                 "native_finite_total": self.native_finite_total,
                 "gate_reachable_finite_total": self.reachable_finite_total,
