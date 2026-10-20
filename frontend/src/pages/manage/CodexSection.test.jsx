@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CodexSection from './CodexSection.jsx';
 import { server } from '../../test/server.js';
+import { spyHandler } from '../../test/spy.js';
 
 vi.mock('framer-motion', async () => {
   const a = await vi.importActual('framer-motion');
@@ -26,7 +27,7 @@ describe('CodexSection', () => {
       http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
     );
     render(<CodexSection />);
-    // The five-spine shelf renders even with empty catalogs; assert the
+    // The shelf renders even with empty catalogs; assert the
     // shelf is the navigation surface.
     await waitFor(() =>
       expect(screen.getByRole('tab', { name: /Items/ })).toBeInTheDocument(),
@@ -65,8 +66,10 @@ describe('CodexSection', () => {
     expect(screen.queryByText(/Dashboard Theme/)).not.toBeInTheDocument();
   });
 
-  it('renders all five codex-book spines on the shelf', async () => {
+  it('shows the four content sections without a Sprites section or admin request', async () => {
+    const sprites = spyHandler('get', /\/api\/sprites\/admin\/$/, []);
     server.use(
+      sprites.handler,
       http.get('*/api/items/catalog/', () => HttpResponse.json([])),
       http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
       http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
@@ -75,40 +78,26 @@ describe('CodexSection', () => {
     await waitFor(() =>
       expect(screen.getByRole('tab', { name: /Items/ })).toBeInTheDocument(),
     );
-    for (const label of ['Items', 'Pet species', 'Grown pets', 'Challenges', 'Sprites']) {
+    for (const label of ['Items', 'Pet species', 'Grown pets', 'Challenges']) {
       expect(screen.getByRole('tab', { name: new RegExp(label) })).toBeInTheDocument();
     }
+    expect(screen.getAllByRole('tab')).toHaveLength(4);
+    expect(screen.queryByRole('tab', { name: /Sprites/ })).not.toBeInTheDocument();
+    expect(sprites.calls).toHaveLength(0);
   });
 
-  it('clicking the Sprites spine swaps in the sprites grid', async () => {
+  it('falls back to Items when the retired Sprites section was remembered', async () => {
     server.use(
       http.get('*/api/items/catalog/', () => HttpResponse.json([])),
-      http.get('*/api/pets/species/catalog/', () =>
-        HttpResponse.json([
-          { id: 1, name: 'Fox', sprite_key: 'fox', icon: '🦊', available_potions: [] },
-        ]),
-      ),
+      http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
       http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
-      http.get('*/api/sprites/admin/', () =>
-        HttpResponse.json([
-          {
-            slug: 'fox-idle', pack: 'ai-generated', frame_count: 1, fps: 0,
-            frame_width_px: 64, frame_height_px: 64,
-            prompt: 'a fox', motion: 'idle', style_hint: '', tile_size: 64,
-            reference_image_url: '', created_by_name: '',
-          },
-        ]),
-      ),
     );
-    const user = userEvent.setup();
+    window.localStorage.setItem(ACTIVE_SECTION_KEY, 'sprites');
     render(<CodexSection />);
 
-    // Wait for the shelf to render, then activate the Sprites spine.
-    const spritesSpine = await screen.findByRole('tab', { name: /Sprites/ });
-    await user.click(spritesSpine);
-
-    // Only after the spine is selected does the sprite slug appear.
-    await waitFor(() => expect(screen.getByText('fox-idle')).toBeInTheDocument());
+    expect(await screen.findByRole('heading', { name: 'Items' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Items/ })).toHaveAttribute('aria-selected', 'true');
+    expect(window.localStorage.getItem(ACTIVE_SECTION_KEY)).toBe('items');
   });
 
   it('opens grown-pet artwork details without a generation shortcut', async () => {
@@ -133,23 +122,13 @@ describe('CodexSection', () => {
       http.get('*/api/items/catalog/', () => HttpResponse.json([])),
       http.get('*/api/pets/species/catalog/', () => HttpResponse.json([])),
       http.get('*/api/quests/catalog/', () => HttpResponse.json([])),
-      http.get('*/api/sprites/admin/', () =>
-        HttpResponse.json([
-          {
-            slug: 'fox-idle', pack: 'ai-generated', frame_count: 1, fps: 0,
-            frame_width_px: 64, frame_height_px: 64,
-            prompt: 'a fox', motion: 'idle', style_hint: '', tile_size: 64,
-            reference_image_url: '', created_by_name: '',
-          },
-        ]),
-      ),
     );
-    window.localStorage.setItem(ACTIVE_SECTION_KEY, 'sprites');
+    window.localStorage.setItem(ACTIVE_SECTION_KEY, 'creatures');
 
     render(<CodexSection />);
 
-    // Without clicking anything, the Sprites section's contents render
-    // because the persisted active-section was restored.
-    await waitFor(() => expect(screen.getByText('fox-idle')).toBeInTheDocument());
+    expect(await screen.findByRole('heading', { name: 'Pet species' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Pet species/ })).toHaveAttribute('aria-selected', 'true');
+    expect(window.localStorage.getItem(ACTIVE_SECTION_KEY)).toBe('creatures');
   });
 });

@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   getItemCatalog, getPetSpeciesCatalog, getQuestCatalog,
-  fetchSpriteAdminList,
 } from '../../api';
 import { useApi } from '../../hooks/useApi';
-import { useSpriteCatalog } from '../../providers/spriteCatalog.context';
 import BottomSheet from '../../components/BottomSheet';
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import EmptyState from '../../components/EmptyState';
@@ -20,15 +18,12 @@ import { normalizeList } from '../../utils/api';
 import { itemDisplayName } from '../../utils/itemDisplayName';
 import CatalogCard from './CatalogCard';
 import MountsBlock from './MountsBlock';
-import SpritesBlock from './SpritesBlock';
-import SpriteDetailSheet from './SpriteDetailSheet';
 
 const SECTIONS = [
   { id: 'items',      label: 'Items',      kicker: 'pet eggs, potions, cosmetics, scrolls', icon: '📦' },
   { id: 'creatures',  label: 'Pet species',  kicker: 'pet species & their hatching potions',  icon: '🐾' },
   { id: 'mounts',     label: 'Grown pets',     kicker: 'grown forms in the catalog',        icon: '👑' },
   { id: 'adventures', label: 'Challenges', kicker: 'Available challenges',                icon: '⚔️' },
-  { id: 'sprites',    label: 'Sprites',    kicker: 'Character and item artwork',        icon: '✨' },
 ];
 const SECTION_IDS = new Set(SECTIONS.map((s) => s.id));
 const ACTIVE_SECTION_KEY = 'manage:codex:active-section';
@@ -355,21 +350,15 @@ export default function CodexSection() {
   const { data: itemsData, loading: itemsLoading, error: itemsError } = useApi(getItemCatalog);
   const { data: speciesData, loading: speciesLoading, error: speciesError } = useApi(getPetSpeciesCatalog);
   const { data: questsData, loading: questsLoading, error: questsError } = useApi(getQuestCatalog);
-  const {
-    data: spritesData, loading: spritesLoading, error: spritesError, reload: reloadSprites,
-  } = useApi(() => fetchSpriteAdminList());
-  const { refetchCatalog } = useSpriteCatalog();
 
   const items = normalizeList(itemsData);
   const species = normalizeList(speciesData);
   const quests = normalizeList(questsData);
-  const sprites = normalizeList(spritesData);
 
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedSpecies, setSelectedSpecies] = useState(null);
   const [selectedQuest, setSelectedQuest] = useState(null);
   const [selectedMount, setSelectedMount] = useState(null);
-  const [selectedSprite, setSelectedSprite] = useState(null);
 
   const [activeSectionId, setActiveSectionId] = useState(() => {
     if (typeof window === 'undefined') return 'items';
@@ -384,17 +373,11 @@ export default function CodexSection() {
   const loading = itemsLoading || speciesLoading || questsLoading;
   const error = itemsError || speciesError || questsError;
 
-  const onSpriteCatalogChanged = async () => {
-    await reloadSprites();
-    await refetchCatalog({ bypassEtag: true });
-  };
-
   const counts = {
     items: items.length,
     creatures: species.length,
     mounts: species.length,
     adventures: quests.length,
-    sprites: sprites.length,
   };
   const shelfItems = SECTIONS.map((s) => ({
     id: s.id,
@@ -457,19 +440,6 @@ export default function CodexSection() {
             {activeSection.id === 'adventures' && (
               <AdventuresBlock quests={quests} onSelect={setSelectedQuest} />
             )}
-            {activeSection.id === 'sprites' && (
-              <>
-                {spritesError && <ErrorAlert error={spritesError} />}
-                {spritesLoading ? (
-                  <Loader />
-                ) : (
-                  <SpritesBlock
-                    sprites={sprites}
-                    onSelect={setSelectedSprite}
-                  />
-                )}
-              </>
-            )}
           </ParchmentCard>
         </>
       )}
@@ -496,13 +466,6 @@ export default function CodexSection() {
         >
           <MountDetail species={selectedMount} />
         </BottomSheet>
-      )}
-      {selectedSprite && (
-        <SpriteDetailSheet
-          sprite={selectedSprite}
-          onClose={() => setSelectedSprite(null)}
-          onChanged={onSpriteCatalogChanged}
-        />
       )}
     </div>
   );
