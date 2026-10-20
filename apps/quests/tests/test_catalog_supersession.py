@@ -23,7 +23,7 @@ from apps.quests.milestone_eligibility import milestone_eligibility, validate_mi
 from apps.quests.models import (
     ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestParticipant,
 )
-from apps.quests.queries import definitions_visible_to
+from apps.quests.queries import active_system_definitions, definitions_visible_to
 from apps.quests.services import QuestService
 from apps.rewards.models import CoinLedger
 from config.tests.factories import make_family
@@ -272,6 +272,107 @@ class CatalogSupersessionTests(TestCase):
         draft = save_draft(self.parent, draft["id"], draft["revision"], change(alias))
         with self.assertRaisesMessage(ContentPackError, "retained alias"):
             preview_draft(self.parent, draft["id"], draft["revision"])
+
+
+    def test_reverse_id_chain_equivalence_preserves_saved_history(self):
+        # The deepest dependants have the smallest IDs. FK assignment happens
+        # only after all prerequisite nodes exist; all final paths are valid.
+        reading = {"allowed_triggers": ["reading_logged"]}
+        tip = [self.definition(name="Chain tip", trigger_filter=reading) for _ in range(2)]
+        middle = [self.definition(name="Chain middle", trigger_filter=reading) for _ in range(2)]
+        prior = [self.definition(name="Chain starter", trigger_filter=reading) for _ in range(2)]
+        for children, parents in ((tip, middle), (middle, prior)):
+            for child, parent in zip(children, parents):
+                child.prerequisite_quest = parent
+                child.save(update_fields=["prerequisite_quest"])
+        goal, occurrence = self.saved_goal(middle[1])
+        occurrence.status = "completed"
+        occurrence.progress = 1
+        occurrence.completed_at = occurrence.awarded_at = self.now
+        occurrence.reward_receipt = {"coins": 5}
+        occurrence.save()
+        CoinLedger.objects.create(user=self.child, amount=5, reason="adjustment")
+        before_window = ChallengeOccurrence.objects.values().get(pk=occurrence.pk)
+        before_ledger = list(CoinLedger.objects.values())
+        self.reconcile()
+        pairs = [(row[0].pk, row[1].pk, QuestDefinition.objects.get(pk=row[1].pk).superseded_by_id)
+                 for row in (prior, middle, tip)]
+        visible = set(active_system_definitions().values_list("pk", flat=True))
+        self.assertEqual([actual for canonical, alias, actual in pairs], [row[0].pk for row in (prior, middle, tip)])
+        self.assertTrue({row[0].pk for row in (prior, middle, tip)} <= visible)
+        self.assertEqual(QuestDefinition.objects.get(pk=middle[0].pk).prerequisite_quest_id, prior[0].pk)
+        self.assertEqual(QuestDefinition.objects.get(pk=tip[0].pk).prerequisite_quest_id, middle[0].pk)
+        goal.refresh_from_db()
+        self.assertEqual(goal.catalog_definition_id, middle[0].pk)
+        self.assertEqual(ChallengeOccurrence.objects.values().get(pk=occurrence.pk), before_window)
+        self.assertEqual(list(CoinLedger.objects.values()), before_ledger)
+        before_second = {model: list(model.objects.order_by("pk").values())
+                         for model in (QuestDefinition, ChallengeGoal, ChallengeOccurrence, CoinLedger)}
+        self.reconcile()
+        self.assertEqual({model: list(model.objects.order_by("pk").values()) for model in before_second}, before_second)
+
+    def test_invalid_paths_and_divergent_gates_remain_unchanged(self):
+        reading = {"allowed_triggers": ["reading_logged"]}
+        cycles = [self.definition(name=f'Cycle node {index}', trigger_filter=reading) for index in range(2)]
+        for row, parent in zip(cycles, reversed(cycles)):
+            row.prerequisite_quest = parent
+            row.save(update_fields=["prerequisite_quest"])
+        self_gated = [self.definition(name="Self gated duplicate", trigger_filter=reading) for _ in range(2)]
+        for row in self_gated:
+            row.prerequisite_quest = row
+            row.save(update_fields=["prerequisite_quest"])
+        blocked = [self.definition(name="Cycle successors", prerequisite_quest=cycles[0], trigger_filter=reading)
+                   for _ in range(2)]
+        private = self.definition(name="Private prerequisite", is_system=False, created_by=self.parent)
+        blocked += [self.definition(name="Private successors", prerequisite_quest=private, trigger_filter=reading)
+                    for _ in range(2)]
+        root = self.definition(name="A trusted prerequisite")
+        owned_alias = self.definition(name="Owner alias is not trusted", created_by=self.parent, superseded_by=root)
+        blocked += [self.definition(name="Mixed provenance successors", prerequisite_quest=parent, trigger_filter=reading)
+                    for parent in (root, owned_alias)]
+        protected = [*cycles, *self_gated, *blocked, private, owned_alias]
+        before = {row.pk: QuestDefinition.objects.values().get(pk=row.pk) for row in protected}
+        category = SkillCategory.objects.create(name="Divergent chain gates")
+        skill = Skill.objects.create(name="First skill", category=category)
+        other_skill = Skill.objects.create(name="Other skill", category=category)
+        other_prior = self.definition(name="A different prerequisite")
+        common = {"trigger_filter": reading, "prerequisite_quest": root, "required_skill": skill, "required_skill_level": 1}
+        divergent = [self.definition(name="Truly divergent dependent", **{**common, **change}) for change in (
+            {}, {"required_skill_level": 2}, {"required_skill": other_skill}, {"prerequisite_quest": other_prior},
+        )]
+        for definition in divergent:
+            self.saved_goal(definition)
+        goals = list(ChallengeGoal.objects.order_by("pk").values())
+        windows = list(ChallengeOccurrence.objects.order_by("pk").values())
+        self.reconcile()
+        self.assertEqual({row.pk: QuestDefinition.objects.values().get(pk=row.pk) for row in protected}, before)
+        self.assertFalse(QuestDefinition.objects.filter(pk__in=[row.pk for row in divergent],
+                                                       superseded_by__isnull=False).exists())
+        self.assertEqual(list(ChallengeGoal.objects.order_by("pk").values()), goals)
+        self.assertEqual(list(ChallengeOccurrence.objects.order_by("pk").values()), windows)
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_existing_trusted_alias_chains_resolve_to_direct_identities_once(self):
+        root = self.definition(name="Retained canonical")
+        alias = self.definition(name=root.name, superseded_by=root)
+        old_alias = self.definition(name=root.name, superseded_by=alias)
+        reading = {"allowed_triggers": ["reading_logged"]}
+        dependent = self.definition(name="Retained dependent", prerequisite_quest=root, trigger_filter=reading)
+        dependent_alias = self.definition(name=dependent.name, prerequisite_quest=old_alias, trigger_filter=reading)
+        goal, occurrence = self.saved_goal(old_alias)
+        before = ChallengeOccurrence.objects.values().get(pk=occurrence.pk)
+        self.reconcile()
+        old_alias.refresh_from_db()
+        dependent_alias.refresh_from_db()
+        goal.refresh_from_db()
+        self.assertEqual(old_alias.superseded_by_id, root.pk)
+        self.assertEqual(dependent_alias.superseded_by_id, dependent.pk)
+        self.assertEqual(goal.catalog_definition_id, root.pk)
+        self.assertEqual(ChallengeOccurrence.objects.values().get(pk=occurrence.pk), before)
+        before_second = {model: list(model.objects.order_by("pk").values())
+                         for model in (QuestDefinition, ChallengeGoal, ChallengeOccurrence, CoinLedger)}
+        self.reconcile()
+        self.assertEqual({model: list(model.objects.order_by("pk").values()) for model in before_second}, before_second)
 
 
 class CatalogSupersessionMigrationTests(SimpleTestCase):

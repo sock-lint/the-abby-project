@@ -38,9 +38,15 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
                 fields = dict(name=name, quest_type="collection", target_value=3, duration_days=14,
                               is_system=True, trigger_filter={"allowed_triggers": ["reading_logged"]})
                 return Definition.objects.create(**{**fields, **changes})
+            # Descendants precede prerequisites in ID order.
+            tips = [definition("Equivalent final") for _ in range(2)]
+            middles = [definition("Equivalent middle") for _ in range(2)]
             prior = definition("Equivalent starter")
             prior_alias = definition(prior.name)
             other_prior = definition("Different starter")
+            for children, parents in ((tips, middles), (middles, [prior, prior_alias])):
+                for descendant, prerequisite in zip(children, parents):
+                    Definition.objects.filter(pk=descendant.pk).update(prerequisite_quest_id=prerequisite.pk)
             gates = dict(prerequisite_quest=prior, required_skill=skill, required_skill_level=1)
             canonical = definition("Divergent milestone", **gates)
             alias = definition(canonical.name, **gates, description="Equivalent display copy")
@@ -57,10 +63,13 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
                     "required_skill_id": None, "required_skill_level": 0, "required_badge_id": None}
             Goal = old.get_model("quests", "ChallengeGoal")
             Occurrence = old.get_model("quests", "ChallengeOccurrence")
-            for index, policy in enumerate([dependent, *divergent]):
+            alias_goal_id = None
+            for index, policy in enumerate([dependent, *divergent, middles[1]]):
                 goal = Goal.objects.create(user=child, family=family, catalog_definition=policy, is_catalog=True,
                     name=policy.name, metric="count", target=3, unit="actions", starts_at=now-timedelta(days=2),
                     ends_at=now+timedelta(days=12), catalog_gate_snapshot=gate, catalog_gate_activity_id=17)
+                if policy.pk == middles[1].pk:
+                    alias_goal_id = goal.pk
                 Occurrence.objects.create(goal=goal, starts_at=goal.starts_at, ends_at=goal.ends_at,
                     snapshot={"name": policy.name, "catalog_gate": gate, "coins": 7}, progress=3 if index == 0 else 1,
                     status="completed" if index == 0 else "active", awarded_at=now if index == 0 else None,
@@ -84,10 +93,18 @@ class MilestoneSupersessionMigrationTests(SimpleTestCase):
                                                  superseded_by__isnull=False).exists(), "distinct gates collapsed"
             assert Definition.objects.get(pk=prior_alias.pk).superseded_by_id == prior.pk
             assert Definition.objects.get(pk=dependent.pk).prerequisite_quest_id == prior.pk
+            assert Definition.objects.get(pk=middles[1].pk).superseded_by_id == middles[0].pk
+            assert Definition.objects.get(pk=tips[1].pk).superseded_by_id == tips[0].pk
+            assert Definition.objects.get(pk=middles[0].pk).prerequisite_quest_id == prior.pk
+            assert Definition.objects.get(pk=tips[0].pk).prerequisite_quest_id == middles[0].pk
             assert list(Definition.objects.filter(pk__in=[owned.pk, private.pk]).order_by("pk")
                         .values(*owned_before[0])) == owned_before
             for (app, name), rows in saved.items():
-                assert list(new.get_model(app, name).objects.order_by("pk").values(*rows[0])) == rows, name
+                expected = rows
+                if name == "ChallengeGoal":
+                    expected = [{**row, "catalog_definition_id": middles[0].pk}
+                                if row["id"] == alias_goal_id else row for row in rows]
+                assert list(new.get_model(app, name).objects.order_by("pk").values(*rows[0])) == expected, name
             plan = executor.loader.graph.forwards_plan(("quests", "0010_catalog_supersession"))
             assert plan.index(("quests", "0010_milestone_gate_acceptance")) < plan.index(
                 ("quests", "0010_catalog_supersession")), "reconciliation lacks historical milestone fields"
