@@ -397,14 +397,14 @@ class MutuallyGatedChapterCostTests(TestCase):
         # every ordering of them on each active visit (roughly 7! calls).
         from apps.rpg.progression.challenge_gates import ChallengeGates
         calls = []
-        original = ChallengeGates._native_badge_expired
+        original = ChallengeGates._badge_dead_end
 
         def counted(gates, *args, **kwargs):
             calls.append(1)
             return original(gates, *args, **kwargs)
 
         trial = Trial(quiet_config(chores_per_day=1), load_catalog(), 7)
-        with patch.object(ChallengeGates, "_native_badge_expired", counted):
+        with patch.object(ChallengeGates, "_badge_dead_end", counted):
             for day in range(1, 4):
                 trial.daily(day)
         self.assertGreater(len(calls), 0)
@@ -436,3 +436,35 @@ class CyclicNativeBadgeDeadEndTests(TestCase):
         for quest in (first, second, reader):
             self.assertEqual(gates.blocked_reasons(quest, trial, blocking), ["native_badge_prerequisite_expired"], quest.name)
         self.assertEqual(gates.blocked_reasons(expired, trial, blocking), [])
+
+
+class ChapterChainCascadeCostTests(TestCase):
+    """A missed early chapter blocks a long chain without quadratic passes."""
+
+    def test_long_chain_after_a_missed_window_is_blocked_in_linear_work(self):
+        from collections import Counter
+        from apps.rpg.progression.challenge_gates import ChallengeGates, normalize_challenge_gates
+
+        count = 150
+        quests = [N(pk=1, name="Chapter 1", is_repeatable=False, required_badge_id=None, duration_days=3)]
+        badges = []
+        for index in range(2, count + 1):
+            badges.append(N(pk=1000 + index, criteria_type="quest_completed",
+                            criteria_value={"quest_name": f"Chapter {index - 1}"}))
+            quests.append(N(pk=index, name=f"Chapter {index}", is_repeatable=False,
+                            required_badge_id=1000 + index, duration_days=7))
+        gates = ChallengeGates(normalize_challenge_gates({"mode": "current"}), N(quests=quests, badges=badges, skills={}))
+        # Chapter 1 was offered on day 1 for 3 days and never finished.
+        trial = N(day=5, quest_windows={1: {"start": 1, "progress": 0, "paid": False}}, completed_quests=set(),
+                  badges=set(), counters=Counter(), quests=quests)
+        calls = []
+        original = ChallengeGates._badge_dead_end
+
+        def counted(gates, *args, **kwargs):
+            calls.append(1)
+            return original(gates, *args, **kwargs)
+
+        with patch.object(ChallengeGates, "_badge_dead_end", counted):
+            blocking = gates.blocking(trial)
+        self.assertEqual(set(blocking), set(range(2, count + 1)))
+        self.assertLess(len(calls), 4 * count)

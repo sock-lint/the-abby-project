@@ -1,6 +1,6 @@
 """Simulation-only catalog availability; no household reads or reward writers."""
 
-from collections import Counter
+from collections import Counter, defaultdict, deque
 from copy import deepcopy
 from datetime import date, timedelta
 import math
@@ -188,27 +188,22 @@ class ChallengeGates:
         last = self.last_day(quest.pk)
         return last is not None and trial.day > last
 
-    def _native_badge_expired(self, quest, trial, blocked, cache):
-        if not quest.required_badge_id or quest.required_badge_id in trial.badges:
-            return False
-        if quest.required_badge_id not in cache:
-            cache[quest.required_badge_id] = self._badge_dead_end(quest.required_badge_id, trial, blocked)
-        return cache[quest.required_badge_id]
-
-    def _badge_dead_end(self, badge_id, trial, blocked):
-        badge = next((row for row in self.catalog.badges if row.pk == badge_id), None)
+    def _badge_rows(self, badge, trial):
+        """Matched quests of a completed-challenge badge, or None for other badges."""
         if badge is None or badge.criteria_type != "quest_completed":
-            return False  # Other native criteria retain optimistic reachability.
+            return None  # Other native criteria retain optimistic reachability.
         criteria = badge.criteria_value or {}
         names = criteria.get("quest_names")
         if names is None:
             names = [criteria["quest_name"]] if criteria.get("quest_name") else []
         names = set(names)
-        matched = [row for row in trial.quests if not names or row.name in names]
-        needed = int(criteria.get("count", 1))
-        possible = sum(trial.counters[f"quest_completed:{row.pk}"] for row in matched)
+        return [row for row in trial.quests if not names or row.name in names]
+
+    def _badge_dead_end(self, badge, rows, trial, blocked):
+        needed = int((badge.criteria_value or {}).get("count", 1))
+        possible = sum(trial.counters[f"quest_completed:{row.pk}"] for row in rows)
         expired_evidence = False
-        for row in matched:
+        for row in rows:
             expired = self._known_expired(row, trial) or row.pk in blocked
             if expired:
                 expired_evidence = True
@@ -218,19 +213,25 @@ class ChallengeGates:
                 possible += 1
         return expired_evidence and possible < needed
 
-    def _reasons(self, quest, trial, blocked, quests, cache):
+    def _reasons(self, quest, trial, blocked, state):
         # Accepted promises keep their original window independently of later
         # offering locks. Only a definite missing prerequisite can close a new path.
         if quest.pk in trial.quest_windows or quest.pk in trial.completed_quests:
             return []
         prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
         if prerequisite is not None and prerequisite not in trial.completed_quests:
-            prior = quests[prerequisite]
+            prior = state["quests"][prerequisite]
             if self._known_expired(prior, trial):
                 return ["prerequisite_window_expired" if prerequisite in trial.quest_windows else "prerequisite_offering_expired"]
             if prerequisite in blocked:
                 return ["prerequisite_path_expired"]
-        return ["native_badge_prerequisite_expired"] if self._native_badge_expired(quest, trial, blocked, cache) else []
+        badge_id = quest.required_badge_id
+        if not badge_id or badge_id in trial.badges or state["rows"].get(badge_id) is None:
+            return []
+        if badge_id not in state["dead_ends"]:
+            state["dead_ends"][badge_id] = self._badge_dead_end(
+                state["badges"][badge_id], state["rows"][badge_id], trial, blocked)
+        return ["native_badge_prerequisite_expired"] if state["dead_ends"][badge_id] else []
 
     def blocking(self, trial):
         """Blocked reasons for every quest in this trial state.
@@ -238,26 +239,47 @@ class ChallengeGates:
         A quest is blocked only with a non-circular proof: a missed predecessor
         or a native completed-challenge badge that can no longer be earned.
         Cyclic badge paths therefore stay unproven. The rules only add
-        blocked quests as others become blocked, so their least fixed point,
-        built from nothing, gives exactly that answer in polynomial time.
-        (A depth-first search that copied its path per frame gave the same
-        answer but took roughly K! steps for K mutually gated chapters.)
+        blocked quests as others become blocked, so their least fixed point
+        gives exactly that answer. A worklist re-checks only the quests whose
+        predecessor or badge rows just became blocked, keeping each visit
+        linear in the catalog for chains and shared badges alike. (A per-path
+        depth-first search gave the same answer in roughly K! steps for K
+        mutually gated chapters.)
         """
         quests = {q.pk: q for q in self.catalog.quests}
         quests.update((q.pk, q) for q in trial.quests)
+        badges = {badge.pk: badge for badge in self.catalog.badges}
+        rows, dependents, row_badges = {}, defaultdict(set), defaultdict(set)
+        for quest in quests.values():
+            prerequisite = self.rules.get(quest.pk, {}).get("prerequisite_quest_id")
+            if prerequisite is not None:
+                dependents[prerequisite].add(quest.pk)
+            badge_id = quest.required_badge_id
+            if not badge_id or badge_id in trial.badges:
+                continue
+            if badge_id not in rows:
+                rows[badge_id] = self._badge_rows(badges.get(badge_id), trial)
+            for row in rows[badge_id] or ():
+                dependents[row.pk].add(quest.pk)
+                row_badges[row.pk].add(badge_id)
+        state = {"quests": quests, "badges": badges, "rows": rows, "dead_ends": {}}
         blocked = set()
-        while True:
-            # One pass reads the set from its start, so each badge's dead-end
-            # result is computed once per pass and shared by its gated quests.
-            cache = {}
-            newly = [pk for pk, quest in quests.items()
-                     if pk not in blocked and self._reasons(quest, trial, blocked, quests, cache)]
-            if not newly:
-                break
-            blocked.update(newly)
+        queue, queued = deque(quests), set(quests)
+        while queue:
+            pk = queue.popleft()
+            queued.discard(pk)
+            if pk in blocked or not self._reasons(quests[pk], trial, blocked, state):
+                continue
+            blocked.add(pk)
+            for badge_id in row_badges.get(pk, ()):
+                state["dead_ends"].pop(badge_id, None)
+            for dependent in dependents.get(pk, ()):
+                if dependent not in blocked and dependent not in queued:
+                    queue.append(dependent)
+                    queued.add(dependent)
         # Each blocked quest reports its first applicable reason under the final set.
-        cache = {}
-        return {pk: self._reasons(quests[pk], trial, blocked, quests, cache) for pk in blocked}
+        state["dead_ends"] = {}
+        return {pk: self._reasons(quests[pk], trial, blocked, state) for pk in blocked}
 
     def blocked_reasons(self, quest, trial, blocking=None):
         blocking = self.blocking(trial) if blocking is None else blocking

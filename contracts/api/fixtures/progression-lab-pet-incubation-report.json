@@ -70,7 +70,7 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "cd53081bf7e06b85bdd65f7bf7d0e5b48872595c7435e53b345963dced6649c7",
+  "rules_fingerprint": "1b392b24624183178738c1a7cc5c85e9e5478f14bf4b75241d4a8747f89e4b92",
   "engine_version": "2026-10-19.1",
   "source_commit": "unavailable",
   "coverage": {
@@ -4002,12 +4002,12 @@
     "longest_novelty_gap_p50": 18,
     "eligible_challenges": 1,
     "finite_breakdown": {
-      "badge": 4,
       "cosmetic": 1,
-      "middle": 1,
-      "quest": 1,
       "mount": 1,
-      "pet": 1
+      "badge": 4,
+      "quest": 1,
+      "pet": 1,
+      "middle": 1
     },
     "level_p50": 6,
     "inventory_units_p50": 28,
