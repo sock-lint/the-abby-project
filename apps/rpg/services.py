@@ -355,10 +355,15 @@ class DropService:
         profile = CharacterProfile.objects.filter(user=user).first()
         user_level = profile.level if profile else 0
 
-        # Get eligible drop table entries
+        from .rarity import drop_tier_weights, owned_cosmetic_ids, tier_balanced_weights
+
+        budgets = drop_tier_weights(trigger_type)
+        # Filter before selection: Perfect Day must never substitute Common
+        # loot when its eligible Uncommon-or-better pool is empty.
         entries = [entry for entry in DropTable.objects.filter(
             trigger_type=trigger_type,
             min_level__lte=user_level,
+            item__rarity__in=[rarity for rarity, weight in budgets.items() if weight > 0],
         ).select_related("item", "item__pet_species", "item__potion_type") if random_item_is_available(entry.item)]
 
         if not entries:
@@ -367,11 +372,6 @@ class DropService:
         # Weighted random selection
         items = list(entries)
         from .companion_catalog import companion_drop_weights
-        from .rarity import (
-            ACCOMPLISHMENT_TIER_WEIGHTS, ACCOMPLISHMENT_TRIGGERS,
-            BASE_TIER_WEIGHTS, owned_cosmetic_ids, tier_balanced_weights,
-        )
-        budgets = ACCOMPLISHMENT_TIER_WEIGHTS if trigger_type in ACCOMPLISHMENT_TRIGGERS else BASE_TIER_WEIGHTS
         weights = tier_balanced_weights(items, budgets,
             authored_weights=companion_drop_weights(items), owned_item_ids=owned_cosmetic_ids(user))
         if not any(weights):
@@ -458,6 +458,39 @@ class DropService:
             "was_salvaged": was_salvaged,
             "salvage_coins": drop_log.salvage_coins,
         }]
+
+    @staticmethod
+    @transaction.atomic
+    def award_accomplishment(user, trigger_type):
+        """Issue completion loot inside the caller's once-only award gate.
+
+        Badge creation, quest payout and Perfect Day each hold the account
+        lock and commit their unique earned/payout marker with this draw.
+        A failure rolls that transaction back; an already completed marker
+        never calls us again. Do not replay the activity loop from a reward:
+        celebration loot is not another streak, daily bonus or goal action.
+        Catalog/level filtering and cosmetic salvage retain normal drop rules.
+        """
+        if trigger_type not in {
+            TriggerType.BADGE_EARNED, TriggerType.QUEST_COMPLETE, TriggerType.PERFECT_DAY,
+        }:
+            raise ValueError("Unsupported accomplishment drop trigger")
+        drops = DropService.process_drops(user, trigger_type)
+        if drops:
+            from apps.notifications.services import defer_push_until_commit, notify
+
+            # The committed drop remains authoritative if its optional bell
+            # notification fails. Never push a reward that later rolls back.
+            try:
+                with transaction.atomic(), defer_push_until_commit():
+                    names = ", ".join(drop["item_name"] for drop in drops)
+                    notify(
+                        user, title=f"Item dropped: {names}", message=f"You found {names}!",
+                        notification_type="drop_received", link="/inventory",
+                    )
+            except Exception:
+                logger.exception("Accomplishment drop notification failed for user %s", user.pk)
+        return drops
 
 
 STREAK_MILESTONES = {3, 7, 14, 30, 60, 100}
@@ -943,6 +976,9 @@ class ConsumableService:
             profile.consumable_effects_used = used
             profile.save(update_fields=["consumable_effects_used", "updated_at"])
 
+        # An effect can grant this same item under the held row lock (e.g. a
+        # badge drop earned by a tonic's XP), so decrement the saved stack.
+        inv.refresh_from_db(fields=["quantity"])
         inv.quantity -= quantity
         if inv.quantity == 0:
             inv.delete()

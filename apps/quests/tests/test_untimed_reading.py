@@ -157,3 +157,68 @@ class UntimedReadingTests(TestCase):
             report = voyager_feedback(self.parent)
         group = next(row for row in report["policy_groups"] if row["policy"] == "other_or_unknown")
         self.assertEqual((group["accepted_windows"], group["unknown_windows"], group["mature_denominator"]), (1, 1, 0))
+
+    def completion_items(self):
+        from apps.quests.models import QuestRewardItem
+        from apps.rpg.models import DropTable, ItemDefinition
+        promised = ItemDefinition.objects.create(
+            slug="untimed-promised-snack", name="Promised snack", item_type="food",
+        )
+        discovered = ItemDefinition.objects.create(
+            slug="untimed-completion-snack", name="Completion discovery", item_type="food",
+        )
+        reward = QuestRewardItem.objects.create(quest_definition=self.companion, item=promised, quantity=2)
+        DropTable.objects.create(trigger_type="quest_complete", item=discovered, weight=1)
+        return promised, discovered, reward
+
+    def test_late_completion_keeps_promised_items_and_rolls_loot_once_after_replay_or_return(self):
+        from apps.quests.models import ChallengeActivity
+        from apps.rpg.models import DropLog, UserInventory
+        promised, discovered, reward = self.completion_items()
+        self.fact("first", 0)
+        # The accepted promise stays at two items after an authored link edit.
+        reward.quantity = 9
+        reward.save(update_fields=["quantity"])
+        self.fact("second", 30)
+        self.fact("third", 100)
+        completed = self.occurrence()
+        self.assertEqual((completed.status, completed.progress), ("completed", 3))
+        self.assertEqual([(row["item_id"], row["quantity"]) for row in completed.reward_receipt["items"]],
+                         [(promised.pk, 2)])
+        self.fact("third", 100)
+        self.fact("after-long-return", 1000)
+        with patch("django.utils.timezone.now", return_value=self.now + timedelta(days=1000)):
+            list_goals(self.child)
+        self.assertEqual(DropLog.objects.filter(user=self.child, trigger_type="quest_complete", item=discovered).count(), 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=discovered).quantity, 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=promised).quantity, 2)
+        self.assertFalse(DropLog.objects.filter(user=self.sibling).exists())
+        self.assertEqual(set(ChallengeActivity.objects.values_list("trigger_type", flat=True)), {"reading_logged"})
+        self.assertEqual(completed.goal.occurrences.count(), 1)
+
+    def test_late_completion_loot_failure_rolls_back_and_retry_pays_one_original_promise(self):
+        from apps.quests.models import ChallengeActivity
+        from apps.rpg.models import DropLog, UserInventory
+        promised, discovered, _ = self.completion_items()
+        self.fact("first", 0)
+        self.fact("second", 30)
+        with patch.object(DropLog.objects, "create", side_effect=RuntimeError("completion drop unavailable")):
+            with self.assertRaisesMessage(RuntimeError, "completion drop unavailable"):
+                self.fact("retry-third", 100)
+        pending = self.occurrence()
+        self.assertEqual((pending.status, pending.progress), ("active", 2))
+        self.assertIsNone(pending.ends_at)
+        self.assertIsNone(pending.completed_at)
+        self.assertIsNone(pending.awarded_at)
+        self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
+        self.assertFalse(DropLog.objects.exists())
+        self.assertIsNone(ChallengeActivity.objects.get(source_id="retry-third").processed_at)
+        self.fact("retry-third", 100)
+        self.fact("retry-third", 100)
+        self.fact("later", 1000)
+        pending.refresh_from_db()
+        self.assertEqual((pending.status, pending.progress), ("completed", 3))
+        self.assertEqual(DropLog.objects.filter(user=self.child, trigger_type="quest_complete", item=discovered).count(), 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=discovered).quantity, 1)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=promised).quantity, 2)
+        self.assertEqual(pending.goal.occurrences.count(), 1)

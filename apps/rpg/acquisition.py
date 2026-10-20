@@ -16,6 +16,7 @@ def sources_for_request(request):
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.rewards.models import Reward
     from .models import CharacterProfile, DropTable
+    from .rarity import drop_tier_weights
 
     user = request.user
     result = defaultdict(list)
@@ -81,13 +82,15 @@ def sources_for_request(request):
     for offer in offers:
         result[offer.item_definition_id].append({"kind": "shop", "name": offer.name, "path": "/rewards"})
     level = CharacterProfile.objects.filter(user=user).values_list("level", flat=True).first() or 0
-    for item_id, trigger in DropTable.objects.filter(
+    for item_id, trigger, rarity in DropTable.objects.filter(
         min_level__lte=level, weight__gt=0,
-    ).order_by("trigger_type").values_list("item_id", "trigger_type"):
-        if trigger not in TRIGGER_LABELS:
+    ).order_by("trigger_type").values_list("item_id", "trigger_type", "item__rarity"):
+        # Completion loot is a source, not another trackable goal action.
+        label = "completed challenges" if trigger == "quest_complete" else TRIGGER_LABELS.get(trigger)
+        if label is None or drop_tier_weights(trigger).get(rarity, 0) <= 0:
             continue
         path = ACTION_PATHS.get(trigger, (None, "/quests?tab=trials"))[1]
-        result[item_id].append({"kind": "drop", "name": TRIGGER_LABELS[trigger], "path": path})
+        result[item_id].append({"kind": "drop", "name": label, "path": path})
     # Keep previews compact; deterministic challenge paths take priority.
     request._rpg_acquisition_sources = {
         item_id: list({(source["kind"], source["name"]): source for source in sources}.values())[:4]

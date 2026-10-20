@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from apps.achievements.models import Skill
 from apps.quests.models import QuestDefinition, QuestSkillTag
 from apps.rpg.content.loader import ContentPack
+from apps.rpg.models import DropTable, ItemDefinition
 from apps.rpg.progression.catalog import FrozenRows, _freeze, load_catalog
 from apps.rpg.progression.engine import Trial, normalize_config
 from apps.rpg.tests.test_progression_engine import quiet_config
@@ -90,4 +91,28 @@ class UntimedReadingForecastTests(TestCase):
             with self.subTest(overrides=overrides):
                 trial = self.trial(**overrides)
                 self.assertNotIn(self.companion.pk, {q.pk for q in trial.quests})
+
+    def test_untimed_completion_supplies_one_finite_loot_draw_and_cannot_fund_a_pet_pair(self):
+        # Completion loot chooses one item. No deadline must not turn one
+        # onboarding completion into renewable eggs, potions or expedition loot.
+        DropTable.objects.all().delete()
+        egg = ItemDefinition.objects.filter(item_type="egg", pet_species__isnull=False).first()
+        potion = ItemDefinition.objects.get(slug="base-potion")
+        for item in (egg, potion):
+            DropTable.objects.create(trigger_type="quest_complete", item=item, weight=1)
+        catalog = self.catalog()
+        catalog = replace(catalog, quests=FrozenRows(q for q in catalog.quests if q.pk == self.companion.pk))
+        trial = Trial(normalize_config(quiet_config(
+            horizon_days=90, reading_minutes=10, expeditions_per_day=1,
+        )), catalog, 71)
+        self.assertIn(f"quest:{self.companion.pk}", trial.finite_keys)
+        self.assertFalse(any(key.startswith(("pet:", "middle:", "mount:")) for key in trial.finite_keys))
+        self.assertNotIn("expedition_returned", trial._enabled_triggers())
+        with self.assertNumQueries(0):
+            for day in range(1, 91):
+                trial.daily(day)
+        self.assertEqual(trial.counters["quest_completions"], 1)
+        self.assertEqual(trial.counters["drop_opportunities:quest_complete"], 1)
+        self.assertEqual(sum(trial.inventory.values()), 1)
+        self.assertFalse(trial.pets)
 
