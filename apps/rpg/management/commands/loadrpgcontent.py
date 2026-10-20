@@ -21,6 +21,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.rpg.content.loader import ContentPack, ContentPackError
+from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog
 
 
 DEFAULT_PACK = "content/rpg/initial"
@@ -61,6 +62,11 @@ class Command(BaseCommand):
         selections = ((options["pack"] or DEFAULT_PACK, namespace),) if options["pack"] or namespace else BUNDLED_PACKS
         try:
             with transaction.atomic():
+                if not options["pack"] and not namespace:
+                    retired = retire_unused_catalog()
+                    mode = "[dry-run] would retire unused catalog" if dry_run else "Retired unused catalog"
+                    self.stdout.write(f"{mode}: {len(retired['species'])} species, "
+                                      f"{len(retired['potions'])} potion types, {len(retired['items'])} items")
                 for pack_arg, pack_namespace in selections:
                     pack_path = Path(pack_arg)
                     if not pack_path.is_absolute():
@@ -77,7 +83,7 @@ class Command(BaseCommand):
                     self._grant_starter_covers()
                 if dry_run:
                     transaction.set_rollback(True)
-        except ContentPackError as exc:
+        except (ContentPackError, RetiredCatalogCollision) as exc:
             raise CommandError(str(exc)) from exc
 
         self.stdout.write(self.style.SUCCESS("Content pack load complete."))

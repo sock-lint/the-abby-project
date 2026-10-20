@@ -15,14 +15,6 @@ items:
     coin_value: 80
     description: A golden laurel frame for the incoming freshman champion.
 
-  - slug: accessory-backpack-charm
-    name: Lucky Backpack Charm
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    icon: "🎒"
-    coin_value: 20
-    description: A tiny first-day-of-school charm for your pet.
-
   - slug: title-summer-scholar
     name: Summer Scholar
     item_type: cosmetic_title

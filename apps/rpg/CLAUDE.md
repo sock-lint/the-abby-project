@@ -10,23 +10,27 @@ selectors used by pets, inventory, drops, expeditions, quest item rewards,
 digital shop offers and development grants. Chick and fourteen prepared
 namespaced families accept Base only. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
-Authored YAML and database rows remain intact; artwork filenames and generic
-icons do not establish supported acquisition.
+Artwork filenames and generic icons do not establish supported acquisition.
+The shipped roster contains fifteen families. The owner's unused-content
+retirement removes the seventeen original species/eggs, Shadow/Golden/Cosmic
+potions and known unsupported pet accessories. Base, Fire and Ice definitions
+remain; Fire/Ice acquisition still requires their separately approved art policy.
 
 `ItemDefinitionSerializer.catalog_available` distinguishes offers from saved
 ownership. New item/cosmetic catalogs omit unavailable rows; owned inventory
 and cosmetic reads retain them, without blocked hatch/equip actions. Frames,
 Titles and valid Covers are implemented DOM cosmetics. Pet accessories have
-no supported fitted art: new grants and equip are rejected, an existing active
-selection is preserved, and unequip is allowed. Avatar appearance choices
+no supported fitted art: new grants and equip are rejected. Cleanup clears
+equipped references to the explicitly retired items. Avatar appearance choices
 remain separate saved presentation preferences.
 
 Drop and mystery/lucky-dip pools filter before selection. An empty eligible
 pool cannot grant an unsupported item; random consumable use fails without
 consuming the box/dip when no eligible reward exists. Quest completion skips
 unsupported item grants without substituting Coins, while keeping authored
-XP/coin rewards. Previously committed rewards, ownership and locked expedition
-loot are preserved through their existing reconciliation/claim paths.
+XP/coin rewards. Outside the exact unused-content retirement list, previously
+committed rewards, ownership and locked expedition loot keep their existing
+reconciliation/claim paths.
 `force_drop` and hatch-ingredient helpers use the same policy.
 
 The production registry is immutable by default. A scoped
@@ -256,11 +260,24 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `ConsumableService.SUPPORTED_EFFECTS` in `services.py` — canonical effect names shared by runtime dispatch and catalog audits; handler tests keep them aligned.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
-Prepared roster adoption registers 14 namespaced families plus retained Chick,
-all Base-only. The content loader rejects existing identity collisions before
-upserts, applies the namespace once and preserves legacy definitions.
+Prepared roster adoption registers 14 namespaced families plus Chick, all
+Base-only under the current acquisition registry. The content loader rejects
+existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward
 links or frozen promises. Use `reconcile_companion_catalog --dry-run --json`
 before rollout. Egg-category weights remain unchanged in live selection. See
 [the adoption runbook](../../docs/operations/companion-lifecycle.md).
+
+`retired_catalog.py` owns the frozen unused-content list. Default
+`loadrpgcontent` runs its atomic cleanup before loading bundled YAML; explicit
+custom pack loads do not. `retire_unused_rpg_content --dry-run --json` previews
+the same cleanup, including exact dependent row identities and cascades. It
+removes matching incubation/redemption receipts, digital offers, ownership and
+obsolete JSON reward/loot slots without changing accounts or ledger balances.
+A supported frozen promise on an edited obsolete offer retains its receipt and
+deactivates that offer. Unknown/custom identities, current families, Fire/Ice,
+SpriteAsset rows and image storage remain outside this list. Changed natural
+identities hold cleanup for reconciliation. Default loader dry runs roll back
+cleanup and bundled upserts together; no standalone production command is
+required for the deployment transition.

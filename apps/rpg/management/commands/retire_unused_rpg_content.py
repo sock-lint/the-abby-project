@@ -1,0 +1,26 @@
+"""Preview or apply the owner's exact unused first-party catalog retirement."""
+import json
+
+from django.core.management.base import BaseCommand, CommandError
+
+from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog
+
+
+class Command(BaseCommand):
+    help = "Remove explicitly retired legacy pets, eggs, potions and pet accessories and their unused dependencies."
+
+    def add_arguments(self, parser):
+        parser.add_argument("--dry-run", action="store_true", help="Execute cleanup under a rolled-back transaction.")
+        parser.add_argument("--json", action="store_true", help="Report exact affected catalog and dependent row identities.")
+
+    def handle(self, *args, **options):
+        try:
+            report = retire_unused_catalog(dry_run=options["dry_run"])
+        except RetiredCatalogCollision as exc:
+            raise CommandError(str(exc)) from exc
+        if options["json"]:
+            self.stdout.write(json.dumps(report, sort_keys=True))
+        else:
+            mode = "[dry-run] would retire" if options["dry_run"] else "retired"
+            self.stdout.write(f"{mode}: {len(report['species'])} species, {len(report['potions'])} potion types, "
+                              f"{len(report['items'])} items; {sum(report['deleted'].values())} dependent/catalog rows")

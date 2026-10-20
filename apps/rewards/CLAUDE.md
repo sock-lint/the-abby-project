@@ -4,6 +4,12 @@ Non-monetary Coins economy + parent-approved reward shop + money→coins exchang
 
 ## Available offers and earlier promises (October 2026)
 
+The owner-authorized prelaunch unused-content cleanup explicitly discards
+redemptions and digital offers for its fixed obsolete item list while leaving
+ledger balances unchanged. This is separate from ordinary availability changes
+and does not reset accounts or unrelated promises. See
+[unused first-party content retirement](../../docs/operations/companion-lifecycle.md#unused-first-party-content-retirement).
+
 `availability.py::reward_is_available` allows real-world rewards and requires
 an available `item_definition` for digital-item or combined fulfillment.
 It delegates item eligibility to the shared supported-art catalog in

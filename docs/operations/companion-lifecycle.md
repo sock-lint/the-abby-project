@@ -119,6 +119,39 @@ Dummy's separate pinned release is private future training art. It has no
 species, egg, inventory, companion, mount, drop or shop binding.
 Training gameplay is unimplemented and Dummy does not count toward 15.
 
+## Unused first-party content retirement
+
+The owner confirmed that the application has no users and authorized removal
+of unused legacy content. The default `loadrpgcontent` command now removes the
+explicit obsolete identities before loading the bundled catalog, in the same
+transaction. Its dry run rolls back both cleanup and loading.
+
+The list covers the 17 old species and their eggs, Shadow/Golden/Cosmic
+potions, the 15 default pet accessories and two known optional-pack accessories.
+It also removes their unused ownership, incubation, digital offers and exact
+item promises. It does not migrate an old Wolf into the different Wolf Pup
+identity or invent replacement rewards. Foods remain available without their
+retired species preferences. Accounts and ledger balances remain unchanged.
+
+The current 15-family roster and Base/Fire/Ice definitions remain. Fire and Ice
+are planned content with their own reviewed artwork work; temporary acquisition
+or artwork holds never select content for deletion. Unknown/custom identities
+are outside the fixed list, and a changed receiving identity stops cleanup for
+reconciliation. Explicit custom-pack loads do not run this default cleanup.
+
+The same cleanup can be inspected independently with:
+
+```bash
+python manage.py retire_unused_rpg_content --dry-run --json
+```
+
+The ordinary command without `--dry-run` applies that exact retirement. It
+does not remove `SpriteAsset` records, local artwork or stored image objects.
+The generic prepared-art registry and renderer remain available for newly
+authored content. The obsolete Content catalog Sprites section is removed.
+The preservation rules below continue to apply outside this explicit prelaunch
+retirement list.
+
 ## Private intake and build
 
 Both digest-pinned delivery indexes, all six referenced objects, and all 4,410

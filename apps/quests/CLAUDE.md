@@ -4,6 +4,12 @@ Automatic challenges track every relevant goal independently of its pin. The leg
 
 ## Supported rewards and reachable prerequisites (October 2026)
 
+The owner-authorized prelaunch unused-content cleanup is a narrow exception to
+the preservation rules here: it removes exact obsolete item promises and their
+retired catalog identities during the default bundled load. See
+[unused first-party content retirement](../../docs/operations/companion-lifecycle.md#unused-first-party-content-retirement).
+All other accepted promises retain the behavior described below.
+
 The parent challenge catalog sorts by type, name, then primary key. A system
 definition and a parent-authored definition can share a name and type; the
 identity tie-break keeps their existing image bindings and row order stable

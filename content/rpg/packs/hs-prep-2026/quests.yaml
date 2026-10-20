@@ -29,9 +29,6 @@ quests:
     is_repeatable: false
     trigger_filter:
       allowed_triggers: [habit_log]
-    reward_items:
-      - slug: accessory-backpack-charm
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 2}
