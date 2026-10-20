@@ -1,7 +1,7 @@
 """Bounded, read-only acquisition hints for one authenticated request."""
 from collections import defaultdict
 
-from django.db.models import Prefetch, Q
+from django.db.models import Prefetch
 from django.utils import timezone
 
 
@@ -21,8 +21,8 @@ def sources_for_request(request):
     result = defaultdict(list)
     earned = set(UserBadge.objects.filter(user=user).values_list("badge_id", flat=True))
     unavailable_goals = set(ChallengeGoal.objects.filter(
-        user=user, repeat_days=0, repeat_weekly=False,
-    ).filter(Q(ends_at__lte=timezone.now()) | Q(occurrences__awarded_at__isnull=False))
+        user=user, repeat_days=0, repeat_weekly=False, occurrences__awarded_at__isnull=False,
+    )
         .values_list("pk", flat=True))
     completed_definitions = set(Quest.objects.filter(
         participants__user=user, status="completed", definition__is_repeatable=False,
@@ -35,16 +35,19 @@ def sources_for_request(request):
     ))
     accepted_definitions = {goal.catalog_definition_id for goal in saved_goals}
     for goal in saved_goals:
-        if (goal.pk in unavailable_goals or goal.starts_at > now
-                or (goal.ends_at <= now and not goal.repeat_days and not goal.repeat_weekly)):
+        if goal.pk in unavailable_goals or goal.starts_at > now:
             continue
         current = goal.current_windows[0] if goal.current_windows else None
+        # An explicit retry has its own frozen window beyond the original
+        # goal deadline. Only fall back to that deadline without a saved window.
+        if current is None and goal.ends_at <= now and not goal.repeat_days and not goal.repeat_weekly:
+            continue
         if current is None and goal.catalog_definition_id and (
             goal.catalog_definition.superseded_by_id or goal.catalog_definition.is_cooperative
         ):
             # Retained personal promises do not advertise a future retired cycle.
             continue
-        if current is not None and current.status != "active":
+        if current is not None and (current.status != "active" or current.awarded_at is not None):
             continue
         promised = current.snapshot.get("items", []) if current is not None else goal.reward_items
         for reward in promised:
