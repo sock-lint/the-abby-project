@@ -40,6 +40,13 @@ describe('Parent family challenge assignment', () => {
     expect(reads.calls).toHaveLength(0);
   });
 
+  it('describes a saved shared definition without a deadline instead of an empty day count', async () => {
+    const { user } = setup({ catalog: [{ ...DEFINITION, duration_days: null }] });
+    const dialog = await openForm(user);
+    expect(within(dialog).getByText('Shared target: 5 activities · No deadline')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/· +days/)).not.toBeInTheDocument();
+  });
+
   it('offers only available shared definitions and requires two explicit participants', async () => {
     const assign = spyHandler('post', /\/api\/quests\/31\/co-op\/$/, { id: 51 });
     server.use(assign.handler);

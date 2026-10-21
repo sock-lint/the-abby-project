@@ -10,7 +10,9 @@ import { chooseDropdown } from './dropdown-helpers.js';
 const fixture = (name) => JSON.parse(readFileSync(new URL(`../../contracts/api/fixtures/${name}`, import.meta.url), 'utf8'));
 const locked = fixture('challenges-milestone-locked.json');
 const ready = fixture('challenges-milestone-ready.json');
+const untimed = fixture('challenges-untimed.json');
 const workbench = fixture('content-workbench-catalog.json');
+const evidenceDirectory = process.env.ABBY_BROWSER_EVIDENCE_DIR || '/tmp';
 let devServer;
 let origin;
 test.use({ actionTimeout: 15_000 });
@@ -102,7 +104,7 @@ for (const [state, body, width, height] of [['locked', locked, 375, 812], ['read
     await expect(dialog.getByRole('progressbar')).toHaveCount(0);
     await expect(dialog.getByRole('button', { name: /Pin|Start|Begin|Log reading/i })).toHaveCount(0);
     await noPageOverflow(page);
-    await page.screenshot({ path: `/tmp/reading-milestones-${state}-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${evidenceDirectory}/reading-milestones-${state}-${width}.png`, fullPage: true });
     await page.keyboard.press('Escape');
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
@@ -153,6 +155,13 @@ for (const width of [375, 1280]) {
     await chooseDropdown(editor.getByRole('combobox', { name: 'Required skill', exact: true }), { label: 'No skill required' });
     await expect(editor.getByRole('spinbutton', { name: 'Required skill level' })).toHaveValue('0');
     await chooseDropdown(editor.getByRole('combobox', { name: 'Required skill', exact: true }), { label: 'Life Skills / Persistence' });
+    const originalDuration = await editor.getByRole('spinbutton', { name: 'Duration in days' }).inputValue();
+    await editor.getByRole('checkbox', { name: 'No deadline', exact: true }).check();
+    await expect(editor.getByRole('spinbutton', { name: 'Duration in days' })).toHaveCount(0);
+    await noPageOverflow(page);
+    await page.screenshot({ path: `${evidenceDirectory}/reading-companion-untimed-workbench-${width}.png`, fullPage: true });
+    await editor.getByRole('checkbox', { name: 'No deadline', exact: true }).uncheck();
+    await expect(editor.getByRole('spinbutton', { name: 'Duration in days' })).toHaveValue(originalDuration);
     await editor.getByRole('spinbutton', { name: 'Duration in days' }).fill('56');
     await editor.getByRole('button', { name: 'Save to draft', exact: true }).click();
     await expect(page.getByText(/Changes saved to draft/)).toBeVisible();
@@ -166,7 +175,48 @@ for (const width of [375, 1280]) {
     ]);
     await expect(page.getByRole('button', { name: 'Publish reviewed draft', exact: true })).toHaveCount(0);
     await noPageOverflow(page);
-    await page.screenshot({ path: `/tmp/reading-milestones-workbench-${width}.png`, fullPage: true });
+    await page.screenshot({ path: `${evidenceDirectory}/reading-milestones-workbench-${width}.png`, fullPage: true });
+    expect(observed.unexpected).toEqual([]);
+    expect(observed.errors).toEqual([]);
+  });
+}
+
+for (const width of [375, 1280]) {
+  test(`untimed Reading Companion shows no deadline at ${width}px`, async ({ page }) => {
+    const companion = untimed.results.find((goal) => goal.name === 'Reading Companion');
+    const observed = await prepare(page, width, 812, buildUser());
+    await observed.route(async (route, request) => {
+      if (request.method === 'GET' && request.path === '/api/challenges/') {
+        await route.fulfill({ json: untimed });
+        return true;
+      }
+      if (request.method === 'POST' && request.path === `/api/challenges/${encodeURIComponent(companion.id)}/opened/`) {
+        expect(route.request().postDataJSON()).toEqual({});
+        await route.fulfill({ json: { ...companion, first_details_opened_at: '2026-10-20T21:00:00Z' } });
+        return true;
+      }
+      return false;
+    });
+    await page.goto(`${origin}/e2e/reading-milestones-fixture.html`);
+    const card = page.getByRole('article', { name: 'Reading Companion', exact: true });
+    await expect(card.getByText('No deadline', { exact: true })).toBeVisible();
+    await expect(card.getByText('Active', { exact: true })).toBeVisible();
+    const opener = card.getByRole('button', { name: 'View Reading Companion', exact: true });
+    await opener.click();
+    const dialog = page.getByRole('dialog', { name: 'Reading Companion', exact: true });
+    await expect(dialog.getByText('No deadline', { exact: true })).toBeVisible();
+    await expect(dialog.getByText(/Counts work before|Period ended|Invalid Date|NaN/)).toHaveCount(0);
+    await expect(dialog.getByRole('button', { name: /add .* to calendar/i })).toHaveCount(0);
+    await noPageOverflow(page);
+    await page.screenshot({ path: `${evidenceDirectory}/reading-companion-untimed-${width}.png`, fullPage: true });
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    // Recording the first opening moves this goal out of Explore challenges.
+    // Details restore focus to the live bonus disclosure when the opener moved.
+    await expect(page.locator('[data-challenge-disclosure="bonus"]')).toBeFocused();
+    expect(observed.calls.filter((call) => call.method !== 'GET')).toEqual([
+      { method: 'POST', path: `/api/challenges/${encodeURIComponent(companion.id)}/opened/` },
+    ]);
     expect(observed.unexpected).toEqual([]);
     expect(observed.errors).toEqual([]);
   });

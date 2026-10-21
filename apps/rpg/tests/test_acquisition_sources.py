@@ -157,3 +157,25 @@ class AcquisitionSourcesTests(TestCase):
             self.client.get("/api/cosmetics/catalog/")
         self.assertLessEqual(len(expanded), len(first) + 1)
         self.assertEqual(ChallengeGoal.objects.filter(user=self.user).count(), 0)
+
+    def test_untimed_saved_window_keeps_frozen_item_hint_after_long_absence(self):
+        from apps.quests.models import ChallengeGoal, ChallengeOccurrence
+        now = timezone.now()
+        self.quest.duration_days = None
+        self.quest.trigger_filter = {"allowed_triggers": ["reading_logged"]}
+        self.quest.save()
+        goal = ChallengeGoal.objects.create(user=self.user, family=self.user.family,
+            catalog_definition=self.quest, is_catalog=True, name=self.quest.name,
+            metric="count", target=10, timezone_name="America/Phoenix",
+            starts_at=now - timedelta(days=1000), ends_at=None,
+            reward_items=[{"item_id": self.frame.pk, "quantity": 1}])
+        occurrence = ChallengeOccurrence.objects.create(goal=goal, starts_at=goal.starts_at,
+            ends_at=None, snapshot={"items": [{"item_id": self.frame.pk, "quantity": 1}]})
+        self.quest.reward_items.all().delete()
+        row = self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]
+        self.assertEqual(row["acquisition_sources"], [{"kind": "challenge", "name": goal.name,
+                                                      "path": "/quests?tab=trials"}])
+        occurrence.status = "completed"
+        occurrence.awarded_at = now
+        occurrence.save()
+        self.assertEqual(self.client.get("/api/cosmetics/catalog/").data["active_frame"][0]["acquisition_sources"], [])

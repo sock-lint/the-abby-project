@@ -115,6 +115,11 @@ def identity(goal, ctx):
     return (ctx["definitions"].get(definition_id) or definition_id) if definition_id else ("retired", goal.pk)
 
 
+def _window_open(occurrence, now):
+    # An untimed one-time promise never expires, so it never needs a retry.
+    return occurrence.ends_at is None or occurrence.ends_at > now
+
+
 def retry_state(occurrence, ctx):
     goal = ctx["goals"].get(occurrence.goal_id, occurrence.goal)
     rows = ctx["groups"].get(identity(goal, ctx), [])
@@ -139,11 +144,11 @@ def retry_state(occurrence, ctx):
         reason = "closed"
     elif "active" in legacy:
         reason = "legacy_active"
-    elif any(row.status == "active" and row.ends_at > ctx["now"] for row in rows):
-        reason = "not_expired" if occurrence.ends_at > ctx["now"] else "active_attempt"
+    elif any(row.status == "active" and _window_open(row, ctx["now"]) for row in rows):
+        reason = "not_expired" if _window_open(occurrence, ctx["now"]) else "active_attempt"
     elif latest.pk != occurrence.pk:
         reason = "newer_attempt"
-    elif occurrence.ends_at > ctx["now"]:
+    elif _window_open(occurrence, ctx["now"]):
         reason = "not_expired"
     elif not ctx["retry_taxonomy"].get(occurrence.pk, False):
         reason = "retired"

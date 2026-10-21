@@ -1212,7 +1212,9 @@ class ConsumableService:
                 UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
             )
             candidates = [
-                q for q in definitions_with_available_taxonomy(active_system_definitions()).filter(is_cooperative=False).prefetch_related(
+                q for q in definitions_with_available_taxonomy(active_system_definitions()).filter(
+                    is_cooperative=False, duration_days__isnull=False,
+                ).prefetch_related(
                     "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
                 )
                 if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)

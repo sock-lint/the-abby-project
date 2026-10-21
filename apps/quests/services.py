@@ -125,6 +125,8 @@ class QuestService:
         definition_ids = equivalent_definition_ids(definition)
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id__in=definition_ids).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline. Pin it to follow your progress.")
 
         # Check no active quest
         if Quest.objects.filter(
@@ -239,6 +241,8 @@ class QuestService:
                 raise ValueError("A saved individual challenge window is still open. Wait for it to expire before this shared assignment.")
         elif personal_goals.exists():
             raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline for each child.")
 
         # Pre-flight: no participant may already have an active quest.
         # Doing this as one SQL query keeps the check atomic.

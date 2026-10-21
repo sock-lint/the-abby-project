@@ -257,7 +257,8 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             "metric": "damage" if definition.quest_type == "boss" else "count",
             "target": definition.target_value, "unit": "damage" if definition.quest_type == "boss" else "actions",
             "trigger_filter": definition.trigger_filter, "timezone_name": enrollment.timezone_name,
-            "starts_at": starts_at, "ends_at": starts_at + timedelta(days=definition.duration_days),
+            "starts_at": starts_at, "ends_at": (starts_at + timedelta(days=definition.duration_days)
+                                                  if definition.duration_days is not None else None),
             "repeat_days": definition.duration_days if definition.is_repeatable else 0,
             "coin_reward": definition.coin_reward, "xp_reward": definition.xp_reward,
             "skill_tags": [{"skill_id": tag.skill_id, "xp_weight": tag.xp_weight} for tag in definition.skill_tags.all()],
@@ -292,8 +293,10 @@ def _occurrence(goal, at):
     # recheck retirement, including goals loaded before catalog maintenance.
     saved = getattr(goal, "_listed_occurrences", None)
     if goal.is_catalog and not goal.repeat_weekly and not goal.repeat_days:
-        current = (next((row for row in saved if row.starts_at <= at < row.ends_at), None)
-                   if saved is not None else goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first())
+        current = (next((row for row in saved if row.starts_at <= at
+                         and (row.ends_at is None or at < row.ends_at)), None)
+                   if saved is not None else goal.occurrences.filter(starts_at__lte=at).filter(
+                       Q(ends_at__gt=at) | Q(ends_at__isnull=True)).first())
         if current is not None:
             return current
         if (any(row.retry_of_id for row in saved) if saved is not None
@@ -301,7 +304,8 @@ def _occurrence(goal, at):
             return None
     if saved is not None:
         if goal.is_catalog and goal.catalog_definition_id is None:
-            return next((row for row in saved if row.starts_at <= at < row.ends_at), None)
+            return next((row for row in saved if row.starts_at <= at
+                         and (row.ends_at is None or at < row.ends_at)), None)
         if at < goal.starts_at:
             return None
         start, _ = _occurrence_window(goal, at)
@@ -317,7 +321,7 @@ def _occurrence(goal, at):
     )
     if retired:
         # Retirement retains saved promises and history, without new cycles.
-        return goal.occurrences.filter(starts_at__lte=at, ends_at__gt=at).first()
+        return goal.occurrences.filter(starts_at__lte=at).filter(Q(ends_at__gt=at) | Q(ends_at__isnull=True)).first()
     if at < goal.starts_at:
         return None
     start, end = _occurrence_window(goal, at)
@@ -460,7 +464,8 @@ def _process(activity):
             # A late approval belongs to the recorded work day, not today's week.
             at = datetime.combine(activity.occurred_on, time(12), tzinfo=ZoneInfo(goal.timezone_name))
         occurrence = _occurrence(goal, at)
-        if not occurrence or at >= occurrence.ends_at or occurrence.awarded_at or occurrence.status == "closed":
+        if (not occurrence or (occurrence.ends_at is not None and at >= occurrence.ends_at)
+                or occurrence.awarded_at or occurrence.status == "closed"):
             continue
         if occurrence.retry_of_id and activity.pk <= occurrence.snapshot.get("_retry_after_activity_id", 0):
             continue
@@ -689,7 +694,7 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
     if status == "active":
         if timezone.now() < occurrence.starts_at:
             status = "upcoming"
-        elif timezone.now() >= occurrence.ends_at:
+        elif occurrence.ends_at is not None and timezone.now() >= occurrence.ends_at:
             status = "expired"
     receipt = occurrence.reward_receipt
     return {
@@ -707,7 +712,8 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
         "catalog_icon": challenge_catalog_icon(occurrence.goal.catalog_definition) if occurrence.goal.is_catalog else None,
         "metric": snapshot["metric"], "target": number(snapshot["target"]), "progress": number(occurrence.progress),
         "unit": snapshot["unit"], "status": status,
-        "starts_at": occurrence.starts_at.isoformat(), "ends_at": occurrence.ends_at.isoformat(),
+        "starts_at": occurrence.starts_at.isoformat(),
+        "ends_at": occurrence.ends_at.isoformat() if occurrence.ends_at else None,
         "completed_at": occurrence.completed_at.isoformat() if occurrence.completed_at else None,
         "timezone": occurrence.goal.timezone_name,
         "what_counts": _what_counts(snapshot, catalog=occurrence.goal.is_catalog), "rewards": {"coins": snapshot["coins"], "xp": snapshot["xp"], "items": _reward_preview(snapshot, item_catalog, item_details_cache)},
@@ -773,7 +779,7 @@ def list_goals(user):
     ).prefetch_related(Prefetch(
         "occurrences",
         queryset=ChallengeOccurrence.objects.filter(
-            Q(starts_at__lte=now, ends_at__gt=now)
+            Q(starts_at__lte=now) & (Q(ends_at__gt=now) | Q(ends_at__isnull=True))
             | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at"))
             | Q(retry_of__isnull=False),
         ),
@@ -799,7 +805,7 @@ def list_goals(user):
                 pin.save(update_fields=["occurrence", "updated_at"])
     pin_id = _pin_id(pin)
     occurrences = ChallengeOccurrence.objects.filter(goal__user=user, goal__family_id=user.family_id).select_related("goal", "goal__catalog_definition")
-    active = list(occurrences.filter(starts_at__lte=now, ends_at__gt=now))
+    active = list(occurrences.filter(starts_at__lte=now).filter(Q(ends_at__gt=now) | Q(ends_at__isnull=True)))
     recent = list(occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at", "-pk")[:20])
     terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at", "-pk")[:20])
     future = list(occurrences.filter(starts_at__gt=now, goal__is_catalog=False))

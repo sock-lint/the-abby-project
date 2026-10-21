@@ -1,5 +1,11 @@
 # Shared API response fixtures
 
+`challenges-untimed.json` is a real authenticated challenge response for an
+untimed one-time Reading Companion. Its saved `ends_at` is null and it remains
+active after ninety elapsed days. Null means no deadline; absent timing in
+older payloads is not inferred to be untimed. The existing challenge producer
+and React consumer check this shape.
+
 `challenge-family-assigned.json` and `challenges-family-completed.json` bind
 parent assignment to a real shared campaign. The producer checks the parent's
 catalog `is_cooperative` flag, assigns two same-family children, and approves ten
@@ -48,12 +54,14 @@ These observations do not assert that details were read or enjoyed.
 `voyager-feedback-observed.json` and `voyager-feedback-empty.json` come from
 the staff parent's read-only `/api/challenges/voyager-feedback/` endpoint.
 They separate current child states from saved window outcomes in one family's
-180-day registration cohort. Saved 45-day windows and the selected 56-day
-milestone snapshots remain distinct after catalog edits. Only ended windows
+180-day registration cohort. Saved 45-day windows, historical 56-day milestone
+windows and the selected 84-day milestone snapshots remain distinct after
+catalog edits. Only ended windows
 with resolved outcomes enter the completion rate; early completions remain
 under observation until their saved deadline, and unknown outcomes are not
-failures. The seven synthetic children include an early completion and a
-completed row without a known completion timestamp. Producers live in
+failures. The eleven synthetic children include historical45/56-day windows, pending
+and mature84-day windows, early completions and a completed row without a known
+completion timestamp. Producers live in
 `config/tests/test_challenge_api_contract_fixtures.py`; the React consumer is
 `src/api/voyagerFeedbackContractFixtures.test.js`. The required fixture job runs
 both. This report neither starts challenges nor reconstructs first eligibility.

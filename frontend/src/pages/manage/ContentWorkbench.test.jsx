@@ -28,6 +28,53 @@ async function openChallenge(user) {
 }
 
 describe('RPG content workbench', () => {
+  it('saves an explicit untimed reading challenge only to the private draft', async () => {
+    const current = metadata.catalog.quests[0];
+    const readingValues = { ...current.values, quest_type: 'collection', is_repeatable: false, trigger_filter: { allowed_triggers: ['reading_logged'] } };
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: readingValues }] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    const publish = spyHandler('post', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/publish/$`), {});
+    server.use(patch.handler, publish.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    await user.click(screen.getByRole('checkbox', { name: 'No deadline' }));
+    expect(screen.queryByRole('spinbutton', { name: 'Duration in days' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values).toMatchObject({ duration_days: null, is_repeatable: false, trigger_filter: { allowed_triggers: ['reading_logged'] } });
+    expect(publish.calls).toHaveLength(0);
+  });
+  it('preserves an existing null duration and can restore a timed completion window', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, duration_days: null, trigger_filter: { allowed_triggers: ['reading_logged'] } } }] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    server.use(patch.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'No deadline' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Duration in days' }), { target: { value: '56' } });
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values.duration_days).toBe(56);
+  });
+  it('limits the no-deadline option to one-time Reading Adventure collections', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, quest_type: 'boss' } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
+  });
+
+  it('does not offer no deadline for a shared family challenge', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, is_cooperative: true } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'Shared family challenge' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
+  });
+
   it('saves exact challenge and named skill milestone IDs while keeping reward XP tags and publication separate', async () => {
     const prerequisite = { id: 10, name: 'Reading Companion', is_system: true, coin_reward: 0, xp_reward: 0 };
     const milestoneMetadata = { ...metadata, catalog: { ...metadata.catalog, quests: [...metadata.catalog.quests, prerequisite] } };

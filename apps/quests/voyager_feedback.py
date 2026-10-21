@@ -35,7 +35,8 @@ GROUP_FIELDS = (
 )
 POLICIES = (
     ("saved_45_day", "Saved 45-day windows"),
-    ("milestone_56_day", "56 days · selected milestones"),
+    ("milestone_56_day", "56 days · milestones"),
+    ("milestone_84_day", "84 days · selected milestones"),
     ("other_or_unknown", "Other or unknown policy"),
 )
 NOTES = [
@@ -86,6 +87,7 @@ def _saved_policy(row, companion_ids, skill_id, *, valid_retry=False):
             or snapshot.get("catalog_name") != "Reading Voyager"
             or snapshot.get("catalog_type") != "collection"
             or row["goal__repeat_weekly"] or row["goal__repeat_days"]
+            or row["ends_at"] is None or row["goal__ends_at"] is None
             or (not valid_retry and (row["starts_at"] != row["goal__starts_at"]
                                      or row["ends_at"] != row["goal__ends_at"]))):
         return "other_or_unknown"
@@ -98,7 +100,9 @@ def _saved_policy(row, companion_ids, skill_id, *, valid_retry=False):
             and "catalog_gate" not in snapshot
             and row["goal__catalog_gate_activity_id"] is None):
         return "saved_45_day"
-    if not companion_ids or skill_id is None or duration != timedelta(days=56):
+    milestone_policy = {timedelta(days=56): "milestone_56_day",
+                        timedelta(days=84): "milestone_84_day"}.get(duration)
+    if not companion_ids or skill_id is None or milestone_policy is None:
         return "other_or_unknown"
     companion_id = gate.get("prerequisite_quest_id") if isinstance(gate, dict) else None
     if not _positive_int(companion_id) or companion_id not in companion_ids:
@@ -117,13 +121,13 @@ def _saved_policy(row, companion_ids, skill_id, *, valid_retry=False):
             or any(type(saved_gate[key]) is not type(value) or saved_gate[key] != value
                    for key, value in expected_saved.items())):
         return "other_or_unknown"
-    return "milestone_56_day"
+    return milestone_policy
 
 
 def _automatic_state(row, as_of):
     """A deadline may expire a saved active row without writing its status."""
     start, end = row["starts_at"], row["ends_at"]
-    if end <= start or start > as_of or row["created_at"] > as_of:
+    if end is None or end <= start or start > as_of or row["created_at"] > as_of:
         return "unknown", "unknown_windows"
     mature = end <= as_of
     unknown = "mature_unknown" if mature else "unknown_windows"
@@ -386,7 +390,8 @@ def voyager_feedback(actor):
             state, outcome = _automatic_state(row, as_of)
             if chain is None:
                 state = "unknown"
-                outcome = "mature_unknown" if row["starts_at"] < row["ends_at"] <= as_of else "unknown_windows"
+                outcome = ("mature_unknown" if row["ends_at"] is not None
+                           and row["starts_at"] < row["ends_at"] <= as_of else "unknown_windows")
             attempt_states.append(state)
             group = group_map[_saved_policy(row, companion_ids, skill_id,
                                            valid_retry=chain is not None and row["retry_of_id"] is not None)]

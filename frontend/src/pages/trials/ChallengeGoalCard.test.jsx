@@ -10,6 +10,17 @@ vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn()
 beforeEach(() => { resolvePedestalImage.mockReturnValue(null); resolveCatalogIcon.mockReturnValue(null); });
 
 describe('Challenge goal cards', () => {
+  it.each(['card', 'detail'])('shows an untimed goal without inventing a deadline in its %s', (surface) => {
+    const goal = buildChallengeGoal({ name: 'Reading Companion', origin: 'catalog', ends_at: null, repeat_weekly: false });
+    renderWithProviders(surface === 'card'
+      ? <ChallengeGoalCard goal={goal} onSelect={() => {}} />
+      : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('No deadline')).toBeInTheDocument();
+    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.queryByText(/Goal period|Counts work before|Period ended|Invalid Date|NaN/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
+  });
+
   it.each(['card', 'detail'])('explains an unavailable retry reward and disables the action in the %s', async (surface) => {
     const goal = buildChallengeGoal({ status: 'expired', origin: 'catalog', retry: { allowed: false, reason: 'reward_unavailable' } });
     const onRetry = vi.fn();

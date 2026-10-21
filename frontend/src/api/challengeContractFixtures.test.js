@@ -37,6 +37,7 @@ import editedSchedule from '../../../contracts/api/fixtures/challenge-schedule-e
 import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-week.json';
 import milestoneLocked from '../../../contracts/api/fixtures/challenges-milestone-locked.json';
 import milestoneReady from '../../../contracts/api/fixtures/challenges-milestone-ready.json';
+import untimedGoals from '../../../contracts/api/fixtures/challenges-untimed.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
@@ -46,6 +47,16 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('preserves an untimed catalog Reading Companion promise from the actual endpoint', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(untimedGoals)));
+    const response = await getChallenges();
+    expect(response).toEqual(untimedGoals);
+    const companion = response.results.find((goal) => goal.name === 'Reading Companion');
+    expect(companion).toMatchObject({ origin: 'catalog', ends_at: null, status: 'active', repeat_weekly: false });
+    expect(companion.starts_at).toEqual(expect.any(String));
+    expect(Number(companion.target)).toBe(3);
+  });
+
   it.each(['card', 'detail'])('explains the actual unavailable reward response and blocks retry in the %s', async (surface) => {
     server.use(http.get('*/api/challenges/', () => HttpResponse.json(retryUnavailable)));
     const saved = await getChallenges();

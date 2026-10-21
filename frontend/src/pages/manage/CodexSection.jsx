@@ -260,7 +260,7 @@ function AdventureDetail({ quest }) {
         <p className="text-sm text-ink-whisper mb-3">{quest.description}</p>
       )}
       <div className="space-y-1 text-xs text-ink-secondary">
-        <div>Duration: <span className="text-ink-primary font-semibold">{quest.duration_days} days</span></div>
+        <div>Duration: <span className="text-ink-primary font-semibold">{quest.duration_days === null ? 'No deadline' : `${quest.duration_days} days`}</span></div>
         {quest.coin_reward > 0 && (
           <div>Coin reward: <span className="text-gold-leaf font-semibold">{quest.coin_reward}</span></div>
         )}

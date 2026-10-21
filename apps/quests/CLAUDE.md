@@ -108,7 +108,9 @@ with read-only catalog metadata and server-confirmed `milestone_eligibility`.
 An unlocked row still waits for the next qualifying saved reading receipt;
 it has no accepted window, countdown or pinnable goal identity. Rows whose
 one-time prerequisite can no longer finish (its only accepted window ended
-uncompleted, directly or through a gated predecessor chain) are omitted;
+uncompleted, directly or through a gated predecessor chain, and no explicit
+retry is currently allowed) are omitted; an expired unpaid prerequisite that
+can still be retried keeps its successors discoverable.
 `milestone_eligibility.prerequisite_unavailable` owns that rule. Reading this
 metadata awards nothing. New milestone-gated solo, co-op and scroll starts are
 refused after explaining any unmet requirement: a manual legacy start cannot
@@ -116,6 +118,20 @@ begin the clock before the child's next qualifying Reading Adventure. Existing
 legacy runs continue with their accepted windows and rewards.
 Installing these schema/services does not activate a
 policy or rewrite bundled or published content.
+
+## Untimed reading onboarding
+
+A null `QuestDefinition.duration_days` means no deadline, only for a one-time
+system collection with no creator and exactly `reading_logged` as its filter.
+`ChallengeGoal.ends_at` and `ChallengeOccurrence.ends_at` may then be null.
+Keep list/process/pin, prerequisite availability and acquisition queries null
+safe; never invent a distant date or treat null as expired. Parent-created
+measurable goals and legacy accepted quests keep their existing timed contract.
+New legacy solo/co-op starts and reroll selections exclude untimed definitions.
+Untimed definitions cannot be shared family challenges (`is_cooperative`).
+The schema migration changes no saved dates or rewards. Reading Companion and
+Voyager activation is the separate reviewed Workbench draft described in
+`docs/operations/reading-voyager-milestones.md`.
 
 ## Automatic goal tracking
 
@@ -273,10 +289,13 @@ cannot race its household reads.
 Saved 45-day windows require frozen count-20 reading rules, exactly 45 elapsed
 days and no native milestone snapshot. Their old badge requirements were not
 frozen, so do not describe this bucket as proof of historically ungated access.
-The selected 56-day bucket additionally requires matching strict version-one
-goal/occurrence gate snapshots, the exact unique global Reading Companion and
-Language Arts::Reading Comprehension identities, skill level 1, no badge and
-the saved opening activity ID. Other or malformed policies stay separate.
+Historical 56-day and selected 84-day milestone buckets additionally require
+matching strict version-one goal/occurrence gate snapshots, the exact unique
+global Reading Companion and Language Arts::Reading Comprehension identities,
+skill level 1, no badge and
+the saved opening activity ID. They remain separate buckets using each saved
+elapsed duration; selecting 84 days neither extends accepted 45-/56-day
+promises nor publishes the candidate. Other or malformed policies stay separate.
 Current catalog edits never reclassify an accepted promise from today's rules.
 Validated linear retry chains count each immutable attempt window in policy
 groups, while the child appears once in current states using the latest

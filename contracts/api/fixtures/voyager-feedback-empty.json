@@ -44,7 +44,19 @@
     },
     {
       "policy": "milestone_56_day",
-      "label": "56 days · selected milestones",
+      "label": "56 days · milestones",
+      "accepted_windows": 0,
+      "pending_windows": 0,
+      "mature_completed": 0,
+      "mature_expired": 0,
+      "mature_unknown": 0,
+      "unknown_windows": 0,
+      "mature_denominator": 0,
+      "completion_rate": null
+    },
+    {
+      "policy": "milestone_84_day",
+      "label": "84 days · selected milestones",
       "accepted_windows": 0,
       "pending_windows": 0,
       "mature_completed": 0,

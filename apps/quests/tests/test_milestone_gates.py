@@ -242,7 +242,7 @@ class MilestoneGateTests(TestCase):
         goal = self.accepted().get()
         goal.occurrences.all().delete()
         before = (goal.starts_at, goal.ends_at, goal.target, goal.description, goal.coin_reward, goal.xp_reward)
-        self.voyager.duration_days = 56
+        self.voyager.duration_days = 84
         self.set_gate()
         self.fact("grandfathered")
         goal.refresh_from_db()
@@ -250,6 +250,35 @@ class MilestoneGateTests(TestCase):
         self.assertEqual(goal.catalog_gate_snapshot, {})
         self.assertIsNone(goal.catalog_gate_activity_id)
         self.assertEqual(goal.occurrences.get().progress, 1)
+
+    def test_saved_56_day_milestone_window_keeps_its_deadline_after_84_day_catalog_edit(self):
+        self.complete_prior()
+        self.level()
+        start = timezone.now()
+        with patch("django.utils.timezone.now", return_value=start):
+            self.fact("saved-56-opening", at=start)
+        goal = self.accepted().get()
+        occurrence = goal.occurrences.get()
+        frozen_goal = (goal.starts_at, goal.ends_at, goal.catalog_gate_snapshot,
+                       goal.catalog_gate_activity_id, goal.coin_reward, goal.xp_reward, goal.reward_items)
+        frozen_snapshot = occurrence.snapshot
+        self.assertEqual(goal.ends_at, start + timedelta(days=56))
+        self.voyager.duration_days = 84
+        self.voyager.coin_reward = 99
+        self.voyager.description = "New 84-day offer"
+        self.voyager.save()
+        with patch("django.utils.timezone.now", return_value=goal.ends_at):
+            self.fact("saved-56-exclusive-end", at=goal.ends_at)
+            result = list_goals(self.child)
+        goal.refresh_from_db()
+        occurrence.refresh_from_db()
+        self.assertEqual((goal.starts_at, goal.ends_at, goal.catalog_gate_snapshot,
+                          goal.catalog_gate_activity_id, goal.coin_reward, goal.xp_reward, goal.reward_items), frozen_goal)
+        self.assertEqual(occurrence.snapshot, frozen_snapshot)
+        self.assertEqual((occurrence.progress, occurrence.ends_at), (1, start + timedelta(days=56)))
+        self.assertEqual(next(row for row in result["results"] if row["id"] == f"goal:{occurrence.pk}")["status"], "expired")
+        self.assertIsNone(occurrence.awarded_at)
+        self.assertEqual(goal.occurrences.count(), 1)
 
     def test_two_weekly_readings_are_accepted_and_expire_without_rearming(self):
         self.complete_prior()
@@ -354,6 +383,8 @@ class MilestoneGateTests(TestCase):
         self.assertEqual(CoinLedger.objects.filter(user=self.child, amount=7).count(), 1)
 
     def test_exact_subday_deadline_survives_household_dst_and_later_zone_edit(self):
+        self.voyager.duration_days = 84
+        self.voyager.save(update_fields=["duration_days"])
         self.complete_prior()
         self.level()
         self.child.family.timezone = "America/New_York"
@@ -363,7 +394,7 @@ class MilestoneGateTests(TestCase):
             self.fact("dst-opening", at=start)
         goal = self.accepted().get()
         end = goal.ends_at
-        self.assertEqual(end, start + timedelta(days=56))
+        self.assertEqual(end, start + timedelta(days=84))
         self.assertNotEqual(start.astimezone(ZoneInfo("America/New_York")).utcoffset(),
                             end.astimezone(ZoneInfo("America/New_York")).utcoffset())
         self.assertEqual(goal.timezone_name, "America/New_York")

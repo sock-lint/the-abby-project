@@ -70,8 +70,8 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "3f00f51a0f3a5e42bc2204011b2ec457938fa4e782ec5131ed7beff3f42369ad",
-  "engine_version": "2026-10-20.5",
+  "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
+  "engine_version": "2026-10-21.1",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -4459,11 +4459,11 @@
     "eligible_challenges": 1,
     "finite_breakdown": {
       "mount": 1,
+      "badge": 1,
       "pet": 1,
-      "cosmetic": 1,
-      "middle": 1,
       "quest": 1,
-      "badge": 1
+      "cosmetic": 1,
+      "middle": 1
     },
     "level_p50": 6,
     "inventory_units_p50": 68,
@@ -11271,7 +11271,8 @@
       "Waiting visits have no currently available unfinished challenge in that subset and at least one structurally reachable challenge locked by a gate or native badge. Visits after exhaustion or expiration are separate. Inactive dates and blocked challenges are not extra playable content.",
       "Unlock and completion day percentiles are conditional on the trials that reached each event; reached counts include every trial. Unlocked means a native challenge window was actually offered by a new fact, not merely that its conditions became true on an inactive date.",
       "Only one-off global challenges can receive new gates; a repeatable challenge may serve as a predecessor after its first completion. Missed direct-predecessor windows and offerings, and definite native completed-challenge badge dead ends, block descendants rather than generating waiting visits. Other native badge paths remain optimistic; a viable alternative or repeatable path prevents a definite dead-end claim.",
-      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses."
+      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses.",
+      "An authored null duration is an untimed one-time reading milestone. It never expires or restarts, and an unfinished accepted milestone remains available across absences. Its routine-capacity subset is bounded by the scenario horizon without creating a deadline."
     ],
     "scope": "One-off global catalog challenges compatible with this routine; not all app activities.",
     "trials": 3,

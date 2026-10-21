@@ -1,7 +1,7 @@
 """Bounded, read-only acquisition hints for one authenticated request."""
 from collections import defaultdict
 
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.utils import timezone
 
 
@@ -35,8 +35,8 @@ def sources_for_request(request):
     now = timezone.now()
     saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).select_related("catalog_definition").prefetch_related(
         Prefetch("occurrences", queryset=ChallengeOccurrence.objects.filter(
-            starts_at__lte=now, ends_at__gt=now,
-        ), to_attr="current_windows"),
+            starts_at__lte=now,
+        ).filter(Q(ends_at__gt=now) | Q(ends_at__isnull=True)), to_attr="current_windows"),
     ))
     accepted_definitions = {goal.catalog_definition_id for goal in saved_goals}
     for goal in saved_goals:
@@ -45,7 +45,8 @@ def sources_for_request(request):
         current = goal.current_windows[0] if goal.current_windows else None
         # An explicit retry has its own frozen window beyond the original
         # goal deadline. Only fall back to that deadline without a saved window.
-        if current is None and goal.ends_at <= now and not goal.repeat_days and not goal.repeat_weekly:
+        if (current is None and goal.ends_at is not None and goal.ends_at <= now
+                and not goal.repeat_days and not goal.repeat_weekly):
             continue
         if current is None and goal.catalog_definition_id and (
             goal.catalog_definition.superseded_by_id or goal.catalog_definition.is_cooperative

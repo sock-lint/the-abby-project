@@ -1,9 +1,9 @@
 from django.conf import settings
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from apps.quests.validators import validate_trigger_filter
+from apps.quests.validators import validate_trigger_filter, validate_untimed_reading
 from config.base_models import TimestampedModel
 
 
@@ -23,7 +23,10 @@ class QuestDefinition(TimestampedModel):
     )
     quest_type = models.CharField(max_length=20, choices=QuestType.choices)
     target_value = models.PositiveIntegerField()  # HP for boss, count for collection
-    duration_days = models.PositiveIntegerField(default=7)
+    duration_days = models.PositiveIntegerField(
+        default=7, null=True, blank=True, validators=[MinValueValidator(1)],
+        help_text="Null means no deadline for a one-time global Reading Adventure collection.",
+    )
     trigger_filter = models.JSONField(default=dict, blank=True)
     required_badge = models.ForeignKey(
         "achievements.Badge",
@@ -69,11 +72,17 @@ class QuestDefinition(TimestampedModel):
                        | models.Q(required_skill__isnull=False, required_skill_level__gte=1,
                                   required_skill_level__lte=6)),
             name="valid_quest_milestone_skill",
+        ), models.CheckConstraint(
+            condition=(models.Q(duration_days__isnull=False)
+                       | models.Q(is_system=True, created_by__isnull=True, is_repeatable=False,
+                                  quest_type="collection", trigger_filter={"allowed_triggers": ["reading_logged"]})),
+            name="valid_untimed_reading_definition",
         )]
 
     def clean(self):
         super().clean()
         validate_trigger_filter(self.trigger_filter)
+        validate_untimed_reading(self)
         from .milestone_eligibility import validate_milestone_gate
         validate_milestone_gate(self)
 
@@ -301,7 +310,7 @@ class ChallengeGoal(TimestampedModel):
     )
     timezone_name = models.CharField(max_length=64)
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     repeat_weekly = models.BooleanField(default=False)
     repeat_days = models.PositiveIntegerField(default=0)
     coin_reward = models.PositiveIntegerField(default=0)
@@ -324,7 +333,7 @@ class ChallengeOccurrence(TimestampedModel):
 
     goal = models.ForeignKey(ChallengeGoal, on_delete=models.CASCADE, related_name="occurrences")
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     snapshot = models.JSONField(default=dict)
     progress = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     status = models.CharField(max_length=12, default="active", choices=[

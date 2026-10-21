@@ -92,6 +92,10 @@ def _validate_values(section, values, *, new):
             _text(values[field], field, maximum, empty=field not in {"name", "slug"})
     for field in ("coin_value", "coin_reward", "xp_reward", "target_value", "duration_days"):
         if field in values:
+            # Null is an explicit untimed promise; QuestDefinition.clean below
+            # restricts it to supported one-time global reading collections.
+            if section == "quests" and field == "duration_days" and values[field] is None:
+                continue
             minimum = 1 if field in {"target_value", "duration_days"} else 0
             maximum = 365 if field == "duration_days" else 1000000
             # JSON strings are not numbers in the browser's editor contract.

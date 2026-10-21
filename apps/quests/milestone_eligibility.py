@@ -107,7 +107,9 @@ def prerequisite_unavailable(user, prerequisite_id, *, controls=None):
                                             catalog_definition_id__in=definition_ids, is_catalog=True)
         if goals.exists():
             occurrences = ChallengeOccurrence.objects.filter(goal__in=goals)
-            if not occurrences.exists() or occurrences.filter(status="active", ends_at__gt=now).exists():
+            if not occurrences.exists() or occurrences.filter(status="active").filter(
+                Q(ends_at__gt=now) | Q(ends_at__isnull=True),
+            ).exists():
                 return False
             controls = controls if controls is not None else control_context(user)
             return not any(retry_state(row, controls)["allowed"] for row in occurrences.select_related("goal__catalog_definition"))
