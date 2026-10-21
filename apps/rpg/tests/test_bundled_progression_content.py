@@ -251,9 +251,10 @@ class BundledProgressionContentTests(TestCase):
         # Start with the seed only: the dry run must not leave additive rows.
         call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
         child = make_family("Dry-run reader", children=[{"username": "dry-reader", "theme": "winter"}]).children[0]
-        definition = QuestDefinition.objects.get(name="Dragon Slayer")
+        definition = QuestDefinition.objects.get(name="Ghost Trail")
         quest = Quest.objects.create(definition=definition, end_date=timezone.now() + timedelta(days=7))
         original_links = list(QuestRewardItem.objects.filter(quest_definition=definition).values("id", "item_id", "quantity"))
+        self.assertTrue(original_links)
         original_item_ids = list(ItemDefinition.objects.values_list("pk", flat=True))
         original_quest_ids = list(QuestDefinition.objects.values_list("pk", flat=True))
         original_badge_ids = list(Badge.objects.values_list("pk", flat=True))
@@ -277,9 +278,10 @@ class BundledProgressionContentTests(TestCase):
 
     def test_actual_default_reload_freezes_existing_legacy_item_promises_before_new_content(self):
         call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
-        definition = QuestDefinition.objects.get(name="Dragon Slayer")
+        definition = QuestDefinition.objects.get(name="Ghost Trail")
         quest = Quest.objects.create(definition=definition, end_date=timezone.now() + timedelta(days=7))
         promised = list(definition.reward_items.values_list("item_id", "quantity"))
+        self.assertTrue(promised)
         old_updated_at = quest.updated_at
 
         call_command("loadrpgcontent", stdout=StringIO())

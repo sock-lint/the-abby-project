@@ -1,8 +1,7 @@
 """Tests for the RPG content pack loader.
 
 Exercises:
-- Parity: the initial pack reproduces the catalog that ``seed_data.py``
-  used to produce (counts + key FK resolutions).
+- Parity: the initial pack authors the current catalog with valid references.
 - Idempotency: loading the same pack twice produces no net row changes.
 - Dry-run: parses + runs inside a rolled-back transaction, zero writes.
 - Namespace: a third-party pack prefixed with ``--namespace`` coexists
@@ -53,8 +52,8 @@ class ContentPackInitialSeedTest(TestCase):
         # Lower bounds on the initial pack — tightened once after the
         # 2026-04-21 life-RPG expansion. Exact counts drift as content
         # gets added, so use assertGreaterEqual rather than pinning.
-        self.assertGreaterEqual(counts["pet_species"], 15)
-        self.assertEqual(counts["potion_types"], 6)
+        self.assertEqual(counts["pet_species"], 15)
+        self.assertEqual(counts["potion_types"], 3)
         self.assertGreaterEqual(counts["quests"], 20)
         self.assertGreaterEqual(counts["badges"], 70)
         self.assertGreaterEqual(counts["skills"], 70)
@@ -75,7 +74,8 @@ class ContentPackInitialSeedTest(TestCase):
     def test_potion_items_have_potion_type_fk(self):
         call_command("loadrpgcontent")
         potions = ItemDefinition.objects.filter(item_type=ItemDefinition.ItemType.POTION)
-        self.assertEqual(potions.count(), 6)
+        self.assertEqual(potions.count(), 3)
+        self.assertEqual(set(potions.values_list("potion_type__slug", flat=True)), {"base", "fire", "ice"})
         for p in potions:
             self.assertIsNotNone(p.potion_type_id)
 
@@ -88,31 +88,36 @@ class ContentPackInitialSeedTest(TestCase):
         food = ItemDefinition.objects.filter(item_type=ItemDefinition.ItemType.FOOD)
         self.assertGreaterEqual(food.count(), 6)
         preferred = food.filter(food_species__isnull=False)
-        # Every pet species should have at least one preferred food after
-        # the 2026-04-21 review filled in the mapping gaps.
-        preferred_species_ids = set(preferred.values_list("food_species_id", flat=True))
-        # Newly adopted prepared families deliberately have neutral food only;
-        # preserve every legacy typed food binding without reassigning it.
-        from apps.pets.roster import FAMILIES
-        all_species_ids = set(PetSpecies.objects.exclude(slug__in=FAMILIES).values_list("id", flat=True))
-        missing = all_species_ids - preferred_species_ids
-        self.assertFalse(
-            missing,
-            f"Species without a preferred food: {missing}",
+        # Chick retains its authored preference. The other current families
+        # use neutral food; retiring old species does not reassign their food.
+        self.assertEqual(
+            list(preferred.values_list("slug", "food_species__slug")),
+            [("food-birdseed", "chick")],
         )
+        self.assertIsNone(food.get(slug="food-berries").food_species_id)
 
     def test_pet_species_have_all_potions_by_default(self):
         call_command("loadrpgcontent")
-        wolf = PetSpecies.objects.get(slug="wolf")
-        # YAML doesn't specify available_potions → default to all potions.
-        self.assertEqual(wolf.available_potions.count(), 6)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            pack_path = Path(tmpdir)
+            (pack_path / "pet_species.yaml").write_text(
+                "species:\n  - slug: custom-raven\n    name: Custom Raven\n",
+                encoding="utf-8",
+            )
+            ContentPack(pack_path).load()
+        # Custom YAML without available_potions keeps the generic loader's
+        # default-all behavior, independently of curated roster restrictions.
+        raven = PetSpecies.objects.get(slug="custom-raven")
+        self.assertEqual(set(raven.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
 
     def test_quest_reward_items_resolve(self):
         call_command("loadrpgcontent")
         quest = QuestDefinition.objects.get(name="Dragon Slayer")
-        self.assertTrue(
-            quest.reward_items.filter(item__slug="dragon-egg").exists(),
-            "Dragon Slayer should have dragon-egg reward (thematic match with the boss)",
+        self.assertFalse(quest.reward_items.exists())
+        supported = QuestDefinition.objects.get(name="Ghost Trail")
+        self.assertEqual(
+            set(supported.reward_items.values_list("item__slug", "quantity")),
+            {("meshtint-ghost-egg", 1), ("base-potion", 1)},
         )
 
     def test_quest_skill_tags_resolve(self):
@@ -199,9 +204,9 @@ class NamespaceTest(TestCase):
 
             ContentPack(pack_path, namespace="alt-").load()
 
-        # Core wolf still there.
-        self.assertIn("wolf", core_species)
-        self.assertTrue(PetSpecies.objects.filter(slug="wolf").exists())
+        # The supported core roster remains alongside the custom pack.
+        self.assertIn("meshtint-wolf", core_species)
+        self.assertTrue(PetSpecies.objects.filter(slug="meshtint-wolf").exists())
         # New species has prefixed slug — doesn't collide.
         self.assertTrue(PetSpecies.objects.filter(slug="alt-koi").exists())
         # Egg item auto-materialized and is also namespaced.

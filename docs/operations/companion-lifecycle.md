@@ -15,7 +15,8 @@ identify one ownership path; stages never create four separate species.
 | Grown | Confirmed `evolved_to_mount` or owned `UserMount` | Existing activation and expeditions |
 
 Pets → **Hatchery** (`/bestiary?tab=hatchery`) lists every owned egg and its
-quantity, including earlier saved eggs that are unavailable for new hatching.
+quantity, including remaining unavailable/custom eggs outside the exact
+prelaunch retirement list below.
 Available eggs can be selected and their family artwork and four-stage guide
 inspected even without a potion. Selecting or previewing an egg changes no
 inventory or progress. The hatch form explains an already owned species/potion
@@ -31,19 +32,20 @@ waiting. The server continues tracking time while the app is closed; read-only
 refreshes never hatch an egg. See [timed incubation](pet-incubation.md) for
 readiness, retry and compatibility behavior. Multiple unstarted eggs remain
 inventory quantities, and a hatched species/potion pair retains the existing
-unique ownership constraint. Breeding is retired. Existing eggs, pets and grown
-companions are preserved.
+unique ownership constraint. Breeding is retired. Ordinary lifecycle changes
+preserve existing eggs, pets and grown companions; the separate owner-approved
+one-time retirement below removes only its explicit obsolete identities.
 
-Existing pets retain their IDs, names, growth, feeding dates, activation,
-evolution, mounts and expedition history. The lifecycle is a read-only
+Outside the explicit retirement list, existing pets retain their IDs, names,
+growth, feeding dates, activation, evolution, mounts and expedition history. The lifecycle is a read-only
 projection. Incubation adds a separate table without backfilling existing pets
 or changing their growth. An old unevolved row at
 100 growth remains Middle until evolution is confirmed. Stage reads, art loads,
 preview controls and local greetings award no XP, Coins, food or growth.
 
 Companions provides Baby and Middle filters using the saved server stage;
-growth tiles show the remaining points to the next threshold. Saved collection
-rows retain their care controls outside the active catalog filters. Confirmed
+growth tiles show the remaining points to the next threshold. Remaining Saved
+collection rows retain their care controls outside the active catalog filters. Confirmed
 pet mutations refresh every visited Pets tab, so hatching, middle growth,
 evolution and expeditions appear without reloading the page. Tab filters and
 unsubmitted hatch ingredient selections remain in place while switching tabs.
@@ -118,6 +120,69 @@ closed; retained metadata fallback never rescues a conflicting new identity.
 Dummy's separate pinned release is private future training art. It has no
 species, egg, inventory, companion, mount, drop or shop binding.
 Training gameplay is unimplemented and Dummy does not count toward 15.
+
+## Unused first-party content retirement
+
+The owner authorized an exact prelaunch cleanup of unused first-party content.
+The list in `apps/rpg/retired_catalog.py` covers the seventeen old species and
+their eggs, Shadow/Golden/Cosmic potions, fifteen default pet accessories and
+known optional-pack accessory identities. Exact aliases include
+`hs-prep-2026-accessory-backpack-charm` and
+`birthday-pack-accessory-party-horn`; other custom namespaces are not inferred.
+No old Wolf is migrated into the separate Wolf Pup family, and no replacement
+quest reward is invented. Foods remain available without retired species
+preferences. Current fifteen families, Base/Fire/Ice definitions and unrelated
+custom content remain. Art-policy holds never select content for deletion.
+
+Default `loadrpgcontent` attempts this transition once before bundled upserts.
+Its `RPGContentRetirement` success marker commits with resource settlement,
+cleanup and the entire bundled load. A later startup sees the marker and skips
+retirement, so re-added authored identities are not continually deleted.
+Changed identity, protected-reference or resource-validation conflicts roll back
+the whole retirement savepoint, report a warning and continue ordinary bundled
+loading without a successful marker. Explicit custom-pack loads do not run this
+transition. A dry run or later bundled-load failure rolls back marker, refunds,
+ingredient returns, loot settlement and deletion together.
+
+Before deleting obsolete ownership and receipts, retirement settles accepted
+resources in the same transaction:
+
+- Pending or approved undelivered digital-only redemptions receive a refund of
+  the net actually recorded held Coin debit. Prior refunds reduce that amount;
+  a price snapshot alone cannot create currency. Reserved finite stock returns.
+- An unfinished incubation returns each matching accepted ingredient that
+  survives the retirement, including a supported egg or Base/Fire/Ice potion.
+  Completed hatches do not return consumed ingredients.
+- ACTIVE unclaimed expeditions on a deleted mount settle their saved Coins and
+  surviving supported item loot once. There is no new roll, current boost, XP,
+  badge, streak or challenge-completion event.
+
+Existing ledger entries remain; appended refund/settlement entries can increase
+balances. Deleting exact obsolete JSON item slots keeps other promise entries,
+authored Coin/XP amounts, timestamps and progress. Pure digital obsolete offers
+may be removed. An edited obsolete offer needed by a supported frozen promise
+retains that receipt and is deactivated. Real-world and combined offers retain
+their row with the obsolete optional item FK cleared. Combined offers are
+converted to real-world fulfillment and deactivated; frozen combined receipts
+retain status, cost, audit and actual debits as real-world promises, without a
+refund, so physical delivery remains possible.
+
+Inspect the exact affected identities, user-owned rows, cascades and settlements
+with the strict standalone command:
+
+```bash
+python manage.py retire_unused_rpg_content --dry-run --json
+```
+
+Without `--dry-run`, the explicit command applies the exact cleanup or fails on
+a conflict; it does not use startup's warn-and-continue behavior. A successful
+run records the same one-time completion marker, so later default startups
+skip the retirement instead of deleting newly authored content. It does not
+remove `SpriteAsset` records, local artwork or stored image objects. Generic
+prepared-art registration and rendering remain available for newly authored
+content. The Content Catalog no longer exposes its obsolete Sprites section.
+These code and synthetic validation changes do not establish a production
+release. The preservation rules below apply outside this exact one-time list.
 
 ## Private intake and build
 
@@ -199,25 +264,25 @@ remain rollout gates, along with the repository's exact public-delivery process.
 The bare companion previews also do not establish acceptance of creature and
 Woodland scenery overlap in populated scenes.
 
-## Non-destructive catalog rollout and rollback
+## Catalog adoption safeguards and rollback
 
-Keep the 17 legacy definitions and every saved owner, nickname, growth value,
-mount, inventory stack, history row, award and promised reward. There is no
-legacy-to-new crosswalk, destructive schema migration or cascading deletion.
-The initial pack contains 32 species definitions; only 15 are new-acquisition
-eligible. Existing food preferences remain attached to their original species;
-new families use neutral food growth until deliberately authored otherwise.
+The original prepared-roster adoption added fourteen families alongside Chick
+without mapping or deleting the seventeen old families. That historical
+preservation contract is now narrowed by the explicit owner-approved prelaunch
+retirement above: the shipped catalog contains fifteen families, with obsolete
+ownership/receipts removed only after accepted resources are settled. All other
+supported/custom ownership, nicknames, growth, inventory, history and promises
+retain their ordinary behavior. No art or acquisition-policy change alone
+authorizes deletion, a family crosswalk or an account reset.
 
-Before an eventual operator rollout, preserve a real database backup and a
-private saved-data baseline. **No production database was read or changed by
-this adoption task.** The regression baseline is synthetic: all 17 legacy
-pet/mount families, names/growth/caps, inventory, paid/frozen promises, pending
-expedition loot, history, badges, XP, Coins and money. Tests compare it before
-and after dry-run/apply/reload/repeat and redeem original promises exactly once.
-An operator must capture the actual saved-data baseline before applying:
+Use a disposable restored database to inspect exact affected identities and
+resource settlement before an operator rollout. The implementation regressions
+use synthetic state; they do not prove a fresh production release. Review the
+migration plan and preview loading, retirement and reconciliation independently:
 
 ```sh
 python manage.py loadrpgcontent --dry-run
+python manage.py retire_unused_rpg_content --dry-run --json
 python manage.py reconcile_companion_catalog --dry-run --json
 ```
 
@@ -230,20 +295,23 @@ and freezes existing accepted quests' retained reward links once; dry-run
 persists nothing. That cutover cannot reconstruct definition edits made before
 the saved-data baseline, so inspect the retained links before rollout.
 
-Existing automatic challenge snapshots and accepted legacy quest item promises
-remain visible and payable after catalog retirement. Payout uses the saved
+Outside the explicit one-time obsolete-item pruning above, existing automatic
+challenge snapshots and accepted legacy quest item promises remain visible and
+payable after ordinary acquisition-policy reconciliation. Payout uses the saved
 promise rather than reapplying today's acquisition filter. Existing salvage,
 participant, locking and one-time-award rules still apply. Reads, schema
 migration and promise backfill award no XP, Coins or inventory. New goals,
 occurrences and quest starts continue excluding unavailable items.
 
 Review the affected row IDs and resolve collisions without repointing owned
-definitions. On the approved rollout, ordinary `loadrpgcontent` upserts new
-families and transactionally reconciles stale offers. The explicit idempotent
-`reconcile_companion_catalog --json` is also available. It deletes only stale
+definitions. Ordinary `loadrpgcontent` upserts current families and
+transactionally reconciles stale offers after its separate one-time retirement
+attempt. The explicit idempotent `reconcile_companion_catalog --json` is also available. It deletes only stale
 egg/potion `DropTable` configuration and deactivates corresponding digital/both
-shop offers. It retains ItemDefinition/PetSpecies, real-world offers,
-QuestRewardItem links, frozen redemption snapshots and pre-rolled loot.
+shop offers. Reconciliation itself retains ItemDefinition/PetSpecies,
+real-world offers, QuestRewardItem links, frozen redemption snapshots and
+pre-rolled loot; only
+the distinct explicit retirement has the deletion/settlement scope above.
 YAML removal alone is insufficient. Never substitute `cleanup_rpg_catalog`
 or `prune_pack_content`, which have different destructive scopes.
 
@@ -260,9 +328,10 @@ and pedestal/UI 1.0.1 `abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c
 Retain these exact artifacts and the private pre-adoption lock. An art or policy
 rollback must retain the nullable quest snapshot column and promise-preserving
 payout code; reverting those fixes would restore the retired-reward loss.
-Reverting art or policy never deletes new saved ownership. Recreating retired configuration
-requires the reviewed pre-rollout configuration snapshot; do not reset the
-database or rewrite reward promises. No rollback or deployment was executed.
+Reverting art or policy never deletes new saved ownership. Code/art rollback does not restore resources or rows removed by the explicit
+one-time retirement, and its success marker must not be cleared casually. Any
+recovery needs the reviewed data baseline and an operator plan that accounts for
+already-paid refunds and settlements; do not reset accounts or replay awards. No rollback or deployment was executed.
 
 ## Adding later families
 

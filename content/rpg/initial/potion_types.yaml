@@ -36,27 +36,3 @@ potions:
     rarity: uncommon
     description: Blue/white tones
     coin_value: 5
-
-  - slug: shadow
-    name: Shadow
-    sprite_key: potion-rare-purple
-    color_hex: "#4B0082"
-    rarity: rare
-    description: Dark/purple tones
-    coin_value: 10
-
-  - slug: golden
-    name: Golden
-    sprite_key: potion-upgraded-gold
-    color_hex: "#FFD700"
-    rarity: epic
-    description: Gold/glowing
-    coin_value: 25
-
-  - slug: cosmic
-    name: Cosmic
-    sprite_key: potion-rare-cosmic
-    color_hex: "#191970"
-    rarity: legendary
-    description: Starfield/nebula
-    coin_value: 50

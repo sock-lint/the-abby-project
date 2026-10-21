@@ -31,9 +31,9 @@ ROSTER = json.loads(Path("shared/catalog/companion-roster.json").read_text())
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class RosterLoadingTests(TestCase):
-    def test_initial_load_keeps_legacy_definitions_and_adds_exact_base_only_roster(self):
+    def test_initial_load_authors_only_the_exact_current_base_only_roster(self):
         ContentPack("content/rpg/initial").load(stdout=StringIO())
-        self.assertEqual(PetSpecies.objects.count(), 32)
+        self.assertEqual(PetSpecies.objects.count(), 15)
         self.assertEqual(sum(pet_is_available(species) for species in PetSpecies.objects.all()), 15)
         for family in ROSTER["families"]:
             species = PetSpecies.objects.get(slug=family["species_slug"])
@@ -47,7 +47,7 @@ class RosterLoadingTests(TestCase):
             self.assertEqual(egg.rarity, species.rarity)
             self.assertEqual(species.food_preference, "")
             self.assertFalse(species.foods.exists())
-        self.assertNotEqual(PetSpecies.objects.get(slug="wolf").pk, PetSpecies.objects.get(slug="meshtint-wolf").pk)
+        self.assertFalse(PetSpecies.objects.filter(slug="wolf").exists())
         self.assertFalse(PetSpecies.objects.filter(slug__icontains="dummy").exists())
         self.assertFalse(ItemDefinition.objects.filter(slug__icontains="dummy").exists())
 

@@ -60,8 +60,11 @@ bonuses. The personal note on Today is separate from the private Journal.
 Values in `parent_knobs.settings` are authored reference defaults, not a read of
 the deployment's effective settings or a family's saved configuration.
 
-New pet acquisition follows the supported-art registry, while saved collections
-retain earlier ownership. Base Chick's persisted growth selects Chick below 50,
+New pet acquisition follows the supported-art registry. The owner-approved
+prelaunch retirement removes explicitly listed unused first-party families,
+potion types and pet accessories; do not promise that those entries stay in
+Saved collection. Other supported ownership and unrelated custom content remain.
+Base Chick's persisted growth selects Chick below 50,
 Fledgling from 50, and Bird after confirmed evolution at 100. Avatar appearance
 and compatible wardrobe choices are free saved preferences; earned cosmetics
 still require ownership. Confirm the current selector location before describing
