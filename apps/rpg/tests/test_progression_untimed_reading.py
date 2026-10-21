@@ -144,4 +144,3 @@ class UntimedReadingForecastTests(TestCase):
         self.assertEqual(trial.counters["drop_opportunities:quest_complete"], 1)
         self.assertEqual(sum(trial.inventory.values()), 1)
         self.assertFalse(trial.pets)
-
