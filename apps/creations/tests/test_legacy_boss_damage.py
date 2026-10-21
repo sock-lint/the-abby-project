@@ -12,6 +12,7 @@ from PIL import Image
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.activity.models import ActivityEvent
 from apps.creations.services import CreationService
+from apps.quests.goals import TRIGGER_LABELS, list_goals
 from apps.quests.models import Quest, QuestDefinition, QuestParticipant, QuestRewardItem, QuestSkillTag
 from apps.quests.services import QuestService, RAGE_SHIELD_CLIMB_STEP
 from apps.rewards.models import CoinLedger
@@ -162,3 +163,18 @@ class CreationLegacyBossDamageTests(TestCase):
         self.progress.refresh_from_db()
         self.assertEqual(self.progress.xp_points, 110)
         self.assert_no_quest_payout(quest)
+
+    def legacy_row(self, quest):
+        return next(row for row in list_goals(self.child)["results"] if row["id"] == f"legacy:{quest.pk}")
+
+    def test_legacy_boss_does_not_list_creations_as_damage(self):
+        row = self.legacy_row(self.start_quest())
+
+        self.assertNotIn(TRIGGER_LABELS["creation_logged"], row["what_counts"])
+        self.assertNotIn("creation_logged", row["qualifying_triggers"])
+        self.assertIn(TRIGGER_LABELS["chore_complete"], row["what_counts"])
+
+    def test_legacy_collection_still_lists_creations(self):
+        row = self.legacy_row(self.start_quest(kind="collection", target=2))
+
+        self.assertIn(TRIGGER_LABELS["creation_logged"], row["what_counts"])
