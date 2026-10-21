@@ -7,7 +7,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.contrib.auth import get_user_model
-from django.db import connection, transaction
+from django.db import transaction
 from django.db.models import F, Prefetch, Q, Sum, prefetch_related_objects
 from django.utils import timezone
 from apps.rpg.catalog_icons import challenge_catalog_icon
@@ -200,21 +200,14 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if status == "active":
             active_deadlines[canonical_id] = max(active_deadlines.get(canonical_id, end_date), end_date)
     for definition in definitions:
-        from .reference_locks import admit_definition_choices
-        try:
-            admit_definition_choices(definition)
-        except ValueError:
-            # Retired/missing new choices cannot create a fresh promise. Existing
-            # goals bypass this loop and keep their frozen reward references.
-            continue
         gated = has_milestone_gate(definition)
+        if gated and any(definition_id == definition.pk for definition_id, _ in legacy_statuses):
+            continue  # A one-time accepted legacy window is not a fresh offer.
         # Reads and retries cannot accept a milestone offer or start its clock.
         # This boundary was captured under the user lock before the fresh fact
         # could complete a predecessor or earn its completion rewards.
         if gated and (gate_activity is None or not milestone_eligibility(user, definition)["unlocked"]):
             continue
-        if gated and any(definition_id == definition.pk for definition_id, _ in legacy_statuses):
-            continue  # A one-time accepted legacy window is not a fresh offer.
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
@@ -223,6 +216,13 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if not definition.is_repeatable and any(
             (definition.pk, status) in legacy_statuses for status in ("active", "completed")
         ):
+            continue
+        from .reference_locks import admit_definition_choices
+        try:
+            admit_definition_choices(definition)
+        except ValueError:
+            # Only a new promise needs fresh choice admission. Saved legacy
+            # windows and existing goals retain their reward references.
             continue
         active_deadline = active_deadlines.get(definition.pk)
         cutoff = max(enrollment.starts_at, definition.created_at)

@@ -125,7 +125,17 @@ def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, 
             {"kind": "policy", "met": False, "description": "This challenge's milestone rules need review."},
         ], "locked_reasons": ["This challenge's milestone rules need review."]}
     requirements = []
-    if new_enrollment:
+    # An empty prefetched relation establishes that this loaded definition has
+    # no reward tags. Do not add catalog queries to taxonomy-free projections;
+    # uncached or referenced definitions still check current retirement state.
+    prefetched_tags = getattr(definition, "_prefetched_objects_cache", {}).get("skill_tags")
+    taxonomy_free = (
+        not definition.required_skill_id
+        and isinstance(definition.trigger_filter, dict)
+        and definition.trigger_filter.get("skill_category_id") is None
+        and prefetched_tags is not None and not prefetched_tags
+    )
+    if new_enrollment and not taxonomy_free:
         from .models import QuestDefinition
         from .reference_locks import definitions_with_available_taxonomy
         if definition.pk and not definitions_with_available_taxonomy(QuestDefinition.objects.filter(pk=definition.pk)).exists():

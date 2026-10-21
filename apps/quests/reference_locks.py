@@ -21,7 +21,7 @@ def admit_definition_choices(definition):
     """Validate before NEW acceptance; accepted snapshots/payouts skip this."""
     from apps.achievements.models import Skill
     lock_filter_category(definition.trigger_filter)
-    ids = set(definition.skill_tags.values_list("skill_id", flat=True))
+    ids = {tag.skill_id for tag in definition.skill_tags.all()}
     if definition.required_skill_id:
         ids.add(definition.required_skill_id)
     admit_references(Skill, ids)
