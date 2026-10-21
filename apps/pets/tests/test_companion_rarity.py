@@ -57,7 +57,10 @@ class CompanionRarityTests(TestCase):
                 data = serializer_class(dragon).data
                 self.assertEqual(data.get("rarity"), "legendary")
         self.assertEqual(self.base.rarity, "common")
-        self.assertEqual(list(dragon.available_potions.values_list("slug", flat=True)), ["base"])
+        self.assertEqual(set(dragon.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
+        for serializer_class in (PetSpeciesCatalogSerializer, PetCodexEntrySerializer):
+            # Prepared elemental compatibility does not establish adopted art.
+            self.assertEqual([row["slug"] for row in serializer_class(dragon).data["available_potions"]], ["base"])
 
     def test_owned_rarity_follows_species_and_survives_growth_and_evolution(self):
         dragon = PetSpecies.objects.get(slug="meshtint-dragon")

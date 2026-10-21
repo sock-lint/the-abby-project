@@ -449,3 +449,14 @@ verification, remaining acceptance and rollback. With private art installed,
 `ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js` exercises
 all 178 native takes plus Live/Hatchery stages and Bird transitions. Public CI
 without private art explicitly skips those browser acceptance scopes.
+
+Dragon/Mushroom preparation uses the separate proposed
+`abby-elemental-dragon-mushroom` 1.0.0 descriptor in
+`shared/catalog/elemental-expansion.json`. Its null manifest digest prevents
+default runtime loading until verified adoption; no lock pin or payload is
+fabricated. The elemental adapters select an exact family by species/sprite,
+retain native motion identities (including Dragon Middle's `source-fly-idle`),
+and preserve labelled unavailable presentation when its exact art is absent.
+Hatchery hints require server-confirmed compatible variants. The private art
+and physical-phone acceptance work is recorded separately in
+[the preparation runbook](../docs/operations/elemental-dragon-mushroom.md).

@@ -12,6 +12,13 @@ exact `chick` / `cute-chick` and `meshtint-wolf` with global `base`, `fire` and
 asset release is verified; production rollout uses the ordinary MAIN gates. Registered eggs require exact slug, typed FK and canonical metadata
 agreement. See [prepared roster adoption](../../docs/operations/companion-lifecycle.md#prepared-roster-adoption).
 The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
+
+Dragon/Mushroom Fire/Ice preparation adds authored compatibility and dormant
+Grove/Summit challenges without changing this positive artwork policy. Their
+exact new release has no adopted manifest digest or lock pin. Base stage names
+and existing egg identities stay unchanged; elemental Dragon labels are
+Dragonling → Dragon → Elder Dragon. See
+[the preparation/adoption runbook](../../docs/operations/elemental-dragon-mushroom.md).
 Owning a portrait or authoring a YAML row does not enable another species,
 potion variant or 3D appearance. The owner retired unused original species
 rather than replacing their artwork. Default content loading attempts a

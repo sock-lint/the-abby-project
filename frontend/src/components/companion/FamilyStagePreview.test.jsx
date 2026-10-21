@@ -22,18 +22,20 @@ beforeEach(() => {
 describe('Hatchery family stage previews', () => {
   it.each([
     ['chick', 'fire'], ['chick', 'ice'], ['meshtint-wolf', 'fire'], ['meshtint-wolf', 'ice'],
+    ['meshtint-dragon', 'fire'], ['meshtint-dragon', 'ice'], ['meshtint-mushroom', 'fire'], ['meshtint-mushroom', 'ice'],
   ])('previews exact installed %s %s forms and portraits while retaining the original egg', async (species, element) => {
     const user = userEvent.setup(), potion = { slug: element, name: element === 'fire' ? 'Fire' : 'Ice' };
     const item = species === 'chick'
       ? { id: 77, slug: 'chick-egg', item_type: 'egg', pet_species_slug: 'chick', metadata: { species: 'chick' }, name: 'Chick Egg' }
-      : { ...rosterEgg(), name: 'Wolf Egg' };
+      : { ...rosterEgg(), slug: `${species}-egg`, pet_species_slug: species, metadata: { species }, name: `${species} Egg` };
     vi.mocked(resolveElementalPreviewAppearance).mockImplementation((_item, stage) => ({ key: `${species}-${element}-${stage}`, motions: [] }));
     vi.mocked(resolveElementalPortrait).mockImplementation((key, slug) => ({ url: `/synthetic/${slug}/${key}.png`, frames: 1 }));
     const fetch = vi.spyOn(globalThis, 'fetch');
     renderWithProviders(<FamilyStagePreview item={item} potion={potion} />, { withAuth: false });
     expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
     expect(resolveElementalPreviewAppearance).not.toHaveBeenCalled();
-    const forms = species === 'chick' ? ['Chick', 'Fledgling', 'Bird'] : ['Wolf Pup', 'Wolf', 'Werewolf'];
+    const forms = { chick: ['Chick', 'Fledgling', 'Bird'], 'meshtint-wolf': ['Wolf Pup', 'Wolf', 'Werewolf'],
+      'meshtint-dragon': ['Dragonling', 'Dragon', 'Elder Dragon'], 'meshtint-mushroom': ['Mushroom', 'Fungi', 'Toadstool'] }[species];
     for (const [index, stage] of ['baby', 'middle', 'grown'].entries()) {
       await user.click(screen.getByRole('button', { name: stage[0].toUpperCase() + stage.slice(1) }));
       expect(screen.getByRole('heading', { name: `${potion.name} ${forms[index]}` })).toBeInTheDocument();
@@ -75,5 +77,17 @@ describe('Hatchery family stage previews', () => {
     await user.click(screen.getByRole('button', { name: 'Grown' }));
     expect(screen.getByRole('heading', { name: `${name} Werewolf` })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Grown' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('names unprepared Ice Dragon stages without borrowing Base Fire names or artwork', async () => {
+    const user = userEvent.setup(), species = 'meshtint-dragon';
+    renderWithProviders(<FamilyStagePreview item={{ ...rosterEgg(), slug: `${species}-egg`, pet_species_slug: species, metadata: { species }, name: 'Dragon Egg' }} potion={{ slug: 'ice', name: 'Ice' }} />, { withAuth: false });
+    for (const [stage, form] of [['Baby', 'Dragonling'], ['Middle', 'Dragon'], ['Grown', 'Elder Dragon']]) {
+      await user.click(screen.getByRole('button', { name: stage }));
+      expect(screen.getByRole('heading', { name: `Ice ${form}` })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Ice artwork is not available yet.');
+      expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
+      expect(screen.getByRole('img', { name: `Ice ${form} artwork unavailable` })).toHaveTextContent('🐾');
+    }
   });
 });

@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "release": {
+    "family_id": "abby-elemental-dragon-mushroom",
+    "release_version": "1.0.0",
+    "manifest_sha256": null
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-mushroom",
+      "sprite_key": "meshtint-mushroom",
+      "egg_item_slug": "meshtint-mushroom-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Grove",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "challenge-ember-grove"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Grove",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "challenge-frost-grove"
+        }
+      ]
+    },
+    {
+      "species_slug": "meshtint-dragon",
+      "sprite_key": "meshtint-dragon",
+      "egg_item_slug": "meshtint-dragon-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Summit",
+          "target_count": 50,
+          "window_days": 365,
+          "catalog_icon": "challenge-ember-summit"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Summit",
+          "target_count": 50,
+          "window_days": 365,
+          "catalog_icon": "challenge-frost-summit"
+        }
+      ]
+    }
+  ]
+}

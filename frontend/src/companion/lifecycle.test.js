@@ -54,4 +54,14 @@ describe('Companion family lifecycle', () => {
     expect(companionLifecycle({ slug: 'meshtint-bat', sprite_key: 'meshtint-bat' }, { slug }).map(({ form }) => form))
       .toEqual([null, null, null, null]);
   });
+
+  it('separates elemental Dragon names from the existing Base forms and preserves Mushroom form names', () => {
+    const dragon = { slug: 'meshtint-dragon', sprite_key: 'meshtint-dragon' };
+    expect(companionLifecycle(dragon, { slug: 'base' }).map(({ form }) => form)).toEqual([null, 'Dragon Spark', 'Dragon Fire', 'Dragon Inferno']);
+    for (const slug of ['fire', 'ice']) {
+      expect(companionLifecycle(dragon, { slug }).map(({ form }) => form)).toEqual([null, 'Dragonling', 'Dragon', 'Elder Dragon']);
+      expect(companionLifecycle({ slug: 'meshtint-mushroom', sprite_key: 'meshtint-mushroom' }, { slug }).map(({ form }) => form)).toEqual([null, 'Mushroom', 'Fungi', 'Toadstool']);
+      expect(companionLifecycle({ ...dragon, sprite_key: 'meshtint-mushroom' }, { slug }).map(({ form }) => form)).toEqual([null, null, null, null]);
+    }
+  });
 });

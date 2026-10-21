@@ -12,6 +12,7 @@ def sources_for_request(request):
         return request._rpg_acquisition_sources
     from apps.achievements.models import UserBadge
     from apps.quests.goals import ACTION_PATHS, FACT_TRIGGERS, TRIGGER_LABELS
+    from apps.quests.availability import definition_is_available
     from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestRewardItem
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.rewards.models import Reward
@@ -60,11 +61,21 @@ def sources_for_request(request):
     # parent-authored goal names are never exposed through another household.
     rewards = QuestRewardItem.objects.filter(quest_definition__is_system=True).select_related(
         "quest_definition", "quest_definition__prerequisite_quest", "quest_definition__required_skill", "quest_definition__required_badge",
-    ).order_by("quest_definition__name", "pk")
-    milestone_cache = {}
+    ).prefetch_related(Prefetch(
+        "quest_definition__reward_items",
+        queryset=QuestRewardItem.objects.select_related("item__pet_species", "item__potion_type")
+        .prefetch_related("item__pet_species__available_potions"),
+    )).order_by("quest_definition__name", "pk")
+    milestone_cache, availability_cache = {}, {}
     for reward in rewards:
         definition = reward.quest_definition
         if definition.pk in accepted_definitions or definition.pk in completed_definitions or (definition.required_badge_id and definition.required_badge_id not in earned):
+            continue
+        # New offers need their complete supported hatch pair. Saved automatic
+        # and legacy promises above keep their original hints after retirement.
+        if definition.pk not in availability_cache:
+            availability_cache[definition.pk] = definition_is_available(definition)
+        if not availability_cache[definition.pk]:
             continue
         if has_milestone_gate(definition):
             if definition.pk not in milestone_cache:

@@ -38,10 +38,13 @@ class RosterLoadingTests(TestCase):
         for family in ROSTER["families"]:
             species = PetSpecies.objects.get(slug=family["species_slug"])
             self.assertEqual(species.sprite_key, family["sprite_key"])
-            compatible = {"base", "fire", "ice"} if species.slug == "meshtint-wolf" else {"base"}
+            compatible = {"base", "fire", "ice"} if species.slug in {
+                "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom",
+            } else {"base"}
             self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
+            approved = {"base", "fire", "ice"} if species.slug == "meshtint-wolf" else {"base"}
             for potion in PotionType.objects.all():
-                self.assertEqual(pet_is_available(species, potion), potion.slug in compatible)
+                self.assertEqual(pet_is_available(species, potion), potion.slug in approved)
             egg = ItemDefinition.objects.get(slug=family["egg"]["item_slug"])
             self.assertEqual(egg.pet_species_id, species.pk)
             self.assertEqual(egg.metadata, {"species": species.slug})

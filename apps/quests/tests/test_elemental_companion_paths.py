@@ -141,6 +141,31 @@ class ElementalAvailabilityTests(TestCase):
         with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("chick", "fire"))):
             self.assertTrue(catalog_row("quests", self.definition)["available_for_new_user"])
 
+    def test_unprepared_bundle_does_not_advertise_inventory_acquisition_hints(self):
+        for slug in ("chick-egg", "fire-potion"):
+            UserInventory.objects.create(user=self.child, item=ItemDefinition.objects.get(slug=slug))
+        self.client.force_authenticate(self.child)
+        response = self.client.get("/api/inventory/")
+        self.assertEqual(response.status_code, 200)
+        for row in response.data:
+            self.assertFalse(any(source["kind"] == "challenge"
+                                 for source in row["item"]["acquisition_sources"]))
+
+    def test_saved_bundle_keeps_its_inventory_hint_after_art_retirement(self):
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("chick", "fire"))):
+            list_goals(self.child)
+        item = ItemDefinition.objects.get(slug="fire-potion")
+        UserInventory.objects.create(user=self.child, item=item)
+        self.client.force_authenticate(self.child)
+        # The shared ingredient remains supported by Wolf, while the accepted
+        # Chick appearance no longer has new-offer artwork support.
+        with override_settings(RPG_ASSET_SUPPORT_POLICY=art_policy(("meshtint-wolf", "fire"))):
+            response = self.client.get("/api/inventory/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]["item"]["acquisition_sources"], [
+            {"kind": "challenge", "name": self.definition.name, "path": "/quests?tab=trials"},
+        ])
+
     def test_quest_reroll_cannot_consume_item_when_only_unprepared_pair_exists(self):
         from apps.rpg.services import ConsumableService
         item = ItemDefinition.objects.get(slug="quest-reroll")

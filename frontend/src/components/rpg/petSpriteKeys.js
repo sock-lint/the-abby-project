@@ -6,7 +6,7 @@ import { isElementalCompanion } from '../../companion/sharedElementalRelease';
 // row after evolution, so those rows use the confirmed mount form too.
 export function petSpriteKeys(pet, kind = 'pet') {
   const base = pet?.species?.sprite_key || null;
-  if (['fire', 'ice'].includes(pet?.potion?.slug) && ['cute-chick', 'meshtint-wolf'].includes(base)) {
+  if (['fire', 'ice'].includes(pet?.potion?.slug) && ['cute-chick', 'meshtint-wolf', 'meshtint-dragon', 'meshtint-mushroom'].includes(base)) {
     const stage = kind === 'mount' || pet.evolved_to_mount === true ? 'grown'
       : ['baby', 'middle'].includes(pet.lifecycle_stage) ? pet.lifecycle_stage : null;
     const middleKey = base === 'cute-chick' ? 'cute-chick-fledgling' : `${base}-middle`;
