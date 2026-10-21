@@ -5,7 +5,7 @@ from decimal import Decimal
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Exists, Max, OuterRef, Prefetch
 from django.utils import timezone
 from rest_framework.exceptions import NotFound
@@ -17,24 +17,41 @@ from .queries import active_system_definitions
 def _retry_taxonomy_states(goals):
     """Batch the frozen reward/filter choices native retry would accept now."""
     from apps.achievements.taxonomy import available_categories, available_skills
+    from apps.achievements.models import Skill, SkillCategory
+
+    def positive_id(value, model=Skill):
+        if type(value) is not int or value <= 0:
+            return False
+        maximum = connection.ops.integer_field_range(model._meta.pk.get_internal_type())[1]
+        return maximum is None or value <= maximum
 
     references = {}
     skill_ids, category_ids = set(), set()
     for goal in goals:
         for occurrence in goal.control_occurrences:
             snapshot = occurrence.snapshot
-            required = {row["skill_id"] for row in snapshot.get("skill_tags", [])}
+            if not isinstance(snapshot, dict):
+                references[occurrence.pk] = (set(), None, False)
+                continue
+            tags, filters = snapshot.get("skill_tags", []), snapshot.get("filter")
+            if not isinstance(tags, list) or (filters is not None and not isinstance(filters, dict)):
+                references[occurrence.pk] = (set(), None, False)
+                continue
+            required = [row.get("skill_id") if isinstance(row, dict) else None
+                        for row in tags]
             if goal.catalog_definition_id and goal.catalog_definition.required_skill_id:
-                required.add(goal.catalog_definition.required_skill_id)
-            category = (snapshot.get("filter") or {}).get("skill_category_id")
-            references[occurrence.pk] = (required, category)
+                required.append(goal.catalog_definition.required_skill_id)
+            category = (filters or {}).get("skill_category_id")
+            valid_ids = all(positive_id(value) for value in required) and (category is None or positive_id(category, SkillCategory))
+            required = {value for value in required if positive_id(value)}
+            references[occurrence.pk] = (required, category, valid_ids)
             skill_ids.update(required)
-            if category is not None:
+            if positive_id(category, SkillCategory):
                 category_ids.add(category)
     valid_skills = set(available_skills().filter(pk__in=skill_ids).values_list("pk", flat=True))
     valid_categories = set(available_categories().filter(pk__in=category_ids).values_list("pk", flat=True))
-    return {pk: required <= valid_skills and (category is None or category in valid_categories)
-            for pk, (required, category) in references.items()}
+    return {pk: valid_ids and required <= valid_skills and (category is None or category in valid_categories)
+            for pk, (required, category, valid_ids) in references.items()}
 
 
 def control_context(user):

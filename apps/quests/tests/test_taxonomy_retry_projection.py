@@ -80,3 +80,48 @@ class TaxonomyRetryProjectionTests(TestCase):
             for _ in range(3):
                 self.assertTrue(all(not retry_state(row, context)["allowed"] for row in rows))
         self.assertEqual(len(projected), 0)
+
+    def test_invalid_saved_category_ids_fail_closed_without_breaking_other_retry_reads(self):
+        occurrence = self.expired(tag=False)
+        valid = self.expired(tag=False)
+        for category_id in ("legacy-non-number", str(self.category.pk), True, False, float(self.category.pk), 0, -1, 10**100, {}, []):
+            with self.subTest(category_id=category_id):
+                occurrence.snapshot["filter"] = {"skill_category_id": category_id}
+                occurrence.save(update_fields=["snapshot"])
+                context = control_context(self.child)
+                self.assertEqual(retry_state(occurrence, context)["reason"], "retired")
+                self.assertTrue(retry_state(valid, context)["allowed"])
+        occurrence.snapshot["filter"] = {"skill_category_id": None}
+        occurrence.save(update_fields=["snapshot"])
+        self.assertTrue(retry_state(occurrence, control_context(self.child))["allowed"])
+
+    def test_invalid_saved_skill_ids_fail_closed_without_breaking_other_retry_reads(self):
+        occurrence = self.expired(tag=False)
+        valid = self.expired(tag=False)
+        for skill_id in ("legacy-non-number", str(self.skill.pk), True, False, float(self.skill.pk), 0, -1, 10**100, None, {}, []):
+            with self.subTest(skill_id=skill_id):
+                occurrence.snapshot["skill_tags"] = [{"skill_id": skill_id, "xp_weight": 1}]
+                occurrence.save(update_fields=["snapshot"])
+                context = control_context(self.child)
+                self.assertEqual(retry_state(occurrence, context)["reason"], "retired")
+                self.assertTrue(retry_state(valid, context)["allowed"])
+
+    def test_malformed_snapshot_containers_fail_closed_and_null_filter_remains_valid(self):
+        occurrence = self.expired(tag=False)
+        valid = self.expired(tag=False)
+        original = occurrence.snapshot
+        malformed = [
+            *({**original, "skill_tags": tags} for tags in (None, "legacy", "", {}, 42)),
+            *({**original, "filter": filters} for filters in ("legacy", "", [], ["legacy"], 42, False)),
+            [], "legacy", 42, False,
+        ]
+        for snapshot in malformed:
+            with self.subTest(snapshot=snapshot):
+                occurrence.snapshot = snapshot
+                occurrence.save(update_fields=["snapshot"])
+                context = control_context(self.child)
+                self.assertEqual(retry_state(occurrence, context)["reason"], "retired")
+                self.assertTrue(retry_state(valid, context)["allowed"])
+        occurrence.snapshot = {**original, "filter": None}
+        occurrence.save(update_fields=["snapshot"])
+        self.assertTrue(retry_state(occurrence, control_context(self.child))["allowed"])

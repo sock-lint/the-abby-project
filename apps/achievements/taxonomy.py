@@ -57,6 +57,25 @@ def _share_lock(model, ids):
         list(model.objects.select_for_update().filter(pk__in=ids).order_by("pk").values_list("pk", flat=True))
 
 
+def _share_category_prefix():
+    """Use publication's category order across the whole caller transaction.
+
+    One writer can admit HIGH then LOW in separate helper calls. Locking only
+    each call's ancestors lets a publication snapshot own LOW and wait for HIGH
+    while that writer waits for LOW. Shared locks on all current categories,
+    acquired ascending before any subject/skill lock, prevent that inversion
+    without excluding other readers or taking the catalog's write fence.
+    """
+    if connection.vendor == "postgresql":
+        table = connection.ops.quote_name(SkillCategory._meta.db_table)
+        key = connection.ops.quote_name(SkillCategory._meta.pk.column)
+        with connection.cursor() as cursor:
+            cursor.execute(f"SELECT {key} FROM {table} ORDER BY {key} FOR SHARE")
+            cursor.fetchall()
+    else:
+        list(SkillCategory.objects.select_for_update().order_by("pk").values_list("pk", flat=True))
+
+
 def _ancestry(model, ids):
     fields = ["pk"]
     if model in (Subject, Skill):
@@ -72,7 +91,9 @@ def validate_new_taxonomy_references(model, ids, *, retained_ids=(), lock=True):
     Locked callers must already be atomic and hold their usual household/user
     gates. Catalog writers take their catalog-table write admission first, then
     call this helper, avoiding an inverted table/row wait against publication.
-    Ancestors lock in category, subject, skill order. A changed ancestry between
+    Every admission starts with the shared category prefix, so multiple helper
+    calls retain one order against publication/loader transactions. Ancestors
+    then lock in category, subject, skill order. A changed ancestry between
     discovery and those locks fails closed rather than checking a stale parent.
     """
     if model not in (SkillCategory, Subject, Skill, Badge):
@@ -89,6 +110,8 @@ def validate_new_taxonomy_references(model, ids, *, retained_ids=(), lock=True):
         return
     if lock and not connection.in_atomic_block:
         raise RuntimeError("Taxonomy reference admission requires an atomic write.")
+    if lock:
+        _share_category_prefix()
     initial = _ancestry(model, admitted)
     subject_ids = ({row["subject_id"] for row in initial.values() if row["subject_id"]}
                    if model is Skill else set(admitted) if model is Subject else set())

@@ -58,8 +58,12 @@ choice querysets filter retirement. History, default ORM managers, progress,
 prerequisites and award resolution retain all identities. New explicit references
 use `validate_new_taxonomy_references` within the saving transaction, retaining
 unchanged saved IDs. PostgreSQL `FOR SHARE` on ordered ancestors and the target
-conflicts with retirement/reparent updates; `KEY SHARE` alone does not. Catalog
-writers obtain their existing table admission before reference row locks.
+conflicts with retirement/reparent updates; `KEY SHARE` alone does not. Every
+new-reference transaction first shares all current categories in primary-key
+order, covering multiple admissions in that transaction. Catalog writers use
+the matching category `NO KEY UPDATE` prefix after their existing table
+admission, before any upsert or target-row mutation. Private quest inserts/table
+admission precede the reference locks; never invert those boundaries.
 REST and MCP retire/restore share fresh authority, ownership and catalog fences.
 YAML omission preserves the saved state; explicit false restores it.
 

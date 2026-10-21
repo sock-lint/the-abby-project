@@ -1,10 +1,13 @@
 """New-reference admission and retirement have one PostgreSQL commit order."""
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Event
 from time import monotonic
 from unittest import skipUnless
 from unittest.mock import patch
+from uuid import uuid4
 
 from asgiref.sync import async_to_sync
 from django.db import close_old_connections, connection, connections
@@ -147,3 +150,138 @@ class TaxonomyRetirementConcurrencyTests(TransactionTestCase):
         self.assertEqual(response.status_code, 400, response.data)
         self.assertFalse(QuestDefinition.objects.exists())
         self.assertFalse(QuestSkillTag.objects.exists())
+
+    def preview_fixture(self, definition):
+        from apps.rpg.content.workbench import create_draft, save_draft
+        draft = create_draft(self.staff, "Synthetic lock ordering preview")
+        return save_draft(self.staff, draft["id"], draft["revision"], [{
+            "section": "quests", "object_id": definition.pk, "key": "display-edit",
+            "values": {"description": "Synthetic description only"},
+        }])
+
+    def assert_reader_and_preview_complete(self, action, draft, patcher, ready, release):
+        from apps.rpg.content.workbench import preview_draft
+        with patcher, ThreadPoolExecutor(max_workers=2) as pool:
+            reader = pool.submit(self.run_connection, "reader", action)
+            preview = None
+            try:
+                self.assertTrue(ready.wait(5), "First high-category admission did not complete")
+                preview = pool.submit(self.run_connection, "preview", lambda: preview_draft(
+                    self.staff, draft["id"], draft["revision"],
+                ))
+                # Before the fix preview owns LOW and waits for HIGH. After
+                # the fix reader owns both: preview waits before owning LOW.
+                self.assert_blocked("preview", "reader", preview)
+            finally:
+                release.set()
+            # Do not hide 40P01, lock-timeout, or worker errors as a passing
+            # timing check. Both real service transactions must commit.
+            result = reader.result(timeout=20)
+            self.assertIsNotNone(preview)
+            self.assertIn("revision", preview.result(timeout=20))
+        return result
+
+    def test_catalog_enrollment_and_preview_use_one_transaction_wide_category_order(self):
+        from apps.quests import reference_locks
+        from apps.quests.goals import list_goals
+        high_category = SkillCategory.objects.create(name="Higher enrollment category")
+        high_skill = Skill.objects.create(name="Higher enrollment skill", category=high_category)
+        definitions = [QuestDefinition.objects.create(name=name, quest_type="collection", target_value=2,
+            is_system=True, trigger_filter={"allowed_triggers": ["chore_complete"]})
+            for name in ("A first high category", "B second low category")]
+        for definition, skill in zip(definitions, (high_skill, self.skill)):
+            QuestSkillTag.objects.create(quest_definition=definition, skill=skill, xp_weight=1)
+        draft = self.preview_fixture(definitions[0])
+        ready, release = Event(), Event()
+        original = reference_locks.admit_definition_choices
+
+        def pause_high(definition):
+            result = original(definition)
+            if definition.pk == definitions[0].pk:
+                ready.set()
+                if not release.wait(10):
+                    raise RuntimeError("Enrollment was not released")
+            return result
+
+        result = self.assert_reader_and_preview_complete(lambda: list_goals(self.child), draft,
+            patch.object(reference_locks, "admit_definition_choices", side_effect=pause_high), ready, release)
+        self.assertEqual(len(result["results"]), 2)
+        self.assertEqual(ChallengeGoal.objects.filter(user=self.child).count(), 2)
+
+    def test_registered_template_cross_category_admissions_and_preview_share_the_order(self):
+        from apps.rpg import taxonomy_references
+        high_category = SkillCategory.objects.create(name="Higher template category")
+        definition = QuestDefinition.objects.create(name="Preview-only quest", quest_type="collection", target_value=2,
+            is_system=True, trigger_filter={"allowed_triggers": ["chore_complete"]})
+        draft = self.preview_fixture(definition)
+        ready, release = Event(), Event()
+        original = taxonomy_references.admit_references
+
+        def pause_high(model, ids, **kwargs):
+            result = original(model, ids, **kwargs)
+            if model is SkillCategory and set(ids) == {high_category.pk}:
+                ready.set()
+                if not release.wait(10):
+                    raise RuntimeError("Template admission was not released")
+            return result
+
+        def create_template():
+            with override_user(self.parent):
+                return async_to_sync(mcp.call_tool)("create_template", {"params": {
+                    "title": "Cross category template", "request_id": str(uuid4()), "category_id": high_category.pk,
+                    "skill_tags": [{"skill_id": self.skill.pk, "xp_weight": 1}],
+                }})
+
+        result = self.assert_reader_and_preview_complete(create_template, draft,
+            patch.object(taxonomy_references, "admit_references", side_effect=pause_high), ready, release)
+        self.assertFalse(getattr(result, "isError", False), result)
+        from apps.projects.models import ProjectTemplate
+        template = ProjectTemplate.objects.get(title="Cross category template")
+        self.assertEqual(template.category_id, high_category.pk)
+        self.assertEqual(template.skill_tags.get().skill_id, self.skill.pk)
+
+    def test_reverse_yaml_category_loader_and_enrollment_share_the_global_order(self):
+        from apps.quests.goals import list_goals
+        from apps.rpg.content.loader import ContentPack
+        high_category = SkillCategory.objects.create(name="Higher source category")
+        high_skill = Skill.objects.create(name="Higher source skill", category=high_category)
+        for name, skill in (("A high source goal", high_skill), ("B low source goal", self.skill)):
+            definition = QuestDefinition.objects.create(name=name, quest_type="collection", target_value=2,
+                is_system=True, trigger_filter={"allowed_triggers": ["chore_complete"]})
+            QuestSkillTag.objects.create(quest_definition=definition, skill=skill, xp_weight=1)
+        # Parsed content is the normal loader input after YAML parsing. Its
+        # source order deliberately differs from category primary-key order.
+        parsed = {"skill_tree": {"categories": [
+            {"name": high_category.name, "description": "Synthetic higher source update"},
+            {"name": self.category.name, "description": "Synthetic lower source update"},
+        ]}}
+        ready, release = Event(), Event()
+        original = ContentPack._upsert
+
+        def pause_high(loader, model, **kwargs):
+            result = original(loader, model, **kwargs)
+            if model is SkillCategory and kwargs.get("name") == high_category.name:
+                ready.set()
+                if not release.wait(10):
+                    raise RuntimeError("Source loader was not released")
+            return result
+
+        with TemporaryDirectory(prefix="taxonomy-loader-order-") as directory:
+            with patch.object(ContentPack, "_upsert", new=pause_high), ThreadPoolExecutor(max_workers=2) as pool:
+                loader = pool.submit(self.run_connection, "loader", lambda: ContentPack(
+                    Path(directory), parsed_content=parsed,
+                ).load())
+                reader = None
+                try:
+                    self.assertTrue(ready.wait(5), "Source loader never completed its high-category update")
+                    reader = pool.submit(self.run_connection, "reader", lambda: list_goals(self.child))
+                    self.assert_blocked("reader", "loader", reader)
+                finally:
+                    release.set()
+                loader.result(timeout=20)
+                self.assertIsNotNone(reader)
+                self.assertEqual(len(reader.result(timeout=20)["results"]), 2)
+        self.category.refresh_from_db()
+        high_category.refresh_from_db()
+        self.assertEqual(self.category.description, "Synthetic lower source update")
+        self.assertEqual(high_category.description, "Synthetic higher source update")
