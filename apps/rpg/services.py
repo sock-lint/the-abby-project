@@ -929,7 +929,7 @@ class ConsumableService:
         whole batch so a kid never loses items without the corresponding
         effect.
         """
-        from apps.achievements.services import _lock_award_user
+        from apps.achievements.services import BadgeService, _lock_award_user
         from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 
         try:
@@ -968,35 +968,37 @@ class ConsumableService:
 
         profile, _ = CharacterProfile.objects.select_for_update().get_or_create(user=user)
 
-        # Apply N times. For stack-safe effects this gives N independent
-        # rolls / N additive applications. For stack-unsafe effects we
-        # already returned 400 above, so the loop runs exactly once.
-        details = []
-        for _ in range(quantity):
-            details.append(ConsumableService._apply_effect(profile, effect, item))
+        # Item-granting effects must not recognize a collection while it still
+        # contains the consumable being spent. Flush their checks only after
+        # the whole use is saved, inside this transaction.
+        with BadgeService.defer_inventory_badges(user):
+            # Apply N times. For stack-safe effects this gives N independent
+            # rolls / N additive applications. For stack-unsafe effects we
+            # already returned 400 above, so the loop runs exactly once.
+            details = []
+            for _ in range(quantity):
+                details.append(ConsumableService._apply_effect(profile, effect, item))
 
-        # Track distinct effects ever used so Alchemist-style badges have a
-        # data source. Refetch to avoid a stale copy if _apply_effect saved.
-        profile.refresh_from_db(fields=["consumable_effects_used"])
-        used = list(profile.consumable_effects_used or [])
-        if effect not in used:
-            used.append(effect)
-            profile.consumable_effects_used = used
-            profile.save(update_fields=["consumable_effects_used", "updated_at"])
+            # Track distinct effects ever used so Alchemist-style badges have a
+            # data source. Refetch to avoid a stale copy if _apply_effect saved.
+            profile.refresh_from_db(fields=["consumable_effects_used"])
+            used = list(profile.consumable_effects_used or [])
+            if effect not in used:
+                used.append(effect)
+                profile.consumable_effects_used = used
+                profile.save(update_fields=["consumable_effects_used", "updated_at"])
 
-        # An effect can grant this same item under the held row lock (e.g. a
-        # badge drop earned by a tonic's XP), so decrement the saved stack.
-        inv.refresh_from_db(fields=["quantity"])
-        inv.quantity -= quantity
-        if inv.quantity == 0:
-            inv.delete()
-        else:
-            inv.save(update_fields=["quantity", "updated_at"])
+            # An effect can grant this same item under the held row lock (e.g. a
+            # badge drop earned by a tonic's XP), so decrement the saved stack.
+            inv.refresh_from_db(fields=["quantity"])
+            inv.quantity -= quantity
+            if inv.quantity == 0:
+                inv.delete()
+            else:
+                inv.save(update_fields=["quantity", "updated_at"])
 
-        # Effects and final ownership must be saved before checking use/collection
-        # milestones. A same-item badge drop can now recreate a consumed stack.
-        from apps.achievements.services import BadgeService
-        BadgeService.evaluate_inventory_badges(user)
+            # A same-item badge drop can now recreate a consumed stack.
+            BadgeService.evaluate_inventory_badges(user)
 
         return {
             "item_id": item.pk,

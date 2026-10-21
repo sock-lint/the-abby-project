@@ -1,4 +1,5 @@
 import logging
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 from django.contrib.auth import get_user_model
@@ -12,6 +13,7 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 _badge_evaluations = ContextVar("badge_evaluations", default=None)
+_inventory_badge_batches = ContextVar("inventory_badge_batches", default=None)
 
 
 def _lock_award_user(user):
@@ -493,7 +495,35 @@ class BadgeService:
     @classmethod
     def evaluate_inventory_badges(cls, user):
         """Check collection/use milestones after a saved inventory change."""
+        batch = (_inventory_badge_batches.get() or {}).get((user._state.db, user.pk))
+        if batch is not None:
+            batch[0] = True
+            return []
         return cls.evaluate_badges(user, scopes={"rpg_inventory", "badges"})
+
+    @classmethod
+    @contextmanager
+    def defer_inventory_badges(cls, user):
+        """Check final ownership after an atomic operation's grants and spends.
+
+        The caller holds the account gate and transaction through the flush.
+        Failed operations discard their requests; nested operations for the
+        same account leave the final check to the outermost successful block.
+        """
+        active = _inventory_badge_batches.get() or {}
+        key = (user._state.db, user.pk)
+        if key in active:
+            yield
+            return
+
+        requested = [False]
+        token = _inventory_badge_batches.set({**active, key: requested})
+        try:
+            yield
+        finally:
+            _inventory_badge_batches.reset(token)
+        if requested[0]:
+            cls.evaluate_inventory_badges(user)
 
     @classmethod
     def _evaluate_badges_once(cls, user, *, created_by=None, scopes=None):

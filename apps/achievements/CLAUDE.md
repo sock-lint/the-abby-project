@@ -59,6 +59,9 @@ checks its counter badges within the daily receipt transaction. Inventory
 grants and consumable use check the `rpg_inventory` and `badges` scopes after
 their saved changes. This includes drop, challenge, expedition, digital shop,
 mystery/lucky-dip, food-basket and new starter-cover grants.
+Item-granting consumables defer their nested inventory checks until the whole
+use has saved its effect, usage history and stack decrement. A collection must
+qualify from that final ownership; a failed use discards the deferred requests.
 
 `BadgeService.evaluate_badges` queues nested scope requests per account while
 an ordered pass is active. A badge drop can finish another collection; queued

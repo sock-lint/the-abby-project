@@ -88,10 +88,11 @@ collection/use badges through `BadgeService.evaluate_inventory_badges`.
 Acquisition and badge awards take the account gate before stack locks. Nested
 badge drops queue another scoped pass until the current pass ends, so a loot
 chain awards each newly qualified badge once without recursive game-loop
-events. Consumable checks run after the effect, usage history and final stack
-decrement; a same-item badge reward survives even when the old last unit was
-consumed. New starter-cover gifts also check collections; repeated gifts and
-content loading do not replay awards.
+events. Consumable checks, including those requested by item-granting effects,
+run after the effect, usage history and final stack decrement; a collection
+cannot count the last unit being spent. A same-item badge reward survives even
+when the old last unit was consumed. New starter-cover gifts also check
+collections; repeated gifts and content loading do not replay awards.
 
 Perfect Day evaluates counter badges in its existing receipt transaction,
 after its own Uncommon-or-better draw. Each newly earned counter badge has its

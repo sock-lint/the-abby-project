@@ -6,6 +6,8 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from apps.achievements.availability import BadgeGoalAvailability
+from apps.achievements.criteria import _cosmetic_set_owned
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress, UserBadge
 from apps.pets.expeditions import ExpeditionService
 from apps.pets.models import MountExpedition, PetSpecies, PotionType, UserMount
@@ -15,6 +17,8 @@ from apps.quests.services import QuestService
 from apps.rewards.models import CoinLedger, Reward
 from apps.rewards.services import CoinService, RewardService
 from apps.rpg.constants import TriggerType
+from apps.rpg.content.validation import validate_content
+from apps.rpg.inventory import grant_item
 from apps.rpg.models import CharacterProfile, DropLog, DropTable, ItemDefinition, UserInventory
 from apps.rpg.services import ConsumableService, CosmeticService, DropService
 from config.tests.factories import make_family
@@ -85,6 +89,28 @@ class InventoryBadgeEvaluationTests(TestCase):
         QuestRewardItem.objects.create(quest_definition=definition, item=item)
         return definition
 
+    def authored_mixed_collection(self):
+        box = self.consumable("mystery_box")
+        definition = {
+            "name": "Authored box and snack collection",
+            "description": "Own the box and its snack together",
+            "icon": "A", "criteria_type": "cosmetic_set_owned",
+            "criteria_value": {"slugs": [box.slug, self.bonus.slug]},
+            "xp_bonus": 0, "rarity": "common",
+        }
+        # Both supported authoring surfaces permit any item slug in this set.
+        validate_content({"badges": {"badges": [definition]}}, strict=True)
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        author = APIClient()
+        author.force_authenticate(self.parent)
+        response = author.post("/api/badges/", definition, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        badge = Badge.objects.get(name=definition["name"])
+        self.assertTrue(BadgeGoalAvailability(self.child).is_available(badge))
+        self.give(box)
+        return box, badge
+
     def test_first_streak_freeze_use_api_immediately_pays_frozen_in_time_once(self):
         freeze = self.consumable("streak_freeze", duration_days=1)
         self.give(freeze, 2)
@@ -131,6 +157,62 @@ class InventoryBadgeEvaluationTests(TestCase):
         ConsumableService.use(self.child, freeze.pk)
         self.assert_badge_once(badge)
         self.assertFalse(UserInventory.objects.filter(user=self.child, item=freeze).exists())
+
+    def test_mystery_box_api_does_not_award_collection_from_consumed_last_box(self):
+        box, badge = self.authored_mixed_collection()
+
+        with patch("apps.rpg.services.random.choices", return_value=[self.bonus]):
+            response = self.client.post(f"/api/inventory/{box.pk}/use/", {}, format="json")
+
+        self.assertEqual(response.status_code, 200, response.data)
+        self.assertEqual(response.data["detail"]["granted_item_id"], self.bonus.pk)
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=box).exists())
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.bonus).quantity, 1)
+        self.assertFalse(_cosmetic_set_owned(self.child, badge.criteria_value))
+        self.assertFalse(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+        self.assertFalse(CoinLedger.objects.filter(user=self.child, reason=CoinLedger.Reason.BADGE_BONUS).exists())
+
+    def test_non_consuming_grant_awards_supported_mixed_collection_once(self):
+        box, badge = self.authored_mixed_collection()
+
+        grant_item(self.child, self.bonus)
+
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=box).quantity, 1)
+        self.assertTrue(_cosmetic_set_owned(self.child, badge.criteria_value))
+        self.assert_badge_once(badge, bonus_drops=0)
+        self.assertEqual(CoinLedger.objects.filter(user=self.child, reason=CoinLedger.Reason.BADGE_BONUS).count(), 1)
+        grant_item(self.child, self.bonus)
+        self.assert_badge_once(badge, bonus_drops=0)
+        self.assertEqual(CoinLedger.objects.filter(user=self.child, reason=CoinLedger.Reason.BADGE_BONUS).count(), 1)
+
+    def test_failed_mystery_box_use_and_retry_leave_inventory_evaluation_available(self):
+        box, badge = self.authored_mixed_collection()
+        apply_effect = ConsumableService._apply_effect
+
+        def fail_after_grant(profile, effect, item):
+            apply_effect(profile, effect, item)
+            raise RuntimeError("after mystery box grant")
+
+        with patch("apps.rpg.services.random.choices", return_value=[self.bonus]):
+            with patch.object(ConsumableService, "_apply_effect", side_effect=fail_after_grant):
+                with self.assertRaisesRegex(RuntimeError, "after mystery box grant"):
+                    ConsumableService.use(self.child, box.pk)
+
+            self.assertEqual(UserInventory.objects.get(user=self.child, item=box).quantity, 1)
+            self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.bonus).exists())
+            self.assertFalse(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+            self.assertFalse(CoinLedger.objects.filter(user=self.child, reason=CoinLedger.Reason.BADGE_BONUS).exists())
+            self.assertEqual(CharacterProfile.objects.get(user=self.child).consumable_effects_used, [])
+
+            ConsumableService.use(self.child, box.pk)
+
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=box).exists())
+        self.assertFalse(_cosmetic_set_owned(self.child, badge.criteria_value))
+        self.assertFalse(UserBadge.objects.filter(user=self.child, badge=badge).exists())
+        # A later independent qualifying grant must still evaluate normally.
+        grant_item(self.child, box)
+        self.assertTrue(_cosmetic_set_owned(self.child, badge.criteria_value))
+        self.assert_badge_once(badge, bonus_drops=0)
 
     def test_random_drop_recognizes_last_collection_piece_before_returning(self):
         piece, badge = self.collection()
