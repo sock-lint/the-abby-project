@@ -345,21 +345,9 @@ class RewardService:
             raise RewardUnavailableError(
                 "The saved digital reward has no inventory item. Deny it to refund the held coins."
             )
-        from apps.rpg.models import UserInventory
-        # ``select_for_update`` already locks the row, but pairing with
-        # ``F("quantity") + 1`` makes the increment correct under any
-        # locking regime — no read-modify-write window the lock has to
-        # cover. Refresh after to keep the in-memory object consistent
-        # in case the caller inspects it.
-        inv, _ = UserInventory.objects.select_for_update().get_or_create(
-            user=redemption.user,
-            item_id=redemption.item_definition_snapshot_id,
-            defaults={"quantity": 0},
-        )
-        UserInventory.objects.filter(pk=inv.pk).update(
-            quantity=F("quantity") + 1,
-        )
-        inv.refresh_from_db(fields=["quantity"])
+        from apps.rpg.inventory import grant_item
+
+        grant_item(redemption.user, redemption.item_definition_snapshot)
 
     @staticmethod
     @transaction.atomic

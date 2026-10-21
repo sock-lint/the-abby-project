@@ -144,8 +144,8 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-20.3",
-    "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
+    "engine_version": "2026-10-20.5",
+    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "d13a29973927a5c08eab1aa6fe694793d697dce439a2ec143381b4632f27fe20",
     "source_commit": "unavailable"
@@ -321,8 +321,8 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
-    "engine_version": "2026-10-20.3",
+    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -331,6 +331,7 @@
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+        "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -4708,12 +4709,12 @@
       "longest_novelty_gap_p50": 23,
       "eligible_challenges": 2,
       "finite_breakdown": {
-        "middle": 1,
-        "quest": 2,
-        "badge": 1,
+        "mount": 1,
         "pet": 1,
+        "quest": 2,
         "cosmetic": 1,
-        "mount": 1
+        "badge": 1,
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 8,
@@ -7159,8 +7160,8 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
-    "engine_version": "2026-10-20.3",
+    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -7169,6 +7170,7 @@
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+        "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -11546,12 +11548,12 @@
       "longest_novelty_gap_p50": 11,
       "eligible_challenges": 2,
       "finite_breakdown": {
-        "middle": 1,
-        "quest": 2,
-        "badge": 1,
+        "mount": 1,
         "pet": 1,
+        "quest": 2,
         "cosmetic": 1,
-        "mount": 1
+        "badge": 1,
+        "middle": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 11,

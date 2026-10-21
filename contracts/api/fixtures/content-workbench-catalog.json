@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "sprite_key": "",
+          "icon": "🍎",
           "metadata": {
             "growth": 5
           },
-          "icon": "🍎",
           "name": "Practice snack",
+          "sprite_key": "",
+          "coin_value": 2,
           "description": "",
-          "rarity": "common",
-          "coin_value": 2
+          "rarity": "common"
         },
         "has_database_override": false,
         "used_by": {
@@ -100,25 +100,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "xp_reward": 15,
-          "quest_type": "collection",
           "is_repeatable": false,
-          "coin_reward": 10,
           "description": "Complete two daily Reading Adventures.",
+          "required_skill_level": 1,
+          "coin_reward": 10,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "required_skill_level": 1,
-          "sprite_key": "",
-          "duration_days": 7,
-          "icon": "⚔️",
+          "xp_reward": 15,
           "name": "Practice challenge",
+          "sprite_key": "",
           "target_value": 2,
-          "required_skill": 902,
-          "prerequisite_quest": 908,
+          "icon": "⚔️",
+          "quest_type": "collection",
+          "duration_days": 7,
           "required_badge": null,
+          "prerequisite_quest": 908,
+          "required_skill": 902,
           "reward_items": [
             {
               "item_id": 903,
@@ -167,25 +167,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "xp_reward": 0,
-          "quest_type": "collection",
           "is_repeatable": false,
-          "coin_reward": 0,
           "description": "Complete one approved chore.",
+          "required_skill_level": 0,
+          "coin_reward": 0,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "required_skill_level": 0,
-          "sprite_key": "",
-          "duration_days": 7,
-          "icon": "⚔️",
+          "xp_reward": 0,
           "name": "Starter practice",
+          "sprite_key": "",
           "target_value": 1,
-          "required_skill": null,
-          "prerequisite_quest": null,
+          "icon": "⚔️",
+          "quest_type": "collection",
+          "duration_days": 7,
           "required_badge": null,
+          "prerequisite_quest": null,
+          "required_skill": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -737,6 +737,7 @@
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+        "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -850,8 +851,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
-    "engine_version": "2026-10-20.3",
+    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

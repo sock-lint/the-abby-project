@@ -195,7 +195,9 @@ describe('HomeworkSubmitSheet', () => {
     const link = 'https://drive.google.com/file/d/synthetic/view';
     await user.type(screen.getByRole('textbox', { name: /proof link/i }), link);
     await user.keyboard('{Escape}');
-    expect(await screen.findByRole('alertdialog', { name: 'Discard changes?' })).toBeVisible();
+    // The dialog mounts at opacity 0 and animates in; wait for it to settle
+    // instead of asserting visibility on the first frame.
+    await waitFor(() => expect(screen.getByRole('alertdialog', { name: 'Discard changes?' })).toBeVisible());
     expect(onClose).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getByRole('textbox', { name: /proof link/i })).toHaveValue(link);

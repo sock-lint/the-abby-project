@@ -143,7 +143,7 @@ def settle_retirement_resources(*, redemption_ids=(), incubation_ids=(), mount_i
                 item = ItemDefinition.objects.filter(pk=item_id, item_type=kind, **binding).first()
                 if item is None or (snapshot.get("slug") is not None and snapshot["slug"] != item.slug):
                     raise RetirementResourceError(f"Incubation {incubation.pk} has a changed consumed-{kind} identity.")
-                grant_item(users[incubation.user_id], item, 1)
+                grant_item(users[incubation.user_id], item, 1, evaluate_badges=False)
                 marker[kind] = {"item_id": item.pk, "quantity": 1}
                 returned_item = {"incubation_id": incubation.pk, "user_id": incubation.user_id,
                                  "item_id": item.pk, "item_type": kind, "quantity": 1}
@@ -183,7 +183,7 @@ def settle_retirement_resources(*, redemption_ids=(), incubation_ids=(), mount_i
                     settled["salvage_coins"] += item.coin_value
                     saved_slot["salvaged_to_coins"] = item.coin_value
                 else:
-                    grant_item(user, item, quantity)
+                    grant_item(user, item, quantity, evaluate_badges=False)
                     settled["items"].append({"item_id": item.pk, "quantity": quantity})
             MountExpedition.objects.filter(pk=expedition.pk).update(
                 status=MountExpedition.Status.CLAIMED, claimed_at=timezone.now(),
