@@ -76,3 +76,35 @@ class AssetProposalEvent(CreatedAtModel):
     revision = models.PositiveIntegerField()
     action = models.CharField(max_length=24)
     details = models.JSONField(default=dict)
+
+
+class MCPMutationReceipt(CreatedAtModel):
+    """Private retry evidence; source deletion retains only a UUID tombstone.
+
+    Account deletion removes cached personal data. A surviving target keeps
+    movement UUID tombstones even after the original actor departs, matching
+    the native service's target-wide retry identity. Request prose is hashed.
+    """
+
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="mcp_mutation_receipts")
+    target = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="mcp_received_mutations")
+    operation = models.CharField(max_length=40)
+    request_id = models.UUIDField()
+    request_digest = models.CharField(max_length=64)
+    result_model = models.CharField(max_length=100)
+    result_id = models.PositiveBigIntegerField()
+    response = models.JSONField(null=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["result_model", "result_id"], name="mcp_mutation_result_idx")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["actor", "operation", "request_id"], name="mcp_mutation_actor_request",
+                condition=~models.Q(operation="log_movement_session"),
+            ),
+            models.UniqueConstraint(
+                fields=["target", "operation", "request_id"], name="mcp_movement_target_request",
+                condition=models.Q(operation="log_movement_session"),
+            ),
+        ]

@@ -148,7 +148,10 @@ class HomeworkAssignmentViewSet(
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def save_template(self, request, pk=None):
         assignment = self.get_object()
-        template = HomeworkService.save_as_template(assignment, request.user)
+        try:
+            template = HomeworkService.save_as_template(assignment, request.user)
+        except HomeworkError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(
             HomeworkTemplateSerializer(template).data,
             status=status.HTTP_201_CREATED,

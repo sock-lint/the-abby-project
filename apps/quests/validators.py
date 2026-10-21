@@ -27,6 +27,20 @@ _KNOWN_FILTER_KEYS = frozenset(
 )
 
 
+def validate_untimed_reading(definition):
+    """No deadline is a native promise, scoped to supported one-time reading."""
+    if definition.duration_days is not None:
+        return
+    # Shared family challenges are parent-assigned timed campaigns and never
+    # enroll automatically, so they cannot carry an open-ended promise.
+    if (not definition.is_system or definition.created_by_id is not None or definition.is_repeatable
+            or getattr(definition, "is_cooperative", False) or definition.quest_type != "collection"
+            or definition.trigger_filter != {"allowed_triggers": ["reading_logged"]}):
+        raise ValidationError({"duration_days": (
+            "No deadline is supported only for one-time global Reading Adventure collections."
+        )})
+
+
 def validate_trigger_filter(value):
     """Raise ValidationError if ``value`` isn't a valid ``trigger_filter`` dict.
 

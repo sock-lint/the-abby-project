@@ -1,4 +1,6 @@
 """MCP family-scoping: list_children, get_user, update_child, dashboard."""
+
+from uuid import uuid4
 from django.test import TestCase
 
 from apps.mcp_server.context import (
@@ -403,6 +405,7 @@ class MCPParentOnBehalfFamilyScopingTests(TestCase):
         with override_user(self.parent_a):
             with self.assertRaises(MCPNotFoundError):
                 adjust_payment(AdjustPaymentIn(
+                    request_id=uuid4(),
                     user_id=self.kid_b.id,
                     amount=Decimal("1.00"),
                     description="hax",

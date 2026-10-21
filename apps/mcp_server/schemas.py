@@ -13,6 +13,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from apps.achievements.models import Badge
+
 
 # ---------------------------------------------------------------------------
 # Shared
@@ -38,6 +40,7 @@ class ListProjectsIn(_Base):
     status: Optional[ProjectStatus] = None
     assigned_to_id: Optional[int] = None
     limit: int = Field(default=50, ge=1, le=200)
+    cursor: Optional[str] = Field(default=None, min_length=1, max_length=2048)
 
 
 class GetProjectIn(_Base):
@@ -96,6 +99,7 @@ class NewResource(_Base):
 
 
 class CreateProjectIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this creation; reuse it only with identical inputs after an uncertain response.")
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     assigned_to_id: int
@@ -361,6 +365,7 @@ class GetCoinBalanceIn(_Base):
 
 
 class RequestRedemptionIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this purchase; identical retries never spend Coins or reserve stock twice.")
     reward_id: int
 
 
@@ -447,6 +452,7 @@ class ListPaymentLedgerIn(_Base):
     entry_type: Optional[PaymentEntryType] = None
     since: Optional[date] = None
     limit: int = Field(default=50, ge=1, le=500)
+    cursor: Optional[str] = Field(default=None, min_length=1, max_length=2048)
 
 
 class RecordPayoutIn(_Base):
@@ -460,9 +466,10 @@ class RecordPayoutIn(_Base):
 
 
 class AdjustPaymentIn(_Base):
+    request_id: UUID = Field(description="Stable UUID for this accounting adjustment; reuse only with identical inputs.")
     user_id: int
-    amount: Decimal
-    description: str
+    amount: Decimal = Field(max_digits=8, decimal_places=2)
+    description: str = Field(min_length=1, max_length=1000)
 
 
 # ---------------------------------------------------------------------------
@@ -505,7 +512,7 @@ BadgeRarity = Literal["common", "uncommon", "rare", "epic", "legendary"]
 
 
 class ListSkillCategoriesIn(_Base):
-    pass
+    include_retired: bool = False
 
 
 class ListSkillsIn(_Base):
@@ -513,6 +520,7 @@ class ListSkillsIn(_Base):
     subject_id: Optional[int] = None
     q: Optional[str] = None
     limit: int = Field(default=200, ge=1, le=500)
+    include_retired: bool = False
 
 
 class GetSkillTreeIn(_Base):
@@ -531,25 +539,7 @@ class ListEarnedBadgesIn(_Base):
 # --- Tier 2.1: Skill tree taxonomy ---------------------------------------
 
 
-BadgeCriteriaType = Literal[
-    "projects_completed",
-    "hours_worked",
-    "category_projects",
-    "streak_days",
-    "first_project",
-    "first_clock_in",
-    "materials_under_budget",
-    "perfect_timecard",
-    "skill_level_reached",
-    "skills_unlocked",
-    "skill_categories_breadth",
-    "subjects_completed",
-    "hours_in_day",
-    "photos_uploaded",
-    "total_earned",
-    "days_worked",
-    "cross_category_unlock",
-]
+BadgeCriteriaType = Badge.CriteriaType
 
 
 class CreateCategoryIn(_Base):
@@ -557,6 +547,7 @@ class CreateCategoryIn(_Base):
     icon: str = ""
     color: str = Field(default="#D97706", pattern=r"^#[0-9A-Fa-f]{6}$")
     description: str = ""
+    is_retired: bool = False
 
 
 class UpdateCategoryIn(_Base):
@@ -565,6 +556,7 @@ class UpdateCategoryIn(_Base):
     icon: Optional[str] = None
     color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     description: Optional[str] = None
+    is_retired: Optional[bool] = None
 
 
 class DeleteCategoryIn(_Base):
@@ -577,6 +569,7 @@ class CreateSubjectIn(_Base):
     description: str = ""
     icon: str = ""
     order: int = 0
+    is_retired: bool = False
 
 
 class UpdateSubjectIn(_Base):
@@ -586,6 +579,7 @@ class UpdateSubjectIn(_Base):
     description: Optional[str] = None
     icon: Optional[str] = None
     order: Optional[int] = None
+    is_retired: Optional[bool] = None
 
 
 class DeleteSubjectIn(_Base):
@@ -607,6 +601,7 @@ class CreateSkillIn(_Base):
     is_locked_by_default: bool = False
     order: int = 0
     prerequisites: list[SkillPrereqDraft] = Field(default_factory=list)
+    is_retired: bool = False
 
 
 class UpdateSkillIn(_Base):
@@ -620,6 +615,7 @@ class UpdateSkillIn(_Base):
     is_locked_by_default: Optional[bool] = None
     order: Optional[int] = None
     clear_subject: bool = False
+    is_retired: Optional[bool] = None
 
 
 class DeleteSkillIn(_Base):
@@ -638,6 +634,7 @@ class RemoveSkillPrerequisiteIn(_Base):
 
 
 class CreateBadgeIn(_Base):
+    award_coins: bool = True
     name: str = Field(min_length=1, max_length=100)
     description: str
     icon: str = ""
@@ -649,6 +646,7 @@ class CreateBadgeIn(_Base):
 
 
 class UpdateBadgeIn(_Base):
+    award_coins: Optional[bool] = None
     badge_id: int
     name: Optional[str] = Field(default=None, min_length=1, max_length=100)
     description: Optional[str] = None
@@ -686,6 +684,7 @@ class ListQuestCatalogIn(_Base):
 
 
 class CreateQuestDefinitionIn(_Base):
+    request_id: Optional[UUID] = Field(default=None, description="Supply a stable UUID to replay the exact create/assignment safely.")
     name: str = Field(min_length=1, max_length=100)
     description: str
     icon: str = "⚔️"
@@ -949,6 +948,8 @@ class GetChoreIn(_Base):
 
 
 class CreateChoreIn(_Base):
+    xp_reward: int = Field(default=10, ge=0)
+    due_date: Optional[date] = None
     title: str = Field(min_length=1, max_length=200)
     description: str = ""
     icon: str = ""
@@ -963,6 +964,8 @@ class CreateChoreIn(_Base):
 
 
 class UpdateChoreIn(_Base):
+    xp_reward: Optional[int] = Field(default=None, ge=0)
+    due_date: Optional[date] = None
     chore_id: int
     title: Optional[str] = None
     description: Optional[str] = None
@@ -1245,8 +1248,10 @@ class DraftPackEntriesIn(_Base):
 
     For files whose top-level key is a list of rows (items, pet_species,
     potion_types, badges, quests, rewards), this tool parses the existing
-    file, appends or replaces, dedupes by natural key, and writes the
-    result back. Saves the LLM from hand-merging YAML.
+    file, appends or replaces, and dedupes named rows by stable ID where
+    supplied, otherwise by natural key. A name-only draft row can gain a new
+    ID in place; existing IDs cannot be removed or replaced by name. This
+    does not migrate already-published ownership claims.
     """
     pack: str = Field(min_length=1, max_length=40)
     filename: DraftPackFilename
@@ -1458,10 +1463,13 @@ class GetMovementSessionIn(_Base):
 
 
 class LogMovementSessionIn(_Base):
+    client_request_id: UUID = Field(description="Stable session UUID, shared with the movement API; identical retries preserve the original rewards.")
     movement_type_id: int
     duration_minutes: int = Field(ge=1, le=600)
     intensity: MovementIntensity = "medium"
     notes: str = Field(default="", max_length=200)
+    distance: Optional[Decimal] = Field(default=None, gt=0, le=1000, max_digits=7, decimal_places=3)
+    distance_unit: Literal["mi", "km"] = "mi"
     user_id: Optional[int] = Field(
         default=None,
         description="Parent-only: log a session on a child's behalf. Children "

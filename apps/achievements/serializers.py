@@ -2,9 +2,17 @@ from rest_framework import serializers
 from apps.rpg.catalog_icons import badge_catalog_icon, category_catalog_icon, skill_catalog_icon, subject_catalog_icon
 
 from .models import Badge, Skill, SkillCategory, SkillProgress, Subject, UserBadge
+from .taxonomy import available_for_new_choices
 
 
-class SkillCategorySerializer(serializers.ModelSerializer):
+class TaxonomyLifecycleMixin(serializers.Serializer):
+    available_for_new_choices = serializers.SerializerMethodField()
+
+    def get_available_for_new_choices(self, obj):
+        return available_for_new_choices(obj)
+
+
+class SkillCategorySerializer(TaxonomyLifecycleMixin, serializers.ModelSerializer):
     catalog_icon = serializers.SerializerMethodField()
 
     def get_catalog_icon(self, obj):
@@ -12,10 +20,10 @@ class SkillCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = SkillCategory
-        fields = ["id", "name", "icon", "catalog_icon", "color", "description"]
+        fields = ["id", "name", "icon", "catalog_icon", "color", "description", "is_retired", "available_for_new_choices"]
 
 
-class SubjectSerializer(serializers.ModelSerializer):
+class SubjectSerializer(TaxonomyLifecycleMixin, serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     catalog_icon = serializers.SerializerMethodField()
 
@@ -24,16 +32,16 @@ class SubjectSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Subject
-        fields = ["id", "name", "category", "category_name", "description", "icon", "catalog_icon", "order"]
+        fields = ["id", "name", "category", "category_name", "description", "icon", "catalog_icon", "order", "is_retired", "available_for_new_choices"]
 
 
-class SubjectWriteSerializer(serializers.ModelSerializer):
+class SubjectWriteSerializer(TaxonomyLifecycleMixin, serializers.ModelSerializer):
     class Meta:
         model = Subject
-        fields = ["name", "category", "description", "icon", "order"]
+        fields = ["name", "category", "description", "icon", "order", "is_retired", "available_for_new_choices"]
 
 
-class SkillSerializer(serializers.ModelSerializer):
+class SkillSerializer(TaxonomyLifecycleMixin, serializers.ModelSerializer):
     catalog_icon = serializers.SerializerMethodField()
     category_name = serializers.CharField(source="category.name", read_only=True)
     subject_name = serializers.CharField(source="subject.name", read_only=True, default=None)
@@ -47,15 +55,17 @@ class SkillSerializer(serializers.ModelSerializer):
             "id", "name", "category", "category_name",
             "subject", "subject_name", "description",
             "icon", "catalog_icon", "level_names", "is_locked_by_default", "order",
+            "is_retired", "available_for_new_choices",
         ]
 
 
-class SkillWriteSerializer(serializers.ModelSerializer):
+class SkillWriteSerializer(TaxonomyLifecycleMixin, serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = [
             "name", "category", "subject", "description",
             "icon", "level_names", "is_locked_by_default", "order",
+            "is_retired", "available_for_new_choices",
         ]
 
 

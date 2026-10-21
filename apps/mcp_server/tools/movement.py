@@ -20,7 +20,7 @@ from apps.movement.models import (
     MovementType,
     MovementTypeSkillTag,
 )
-from apps.movement.services import MovementSessionService
+from apps.movement.services import MovementSessionError, MovementSessionService
 
 from ..context import get_current_user, get_in_family, resolve_target_user, require_staff_parent
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
@@ -33,6 +33,7 @@ from ..schemas import (
     SetMovementTypeSkillTagsIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import many, movement_session_to_dict, movement_type_to_dict
 
 
@@ -77,8 +78,9 @@ def log_movement_session(params: LogMovementSessionIn) -> dict[str, Any]:
     """Log a self-reported physical-activity session.
 
     Children log for themselves; parents can pass ``user_id`` to log on a
-    child's behalf. Returns the new session including ``xp_awarded`` (0 if
-    over the daily reward cap).
+    child's behalf. Supply a stable client_request_id UUID, optionally with
+    measured distance and mi/km units. Identical retries return the original
+    session and reward/challenge receipts without advancing counters again.
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
@@ -87,14 +89,22 @@ def log_movement_session(params: LogMovementSessionIn) -> dict[str, Any]:
     except MovementType.DoesNotExist:
         raise MCPNotFoundError(f"MovementType {params.movement_type_id} not found.")
 
-    session = MovementSessionService.log_session(
-        target,
-        movement_type=movement_type,
-        duration_minutes=params.duration_minutes,
-        intensity=params.intensity,
-        notes=params.notes,
+    def create(actor, fresh_target):
+        try:
+            return MovementSessionService.log_session(
+                fresh_target, movement_type=movement_type,
+                duration_minutes=params.duration_minutes, intensity=params.intensity,
+                notes=params.notes, distance=params.distance, distance_unit=params.distance_unit,
+                client_request_id=params.client_request_id,
+            )
+        except MovementSessionError as exc:
+            raise MCPValidationError(str(exc)) from exc
+
+    return mutation_once(
+        actor=user, target=target, operation="log_movement_session", request_id=params.client_request_id,
+        payload=params.model_dump(exclude={"client_request_id", "user_id"}), result_model=MovementSession,
+        shared_target_request=True, create=create, serialize=movement_session_to_dict,
     )
-    return movement_session_to_dict(session)
 
 
 @tool()
@@ -132,6 +142,9 @@ def set_movement_type_skill_tags(params: SetMovementTypeSkillTagsIn) -> dict[str
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=mt.skill_tags.values_list("skill_id", flat=True))
         MovementTypeSkillTag.objects.filter(movement_type=mt).delete()
         MovementTypeSkillTag.objects.bulk_create([
             MovementTypeSkillTag(movement_type=mt, skill_id=t.skill_id, xp_weight=t.xp_weight)

@@ -36,6 +36,11 @@ def _apply_skill_tags(habit, tag_dicts):
                 "skill_tags": [f"Unknown skill IDs: {missing}"],
             })
 
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, skill_ids,
+                     retained_ids=habit.skill_tags.values_list("skill_id", flat=True),
+                     error_type=ValidationError)
+
     HabitSkillTag.objects.filter(habit=habit).delete()
     HabitSkillTag.objects.bulk_create([
         HabitSkillTag(

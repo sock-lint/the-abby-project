@@ -224,6 +224,8 @@ export const reconcileGreenlightCsv = (payload) =>
 export const getItemCatalog = () => api.get('/items/catalog/');
 export const getPetSpeciesCatalog = () => api.get('/pets/species/catalog/');
 export const getQuestCatalog = () => api.get('/quests/catalog/');
+export const startCoOpQuest = (id, userIds, options) =>
+  withParentReviewRefresh(api.post(`/quests/${id}/co-op/`, { user_ids: userIds }, options));
 
 // Achievements
 export const getBadges = () => api.get('/badges/');
@@ -238,12 +240,15 @@ export const deleteSubject = (id) => api.delete(`/subjects/${id}/`);
 export const getSkills = () => api.get('/skills/');
 // Skill pickers and the Wayfinder need entries beyond DRF's first page.
 // Keep the single-page helpers above unchanged for their callers.
-async function getCatalogList(path) {
+async function getCatalogList(path, options) {
+  const normalized = typeof options?.addEventListener === 'function' ? { signal: options } : options;
+  const { includeRetired = false, ...requestOptions } = normalized || {};
   const entries = [];
   const visited = new Set();
-  let pagePath = path;
+  let pagePath = includeRetired ? `${path}?include_retired=true` : path;
 
   while (pagePath) {
+    requestOptions.signal?.throwIfAborted();
     const pageUrl = new URL(apiUrl(pagePath), window.location.origin);
     pageUrl.searchParams.delete('_abby_session');
     pageUrl.searchParams.sort();
@@ -251,7 +256,7 @@ async function getCatalogList(path) {
     if (visited.has(pageKey)) throw new Error('Repeated skill catalog page.');
     visited.add(pageKey);
 
-    const page = await api.get(pagePath);
+    const page = await api.get(pagePath, requestOptions);
     if (Array.isArray(page)) return [...entries, ...page];
     if (!page || !Array.isArray(page.results)
       || (page.next !== null && (typeof page.next !== 'string' || !page.next.trim()))) {
@@ -274,17 +279,21 @@ async function getCatalogList(path) {
     // A proxy may advertise a different origin. Follow only this endpoint on
     // our configured API; the client supplies a fresh private-read namespace.
     nextUrl.searchParams.delete('_abby_session');
+    if (includeRetired) nextUrl.searchParams.set('include_retired', 'true');
+    else nextUrl.searchParams.delete('include_retired');
     pagePath = `${path}${nextUrl.search}`;
   }
 
   return entries;
 }
 
-export const getAllSkills = () => getCatalogList('/skills/');
-export const getSkillCatalog = async () => {
+export const getAllSkills = (options) => getCatalogList('/skills/', options);
+export const getAllCategories = (options) => getCatalogList('/categories/', options);
+export const getAllSubjects = (options) => getCatalogList('/subjects/', options);
+export const getSkillCatalog = async (options) => {
   const [subjects, skills] = await Promise.all([
-    getCatalogList('/subjects/'),
-    getAllSkills(),
+    getAllSubjects(options),
+    getAllSkills(options),
   ]);
   return { subjects, skills };
 };
@@ -688,6 +697,9 @@ export const claimDailyChallenge = () => api.post('/challenges/daily/claim/');
 // Automatic challenge goals and the child's saved focus.
 export const getChallenges = (userId) => api.get(`/challenges/${userId ? `?user_id=${encodeURIComponent(userId)}` : ''}`);
 export const createChallengeGoal = (data) => withParentReviewRefresh(api.post('/challenges/goals/', data));
+export const retryChallenge = (id, options) => api.post(`/challenges/${encodeURIComponent(id)}/retry/`, {}, options);
+export const updateChallengeSchedule = (id, data, options) =>
+  withParentReviewRefresh(api.patch(`/challenges/goals/${id}/schedule/`, data, options));
 export const pinChallenge = (id) => api.post(`/challenges/${id}/pin/`, {});
 export const unpinChallenge = (id) => api.delete(`/challenges/${id}/pin/`);
 export const recordChallengeOpening = (id, options) => api.post(`/challenges/${encodeURIComponent(id)}/opened/`, {}, options);

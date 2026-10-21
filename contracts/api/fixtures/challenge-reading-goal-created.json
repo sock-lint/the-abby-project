@@ -2,6 +2,18 @@
   "id": "goal:1",
   "name": "One Reading Adventure",
   "description": "",
+  "goal_definition_id": 1,
+  "qualifying_triggers": [
+    "reading_logged"
+  ],
+  "retry": {
+    "allowed": false,
+    "reason": "not_catalog",
+    "latest_attempt_id": null
+  },
+  "retry_of": null,
+  "closed_reason": null,
+  "schedule": null,
   "origin": "parent",
   "first_details_opened_at": null,
   "catalog_repeatable": false,

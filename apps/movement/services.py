@@ -289,6 +289,12 @@ class MovementTypeService:
                 "Primary and secondary skills must be different.",
             )
 
+        from django.contrib.auth import get_user_model
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        admit_references(Skill, [primary_skill_id] + ([secondary_skill_id] if secondary_skill_id else []),
+                         error_type=MovementTypeError)
         primary = cls._validate_physical_skill(primary_skill_id, "Primary")
         secondary = None
         if secondary_skill_id:

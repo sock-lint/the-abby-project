@@ -4,7 +4,9 @@
     "name": "Coding",
     "icon": "CODE",
     "catalog_icon": "category-coding",
-    "color": "#123456"
+    "color": "#123456",
+    "is_retired": false,
+    "available_for_new_choices": true
   },
   "summary": {
     "level": 1,
@@ -19,6 +21,8 @@
       "category_name": "Coding",
       "description": "",
       "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true,
       "summary": {
         "level": 1,
         "total_xp": 150
@@ -33,6 +37,8 @@
           "subject_name": "Languages & Apps",
           "description": "",
           "is_locked_by_default": false,
+          "is_retired": false,
+          "available_for_new_choices": true,
           "level_names": {},
           "xp_points": 150,
           "level": 1,

@@ -9,7 +9,9 @@
       "icon": "CODE",
       "catalog_icon": "category-coding",
       "color": "#123456",
-      "description": ""
+      "description": "",
+      "is_retired": false,
+      "available_for_new_choices": true
     },
     {
       "id": 102,
@@ -17,7 +19,9 @@
       "icon": "CUSTOM",
       "catalog_icon": null,
       "color": "#D97706",
-      "description": ""
+      "description": "",
+      "is_retired": false,
+      "available_for_new_choices": true
     }
   ]
 }

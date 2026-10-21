@@ -21,7 +21,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.db.models.deletion import ProtectedError
 
-from apps.rpg.content.loader import ContentPack, ContentPackError
+from apps.rpg.content.loader import ContentPack, ContentPackError, StartupDeferrals
 from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog_once, retirement_summary
 from apps.rpg.retirement_resources import RetirementResourceError
 
@@ -62,6 +62,9 @@ class Command(BaseCommand):
         namespace = options["namespace"]
         dry_run = options["dry_run"]
         selections = ((options["pack"] or DEFAULT_PACK, namespace),) if options["pack"] or namespace else BUNDLED_PACKS
+        # Later bundled packs may reference an earlier retired source row. The
+        # marker lifetime is this command, never a process-wide/default cache.
+        startup_deferrals = StartupDeferrals() if not options["pack"] and not namespace else None
         try:
             with transaction.atomic():
                 if not options["pack"] and not namespace:
@@ -89,13 +92,19 @@ class Command(BaseCommand):
                                       (" [dry-run]" if dry_run else ""))
                     # Keep preceding packs visible while checking dependencies.
                     # One outer rollback covers every pack in a dry run/failure.
-                    ContentPack(pack_path, namespace=pack_namespace).load(stdout=self.stdout, dry_run=False)
+                    ContentPack(pack_path, namespace=pack_namespace,
+                        defer_retired_references=not options["pack"] and not namespace,
+                        startup_deferrals=startup_deferrals,
+                    ).load(stdout=self.stdout, dry_run=False)
                 if not dry_run and not namespace:
                     self._grant_starter_covers()
                 if dry_run:
                     transaction.set_rollback(True)
         except ContentPackError as exc:
             raise CommandError(str(exc)) from exc
+        finally:
+            if startup_deferrals is not None:
+                startup_deferrals.clear()
 
         self.stdout.write(self.style.SUCCESS("Content pack load complete."))
 

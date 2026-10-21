@@ -29,6 +29,7 @@ ASSUMPTIONS = [
     "Unlock and completion day percentiles are conditional on the trials that reached each event; reached counts include every trial. Unlocked means a native challenge window was actually offered by a new fact, not merely that its conditions became true on an inactive date.",
     "Only one-off global challenges can receive new gates; a repeatable challenge may serve as a predecessor after its first completion. Missed direct-predecessor windows and offerings, and definite native completed-challenge badge dead ends, block descendants rather than generating waiting visits. Other native badge paths remain optimistic; a viable alternative or repeatable path prevents a definite dead-end claim.",
     "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses.",
+    "An authored null duration is an untimed one-time reading milestone. It never expires or restarts, and an unfinished accepted milestone remains available across absences. Its routine-capacity subset is bounded by the scenario horizon without creating a deadline.",
 ]
 VISIT_METRICS = ("active_visits", "with_available_challenge", "without_available_challenge", "waiting_for_gate", "exhausted_or_expired")
 
@@ -137,7 +138,8 @@ def validate_challenge_gate_catalog(config, catalog):
 def challenge_gate_choices(catalog):
     return {
         "quests": [{"id": q.pk, "name": q.name, "is_repeatable": q.is_repeatable} for q in catalog.quests],
-        "skills": [{"id": s.pk, "name": s.name, "category": s.category.name} for s in catalog.skills.values()],
+        "skills": [{"id": s.pk, "name": s.name, "category": s.category.name}
+                   for s in catalog.skills.values() if getattr(s, "available_for_new_choices", True)],
     }
 
 
@@ -215,7 +217,8 @@ class ChallengeGates:
             return False
         window = trial.quest_windows.get(quest.pk)
         if window is not None:
-            return not quest.is_repeatable and trial.day >= window["start"] + quest.duration_days
+            return (not quest.is_repeatable and quest.duration_days is not None
+                    and trial.day >= window["start"] + quest.duration_days)
         last = self.last_day(quest.pk)
         return last is not None and trial.day > last
 
@@ -326,7 +329,8 @@ class ChallengeGates:
                 continue
             window = trial.quest_windows.get(quest.pk)
             if window:
-                available |= not window["paid"] and trial.day < window["start"] + quest.duration_days
+                available |= not window["paid"] and (quest.duration_days is None
+                                                     or trial.day < window["start"] + quest.duration_days)
                 continue
             if self.can_offer(quest, trial):
                 available = True
@@ -343,7 +347,8 @@ class ChallengeGates:
         window = trial.quest_windows.get(quest.pk)
         last = self.last_day(quest.pk)
         completed = quest.pk in self.completion_days
-        expired = not completed and ((window is not None and trial.day >= window["start"] + quest.duration_days)
+        expired = not completed and ((window is not None and quest.duration_days is not None
+                                     and trial.day >= window["start"] + quest.duration_days)
                                     or (window is None and last is not None and trial.day > last))
         native = quest.pk in self.native_ids
         reachable = quest.pk in self.reachable_ids

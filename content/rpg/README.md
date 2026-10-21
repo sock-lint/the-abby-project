@@ -15,7 +15,10 @@ to mean touching three files; now it's one YAML edit.
 - Every authored entity has a stable `slug` as its natural key. Running
   the loader twice in a row is a no-op.
 - Bundled quest definitions match their name and system flag only among
-  definitions without a creator. A same-name parent template keeps its own
+  canonical definitions without a creator. Superseded definitions retain saved
+  history and accepted promises but are excluded from future offers and loader
+  updates. Conflicting canonical names remain a reported hold, not a guessed
+  update. A same-name parent template keeps its own
   rules and rewards, including when created after the first load. The
   default load runs before gunicorn on every container start, so it never
   fails on a quest it cannot safely update: ambiguous global definitions, a
@@ -25,6 +28,10 @@ to mean touching three files; now it's one YAML edit.
   later load once the definitions are reconciled or the active quests end.
   Item promises are frozen before future reward links change. Keyed pack
   publication still refuses these cases.
+- `is_cooperative: true` marks a parent-assigned shared family campaign. It uses
+  the existing co-op engine and requires at least two children; it does not
+  automatically enroll each child in a separate goal. Accepted legacy campaigns
+  retain their mode and reward promise while active.
 - Pets and potions **fan out** — one entry in `pet_species.yaml` creates
   both the `PetSpecies` row **and** the matching egg `ItemDefinition`
   with a real FK linking them. Same for potions → potion items. Eggs and

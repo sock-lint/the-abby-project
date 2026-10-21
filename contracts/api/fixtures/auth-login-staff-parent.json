@@ -1,0 +1,25 @@
+{
+  "id": 6,
+  "username": "fixture-parent",
+  "display_name": "Fixture Parent",
+  "role": "parent",
+  "hourly_rate": "8.00",
+  "avatar": null,
+  "theme": "summer",
+  "lorebook_flags": {},
+  "google_linked": false,
+  "date_of_birth": null,
+  "grade_entry_year": null,
+  "age_years": null,
+  "current_grade": null,
+  "school_year_label": null,
+  "family": {
+    "id": 1,
+    "name": "Fixture Family",
+    "slug": "fixture-family",
+    "timezone": "America/Phoenix",
+    "default_theme": "hyrule"
+  },
+  "is_staff": true,
+  "token": "0123456789012345678901234567890123456789"
+}

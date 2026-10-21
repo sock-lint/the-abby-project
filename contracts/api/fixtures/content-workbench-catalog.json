@@ -17,20 +17,21 @@
         "pet_species_id": null,
         "potion_type_id": null,
         "food_species_id": null,
+        "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
         "runtime_available": true,
         "unavailable_reason": null,
         "editable": true,
         "edit_reason": "",
         "values": {
           "icon": "🍎",
+          "rarity": "common",
+          "description": "",
+          "name": "Practice snack",
+          "coin_value": 2,
           "metadata": {
             "growth": 5
           },
-          "name": "Practice snack",
-          "sprite_key": "",
-          "coin_value": 2,
-          "description": "",
-          "rarity": "common"
+          "sprite_key": ""
         },
         "has_database_override": false,
         "used_by": {
@@ -72,8 +73,10 @@
         "xp_reward": 15,
         "is_repeatable": false,
         "is_system": true,
+        "is_cooperative": false,
         "required_badge": null,
         "required_badge_name": null,
+        "superseded_by": null,
         "prerequisite_quest": 908,
         "prerequisite_quest_name": "Starter practice",
         "required_skill": 902,
@@ -100,24 +103,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "quest_type": "collection",
+          "xp_reward": 15,
           "is_repeatable": false,
-          "description": "Complete two daily Reading Adventures.",
-          "required_skill_level": 1,
-          "coin_reward": 10,
+          "icon": "⚔️",
+          "duration_days": 7,
+          "name": "Practice challenge",
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "xp_reward": 15,
-          "name": "Practice challenge",
-          "sprite_key": "",
+          "coin_reward": 10,
+          "description": "Complete two daily Reading Adventures.",
           "target_value": 2,
-          "icon": "⚔️",
-          "quest_type": "collection",
-          "duration_days": 7,
-          "required_badge": null,
+          "is_cooperative": false,
+          "required_skill_level": 1,
           "prerequisite_quest": 908,
+          "required_badge": null,
           "required_skill": 902,
           "reward_items": [
             {
@@ -154,8 +158,10 @@
         "xp_reward": 0,
         "is_repeatable": false,
         "is_system": true,
+        "is_cooperative": false,
         "required_badge": null,
         "required_badge_name": null,
+        "superseded_by": null,
         "prerequisite_quest": null,
         "prerequisite_quest_name": null,
         "required_skill": null,
@@ -167,24 +173,25 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "quest_type": "collection",
+          "xp_reward": 0,
           "is_repeatable": false,
-          "description": "Complete one approved chore.",
-          "required_skill_level": 0,
-          "coin_reward": 0,
+          "icon": "⚔️",
+          "duration_days": 7,
+          "name": "Starter practice",
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "xp_reward": 0,
-          "name": "Starter practice",
-          "sprite_key": "",
+          "coin_reward": 0,
+          "description": "Complete one approved chore.",
           "target_value": 1,
-          "icon": "⚔️",
-          "quest_type": "collection",
-          "duration_days": 7,
-          "required_badge": null,
+          "is_cooperative": false,
+          "required_skill_level": 0,
           "prerequisite_quest": null,
+          "required_badge": null,
           "required_skill": null,
           "reward_items": [],
           "skill_tags": []
@@ -197,6 +204,8 @@
     "skills": [
       {
         "id": 902,
+        "is_retired": false,
+        "available_for_new_choices": true,
         "name": "Persistence",
         "category_id": 901,
         "subject_id": null,
@@ -277,6 +286,7 @@
       "description",
       "duration_days",
       "icon",
+      "is_cooperative",
       "is_repeatable",
       "name",
       "prerequisite_quest",
@@ -696,7 +706,8 @@
       "Waiting visits have no currently available unfinished challenge in that subset and at least one structurally reachable challenge locked by a gate or native badge. Visits after exhaustion or expiration are separate. Inactive dates and blocked challenges are not extra playable content.",
       "Unlock and completion day percentiles are conditional on the trials that reached each event; reached counts include every trial. Unlocked means a native challenge window was actually offered by a new fact, not merely that its conditions became true on an inactive date.",
       "Only one-off global challenges can receive new gates; a repeatable challenge may serve as a predecessor after its first completion. Missed direct-predecessor windows and offerings, and definite native completed-challenge badge dead ends, block descendants rather than generating waiting visits. Other native badge paths remain optimistic; a viable alternative or repeatable path prevents a definite dead-end claim.",
-      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses."
+      "The native finite target denominator is retained across gate modes. Structural reachability is optimistic and not a completion forecast; permanently unavailable paths, expired offerings and temporary locks are reported separately. Dates after the horizon and tenure beyond the horizon are temporary locks, not permanent losses.",
+      "An authored null duration is an untimed one-time reading milestone. It never expires or restarts, and an unfinished accepted milestone remains available across absences. Its routine-capacity subset is bounded by the scenario horizon without creating a deadline."
     ],
     "challenge_gate_choices": {
       "quests": [
@@ -720,7 +731,7 @@
       ]
     },
     "catalog": {
-      "fingerprint": "a2e5486abadd36f194adc843ccddfba1202bb10a545c7c13df069a960112df7c",
+      "fingerprint": "6b2282b5772ee262b09549b1e879a6d9da18c8d1a370d109a52880b667d42875",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
@@ -851,8 +862,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
-    "engine_version": "2026-10-20.5",
+    "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
+    "engine_version": "2026-10-21.1",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

@@ -17,11 +17,12 @@ from apps.mcp_server.challenge_schemas import (
 from apps.mcp_server.context import override_user
 from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.tools import challenges
-from apps.quests.goals import create_goal
+from apps.quests.goals import create_goal, family_zone
 from apps.quests.models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
     ChallengeOccurrence, ChallengePin, DailyBonus, DailyChallenge, QuestDefinition,
 )
+from apps.reading.models import ReadingDailyReward
 from apps.rewards.models import CoinLedger
 from config.tests.factories import make_family
 
@@ -137,6 +138,76 @@ class ModernChallengeToolsTests(TestCase):
                     challenges.preview_challenge_goal(PreviewChallengeGoalIn(**self.fields(**fields)))
         self.assertFalse(ChallengeGoal.objects.exists())
 
+    def test_reading_goal_preview_create_and_retry_use_saved_daily_adventures(self):
+        today = timezone.localdate(timezone.now(), timezone=family_zone(self.child))
+        reading_reward = ReadingDailyReward.objects.create(
+            user=self.child, day=today, minutes_credited=10,
+            awarded_at=timezone.now() - timedelta(minutes=1), coins_awarded=5, xp_awarded=15,
+        )
+        ReadingDailyReward.objects.create(
+            user=self.sibling, day=today, minutes_credited=10, awarded_at=timezone.now(),
+        )
+        fields = self.fields(name="Finish a daily Reading Adventure", trigger_type="reading_logged", target="1")
+        preview_params = PreviewChallengeGoalIn(**fields)
+        request_id = uuid4()
+        params = CreateChallengeGoalIn(**fields, request_id=request_id)
+        with override_user(self.parent):
+            preview = self.assert_no_database_writes(lambda: challenges.preview_challenge_goal(preview_params))
+            self.assertTrue(preview["valid"])
+            self.assertFalse(preview["saved"])
+            self.assertEqual(preview["goal"]["trigger_type"], "reading_logged")
+            self.assertFalse(ChallengeGoal.objects.exists())
+            self.assertFalse(ChallengeActivity.objects.exists())
+            self.assertFalse(CoinLedger.objects.exists())
+            first = challenges.create_challenge_goal(params)
+            retry = challenges.create_challenge_goal(params)
+
+        self.assertEqual(first["id"], retry["id"])
+        self.assertEqual(first["reward_receipt"], retry["reward_receipt"])
+        self.assertEqual(first["progress"], "1")
+        self.assertEqual(first["reward_receipt"]["status"], "awarded")
+        self.assertEqual(first["reward_receipt"]["coins_awarded"], 7)
+        self.assertEqual(first["reward_receipt"]["xp_awarded"], 15)
+        self.assertEqual(first["action"], {"label": "Read for ten minutes", "path": "/quests?tab=reading"})
+        self.assertEqual(ChallengeGoal.objects.filter(created_by=self.parent, request_id=request_id).count(), 1)
+        contribution = ChallengeContribution.objects.select_related("activity").get()
+        self.assertEqual(contribution.activity.user_id, self.child.pk)
+        self.assertEqual(contribution.activity.source_type, "reading_logged")
+        self.assertEqual(contribution.activity.source_id, str(reading_reward.pk))
+        self.assertEqual(list(CoinLedger.objects.values_list("amount", flat=True)), [7])
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.skill).xp_points, 15)
+        reading_reward.refresh_from_db()
+        self.assertEqual((reading_reward.coins_awarded, reading_reward.xp_awarded), (5, 15))
+        with override_user(self.parent), self.assertRaisesMessage(MCPValidationError, "different goal details"):
+            challenges.create_challenge_goal(params.model_copy(update={"target": Decimal("2")}))
+        self.assertEqual(CoinLedger.objects.count(), 1)
+
+    def test_reading_goal_keeps_parent_family_and_count_validation(self):
+        fields = self.fields(trigger_type="reading_logged")
+        preview = PreviewChallengeGoalIn(**fields)
+        create = CreateChallengeGoalIn(**fields, request_id=uuid4())
+        for actor, error in ((self.other.parents[0], MCPNotFoundError), (self.child, MCPPermissionDenied)):
+            with self.subTest(actor=actor.username), override_user(actor):
+                with self.assertRaises(error):
+                    challenges.preview_challenge_goal(preview)
+                with self.assertRaises(error):
+                    challenges.create_challenge_goal(create)
+        with override_user(self.parent), self.assertRaises(MCPValidationError):
+            challenges.preview_challenge_goal(PreviewChallengeGoalIn(**self.fields(
+                trigger_type="reading_logged", metric="minutes", unit="minutes",
+            )))
+        self.assertFalse(ChallengeGoal.objects.exists())
+        self.assertFalse(ChallengeActivity.objects.exists())
+        self.assertFalse(CoinLedger.objects.exists())
+
+    def test_mcp_parent_goal_triggers_match_the_shared_serializer(self):
+        from apps.quests.goal_serializers import GoalWriteSerializer
+
+        expected = set(GoalWriteSerializer().fields["trigger_type"].choices)
+        for schema in (PreviewChallengeGoalIn, CreateChallengeGoalIn):
+            with self.subTest(schema=schema.__name__):
+                self.assertEqual(set(schema.model_json_schema()["properties"]["trigger_type"]["enum"]), expected)
+
     def test_family_and_parent_gates_apply_before_any_goal_mutation(self):
         with override_user(self.other.parents[0]):
             for invoke in (lambda: challenges.list_challenges(ListChallengesIn(user_id=self.child.pk)),
@@ -183,3 +254,26 @@ class ModernChallengeToolsTests(TestCase):
         for extra in ({"progress": 5}, {"reward_receipt": {"coins": 999}}, {"is_catalog": True}):
             with self.subTest(extra=extra), self.assertRaises(ValidationError):
                 PreviewChallengeGoalIn(**self.fields(), **extra)
+
+    def test_saved_history_controls_do_not_add_queries_per_occurrence_or_create_new_weeks(self):
+        occurrence = self.occurrence(repeat_weekly=True)
+        with override_user(self.parent), CaptureQueriesContext(connection) as single:
+            before = self.assert_no_database_writes(
+                lambda: challenges.list_challenges(ListChallengesIn(user_id=self.child.pk)),
+            )
+        self.assertEqual(before["results"][0]["schedule"]["revision"], 0)
+        self.assertEqual(before["results"][0]["qualifying_triggers"], ["movement_session"])
+        ChallengeOccurrence.objects.bulk_create([
+            ChallengeOccurrence(
+                goal=occurrence.goal, starts_at=occurrence.starts_at - timedelta(days=7 * index),
+                ends_at=occurrence.ends_at - timedelta(days=7 * index), snapshot=occurrence.snapshot,
+            ) for index in range(1, 25)
+        ])
+        with override_user(self.parent), CaptureQueriesContext(connection) as history:
+            result = self.assert_no_database_writes(
+                lambda: challenges.list_challenges(ListChallengesIn(user_id=self.child.pk)),
+            )
+        self.assertEqual(len(result["results"]), 25)
+        self.assertLessEqual(len(history), len(single) + 3)
+        self.assertEqual(ChallengeOccurrence.objects.count(), 25)
+        self.assertFalse(CoinLedger.objects.exists())

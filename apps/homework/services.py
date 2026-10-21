@@ -63,6 +63,36 @@ class HomeworkError(Exception):
     pass
 
 
+def _saved_template_skill_tags(tags):
+    """Normalize saved template JSON for clone and retention checks.
+
+    The former JSON serializer allowed stringified primary keys, which Django
+    accepted when creating the FK. New writes keep strict integer admission.
+    Accept exactly str(pk), matching saved-reference deletion checks; never
+    coerce floats, booleans, padded strings or arbitrary numeric expressions.
+    """
+    message = "Saved template skill tags must reference existing skills."
+    if not isinstance(tags, list):
+        raise HomeworkError(message)
+    normalized, seen = [], set()
+    for tag in tags:
+        if not isinstance(tag, dict):
+            raise HomeworkError(message)
+        skill_id = tag.get("skill_id")
+        if isinstance(skill_id, str):
+            # Bound conversion before int() and the backend's signed bigint
+            # lookup. Malformed/oversized saved JSON is a domain error.
+            if not (1 <= len(skill_id) <= 19 and skill_id.isascii()
+                    and skill_id.isdecimal() and skill_id[0] != "0"):
+                raise HomeworkError(message)
+            skill_id = int(skill_id)
+        if type(skill_id) is not int or not 1 <= skill_id <= 9223372036854775807 or skill_id in seen:
+            raise HomeworkError(message)
+        seen.add(skill_id)
+        normalized.append({**tag, "skill_id": skill_id})
+    return normalized
+
+
 def _normalize_proof_url(value):
     """Validate a saved browser link locally, without fetching or resolving it."""
     message = "Enter a valid proof link starting with http:// or https://."
@@ -148,6 +178,10 @@ class HomeworkService:
         # read's enrollment/window boundary and lose its challenge credit.
         if data.get("assigned_to") is not None:
             get_user_model().objects.select_for_update(no_key=True).get(pk=data["assigned_to"].pk)
+
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [tag["skill_id"] for tag in skill_tag_data], error_type=HomeworkError)
 
         assignment = HomeworkAssignment.objects.create(
             created_by=user,
@@ -501,12 +535,16 @@ class HomeworkService:
     # Templates
     # ------------------------------------------------------------------
     @staticmethod
+    @transaction.atomic
     def save_as_template(assignment, user):
         """Save an assignment as a reusable template (parent-only)."""
         skill_tag_data = [
             {"skill_id": tag.skill_id, "xp_amount": tag.xp_amount}
             for tag in assignment.skill_tags.all()
         ]
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [tag["skill_id"] for tag in skill_tag_data], error_type=HomeworkError)
         return HomeworkTemplate.objects.create(
             title=assignment.title,
             description=assignment.description,
@@ -520,6 +558,11 @@ class HomeworkService:
     @transaction.atomic
     def create_from_template(template, assigned_to, due_date):
         """Create a new assignment from a template."""
+        get_user_model().objects.select_for_update(no_key=True).get(pk=assigned_to.pk)
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        skill_tags = _saved_template_skill_tags(template.skill_tags)
+        admit_references(Skill, [tag["skill_id"] for tag in skill_tags], error_type=HomeworkError)
         assignment = HomeworkAssignment.objects.create(
             title=template.title,
             description=template.description,
@@ -529,7 +572,7 @@ class HomeworkService:
             assigned_to=assigned_to,
             created_by=template.created_by,
         )
-        for tag_data in template.skill_tags:
+        for tag_data in skill_tags:
             HomeworkSkillTag.objects.create(
                 assignment=assignment,
                 skill_id=tag_data["skill_id"],

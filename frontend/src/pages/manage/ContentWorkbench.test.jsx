@@ -28,6 +28,53 @@ async function openChallenge(user) {
 }
 
 describe('RPG content workbench', () => {
+  it('saves an explicit untimed reading challenge only to the private draft', async () => {
+    const current = metadata.catalog.quests[0];
+    const readingValues = { ...current.values, quest_type: 'collection', is_repeatable: false, trigger_filter: { allowed_triggers: ['reading_logged'] } };
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: readingValues }] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    const publish = spyHandler('post', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/publish/$`), {});
+    server.use(patch.handler, publish.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    await user.click(screen.getByRole('checkbox', { name: 'No deadline' }));
+    expect(screen.queryByRole('spinbutton', { name: 'Duration in days' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values).toMatchObject({ duration_days: null, is_repeatable: false, trigger_filter: { allowed_triggers: ['reading_logged'] } });
+    expect(publish.calls).toHaveLength(0);
+  });
+  it('preserves an existing null duration and can restore a timed completion window', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, duration_days: null, trigger_filter: { allowed_triggers: ['reading_logged'] } } }] } });
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
+    server.use(patch.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeChecked();
+    await user.click(screen.getByRole('checkbox', { name: 'No deadline' }));
+    fireEvent.change(screen.getByRole('spinbutton', { name: 'Duration in days' }), { target: { value: '56' } });
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls[0].body.changes[0].values.duration_days).toBe(56);
+  });
+  it('limits the no-deadline option to one-time Reading Adventure collections', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, quest_type: 'boss' } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
+  });
+
+  it('does not offer no deadline for a shared family challenge', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, is_cooperative: true } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'Shared family challenge' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
+  });
+
   it('saves exact challenge and named skill milestone IDs while keeping reward XP tags and publication separate', async () => {
     const prerequisite = { id: 10, name: 'Reading Companion', is_system: true, coin_reward: 0, xp_reward: 0 };
     const milestoneMetadata = { ...metadata, catalog: { ...metadata.catalog, quests: [...metadata.catalog.quests, prerequisite] } };
@@ -159,6 +206,42 @@ describe('RPG content workbench', () => {
     expect(screen.getByRole('button', { name: 'Preview changes and audit rewards' })).toBeEnabled();
   });
 
+  it.each([true, false])('saves and previews shared family challenge mode as %s', async (is_cooperative) => {
+    const before = { ...metadata.catalog.quests[0].values, is_cooperative: !is_cooperative };
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...metadata.catalog.quests[0], is_cooperative: !is_cooperative, values: before }] } });
+    let savedChanges;
+    const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => {
+      savedChanges = body.changes;
+      return { ...saved, changes: savedChanges };
+    });
+    const preview = spyHandler('post', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/preview/$`), () => ({
+      ...saved, changes: savedChanges, preview: { ...previewed.preview, changes: [{ object: 'quests:9', action: 'update', before, after: savedChanges[0].values }] },
+    }));
+    server.use(patch.handler, preview.handler);
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user);
+    await openChallenge(user);
+    const mode = screen.getByRole('checkbox', { name: 'Shared family challenge' });
+    expect(mode.checked).toBe(!is_cooperative);
+    expect(mode).toHaveAccessibleDescription('A parent selects at least two children to work toward one shared target. Each participant receives the full completion reward.');
+    await user.click(mode);
+    await user.click(screen.getByRole('button', { name: 'Save to draft' }));
+    await screen.findByText(/Changes saved to draft/);
+    expect(patch.calls).toHaveLength(1);
+    expect(patch.calls[0]).toMatchObject({ url: expect.stringMatching(new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`)), body: { revision: 1, changes: [{ ...change, values: { ...before, is_cooperative } }] } });
+    await user.click(screen.getByRole('button', { name: 'Close editor' }));
+    await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'Shared family challenge' }).checked).toBe(is_cooperative);
+    await user.click(screen.getByRole('button', { name: 'Preview changes and audit rewards' }));
+    const exactPreview = await screen.findByRole('region', { name: 'Exact publication preview' });
+    expect(preview.calls).toHaveLength(1);
+    expect(preview.calls[0]).toMatchObject({ url: expect.stringMatching(/\/preview\/$/), body: { revision: 2 } });
+    await user.click(within(exactPreview).getByText('update: Forest reading'));
+    expect(within(exactPreview).getByText('is cooperative')).toBeVisible();
+    expect(within(exactPreview).getByText(`Before: ${!is_cooperative}`)).toBeVisible();
+    expect(within(exactPreview).getByText(`After: ${is_cooperative}`)).toBeVisible();
+  });
+
   it('lets an author remove legacy activity filters without offering them for new challenges', async () => {
     setup({ ...metadata, rules: { ...metadata.rules, triggers: ['chore_complete'] } });
     const patch = spyHandler('patch', new RegExp(`/api/rpg/content-workbench/drafts/${draftId}/$`), ({ body }) => ({ ...saved, changes: body.changes }));
@@ -217,6 +300,7 @@ describe('RPG content workbench', () => {
     const { user } = renderWithProviders(<ContentWorkbench />);
     await openDraft(user);
     await user.click(screen.getByRole('button', { name: 'New challenge', exact: true }));
+    expect(screen.getByRole('checkbox', { name: 'Shared family challenge' })).not.toBeChecked();
     await user.type(screen.getByRole('textbox', { name: 'Name', exact: true }), 'Trail days');
     await user.type(screen.getByRole('textbox', { name: 'Description' }), 'Complete five activities.');
     await user.type(screen.getByRole('searchbox', { name: 'Search reward items' }), 'New snack');
@@ -225,7 +309,7 @@ describe('RPG content workbench', () => {
     await user.click(screen.getByRole('button', { name: 'Save to draft' }));
     await screen.findByText(/Changes saved to draft/);
     expect(patch.calls[0].body.changes[0]).toEqual(newItem);
-    expect(patch.calls[0].body.changes[1]).toMatchObject({ section: 'quests', object_id: null, key: expect.any(String), values: { name: 'Trail days', reward_items: [{ item_key: 'new-snack', quantity: 1 }], skill_tags: [{ skill_id: 4, xp_weight: 1 }] } });
+    expect(patch.calls[0].body.changes[1]).toMatchObject({ section: 'quests', object_id: null, key: expect.any(String), values: { name: 'Trail days', is_cooperative: false, reward_items: [{ item_key: 'new-snack', quantity: 1 }], skill_tags: [{ skill_id: 4, xp_weight: 1 }] } });
     expect(patch.calls[0].body.changes[1].values).not.toHaveProperty('is_system');
   });
 

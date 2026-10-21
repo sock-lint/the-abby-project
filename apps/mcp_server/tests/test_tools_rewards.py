@@ -1,6 +1,8 @@
 """Tests for reward / coin MCP tools."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from django.test import TestCase
 
 from apps.mcp_server.context import override_user
@@ -54,7 +56,7 @@ class RequestRedemptionTests(TestCase):
     def test_insufficient_coins_raises_validation_error(self) -> None:
         with override_user(self.child), self.assertRaises(MCPValidationError):
             reward_tools.request_redemption(
-                RequestRedemptionIn(reward_id=self.reward.id),
+                RequestRedemptionIn(request_id=uuid4(), reward_id=self.reward.id),
             )
 
     def test_happy_path_holds_coins(self) -> None:
@@ -63,7 +65,7 @@ class RequestRedemptionTests(TestCase):
         )
         with override_user(self.child):
             result = reward_tools.request_redemption(
-                RequestRedemptionIn(reward_id=self.reward.id),
+                RequestRedemptionIn(request_id=uuid4(), reward_id=self.reward.id),
             )
         self.assertEqual(result["status"], "pending")
         self.assertEqual(CoinService.get_balance(self.child), 80)
@@ -85,7 +87,7 @@ class ApproveRejectRedemptionTests(TestCase):
         )
         with override_user(self.child):
             self.redemption_id = reward_tools.request_redemption(
-                RequestRedemptionIn(reward_id=self.reward.id),
+                RequestRedemptionIn(request_id=uuid4(), reward_id=self.reward.id),
             )["id"]
 
     def test_child_cannot_approve(self) -> None:

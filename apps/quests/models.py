@@ -1,9 +1,9 @@
 from django.conf import settings
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from apps.quests.validators import validate_trigger_filter
+from apps.quests.validators import validate_trigger_filter, validate_untimed_reading
 from config.base_models import TimestampedModel
 
 
@@ -23,7 +23,10 @@ class QuestDefinition(TimestampedModel):
     )
     quest_type = models.CharField(max_length=20, choices=QuestType.choices)
     target_value = models.PositiveIntegerField()  # HP for boss, count for collection
-    duration_days = models.PositiveIntegerField(default=7)
+    duration_days = models.PositiveIntegerField(
+        default=7, null=True, blank=True, validators=[MinValueValidator(1)],
+        help_text="Null means no deadline for a one-time global Reading Adventure collection.",
+    )
     trigger_filter = models.JSONField(default=dict, blank=True)
     required_badge = models.ForeignKey(
         "achievements.Badge",
@@ -45,12 +48,21 @@ class QuestDefinition(TimestampedModel):
     xp_reward = models.PositiveIntegerField(default=0)
     is_repeatable = models.BooleanField(default=False)
     is_system = models.BooleanField(default=False)
+    is_cooperative = models.BooleanField(
+        default=False,
+        help_text="A parent assigns this shared challenge to at least two children.",
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="created_quests",
+    )
+    superseded_by = models.ForeignKey(
+        "self", on_delete=models.PROTECT, null=True, blank=True, editable=False,
+        related_name="retained_aliases",
+        help_text="Retained duplicate identity; only its canonical definition is offered for new acceptance.",
     )
 
     class Meta:
@@ -60,11 +72,17 @@ class QuestDefinition(TimestampedModel):
                        | models.Q(required_skill__isnull=False, required_skill_level__gte=1,
                                   required_skill_level__lte=6)),
             name="valid_quest_milestone_skill",
+        ), models.CheckConstraint(
+            condition=(models.Q(duration_days__isnull=False)
+                       | models.Q(is_system=True, created_by__isnull=True, is_repeatable=False,
+                                  quest_type="collection", trigger_filter={"allowed_triggers": ["reading_logged"]})),
+            name="valid_untimed_reading_definition",
         )]
 
     def clean(self):
         super().clean()
         validate_trigger_filter(self.trigger_filter)
+        validate_untimed_reading(self)
         from .milestone_eligibility import validate_milestone_gate
         validate_milestone_gate(self)
 
@@ -264,7 +282,7 @@ class ChallengeEnrollment(models.Model):
 
 
 class ChallengeGoal(TimestampedModel):
-    """An immutable personal goal, from the catalog or a family assignment."""
+    """A personal goal with frozen occurrences and versioned future family setup."""
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
@@ -292,7 +310,7 @@ class ChallengeGoal(TimestampedModel):
     )
     timezone_name = models.CharField(max_length=64)
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     repeat_weekly = models.BooleanField(default=False)
     repeat_days = models.PositiveIntegerField(default=0)
     coin_reward = models.PositiveIntegerField(default=0)
@@ -301,6 +319,7 @@ class ChallengeGoal(TimestampedModel):
     reward_items = models.JSONField(default=list)
     request_id = models.UUIDField(null=True, blank=True)
     request_fingerprint = models.CharField(max_length=64, blank=True)
+    schedule_revision = models.PositiveIntegerField(default=0, editable=False)
 
     class Meta:
         constraints = [
@@ -314,12 +333,18 @@ class ChallengeOccurrence(TimestampedModel):
 
     goal = models.ForeignKey(ChallengeGoal, on_delete=models.CASCADE, related_name="occurrences")
     starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
+    ends_at = models.DateTimeField(null=True, blank=True)
     snapshot = models.JSONField(default=dict)
     progress = models.DecimalField(max_digits=16, decimal_places=3, default=0)
     status = models.CharField(max_length=12, default="active", choices=[
         ("active", "Active"), ("completed", "Completed"), ("expired", "Expired"),
+        ("closed", "Closed"),
     ])
+    retry_of = models.OneToOneField(
+        "self", on_delete=models.SET_NULL, null=True, blank=True, editable=False,
+        related_name="retry_attempt",
+    )
+    closed_reason = models.CharField(max_length=32, blank=True, default="", editable=False)
     completed_at = models.DateTimeField(null=True, blank=True)
     first_details_opened_at = models.DateTimeField(null=True, blank=True, editable=False)
     awarded_at = models.DateTimeField(null=True, blank=True)
@@ -330,6 +355,19 @@ class ChallengeOccurrence(TimestampedModel):
             fields=["goal", "starts_at"], name="unique_challenge_window",
         )]
         ordering = ["-starts_at", "pk"]
+
+
+class ChallengeSchedule(TimestampedModel):
+    """A parent setup effective from a future household calendar week."""
+
+    goal = models.ForeignKey(ChallengeGoal, on_delete=models.CASCADE, related_name="schedules")
+    starts_at = models.DateTimeField()
+    paused = models.BooleanField(default=False)
+    snapshot = models.JSONField(default=dict)
+
+    class Meta:
+        ordering = ["starts_at", "pk"]
+        constraints = [models.UniqueConstraint(fields=["goal", "starts_at"], name="unique_goal_schedule_week")]
 
 
 class ChallengeActivity(TimestampedModel):

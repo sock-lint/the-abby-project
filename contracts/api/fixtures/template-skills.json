@@ -10,7 +10,9 @@
     "icon": "",
     "catalog_icon": null,
     "color": "#D97706",
-    "description": ""
+    "description": "",
+    "is_retired": false,
+    "available_for_new_choices": true
   },
   "bonus_amount": "0.00",
   "materials_budget": "0.00",

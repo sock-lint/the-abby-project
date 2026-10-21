@@ -18,8 +18,11 @@ describe('Voyager feedback through the shared React API client', () => {
     expect(body.schema_version).toBe(1);
     expect(body.cohort.registered_within_days).toBe(180);
     if (body.status === 'observations_available') {
-      const native = body.policy_groups.find((row) => row.policy === 'milestone_56_day');
-      expect(native).toMatchObject({ accepted_windows: 4, pending_windows: 2, mature_completed: 0, mature_expired: 1, mature_unknown: 1, mature_denominator: 1, completion_rate: 0 });
+      expect(body.policy_groups.map((row) => row.policy)).toEqual(['saved_45_day', 'milestone_56_day', 'milestone_84_day', 'other_or_unknown']);
+      const historical = body.policy_groups.find((row) => row.policy === 'milestone_56_day');
+      expect(historical).toMatchObject({ label: '56 days · milestones', accepted_windows: 4, pending_windows: 2, mature_completed: 0, mature_expired: 1, mature_unknown: 1, mature_denominator: 1, completion_rate: 0 });
+      const selected = body.policy_groups.find((row) => row.policy === 'milestone_84_day');
+      expect(selected).toMatchObject({ label: '84 days · selected milestones', accepted_windows: 4, pending_windows: 2, mature_completed: 1, mature_expired: 1, mature_unknown: 0, mature_denominator: 2, completion_rate: 0.5 });
       expect(body.policy_groups.find((row) => row.policy === 'saved_45_day')).toMatchObject({ accepted_windows: 1, mature_completed: 1, mature_denominator: 1, completion_rate: 1 });
     } else expect(body.status).toBe('insufficient_evidence');
   });

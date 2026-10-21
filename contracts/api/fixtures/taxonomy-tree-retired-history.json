@@ -1,0 +1,52 @@
+{
+  "category": {
+    "id": 951,
+    "name": "Retained practice",
+    "icon": "🛠️",
+    "catalog_icon": null,
+    "color": "#D97706",
+    "is_retired": true,
+    "available_for_new_choices": false
+  },
+  "summary": {
+    "level": 1,
+    "total_xp": 75
+  },
+  "subjects": [
+    {
+      "id": 952,
+      "name": "Saved subject",
+      "icon": "",
+      "catalog_icon": null,
+      "category_name": "Retained practice",
+      "description": "",
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": false,
+      "summary": {
+        "level": 1,
+        "total_xp": 75
+      },
+      "skills": [
+        {
+          "id": 953,
+          "name": "Saved skill",
+          "icon": "",
+          "catalog_icon": null,
+          "category_name": "Retained practice",
+          "subject_name": "Saved subject",
+          "description": "",
+          "is_locked_by_default": false,
+          "is_retired": false,
+          "available_for_new_choices": false,
+          "level_names": {},
+          "xp_points": 75,
+          "level": 1,
+          "unlocked": true,
+          "xp_to_next_level": 225,
+          "prerequisites": []
+        }
+      ]
+    }
+  ]
+}

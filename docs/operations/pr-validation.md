@@ -1,6 +1,6 @@
 # Pull request validation
 
-Updated October 13, 2026 for the React Three Fiber/Capacitor application.
+Updated October 21, 2026 for the React Three Fiber/Capacitor application.
 The owner authorized immediate Unity retirement because the app has no active
 users. The [historical Unity runner instructions](unity-pr-validation.md) remain
 available for source recovery, without active build or release requirements.
@@ -34,6 +34,19 @@ run `python manage.py migrate --noinput` and
 the production database. SQLite fixture checks remain useful contract checks;
 they do not satisfy this backend gate.
 
+The backend job has a **45-minute limit**, including service/dependency setup,
+migrations and the full suite. The former 30-minute limit canceled the
+[5,200-test run on `3845ab36`](https://github.com/sock-lint/the-abby-project/actions/runs/39535329812/job/119010547059)
+after 5,184 recorded passes and no recorded failures; 16 tests had no result, so
+that run remained incomplete. It was still passing real migration tests near
+cancellation. The earlier 5,077-test suite completed in 24 minutes 31 seconds;
+comparison at the same late migration checkpoint projects roughly 32 minutes
+including setup for the larger run, before the next merged test additions.
+The 45-minute cap provides bounded headroom for that growth and hosted timing
+variation. It preserves the single full PostgreSQL/Redis run and its assertions;
+the required check still needs a complete successful result on the reviewed
+commit. A canceled run does not satisfy the gate.
+
 From `frontend/`, reproduce with `npm ci`, `npm run lint`,
 `npm run test:coverage -- --maxWorkers=4` and `npm run build`. Set shell variables
 `ABBY_NATIVE_ENVIRONMENT=staging` and `ABBY_NATIVE_API_ORIGIN` to an isolated HTTPS
@@ -46,15 +59,15 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 `DATABASE_URL=sqlite:///:memory:`, then run:
 
 ```powershell
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures config.tests.test_material_api_contract_fixtures config.tests.test_reading_api_contract_fixtures config.tests.test_template_api_contract_fixtures config.tests.test_lifecycle_api_contract_fixtures config.tests.test_google_auth_api_contract_fixtures config.tests.test_submission_timing_api_contract_fixtures
-python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures config.tests.test_journal_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures config.tests.test_material_api_contract_fixtures config.tests.test_reading_api_contract_fixtures config.tests.test_template_api_contract_fixtures config.tests.test_lifecycle_api_contract_fixtures config.tests.test_google_auth_api_contract_fixtures config.tests.test_submission_timing_api_contract_fixtures config.tests.test_drive_export_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_parent_api_contract_fixtures config.tests.test_printing_api_contract_fixtures config.tests.test_taxonomy_delete_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures config.tests.test_taxonomy_retirement_api_contract_fixtures config.tests.test_journal_api_contract_fixtures
 ```
 
 From `frontend/`, run the matching consumers:
 
 ```powershell
-npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/rpgIntegrityContractFixtures.test.jsx src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/voyagerFeedbackContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js src/api/materialContractFixtures.test.js src/api/readingContractFixtures.test.js src/api/templateContractFixtures.test.js src/api/accountLifecycleContractFixtures.test.js src/api/googleAuthContracts.test.js src/api/submissionTimingContractFixtures.test.jsx
-npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/journalContractFixtures.test.js
+npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/rpgIntegrityContractFixtures.test.jsx src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/voyagerFeedbackContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js src/api/materialContractFixtures.test.js src/api/readingContractFixtures.test.js src/api/templateContractFixtures.test.js src/api/accountLifecycleContractFixtures.test.js src/api/googleAuthContracts.test.js src/api/submissionTimingContractFixtures.test.jsx src/api/googleDriveContracts.test.js src/api/parentContractFixtures.test.jsx src/api/printingContractFixtures.test.js src/api/taxonomyContractFixtures.test.jsx
+npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/taxonomyRetirementContractFixtures.test.jsx src/api/journalContractFixtures.test.js
 ```
 
 The catalog producer/consumer pair uses production asset support and checks

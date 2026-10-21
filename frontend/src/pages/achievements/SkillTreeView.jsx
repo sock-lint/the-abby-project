@@ -47,7 +47,7 @@ export default function SkillTreeView({ categories = [] }) {
   const [retry, setRetry] = useState(0);
   const surfaceRef = useRef(null);
   const focusPending = useRef(false);
-  const { data: catalog, loading: catalogLoading, error: catalogError, reload: reloadCatalog } = useApi(getSkillCatalog);
+  const { data: catalog, loading: catalogLoading, error: catalogError, reload: reloadCatalog } = useApi((signal) => getSkillCatalog({ includeRetired: true, signal }));
   const category = categories.find((entry) => sameId(entry.id, navigation.categoryId));
   const categoryId = category?.id ?? null;
   const loadKey = categoryId == null ? null : `${categoryId}:${retry}`;

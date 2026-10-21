@@ -43,7 +43,7 @@ class CategoryCrudTests(_Base):
     def test_create_update_delete(self) -> None:
         with override_user(self.parent):
             created = ach.create_category(CreateCategoryIn(
-                name="Woodworking", icon="🪵", color="#8B4513",
+                name="Unused synthetic category", icon="🪵", color="#8B4513",
             ))
             updated = ach.update_category(UpdateCategoryIn(
                 category_id=created["id"], icon="🌲",

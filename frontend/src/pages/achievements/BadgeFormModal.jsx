@@ -3,6 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import ModalActions from '../../components/ModalActions';
+import TaxonomyOptions from '../../components/form/TaxonomyOptions';
 import { TextField, SelectField, TextAreaField, IconPicker } from '../../components/form';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -74,9 +75,7 @@ export default function BadgeFormModal({ item, subjects, onClose, onSaved }) {
         </div>
         <SelectField label="Subject (optional)" value={form.subject} onChange={onField('subject')}>
           <option value="">None</option>
-          {subjects.map((s) => (
-            <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-          ))}
+          <TaxonomyOptions entries={subjects} selected={form.subject} kind="subject" />
         </SelectField>
         <SelectField label="Criteria Type" value={form.criteria_type} onChange={onField('criteria_type')}>
           {CRITERIA_TYPES.map((ct) => (

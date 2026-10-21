@@ -45,5 +45,5 @@ def resolve_category_id(name: str | None) -> int | None:
     # Imported lazily to avoid app-registry issues at import time.
     from apps.achievements.models import SkillCategory
 
-    match = SkillCategory.objects.filter(name__iexact=name).first()
+    match = SkillCategory.objects.filter(name__iexact=name, is_retired=False).first()
     return match.id if match else None

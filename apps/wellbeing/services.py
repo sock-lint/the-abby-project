@@ -3,7 +3,7 @@
 Mirrors the shape of ``DailyChallengeService.get_or_create_today`` (idempotent)
 so the surface plugs into the existing ``GET /today/`` poll pattern.
 
-Affirmation pool is a static YAML file under ``content/wellbeing/``. The roll
+The bundled affirmation pool has reviewed database copy/selection overlays. The roll
 is deterministic per ``(user_id, date)`` via a hash — refreshes on the same
 day return the same affirmation so the kid doesn't slot-machine the prompt.
 """
@@ -46,7 +46,7 @@ class WellbeingContentError(RuntimeError):
 
 
 @lru_cache(maxsize=1)
-def _load_affirmations() -> list[dict[str, Any]]:
+def _load_affirmation_source() -> list[dict[str, Any]]:
     """Parse the affirmations YAML once per process.
 
     Cleared by tests via ``_load_affirmations.cache_clear()`` when the
@@ -87,9 +87,17 @@ def _load_affirmations() -> list[dict[str, Any]]:
     return parsed
 
 
+def _load_affirmations(*, include_retired=False) -> list[dict[str, Any]]:
+    from apps.rpg.content.editorial import apply_editorial_overrides
+    return apply_editorial_overrides("affirmations", _load_affirmation_source(), include_retired=include_retired)
+
+
+_load_affirmations.cache_clear = _load_affirmation_source.cache_clear
+
+
 def _resolve_affirmation(slug: str) -> dict[str, Any] | None:
     """Look up an affirmation by slug. Returns ``None`` if missing."""
-    for entry in _load_affirmations():
+    for entry in _load_affirmations(include_retired=True):
         if entry["slug"] == slug:
             return entry
     return None
