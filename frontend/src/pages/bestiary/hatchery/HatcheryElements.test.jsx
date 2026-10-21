@@ -9,6 +9,12 @@ import { spyHandler } from '../../../test/spy';
 import { openDropdown, selectDropdown } from '../../../test/selectDropdown';
 
 vi.mock('../../../pedestal/PedestalPreview', () => ({ default: () => null }));
+// These scenarios exercise unavailable model art, independently of installed
+// private releases. Installed-art rendering has its own preview/browser checks.
+vi.mock('../../../companion/sharedElementalRelease', async () => ({
+  ...await vi.importActual('../../../companion/sharedElementalRelease'),
+  resolveElementalPreviewAppearance: vi.fn(() => null),
+}));
 
 const base = { id: 1, slug: 'base', name: 'Base', rarity: 'common' };
 const fire = { id: 2, slug: 'fire', name: 'Fire', rarity: 'common' };
