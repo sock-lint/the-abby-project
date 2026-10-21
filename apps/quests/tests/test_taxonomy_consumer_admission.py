@@ -210,4 +210,3 @@ class TaxonomyConsumerAdmissionTests(TestCase):
         response = self.client.post("/api/homework-templates/", {"title": "New saved choice",
             "skill_tags": [{"skill_id": self.skill.pk, "xp_amount": 15}]}, format="json")
         self.assertEqual(response.status_code, 400, response.data)
-

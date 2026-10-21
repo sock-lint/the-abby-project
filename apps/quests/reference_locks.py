@@ -43,10 +43,14 @@ def definitions_with_available_taxonomy(queryset):
     from apps.achievements.models import Skill
     from apps.achievements.taxonomy import available_skills
     unavailable = Skill.objects.exclude(pk__in=Subquery(available_skills().values("pk")))
+    # A JSON transform and an integer-valued subquery have incompatible PG
+    # types (jsonb = bigint). Literal RHS values use Django's JSON adaptation;
+    # legacy malformed filters therefore never require an unsafe integer cast.
+    retired_categories = list(SkillCategory.objects.filter(is_retired=True).values_list("pk", flat=True))
     return queryset.exclude(
         Q(required_skill_id__in=Subquery(unavailable.values("pk")))
         | Q(skill_tags__skill_id__in=Subquery(unavailable.values("pk")))
-        | Q(trigger_filter__skill_category_id__in=Subquery(SkillCategory.objects.filter(is_retired=True).values("pk")))
+        | Q(trigger_filter__skill_category_id__in=retired_categories)
     ).distinct()
 
 
