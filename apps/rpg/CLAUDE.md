@@ -89,6 +89,8 @@ with the Lab. Drop notifications are best effort, with push deferred to commit.
 
 Saved inventory gains and completed consumable uses immediately evaluate
 collection/use badges through `BadgeService.evaluate_inventory_badges`.
+Exact catalog-retirement compensation uses `grant_item(..., evaluate_badges=False)`
+to restore existing promises without badge, XP, Coin-bonus or activity hooks.
 Acquisition and badge awards take the account gate before stack locks. Nested
 badge drops queue another scoped pass until the current pass ends, so a loot
 chain awards each newly qualified badge once without recursive game-loop
