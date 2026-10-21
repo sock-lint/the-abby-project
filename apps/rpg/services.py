@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import F
+from django.db.models import Exists, F, OuterRef, Q
 from django.utils import timezone
 from apps.rpg.catalog_icons import item_catalog_icon
 
@@ -1196,7 +1196,7 @@ class ConsumableService:
             # Milestone reading definitions open automatically on fresh reading;
             # picking one here cannot create a legacy countdown instead.
             from apps.achievements.models import UserBadge
-            from apps.quests.models import Quest
+            from apps.quests.models import ChallengeGoal, Quest
             from apps.quests.queries import active_system_definitions
             from apps.quests.reference_locks import definitions_with_available_taxonomy
             from apps.quests.services import QuestService
@@ -1211,9 +1211,23 @@ class ConsumableService:
             user_badge_ids = set(
                 UserBadge.objects.filter(user=profile.user).values_list("badge_id", flat=True)
             )
+            # Selection must obey the same saved-identity guards as start_quest.
+            # An automatic promise (including a retained alias) cannot become a
+            # second legacy campaign, and a paid one-time identity cannot reroll.
+            accepted = ChallengeGoal.objects.filter(user=profile.user).filter(
+                Q(catalog_definition_id=OuterRef("pk"))
+                | Q(catalog_definition__superseded_by_id=OuterRef("pk")),
+            )
+            completed = Quest.objects.filter(
+                participants__user=profile.user, status=Quest.Status.COMPLETED,
+            ).filter(Q(definition_id=OuterRef("pk")) | Q(definition__superseded_by_id=OuterRef("pk")))
             candidates = [
                 q for q in definitions_with_available_taxonomy(active_system_definitions()).filter(
                     is_cooperative=False, duration_days__isnull=False,
+                ).annotate(
+                    reroll_accepted=Exists(accepted), reroll_completed=Exists(completed),
+                ).filter(reroll_accepted=False).filter(
+                    Q(is_repeatable=True) | Q(reroll_completed=False),
                 ).prefetch_related(
                     "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
                 )

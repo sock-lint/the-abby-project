@@ -171,6 +171,11 @@ def _retry_chain(rows, as_of):
         zone = ZoneInfo(root["goal__timezone_name"])
 
         def duration(row):
+            # Untimed or malformed saved attempts cannot establish a timed
+            # retry policy. Keep them as unknown evidence without repairing or
+            # interpreting today's catalog as their original promise.
+            if not all(isinstance(row[field], datetime) for field in ("starts_at", "ends_at")):
+                raise ValueError
             return (row["ends_at"].astimezone(zone).replace(tzinfo=None)
                     - row["starts_at"].astimezone(zone).replace(tzinfo=None))
 

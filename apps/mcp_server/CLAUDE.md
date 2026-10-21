@@ -64,7 +64,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 264 tools across 36 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 274 tools across 37 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 `list_homework` and `get_homework` share an active-assignment queryset scoped to
 the parent's family or the child's own assignments. Foreign and missing detail
@@ -224,3 +224,30 @@ separate reviewed changes. Taxonomy hard deletes remove only unused, unmanaged
 leaves. Referenced or managed definitions report `taxonomy_in_use`; saved progress,
 earned badges, tags and challenge promises are preserved. REST shares the same
 deletion service. Reviewed publication/versioning governs source retirement.
+
+
+### Saved progression experiments
+
+`progression_experiments.py` wraps the native private notebook: list/get,
+create/save, paired comparison/get, append-only decision, household observation
+read and saved checkpoint. Notebook tools require `mcp:author`; author-only
+results set `observations_redacted=true` and avoid loading checkpoint payloads.
+Capturing a checkpoint requires both author and read grants in discovery and
+invocation. Household aggregates require `mcp:read`; no target selectors or
+private journal/ledger prose are accepted. Staff-parent and current actor/family
+checks apply under family/member locks to reads, mutations and replays.
+
+Migrate `0005_mcpexperimentmutationreceipt` before serving these tools. The
+separate UUID-result receipt stores only request digests and exact saved result
+identities, retaining tombstones after result deletion. Actor/family deletion
+removes its private receipt identities. Replays reread current authorized state,
+skip simulation and comparison quota, and never publish or alter live rewards.
+Native revisions, stale-evidence decisions, five-per-minute comparisons and
+notebook/evidence limits remain authoritative. The ordinary integer-result MCP
+receipt contract remains unchanged.
+
+`list_challenges` supports bounded signed modern/legacy continuation pages, and
+`get_challenge` reads exact saved IDs. Both retain current-account locks and
+saved-state-only serialization. Pagination never calls materializing `list_goals`.
+Catalog new-choice availability also uses native automatic-trigger support;
+retained unsupported definitions remain inspectable with explicit reasons.
