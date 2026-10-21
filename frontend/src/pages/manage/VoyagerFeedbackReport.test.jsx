@@ -28,12 +28,12 @@ function staffContext(kind) {
 }
 
 describe('Reading Voyager feedback', () => {
-  it('consumes actual endpoint states and separates saved 45-day and native 56-day mature outcomes', async () => {
+  it('consumes actual endpoint states and separates saved 45-day, historical 56-day and selected 84-day promises', async () => {
     setup();
     const { user } = renderWithProviders(<VoyagerFeedbackReport />);
     const panel = within(await screen.findByRole('region', { name: 'Reading Voyager feedback' }));
-    await panel.findByText(/7 new children/);
-    expect(panel.getAllByRole('definition').map((item) => item.textContent)).toEqual(['1', '1', '1', '2', '1', '1']);
+    await panel.findByText(/11 new children/);
+    expect(panel.getAllByRole('definition').map((item) => item.textContent)).toEqual(['1', '1', '2', '4', '2', '1']);
     expect(panel.getByText('Ready for next Reading Adventure')).toBeVisible();
     expect(panel.getByText(/not measure global retention or when a child first became eligible/)).toBeVisible();
     expect(panel.getByText(/Snapshot recorded:/)).toHaveTextContent(observed.period.as_of);
@@ -46,19 +46,25 @@ describe('Reading Voyager feedback', () => {
       expect(cells[5]).toHaveTextContent(`${group.mature_completed} of ${group.mature_denominator} resolved mature windows`);
       expect(cells[6]).toHaveTextContent(String(group.unknown_windows));
     }
-    const native = within(table.getByRole('row', { name: /56/ }));
-    expect(native.getByText('0%', { exact: false })).toHaveTextContent('0 of 1 resolved mature windows');
+    expect(table.getAllByRole('rowheader').map((item) => item.textContent)).toEqual([
+      'Saved 45-day windows', '56 days · milestones', '84 days · selected milestones', 'Other or unknown policy',
+    ]);
+    const historical = within(table.getByRole('row', { name: /56 days/ }));
+    expect(historical.getByText('0%', { exact: false })).toHaveTextContent('0 of 1 resolved mature windows');
+    const selected = within(table.getByRole('row', { name: /84 days/ }));
+    expect(selected.getByText('50%', { exact: false })).toHaveTextContent('1 of 2 resolved mature windows');
     expect(panel.getByText(/Still observing includes early completions/)).toBeVisible();
     expect(panel.getByText(/Unresolved outcomes and unknown timing are excluded/)).toBeVisible();
+    expect(panel.getByText(/Historical 45- and 56-day windows, the selected 84-day milestones/)).toBeVisible();
     await user.click(panel.getByText('Voyager coverage and accounting'));
     for (const note of observed.notes) expect(panel.getByText(note)).toBeVisible();
   });
 
-  it.each([
-    ['pending and early-completed', { accepted_windows: 2, pending_windows: 2, mature_unknown: 0 }],
-    ['unresolved mature', { accepted_windows: 1, pending_windows: 0, mature_unknown: 1 }],
-  ])('does not turn %s windows into a zero-percent failure rate', async (_label, counts) => {
-    const group = observed.policy_groups.find((row) => row.policy === 'milestone_56_day');
+  it.each(['milestone_56_day', 'milestone_84_day'].flatMap((policy) => [
+    [`${policy} pending and early-completed`, policy, { accepted_windows: 2, pending_windows: 2, mature_unknown: 0 }],
+    [`${policy} unresolved mature`, policy, { accepted_windows: 1, pending_windows: 0, mature_unknown: 1 }],
+  ]))('does not turn %s windows into a zero-percent failure rate', async (_label, policy, counts) => {
+    const group = observed.policy_groups.find((row) => row.policy === policy);
     setup({ ...observed, policy_groups: [{ ...group, ...counts, mature_completed: 0, mature_expired: 0, unknown_windows: 0, mature_denominator: 0, completion_rate: null }] });
     renderWithProviders(<VoyagerFeedbackReport />);
     expect(await screen.findByText('No resolved mature outcomes')).toBeVisible();
@@ -77,7 +83,7 @@ describe('Reading Voyager feedback', () => {
     setup({ ...observed, policy_groups: [] });
     renderWithProviders(<VoyagerFeedbackReport />);
     expect(await screen.findByText('No saved Voyager windows are recorded for this cohort.')).toBeVisible();
-    expect(screen.getByText(/7 new children/)).toBeVisible();
+    expect(screen.getByText(/11 new children/)).toBeVisible();
   });
 
   it.each([
@@ -102,7 +108,7 @@ describe('Reading Voyager feedback', () => {
       ? HttpResponse.json({ detail: 'Feedback is temporarily unavailable.' }, { status: 503 })
       : HttpResponse.json(observed)));
     const { user } = renderWithProviders(<VoyagerFeedbackReport />);
-    await screen.findByText(/7 new children/);
+    await screen.findByText(/11 new children/);
     await user.click(screen.getByRole('button', { name: 'Refresh Voyager feedback' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Feedback is temporarily unavailable.');
     expect(screen.getByText(/Last successful snapshot shown below/)).toBeVisible();
@@ -140,7 +146,7 @@ describe('Reading Voyager feedback', () => {
     await user.click(screen.getByRole('button', { name: 'Switch context' }));
     await screen.findByText(/No eligible new children/);
     await act(async () => { release(); await gate; });
-    expect(screen.queryByText(/7 new children/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/11 new children/)).not.toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
     expect(reads).toBe(2);
   });

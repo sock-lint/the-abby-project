@@ -35,7 +35,7 @@ CURRENT_DESCRIPTION = (
 )
 PROPOSED_DESCRIPTION = (
     "Unlock by completing Reading Companion and reaching Reading Comprehension level 1. "
-    "Complete 20 daily Reading Adventures within 56 days after this challenge opens. "
+    "Complete 20 daily Reading Adventures within 84 days after this challenge opens. "
     "Each Adventure needs ten newly logged reading or listening minutes and counts once each family-local day. "
     "Earn the Bookworm title."
 )
@@ -124,16 +124,16 @@ def prepare_reading_voyager(actor):
     if list(voyager.reward_items.order_by("item_id").values_list("item_id", "quantity")) != [(title.pk, 1)]:
         raise ContentPackError("Reading Voyager item rewards differ from the reviewed single Bookworm title promise.")
 
-    draft = create_draft(actor, "Untimed Reading Companion and 56-day Voyager")
+    draft = create_draft(actor, "Untimed Reading Companion and 84-day Voyager")
     draft = save_draft(actor, draft["id"], draft["revision"], [{
         "section": "quests", "object_id": companion.pk, "key": "reading-companion",
         "values": {"duration_days": None, "description": PROPOSED_COMPANION_DESCRIPTION},
     }, {
         "section": "quests", "object_id": voyager.pk, "key": "reading-voyager",
         "values": {"prerequisite_quest": companion.pk, "required_skill": skill.pk, "required_skill_level": 1,
-                   "duration_days": 56, "description": PROPOSED_DESCRIPTION},
+                   "duration_days": 84, "description": PROPOSED_DESCRIPTION},
     }])
     reviewed = preview_draft(actor, draft["id"], draft["revision"])
-    return {**reviewed, "policy_id": "reading-companion-untimed-voyager-milestones-56-days", "preparation_only": True,
+    return {**reviewed, "policy_id": "reading-companion-untimed-voyager-milestones-84-days", "preparation_only": True,
             "resolved_ids": {"voyager": voyager.pk, "companion": companion.pk,
                              "reading_skill": skill.pk, "bookworm_title": title.pk}}

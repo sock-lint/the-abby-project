@@ -92,6 +92,35 @@ class UntimedReadingForecastTests(TestCase):
                 trial = self.trial(**overrides)
                 self.assertNotIn(self.companion.pk, {q.pk for q in trial.quests})
 
+    def test_84_day_twice_weekly_forecast_matches_native_reading_completion_and_absence_margin(self):
+        skill = Skill.objects.get(name="Reading Comprehension", category__name="Language Arts")
+        catalog = self.catalog()
+        quests = FrozenRows(replace(quest, fields=_freeze({
+            **quest.fields,
+            **({"xp_reward": 20} if quest.pk == self.companion.pk else {
+                "duration_days": 84, "target_value": 20, "required_skill_id": skill.pk, "required_skill_level": 1,
+            }),
+        })) for quest in catalog.quests)
+        # No random reward or badge path is needed for this direct reading path.
+        catalog = replace(catalog, quests=quests, pools={}, badges=[])
+        for missed_days, completion in ((set(), 85), ({29, 30, 57, 58}, 99)):
+            with self.subTest(missed_days=missed_days):
+                trial = Trial(normalize_config(quiet_config(
+                    horizon_days=180, active_days_per_week=2, reading_minutes=10,
+                )), catalog, 71)
+                with self.assertNumQueries(0):
+                    for day in range(1, 181):
+                        trial.config["reading_minutes"] = 0 if day in missed_days else 10
+                        trial.daily(day)
+                self.assertEqual(trial.quest_windows[self.voyager.pk]["start"], 16)
+                self.assertEqual(trial.challenge_gates.completion_days[self.voyager.pk], completion)
+                self.assertEqual(trial.quest_windows[self.voyager.pk]["progress"], 20)
+                self.assertEqual(trial.counters["quest_completions"], 2)
+                self.assertEqual(trial.counters["drop_opportunities:quest_complete"], 2)
+                self.assertEqual(trial.source_totals["reading"]["coins"], 260 - len(missed_days) * 5)
+                self.assertFalse(next(row for row in trial.challenge_gates.report(trial)["targets"]
+                                      if row["quest_id"] == self.voyager.pk)["expired"])
+
     def test_untimed_completion_supplies_one_finite_loot_draw_and_cannot_fund_a_pet_pair(self):
         # Completion loot chooses one item. No deadline must not turn one
         # onboarding completion into renewable eggs, potions or expedition loot.

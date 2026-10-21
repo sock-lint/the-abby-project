@@ -32,7 +32,8 @@ GROUP_FIELDS = (
 )
 POLICIES = (
     ("saved_45_day", "Saved 45-day windows"),
-    ("milestone_56_day", "56 days · selected milestones"),
+    ("milestone_56_day", "56 days · milestones"),
+    ("milestone_84_day", "84 days · selected milestones"),
     ("other_or_unknown", "Other or unknown policy"),
 )
 NOTES = [
@@ -92,7 +93,9 @@ def _saved_policy(row, companion_id, skill_id):
             and "catalog_gate" not in snapshot
             and row["goal__catalog_gate_activity_id"] is None):
         return "saved_45_day"
-    if companion_id is None or skill_id is None or duration != timedelta(days=56):
+    milestone_policy = {timedelta(days=56): "milestone_56_day",
+                        timedelta(days=84): "milestone_84_day"}.get(duration)
+    if companion_id is None or skill_id is None or milestone_policy is None:
         return "other_or_unknown"
     expected = {"version": 1, "prerequisite_quest_id": companion_id,
                 "required_skill_id": skill_id, "required_skill_level": 1,
@@ -108,7 +111,7 @@ def _saved_policy(row, companion_id, skill_id):
             or any(type(saved_gate[key]) is not type(value) or saved_gate[key] != value
                    for key, value in expected_saved.items())):
         return "other_or_unknown"
-    return "milestone_56_day"
+    return milestone_policy
 
 
 def _automatic_state(row, as_of):

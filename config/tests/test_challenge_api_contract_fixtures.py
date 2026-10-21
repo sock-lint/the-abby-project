@@ -51,7 +51,7 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
             "Voyager feedback fixture", family_id=81,
             parents=[{"id": 80, "username": "voyager-feedback-parent", "is_staff": True}],
             children=[{"id": index, "username": f"voyager-feedback-child-{index}"}
-                      for index in range(101, 108)],
+                      for index in range(101, 112)],
         )
         self.parent, self.children = household.parents[0], household.children
         household.family.timezone = "America/Phoenix"
@@ -63,11 +63,11 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
         self.reading = Skill.objects.create(id=72, name="Reading Comprehension", category=category)
         self.companion = QuestDefinition.objects.create(
             id=73, name="Reading Companion", quest_type="collection", target_value=3,
-            duration_days=14, is_system=True, trigger_filter={"allowed_triggers": ["reading_logged"]},
+            duration_days=None, is_system=True, trigger_filter={"allowed_triggers": ["reading_logged"]},
         )
         self.voyager = QuestDefinition.objects.create(
             id=74, name="Reading Voyager", quest_type="collection", target_value=20,
-            duration_days=56, is_system=True, prerequisite_quest=self.companion,
+            duration_days=84, is_system=True, prerequisite_quest=self.companion,
             required_skill=self.reading, required_skill_level=1,
             trigger_filter={"allowed_triggers": ["reading_logged"]}, coin_reward=0, xp_reward=50,
         )
@@ -81,7 +81,7 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
         from apps.quests.models import ChallengeActivity, ChallengeGoal, ChallengeOccurrence
 
         start = FIXED_NOW - timedelta(days=age)
-        gated = days == 56
+        gated = days in (56, 84)
         activity_id = None
         if gated:
             activity = ChallengeActivity.objects.create(
@@ -109,7 +109,8 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
     def test_saved_policy_maturity_and_current_states_are_actual_read_only_responses(self):
         from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestParticipant
 
-        locked, ready, active, old_complete, expired, early_complete, unknown = self.children
+        (locked, ready, active, old_complete, expired, early_complete, unknown,
+         active84, early_complete84, mature_complete84, expired84) = self.children
         previous = Quest.objects.create(
             id=601, definition=self.companion, status="completed",
             start_date=FIXED_NOW - timedelta(days=20), end_date=FIXED_NOW - timedelta(days=5),
@@ -122,13 +123,18 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
         self.saved_window(expired, 3, days=56, age=70, progress=18)
         self.saved_window(early_complete, 4, days=56, age=15, status="completed", progress=20, completed_age=1)
         self.saved_window(unknown, 5, days=56, age=90, status="completed", progress=20)
+        self.saved_window(active84, 6, days=84, age=10)
+        self.saved_window(early_complete84, 7, days=84, age=15, status="completed", progress=20, completed_age=1)
+        # Exactly at the exclusive saved deadline the full window is mature.
+        self.saved_window(mature_complete84, 8, days=84, age=84, status="completed", progress=20, completed_age=2)
+        self.saved_window(expired84, 9, days=84, age=90, progress=18)
         models = (ChallengeGoal, ChallengeOccurrence, CoinLedger, SkillProgress, UserInventory)
         before = {model._meta.label: list(model.objects.order_by("pk").values()) for model in models}
         body = self.assert_response_fixture(
             self.client.get("/api/challenges/voyager-feedback/"), "voyager-feedback-observed.json",
         )
         self.assertEqual(body["current_states"], {
-            "locked": 1, "ready": 1, "active": 1, "completed": 2, "expired": 1, "unknown": 1,
+            "locked": 1, "ready": 1, "active": 2, "completed": 4, "expired": 2, "unknown": 1,
         })
         groups = {row["policy"]: row for row in body["policy_groups"]}
         self.assertEqual(groups["saved_45_day"]["mature_completed"], 1)
@@ -136,6 +142,12 @@ class VoyagerFeedbackApiResponseFixtureTests(APITestCase):
         self.assertEqual(groups["milestone_56_day"]["mature_expired"], 1)
         self.assertEqual(groups["milestone_56_day"]["mature_unknown"], 1)
         self.assertEqual(groups["milestone_56_day"]["mature_denominator"], 1)
+        self.assertEqual(groups["milestone_84_day"]["accepted_windows"], 4)
+        self.assertEqual(groups["milestone_84_day"]["pending_windows"], 2)
+        self.assertEqual(groups["milestone_84_day"]["mature_completed"], 1)
+        self.assertEqual(groups["milestone_84_day"]["mature_expired"], 1)
+        self.assertEqual(groups["milestone_84_day"]["mature_denominator"], 2)
+        self.assertEqual(groups["milestone_84_day"]["completion_rate"], 0.5)
         self.assertEqual(before, {model._meta.label: list(model.objects.order_by("pk").values()) for model in models})
         self.assertNotIn("Private fixture detail", str(body))
         self.assertNotIn(locked.username, str(body))

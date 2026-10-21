@@ -16,7 +16,7 @@
   },
   "cohort": {
     "registered_within_days": 180,
-    "eligible_children": 7,
+    "eligible_children": 11,
     "max_children": 100,
     "truncated": false,
     "observer_family_excluded": false
@@ -24,9 +24,9 @@
   "current_states": {
     "locked": 1,
     "ready": 1,
-    "active": 1,
-    "completed": 2,
-    "expired": 1,
+    "active": 2,
+    "completed": 4,
+    "expired": 2,
     "unknown": 1
   },
   "policy_groups": [
@@ -44,7 +44,7 @@
     },
     {
       "policy": "milestone_56_day",
-      "label": "56 days · selected milestones",
+      "label": "56 days · milestones",
       "accepted_windows": 4,
       "pending_windows": 2,
       "mature_completed": 0,
@@ -53,6 +53,18 @@
       "unknown_windows": 0,
       "mature_denominator": 1,
       "completion_rate": 0.0
+    },
+    {
+      "policy": "milestone_84_day",
+      "label": "84 days · selected milestones",
+      "accepted_windows": 4,
+      "pending_windows": 2,
+      "mature_completed": 1,
+      "mature_expired": 1,
+      "mature_unknown": 0,
+      "unknown_windows": 0,
+      "mature_denominator": 2,
+      "completion_rate": 0.5
     },
     {
       "policy": "other_or_unknown",

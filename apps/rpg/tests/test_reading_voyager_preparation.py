@@ -1,8 +1,10 @@
 """The selected policy can be prepared privately without activating its rules."""
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from io import StringIO
 import json
 from unittest.mock import patch
+from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
@@ -12,7 +14,10 @@ from django.utils import timezone
 
 from apps.achievements.models import Skill, SkillCategory
 from apps.pets.models import PetSpecies, PotionType
+from apps.quests.goals import list_goals
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestRewardItem, QuestSkillTag
+from apps.reading.models import ReadingBook, ReadingDailyReward, ReadingSession
+from apps.reading.services import ReadingRewardService
 from apps.rewards.models import CoinLedger
 from apps.rpg.content.loader import ContentPackError
 from apps.rpg.content.publication import _snapshot
@@ -27,7 +32,7 @@ CURRENT_COPY = (
 )
 PROPOSED_COPY = (
     "Unlock by completing Reading Companion and reaching Reading Comprehension level 1. "
-    "Complete 20 daily Reading Adventures within 56 days after this challenge opens. "
+    "Complete 20 daily Reading Adventures within 84 days after this challenge opens. "
     "Each Adventure needs ten newly logged reading or listening minutes and counts once each family-local day. "
     "Earn the Bookworm title."
 )
@@ -75,10 +80,82 @@ class ReadingVoyagerPreparationTests(TestCase):
         self.assertEqual(set(edits), {self.companion.pk, self.voyager.pk})
         self.assertIsNone(edits[self.companion.pk]["duration_days"])
         self.assertIn("no deadline", edits[self.companion.pk]["description"].lower())
-        self.assertEqual(edits[self.voyager.pk]["duration_days"], 56)
+        self.assertEqual(edits[self.voyager.pk]["duration_days"], 84)
         self.companion.refresh_from_db()
         self.assertEqual(self.companion.duration_days, 14)
         self.assertIsNone(result["published_at"])
+
+    def selected_native_journey(self, *, missed_days=()):
+        """Exercise the prepared candidate only in this disposable test database."""
+        result = prepare_reading_voyager(self.actor)
+        definitions = {self.companion.pk: self.companion, self.voyager.pk: self.voyager}
+        for change in result["changes"]:
+            definition = definitions[change["object_id"]]
+            for field, value in change["values"].items():
+                if field in {"prerequisite_quest", "required_skill"}:
+                    field += "_id"
+                setattr(definition, field, value)
+            definition.full_clean()
+            definition.save()
+        self.assertEqual(self.voyager.duration_days, 84)
+        book = ReadingBook.objects.create(
+            user=self.child, title="Synthetic new-reader book", client_request_id=uuid4(), create_payload={},
+        )
+        start = datetime(2027, 1, 4, 19, 0, tzinfo=UTC)
+        with patch("apps.rpg.services.DropService.process_drops", return_value=[]):
+            for day in range(120):
+                if day % 7 >= 2 or day in missed_days:
+                    continue
+                at = start + timedelta(days=day)
+                with patch("django.utils.timezone.now", return_value=at):
+                    session = ReadingSession.objects.create(
+                        user=self.child, book=book,
+                        occurred_on=at.astimezone(ZoneInfo(self.family.timezone)).date(),
+                        duration_minutes=10, client_request_id=uuid4(), create_payload={},
+                    )
+                    ReadingRewardService.credit_new_session(self.child, session)
+        companion = ChallengeOccurrence.objects.get(goal__user=self.child, goal__catalog_definition=self.companion)
+        voyager = ChallengeOccurrence.objects.get(goal__user=self.child, goal__catalog_definition=self.voyager)
+        self.assertEqual((companion.status, companion.progress, companion.ends_at), ("completed", 3, None))
+        self.assertEqual(voyager.starts_at, start + timedelta(days=15))
+        self.assertEqual(voyager.ends_at, start + timedelta(days=99))
+        self.assertEqual(voyager.goal.ends_at, voyager.ends_at)
+        self.assertEqual(voyager.goal.occurrences.count(), 1)
+        self.assertEqual(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.voyager).count(), 1)
+        expected_adventures = sum(day % 7 < 2 and day not in missed_days for day in range(120))
+        self.assertEqual(ReadingDailyReward.objects.filter(user=self.child, awarded_at__isnull=False).count(),
+                         expected_adventures)
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child, reason=CoinLedger.Reason.READING)
+                              .values_list("amount", flat=True)), [5] * expected_adventures)
+        return start, voyager
+
+    def test_selected_84_day_candidate_completes_for_a_twice_weekly_new_reader(self):
+        start, voyager = self.selected_native_journey()
+        self.assertEqual((voyager.status, voyager.progress), ("completed", 20))
+        self.assertEqual(voyager.completed_at, start + timedelta(days=84))
+        self.assertEqual(voyager.ends_at - voyager.completed_at, timedelta(days=15))
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.title).quantity, 1)
+        self.assertEqual([(item["item_id"], item["quantity"]) for item in voyager.reward_receipt["items"]],
+                         [(self.title.pk, 1)])
+        self.assertEqual(voyager.reward_receipt["coins"], 0)
+
+    def test_selected_84_day_candidate_tolerates_two_missed_reading_weeks(self):
+        start, voyager = self.selected_native_journey(missed_days={28, 29, 56, 57})
+        self.assertEqual((voyager.status, voyager.progress), ("completed", 20))
+        self.assertEqual(voyager.completed_at, start + timedelta(days=98))
+        self.assertEqual(voyager.ends_at - voyager.completed_at, timedelta(days=1))
+        self.assertEqual(UserInventory.objects.get(user=self.child, item=self.title).quantity, 1)
+
+    def test_selected_84_day_candidate_still_expires_after_a_four_week_break(self):
+        start, voyager = self.selected_native_journey(missed_days=set(range(28, 56)))
+        with patch("django.utils.timezone.now", return_value=start + timedelta(days=120)):
+            result = list_goals(self.child)
+        voyager.refresh_from_db()
+        row = next(row for row in result["results"] if row["id"] == f"goal:{voyager.pk}")
+        self.assertEqual((row["status"], voyager.progress), ("expired", 16))
+        self.assertIsNone(voyager.completed_at)
+        self.assertIsNone(voyager.awarded_at)
+        self.assertFalse(UserInventory.objects.filter(user=self.child, item=self.title).exists())
 
     def test_reward_value_drift_requires_a_new_review(self):
         self.title.coin_value = 100
@@ -107,8 +184,9 @@ class ReadingVoyagerPreparationTests(TestCase):
         self.assertEqual(result["resolved_ids"], {"voyager": self.voyager.pk, "companion": self.companion.pk,
                                                  "reading_skill": self.skill.pk, "bookworm_title": self.title.pk})
         self.assertEqual(result["changes"][1:], [{"section": "quests", "object_id": self.voyager.pk,
-            "key": "reading-voyager", "values": {"duration_days": 56, "description": PROPOSED_COPY,
+            "key": "reading-voyager", "values": {"duration_days": 84, "description": PROPOSED_COPY,
                 "prerequisite_quest": self.companion.pk, "required_skill": self.skill.pk, "required_skill_level": 1}}])
+        self.assertEqual(result["policy_id"], "reading-companion-untimed-voyager-milestones-84-days")
         self.assertTrue(result["preparation_only"])
         self.assertIsNone(result["published_at"])
         self.assertIsNone(result["preview"]["published_at"])
@@ -284,6 +362,7 @@ class ReadingVoyagerPreparationTests(TestCase):
         output = StringIO()
         call_command("prepare_reading_voyager", actor_id=self.actor.pk, stdout=output)
         result = json.loads(output.getvalue())
+        self.assertEqual(result["policy_id"], "reading-companion-untimed-voyager-milestones-84-days")
         self.assertTrue(result["preparation_only"])
         self.assertTrue(result["id"])
         self.assertTrue(result["preview"]["preview_id"])

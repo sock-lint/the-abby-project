@@ -28,8 +28,10 @@ The separate Reading Voyager feedback panel reads `/api/challenges/voyager-feedb
 for the staff parent's own family. Its 180-day new-child cohort includes all
 bounded saved Voyager windows, rather than only recent window starts. Current
 locked/ready/active/completed/expired/unknown child states are a snapshot, not a
-first-eligibility history. Saved 45-day windows, verified native 56-day milestone
-promises and other/unknown policies remain separate. Mature rates use only
+first-eligibility history. Saved 45-day windows, historical native 56-day
+milestone promises, selected 84-day milestone promises and other/unknown
+policies remain separate. Selection for review does not publish the policy or
+extend saved promises. Mature rates use only
 resolved windows whose full saved deadline passed. Pending windows, including
 early completions, and unknown histories are excluded rather than counted as
 failures. Refresh is

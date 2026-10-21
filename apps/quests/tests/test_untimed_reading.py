@@ -118,8 +118,8 @@ class UntimedReadingTests(TestCase):
         skill = Skill.objects.create(name="Reading Comprehension", category=category)
         SkillProgress.objects.create(user=self.child, skill=skill, level=1, xp_points=100, unlocked=True)
         voyager = QuestDefinition.objects.create(
-            name="Reading Voyager", description="Twenty Adventures in 56 days.",
-            quest_type="collection", target_value=20, duration_days=56, is_system=True,
+            name="Reading Voyager", description="Twenty Adventures in 84 days.",
+            quest_type="collection", target_value=20, duration_days=84, is_system=True,
             trigger_filter=READING, prerequisite_quest=self.companion, required_skill=skill,
             required_skill_level=1,
         )
@@ -130,7 +130,7 @@ class UntimedReadingTests(TestCase):
         self.fact("opening", 101)
         goal = ChallengeGoal.objects.get(user=self.child, catalog_definition=voyager)
         self.assertEqual((goal.starts_at, goal.ends_at),
-                         (self.now + timedelta(days=101), self.now + timedelta(days=157)))
+                         (self.now + timedelta(days=101), self.now + timedelta(days=185)))
         self.assertEqual(goal.occurrences.get().progress, 1)
         self.assertFalse(ChallengeGoal.objects.filter(user=self.sibling).exists())
 

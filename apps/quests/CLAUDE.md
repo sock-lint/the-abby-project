@@ -195,10 +195,13 @@ precedence over new-offer readiness; membership is rechecked before aggregation.
 Saved 45-day windows require frozen count-20 reading rules, exactly 45 elapsed
 days and no native milestone snapshot. Their old badge requirements were not
 frozen, so do not describe this bucket as proof of historically ungated access.
-The selected 56-day bucket additionally requires matching strict version-one
-goal/occurrence gate snapshots, the exact unique global Reading Companion and
-Language Arts::Reading Comprehension identities, skill level 1, no badge and
-the saved opening activity ID. Other or malformed policies stay separate.
+Historical 56-day and selected 84-day milestone buckets additionally require
+matching strict version-one goal/occurrence gate snapshots, the exact unique
+global Reading Companion and Language Arts::Reading Comprehension identities,
+skill level 1, no badge and
+the saved opening activity ID. They remain separate buckets using each saved
+elapsed duration; selecting 84 days neither extends accepted 45-/56-day
+promises nor publishes the candidate. Other or malformed policies stay separate.
 Current catalog edits never reclassify an accepted promise from today's rules.
 
 Only fully ended saved windows enter mature outcomes. Early completions remain

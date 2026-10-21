@@ -1,9 +1,10 @@
 # Reading Voyager milestone implementation
 
-This implementation adds inactive native support for an untimed Companion
-and milestone-gated Voyager, plus an exact private draft preparation command. It does not publish the selected policy or change bundled
-Reading Voyager/Lorebook content. Activation remains a separately reviewed
-Workbench publication after deployment of this implementation.
+This implementation prepares the selected untimed Companion and 84-day,
+milestone-gated Voyager for review. It adds native support and an exact private
+draft preparation command; deployment does not activate the policy or change
+bundled Reading Voyager/Lorebook content. Activation remains a separately
+reviewed Workbench publication after deployment of this implementation.
 
 ## Selected candidate
 
@@ -15,11 +16,16 @@ with Voyager; neither definition changes when the implementation is deployed.
 
 Reading Voyager requires the same child's completed global Reading Companion
 and unlocked Language Arts::Reading Comprehension at level 1. Its next newly
-earned daily Reading Adventure opens a 56-day window and counts as the first
+earned daily Reading Adventure opens an 84-day window and counts as the first
 of 20 Adventures. The predecessor-finishing Adventure cannot count again.
 Rewards remain 0 authored Coins, 50 XP to the existing skill at weight 1, and
 one existing Bookworm title. The title retains its uncommon rarity, 15-Coin
 value and saved metadata. There is no tenure or calendar requirement.
+
+The longer window gives twice-weekly readers time to miss visits without
+changing the 20-Adventure target or delaying completion for regular readers.
+It adds time to use the existing challenge, not authored content. Modelled
+outcomes are forecasts from specified routines, not evidence of retention.
 
 ## Native behavior
 
@@ -42,13 +48,14 @@ ID. Reading logs still need ten new minutes and reward at most once per
 family-local day. Reads, pins, old-source replay, source scans and pending
 repairs cannot accept a new milestone window. A retry can finish processing
 an already accepted receipt without changing its promise or paying twice.
-The saved end is exclusive, exactly 56 elapsed days after the accepted source
+The saved end is exclusive, exactly 84 elapsed days after the accepted source
 timestamp; its displayed calendar uses the saved household timezone.
 
 Existing goals retain their original dates, prose, rewards and history,
-including unopened 45-day goals. Paid or expired one-time automatic goals
-cannot rearm; a prior accepted legacy Voyager window also blocks a new
-milestone-gated Voyager offer. Active legacy scalar-edit protection still blocks
+including unopened 45-day goals and accepted 56-day milestone promises. Paid
+or expired one-time automatic goals cannot rearm; a prior accepted legacy
+Voyager window also blocks a new milestone-gated Voyager offer. Active legacy
+scalar-edit protection still blocks
 publication. New solo, co-op and scroll starts cannot open gated reading
 challenges manually; after meeting the milestones, the next Reading Adventure
 opens them automatically. Rerolls exclude these automatic definitions.
@@ -68,10 +75,9 @@ schema migration does not reopen, extend or pay those saved rows. The existing
 automatic-tracking cutover can create a child's first catalog Companion goal
 after an expired or failed legacy Companion if no automatic goal exists; that
 new goal follows the current definition while the legacy row stays unchanged.
-New legacy manual starts
-of untimed definitions are refused; automatic tracking owns their one promise.
-Workbench editing, preview,
-publication, YAML override retention, MCP catalog exports and Lab snapshots
+New legacy manual starts of untimed definitions are refused; automatic
+tracking owns their one promise. Workbench editing, preview, publication,
+YAML override retention, MCP catalog exports and Lab snapshots
 carry the same exact IDs. Catalog and rules fingerprints invalidate stale
 comparisons when those rules change.
 
@@ -84,20 +90,20 @@ python manage.py prepare_reading_voyager --actor-id <active-staff-parent-id>
 ```
 
 This creates one private draft and normal preview for that exact actor,
-containing both the untimed Companion and gated 56-day Voyager edits. It
+containing both the untimed Companion and gated 84-day Voyager edits. It
 returns the revision, preview ID, content digest and resolved global IDs. It
 refuses baseline/reward drift (including Companion item types, typed Chick/Base
 bindings, compatible hatching pair, Birdseed nourishment, quantities and skill
-weights), ambiguous identities, foreign ownership or
-active legacy conflicts and rolls back draft creation on failure. It never
+weights), ambiguous identities, foreign ownership or active legacy conflicts
+and rolls back draft creation on failure. It never
 simulates or publishes. It is not a deployment/startup command.
 
 Review the returned diff, run normal Workbench comparisons, then obtain
 explicit approval for that exact publication. Its normal stale-preview,
 simulation, ownership and catalog-lock gates remain mandatory. Refresh the
 bounded accepted-goal/legacy preflight before activation. This is a prelaunch
-change; any synthetic or saved attempts still retain their recorded promises. Coordinate
-active bundled YAML and Lorebook copy when publishing, respecting saved
+change; any synthetic or saved attempts still retain their recorded promises.
+Coordinate active bundled YAML and Lorebook copy when publishing, respecting saved
 database overrides. Existing goals are not migrated to a longer window.
 
 ## Observe after rollout
@@ -116,7 +122,9 @@ With native gates, ready means waiting for the next qualifying new Reading
 Adventure. Before activation, ungated Voyager retains automatic tracking.
 
 Saved policy groups classify accepted 45-day windows without native milestone
-snapshots, the selected 56-day milestone snapshot, and other or unknown rules.
+snapshots, historical 56-day milestone snapshots, selected 84-day milestone
+snapshots, and other or unknown rules. Both milestone groups require the same
+strict saved Companion/Reading Comprehension gates and opening activity ID.
 The groups use immutable saved promises, not today's catalog configuration.
 Older badge-only eligibility and legacy full policies cannot be reconstructed.
 These groups do not establish identical rewards or a causal policy effect.
@@ -148,5 +156,11 @@ Anonymous Lab trials start at zero and cannot establish retention or total
 application exhaustion. The Lab excludes offers it calculates a routine
 cannot finish; live enrollment does not predict attendance. In particular,
 two reading visits per week cannot fit 20 Adventures in 56 days, but a
-qualifying live child can still receive that challenge. No Coin denomination,
-expedition budget or other challenge policy is changed by this implementation.
+qualifying live child can still receive that challenge under that historical
+policy. The selected 84-day window makes those routines eligible in the model;
+that change in the finite-target denominator is not newly authored content.
+Missing a month can still exhaust an 84-day window. More forgivable timing
+does not change daily reading awards or Voyager’s authored reward, though
+restoring a completion can pay its normal one-time rewards and accomplishment
+draw. No Coin denomination, expedition budget or other challenge policy is
+changed by this implementation.
