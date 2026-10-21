@@ -50,7 +50,8 @@ def definitions_with_available_taxonomy(queryset):
     return queryset.exclude(
         Q(required_skill_id__in=Subquery(unavailable.values("pk")))
         | Q(skill_tags__skill_id__in=Subquery(unavailable.values("pk")))
-        | Q(trigger_filter__skill_category_id__in=retired_categories)
+        | (Q(trigger_filter__has_key="skill_category_id")
+           & Q(trigger_filter__skill_category_id__in=retired_categories))
     ).distinct()
 
 

@@ -71,7 +71,8 @@ def _quest_available(quest):
         validate_milestone_gate(quest)
     except ValidationError:
         return False
-    return active_system_definitions().filter(pk=quest.pk).exists() and (
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
+    return definitions_with_available_taxonomy(active_system_definitions()).filter(pk=quest.pk).exists() and (
         not quest.required_badge_id or _badge_available(quest.required_badge)
     )
 

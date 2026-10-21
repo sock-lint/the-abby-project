@@ -10,7 +10,7 @@ from rest_framework.test import APIClient
 
 from apps.achievements.models import Skill, SkillCategory, Subject, ProjectSkillTag
 from apps.chores.models import Chore, ChoreSkillTag
-from apps.habits.models import Habit, HabitSkillTag
+from apps.habits.models import Habit
 from apps.homework.models import HomeworkAssignment, HomeworkTemplate
 from apps.homework.services import HomeworkService, HomeworkError
 from apps.creations.models import Creation
@@ -19,13 +19,13 @@ from apps.mcp_server.context import override_user
 from apps.mcp_server.server import mcp
 from apps.movement.services import MovementTypeService, MovementTypeError
 from apps.projects.models import Project, ProjectTemplate, TemplateSkillTag
-from apps.projects.template_services import instantiate_project_template, save_project_template
+from apps.projects.template_services import instantiate_project_template
 from apps.quests.controls import update_schedule
 from apps.quests.goals import create_goal
 from apps.quests.goals import _occurrence
 from apps.quests.controls import retry_challenge
 from apps.quests.milestone_eligibility import milestone_eligibility
-from apps.quests.models import ChallengeGoal, ChallengeOccurrence, QuestDefinition
+from apps.quests.models import ChallengeGoal, QuestDefinition
 from apps.quests.reference_locks import lock_filter_category
 from config.tests.factories import make_family
 
@@ -210,3 +210,66 @@ class TaxonomyConsumerAdmissionTests(TestCase):
         response = self.client.post("/api/homework-templates/", {"title": "New saved choice",
             "skill_tags": [{"skill_id": self.skill.pk, "xp_amount": 15}]}, format="json")
         self.assertEqual(response.status_code, 400, response.data)
+
+    def test_stale_homework_template_cannot_restore_removed_retired_reference(self):
+        from unittest.mock import patch
+        from apps.homework.views import HomeworkTemplateViewSet
+        tags = [{"skill_id": self.skill.pk, "xp_amount": 15}]
+        template = HomeworkTemplate.objects.create(title="Saved template", created_by=self.parent, skill_tags=tags)
+        self.retire(Skill)
+        original = HomeworkTemplateViewSet.get_object
+
+        def remove_after_fetch(view):
+            stale = original(view)
+            HomeworkTemplate.objects.filter(pk=stale.pk).update(skill_tags=[])
+            return stale
+
+        with patch.object(HomeworkTemplateViewSet, "get_object", remove_after_fetch):
+            response = self.client.patch(f"/api/homework-templates/{template.pk}/", {"skill_tags": tags}, format="json")
+        self.assertEqual(response.status_code, 400, response.data)
+        template.refresh_from_db()
+        self.assertEqual(template.skill_tags, [])
+
+    def test_retained_homework_template_reference_can_still_be_edited(self):
+        tags = [{"skill_id": self.skill.pk, "xp_amount": 15}]
+        template = HomeworkTemplate.objects.create(title="Saved template", created_by=self.parent, skill_tags=tags)
+        self.retire(Skill)
+        response = self.client.patch(f"/api/homework-templates/{template.pk}/", {"title": "Kept", "skill_tags": tags}, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        template.refresh_from_db()
+        self.assertEqual(template.skill_tags, tags)
+
+    def test_registered_mcp_stale_project_cannot_restore_removed_retired_category(self):
+        from unittest.mock import patch
+        from apps.mcp_server.tools import projects
+        active = SkillCategory.objects.create(name="Replacement active category")
+        project = Project.objects.create(title="Saved project", assigned_to=self.child, created_by=self.parent, category=self.category)
+        self.retire(SkillCategory)
+        original = projects._get_project_parent_only
+        Project.objects.filter(pk=project.pk).update(category=active)
+
+        def replace_after_fetch(project_id):
+            original(project_id)  # Preserve the normal household lookup.
+            return project  # A lookup begun before the intervening committed edit.
+
+        with patch.object(projects, "_get_project_parent_only", replace_after_fetch):
+            result = self.wire("update_project", {"project_id": project.pk, "category_id": self.category.pk})
+        self.assertTrue(getattr(result, "isError", False), result)
+        self.assertEqual(result.structuredContent["error"]["code"], "invalid_request")
+        project.refresh_from_db()
+        self.assertEqual(project.category_id, active.pk)
+
+    def test_retired_category_filter_does_not_hide_unrelated_or_missing_json_keys(self):
+        from apps.quests.reference_locks import definitions_with_available_taxonomy
+        self.retire(SkillCategory)
+        active_category = SkillCategory.objects.create(name="Unrelated active category")
+        unrelated = [QuestDefinition.objects.create(name=f"Unaffected {index}", quest_type="collection", target_value=1,
+            is_system=True, trigger_filter=trigger_filter) for index, trigger_filter in enumerate((
+                {}, {"allowed_triggers": ["chore_complete"]}, {"skill_category_id": None},
+                {"skill_category_id": "legacy-non-number"}, {"skill_category_id": active_category.pk},
+            ))]
+        blocked = QuestDefinition.objects.create(name="Retired filter", quest_type="collection", target_value=1,
+            is_system=True, trigger_filter={"skill_category_id": self.category.pk})
+        ids = set(definitions_with_available_taxonomy(QuestDefinition.objects.all()).values_list("pk", flat=True))
+        self.assertEqual(ids, {row.pk for row in unrelated})
+        self.assertNotIn(blocked.pk, ids)

@@ -163,8 +163,9 @@ def snapshot_catalog():
             badges.append(badge)
         else:
             excluded[badge.criteria_type] += 1
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
     quests = _bounded(
-        active_system_definitions().filter(is_cooperative=False)
+        definitions_with_available_taxonomy(active_system_definitions()).filter(is_cooperative=False)
         .order_by("pk")
         .prefetch_related("skill_tags__skill", "reward_items__item"),
         256,

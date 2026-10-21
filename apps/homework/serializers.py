@@ -203,5 +203,11 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
+        from django.shortcuts import get_object_or_404
+        owner = getattr(self.context.get("request"), "user", None)
+        current = HomeworkTemplate.objects.select_for_update(of=("self",)).filter(pk=instance.pk, created_by_id=instance.created_by_id)
+        if owner is not None:
+            current = current.filter(created_by_id=owner.pk, created_by__family_id=owner.family_id)
+        instance = get_object_or_404(current)
         self._admit_tags(validated_data, instance=instance)
         return super().update(instance, validated_data)

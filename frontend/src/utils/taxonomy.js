@@ -9,7 +9,12 @@ export function taxonomyStatus(entry, kind = 'skill') {
 
 export function taxonomyOptionLabel(entry, label = entry.name, kind = 'skill') {
   const status = taxonomyStatus(entry, kind);
-  return status ? `${label} · ${status}` : label;
+  // Quote authored text containing the separator so it cannot impersonate a
+  // lifecycle suffix or a retained-ID placeholder. JSON escaping also keeps
+  // literal quotation marks distinct without changing numeric option values.
+  const authored = [entry.icon, label].filter(Boolean).join(' ');
+  const name = authored.includes(' · ') ? JSON.stringify(String(label)) : label;
+  return status ? `${name} · ${status}` : name;
 }
 
 export function taxonomyChoices(entries, selected = []) {

@@ -79,3 +79,26 @@ class TaxonomyRetirementWorkbenchTests(TestCase):
         snapshot = snapshot_catalog()
         self.assertIn(self.skill.pk, snapshot.skills)
         self.assertNotIn(self.skill.pk, [row['id'] for row in challenge_gate_choices(snapshot)['skills']])
+
+    def test_new_offer_catalog_and_simulation_exclude_retired_reward_destinations(self):
+        from apps.quests.goals import list_goals
+        from apps.quests.models import ChallengeGoal
+        from apps.rpg.progression.challenge_gates import challenge_gate_choices
+        from apps.rpg.progression.engine import Trial, normalize_config
+        child = make_family(children=[{'username': 'retired-offer-child'}]).children[0]
+        self.quest.required_skill = None
+        self.quest.coin_reward = 73
+        self.quest.trigger_filter = {'allowed_triggers': ['chore_complete']}
+        self.quest.target_value = 1
+        self.quest.save()
+        list_goals(child)
+        self.assertFalse(ChallengeGoal.objects.filter(user=child, catalog_definition=self.quest).exists())
+        self.assertFalse(catalog_row('quests', self.quest)['available_for_new_user'])
+        catalog = snapshot_catalog()
+        self.assertIn(self.skill.pk, catalog.skills)
+        self.assertNotIn(self.quest.pk, [q.pk for q in catalog.quests])
+        self.assertNotIn(self.quest.pk, [q['id'] for q in challenge_gate_choices(catalog)['quests']])
+        trial = Trial(normalize_config({}), catalog, 2026)
+        trial.daily(1)
+        self.assertNotIn(self.quest.pk, trial.completed_quests)
+        self.assertNotEqual(trial.source_totals.get('challenges', {}).get('coins'), 73)

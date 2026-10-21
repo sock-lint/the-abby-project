@@ -83,6 +83,7 @@ class ContentPack:
         self.pack_key = pack_key
         self.family = family
         self.seen_entries = set()
+        self._created_taxonomy: dict[type, set[int]] = {}
         # Unkeyed (deploy-time) loads report entries they leave unchanged
         # here instead of failing: they run before gunicorn starts.
         self.warnings: list[str] = []
@@ -104,6 +105,7 @@ class ContentPack:
         # Otherwise a loader could read "no override", wait on an upsert, and
         # overwrite an override that committed during that wait.
         from .publication import _catalog_lock
+        self._created_taxonomy.clear()
         _catalog_lock()
         parsed = self.parsed_content if self.parsed_content is not None else self._parse_all()
         from .validation import validate_content
@@ -153,6 +155,10 @@ class ContentPack:
         except Exception:
             transaction.savepoint_rollback(sid)
             raise
+        finally:
+            # A reused loader must not treat rows from an earlier load (or
+            # rolled-back IDs reused later) as part of this source bootstrap.
+            self._created_taxonomy.clear()
 
         for line in self.stats.as_lines():
             write(line)
@@ -436,9 +442,16 @@ class ContentPack:
         if model in (Subject, Skill):
             category = values.get("category")
             if category is not None:
-                self._admit_reference(SkillCategory, [category.pk], [previous.category_id] if previous else ())
+                # Reconstruct a fresh archived graph atomically. Only a NEW
+                # definition may link to a parent actually created by this
+                # load; seeing an existing retired row in source is not enough.
+                retained = ([previous.category_id] if previous else
+                            self._created_taxonomy.get(SkillCategory, ()))
+                self._admit_reference(SkillCategory, [category.pk], retained)
         if model is Skill and values.get("subject") is not None:
-            self._admit_reference(Subject, [values["subject"].pk], [previous.subject_id] if previous else ())
+            retained = ([previous.subject_id] if previous else
+                        self._created_taxonomy.get(Subject, ()))
+            self._admit_reference(Subject, [values["subject"].pk], retained)
         if model is QuestDefinition:
             if values.get("required_skill") is not None:
                 self._admit_reference(Skill, [values["required_skill"].pk], [previous.required_skill_id] if previous else ())
@@ -485,6 +498,7 @@ class ContentPack:
             return
         from apps.achievements.models import Skill, SkillPrerequisite, Subject
         from apps.achievements.models import SkillCategory
+        from apps.achievements.taxonomy import available_for_new_choices
 
         # Categories
         cat_by_name: dict[str, Any] = {}
@@ -500,6 +514,8 @@ class ContentPack:
             obj, created = self._upsert(SkillCategory, entry=entry,
                 name=name, defaults=defaults,
             )
+            if created:
+                self._created_taxonomy.setdefault(SkillCategory, set()).add(obj.pk)
             cat_by_name[name] = obj
             self.stats.bump("created" if created else "updated", "skill_category")
 
@@ -522,6 +538,8 @@ class ContentPack:
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
+            if created:
+                self._created_taxonomy.setdefault(Subject, set()).add(obj.pk)
             subject_by_key[cat_name, entry["name"]] = obj
             self.stats.bump("created" if created else "updated", "subject")
 
@@ -558,6 +576,8 @@ class ContentPack:
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
             )
+            if created:
+                self._created_taxonomy.setdefault(Skill, set()).add(obj.pk)
             skill_by_key[cat_name, entry["name"]] = obj
             self.stats.bump("created" if created else "updated", "skill")
             from .authoring import preserves_skill_prerequisites
@@ -604,7 +624,12 @@ class ContentPack:
                 raise ContentPackError(
                     f"skill {p['skill_name']!r} references unknown prereq {name!r}"
                 )
-            retained = SkillPrerequisite.objects.filter(skill=skill).values_list("required_skill_id", flat=True)
+            retained = set(SkillPrerequisite.objects.filter(skill=skill).values_list("required_skill_id", flat=True))
+            new_skills = self._created_taxonomy.get(Skill, ())
+            if skill.pk in new_skills and req_skill.pk in new_skills and not available_for_new_choices(skill):
+                # Archived prerequisite graphs may bootstrap together. An
+                # active new skill still cannot choose an unavailable target.
+                retained.add(req_skill.pk)
             self._admit_reference(Skill, [req_skill.pk], retained)
             _, created = SkillPrerequisite.objects.update_or_create(
                 skill=skill, required_skill=req_skill,

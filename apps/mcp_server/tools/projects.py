@@ -511,8 +511,19 @@ def update_project(params: UpdateProjectIn) -> dict[str, Any]:
     Use ``update_project_status`` for status transitions — this tool refuses
     status changes so it can't bypass the completion-hooks there.
     """
+    from ..retries import authorized_household
+    actor = require_parent()
+    with authorized_household(actor, actor) as (parent, _):
+        return _update_project_locked(params, parent)
+
+
+def _update_project_locked(params, parent):
     project = _get_project_parent_only(params.project_id)
-    parent = require_parent()
+    project = Project.objects.select_for_update(of=("self",)).filter(
+        pk=project.pk, assigned_to__family_id=parent.family_id,
+    ).first()
+    if project is None:
+        raise MCPNotFoundError(f"Project {params.project_id} not found.")
 
     data = params.model_dump(exclude={"project_id"}, exclude_unset=True)
 

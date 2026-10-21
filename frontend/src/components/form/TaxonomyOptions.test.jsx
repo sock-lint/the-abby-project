@@ -12,6 +12,24 @@ const entries = [
 ];
 
 describe('taxonomy choices', () => {
+  it('distinguishes authored status-like names from a saved retired choice', async () => {
+    const user = userEvent.setup();
+    const changed = vi.fn();
+    const colliding = [
+      { id: 1, name: 'Practice', is_retired: true },
+      { id: 2, name: 'Practice · Retired', is_retired: false },
+      { id: 3, icon: 'Practice ·', name: 'Retired', is_retired: false },
+    ];
+    render(<SelectField label="Category" value={1} onChange={(event) => changed(event.target.value)}><TaxonomyOptions entries={colliding} selected={1} kind="category" /></SelectField>);
+    const picker = screen.getByRole('combobox', { name: 'Category' });
+    const choices = await openDropdown(user, picker);
+    const labels = choices.getAllByRole('option').map((option) => option.textContent);
+    expect(new Set(labels).size).toBe(3);
+    expect(choices.getByRole('option', { name: 'Practice · Retired' })).toHaveAttribute('aria-disabled', 'true');
+    await user.click(choices.getByRole('option', { name: '"Practice · Retired"' }));
+    expect(changed).toHaveBeenCalledExactlyOnceWith('2');
+  });
+
   it('never visually rebinds a saved ID while retained metadata is unavailable', async () => {
     const user = userEvent.setup();
     render(<SelectField label="Category" value={7} onChange={vi.fn()}><option value="">None</option><TaxonomyOptions entries={[]} selected={7} kind="category" /></SelectField>);

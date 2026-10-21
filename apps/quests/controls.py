@@ -14,6 +14,29 @@ from .models import ChallengeActivity, ChallengeGoal, ChallengeOccurrence, Chall
 from .queries import active_system_definitions
 
 
+def _retry_taxonomy_states(goals):
+    """Batch the frozen reward/filter choices native retry would accept now."""
+    from apps.achievements.taxonomy import available_categories, available_skills
+
+    references = {}
+    skill_ids, category_ids = set(), set()
+    for goal in goals:
+        for occurrence in goal.control_occurrences:
+            snapshot = occurrence.snapshot
+            required = {row["skill_id"] for row in snapshot.get("skill_tags", [])}
+            if goal.catalog_definition_id and goal.catalog_definition.required_skill_id:
+                required.add(goal.catalog_definition.required_skill_id)
+            category = (snapshot.get("filter") or {}).get("skill_category_id")
+            references[occurrence.pk] = (required, category)
+            skill_ids.update(required)
+            if category is not None:
+                category_ids.add(category)
+    valid_skills = set(available_skills().filter(pk__in=skill_ids).values_list("pk", flat=True))
+    valid_categories = set(available_categories().filter(pk__in=category_ids).values_list("pk", flat=True))
+    return {pk: required <= valid_skills and (category is None or category in valid_categories)
+            for pk, (required, category) in references.items()}
+
+
 def control_context(user):
     """One batched read shared by every result/history/receipt representation."""
     goals = list(ChallengeGoal.objects.filter(user=user, family_id=user.family_id).select_related(
@@ -43,6 +66,7 @@ def control_context(user):
            "cooperative": {pk for pk, row in offered.items() if row.is_cooperative},
            "repeatable": {pk for pk, row in offered.items() if row.is_repeatable},
            "now": timezone.now()}
+    ctx["retry_taxonomy"] = _retry_taxonomy_states(goals)
     ctx["base"] = {goal.pk: _snapshot(goal, item_catalog=items) for goal in goals
                    if not goal.is_catalog and goal.repeat_weekly}
     for goal in goals:
@@ -101,6 +125,8 @@ def retry_state(occurrence, ctx):
         reason = "newer_attempt"
     elif occurrence.ends_at > ctx["now"]:
         reason = "not_expired"
+    elif not ctx["retry_taxonomy"].get(occurrence.pk, False):
+        reason = "retired"
     else:
         reason = "milestone_locked" if ctx["milestone_retry"].get(canonical) is False else None
     result.update(allowed=reason is None, reason=reason)

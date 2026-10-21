@@ -474,7 +474,11 @@ restoration. Saved retries and existing activity rewards continue to resolve the
 original identities. Retiring/restoring does not award, refund or recompute XP,
 Coins or badges. Skill trees and saved history remain readable. A matching YAML
 reload with `is_retired` omitted preserves the saved flag; explicit `false`
-restores it where no published override takes precedence. This workflow is separate from the exact one-time prelaunch RPG
+restores it where no published override takes precedence. A fresh pack can rebuild
+archived taxonomy parent links created within that same atomic load; archived
+prerequisites require both new endpoints and an unavailable dependent. This
+bootstrap exception never admits new activity, reward-tag or gate choices, and
+its temporary identity tracking clears after success, failure and dry runs. This workflow is separate from the exact one-time prelaunch RPG
 catalog cleanup described in the companion lifecycle runbook.
 
 Skill identities include their category. Duplicate labels show their category in
