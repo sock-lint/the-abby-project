@@ -325,7 +325,7 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="create-assignment")
     def create_assignment(self, request, pk=None):
         template = self.get_object()
         assigned_to_id = request.data.get("assigned_to_id")
@@ -342,6 +342,11 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
             return child_not_found_response()
 
         try:
+            due_date = serializers.DateField().run_validation(due_date)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"due_date": exc.detail}) from exc
+
+        try:
             assignment = HomeworkService.create_from_template(
                 template, child, due_date,
             )
@@ -354,6 +359,11 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
             ).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["post"], url_path="create_assignment", url_name="create-assignment-legacy")
+    def create_assignment_legacy(self, request, pk=None):
+        """Retain the original underscore URL for existing API callers."""
+        return self.create_assignment(request, pk=pk)
 
 
 class HomeworkDashboardView(APIView):
