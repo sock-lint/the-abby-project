@@ -17,20 +17,21 @@
         "pet_species_id": null,
         "potion_type_id": null,
         "food_species_id": null,
+        "effect_summary": "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.",
         "runtime_available": true,
         "unavailable_reason": null,
         "editable": true,
         "edit_reason": "",
         "values": {
           "icon": "🍎",
-          "coin_value": 2,
-          "name": "Practice snack",
-          "sprite_key": "",
-          "description": "",
           "rarity": "common",
+          "description": "",
+          "name": "Practice snack",
+          "coin_value": 2,
           "metadata": {
             "growth": 5
-          }
+          },
+          "sprite_key": ""
         },
         "has_database_override": false,
         "used_by": {
@@ -72,8 +73,10 @@
         "xp_reward": 15,
         "is_repeatable": false,
         "is_system": true,
+        "is_cooperative": false,
         "required_badge": null,
         "required_badge_name": null,
+        "superseded_by": null,
         "prerequisite_quest": 908,
         "prerequisite_quest_name": "Starter practice",
         "required_skill": 902,
@@ -100,25 +103,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "quest_type": "collection",
+          "xp_reward": 15,
+          "is_repeatable": false,
           "icon": "⚔️",
-          "target_value": 2,
-          "sprite_key": "",
-          "coin_reward": 10,
           "duration_days": 7,
+          "name": "Practice challenge",
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "xp_reward": 15,
-          "is_repeatable": false,
-          "name": "Practice challenge",
+          "coin_reward": 10,
           "description": "Complete two daily Reading Adventures.",
+          "target_value": 2,
+          "is_cooperative": false,
           "required_skill_level": 1,
-          "quest_type": "collection",
+          "prerequisite_quest": 908,
           "required_badge": null,
           "required_skill": 902,
-          "prerequisite_quest": 908,
           "reward_items": [
             {
               "item_id": 903,
@@ -154,8 +158,10 @@
         "xp_reward": 0,
         "is_repeatable": false,
         "is_system": true,
+        "is_cooperative": false,
         "required_badge": null,
         "required_badge_name": null,
+        "superseded_by": null,
         "prerequisite_quest": null,
         "prerequisite_quest_name": null,
         "required_skill": null,
@@ -167,25 +173,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "quest_type": "collection",
+          "xp_reward": 0,
+          "is_repeatable": false,
           "icon": "⚔️",
-          "target_value": 1,
-          "sprite_key": "",
-          "coin_reward": 0,
           "duration_days": 7,
+          "name": "Starter practice",
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "xp_reward": 0,
-          "is_repeatable": false,
-          "name": "Starter practice",
+          "coin_reward": 0,
           "description": "Complete one approved chore.",
+          "target_value": 1,
+          "is_cooperative": false,
           "required_skill_level": 0,
-          "quest_type": "collection",
+          "prerequisite_quest": null,
           "required_badge": null,
           "required_skill": null,
-          "prerequisite_quest": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -197,6 +204,8 @@
     "skills": [
       {
         "id": 902,
+        "is_retired": false,
+        "available_for_new_choices": true,
         "name": "Persistence",
         "category_id": 901,
         "subject_id": null,
@@ -277,6 +286,7 @@
       "description",
       "duration_days",
       "icon",
+      "is_cooperative",
       "is_repeatable",
       "name",
       "prerequisite_quest",
@@ -721,7 +731,7 @@
       ]
     },
     "catalog": {
-      "fingerprint": "a2e5486abadd36f194adc843ccddfba1202bb10a545c7c13df069a960112df7c",
+      "fingerprint": "6b2282b5772ee262b09549b1e879a6d9da18c8d1a370d109a52880b667d42875",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
@@ -852,7 +862,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "2493f6d2ab14306815d38f0938685ab5e6b38e5f4f004c2bffbbaf243c72344d",
+    "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
     "engine_version": "2026-10-21.1",
     "source_commit": "unavailable",
     "work_budget": {

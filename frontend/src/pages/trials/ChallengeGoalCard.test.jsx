@@ -21,6 +21,29 @@ describe('Challenge goal cards', () => {
     expect(screen.queryByRole('button', { name: /add .* to calendar/i })).not.toBeInTheDocument();
   });
 
+  it.each(['card', 'detail'])('explains an unavailable retry reward and disables the action in the %s', async (surface) => {
+    const goal = buildChallengeGoal({ status: 'expired', origin: 'catalog', retry: { allowed: false, reason: 'reward_unavailable' } });
+    const onRetry = vi.fn();
+    const { user } = renderWithProviders(surface === 'card'
+      ? <ChallengeGoalCard goal={goal} onSelect={() => {}} onRetry={onRetry} />
+      : <ChallengeGoalDetail goal={goal} onClose={() => {}} onRetry={onRetry} />, { withAuth: false });
+    expect(screen.getByText("A new attempt can't start while this challenge's reward is unavailable.")).toBeInTheDocument();
+    const retry = screen.getByRole('button', { name: `Try ${goal.name} again` });
+    expect(retry).toBeDisabled();
+    await user.click(retry);
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  it.each(['card', 'detail'])('explains a closed retry without presenting its original reward as pending or paid in the %s', (surface) => {
+    const goal = buildChallengeGoal({ status: 'closed', origin: 'catalog', closed_reason: 'reward_already_awarded', retry: { allowed: false, reason: 'closed' }, reward_receipt: { status: 'pending', coins_awarded: 0, xp_awarded: 0 } });
+    renderWithProviders(surface === 'card' ? <ChallengeGoalCard goal={goal} onSelect={() => {}} /> : <ChallengeGoalDetail goal={goal} onClose={() => {}} />, { withAuth: false });
+    expect(screen.getByText('Attempt closed')).toBeInTheDocument();
+    expect(screen.getByText("Another attempt earned this challenge's one-time bonus.")).toBeInTheDocument();
+    expect(screen.getByText('Original completion bonus · 10 coins')).toBeInTheDocument();
+    expect(screen.queryByText(/Bonus pending|Bonus earned automatically/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /try .* again/i })).not.toBeInTheDocument();
+  });
+
   it('shows the exact exclusive deadline of a rolling period in its saved timezone', () => {
     const goal = buildChallengeGoal({ timezone: 'America/New_York', starts_at: '2026-10-28T16:15:00Z', ends_at: '2026-11-04T17:15:00Z' });
     renderWithProviders(<ChallengeGoalDetail goal={goal} timezone="Pacific/Auckland" onClose={() => {}} />, { withAuth: false });

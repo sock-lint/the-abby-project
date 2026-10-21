@@ -1,5 +1,6 @@
 import re
 
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
@@ -184,3 +185,50 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
             "skill_tags", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def _admit_tags(self, data, *, instance=None):
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        from .services import HomeworkError, _saved_template_skill_tags
+
+        retained, legacy_strings = set(), set()
+        saved_tags = instance.skill_tags if instance and isinstance(instance.skill_tags, list) else []
+        for row in saved_tags:
+            try:
+                saved = _saved_template_skill_tags([row])[0]
+            except HomeworkError:
+                # Malformed old JSON grants no retention exemption, but must
+                # remain removable through a valid replacement/empty set.
+                continue
+            retained.add(saved["skill_id"])
+            if isinstance(row["skill_id"], str):
+                legacy_strings.add(row["skill_id"])
+        tags = data.get("skill_tags", [])
+        if not isinstance(tags, list) or any(not isinstance(row, dict) or
+                (type(row.get("skill_id")) is not int and
+                 not (isinstance(row.get("skill_id"), str) and row["skill_id"] in legacy_strings)) for row in tags):
+            raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
+        try:
+            # Templates retain their JSON rows, including repeated references.
+            # Clone validation separately requires unique assignment FK tags.
+            normalized = [_saved_template_skill_tags([row])[0] for row in tags]
+        except HomeworkError as error:
+            raise serializers.ValidationError({"skill_tags": "Choose existing skills."}) from error
+        admit_references(Skill, [row["skill_id"] for row in normalized],
+                         retained_ids=retained, error_type=serializers.ValidationError)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        self._admit_tags(validated_data)
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        from django.shortcuts import get_object_or_404
+        owner = getattr(self.context.get("request"), "user", None)
+        current = HomeworkTemplate.objects.select_for_update(of=("self",)).filter(pk=instance.pk, created_by_id=instance.created_by_id)
+        if owner is not None:
+            current = current.filter(created_by_id=owner.pk, created_by__family_id=owner.family_id)
+        instance = get_object_or_404(current)
+        self._admit_tags(validated_data, instance=instance)
+        return super().update(instance, validated_data)

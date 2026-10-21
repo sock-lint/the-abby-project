@@ -16,6 +16,7 @@ from .models import (
     ChallengeActivity, ChallengeContribution, ChallengeEnrollment, ChallengeGoal,
     ChallengeOccurrence, ChallengePin, Quest, QuestDefinition, QuestParticipant, QuestRewardItem,
 )
+from .queries import active_system_definitions
 
 DISTANCE_FACTORS = {"mi": Decimal("1609.344"), "km": Decimal("1000")}
 FACT_TRIGGERS = {
@@ -96,12 +97,12 @@ def _midnight(day, zone):
     return datetime.combine(day, time.min, tzinfo=zone)
 
 
-def _snapshot(goal):
+def _snapshot(goal, item_catalog=None):
     from apps.rpg.models import ItemDefinition
     from apps.rpg.catalog_support import item_is_available
     from .reward_items import reward_item_details
     items = []
-    catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
+    catalog = item_catalog if item_catalog is not None else ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
         [row["item_id"] for row in goal.reward_items],
     )
     for row in goal.reward_items:
@@ -168,7 +169,10 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
     if user.role != "child":
         return
     existing_ids = set(ChallengeGoal.objects.filter(user=user).values_list("catalog_definition_id", flat=True))
-    queryset = QuestDefinition.objects.filter(is_system=True).exclude(pk__in=existing_ids)
+    existing_ids.update(QuestDefinition.objects.filter(pk__in=existing_ids).exclude(
+        superseded_by__isnull=True,
+    ).values_list("superseded_by_id", flat=True))
+    queryset = active_system_definitions().filter(is_cooperative=False).exclude(pk__in=existing_ids)
     if gated_only:
         queryset = queryset.filter(Q(prerequisite_quest__isnull=False) | Q(required_skill__isnull=False)
                                    | Q(required_skill_level__gt=0))
@@ -184,23 +188,29 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
     # Legacy catalog promises can suppress enrollment on every read. Resolve
     # their status and latest active deadline once for all pending definitions.
     legacy_statuses, active_deadlines = set(), {}
+    canonical_ids = {definition.pk for definition in definitions}
+    legacy_ids = {pk: pk for pk in canonical_ids}
+    legacy_ids.update(QuestDefinition.objects.filter(superseded_by_id__in=canonical_ids).values_list(
+        "pk", "superseded_by_id",
+    ))
     for definition_id, status, end_date in Quest.objects.filter(
-        participants__user=user, definition_id__in=[definition.pk for definition in definitions],
+        participants__user=user, definition_id__in=legacy_ids,
     ).values_list("definition_id", "status", "end_date"):
-        legacy_statuses.add((definition_id, status))
+        canonical_id = legacy_ids[definition_id]
+        legacy_statuses.add((canonical_id, status))
         if status == "active":
-            active_deadlines.setdefault(definition_id, end_date)
+            active_deadlines[canonical_id] = max(active_deadlines.get(canonical_id, end_date), end_date)
     for definition in definitions:
         if not definition_is_available(definition):
             continue
         gated = has_milestone_gate(definition)
+        if gated and any(definition_id == definition.pk for definition_id, _ in legacy_statuses):
+            continue  # A one-time accepted legacy window is not a fresh offer.
         # Reads and retries cannot accept a milestone offer or start its clock.
         # This boundary was captured under the user lock before the fresh fact
         # could complete a predecessor or earn its completion rewards.
         if gated and (gate_activity is None or not milestone_eligibility(user, definition)["unlocked"]):
             continue
-        if gated and any(definition_id == definition.pk for definition_id, _ in legacy_statuses):
-            continue  # A one-time accepted legacy window is not a fresh offer.
         if definition.required_badge_id and definition.required_badge_id not in earned:
             continue
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
@@ -209,6 +219,13 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if not definition.is_repeatable and any(
             (definition.pk, status) in legacy_statuses for status in ("active", "completed")
         ):
+            continue
+        from .reference_locks import admit_definition_choices
+        try:
+            admit_definition_choices(definition)
+        except ValueError:
+            # Only a new promise needs fresh choice admission. Saved legacy
+            # windows and existing goals retain their reward references.
             continue
         active_deadline = active_deadlines.get(definition.pk)
         cutoff = max(enrollment.starts_at, definition.created_at)
@@ -275,6 +292,16 @@ def _occurrence(goal, at):
     # Only list_goals supplies these freshly read windows. Other callers still
     # recheck retirement, including goals loaded before catalog maintenance.
     saved = getattr(goal, "_listed_occurrences", None)
+    if goal.is_catalog and not goal.repeat_weekly and not goal.repeat_days:
+        current = (next((row for row in saved if row.starts_at <= at
+                         and (row.ends_at is None or at < row.ends_at)), None)
+                   if saved is not None else goal.occurrences.filter(starts_at__lte=at).filter(
+                       Q(ends_at__gt=at) | Q(ends_at__isnull=True)).first())
+        if current is not None:
+            return current
+        if (any(row.retry_of_id for row in saved) if saved is not None
+                else goal.occurrences.filter(retry_of__isnull=False).exists()):
+            return None
     if saved is not None:
         if goal.is_catalog and goal.catalog_definition_id is None:
             return next((row for row in saved if row.starts_at <= at
@@ -287,7 +314,10 @@ def _occurrence(goal, at):
             return existing
     retired = goal.is_catalog and (
         goal.catalog_definition_id is None
-        or not ChallengeGoal.objects.filter(pk=goal.pk, catalog_definition__isnull=False).exists()
+        or not ChallengeGoal.objects.filter(
+            pk=goal.pk, catalog_definition__isnull=False,
+            catalog_definition__superseded_by__isnull=True, catalog_definition__is_cooperative=False,
+        ).exists()
     )
     if retired:
         # Retirement retains saved promises and history, without new cycles.
@@ -295,8 +325,26 @@ def _occurrence(goal, at):
     if at < goal.starts_at:
         return None
     start, end = _occurrence_window(goal, at)
+    if goal.repeat_weekly:
+        existing = goal.occurrences.filter(starts_at=start).first()
+        if existing is not None:
+            return existing
+        from .controls import effective_setup
+        snapshot, paused = effective_setup(goal, start)
+        if paused:
+            return None
+    else:
+        existing = goal.occurrences.filter(starts_at=start).first()
+        if existing is not None:
+            return existing
+        snapshot = _snapshot(goal)
+    # These references belong to an accepted standing rule or schedule version,
+    # not a fresh taxonomy choice. Creation/enrollment and future setup edits
+    # admit new references under their write locks. Rechecking here would cancel
+    # recurring rewards after retirement (or a historical JSON skill deletion).
+    # Payout retains saved IDs and skips missing skills without inventing XP.
     occurrence, _ = ChallengeOccurrence.objects.get_or_create(
-        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": lambda: _snapshot(goal)},
+        goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": snapshot or (lambda: _snapshot(goal))},
     )
     return occurrence
 
@@ -336,6 +384,13 @@ def _amount(snapshot, activity):
 def _award(occurrence, user):
     if occurrence.awarded_at:
         return occurrence.reward_receipt
+    from .controls import close_unpaid_attempts, lifetime_context, lifetime_paid
+    lifetime = lifetime_context(occurrence, user)
+    if lifetime is not None and lifetime_paid(occurrence, lifetime):
+        close_unpaid_attempts(occurrence, lifetime, include_current=True)
+        occurrence.status = "closed"
+        occurrence.closed_reason = "reward_already_awarded"
+        return None
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
     from apps.rpg.models import ItemDefinition
@@ -387,6 +442,8 @@ def _award(occurrence, user):
     occurrence.awarded_at = timezone.now()
     occurrence.reward_receipt = receipt
     occurrence.save(update_fields=["awarded_at", "reward_receipt", "updated_at"])
+    if lifetime is not None:
+        close_unpaid_attempts(occurrence, lifetime)
     return receipt
 
 
@@ -408,7 +465,9 @@ def _process(activity):
             at = datetime.combine(activity.occurred_on, time(12), tzinfo=ZoneInfo(goal.timezone_name))
         occurrence = _occurrence(goal, at)
         if (not occurrence or (occurrence.ends_at is not None and at >= occurrence.ends_at)
-                or occurrence.awarded_at):
+                or occurrence.awarded_at or occurrence.status == "closed"):
+            continue
+        if occurrence.retry_of_id and activity.pk <= occurrence.snapshot.get("_retry_after_activity_id", 0):
             continue
         amount = _amount(occurrence.snapshot, activity)
         if amount <= 0:
@@ -492,6 +551,16 @@ def void_activity(user, source_type, source_id):
         occurrence.save(update_fields=["progress", "updated_at"])
 
 
+def _lock_reward_skills(tags, *, retained_ids=()):
+    """Protect new JSON promises against deletion and effective retirement."""
+    from apps.achievements.models import Skill
+    from apps.rpg.taxonomy_references import admit_references
+    ids = {row["skill_id"] for row in tags}
+    if Skill.objects.filter(pk__in=ids).count() != len(ids):
+        raise ValueError("Choose existing skills.")
+    admit_references(Skill, ids, retained_ids=retained_ids)
+
+
 @transaction.atomic
 def create_goal(parent, child, data):
     if parent.role != "parent" or child.role != "child" or child.family_id != parent.family_id:
@@ -509,6 +578,7 @@ def create_goal(parent, child, data):
             if previous.request_fingerprint != fingerprint:
                 raise ValueError("request_id was already used for different goal details")
             return previous.occurrences.order_by("starts_at").first()
+    _lock_reward_skills(data.get("skill_tags", []))
     zone, today = family_zone(child), timezone.localtime(timezone.now(), family_zone(child)).date()
     if data["period"] == "this_week":
         start = today - timedelta(days=today.weekday())
@@ -568,6 +638,13 @@ def _what_counts(snapshot, *, catalog=False):
         text = f"{snapshot['movement_type_name']} sessions"
     if snapshot.get("filter", {}).get("on_time"):
         text += " submitted on time"
+    filters = snapshot.get("filter", {})
+    for key, detail in (("project_id", "for the selected project"),
+                        ("skill_category_id", "in the selected skill category"),
+                        ("chore_ids", "from the selected chores"),
+                        ("savings_goal_id", "for the selected savings goal")):
+        if filters.get(key):
+            text += f" {detail}"
     return text
 
 
@@ -588,7 +665,21 @@ def _reward_preview(snapshot, item_catalog=None, item_details_cache=None):
     return available
 
 
-def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None):
+def qualifying_triggers(snapshot, *, legacy=False):
+    from apps.rpg.constants import TriggerType
+    from .services import TRIGGER_DAMAGE
+    defaults = set(TriggerType.values) if legacy else EFFORT_TRIGGERS
+    allowed = set(snapshot.get("filter", {}).get("allowed_triggers") or defaults)
+    allowed &= set(TriggerType.values) if legacy else FACT_TRIGGERS
+    if snapshot.get("metric") == "damage":
+        allowed = {trigger for trigger in allowed if TRIGGER_DAMAGE.get(trigger, 0) > 0}
+    return sorted(allowed)
+
+
+def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_details_cache=None, controls=None):
+    from .controls import control_context, retry_state, schedule_payload
+    if controls is None:
+        controls = control_context(occurrence.goal.user)
     snapshot = occurrence.snapshot
     allowed = snapshot.get("filter", {}).get("allowed_triggers") or []
     action = None
@@ -608,6 +699,11 @@ def occurrence_payload(occurrence, pin_id=None, *, item_catalog=None, item_detai
     receipt = occurrence.reward_receipt
     return {
         "id": f"goal:{occurrence.pk}", "name": snapshot["name"], "description": snapshot["description"],
+        "goal_definition_id": occurrence.goal_id, "qualifying_triggers": qualifying_triggers(snapshot),
+        "retry": retry_state(occurrence, controls),
+        "retry_of": f"goal:{occurrence.retry_of_id}" if occurrence.retry_of_id else None,
+        "closed_reason": occurrence.closed_reason or None,
+        "schedule": schedule_payload(occurrence.goal, controls),
         "origin": "catalog" if occurrence.goal.is_catalog else "parent",
         "first_details_opened_at": (occurrence.first_details_opened_at.isoformat()
                                     if occurrence.goal.is_catalog and occurrence.first_details_opened_at else None),
@@ -648,6 +744,11 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
     ).data
     return {
         "id": key, "name": definition.name, "description": definition.description,
+        "goal_definition_id": None,
+        "qualifying_triggers": qualifying_triggers({"filter": definition.trigger_filter,
+            "metric": "damage" if definition.quest_type == "boss" else "count"}, legacy=True),
+        "retry": {"allowed": False, "reason": "not_catalog", "latest_attempt_id": None},
+        "retry_of": None, "closed_reason": None, "schedule": None,
         "origin": "legacy",
         "first_details_opened_at": None, "catalog_repeatable": False,
         "catalog_icon": challenge_catalog_icon(definition),
@@ -661,7 +762,7 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
         "action": None, "pinned": pin_id == key, "repeat_weekly": False, "legacy": True,
         "rage_shield": quest.rage_shield, "participants": [
             {"user": participant.user_id, "user_name": participant.user.display_label, "contribution": participant.contribution}
-            for participant in quest.participants.all()
+            for participant in sorted(quest.participants.all(), key=lambda row: (-row.contribution, row.user_id, row.pk))
         ],
         "reward_receipt": {"id": key, "status": "legacy", "coins_awarded": 0, "xp_awarded": 0, "awarded_at": None},
     }
@@ -679,9 +780,13 @@ def list_goals(user):
         "occurrences",
         queryset=ChallengeOccurrence.objects.filter(
             Q(starts_at__lte=now) & (Q(ends_at__gt=now) | Q(ends_at__isnull=True))
-            | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at")),
+            | Q(goal__repeat_weekly=False, goal__repeat_days=0, starts_at=F("goal__starts_at"))
+            | Q(retry_of__isnull=False),
         ),
         to_attr="_listed_occurrences",
+    ), Prefetch(
+        "occurrences", queryset=ChallengeOccurrence.objects.filter(goal__is_catalog=False, goal__repeat_weekly=True)
+        .order_by("-starts_at", "-pk")[:1], to_attr="_listed_latest",
     )).order_by("pk")
     # Ordered so newly materialized occurrences get the same ids on every
     # database and query plan, as in the receipt loop below.
@@ -705,6 +810,20 @@ def list_goals(user):
     terminal = list(occurrences.filter(ends_at__lte=now).order_by("-ends_at", "-pk")[:20])
     future = list(occurrences.filter(starts_at__gt=now, goal__is_catalog=False))
     unique = {row.pk: row for row in active + recent + terminal + future}
+    for goal in goals:
+        if not goal.is_catalog and goal.repeat_weekly and goal.pk not in current and goal._listed_latest:
+            # Pausing a long-lived rule must not hide its resume controls
+            # behind the general twenty-row history limit.
+            previous = goal._listed_latest[0]
+            unique[previous.pk] = previous
+    from .controls import control_context, retry_state
+    controls = control_context(user)
+    # Every expired one-time offer remains discoverable even beyond the
+    # general history limit, so a large catalog cannot strand retry actions.
+    for group in controls["groups"].values():
+        latest = max(group, key=lambda row: (row.starts_at, row.pk), default=None)
+        if latest is not None and retry_state(latest, controls)["allowed"]:
+            unique[latest.pk] = latest
     if pin.occurrence_id:
         pinned = occurrences.filter(pk=pin.occurrence_id).first()
         if pinned:
@@ -725,7 +844,7 @@ def list_goals(user):
     item_ids.update(item["item_id"] for row in legacy_rows for item in (row.reward_items_snapshot or []))
     item_catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(item_ids)
     item_details_cache = {}
-    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
+    rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache, controls=controls)
             for row in unique.values()]
     rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
              for row in legacy_rows]
@@ -735,15 +854,18 @@ def list_goals(user):
     from .serializers import QuestDefinitionSerializer
     accepted_ids = set(goals.values_list("catalog_definition_id", flat=True))
     accepted_ids.update(Quest.objects.filter(participants__user=user).values_list("definition_id", flat=True))
+    accepted_ids.update(QuestDefinition.objects.filter(pk__in=accepted_ids).exclude(
+        superseded_by__isnull=True,
+    ).values_list("superseded_by_id", flat=True))
     locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
         "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
     ).order_by("quest_type", "name", "pk") if user.role == "child" else []
-    # A one-time prerequisite whose only window ended unfinished can never be
-    # met, so its successor is omitted rather than shown as "Coming next".
+    # A retryable ended prerequisite can still unlock this offer. Omit only
+    # paths with no accepted completion, current window or eligible retry.
     locked = [definition for definition in locked if definition_is_available(definition) and not (
-        definition.prerequisite_quest_id and prerequisite_unavailable(user, definition.prerequisite_quest_id)
+        definition.prerequisite_quest_id and prerequisite_unavailable(user, definition.prerequisite_quest_id, controls=controls)
     )]
-    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],
+    return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache, controls=controls) for row in recent],
             "challenge_receipts": [activity.context["_receipt"] for activity in receipts],
             "locked_catalog": QuestDefinitionSerializer(locked, many=True, context={"eligibility_user": user}).data}
 

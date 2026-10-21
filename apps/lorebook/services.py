@@ -1,8 +1,7 @@
-"""Static Lorebook catalog + per-user discovery state.
+"""Bundled Lorebook handlers, published textual overlays and discovery state.
 
-The Lorebook is intentionally content-authored, not model-authored: mechanics
-copy lives in ``content/lorebook/entries.yaml`` so parent and kid surfaces share
-one source of truth without a new CRUD surface.
+YAML owns handler identities and baseline copy. Reviewed database publication
+may update explanatory text without changing trials, unlocks or reward rules.
 """
 from __future__ import annotations
 
@@ -53,7 +52,7 @@ class LorebookCatalogError(ValueError):
 
 
 @lru_cache(maxsize=1)
-def load_lorebook_catalog() -> list[dict[str, Any]]:
+def load_lorebook_source() -> list[dict[str, Any]]:
     """Parse and validate the YAML-authored Lorebook catalog."""
 
     try:
@@ -107,6 +106,16 @@ def load_lorebook_catalog() -> list[dict[str, Any]]:
         catalog.append(dict(entry))
 
     return catalog
+
+
+def load_lorebook_catalog() -> list[dict[str, Any]]:
+    """Apply current published copy to cached source without caching overrides."""
+    from apps.rpg.content.editorial import apply_editorial_overrides
+    return apply_editorial_overrides("lorebook", load_lorebook_source())
+
+
+# Existing validation callers can still explicitly refresh the YAML baseline.
+load_lorebook_catalog.cache_clear = load_lorebook_source.cache_clear
 
 
 def _all_unlocked(catalog: list[dict[str, Any]], reason: str) -> dict[str, dict[str, Any]]:

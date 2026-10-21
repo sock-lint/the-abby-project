@@ -15,10 +15,11 @@ import {
   listOAuthApplications, revokeOAuthApplication,
   listOAuthTokens, revokeOAuthToken,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
-  getCategories, unlinkGoogleAccount,
+  getAllCategories, unlinkGoogleAccount,
   devToolsPing,
 } from '../api';
 import GuideSection from './manage/GuideSection';
+import TaxonomyOptions from '../components/form/TaxonomyOptions';
 import TestSection from './manage/TestSection';
 import PrintingSection from './manage/PrintingSection';
 import ResetPasswordModal from './manage/ResetPasswordModal';
@@ -528,7 +529,7 @@ function TemplatesSection() {
   const navigate = useNavigate();
   const { data, loading, error, reload } = useApi(getTemplates);
   const { data: childrenData } = useApi(getChildren);
-  const { data: categoriesData } = useApi(getCategories);
+  const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const templates = normalizeList(data);
   const children = normalizeList(childrenData);
   const categories = normalizeList(categoriesData);
@@ -734,7 +735,7 @@ function EditTemplateModal({ template, categories, onClose, onSaved }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
             <option value="">None</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            <TaxonomyOptions entries={categories} selected={form.category_id} kind="category" />
           </SelectField>
           <SelectField label="Difficulty" value={form.difficulty} onChange={onField('difficulty')}>
             {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}

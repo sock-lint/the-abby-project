@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 225 tools across 30 modules.** Checked against the application registry and `tool_policy.py` on October 20, 2026.
+> **Total: 264 tools across 36 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -42,6 +42,64 @@ The flag is a client acknowledgement, not proof of human approval or Google
 consent. `delete_content_pack` also requires its existing `params.confirm`.
 See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 
+## Connection resource
+
+`abby://mcp/capabilities` is an authenticated resource, not another tool. It
+reports granted scopes, workflow purposes, required scopes and availability
+without household records. It grants no permission; additional access requires
+explicit OAuth reconnection. Initialization instructions point clients there.
+
+## Result and continuation contracts
+
+Changed project/payment history, project create/detail, payment mutations,
+movement log/detail, redemption, catalog reads reading, content workbench, editorial and RPG management tools expose
+concrete result fields through `outputSchema`. Other tools retain their existing
+contracts; this does not make all registered results fully typed. Wire tool
+failures set `isError: true` and return matching text JSON and
+`structuredContent.error` with `code`, `message`, `retryable` and `field_errors`.
+Input field paths identify arguments such as `params.title`; unexpected failures
+use a generic `internal_error` rather than exception details.
+
+`list_projects` and `list_payment_ledger` return `total`, `has_more` and nullable
+`next_cursor`. Pass that value as `cursor` with the same actor, family and
+filters. Projects retain their page-length `count`. Cursors are signed, expire
+after 24 hours and sort by descending creation timestamp plus ID. An initial
+maximum ID excludes subsequent inserts. Every page rechecks current permission;
+`total` counts currently matching authorized rows within that ID boundary and
+can change after deletion, reassignment or status edits. It is not a frozen
+database snapshot. Reading shelf pagination separately uses ascending IDs with
+`after`, `next_after` and `has_more`.
+
+## Required retry UUIDs
+
+| Tool | Required UUID field |
+| --- | --- |
+| `create_project` | `request_id` |
+| `adjust_payment` | `request_id` |
+| `request_redemption` | `request_id` |
+| `log_movement_session` | `client_request_id` |
+| `create_reading_book` | `client_request_id` |
+| `log_reading_session` | `client_request_id` |
+
+Preserve the UUID and exact details after an uncertain response. The first four
+use atomic MCP receipts and replay their original response after current
+permission checks. Deleted sources retain request tombstones. Reading uses the
+shared REST service and returns the current saved record on an identical retry.
+Changed details conflict; retries cannot repeat awards, debits or reservations.
+Required transport confirmations still apply. Existing payout, incubation,
+template, challenge, publication and proposal identities retain their own
+contracts; see the [workflow guide](operations/mcp-authoring.md).
+
+## Reading workflow
+
+Parents explicitly choose a same-family child using `user_id`; children remain
+self-scoped. Read the shelf and summary without creating progress, then save a
+book or log minutes/pages/section/reflection through the shared reading service.
+`reading_reward` and `reading_adventure` report actual saved reward evidence.
+Saving a book grants nothing, and reflections do not become reward context.
+Modern goal preview/create support `reading_logged` count/actions goals backed
+by awarded daily Reading Adventure receipts rather than individual log counts.
+
 ## Module counts
 
 | Module | Tools |
@@ -53,10 +111,12 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `chores` | 9 |
 | `chronicle` | 10 |
 | `content_packs` | 13 |
+| `content_workbench` | 10 |
 | `creations` | 8 |
 | `daily_challenges` | 2 |
 | `dashboard` | 1 |
 | `economy` | 4 |
+| `editorial` | 7 |
 | `exchange` | 5 |
 | `habits` | 7 |
 | `homework` | 17 |
@@ -65,17 +125,22 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `movement` | 6 |
 | `notifications` | 4 |
 | `payments` | 4 |
-| `pets` | 7 |
+| `pets` | 9 |
 | `portfolio` | 6 |
 | `projects` | 28 |
 | `quests` | 9 |
+| `reading` | 4 |
+| `reading_maintenance` | 7 |
 | `rewards` | 9 |
+| `rpg_management` | 9 |
+| `rpg_rules` | 2 |
 | `savings` | 4 |
 | `sprite_assets` | 1 |
 | `sprite_authoring` | 6 |
 | `templates` | 7 |
 | `timecards` | 9 |
 | `users` | 3 |
+
 
 ## achievements
 
@@ -86,20 +151,21 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `create_category` | `mcp:publish` | No | — | Create a new skill category (staff-parent-only). |
 | `create_skill` | `mcp:publish` | No | — | Create a skill inside a category/subject (staff-parent-only). |
 | `create_subject` | `mcp:publish` | No | — | Create a subject inside a category (staff-parent-only). |
-| `delete_badge` | `mcp:publish` | No | Required | Delete a badge definition. UserBadge rows referencing it cascade. Parent-only. |
-| `delete_category` | `mcp:publish` | No | Required | Delete a skill category. Cascades to subjects, skills, and dependent rows. |
-| `delete_skill` | `mcp:publish` | No | Required | Delete a skill (staff-parent-only). Cascades to SkillPrerequisite + SkillProgress + tags. |
-| `delete_subject` | `mcp:publish` | No | Required | Delete a subject. Skills in it keep their category but lose the subject FK (SET_NULL). Parent-only. |
+| `delete_badge` | `mcp:publish` | No | Required | Delete an unused, unmanaged badge; earned awards and references block deletion. |
+| `delete_category` | `mcp:publish` | No | Required | Delete an unused, unmanaged category; children and references block deletion. |
+| `delete_skill` | `mcp:publish` | No | Required | Delete an unused, unmanaged skill; progress, tags, prerequisites and saved promises block deletion. |
+| `delete_subject` | `mcp:publish` | No | Required | Delete an unused, unmanaged subject; attached skills and badges block deletion. |
 | `get_skill_tree` | `mcp:read` | Yes | — | Full nested skill tree for a category with the target user's progress. |
 | `list_badges` | `mcp:catalog` | Yes | — | List all defined badges, optionally filtered by rarity. |
 | `list_earned_badges` | `mcp:read` | Yes | — | List badges the target user has earned, newest first. |
-| `list_skill_categories` | `mcp:catalog` | Yes | — | List all top-level skill categories. |
-| `list_skills` | `mcp:catalog` | Yes | — | Flat list of skills, optionally filtered by category/subject/name. |
+| `list_skill_categories` | `mcp:catalog` | Yes | — | List available categories; include_retired retains management/history identities. |
+| `list_skills` | `mcp:catalog` | Yes | — | List available skills by category/subject/name; include_retired includes retained identities. |
 | `remove_skill_prerequisite` | `mcp:publish` | No | Required | Remove a prerequisite edge from the skill graph (staff-parent-only). |
 | `update_badge` | `mcp:publish` | No | Required | Edit a badge (staff-parent-only). |
 | `update_category` | `mcp:publish` | No | Required | Edit a skill category (staff-parent-only). |
 | `update_skill` | `mcp:publish` | No | Required | Edit a skill (staff-parent-only). |
 | `update_subject` | `mcp:publish` | No | Required | Edit a subject (staff-parent-only). |
+
 
 ## asset_proposals
 
@@ -113,12 +179,14 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `review_asset_proposal` | `mcp:author` | No | Required | Mark a reviewed exact brief ready for external production, or cancel it. |
 | `update_asset_proposal` | `mcp:author` | No | Required | Replace a brief at an expected revision; changes reset its ready review. |
 
+
 ## catalog
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `audit_rpg_catalog` | `mcp:catalog` | Yes | — | Inspect one bounded catalog page without modifying rules or player state. |
 | `read_rpg_catalog` | `mcp:catalog` | Yes | — | Read one global section in primary-key order with a stable after cursor. |
+
 
 ## challenges
 
@@ -131,19 +199,21 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `preview_challenge_goal` | `mcp:read` | Yes | — | Validate a parent goal without creating records or computing an award. |
 | `unpin_challenge` | `mcp:write` | No | — | Clear a matching saved pin; progress, periods and reward promises stay intact. |
 
+
 ## chores
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `approve_chore_completion` | `mcp:write` | No | Required | Approve a pending chore completion (parent-only). Awards money and coins. |
 | `complete_chore` | `mcp:write` | No | — | Mark a chore as done (creates a pending completion for parent approval). |
-| `create_chore` | `mcp:write` | No | — | Create a new chore (parent-only). |
+| `create_chore` | `mcp:write` | No | — | Create a chore with the web workflow's reward and schedule validation. |
 | `get_chore` | `mcp:read` | Yes | — | Get details for a single chore (family-scoped). |
 | `list_chore_completions` | `mcp:read` | Yes | — | List chore completions. Parents see all; children see their own. |
 | `list_chores` | `mcp:read` | Yes | — | List chores. Parents see all in their family; children see assigned + unassigned active chores in their family with today's availability. |
 | `reject_chore_completion` | `mcp:write` | No | Required | Reject a pending chore completion (parent-only). |
 | `set_chore_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a chore (parent-only). |
 | `update_chore` | `mcp:write` | No | Required | Update an existing chore (parent-only, same-family). |
+
 
 ## chronicle
 
@@ -159,6 +229,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `update_journal` | `mcp:write` | No | Required | Edit today's journal entry. Locked to owner; 403 after midnight. |
 | `update_manual_entry` | `mcp:write` | No | Required | Edit a manual chronicle entry (parent-only, MANUAL-kind only). |
 | `write_journal` | `mcp:write` | No | — | Write today's journal entry (caller is always the author). |
+
 
 ## content_packs
 
@@ -178,6 +249,23 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `validate_content_pack` | `mcp:author` | No | — | Compatibility alias for preview_content_pack; returns an exact expiring plan. |
 | `write_pack_file` | `mcp:author` | No | Required | Write YAML content to ``<pack>/<filename>.yaml``. |
 
+
+## content_workbench
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_content_draft` | `mcp:author` | No | — | Create a private database draft without changing the live catalog. |
+| `get_content_draft` | `mcp:author` | Yes | — | Read one private database draft, its exact preview and saved evaluation identity. |
+| `get_content_workbench` | `mcp:catalog` | Yes | — | Read bounded global workbench references and authoring rules without household usage. |
+| `get_progression_lab` | `mcp:catalog` | Yes | — | Read global simulator rules, scenario limits and supported catalog coverage. |
+| `list_content_drafts` | `mcp:author` | Yes | — | Read only this author's same-family draft summaries, in stable UUID order. |
+| `preview_content_draft` | `mcp:author` | No | — | Validate the exact saved revision and review its changes without publishing. |
+| `publish_content_draft` | `mcp:publish` | No | Required | Publish the exact reviewed and simulated revision with explicit confirmation. |
+| `save_content_draft` | `mcp:author` | No | Required | Replace draft changes at the expected revision, invalidating its previous review. |
+| `simulate_content_draft` | `mcp:author` | No | — | Compare the reviewed draft with the baseline using one bounded anonymous scenario. |
+| `simulate_progression_scenario` | `mcp:catalog` | Yes | — | Run a bounded anonymous baseline scenario, including supported 365-day horizons. |
+
+
 ## creations
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -191,6 +279,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `reject_creation` | `mcp:write` | No | Required | Reject a Creation's bonus (parent-only). Baseline XP stays intact. |
 | `submit_creation` | `mcp:write` | No | — | Submit a Creation for parent bonus approval (owner or parent). |
 
+
 ## daily_challenges
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -198,11 +287,13 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `claim_daily_challenge` | `mcp:write` | No | — | Claim today's reward (idempotent — second claim returns already_claimed=True). |
 | `get_daily_challenge` | `mcp:write` | No | — | Return today's DailyChallenge for the user, creating one if missing. |
 
+
 ## dashboard
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `get_dashboard` | `mcp:read` | Yes | — | Return an aggregated dashboard view. |
+
 
 ## economy
 
@@ -213,6 +304,20 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_coin_ledger` | `mcp:read` | Yes | — | Read persisted Coin amounts through a signed cursor, scoped to self or an authorized same-family user. |
 | `preview_economy_scenario` | `mcp:catalog` | Yes | — | Compare up to four anonymous 31-day plans using explicit assumptions and current eligible drop pools. |
 
+
+## editorial
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_editorial_draft` | `mcp:author` | No | — | Create a private textual draft; this publishes nothing. |
+| `get_editorial_draft` | `mcp:author` | Yes | — | Read one draft and its exact saved preview/publication receipt. |
+| `list_editorial_content` | `mcp:catalog` | Yes | — | Read global Lorebook/affirmation copy, including retired affirmation IDs. |
+| `list_editorial_drafts` | `mcp:author` | Yes | — | Paginate compact identity and state summaries of the acting author's family-bound drafts. |
+| `preview_editorial_draft` | `mcp:author` | No | — | Validate exact textual changes and save a preview valid for 30 minutes. |
+| `publish_editorial_draft` | `mcp:publish` | No | Required | Publish the exact reviewed revision after explicit transport confirmation. |
+| `save_editorial_draft` | `mcp:author` | No | Required | Save a revisioned copy edit, invalidating the previous preview. |
+
+
 ## exchange
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -222,6 +327,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_exchange_requests` | `mcp:read` | Yes | — | List exchange requests. Children see their own; parents see any child. |
 | `reject_exchange` | `mcp:write` | No | Required | Deny a pending exchange (parent-only). No ledger side-effects. |
 | `request_exchange` | `mcp:write` | No | Required | Request a money → coins exchange (child self-scoped). |
+
 
 ## habits
 
@@ -235,6 +341,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `set_habit_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a habit (parent-only for other users' |
 | `update_habit` | `mcp:write` | No | Required | Edit a habit. Parent-only (mirrors REST). |
 
+
 ## homework
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -245,17 +352,18 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `create_homework_template` | `mcp:write` | No | — | Create a reusable homework template (parent-only). |
 | `delete_homework` | `mcp:write` | No | Required | Soft-delete a homework assignment (sets ``is_active=False``). Parent-only. |
 | `delete_homework_template` | `mcp:write` | No | Required | Delete a homework template (parent-only). |
-| `get_homework` | `mcp:read` | Yes | — | Get details for a single homework assignment. |
+| `get_homework` | `mcp:read` | Yes | — | Read an active assignment visible to the caller; inaccessible IDs are not found. |
 | `get_homework_template` | `mcp:read` | Yes | — | Return a single template owned by the calling parent. |
-| `list_homework` | `mcp:read` | Yes | — | List homework assignments. Parents see all; children see their own. |
+| `list_homework` | `mcp:read` | Yes | — | List active homework in the parent's family, or the child's own work. |
 | `list_homework_submissions` | `mcp:read` | Yes | — | List homework submissions. Parents see all; children see their own. |
 | `list_homework_templates` | `mcp:read` | Yes | — | List homework templates owned by the calling parent. |
 | `plan_homework` | `mcp:write` | No | — | Trigger AI project planning for a homework assignment (parent-only). |
 | `reject_homework_submission` | `mcp:write` | No | Required | Reject a pending homework submission (parent-only). Child can re-submit. |
 | `set_homework_skill_tags` | `mcp:write` | No | Required | Replace the skill-tag set on an assignment (parent-only). |
-| `submit_homework` | `mcp:write` | No | — | Submit homework for review (child-only). Note: images must be uploaded via the REST API. |
+| `submit_homework` | `mcp:write` | No | — | Direct children to the REST API to submit homework proof photos or a link. |
 | `update_homework` | `mcp:write` | No | Required | Edit fields on a homework assignment (parent-only). |
 | `update_homework_template` | `mcp:write` | No | Required | Edit a homework template (parent-only). |
+
 
 ## ingestion
 
@@ -265,6 +373,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `get_ingestion_job` | `mcp:read` | Yes | — | Fetch a single ingestion job by UUID (parent-only). |
 | `list_ingestion_jobs` | `mcp:read` | Yes | — | List the current parent's recent ingestion jobs. |
 | `submit_ingestion_job` | `mcp:write` | No | — | Create an ingestion job for an Instructables/URL source and enqueue it. |
+
 
 ## inventory
 
@@ -277,6 +386,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `unequip_cosmetic` | `mcp:write` | No | — | Clear a cosmetic slot. |
 | `use_consumable` | `mcp:write` | No | Required | Use one of a CONSUMABLE-type item. |
 
+
 ## movement
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -288,6 +398,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `log_movement_session` | `mcp:write` | No | — | Log a self-reported physical-activity session. |
 | `set_movement_type_skill_tags` | `mcp:publish` | No | Required | Replace the skill-tag fan-out on a MovementType (staff-parent-only). |
 
+
 ## notifications
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -297,14 +408,16 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `mark_all_notifications_read` | `mcp:write` | No | — | Bulk mark every unread notification for the caller as read. |
 | `mark_notification_read` | `mcp:write` | No | — | Mark a single notification as read. |
 
+
 ## payments
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `adjust_payment` | `mcp:write` | No | Required | Apply a positive or negative manual adjustment to a child's balance. |
 | `get_payment_balance` | `mcp:read` | Yes | — | Return money still owed to a child, breakdown and recent entries. |
-| `list_payment_ledger` | `mcp:read` | Yes | — | List PaymentLedger entries, optionally filtered by entry_type/since. |
+| `list_payment_ledger` | `mcp:read` | Yes | — | Read scoped payment history, optionally filtered by entry_type/since. |
 | `record_payout` | `mcp:write` | No | Required | Confirm a completed Greenlight transfer (parent-only, same-family). |
+
 
 ## pets
 
@@ -312,13 +425,14 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | --- | --- | --- | --- | --- |
 | `activate_mount` | `mcp:write` | No | — | Mark a mount as active (deactivates any prior active mount). |
 | `activate_pet` | `mcp:write` | No | — | Mark a pet as active (deactivates any prior active pet). |
+| `claim_pet_incubation` | `mcp:write` | No | Required | Explicitly hatch a ready incubation. Early calls grant nothing. |
 | `feed_pet` | `mcp:write` | No | Required | Feed a food item to a pet. Auto-evolves at growth >= 100. |
+| `get_pet_incubation` | `mcp:read` | Yes | — | Read the current incubating or ready egg. Reads never hatch a pet. |
 | `get_pet_stable` | `mcp:read` | Yes | — | Aggregate stable view: pets + mounts + collection stats. |
-| `get_pet_incubation` | `mcp:read` | Yes | — | Read the same-family target's active egg and server-relative incubation clock; never creates a pet. |
-| `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to start timed incubation; reuse the UUID request ID after an uncertain result. |
-| `claim_pet_incubation` | `mcp:write` | No | Required | Explicitly hatch a ready incubation; exact-ID retries return its saved pet without repeating rewards. |
 | `list_mounts` | `mcp:read` | Yes | — | List a user's evolved mounts. |
 | `list_pets` | `mcp:read` | Yes | — | List a user's pets (children forced to self). |
+| `start_pet_incubation` | `mcp:write` | No | Required | Consume one egg and potion to begin incubation, without creating a pet. |
+
 
 ## portfolio
 
@@ -330,6 +444,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `get_portfolio_summary` | `mcp:read` | Yes | — | Aggregate counts for a user's portfolio: projects, photos, hours. |
 | `list_portfolio_media` | `mcp:read` | Yes | — | Aggregated recent work: project photos + approved homework proofs. |
 | `list_project_photos` | `mcp:read` | Yes | — | List ProjectPhoto rows attached to a project (read-only). |
+
 
 ## projects
 
@@ -364,6 +479,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `update_resource` | `mcp:write` | No | Required | Edit a reference link (parent-only). |
 | `update_step` | `mcp:write` | No | Required | Edit a step. Parent-only. |
 
+
 ## quests
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -377,6 +493,30 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_quest_catalog` | `mcp:read` | Yes | — | Browse every authored QuestDefinition. Parent-only. |
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
+
+
+## reading
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `create_reading_book` | `mcp:write` | No | — | Save a book on a child's shelf once using a stable client_request_id. |
+| `get_reading_summary` | `mcp:read` | Yes | — | Read saved reading totals and today's actual Reading Adventure receipt. |
+| `list_reading_books` | `mcp:read` | Yes | — | Read one child's shelf in stable ID order; follow next_after for more. |
+| `log_reading_session` | `mcp:write` | No | — | Log reading against the child's book using a stable client_request_id. |
+
+
+## reading_maintenance
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `delete_reading_book` | `mcp:write` | No | Required | Remove a confirmed shelf book only when it has no reading entries. |
+| `delete_reading_session` | `mcp:write` | No | Required | Remove a confirmed reading entry while retaining original daily credit. |
+| `get_reading_book` | `mcp:read` | Yes | — | Read one saved shelf book for the explicitly selected child or child self. |
+| `get_reading_session` | `mcp:read` | Yes | — | Read a saved reading entry, including its reflection and actual receipt. |
+| `list_reading_sessions` | `mcp:read` | Yes | — | Read a child's saved entries in newest-created order with signed pagination. |
+| `update_reading_book` | `mcp:write` | No | Required | Correct saved shelf details or status after confirming the exact changes. |
+| `update_reading_session` | `mcp:write` | No | Required | Correct saved reading details after confirming the entry and exact changes. |
+
 
 ## rewards
 
@@ -392,6 +532,30 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `request_redemption` | `mcp:write` | No | Required | Request a reward redemption on behalf of the current user. |
 | `update_reward` | `mcp:write` | No | Required | Edit an existing reward (parent-only). |
 
+
+## rpg_management
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `claim_expedition` | `mcp:write` | No | Required | Explicitly claim a ready saved expedition through its server-owned receipt. |
+| `deliver_reward_redemption` | `mcp:write` | No | Required | Parent confirms an approved real-world reward was physically handed over. |
+| `get_expedition` | `mcp:read` | Yes | — | Read a saved trip's current readiness and frozen loot, without claiming. |
+| `get_reward_redemption` | `mcp:read` | Yes | — | Read one child's saved reward promise, approval and physical-delivery state. |
+| `list_expeditions` | `mcp:read` | Yes | — | Read saved trips and frozen loot through a caller-bound history cursor. |
+| `list_reward_redemptions` | `mcp:read` | Yes | — | Read saved shop requests and their accepted promises, without approving. |
+| `retry_challenge` | `mcp:write` | No | Required | Explicitly retry one expired, unpaid personal catalog challenge. |
+| `start_expedition` | `mcp:write` | No | Required | Launch a mount once, retaining the service-owned allowance and frozen loot. |
+| `update_challenge_schedule` | `mcp:write` | No | Required | Parent-only pause/resume or edits to a recurring goal's next weekly setup. |
+
+
+## rpg_rules
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `explain_rpg_catalog_entry` | `mcp:catalog` | Yes | — | Explain a global definition's effective rules, audit and incoming links. |
+| `get_rpg_rules` | `mcp:catalog` | Yes | — | Read installed mechanics and the boundary between content and code edits. |
+
+
 ## savings
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -401,11 +565,13 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_savings_goals` | `mcp:read` | Yes | — | List a user's savings goals (children forced to self). |
 | `update_savings_goal` | `mcp:write` | No | Required | Edit a savings goal's metadata (owner or parent only). |
 
+
 ## sprite_assets
 
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `register_sprite_assets` | `mcp:publish` | No | Required | Register spritesheets and sprites for a content pack and slice artwork. |
+
 
 ## sprite_authoring
 
@@ -418,6 +584,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `register_sprite_batch` | `mcp:publish` | No | Required | Upload one spritesheet and register many named tiles in one call. |
 | `update_sprite_metadata` | `mcp:publish` | No | Required | Update metadata (fps, pack) on an existing sprite without |
 
+
 ## templates
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -429,6 +596,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_templates` | `mcp:read` | Yes | — | List project templates visible to the current user. |
 | `save_project_as_template` | `mcp:write` | No | — | Save a family project as a reusable template, preserving all skill tags. |
 | `update_template` | `mcp:write` | No | Required | Edit template metadata and skill wiring or atomically replace its plan. |
+
 
 ## timecards
 
@@ -443,6 +611,7 @@ See the [AI disclosure inventory](operations/google-ai-disclosure.md).
 | `list_timecards` | `mcp:read` | Yes | — | List weekly timecards for a user (children forced to self). |
 | `mark_timecard_paid` | `mcp:write` | No | Required | Mark a timecard PAID and post a negative PaymentLedger payout (parent-only). |
 | `void_time_entry` | `mcp:write` | No | Required | Void a completed TimeEntry (parent-only). Status flips to ``voided``. |
+
 
 ## users
 

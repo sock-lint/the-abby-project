@@ -11,13 +11,14 @@ from apps.rpg.models import ContentPackEntry, ItemDefinition, RPGContentOverride
 from apps.rpg.services import ConsumableService
 
 from .loader import ContentPackError
+from .errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 from .validation import whole_number
 
 ITEM_FIELDS = {"name", "description", "icon", "sprite_key", "rarity", "coin_value", "metadata"}
 ITEM_BEHAVIOR_FIELDS = {"rarity", "coin_value", "metadata"}
 NEW_ITEM_FIELDS = ITEM_FIELDS | {"slug", "item_type", "food_species_id"}
 QUEST_FIELDS = {"name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days",
-                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "required_badge", "reward_items", "skill_tags",
+                "trigger_filter", "coin_reward", "xp_reward", "is_repeatable", "is_cooperative", "required_badge", "reward_items", "skill_tags",
                 "prerequisite_quest", "required_skill", "required_skill_level"}
 CREATE_ITEM_TYPES = set(ItemDefinition.ItemType.values) - {"egg", "potion"}
 MODELS = {"items": ItemDefinition, "quests": QuestDefinition}
@@ -56,19 +57,19 @@ def challenge_trigger_findings(rows):
 
 def require_actor(actor):
     if actor.role != "parent" or not actor.is_staff or not actor.is_active or actor.family_id is None:
-        raise ContentPackError("Content authoring requires an active staff parent with an explicit family.")
+        raise ContentAuthorPermissionDenied("Content authoring requires an active staff parent with an explicit family.")
 
 
 def editable_object(actor, section, object_id):
     model = MODELS[section]
     obj = model.objects.filter(pk=object_id).first()
     if obj is None or (section == "quests" and not obj.is_system):
-        raise ContentPackError("The selected global catalog object was not found.")
+        raise ContentObjectNotFound("The selected global catalog object was not found.")
     claim = ContentPackEntry.objects.filter(model_label=model._meta.label_lower, object_id=obj.pk).first()
     override = RPGContentOverride.objects.filter(model_label=model._meta.label_lower, object_id=obj.pk).first()
     if ((claim and claim.family_id != actor.family_id)
             or (override and override.family_id != actor.family_id)):
-        raise ContentPackError("This catalog entry is authored by another family and is read-only here.")
+        raise ContentAuthorPermissionDenied("This catalog entry is authored by another family and is read-only here.")
     return obj
 
 
@@ -103,8 +104,9 @@ def _validate_values(section, values, *, new):
             whole_number(values[field], field, minimum, maximum)
     if "rarity" in values and values["rarity"] not in ItemDefinition.Rarity.values:
         raise ContentPackError("Unknown rarity.")
-    if "is_repeatable" in values and type(values["is_repeatable"]) is not bool:
-        raise ContentPackError("is_repeatable must be a boolean.")
+    for field in ("is_repeatable", "is_cooperative"):
+        if field in values and type(values[field]) is not bool:
+            raise ContentPackError(f"{field} must be a boolean.")
     if "quest_type" in values and values["quest_type"] not in QuestDefinition.QuestType.values:
         raise ContentPackError("Unknown quest_type.")
     if section == "items":
@@ -149,7 +151,8 @@ def _validate_values(section, values, *, new):
             _positive_id(values[field], field)
             matches = model.objects.filter(pk=values[field])
             if field == "prerequisite_quest":
-                matches = matches.filter(is_system=True, created_by=None)
+                from apps.quests.queries import active_system_definitions
+                matches = matches.filter(pk__in=active_system_definitions().values("pk"), created_by=None)
             if not matches.exists():
                 raise ContentPackError(f"Unknown global {field}.")
     if "required_skill_level" in values:
@@ -197,7 +200,23 @@ def _validate_values(section, values, *, new):
             seen.add(identity)
 
 
-def validate_changes(actor, changes):
+def _validate_taxonomy_choices(values, current, *, lock):
+    from apps.achievements.taxonomy import validate_new_taxonomy_references
+
+    if "required_skill" in values and values["required_skill"] is not None:
+        validate_new_taxonomy_references(Skill, [values["required_skill"]],
+            retained_ids=[current.required_skill_id] if current else (), lock=lock)
+    if "trigger_filter" in values:
+        category_id = values["trigger_filter"].get("skill_category_id")
+        if category_id is not None:
+            prior = current.trigger_filter.get("skill_category_id") if current else None
+            validate_new_taxonomy_references(SkillCategory, [category_id], retained_ids=[prior], lock=lock)
+    if "skill_tags" in values:
+        validate_new_taxonomy_references(Skill, [row["skill_id"] for row in values["skill_tags"]],
+            retained_ids=current.skill_tags.values_list("skill_id", flat=True) if current else (), lock=lock)
+
+
+def validate_changes(actor, changes, *, lock=False):
     """Validate replacement draft entries without applying catalog mutations."""
     require_actor(actor)
     try:
@@ -237,6 +256,7 @@ def validate_changes(actor, changes):
                 new_items.add(key)
             _validate_values(section, change["values"], new=object_id is None)
             if section == "quests":
+                _validate_taxonomy_choices(change["values"], obj if object_id else None, lock=lock)
                 quest_type = change["values"].get("quest_type", obj.quest_type if object_id else "collection")
                 filters = change["values"].get("trigger_filter", obj.trigger_filter if object_id else {})
                 status = challenge_trigger_status(quest_type, filters)
@@ -252,6 +272,7 @@ def validate_changes(actor, changes):
         # Validate the proposed graph together: individually safe edits can
         # form a cycle when applied in the same draft.
         from copy import copy
+        from .authoring import validate_source_identity
         graph = dict(QuestDefinition.objects.values_list("pk", "prerequisite_quest_id"))
         for change in changes:
             if change["section"] != "quests":
@@ -260,6 +281,7 @@ def validate_changes(actor, changes):
             for field, value in change["values"].items():
                 if field not in {"reward_items", "skill_tags"}:
                     setattr(obj, field + "_id" if field in {"required_badge", "prerequisite_quest", "required_skill"} else field, value)
+            validate_source_identity(obj)
             obj.clean()
             if obj.pk:
                 graph[obj.pk] = obj.prerequisite_quest_id

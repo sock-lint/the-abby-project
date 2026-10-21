@@ -5,6 +5,7 @@ import ModalActions from './ModalActions';
 import { TextField, SelectField, TextAreaField, IconPicker } from './form';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
+import { isTaxonomyAvailable } from '../utils/taxonomy';
 import { createRequestId } from '../utils/requestId';
 import {
   createMovementType,
@@ -41,7 +42,7 @@ function NewTypeSubForm({ onCancel, onCreated }) {
   } = useApi(getAllSkills);
   const skillsLoading = loading || refreshing;
   const skills = useMemo(
-    () => normalizeList(skillsData).filter((skill) => skill.category_name === 'Physical'),
+    () => normalizeList(skillsData).filter((skill) => skill.category_name === 'Physical' && isTaxonomyAvailable(skill)),
     [skillsData],
   );
   const [name, setName] = useState('');

@@ -32,6 +32,7 @@ from ..context import (
     get_current_user, get_in_family, require_parent, resolve_target_user,
 )
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..pagination import paginate_created_history
 from ..schemas import (
     AddCollaboratorIn,
     AddMaterialIn,
@@ -61,6 +62,7 @@ from ..schemas import (
     UpdateStepIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import (
     material_to_dict,
     milestone_to_dict,
@@ -102,6 +104,9 @@ def _child_allowed_statuses() -> set[str]:
 
 
 def _replace_project_skill_tags(project: Project, tags: list[dict[str, int]]) -> None:
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, [t["skill_id"] for t in tags],
+                     retained_ids=project.skill_tags.values_list("skill_id", flat=True))
     ProjectSkillTag.objects.filter(project=project).delete()
     if not tags:
         return
@@ -119,7 +124,7 @@ def _replace_project_skill_tags(project: Project, tags: list[dict[str, int]]) ->
 
 
 def _create_milestone_skill_tags(
-    milestone: ProjectMilestone, tags: list[dict[str, int]],
+    milestone: ProjectMilestone, tags: list[dict[str, int]], *, retained_ids=(),
 ) -> None:
     if not tags:
         return
@@ -128,6 +133,8 @@ def _create_milestone_skill_tags(
     missing = [sid for sid in skill_ids if sid not in known_ids]
     if missing:
         raise MCPValidationError(f"Unknown skill IDs on milestone: {missing}")
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, skill_ids, retained_ids=retained_ids)
     MilestoneSkillTag.objects.bulk_create([
         MilestoneSkillTag(
             milestone=milestone, skill_id=t["skill_id"], xp_amount=t["xp_amount"],
@@ -147,7 +154,9 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     """List projects visible to the current user.
 
     Children only ever see projects assigned to themselves. Parents can
-    filter by ``assigned_to_id`` to narrow to a specific child.
+    filter by ``assigned_to_id`` to narrow to a specific child. Follow
+    ``next_cursor`` with the same filters to retrieve the complete history;
+    ``count`` remains this page's size and ``total`` counts the scoped history.
     """
     user = get_current_user()
     qs = Project.objects.work_projects().select_related(
@@ -160,8 +169,9 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     if user.role == "parent":
         family_id = getattr(user, "family_id", None)
         if family_id is None:
-            return {"projects": [], "count": 0}
-        qs = qs.filter(assigned_to__family_id=family_id)
+            qs = qs.none()
+        else:
+            qs = qs.filter(assigned_to__family_id=family_id)
         if params.assigned_to_id is not None:
             qs = qs.filter(assigned_to_id=params.assigned_to_id)
     else:
@@ -170,11 +180,15 @@ def list_projects(params: ListProjectsIn) -> dict[str, Any]:
     if params.status is not None:
         qs = qs.filter(status=params.status)
 
-    qs = qs.order_by("-created_at")[: params.limit]
-    projects = list(qs)
+    projects, page = paginate_created_history(
+        qs, actor=user, tool="list_projects",
+        filters={"status": params.status, "assigned_to_id": params.assigned_to_id},
+        limit=params.limit, cursor=params.cursor,
+    )
     return {
         "projects": [project_list_to_dict(p) for p in projects],
         "count": len(projects),
+        **page,
     }
 
 
@@ -202,6 +216,9 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     guidance. Attach videos/docs to a step via a ``NewResource`` with
     ``step_index`` pointing at the step's 0-based position, or leave
     ``step_index`` as ``None`` for a project-level reference.
+
+    Supply a stable request_id UUID for duplicate-safe retries. Changed
+    details under a saved UUID are rejected instead of creating another plan.
     """
     parent = require_parent()
 
@@ -209,6 +226,17 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
     # ``resolve_target_user`` raises MCPNotFoundError on miss / cross-family,
     # never leaking existence of foreign users.
     assignee = resolve_target_user(parent, params.assigned_to_id)
+
+    return mutation_once(
+        actor=parent, target=assignee, operation="create_project", request_id=params.request_id,
+        payload=params.model_dump(exclude={"request_id"}), result_model=Project,
+        target_field="assigned_to_id", create=lambda actor, target: _create_project(params, actor, target),
+        serialize=project_detail_to_dict,
+    )
+
+
+def _create_project(params, parent, assignee):
+    """Create the project inside the caller's atomic retry transaction."""
 
     category = None
     if params.category_id is not None:
@@ -218,6 +246,9 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"category_id {params.category_id} does not match any category.",
             )
+
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(SkillCategory, [category.pk] if category else [])
 
     # Validate step_index and milestone_index references BEFORE any DB writes
     # so a bad payload can't half-create a project.
@@ -311,7 +342,7 @@ def create_project(params: CreateProjectIn) -> dict[str, Any]:
             )
 
     project.refresh_from_db()
-    return project_detail_to_dict(project)
+    return project
 
 
 @tool()
@@ -473,14 +504,26 @@ def _require_work_project(project):
 
 @tool()
 @safe_tool
+@transaction.atomic
 def update_project(params: UpdateProjectIn) -> dict[str, Any]:
     """Edit project fields (parent-only). Only the provided fields are touched.
 
     Use ``update_project_status`` for status transitions — this tool refuses
     status changes so it can't bypass the completion-hooks there.
     """
+    from ..retries import authorized_household
+    actor = require_parent()
+    with authorized_household(actor, actor) as (parent, _):
+        return _update_project_locked(params, parent)
+
+
+def _update_project_locked(params, parent):
     project = _get_project_parent_only(params.project_id)
-    parent = require_parent()
+    project = Project.objects.select_for_update(of=("self",)).filter(
+        pk=project.pk, assigned_to__family_id=parent.family_id,
+    ).first()
+    if project is None:
+        raise MCPNotFoundError(f"Project {params.project_id} not found.")
 
     data = params.model_dump(exclude={"project_id"}, exclude_unset=True)
 
@@ -499,6 +542,10 @@ def update_project(params: UpdateProjectIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"category_id {data['category_id']} does not match any category.",
             )
+
+    if data.get("category_id") is not None:
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(SkillCategory, [data["category_id"]], retained_ids=[project.category_id])
 
     for field, value in data.items():
         setattr(project, field, value)
@@ -630,9 +677,10 @@ def update_milestone(params: UpdateMilestoneIn) -> dict[str, Any]:
             setattr(milestone, field, value)
         milestone.save()
         if params.skill_tags is not None:
+            retained_ids = list(milestone.skill_tags.values_list("skill_id", flat=True))
             MilestoneSkillTag.objects.filter(milestone=milestone).delete()
             _create_milestone_skill_tags(
-                milestone, [t.model_dump() for t in params.skill_tags],
+                milestone, [t.model_dump() for t in params.skill_tags], retained_ids=retained_ids,
             )
     milestone.refresh_from_db()
     return milestone_to_dict(milestone)

@@ -125,7 +125,7 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
             "required_badge", "required_badge_name",
             "prerequisite_quest", "prerequisite_quest_name", "required_skill", "required_skill_name",
             "required_skill_level", "milestone_eligibility",
-            "is_repeatable", "is_system", "created_at", "catalog_available",
+            "is_repeatable", "is_system", "is_cooperative", "created_at", "catalog_available",
         ]
         read_only_fields = fields
 
@@ -141,6 +141,11 @@ class QuestParticipantSerializer(serializers.ModelSerializer):
 
 class QuestSerializer(serializers.ModelSerializer):
     definition = serializers.SerializerMethodField()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["participants"].sort(key=lambda row: (-row["contribution"], row["user"], row["id"]))
+        return data
 
     def get_definition(self, obj):
         from .reward_items import accepted_reward_items

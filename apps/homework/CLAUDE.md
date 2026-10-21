@@ -59,6 +59,17 @@ MCP tools: `list_homework`, `get_homework`, `create_homework`, `submit_homework`
 
 ## Gotchas
 
+- **Legacy template skill IDs:** cloning accepts saved positive integer IDs and
+  their canonical ASCII decimal strings (`"1"`), normalizing them before current
+  existence/retirement admission. The saved template JSON and XP amounts stay
+  unchanged. Padded, signed, float, boolean, malformed and oversized IDs fail
+  before an assignment is saved. New template/assignment inputs remain strict;
+  this compatibility rule does not exempt retired taxonomy from new work.
+  Template updates may resend an exact saved canonical string or change it to
+  the equivalent integer while retaining that same reference, including a
+  retired skill. Strings for newly selected IDs remain invalid; malformed old
+  tags may be removed and never grant a retirement exemption.
+
 - **Homework plans are schoolwork:** the linked `Project` stores the assignment's
   steps and materials, and stays accessible through its detail URL. Its
   server-owned `is_homework_plan` identity includes older assignment links and

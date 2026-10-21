@@ -4,6 +4,7 @@ import QuillProgress from '../../components/QuillProgress';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { WayfinderHeading } from './WayfinderMap';
 import { XP_THRESHOLDS } from './skillTree.constants';
+import { taxonomyStatus } from '../../utils/taxonomy';
 
 /** Inline detail keeps prerequisite journeys inside the same atlas history. */
 export default function WayfinderSkillDetail({ skill, resolvePrerequisite = () => null, onSelectPrerequisite, catalogLoading = false }) {
@@ -19,6 +20,7 @@ export default function WayfinderSkillDetail({ skill, resolvePrerequisite = () =
   return <div className="space-y-4">
     <WayfinderHeading title={skill.name} icon={skill.icon || skill.name?.[0]} assetId={skill.catalog_icon}
       description={skill.description} meta={`Level ${level}${levelName ? ` · ${levelName}` : ''} · ${xp.toLocaleString()} XP`} />
+    {taxonomyStatus(skill) && <p className="text-caption text-ink-secondary">{skill.is_retired ? 'Retired from new choices. Saved progress and rewards remain available.' : taxonomyStatus(skill)}</p>}
     {skill.unlocked ? (maxed ? <p className="font-medium text-body text-gold-leaf">Maximum level reached</p> : <div className="space-y-2">
       <div className="flex flex-wrap justify-between gap-2 text-caption text-ink-whisper">
         <span>{Math.max(0, next - xp).toLocaleString()} XP to Level {level + 1}</span><span>{Math.round(pct)}% toward next level</span>

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExternalLink, Sparkles } from 'lucide-react';
-import { createProject, getCategories, getChildren, getInstructablesPreview } from '../api';
+import { createProject, getAllCategories, getChildren, getInstructablesPreview } from '../api';
+import TaxonomyOptions from '../components/form/TaxonomyOptions';
 import { useApi } from '../hooks/useApi';
 import { getToken } from '../api/client';
 import { usePlanningAccount } from '../components/project-plan/usePlanningAccount';
@@ -27,7 +28,7 @@ export default function ProjectNew() {
 
 function ProjectNewForm() {
   const navigate = useNavigate();
-  const { data: categoriesData } = useApi(getCategories);
+  const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const { data: childrenData } = useApi(getChildren);
   const categories = normalizeList(categoriesData);
   const children = normalizeList(childrenData);
@@ -172,7 +173,7 @@ function ProjectNewForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField label="Category" value={form.category_id} onChange={set('category_id')}>
               <option value="">None</option>
-              {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+              <TaxonomyOptions entries={categories} selected={form.category_id} kind="category" />
             </SelectField>
             <SelectField label="Difficulty" value={form.difficulty} onChange={set('difficulty')} error={errors.difficulty} disabled={saving}>
               {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}

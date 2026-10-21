@@ -3,6 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import Button from '../../components/Button';
+import TaxonomyOptions from '../../components/form/TaxonomyOptions';
 import { TextField, SelectField, TextAreaField, IconPicker } from '../../components/form';
 
 export default function SubjectFormModal({ item, categories, onClose, onSaved }) {
@@ -44,9 +45,7 @@ export default function SubjectFormModal({ item, categories, onClose, onSaved })
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <SelectField label="Category" value={form.category} onChange={onField('category')} required>
           <option value="">Select...</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-          ))}
+          <TaxonomyOptions entries={categories} selected={form.category} kind="category" />
         </SelectField>
         <IconPicker value={form.icon} placeholder="" onChange={(icon) => set({ icon })} disabled={saving} />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />

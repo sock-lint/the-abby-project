@@ -304,11 +304,16 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     """Merge a batch of YAML entries into a pack file.
 
     Parses the existing file (creating it if absent), combines the new
-    rows with the old ones, dedupes by natural key (``slug`` for items /
+    rows with the old ones, dedupes by stable ``id`` for named entities
+    where supplied, otherwise their natural key (``slug`` for items /
     pet_species / potion_types, ``name`` for badges / quests / rewards)
     with last-write-wins semantics — matching the loader's upsert — and
     writes the merged YAML back through the same safety rails as
     ``write_pack_file`` (size cap, path containment, reserved-name check).
+
+    An unkeyed row can gain a new stable ID without changing its name or
+    position. Existing stable IDs cannot be replaced or removed by name.
+    Published identities still require explicit migration at publication.
 
     ``mode="append"`` (default) merges into any existing rows; ``"replace"``
     discards the current file contents and writes only ``entries``.
@@ -332,7 +337,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"entries[{i}] must be a mapping, got {type(entry).__name__}.",
             )
-        if natural_key not in entry or not entry[natural_key]:
+        if not isinstance(entry.get(natural_key), str) or not entry[natural_key].strip():
             raise MCPValidationError(
                 f"entries[{i}] is missing required field "
                 f"{natural_key!r} (the natural key for "
@@ -362,27 +367,49 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
             )
         existing = [e for e in raw_existing if isinstance(e, dict)]
 
-    # Last-write-wins dedup by natural key. Preserve order: existing rows
+    # Match the loader's stable IDs for named entities. Slug-owned items,
+    # species and potions retain their existing natural-key identities.
+    stable_ids = natural_key == "name"
+
+    def identity(entry):
+        value = entry.get(natural_key)
+        if not isinstance(value, str) or not value.strip():
+            raise MCPValidationError(f"Every entry requires a nonempty {natural_key}.")
+        if stable_ids and "id" in entry:
+            stable_id = entry["id"]
+            if not isinstance(stable_id, str) or not stable_id or len(stable_id) > 150:
+                raise MCPValidationError("Entry id must be nonempty text of at most 150 characters.")
+            return "id", stable_id
+        return natural_key, value
+
+    # Last-write-wins dedup by identity. Preserve order: existing rows
     # first (with their key unchanged), new/updated rows added or replacing
     # in place.
     by_key: dict[Any, dict] = {}
     order: list[Any] = []
     for entry in existing:
-        key = entry.get(natural_key)
-        if key is None:
-            # Skip rows without a natural key — the loader would reject
-            # them anyway, and they'd create ambiguous merges here.
-            continue
+        key = identity(entry)
         if key not in by_key:
             order.append(key)
         by_key[key] = entry
     for entry in params.entries:
-        key = entry[natural_key]
+        key = identity(entry)
+        legacy_key = (natural_key, entry[natural_key])
+        if stable_ids and key[0] == "id" and key not in by_key and legacy_key in by_key:
+            # Promote a draft's name-only row in place. This does not migrate
+            # saved publication claims; the loader still checks those identities.
+            order[order.index(legacy_key)] = key
+            del by_key[legacy_key]
+            by_key[key] = entry
+            continue
         if key not in by_key:
             order.append(key)
         by_key[key] = entry
 
     merged = [by_key[k] for k in order]
+    names = [entry[natural_key] for entry in merged]
+    if len(names) != len(set(names)):
+        raise MCPValidationError("Competing entry identities use the same natural key; reconcile them before writing.")
     doc = {top_key: merged}
     yaml_content = yaml.safe_dump(
         doc,
@@ -562,7 +589,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
     require_parent()
     from apps.achievements.models import Badge
     from apps.pets.models import PetSpecies, PotionType
-    from apps.quests.models import QuestDefinition
+    from apps.quests.queries import active_system_definitions
     from apps.rpg.models import DropTable, ItemDefinition
 
     limit = params.limit_per_section
@@ -630,7 +657,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "min_level": d.min_level,
         })
 
-    quests_qs = QuestDefinition.objects.filter(is_system=True).prefetch_related(
+    quests_qs = active_system_definitions().prefetch_related(
         "reward_items__item",
     ).all()[:limit]
     quests = [
@@ -642,6 +669,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "coin_reward": q.coin_reward,
             "xp_reward": q.xp_reward,
             "is_repeatable": q.is_repeatable,
+            "is_cooperative": q.is_cooperative,
             "reward_items": [
                 {
                     "item_slug": r.item.slug,
@@ -674,7 +702,7 @@ def list_rpg_catalog(params: ListRpgCatalogIn) -> dict[str, Any]:
             "items": items_qs.count(),
             "pet_species": PetSpecies.objects.count(),
             "potion_types": PotionType.objects.count(),
-            "quests": QuestDefinition.objects.filter(is_system=True).count(),
+            "quests": active_system_definitions().count(),
             "badges": Badge.objects.count(),
         },
         "pagination": "This legacy summary is bounded. Use read_rpg_catalog with section/after for complete details and runtime availability.",

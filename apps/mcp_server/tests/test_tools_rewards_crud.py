@@ -1,6 +1,8 @@
 """Tests for Tier-1.3 reward shop CRUD + coin adjustments via MCP."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from django.test import TestCase, override_settings
 
 from apps.mcp_server.context import override_user
@@ -217,7 +219,7 @@ class SupportedRewardPublicationTests(TestCase):
         # The production policy applies again before retirement and approval.
         previous_policy = {"schema_version": 1, "pets": [], "potion_slugs": [], "disabled_item_types": []}
         with override_settings(RPG_ASSET_SUPPORT_POLICY=previous_policy), override_user(self.child):
-            receipt = reward_tools.request_redemption(RequestRedemptionIn(reward_id=reward.pk))
+            receipt = reward_tools.request_redemption(RequestRedemptionIn(request_id=uuid4(), reward_id=reward.pk))
         with override_user(self.parent):
             retired = reward_tools.update_reward(UpdateRewardIn(reward_id=reward.pk, is_active=False))
             self.assertFalse(retired["is_active"])

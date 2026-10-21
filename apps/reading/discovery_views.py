@@ -16,7 +16,10 @@ from .serializers import (
     DiscoveryFeedbackWriteSerializer, FamilySuggestionCreateSerializer,
     FamilySuggestionWriteSerializer, ReadingFamilySuggestionSerializer,
 )
-from .views import _existing_request, _lock_target, _payload, _target_user
+from .services import (
+    _existing_request, lock_reading_owner as _lock_target, reading_payload as _payload,
+)
+from .views import _target_user
 
 
 class ReadingDiscoveryFeedbackView(APIView):

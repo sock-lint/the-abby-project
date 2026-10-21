@@ -2,6 +2,14 @@
 
 Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+Explicit `trigger_filter.skill_category_id` in private quest creation is rechecked
+by `reference_locks.lock_filter_category` inside the write transaction, after the
+definition INSERT has acquired its catalog-table write lock. PostgreSQL
+`KEY SHARE` then retains the category until commit without reversing taxonomy
+deletion's table/row lock order. Missing IDs roll back the definition and any MCP
+receipt; identical UUID replay retains its original response. Regression coverage
+is in `tests/test_category_reference_safety.py`.
+
 ## Supported rewards and reachable prerequisites (October 2026)
 
 The owner-authorized prelaunch retirement is a narrow exception to the promise
@@ -124,6 +132,21 @@ Voyager activation is the separate reviewed Workbench draft described in
 
 ## Automatic goal tracking
 
+Canonical system offers exclude superseded definitions and unresolved same-name
+conflicts. Supersession preserves all saved history and accepted reward promises;
+only future duplicate enrollment/repeat windows stop. Use the shared query helpers
+for new offers and equivalent definition identities for legacy completion guards.
+The reconciliation migration never replays activity or pays rewards.
+
+`QuestDefinition.is_cooperative` marks catalog offers that require parent
+assignment to at least two same-family children. They use the existing shared
+`Quest`/`QuestParticipant` engine, never new individual automatic enrollment or
+solo starts. Existing personal windows remain accepted. Any saved nonrepeatable
+personal version prevents a second shared assignment, even if unpaid/expired,
+because late approval can still fulfill its promise. Repeatable personal windows
+must end before a co-op start.
+React exposes this assignment under Family challenges and retains server errors.
+
 - `ChallengeEnrollment` records the first tracking boundary and timezone; changing a pin does not reset it.
 - `ChallengeGoal` stores a personal catalog or parent-authored goal. Its private `is_catalog` origin survives a deleted template; the optional `catalog_definition` uses `SET_NULL`. `ChallengeOccurrence` freezes one period, activity rule, target and reward promise, including catalog name/type metadata for saved catalog history.
 - `ChallengeActivity` records a durable source identity and safe context; `ChallengeContribution` credits a source once per occurrence. Private journal prose never belongs in this context.
@@ -135,6 +158,7 @@ Voyager activation is the separate reviewed Workbench draft described in
 - Explicit parent-created goals can count all valid matching saved records. Movement goal progress includes every valid session after the separate three-session XP/drop cap. Reads and pins never award or consume inventory.
 - Planning/creation quota counters keep their existing active-Django-timezone day (default America/Phoenix). Parent goal windows and daily bonuses remain family-local; this fix does not move the source reward gates to a new clock.
 - New parent goals measure counts, minutes or decimal distance and can repeat weekly. Weekly boundaries are Monday through Sunday in the family timezone; late approval retains the activity's original period. Paid occurrences never rearm following a correction or deletion.
+- A saved recurring rule (including an accepted future schedule version) retains its taxonomy choices when opening later windows. Retiring a reward skill or its ancestors does not cancel that standing rule. Historical JSON references to deleted skills remain in the snapshot; completion still pays its saved Coins and records only XP actually awarded to surviving skills. Initial parent/catalog acceptance and newly selected future-setup references still require current availability. Explicit retries retain their separate current-offer admission checks.
 - Homework challenge work days use the submission's saved v1 timing snapshot, even after a household timezone or deadline edit. Legacy/malformed snapshots fall back to the configured Django timezone, since the original household zone is unknown; existing challenge facts retain their saved dates. Weekly backfill uses the goal's saved timezone and resolves the same frozen work day from a bounded source scan. Approval timestamps remain separate for catalog cutoffs and approval-day daily bonuses; weekly chores keep their saved period-start date.
 - Contributions and totals use the existing three-decimal precision with explicit `ROUND_HALF_UP` before persistence/completion, keeping processing, weekly backfill and unpaid corrections consistent across databases.
 - Catalog goals use their actual trigger filters; themes and XP reward tags do not restrict qualifying activities. Reward-only definitions (`badge_earned`/`perfect_day`) are omitted from new automatic enrollment, while saved legacy instances remain readable. Default unfiltered goals count effort events; expedition returns need an explicit trigger filter. Newly offered/evaluated goals get a fresh full-duration window, with enrollment/cutover, definition creation, actual badge unlock and active legacy deadline as lower cutoffs. The earliest eligible pending fact can anchor the initial window so saved work/retries count; processed history is never replayed into a new catalog goal. Nonrepeatable goals keep one window, repeatable goals keep successive frozen-duration windows from their saved anchor, and no existing dates reset on return, pinning or completion.
@@ -152,6 +176,69 @@ retry. Existing completed markers are never backfilled. Bonus items remain in
 `DropLog` and the existing drop-toasts flow, separate from the frozen authored
 reward/receipt shape. Active catalog filtering, level gates and duplicate salvage
 continue to apply to the bonus roll.
+
+### Explicit attempts and future weekly setup
+
+`POST /api/challenges/goal:<occurrence_id>/retry/` accepts only `{}` from the
+owning child or a same-family parent. An expired unpaid personal one-time
+catalog goal receives a fresh saved occurrence with `retry_of`; replaying that
+specific predecessor returns its exact existing successor (201 first, 200 on
+replay). Parent-authored, cooperative, repeatable, retired, already-paid or
+otherwise active identities are ineligible. No saved source is replayed into
+the new attempt: its private activity-ID floor and timestamp window are both
+enforced. An existing pin follows the successor and the response reports it.
+
+An explicit retry establishes one lifetime reward across that catalog identity,
+including retained aliases and legacy completion history. The first completed
+attempt wins, including delayed processing of earlier accepted work. Other
+unpaid attempts become `status: closed`, `closed_reason: reward_already_awarded`,
+with no completion/award timestamp or invented receipt. Earlier snapshots,
+progress, contributions and paid history remain saved. Grandfathered duplicate
+promises without an explicit retry retain their existing policy.
+
+A new retry requires every saved promised item to exist and remain available,
+including current art and authored compatibility for the exact egg/potion pair.
+It checks the original snapshot, not later definition reward edits, and never
+filters ingredients or substitutes items or Coins. Unavailable rewards expose
+`retry.allowed: false`, `reason: reward_unavailable`; an initial retry returns
+409 with that error. A zero-item promise needs no item availability. Accepted
+attempts still complete with their frozen IDs/quantities, and an existing
+predecessor-to-successor replay returns that successor even after withdrawal.
+Taxonomy retirement retains the explicit retry's separate choice admission.
+
+New retry writes acquire a bounded reward-catalog SHARE fence before taxonomy
+row admission, then re-read reward availability in the same transaction.
+PostgreSQL contention fails immediately with `RetryCatalogBusy` and a transient
+409; its nested savepoint releases partial fence locks. This is a refresh/retry
+conflict, not a claim that currently available rewards became unavailable.
+
+Recurring parent goals expose `goal_definition_id` and `schedule` with a
+revision and the next saved-timezone Monday's setup. Parent-only
+`PATCH /api/challenges/goals/<goal_definition_id>/schedule/` requires
+`expected_revision` plus `paused` and/or partial `next_week` fields (`name`,
+`description`, `target`, `coin_reward`, `xp_reward`, `skill_tags`). Stale parents
+receive 409. Metric, unit and activity identity remain fixed; normal goal
+validation applies on resume or future edits. A pure pause can retain a deleted
+saved skill reference because it creates no new reward promise. `ChallengeSchedule`
+versions start next Monday and never change current/already accepted future
+occurrences. Resuming does not materialize skipped earlier weeks, even on late
+approval. These writes do not evaluate facts or replay source rewards.
+
+`controls.py` owns these writes and batched read-only presentation. Payloads
+include validated `qualifying_triggers`, `retry`, nullable `retry_of`,
+`closed_reason`, and `schedule`; legacy rows have no new writable identity.
+Keep only the latest catalog occurrence per goal, existence flags for lifetime
+history and at most two schedule revisions in presentation context. Every
+retryable expired catalog goal and paused parent rule stays discoverable beyond
+the normal history limit. PostgreSQL races are in `test_goal_control_concurrency`;
+the real upgrade preservation check also covers migration 0012.
+
+New parent goals and validated future setups hold their referenced skill IDs
+with PostgreSQL `KEY SHARE` until the JSON reward promise commits. Safe taxonomy
+deletion takes a full target lock and rechecks committed promises. UUID replays
+return the accepted occurrence; a pure pause can still stop legacy rules with a
+missing skill. `test_goal_skill_reference_safety` covers stale validation and
+both real PostgreSQL writer/deletion races.
 
 Endpoints: `GET /api/challenges/` (parent may select a same-family child with `user_id`), `POST /api/challenges/goals/` (parent only), and `POST`/`DELETE /api/challenges/<goal_id>/pin/` (self-scoped presentation). New IDs are `goal:<occurrence_id>`; retained legacy IDs are `legacy:<quest_id>`.
 
@@ -182,7 +269,7 @@ are excluded. Only transport partition/retry query keys are accepted; child
 and family selectors are refused. The response contains aggregate counts,
 without child identities, accepted row IDs, authored prose or reading details.
 
-`voyager_feedback.py` resolves the unique global Reading Voyager identity;
+`voyager_feedback.py` resolves the active canonical Reading Voyager identity;
 missing/ambiguous definitions and exceeded child/history limits withhold counts
 rather than fabricating zero outcomes. Current child states are distinct from
 saved-window policy groups. Readiness uses current exact prerequisite, unlocked
@@ -191,6 +278,10 @@ length. It is not a historical first-unlock timestamp. `acceptance_mode`
 distinguishes current automatic tracking from native milestone offers waiting
 for the next new Reading Adventure. Accepted or conflicting history takes
 precedence over new-offer readiness; membership is rechecked before aggregation.
+Exact retained aliases contribute saved history and prerequisite evidence;
+they cannot revive a retired or ambiguous current offer. The MCP adapter
+retains Family → observer locks through the report so permission changes
+cannot race its household reads.
 
 Saved 45-day windows require frozen count-20 reading rules, exactly 45 elapsed
 days and no native milestone snapshot. Their old badge requirements were not
@@ -203,10 +294,17 @@ the saved opening activity ID. They remain separate buckets using each saved
 elapsed duration; selecting 84 days neither extends accepted 45-/56-day
 promises nor publishes the candidate. Other or malformed policies stay separate.
 Current catalog edits never reclassify an accepted promise from today's rules.
+Validated linear retry chains count each immutable attempt window in policy
+groups, while the child appears once in current states using the latest
+attempt or a valid lifetime completion. Retry links must retain the same goal
+and frozen promise, with ordered windows and a valid server activity cutoff.
+Unlinked duplicates, conflicting goals and malformed chains stay unknown.
 
 Only fully ended saved windows enter mature outcomes. Early completions remain
 pending until the full deadline; `mature_denominator` is known completed plus
-known expired, excluding pending and unknown evidence. Ended active rows at the
+known expired attempt windows, excluding pending and unknown evidence; it is
+not a distinct-child denominator. Closed unresolved attempts remain unknown.
+Ended active rows at the
 target may be awaiting repair and remain unknown. Completion recorded after the
 deadline can reflect valid saved work processed later. Legacy quests lack a
 frozen full policy and completion time, so their mature outcome remains unknown.
@@ -229,7 +327,7 @@ DST. React includes the year in saved periods and the exact exclusive deadline
 in goal details; showing only the final included date must not imply that a
 rolling period accepts work through the end of that entire day.
 
-The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the explicit Persistence fallback and reports only actual unlocked-skill credit.
+The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit.
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.
 

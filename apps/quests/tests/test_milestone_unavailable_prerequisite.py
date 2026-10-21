@@ -48,20 +48,20 @@ class UnavailablePrerequisiteTests(TestCase):
         with self.at(days):
             return [row["id"] for row in list_goals(self.child)["locked_catalog"]]
 
-    def test_expired_one_time_prerequisite_hides_its_successor(self):
+    def test_expired_one_time_prerequisite_keeps_its_retryable_successor(self):
         self.assertIn(self.voyager.pk, self.locked_ids(0))
         self.assertTrue(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.prior).exists())
         with self.at(31):
             ingest_activity(self.child, "reading_logged", "late-reading", "reading_logged",
                             occurred_at=timezone.now(), fresh_milestone=True)
             payload = list_goals(self.child)
-            self.assertTrue(prerequisite_unavailable(self.child, self.prior.pk))
-        self.assertNotIn(self.voyager.pk, [row["id"] for row in payload["locked_catalog"]])
+            self.assertFalse(prerequisite_unavailable(self.child, self.prior.pk))
+        self.assertIn(self.voyager.pk, [row["id"] for row in payload["locked_catalog"]])
         prior_row = next(row for row in payload["results"] if row["name"] == self.prior.name)
         self.assertEqual(prior_row["status"], "expired")
         self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.voyager).exists())
 
-    def test_child_challenges_response_omits_the_dead_end(self):
+    def test_child_challenges_response_keeps_the_retryable_prerequisite_path(self):
         client = APIClient()
         client.force_authenticate(self.child)
         with self.at(0):
@@ -69,7 +69,7 @@ class UnavailablePrerequisiteTests(TestCase):
         with self.at(31):
             response = client.get("/api/challenges/")
         self.assertEqual(response.status_code, 200)
-        self.assertNotIn(self.voyager.pk, [row["id"] for row in response.data["locked_catalog"]])
+        self.assertIn(self.voyager.pk, [row["id"] for row in response.data["locked_catalog"]])
 
     def test_open_prerequisite_window_keeps_the_successor_listed(self):
         self.locked_ids(0)
@@ -85,10 +85,18 @@ class UnavailablePrerequisiteTests(TestCase):
         self.locked_ids(0)
         self.assertIn(self.voyager.pk, self.locked_ids(31))
 
-    def test_gated_prerequisite_inherits_an_expired_upstream_window(self):
+    def test_gated_prerequisite_inherits_a_retryable_upstream_window(self):
         bridge = self.gated("Reading Bridge", self.prior)
         QuestDefinition.objects.filter(pk=self.voyager.pk).update(prerequisite_quest=bridge)
         self.assertEqual(set(self.locked_ids(0)), {bridge.pk, self.voyager.pk})
-        self.assertEqual(self.locked_ids(31), [])
+        self.assertEqual(set(self.locked_ids(31)), {bridge.pk, self.voyager.pk})
         with self.at(31):
-            self.assertTrue(prerequisite_unavailable(self.child, bridge.pk))
+            self.assertFalse(prerequisite_unavailable(self.child, bridge.pk))
+
+    def test_ended_prerequisite_with_ambiguous_catalog_identity_has_no_retry_path(self):
+        self.locked_ids(0)
+        QuestDefinition.objects.create(name=self.prior.name, quest_type="collection", target_value=3,
+                                       duration_days=14, is_system=True, trigger_filter=READING)
+        self.assertNotIn(self.voyager.pk, self.locked_ids(31))
+        with self.at(31):
+            self.assertTrue(prerequisite_unavailable(self.child, self.prior.pk))

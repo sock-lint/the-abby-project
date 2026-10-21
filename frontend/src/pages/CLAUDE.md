@@ -294,9 +294,25 @@ Tasks → Challenges (`/quests?tab=trials`) uses the shared Task folio shell.
 The pinned challenge and parent-created goals lead the working list. Up to three
 bonus challenges with positive progress appear next, ranked by proportion toward
 completion. The remaining bonus goals and history stay in collapsed disclosures.
+The bonus browser includes the complete available bonus list beyond the pin,
+with search, server-qualified activity filters, saved-zone deadline dates and
+deadline/progress/name sorting. Expanded browsing replaces duplicate preview
+cards, leaving parent goals and pinned focus visible. History has an explicit
+"Can try again" filter and shortcut for server-eligible expired catalog attempts.
 Every matching goal continues tracking regardless of its placement or whether a
 disclosure is open. A pin only features one active goal on Today and in the header;
 children do not start or claim goals to make their work count.
+An explicit Try again action opens a fresh period at zero progress for an
+eligible unpaid one-time catalog challenge. The predecessor occurrence is its
+idempotency identity, so manual retries of an uncertain POST request the same
+attempt. Parents can retry a verified child's occurrence too. One lifetime
+reward remains server-owned; closed sibling attempts explain that another
+attempt earned it and never show a pending payout.
+The server's `reward_unavailable` retry reason shows a specific explanation and
+a disabled Try again control. A matching 409 from a previously eligible card
+uses the same explanation and retains the disabled state if refresh fails.
+The browser never replaces the unavailable reward or changes accepted attempts.
+
 
 - `trials/index.jsx` owns the parent's child selector, goal details and pin actions.
   `ChallengesFolio.jsx` presents the shared `QuestFolio` layout; `challengeFocus.js`
@@ -304,7 +320,21 @@ children do not start or claim goals to make their work count.
   Parents use `CreateGoalForm.jsx`
   to assign count, minute or distance goals, with a period and optional weekly
   repeat. The form previews the activity, date window and reward and retains a
-  UUID for identical save retries.
+  UUID for identical save retries. XP bonuses require a selected skill; inline
+  errors and a skills-read retry preserve the draft. `FamilyChallengeForm.jsx`
+  separately offers available `is_cooperative` catalog definitions to parents
+  with at least two verified family children. Parents explicitly select the
+  participants for one pooled target with the full reward per child. Assignment
+  uses the existing co-op endpoint, preserves failed drafts without replaying
+  writes, refreshes challenge reads on success, and resets across account,
+  credential and roster changes.
+- `GoalScheduleControls.jsx` gives parents pause/resume and six-field changes
+  for future weekly periods. The saved next-Monday boundary, metric and activity
+  remain authoritative. Writes carry an expected revision; a conflict retains
+  the draft until the parent explicitly loads refreshed settings. Current and
+  already accepted occurrence promises are preserved. Skills reads and schedule
+  writes bind the captured credential; old account/child responses cannot update
+  the new workspace.
 - `ChallengeGoalCard.jsx` presents the server's decimal progress, origin, activity
   rule, planned reward and actual completion receipt. Parent and pinned deadlines
   remain visible; background bonus dates stay in full details. Origin is the
@@ -314,6 +344,10 @@ children do not start or claim goals to make their work count.
   pin change moved its original opener.
 - `goalDisplay.js` formats progress and household-local deadlines. Do not derive
   eligibility, paid amounts or recurrence from the browser clock.
+  Card subtitles use the server's qualifying rule text, saved target/unit and
+  actual period; themed names never determine activity filters. Missing rule or
+  deadline evidence stays explicit, and unknown deadlines cannot match a date
+  filter.
 - `hooks/useChallenges.js` shares scoped server data, refreshes after Pulse and
   pin changes, and fences responses by account/credential/selected-child identity.
 - Existing boss/collection components and routes remain reference and legacy
@@ -424,6 +458,10 @@ A fourth tab — **Yearbook** — sits inside the Atlas hub: lifelong chronologi
 The **Wayfinder** follows the existing Category → Subject → Skill hierarchy. [`SkillTreeView`](/frontend/src/pages/achievements/SkillTreeView.jsx) opens on the category overview, then navigates through a category's subject map, a subject's skill rows, and an inline skill detail. [`WayfinderMap.jsx`](/frontend/src/pages/achievements/WayfinderMap.jsx) supplies the category and subject maps and their heading. Names and icons come from the real catalog; each map shows one level of the hierarchy rather than placing the entire skill tree in one diagram.
 
 **Catalog versus progress:** `getSkillCatalog()` gathers all pages of the existing `/api/subjects/` and `/api/skills/` list endpoints in parallel. These flat catalog lists supply counts and ID destinations for prerequisite navigation. Actual private skill progress comes from `getSkillTree(categoryId)` at `/api/skills/tree/{categoryId}/`: category summary, nested subjects, XP, levels, authored level names, unlock states, and prerequisites. Catalog entries must not stand in for a user's progress. Category summary level is an aggregate, not a prerequisite stage or a completion percentage. The orchestrator fences stale responses so a slower previous request cannot replace the active category.
+
+**Taxonomy retirement:** categories, subjects and skills expose their own `is_retired` flag and effective `available_for_new_choices`, including retired ancestors. The default lists supply new choices; the all-page helpers accept `{ includeRetired: true }` for management, saved editors and Wayfinder history. The pagination helper retains that query on every page while preserving the request's token and abort signal. History still opens retired categories, subjects and skills with their saved XP and prerequisite destinations. Staff parents can retire or restore entries under Skills → Manage; **Show retired taxonomy** reveals retired and inherited-unavailable rows. Retirement uses PATCH and keeps the separate protected hard-delete contract.
+
+`TaxonomyOptions` and `SkillTagEditor` exclude unavailable identities from new choices, while keeping an existing selected retired identity visible and disabled. Removing or replacing that value is explicit; an unrelated edit must not visually rebind it to the first active option. Saved forms request retained metadata, including chore/habit reward tags and future challenge settings. Workbench and progression scenario selectors follow the same rule. Retiring a parent changes a descendant's effective availability without overwriting its own retirement state.
 
 **Subject and skill views:** selecting a subject renders [`SkillVerse`](/frontend/src/pages/achievements/SkillVerse.jsx) with `variant="wayfinder"`, retaining the shared skill XP and tier vocabulary. [`WayfinderSkillDetail`](/frontend/src/pages/achievements/WayfinderSkillDetail.jsx) renders inline with the selected skill's actual XP, level name, unlocked state, and required skills and levels. Prerequisite destinations are resolved by ID through the catalog, including requirements in a different subject or category.
 

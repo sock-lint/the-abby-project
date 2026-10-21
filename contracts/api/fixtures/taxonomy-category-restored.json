@@ -1,0 +1,10 @@
+{
+  "id": 951,
+  "name": "Retained practice",
+  "icon": "🛠️",
+  "catalog_icon": null,
+  "color": "#D97706",
+  "description": "",
+  "is_retired": false,
+  "available_for_new_choices": true
+}

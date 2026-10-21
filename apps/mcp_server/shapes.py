@@ -185,6 +185,8 @@ def timecard_to_dict(timecard) -> dict[str, Any]:
 
 
 def skill_to_dict(skill) -> dict[str, Any]:
+    from apps.achievements.taxonomy import available_for_new_choices
+
     return {
         "id": skill.id,
         "name": skill.name,
@@ -195,6 +197,8 @@ def skill_to_dict(skill) -> dict[str, Any]:
         "subject_name": skill.subject.name if skill.subject_id else None,
         "description": skill.description,
         "is_locked_by_default": skill.is_locked_by_default,
+        "is_retired": skill.is_retired,
+        "available_for_new_choices": available_for_new_choices(skill),
     }
 
 

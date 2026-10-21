@@ -7,6 +7,7 @@ class SkillCategory(models.Model):
     icon = models.CharField(max_length=50, blank=True)
     color = models.CharField(max_length=7, default="#D97706")
     description = models.TextField(blank=True)
+    is_retired = models.BooleanField(default=False)
 
     class Meta:
         # Preserve original table name so the move is a state-only migration.
@@ -44,6 +45,7 @@ class Subject(models.Model):
     description = models.TextField(blank=True)
     icon = models.CharField(max_length=50, blank=True)
     order = models.IntegerField(default=0)
+    is_retired = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["category", "order", "name"]
@@ -68,6 +70,7 @@ class Skill(models.Model):
     level_names = models.JSONField(default=dict)
     is_locked_by_default = models.BooleanField(default=False)
     order = models.IntegerField(default=0)
+    is_retired = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["category", "subject", "order"]

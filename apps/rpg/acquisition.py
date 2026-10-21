@@ -12,7 +12,10 @@ def sources_for_request(request):
         return request._rpg_acquisition_sources
     from apps.achievements.models import UserBadge
     from apps.quests.goals import ACTION_PATHS, FACT_TRIGGERS, TRIGGER_LABELS
-    from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestRewardItem
+    from apps.quests.models import ChallengeGoal, ChallengeOccurrence, Quest, QuestDefinition, QuestRewardItem
+    from apps.quests.queries import active_system_definitions
+    from apps.quests.availability import definition_is_available
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.rewards.models import Reward
     from .models import CharacterProfile, DropTable
@@ -23,26 +26,34 @@ def sources_for_request(request):
     result = defaultdict(list)
     earned = set(UserBadge.objects.filter(user=user).values_list("badge_id", flat=True))
     unavailable_goals = set(ChallengeGoal.objects.filter(
-        user=user, repeat_days=0, repeat_weekly=False,
-    ).filter(Q(ends_at__lte=timezone.now()) | Q(occurrences__awarded_at__isnull=False))
+        user=user, repeat_days=0, repeat_weekly=False, occurrences__awarded_at__isnull=False,
+    )
         .values_list("pk", flat=True))
     completed_definitions = set(Quest.objects.filter(
         participants__user=user, status="completed", definition__is_repeatable=False,
     ).values_list("definition_id", flat=True))
     now = timezone.now()
-    saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).prefetch_related(
+    saved_goals = list(ChallengeGoal.objects.filter(user=user, is_catalog=True).select_related("catalog_definition").prefetch_related(
         Prefetch("occurrences", queryset=ChallengeOccurrence.objects.filter(
             starts_at__lte=now,
         ).filter(Q(ends_at__gt=now) | Q(ends_at__isnull=True)), to_attr="current_windows"),
     ))
     accepted_definitions = {goal.catalog_definition_id for goal in saved_goals}
     for goal in saved_goals:
-        if (goal.pk in unavailable_goals or goal.starts_at > now
-                or (goal.ends_at is not None and goal.ends_at <= now
-                    and not goal.repeat_days and not goal.repeat_weekly)):
+        if goal.pk in unavailable_goals or goal.starts_at > now:
             continue
         current = goal.current_windows[0] if goal.current_windows else None
-        if current is not None and current.status != "active":
+        # An explicit retry has its own frozen window beyond the original
+        # goal deadline. Only fall back to that deadline without a saved window.
+        if (current is None and goal.ends_at is not None and goal.ends_at <= now
+                and not goal.repeat_days and not goal.repeat_weekly):
+            continue
+        if current is None and goal.catalog_definition_id and (
+            goal.catalog_definition.superseded_by_id or goal.catalog_definition.is_cooperative
+        ):
+            # Retained personal promises do not advertise a future retired cycle.
+            continue
+        if current is not None and (current.status != "active" or current.awarded_at is not None):
             continue
         promised = current.snapshot.get("items", []) if current is not None else goal.reward_items
         for reward in promised:
@@ -57,15 +68,31 @@ def sources_for_request(request):
         for reward in accepted_reward_items(quest):
             result[reward.item_id].append({"kind": "challenge", "name": quest.definition.name, "path": "/quests?tab=trials"})
 
+    canonical_ids = dict(QuestDefinition.objects.filter(
+        pk__in=accepted_definitions | completed_definitions,
+    ).values_list("pk", "superseded_by_id"))
+    accepted_definitions |= {canonical_ids.get(pk) or pk for pk in accepted_definitions}
+    completed_definitions |= {canonical_ids.get(pk) or pk for pk in completed_definitions}
+
     # Only public system challenges belong in global item hints. Private
     # parent-authored goal names are never exposed through another household.
-    rewards = QuestRewardItem.objects.filter(quest_definition__is_system=True).select_related(
+    rewards = QuestRewardItem.objects.filter(
+        quest_definition__in=definitions_with_available_taxonomy(active_system_definitions()).filter(is_cooperative=False),
+    ).select_related(
         "quest_definition", "quest_definition__prerequisite_quest", "quest_definition__required_skill", "quest_definition__required_badge",
+    ).prefetch_related(
+        "quest_definition__reward_items__item__pet_species__available_potions",
+        "quest_definition__reward_items__item__potion_type",
     ).order_by("quest_definition__name", "pk")
     milestone_cache = {}
+    availability_cache = {}
     for reward in rewards:
         definition = reward.quest_definition
         if definition.pk in accepted_definitions or definition.pk in completed_definitions or (definition.required_badge_id and definition.required_badge_id not in earned):
+            continue
+        if definition.pk not in availability_cache:
+            availability_cache[definition.pk] = definition_is_available(definition)
+        if not availability_cache[definition.pk]:
             continue
         if has_milestone_gate(definition):
             if definition.pk not in milestone_cache:

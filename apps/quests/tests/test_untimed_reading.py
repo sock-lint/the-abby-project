@@ -93,7 +93,11 @@ class UntimedReadingTests(TestCase):
         original.refresh_from_db()
         self.assertEqual((original.progress, original.ends_at, original.goal.ends_at), (1, deadline, deadline))
         with patch("django.utils.timezone.now", return_value=self.now + timedelta(days=30)):
-            self.assertTrue(prerequisite_unavailable(self.child, self.companion.pk))
+            # The expired unpaid timed promise remains reachable through an
+            # explicit retry, so it does not permanently lock its successors.
+            self.assertFalse(prerequisite_unavailable(self.child, self.companion.pk))
+            listed = next(row for row in list_goals(self.child)["results"] if row["id"] == f"goal:{original.pk}")
+            self.assertEqual(listed["retry"], {"allowed": True, "reason": None, "latest_attempt_id": f"goal:{original.pk}"})
 
     def test_old_legacy_timed_run_keeps_its_accepted_deadline(self):
         old = Quest.objects.create(definition=self.companion, current_progress=2,

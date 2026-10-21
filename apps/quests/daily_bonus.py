@@ -91,7 +91,7 @@ def process_daily_bonus(user, activity):
 
     skill_rows = activity.context.get("skill_tags") or []
     if not skill_rows:
-        persistence = Skill.objects.filter(name="Persistence").first()
+        persistence = Skill.objects.filter(category__name="Life Skills", name="Persistence").first()
         skill_rows = [{"skill_id": persistence.pk, "xp_weight": 1}] if persistence else []
     skills = {skill.pk: skill for skill in Skill.objects.filter(pk__in=[row["skill_id"] for row in skill_rows])}
     tags = [SimpleNamespace(skill=skills[row["skill_id"]], xp_weight=row["xp_weight"])

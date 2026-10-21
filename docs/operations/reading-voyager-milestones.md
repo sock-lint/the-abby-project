@@ -64,12 +64,18 @@ rewards and filter new locked offers.
 
 The child Challenges page displays server-confirmed requirements in **Coming
 next**, with no countdown before acceptance. Requirements can be met while
-the page awaits the next matching saved activity. A one-time prerequisite
-whose only window ended without completion can never be met, so the page omits
-its successors for that child rather than presenting an unreachable step.
-The old Reading Companion's one-time 14-day window can open before the child
-begins reading. The selected untimed definition removes that future lockout: a
+the page awaits the next matching saved activity. An expired unpaid catalog
+prerequisite can be explicitly retried while the server says it is eligible.
+Its successors remain discoverable; only definitely unavailable paths are
+omitted. A retry starts a fresh window and counts new qualifying facts.
+The old Reading Companion's one-time 14-day window opens at the child's first
+automatic-goal evaluation: any processed activity (a habit tap, chore or
+homework approval, clock-out, journal entry and others), the Today dashboard's
+challenge card, or the Challenges page. A child who misses its three readings
+in that window may explicitly retry it; reading or opening the page cannot
+start that retry. The selected untimed definition removes that deadline: a
 child can finish three qualifying Adventures after a late start or a long gap.
+An untimed promise never expires, so it is never offered a retry.
 Previously accepted timed Companion promises retain their saved deadline; this
 schema migration does not reopen, extend or pay those saved rows. The existing
 automatic-tracking cutover can create a child's first catalog Companion goal
@@ -128,12 +134,19 @@ strict saved Companion/Reading Comprehension gates and opening activity ID.
 The groups use immutable saved promises, not today's catalog configuration.
 Older badge-only eligibility and legacy full policies cannot be reconstructed.
 These groups do not establish identical rewards or a causal policy effect.
+Canonical catalog identities include their exact retained history aliases.
+Each valid attempt in a linked retry chain contributes its own saved window
+to the policy groups. Each child contributes once to current states, using
+the latest attempt or a valid lifetime completion. Unlinked duplicates,
+conflicting goals and malformed chains remain unknown. A closed attempt
+without a resolved outcome stays unknown rather than becoming a failure.
 
 Wait for each full saved deadline before including its outcome in a mature
 completion rate. An early completion can already appear completed in the child
 snapshot while its window remains under observation. The denominator is known
 mature completions plus known mature expiries; pending and unresolved evidence
-are excluded. With no resolved mature outcomes, show insufficient evidence
+are excluded. This denominator counts attempt windows, not distinct children.
+With no resolved mature outcomes, show insufficient evidence
 rather than zero-percent success. Later source processing can resolve an
 earlier unknown outcome; completion timestamps describe processing, not lateness.
 

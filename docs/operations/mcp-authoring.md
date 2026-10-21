@@ -31,6 +31,68 @@ requires top-level `arguments.confirmation: true` alongside `params`, after the
 client obtains confirmation. This flag is a client acknowledgement, not proof
 of a person's approval or Google-data consent.
 
+## Tool results and safe retries
+
+Discover the tool's current input and `outputSchema` before building a client.
+Project/payment history, project create/detail, payment mutations, movement
+log/detail, redemption and catalog reads expose concrete result fields. The
+four reading tools also declare their result fields. Other tools retain their
+existing response contracts; this is not a claim that every tool result has a
+complete field schema. Existing serializer extension fields remain supported.
+
+Wire tool failures return `isError: true` and the following shape in
+`structuredContent`, with matching JSON in the text content:
+
+```json
+{
+  "error": {
+    "code": "invalid_input",
+    "message": "Check the indicated tool arguments.",
+    "retryable": false,
+    "field_errors": {"params.title": ["Field required"]}
+  }
+}
+```
+
+Use the code and field paths to repair a request. Permission, not-found,
+confirmation, validation and idempotency-conflict failures have distinct codes.
+Unexpected failures use a generic `internal_error`; they do not expose an
+exception or traceback. HTTP authentication and JSON-RPC protocol errors retain
+their separate transport contracts. A timeout or uncertain result is a reason to
+inspect saved state and reuse an operation's retry identity, not invent a new one.
+
+The following writes require UUIDs; omitting the field is an input error:
+
+| Tool | UUID field | Transport confirmation |
+| --- | --- | --- |
+| `create_project` | `request_id` | Not required |
+| `adjust_payment` | `request_id` | Required |
+| `request_redemption` | `request_id` | Required |
+| `log_movement_session` | `client_request_id` | Not required |
+
+Generate one UUID for the intended operation, then preserve its exact details
+and UUID across retries. An identical retry returns its original saved response
+without a second project, ledger entry, Coin debit, stock reservation or movement
+award. Changed details under the same UUID return `idempotency_conflict`.
+Replays recheck current account, family and source ownership. A deleted source
+leaves a request tombstone; retrying its old UUID cannot recreate it. Retry
+identity does not replace authorization or confirmation.
+
+Project creation, payment adjustments and redemption UUIDs are scoped to the
+actor and operation. Movement UUIDs belong to the target child's activity
+history, so another currently authorized caller cannot replay a deleted session
+as new work. Account deletion clears cached household responses; a surviving
+movement tombstone retains no response prose. A cleared response returns
+not-found rather than executing its operation again. Responses larger than
+256 KiB are rejected atomically; use a smaller project request.
+
+Read the authenticated `abby://mcp/capabilities` resource for the connection's
+`granted_scopes` and workflow purposes, `required_scopes` and `available` flags.
+It includes retry/error guidance without household records. Initialization
+instructions point clients to this resource; it adds no tool and grants or
+upgrades no permission. Reconnect through explicit OAuth consent when another
+scope is needed.
+
 ## Connect Codex in a normal browser
 
 An existing Abby account must be an active **staff parent** to authorize MCP.
@@ -123,6 +185,31 @@ URLs out of logs, screenshots, issue/PR evidence and troubleshooting messages.
 Record only versions, sanitized error text and whether terminal authorization
 and authenticated discovery completed.
 
+## Reading shelves and logs
+
+Use `list_reading_books` and `get_reading_summary` with `mcp:read` to inspect
+saved shelves, totals and today's Reading Adventure evidence. Parents must
+choose a same-family child with `user_id`; children access themselves only.
+Shelf lists return `has_more` and `next_after`; pass the latter as `after`
+with the same target and status to continue in ascending ID order. Reads create
+no progress and award nothing.
+
+With `mcp:write`, `create_reading_book` saves a title, author, status and optional
+interests. `log_reading_session` references that child's `book` ID and records
+minutes, pages, a section or a reflection; at least one is required. Print,
+ebook and audiobook formats use the same existing reward rules. Omit
+`occurred_on` for the family-local day; future dates are rejected.
+
+Both writes require a stable UUID `client_request_id`. Identical retries reuse
+the current saved record; changed details conflict. Reading uses the same
+validation and services as REST. Saving a book grants nothing. Session
+`reading_reward` and summary `reading_adventure` report actual persisted awards
+and daily progress; they are not projected rewards. A retry cannot repeat an
+award, and correction/deletion cannot create another daily opportunity.
+Reflections remain reading records and never enter reward context. See
+[reading guidance](../../apps/reading/CLAUDE.md) for the daily threshold,
+correction and retention rules.
+
 ## Challenge coverage
 
 Use `list_challenges` for saved modern goals, frozen reward promises, actual
@@ -134,6 +221,12 @@ Use `preview_challenge_goal` with a same-family child, activity trigger, metric
 (`count`, `minutes`, `distance`), target, matching unit, period and reward/skill
 tags. It shares the app's `GoalWriteSerializer` and writes nothing. Weekly
 goals follow the family's calendar week. XP requires explicit valid skills.
+
+For reading goals, use `trigger_type="reading_logged"`, `metric="count"` and
+`unit="actions"`. One action means an actual awarded daily Reading Adventure,
+backed by its saved reward receipt. Individual sessions, books, pages and
+reflection text do not independently advance that goal. This is a count of
+daily Adventures, not a reading-minutes metric.
 
 After review, call `create_challenge_goal` with the reviewed fields, a stable
 UUID `request_id` and transport confirmation. Repeating the identical request
@@ -154,6 +247,10 @@ parent goals. Use the modern tools for new challenge authoring and auditing.
    `draft_pack_entries`. The structured merge helper accepts item, species,
    potion, badge, quest and shop-reward entries; raw YAML also supports drop
    rules and skill trees. A draft is not a catalog publication.
+   Name-only draft rows can gain a stable `id` through an append without
+   changing neighboring rows. Keep existing IDs when editing; adding an ID
+   to an already-published name-keyed row still requires explicit ownership
+   migration before publication.
 3. Call `preview_content_pack` (also exposed as `validate_content_pack`). It
    runs strict domain validation and the real loader in a rollback, then saves
    an expiring publication plan. Review exact before/after changes and retained
@@ -234,6 +331,26 @@ requests. A different payload with an existing UUID is rejected. Set
 `create_project_from_template.status` to `draft` to review a plan before
 starting it; the compatibility default remains `in_progress`.
 
+## Complete project and payment history
+
+`list_projects` and `list_payment_ledger` accept an optional `cursor` and return
+`total`, `has_more` and nullable `next_cursor` alongside their existing results.
+Project `count` remains the current page's length; it is not the history total.
+Keep the original target and filters when continuing, and pass `next_cursor`
+as the next request's `cursor`. Page size may change within its existing limit.
+Payments remain money owed and settled in Abby's ledger, not a live external
+Greenlight balance.
+
+Cursors are signed, bound to the tool, actor, role, family and filters, and expire
+after 24 hours. Payment date filters also bind the active timezone. Tied creation
+timestamps use primary-key ordering, so page boundaries do not skip or repeat
+tied rows. The initial maximum ID excludes later inserts, even if backdated.
+Every page checks current authorization again. `total` counts currently
+matching authorized records within that ID boundary; deletion, reassignment or
+changed status can alter it. The cursor does not freeze a database snapshot.
+Invalid, expired or differently scoped cursors are rejected; restart without a
+cursor when deliberately changing filters.
+
 ## Proposing external assets
 
 An assistant can turn catalog findings into `propose_asset` briefs. Each brief
@@ -271,8 +388,188 @@ endpoint or generation provider are configured by this feature.
 
 Run migrations before serving the new tools: MCP proposal history, RPG pack
 provenance/publication receipts and project-template learning/request records
-are persistent database state. Reconnect external clients for the revised
+are persistent database state. The mutation retry contracts additionally need
+`apps.mcp_server` migration `0004_mcpmutationreceipt`. Reconnect external clients for the revised
 permissions. Tool names, real input schemas and annotations are discoverable
 through MCP; [the tool inventory](../mcp-tools.md) records the required grants.
 The [Google/AI disclosure inventory](google-ai-disclosure.md) remains the source
 for provider/data-transfer disclosures and operator evidence requirements.
+
+### Read-only connection check
+
+Supply an existing OAuth access token in `MCP_TOKEN`, then run:
+
+```bash
+python scripts/smoke_mcp.py --base-url http://127.0.0.1:8000
+```
+
+`--base-url` accepts the server origin, without `/mcp`; `MCP_BASE_URL` supplies
+the same option and defaults to `http://127.0.0.1:8000`. Remote origins require
+HTTPS. The script appends `/mcp`, initializes the connection, verifies filtered
+discovery and runs the catalog reads available to that grant. A catalog grant
+allows the two bounded catalog checks; another grant may verify initialization
+and discovery with zero catalog calls. Successful output contains only tool and
+call counts; errors use fixed messages. Tokens and response bodies are not
+printed. The script does not log in or mutate household/catalog records.
+
+The old `--full` mutation smoke mode is retired and refuses before making a
+network request. Write validation runs against disposable data through the
+Django MCP tests; deleting created rows cannot undo ledger/reward opportunities
+or notification history from a production smoke run.
+
+
+## Existing catalog editing and progression evaluation
+
+`get_content_workbench` supplies bounded global references without family shop
+usage or private drafts. `get_rpg_rules` and `explain_rpg_catalog_entry` expose
+installed calculations, effective effects, audits and bounded incoming global
+references. Household shops, goals, inventory and saved progress are omitted.
+XP curves, new effect handlers, incubation rules and asset support remain
+reviewed source/configuration changes.
+
+Use `create_content_draft` → `save_content_draft` → `preview_content_draft` →
+`simulate_content_draft` → `publish_content_draft`. List/get tools resume only the
+acting author's drafts. Save requires the current revision and confirmation.
+Publication requires its exact revision, preview ID, digest, matching paired
+simulation and explicit confirmation. Private drafts use `mcp:author`, publication
+uses `mcp:publish`, and references use `mcp:catalog`; grants remain independent.
+Private reads and replays recheck the current author under family/member locks.
+
+`get_progression_lab` describes the installed simulator. The catalog-only
+`simulate_progression_scenario` runs an anonymous baseline, including supported
+365-day horizons. It shares native work limits and the ten-per-minute quota;
+paired draft simulations share the five-per-minute quota. Reports preserve
+coverage/exclusions and never create real rewards or household state.
+Paired calculations run after releasing household and catalog locks. Each short
+snapshot/receipt phase rechecks current author authority under family/member
+locks, then catalog locks; permission, preview, revision or catalog changes
+during calculation reject the result instead of saving a stale evaluation.
+
+Direct taxonomy/badge writes validate complete merged candidates and preserve
+original source identities across matching bundled reloads. Another family's
+owned pack/override is read-only. Numeric badge thresholds require JSON numbers;
+numeric strings, booleans and nonfinite values are rejected. Taxonomy must retain
+matching categories/subjects and an acyclic prerequisite graph. Taxonomy deletes
+remove only unused, unmanaged entries: progress, earned badges, tags, prerequisites,
+saved challenge promises and retained source dependencies block deletion. Managed
+bundled/pack definitions require reviewed source reconciliation. REST returns 409
+with a readable `detail` and `code: taxonomy_in_use`; MCP returns that structured
+code. Errors expose no private dependency names or counts. Unused caller-owned
+direct entries can be deleted with their own override metadata atomically.
+Private quest category filters recheck their explicit IDs within the creation
+transaction; a missing category rolls back both the new definition and its MCP
+receipt. Identical request replay still returns the saved original response.
+
+Taxonomy retirement is reversible. Set `is_retired: true` through
+`update_category`, `update_subject` or `update_skill` to hide that identity from
+new choices; set it to `false` to restore it. Categories, subjects and skills
+report their direct `is_retired` flag and effective `available_for_new_choices`.
+A retired category hides its subjects/skills; a retired subject hides its skills.
+Restoring an ancestor leaves each descendant's independent flag unchanged.
+Default taxonomy lists contain available choices. Use `include_retired: true`
+(and normal continuation paging) to find exact IDs for management or history.
+The web management controls provide the same Retire/Restore actions for staff
+parents, with the existing family ownership and fresh-authority checks.
+
+Retirement keeps numeric IDs, source identities, saved progress, tags,
+prerequisites and accepted rewards. Existing references may remain or be removed;
+new assignments reject unavailable entries and ask for an available choice or
+restoration. Saved retries and existing activity rewards continue to resolve the
+original identities. Retiring/restoring does not award, refund or recompute XP,
+Coins or badges. Skill trees and saved history remain readable. A matching YAML
+reload with `is_retired` omitted preserves the saved flag; explicit `false`
+restores it where no published override takes precedence. A fresh pack can rebuild
+archived taxonomy parent links created within that same atomic load; archived
+prerequisites require both new endpoints and an unavailable dependent. This
+bootstrap exception never admits new activity, reward-tag or gate choices, and
+its temporary identity tracking clears after success, failure and dry runs. This workflow is separate from the exact one-time prelaunch RPG
+catalog cleanup described in the companion lifecycle runbook.
+Default bundled startup loads report and defer individual new retired-reference
+rows, rolling back their scalar fields and links while loading safe content.
+Later bundled packs recognize those deferred skill and quest identities within
+the same atomic startup batch. The temporary markers clear on success, failure
+and dry runs, including when a command instance is reused. A dependent skill's
+source prerequisites are checked before any scalar or link changes, including
+existing targets and forward references, so deferred rules leave its full saved
+row intact. Existing saved references remain valid. Explicit `--pack` loads, keyed previews
+and publication stay strict; unknown references, invalid source and identity
+conflicts still fail rather than being classified as retirement deferrals.
+
+Skill identities include their category. Duplicate labels show their category in
+the native pickers; if literal names imitate those labels, escaped quoted name
+and category parts keep every choice distinct. MCP writes continue to use numeric
+IDs. Quest YAML references
+accept a unique bare name or `Category::Skill`; bare prerequisites within a skill
+tree refer to that skill's category. Ambiguous qualified spellings are rejected,
+including collisions caused by literal `::` in category or skill names. Subject
+assignment also resolves the exact category/subject pair. Automatic
+daily bonus fallback XP targets `Life Skills::Persistence`, and sample movement
+tags target Physical skills. An absent canonical skill never selects another
+category's namesake.
+
+Pack relationship edits distinguish omission from explicit clearing:
+`required_badge` omitted retains its value; null clears it. Skill `prereqs`
+omitted retains edges; an explicit list replaces the owned skill's edges,
+including an empty list. Direct prerequisite overrides take precedence over YAML.
+Structured badge/quest/shop merges use stable IDs when supplied. Pack items use
+the same bounded runtime metadata validation as the database workbench.
+
+## Household RPG management
+
+Parents explicitly select a same-family child with `user_id`; children remain
+self-scoped. All new writes require literal top-level `confirmation: true`.
+
+- `retry_challenge` takes `challenge_id="goal:<occurrence_id>"` for an eligible
+  expired unpaid attempt. Native predecessor replay and lifetime reward guards
+  remain authoritative; no synthetic progress is created.
+- `update_challenge_schedule` takes `goal_definition_id`, `expected_revision`,
+  UUID `request_id`, and `paused` and/or partial `next_week` fields. Only parents
+  edit schedules; accepted/current periods keep their frozen promises.
+- `list_expeditions`, `get_expedition`, `start_expedition` and `claim_expedition`
+  retain native allowance/timers and frozen loot. Start requires UUID `request_id`;
+  claim uses the exact expedition ID. Neither can shorten waits or reroll loot.
+- `list_reward_redemptions`, `get_reward_redemption` and
+  `deliver_reward_redemption` expose saved promises and explicit parent physical
+  handover. Delivery never spends Coins or repeats a digital grant.
+
+Start/schedule UUIDs replay the original saved response; use reads for current
+state. Changed details conflict. Native retry/claim/delivery use exact saved IDs.
+Reads and writes recheck current authority while materializing results. Expedition
+and redemption cursors share caller-bound signed history pagination and its
+24-hour validity/initial-insert boundary.
+
+Legacy `create_quest_definition` commits definition/assignment atomically. Its
+optional `request_id` enables exact safe replay; preserve it after uncertain
+responses. Without a UUID, the legacy non-idempotent contract remains. Chores
+expose `xp_reward` and one-time `due_date`, sharing REST merged validation;
+recurrence changes clear the old one-time deadline. Shop restocking shares the
+REST wishlist/notification workflow.
+
+## Reading maintenance
+
+`get_reading_book`, `get_reading_session` and `list_reading_sessions` supplement
+shelf/summary reads; session history uses signed continuation cursors.
+`update_reading_book` corrects metadata and status, including finished books.
+`update_reading_session`, `delete_reading_session` and `delete_reading_book` share
+REST owner locks and validation. Books with history keep their deletion guard.
+Confirmed corrections/deletions never rearm daily rewards, rewrite UUID credit,
+or award more XP/Coins. Parents can maintain inactive-child history in their family.
+
+## Textual editorial content
+
+`list_editorial_drafts` returns compact identity, revision and preview/publication
+summaries. Use `get_editorial_draft` for the full saved edits and exact preview.
+
+`list_editorial_content` reads global Lorebook/affirmation copy without learner
+state or private writing. Create/save/preview/publish editorial draft tools use
+private actor/family revisions. Save requires confirmation; publish additionally
+requires `mcp:publish` and the exact revision/preview/digest. Previews expire after
+30 minutes or a source/catalog change. List/get resume the author's own drafts.
+
+Lorebook edits cover existing titles, audience titles, summaries, kid voice and
+mechanics prose. Trial handlers, unlock conditions and reward flags stay in source.
+Affirmations support bounded single-line text, tone, new slugs and retirement.
+Retirement excludes future selection but preserves historical slug resolution;
+at least one active affirmation remains. Published copy overlays cached YAML on
+each read, without a worker cache-flush operation. Apply migration
+`rpg.0038_editorial_content_publication` before serving these workflows.

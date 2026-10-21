@@ -7,6 +7,8 @@ to another family's child. All four now route through ``resolve_target_user``.
 """
 from __future__ import annotations
 
+from uuid import uuid4
+
 from django.test import TestCase
 
 from apps.mcp_server.context import override_user
@@ -41,6 +43,7 @@ class CreateProjectCrossFamilyTests(_FamilyFixture):
         with override_user(self.a.parents[0]):
             result = project_tools.create_project(
                 CreateProjectIn(
+                    request_id=uuid4(),
                     title="Birdhouse",
                     assigned_to_id=self.a.children[0].id,
                 ),
@@ -53,6 +56,7 @@ class CreateProjectCrossFamilyTests(_FamilyFixture):
             with self.assertRaises(MCPNotFoundError):
                 project_tools.create_project(
                     CreateProjectIn(
+                        request_id=uuid4(),
                         title="Sneaky",
                         assigned_to_id=self.b.children[0].id,
                     ),

@@ -2,7 +2,8 @@
 from django.db import transaction
 from django.db.models import Q
 
-from apps.achievements.models import MilestoneSkillTag, ProjectSkillTag
+from apps.achievements.models import MilestoneSkillTag, ProjectSkillTag, Skill, SkillCategory
+from apps.rpg.taxonomy_references import admit_references
 from .models import (
     MaterialItem, Project, ProjectMilestone, ProjectResource, ProjectStep,
     ProjectTemplate, TemplateMaterial, TemplateMilestone, TemplateMilestoneSkillTag,
@@ -18,6 +19,7 @@ def save_project_template(project, *, parent, is_public=False):
     ).get(pk=project.pk)
     if project.is_homework:
         raise ValueError("Homework plans cannot become paid project templates.")
+    _admit_template_choices(project)
     template = ProjectTemplate.objects.create(
         **{field: getattr(project, field) for field in (
             "title", "description", "instructables_url", "difficulty", "category",
@@ -65,6 +67,7 @@ def instantiate_project_template(template, *, parent, assignee, title=None, stat
     if allow_public:
         visible |= Q(is_public=True)
     template = ProjectTemplate.objects.select_for_update().filter(visible).get(pk=template.pk)
+    _admit_template_choices(template)
     project = Project.objects.create(
         **{field: getattr(template, field) for field in (
             "description", "instructables_url", "difficulty", "category", "bonus_amount", "materials_budget",
@@ -103,3 +106,12 @@ def instantiate_project_template(template, *, parent, assignee, title=None, stat
             **{field: getattr(resource, field) for field in ("title", "url", "resource_type", "order")},
         )
     return project
+
+
+def _admit_template_choices(source):
+    """A copied plan creates new references; the saved source stays readable."""
+    admit_references(SkillCategory, [source.category_id] if source.category_id else [])
+    skill_ids = set(source.skill_tags.values_list("skill_id", flat=True))
+    for milestone in source.milestones.all():
+        skill_ids.update(milestone.skill_tags.values_list("skill_id", flat=True))
+    admit_references(Skill, skill_ids)

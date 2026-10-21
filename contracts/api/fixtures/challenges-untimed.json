@@ -4,6 +4,18 @@
       "id": "goal:1",
       "name": "Reading Companion",
       "description": "Three Reading Adventures, with no deadline.",
+      "goal_definition_id": 1,
+      "qualifying_triggers": [
+        "reading_logged"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_expired",
+        "latest_attempt_id": "goal:1"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,
