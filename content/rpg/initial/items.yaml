@@ -25,7 +25,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: meat, growth: 5}
-    food_species: wolf
 
   - slug: food-fish
     name: Fish
@@ -35,7 +34,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: fish, growth: 5}
-    food_species: dragon  # also eaten by cat (neutral boost for cat — first match wins)
 
   - slug: food-berries
     name: Berries
@@ -45,7 +43,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: berries, growth: 5}
-    food_species: fox
 
   - slug: food-seeds
     name: Seeds
@@ -54,7 +51,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: seeds, growth: 5}
-    food_species: owl
 
   - slug: food-birdseed
     name: Birdseed
@@ -73,7 +69,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: honey, growth: 8}
-    food_species: bear
 
   - slug: food-cake
     name: Cake
@@ -83,7 +78,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: cake, growth: 8}
-    food_species: phoenix
 
   # New pixel-art foods --------------------------------------------------
   - slug: food-apple
@@ -148,7 +142,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: vegetables, growth: 4}
-    food_species: pondshell
 
   - slug: food-sweetcorn
     name: Sweetcorn
@@ -221,7 +214,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: fish, growth: 6}
-    food_species: seafang
 
   - slug: food-ham
     name: Honey-Glazed Ham
@@ -278,7 +270,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: plankton, growth: 8}
-    food_species: drift-jelly
 
   - slug: food-tuna
     name: Tuna Fillet
@@ -287,7 +278,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: fish, growth: 6}
-    food_species: clownling
 
   - slug: food-kelp
     name: Kraken Kelp
@@ -296,7 +286,6 @@ items:
     rarity: rare
     coin_value: 4
     metadata: {food_type: seaweed, growth: 10}
-    food_species: deepkraken
 
   - slug: food-crab
     name: Tide Crab
@@ -305,7 +294,6 @@ items:
     rarity: uncommon
     coin_value: 2
     metadata: {food_type: shellfish, growth: 6}
-    food_species: ripplecoil
 
   - slug: food-oats
     name: Oats
@@ -314,7 +302,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: grain, growth: 5}
-    food_species: stallion
 
   - slug: food-sugar-cube
     name: Sugar Cube
@@ -323,7 +310,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: treat, growth: 4}
-    food_species: unicorn
 
   - slug: food-kitten-treat
     name: Kitten Treat
@@ -332,7 +318,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: fish, growth: 4}
-    food_species: cat
 
   # 2026-04-22 — preferred foods for the two new species. Each species
   # needs at least one food with its slug in ``food_species`` so the
@@ -344,7 +329,6 @@ items:
     rarity: epic
     coin_value: 8
     metadata: {food_type: cosmic, growth: 12}
-    food_species: archdragon
 
   - slug: food-cuddle-cookie
     name: Cuddle Cookie
@@ -353,7 +337,6 @@ items:
     rarity: common
     coin_value: 1
     metadata: {food_type: treat, growth: 4}
-    food_species: companion
 
   # ── Coin Pouches (originals + Shikashi expansions) ────────────────────
   - slug: pouch-small
@@ -566,68 +549,6 @@ items:
     description: "Dark binding lit by sheikah-teal — late-night discipline."
 
   # ── Pet Accessories (originals + Shikashi jewelry) ────────────────────
-  - slug: accessory-party-hat
-    name: Party Hat
-    icon: "🎩"
-    item_type: cosmetic_pet_accessory
-    rarity: common
-    coin_value: 5
-
-  - slug: accessory-bow-tie
-    name: Bow Tie
-    icon: "🎀"
-    item_type: cosmetic_pet_accessory
-    rarity: common
-    coin_value: 5
-
-  - slug: accessory-crown
-    name: Crown
-    icon: "👑"
-    item_type: cosmetic_pet_accessory
-    rarity: rare
-    coin_value: 30
-
-  - slug: accessory-prayer-beads
-    name: Prayer Beads
-    icon: "📿"
-    sprite_key: prayer-beads
-    item_type: cosmetic_pet_accessory
-    rarity: common
-    coin_value: 8
-
-  - slug: accessory-silver-ring
-    name: Silver Ring
-    icon: "💍"
-    sprite_key: ring
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    coin_value: 18
-
-  - slug: accessory-tribal-necklace
-    name: Tribal Necklace
-    icon: "📿"
-    sprite_key: tribal-necklace
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    coin_value: 22
-
-  - slug: accessory-gold-necklace
-    name: Gold Necklace
-    icon: "📿"
-    sprite_key: gold-necklace
-    item_type: cosmetic_pet_accessory
-    rarity: rare
-    coin_value: 40
-
-  - slug: accessory-diamond-ring
-    name: Diamond Ring
-    icon: "💍"
-    sprite_key: diamond-ring
-    item_type: cosmetic_pet_accessory
-    rarity: epic
-    coin_value: 80
-
-  # ── Quest Scrolls (Shikashi magic + classic scrolls) ──────────────────
   - slug: scroll-crimson
     name: Crimson Scroll
     icon: "📜"
@@ -966,61 +887,6 @@ items:
     metadata: {text: Birthday Celebrant}
 
   # Pet accessories
-  - slug: accessory-sunglasses
-    name: Sunglasses
-    icon: "🕶️"
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    coin_value: 15
-
-  - slug: accessory-wizard-hat
-    name: Wizard Hat
-    icon: "🧙"
-    item_type: cosmetic_pet_accessory
-    rarity: rare
-    coin_value: 30
-
-  - slug: accessory-flower-crown
-    name: Flower Crown
-    icon: "🌸"
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    coin_value: 18
-
-  - slug: accessory-tiny-cape
-    name: Tiny Cape
-    icon: "🦸"
-    item_type: cosmetic_pet_accessory
-    rarity: rare
-    coin_value: 25
-
-  - slug: accessory-bandana
-    name: Bandana
-    icon: "🧣"
-    item_type: cosmetic_pet_accessory
-    rarity: common
-    coin_value: 8
-
-  - slug: accessory-armor-plate
-    name: Armor Plate
-    icon: "🛡️"
-    item_type: cosmetic_pet_accessory
-    rarity: epic
-    coin_value: 60
-
-  # 2026-04-23 review — fills cosmetic-rarity gaps. Pet accessories had no
-  # legendary tier, so completionists collecting all four cosmetic-slot
-  # legendaries had no end goal for the pet-accessory slot. Themes had
-  # neither common (entry-level "first cosmetic ever" feel) nor legendary
-  # (chase-tier prestige) — only uncommon-to-epic.
-  - slug: accessory-celestial-halo
-    name: Celestial Halo
-    icon: "😇"
-    item_type: cosmetic_pet_accessory
-    rarity: legendary
-    coin_value: 150
-
-  # ── Coin pouch — bigger tier for the many-year horizon ────────────────
   - slug: pouch-mega
     name: Mega Hoard
     icon: "💎"

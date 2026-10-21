@@ -96,14 +96,18 @@ class AuthoredCatalogImageIdentityTests(TestCase):
         for name in ("hs-prep-2026", "sleep-prep-2026", "spring-2026", "summer-2026", "birthday-pack", "year-in-review-pack"):
             call_command("loadrpgcontent", pack=str(Path(settings.BASE_DIR) / "content/rpg/packs" / name), namespace=f"{name}-", stdout=output)
 
-    def test_every_approved_item_and_challenge_resolves_actual_loader_created_record(self):
+    def test_every_binding_matches_current_content_or_its_retired_artwork_identity(self):
         from apps.rpg.catalog_icons import bindings, item_catalog_icon, challenge_catalog_icon
         registry = bindings()
         self.assertEqual(len(registry["items"]), 109)
         self.assertEqual(len(registry["challenges"]), 49)
         for slug, entry in registry["items"].items():
             with self.subTest(slug=slug):
-                item = ItemDefinition.objects.get(slug=slug)
+                if entry["item_type"] == "cosmetic_pet_accessory":
+                    self.assertFalse(ItemDefinition.objects.filter(slug=slug).exists())
+                    item = ItemDefinition(slug=slug, name=entry["name"], item_type=entry["item_type"])
+                else:
+                    item = ItemDefinition.objects.get(slug=slug)
                 self.assertEqual(item_catalog_icon(item), entry["asset_id"])
         for name, entry in registry["challenges"].items():
             with self.subTest(challenge=name):

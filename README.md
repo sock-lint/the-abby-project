@@ -854,7 +854,8 @@ The app organizes pages into five "chapter" hubs plus utility routes. The legacy
 | Treasury Hub | `/treasury` | Tabs: Coffers (Payments), Wages (Timecards), Bazaar (Rewards + coin balance + exchange), Satchel (Inventory — drops, cosmetics, consumables), Hoards (Savings goals) |
 | Sigil (Character) | `/sigil` | Frontispiece — illuminated initial, trophy badge picker, four cosmetic chapters with locked intaglios + live theme preview |
 | Clock | `/clock` | Large circular timer, project selector, one-tap clock in/out |
-| Manage | `/manage` | Parent CRUD for children, templates, rewards, categories, subjects, skills, badges, sprites (Codex authoring surface) |
+| Manage | `/manage` | Parent CRUD for children, templates, rewards, categories, subjects, skills and badges |
+| Content catalog | `/codex` | Parent reference for items, pet species, grown pets and challenges |
 | Activity | `/activity` | Cross-cutting activity feed |
 | Settings | `/settings` | Profile, journal cover picker, Google account linking, PWA install card |
 

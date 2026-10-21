@@ -59,9 +59,6 @@ quests:
     coin_reward: 150
     xp_reward: 200
     is_system: true
-    reward_items:
-      - slug: dragon-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 3}
       - {skill: "Life Skills::Time Management", weight: 1}
@@ -96,9 +93,6 @@ quests:
     coin_reward: 100
     xp_reward: 150
     is_system: true
-    reward_items:
-      - slug: wolf-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 2}
@@ -119,8 +113,6 @@ quests:
     reward_items:
       - slug: pouch-large
         quantity: 1
-      - slug: clownling-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}
       - {skill: "Outdoors::Nature ID", weight: 1}
@@ -137,9 +129,6 @@ quests:
     coin_reward: 35
     xp_reward: 70
     is_system: true
-    reward_items:
-      - slug: accessory-tribal-necklace
-        quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 3}
       - {skill: "Life Skills::Persistence", weight: 1}
@@ -318,9 +307,6 @@ quests:
     coin_reward: 80
     xp_reward: 150
     is_system: true
-    reward_items:
-      - slug: accessory-crown
-        quantity: 1
     skill_tags:
       - {skill: "Making & Fabrication::Tool Mastery", weight: 2}
       - {skill: "Life Skills::Project Planning", weight: 1}
@@ -446,9 +432,6 @@ quests:
     coin_reward: 200
     xp_reward: 75
     is_system: true
-    reward_items:
-      - slug: accessory-prayer-beads
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 1}
@@ -490,8 +473,6 @@ quests:
     xp_reward: 50
     is_system: true
     reward_items:
-      - slug: accessory-flower-crown  # placeholder — original Moonlit Frame item never made YAML
-        quantity: 1
       - slug: food-cake
         quantity: 3
     skill_tags:
@@ -635,9 +616,6 @@ quests:
     coin_reward: 50
     xp_reward: 75
     is_system: true
-    reward_items:
-      - slug: accessory-flower-crown
-        quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 2}
       - {skill: "Art & Crafts::Textile & Fiber", weight: 1}

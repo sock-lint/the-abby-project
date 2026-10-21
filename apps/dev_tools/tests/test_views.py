@@ -403,7 +403,7 @@ class ToastCeremonyEndpointTests(APITestCase):
         self.assertEqual(mount.last_bred_at, last_bred_at)
 
     def test_seed_companion_growth_requires_species_seed(self):
-        # No PetSpecies(slug=companion) → 400
+        # No current Chick species → 400.
         r = self.client.post("/api/dev/seed-companion-growth/", {
             "user_id": self.child.id, "ticks": 2,
         }, format="json")
