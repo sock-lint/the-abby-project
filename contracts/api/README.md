@@ -636,6 +636,18 @@ the pinned editor and batch-mode commands.
 
 ## Update an intentional API change
 
+Reversible taxonomy retirement uses `taxonomy-category-retired.json`,
+`taxonomy-category-restored.json`, `taxonomy-skills-active.json`,
+`taxonomy-skills-retired-management.json` and `taxonomy-tree-retired-history.json`.
+The real producer `config.tests.test_taxonomy_retirement_api_contract_fixtures`
+and React consumer `src/api/taxonomyRetirementContractFixtures.test.jsx` run in
+the required fixture job. Category/subject/skill responses add direct
+`is_retired` and inherited `available_for_new_choices`. Default list endpoints
+hide unavailable choices; `include_retired=true` includes them for management
+and retained selections. Tree/history responses retain the saved identity and
+XP. PATCH `is_retired` accepts true/false under the existing staff-parent and
+catalog ownership rules. Restoring a parent does not clear child retirement.
+
 Protected taxonomy deletion uses `taxonomy-delete-in-use.json`, produced by
 `config.tests.test_taxonomy_delete_api_contract_fixtures` and consumed by
 `src/api/taxonomyContractFixtures.test.jsx`. REST returns 409 with a readable

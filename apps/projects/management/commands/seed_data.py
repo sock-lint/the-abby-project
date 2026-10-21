@@ -113,18 +113,20 @@ class Command(BaseCommand):
 
     def _resolve_categories(self):
         from apps.achievements.models import SkillCategory
-        return {c.name: c for c in SkillCategory.objects.all()}
+        return {c.name: c for c in SkillCategory.objects.filter(is_retired=False)}
 
     def _resolve_skill_map(self):
         from apps.achievements.models import Skill
+        from apps.achievements.taxonomy import available_for_new_choices
         skill_map = {}
         by_name = {}
-        for skill in Skill.objects.select_related("category").all():
-            skill_map[(skill.category.name, skill.name)] = skill
+        for skill in Skill.objects.select_related("category", "subject", "subject__category").all():
+            if available_for_new_choices(skill):
+                skill_map[(skill.category.name, skill.name)] = skill
             by_name.setdefault(skill.name, []).append(skill)
         # Tuple identities cannot collide with literal "::" inside a name.
         # Retain shorthand only when its name identifies exactly one skill.
-        skill_map.update((name, rows[0]) for name, rows in by_name.items() if len(rows) == 1)
+        skill_map.update((name, rows[0]) for name, rows in by_name.items() if len(rows) == 1 and available_for_new_choices(rows[0]))
         return skill_map
 
     def _create_users(self):

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useState } from 'react';
-import { createChallengeGoal, getSkills, listMovementTypes } from '../../api';
+import { createChallengeGoal, getAllSkills, listMovementTypes } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import useMountedRef from '../../hooks/useMountedRef';
 import { normalizeList, fieldErrors } from '../../utils/api';
@@ -43,7 +43,7 @@ export default function CreateGoalForm({ children = [], initialChildId, onCreate
     onRequestConsumed?.();
   }, [requestOpen, children, initialChildId, onRequestConsumed]);
   const fetchTypes = useCallback(() => open ? listMovementTypes() : Promise.resolve([]), [open]);
-  const fetchSkills = useCallback(() => open ? getSkills() : Promise.resolve([]), [open]);
+  const fetchSkills = useCallback((signal) => open ? getAllSkills({ signal }) : Promise.resolve([]), [open]);
   const { data: typesData, loading: typesLoading, error: typesError, reload: reloadTypes } = useApi(fetchTypes, [open]);
   const { data: skillsData, loading: skillsLoading, refreshing: skillsRefreshing, error: skillsError, reload: reloadSkills } = useApi(fetchSkills, [open]);
   const types = normalizeList(typesData);

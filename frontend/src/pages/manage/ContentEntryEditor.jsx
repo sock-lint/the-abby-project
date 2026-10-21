@@ -5,6 +5,7 @@ import SectionHeader from '../../components/SectionHeader';
 import SkillTagEditor from '../../components/SkillTagEditor';
 import { CheckboxField, IconPicker, SelectField, TextAreaField, TextField } from '../../components/form';
 import { milestoneReferenceLabel } from './contentWorkbenchEditor';
+import { isTaxonomyAvailable, taxonomyChoices, taxonomyOptionLabel } from '../../utils/taxonomy';
 
 const labels = {
   food: 'Pet food', cosmetic_frame: 'Profile frame', cosmetic_title: 'Title',
@@ -84,7 +85,7 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
             }} helpText="Use a named skill’s attained level. XP reward tags below do not create this requirement.">
               <option value="">No skill required</option>
               {values.required_skill && !selectedSkillListed && <option value={values.required_skill} disabled>{source?.required_skill_name || 'Retained skill'} (#{values.required_skill}) · not listed</option>}
-              {catalog.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.category_name ? `${skill.category_name} / ` : ''}{milestoneReferenceLabel(skill, catalog.skills)}</option>)}
+              {taxonomyChoices(catalog.skills, values.required_skill).map((skill) => <option key={skill.id} value={skill.id} disabled={!isTaxonomyAvailable(skill)}>{skill.category_name ? `${skill.category_name} / ` : ''}{taxonomyOptionLabel(skill, milestoneReferenceLabel(skill, catalog.skills))}</option>)}
             </SelectField>
             <TextField label="Required skill level" type="number" min="1" max="6" step="1" required={Boolean(values.required_skill)} disabled={!values.required_skill} value={values.required_skill_level ?? 0} onChange={(event) => set('required_skill_level', event.target.value === '' ? '' : Number(event.target.value))} helpText="Levels 1 to 6. Clearing the skill removes the level requirement." />
           </div>

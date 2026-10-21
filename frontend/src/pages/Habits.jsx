@@ -6,7 +6,7 @@ import { Plus, ThumbsUp, ThumbsDown, Pencil, Trash2 } from 'lucide-react';
 import {
   getHabitHistory, getHabits, createHabit, updateHabit, deleteHabit, logHabitTap,
   listMyHabitProposals, approveHabitProposal,
-  getSkills,
+  getAllSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import useMountedRef from '../hooks/useMountedRef';
@@ -216,7 +216,7 @@ function HabitsWorkspace({ context }) {
     [isParent],
   );
   const { data: rawSkills, error: skillsError, reload: reloadSkills } = useApi(
-    isParent ? getSkills : () => Promise.resolve([]),
+    (signal) => isParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]),
     [isParent],
   );
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');

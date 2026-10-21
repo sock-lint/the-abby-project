@@ -456,6 +456,27 @@ Private quest category filters recheck their explicit IDs within the creation
 transaction; a missing category rolls back both the new definition and its MCP
 receipt. Identical request replay still returns the saved original response.
 
+Taxonomy retirement is reversible. Set `is_retired: true` through
+`update_category`, `update_subject` or `update_skill` to hide that identity from
+new choices; set it to `false` to restore it. Categories, subjects and skills
+report their direct `is_retired` flag and effective `available_for_new_choices`.
+A retired category hides its subjects/skills; a retired subject hides its skills.
+Restoring an ancestor leaves each descendant's independent flag unchanged.
+Default taxonomy lists contain available choices. Use `include_retired: true`
+(and normal continuation paging) to find exact IDs for management or history.
+The web management controls provide the same Retire/Restore actions for staff
+parents, with the existing family ownership and fresh-authority checks.
+
+Retirement keeps numeric IDs, source identities, saved progress, tags,
+prerequisites and accepted rewards. Existing references may remain or be removed;
+new assignments reject unavailable entries and ask for an available choice or
+restoration. Saved retries and existing activity rewards continue to resolve the
+original identities. Retiring/restoring does not award, refund or recompute XP,
+Coins or badges. Skill trees and saved history remain readable. A matching YAML
+reload with `is_retired` omitted preserves the saved flag; explicit `false`
+restores it where no published override takes precedence. This workflow is separate from the exact one-time prelaunch RPG
+catalog cleanup described in the companion lifecycle runbook.
+
 Skill identities include their category. Duplicate labels show their category in
 the native pickers; if literal names imitate those labels, escaped quoted name
 and category parts keep every choice distinct. MCP writes continue to use numeric

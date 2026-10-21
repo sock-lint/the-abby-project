@@ -27,9 +27,9 @@ for _name in ("total_earned", "total_coins_earned", "coins_spent_lifetime"):
 
 
 ENTRY_FIELDS = {
-    "categories": set("id name icon color description".split()),
-    "subjects": set("id name category icon order description".split()),
-    "skills": set("id name category subject icon levels locked order description prereqs".split()),
+    "categories": set("id name icon color description is_retired".split()),
+    "subjects": set("id name category icon order description is_retired".split()),
+    "skills": set("id name category subject icon levels locked order description prereqs is_retired".split()),
     "badges": set("id name description icon criteria_type criteria_value xp_bonus rarity award_coins".split()),
     "potions": set("id slug name sprite_key color_hex rarity description item_name item_icon coin_value".split()),
     "species": set("id slug name icon sprite_key description food_preference available_potions egg_name egg_icon egg_sprite_key egg_rarity egg_coin_value".split()),
@@ -121,7 +121,7 @@ def validate_content(parsed, *, strict=True):
                             number = bounded_number(entry[field], field)
                             if number != number.to_integral_value():
                                 raise ValidationError(f"{field} must be a whole number.")
-                    for field in ("is_active", "is_repeatable", "is_system", "is_cooperative", "requires_parent_approval", "award_coins", "locked"):
+                    for field in ("is_active", "is_repeatable", "is_system", "is_cooperative", "requires_parent_approval", "award_coins", "locked", "is_retired"):
                         if field in entry and type(entry[field]) is not bool:
                             raise ValidationError(f"{field} must be a boolean.")
                     if "weight_by_rarity" in entry:

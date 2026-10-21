@@ -23,14 +23,14 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "sprite_key": "",
-          "icon": "🍎",
+          "rarity": "common",
           "description": "",
           "coin_value": 2,
-          "rarity": "common",
+          "sprite_key": "",
           "metadata": {
             "growth": 5
           },
+          "icon": "🍎",
           "name": "Practice snack"
         },
         "has_database_override": false,
@@ -103,26 +103,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "duration_days": 7,
+          "target_value": 2,
+          "coin_reward": 10,
+          "xp_reward": 15,
+          "is_repeatable": false,
+          "is_cooperative": false,
+          "name": "Practice challenge",
+          "description": "Complete two daily Reading Adventures.",
+          "required_skill_level": 1,
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "is_repeatable": false,
           "quest_type": "collection",
-          "is_cooperative": false,
-          "name": "Practice challenge",
-          "sprite_key": "",
-          "description": "Complete two daily Reading Adventures.",
-          "duration_days": 7,
-          "target_value": 2,
-          "coin_reward": 10,
-          "required_skill_level": 1,
           "icon": "⚔️",
-          "xp_reward": 15,
           "required_skill": 902,
-          "prerequisite_quest": 908,
           "required_badge": null,
+          "prerequisite_quest": 908,
           "reward_items": [
             {
               "item_id": 903,
@@ -173,26 +173,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "duration_days": 7,
+          "target_value": 1,
+          "coin_reward": 0,
+          "xp_reward": 0,
+          "is_repeatable": false,
+          "is_cooperative": false,
+          "name": "Starter practice",
+          "description": "Complete one approved chore.",
+          "required_skill_level": 0,
+          "sprite_key": "",
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "is_repeatable": false,
           "quest_type": "collection",
-          "is_cooperative": false,
-          "name": "Starter practice",
-          "sprite_key": "",
-          "description": "Complete one approved chore.",
-          "duration_days": 7,
-          "target_value": 1,
-          "coin_reward": 0,
-          "required_skill_level": 0,
           "icon": "⚔️",
-          "xp_reward": 0,
           "required_skill": null,
-          "prerequisite_quest": null,
           "required_badge": null,
+          "prerequisite_quest": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -204,6 +204,8 @@
     "skills": [
       {
         "id": 902,
+        "is_retired": false,
+        "available_for_new_choices": true,
         "name": "Persistence",
         "category_id": 901,
         "subject_id": null,
@@ -728,7 +730,7 @@
       ]
     },
     "catalog": {
-      "fingerprint": "a2e5486abadd36f194adc843ccddfba1202bb10a545c7c13df069a960112df7c",
+      "fingerprint": "6b2282b5772ee262b09549b1e879a6d9da18c8d1a370d109a52880b667d42875",
       "skills": 1,
       "supported_items": 1,
       "supported_pet_variants": 0,
@@ -856,7 +858,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "818aa72b3ffe555f2ac42c9798197141ab59d3dbdf249608dc74cc4305d5ab53",
+    "rules_fingerprint": "b7337e229047ce2a6083e263a7532fb17c39fd3af7a0d023980f55445bc06aa8",
     "engine_version": "2026-10-20.3",
     "source_commit": "unavailable",
     "work_budget": {

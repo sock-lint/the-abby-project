@@ -158,8 +158,8 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `get_skill_tree` | `mcp:read` | Yes | — | Full nested skill tree for a category with the target user's progress. |
 | `list_badges` | `mcp:catalog` | Yes | — | List all defined badges, optionally filtered by rarity. |
 | `list_earned_badges` | `mcp:read` | Yes | — | List badges the target user has earned, newest first. |
-| `list_skill_categories` | `mcp:catalog` | Yes | — | List all top-level skill categories. |
-| `list_skills` | `mcp:catalog` | Yes | — | Flat list of skills, optionally filtered by category/subject/name. |
+| `list_skill_categories` | `mcp:catalog` | Yes | — | List available categories; include_retired retains management/history identities. |
+| `list_skills` | `mcp:catalog` | Yes | — | List available skills by category/subject/name; include_retired includes retained identities. |
 | `remove_skill_prerequisite` | `mcp:publish` | No | Required | Remove a prerequisite edge from the skill graph (staff-parent-only). |
 | `update_badge` | `mcp:publish` | No | Required | Edit a badge (staff-parent-only). |
 | `update_category` | `mcp:publish` | No | Required | Edit a skill category (staff-parent-only). |

@@ -19,6 +19,22 @@ beforeEach(() => {
 });
 
 describe('getAllSkills', () => {
+  it('retains include_retired on every management page and keeps active reads separate', async () => {
+    const queries = [];
+    server.use(http.get('*/api/skills/', ({ request }) => {
+      const url = new URL(request.url);
+      queries.push({ page: url.searchParams.get('page'), retired: url.searchParams.get('include_retired') });
+      return HttpResponse.json(url.searchParams.has('page')
+        ? { next: null, results: [{ id: 2, name: 'Retired skill', is_retired: true, available_for_new_choices: false }] }
+        : { next: '/api/skills/?page=2', results: [{ id: 1, name: 'Current skill', available_for_new_choices: true }] });
+    }));
+    expect(await getAllSkills({ includeRetired: true })).toHaveLength(2);
+    expect(queries).toEqual([{ page: null, retired: 'true' }, { page: '2', retired: 'true' }]);
+    queries.length = 0;
+    await getAllSkills();
+    expect(queries).toEqual([{ page: null, retired: null }, { page: '2', retired: null }]);
+  });
+
   it('binds a paginated picker read to its captured token and stops when its owner aborts', async () => {
     const controller = new AbortController();
     const requests = [];

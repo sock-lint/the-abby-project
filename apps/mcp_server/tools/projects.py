@@ -104,6 +104,9 @@ def _child_allowed_statuses() -> set[str]:
 
 
 def _replace_project_skill_tags(project: Project, tags: list[dict[str, int]]) -> None:
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, [t["skill_id"] for t in tags],
+                     retained_ids=project.skill_tags.values_list("skill_id", flat=True))
     ProjectSkillTag.objects.filter(project=project).delete()
     if not tags:
         return
@@ -121,7 +124,7 @@ def _replace_project_skill_tags(project: Project, tags: list[dict[str, int]]) ->
 
 
 def _create_milestone_skill_tags(
-    milestone: ProjectMilestone, tags: list[dict[str, int]],
+    milestone: ProjectMilestone, tags: list[dict[str, int]], *, retained_ids=(),
 ) -> None:
     if not tags:
         return
@@ -130,6 +133,8 @@ def _create_milestone_skill_tags(
     missing = [sid for sid in skill_ids if sid not in known_ids]
     if missing:
         raise MCPValidationError(f"Unknown skill IDs on milestone: {missing}")
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, skill_ids, retained_ids=retained_ids)
     MilestoneSkillTag.objects.bulk_create([
         MilestoneSkillTag(
             milestone=milestone, skill_id=t["skill_id"], xp_amount=t["xp_amount"],
@@ -241,6 +246,9 @@ def _create_project(params, parent, assignee):
             raise MCPValidationError(
                 f"category_id {params.category_id} does not match any category.",
             )
+
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(SkillCategory, [category.pk] if category else [])
 
     # Validate step_index and milestone_index references BEFORE any DB writes
     # so a bad payload can't half-create a project.
@@ -496,6 +504,7 @@ def _require_work_project(project):
 
 @tool()
 @safe_tool
+@transaction.atomic
 def update_project(params: UpdateProjectIn) -> dict[str, Any]:
     """Edit project fields (parent-only). Only the provided fields are touched.
 
@@ -522,6 +531,10 @@ def update_project(params: UpdateProjectIn) -> dict[str, Any]:
             raise MCPValidationError(
                 f"category_id {data['category_id']} does not match any category.",
             )
+
+    if data.get("category_id") is not None:
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(SkillCategory, [data["category_id"]], retained_ids=[project.category_id])
 
     for field, value in data.items():
         setattr(project, field, value)
@@ -653,9 +666,10 @@ def update_milestone(params: UpdateMilestoneIn) -> dict[str, Any]:
             setattr(milestone, field, value)
         milestone.save()
         if params.skill_tags is not None:
+            retained_ids = list(milestone.skill_tags.values_list("skill_id", flat=True))
             MilestoneSkillTag.objects.filter(milestone=milestone).delete()
             _create_milestone_skill_tags(
-                milestone, [t.model_dump() for t in params.skill_tags],
+                milestone, [t.model_dump() for t in params.skill_tags], retained_ids=retained_ids,
             )
     milestone.refresh_from_db()
     return milestone_to_dict(milestone)

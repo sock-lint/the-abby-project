@@ -11,6 +11,25 @@ const SKILLS = [
 ];
 
 describe('SkillTagEditor', () => {
+  it('retains a saved retired skill without offering it to a new reward row', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const skills = [
+      { id: 1, name: 'Earlier skill', category_name: 'History', is_retired: true, available_for_new_choices: false },
+      { id: 2, name: 'Current skill', category_name: 'Today', is_retired: false, available_for_new_choices: true },
+      { id: 3, name: 'Inherited skill', category_name: 'Retired category', is_retired: false, available_for_new_choices: false },
+    ];
+    render(<SkillTagEditor skills={skills} value={[{ skill_id: 1, xp_weight: 3 }]} onChange={onChange} />);
+    const picker = screen.getByRole('combobox', { name: 'Skill for tag 1' });
+    expect(picker).toHaveTextContent('Earlier skill · Retired');
+    const options = await openDropdown(user, picker);
+    expect(options.getByRole('option', { name: 'Earlier skill · Retired' })).toHaveAttribute('aria-disabled', 'true');
+    expect(options.queryByRole('option', { name: /Inherited skill/ })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('button', { name: /add skill/i }));
+    expect(onChange).toHaveBeenCalledExactlyOnceWith([{ skill_id: 1, xp_weight: 3 }, { skill_id: 2, xp_weight: 1 }]);
+  });
+
   it.each(['C', 'C "quoted"'])('keeps literal category-looking names distinct with category %s', async (literalCategory) => {
     const user = userEvent.setup();
     const onChange = vi.fn();

@@ -117,6 +117,8 @@ class QuestService:
             raise ValueError("Quest not found")
         if definition.is_cooperative:
             raise ValueError("Ask a parent to assign this shared challenge to at least two children.")
+        from .reference_locks import admit_definition_choices
+        admit_definition_choices(definition)
         definition_ids = equivalent_definition_ids(definition)
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id__in=definition_ids).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
@@ -210,6 +212,8 @@ class QuestService:
             definition = definitions_visible_to(users[0]).get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
+        from .reference_locks import admit_definition_choices
+        admit_definition_choices(definition)
         definition_ids = equivalent_definition_ids(definition)
         personal_goals = ChallengeGoal.objects.filter(user__in=users, catalog_definition_id__in=definition_ids)
         if definition.is_cooperative:

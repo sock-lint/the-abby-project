@@ -139,7 +139,7 @@ def _protect_legacy(obj, values):
 
 def _apply(draft, *, publication=None):
     """The exact same bounded writers run inside preview rollback and publish."""
-    validate_changes(draft.actor, draft.changes)
+    validate_changes(draft.actor, draft.changes, lock=True)
     changes = sorted(draft.changes, key=lambda c: (c["section"] != "items", c["key"]))
     quest_ids = [c["object_id"] for c in changes if c["section"] == "quests" and c["object_id"]]
     # Freeze accepted presentation before a display edit. Existing item behavior

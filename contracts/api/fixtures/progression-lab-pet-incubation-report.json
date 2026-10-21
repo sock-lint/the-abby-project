@@ -60,7 +60,7 @@
     }
   },
   "catalog": {
-    "fingerprint": "1f1a1a0bbe1fecb02074d63af663447b98d59c8839bbf32da910a5cb50b7c7eb",
+    "fingerprint": "bd464447341df09015c126d1de52f1ca53e5085c72208c1624505bb3b7346c77",
     "skills": 5,
     "supported_items": 5,
     "supported_pet_variants": 1,
@@ -70,7 +70,7 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "818aa72b3ffe555f2ac42c9798197141ab59d3dbdf249608dc74cc4305d5ab53",
+  "rules_fingerprint": "b7337e229047ce2a6083e263a7532fb17c39fd3af7a0d023980f55445bc06aa8",
   "engine_version": "2026-10-20.3",
   "source_commit": "unavailable",
   "coverage": {
@@ -4006,11 +4006,11 @@
     "eligible_challenges": 1,
     "finite_breakdown": {
       "badge": 4,
-      "middle": 1,
-      "quest": 1,
       "cosmetic": 1,
+      "pet": 1,
       "mount": 1,
-      "pet": 1
+      "middle": 1,
+      "quest": 1
     },
     "level_p50": 6,
     "inventory_units_p50": 28,

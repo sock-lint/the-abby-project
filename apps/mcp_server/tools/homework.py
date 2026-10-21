@@ -260,6 +260,9 @@ def set_homework_skill_tags(params: SetHomeworkSkillTagsIn) -> dict[str, Any]:
     if missing:
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=assignment.skill_tags.values_list("skill_id", flat=True))
         HomeworkSkillTag.objects.filter(assignment=assignment).delete()
         HomeworkSkillTag.objects.bulk_create([
             HomeworkSkillTag(

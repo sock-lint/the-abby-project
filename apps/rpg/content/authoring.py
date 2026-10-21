@@ -14,7 +14,8 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import transaction
 
-from apps.achievements.models import Skill, SkillPrerequisite
+from apps.achievements.models import Skill, SkillCategory, SkillPrerequisite, Subject
+from apps.achievements.taxonomy import validate_new_taxonomy_references
 from apps.families.models import Family
 from apps.rpg.models import ContentPackEntry, RPGContentOverride
 
@@ -98,8 +99,21 @@ def validate_source_identity(obj):
 
 def validate_catalog_object(obj):
     """Validate the final candidate, including relationships retained by PATCH."""
+    # Request serializers may have resolved relations before the catalog fence.
+    # Re-read parents under that fence before comparing their current ancestry.
+    obj._state.fields_cache.clear()
     label = obj._meta.label_lower
     validate_source_identity(obj)
+    previous = type(obj).objects.filter(pk=obj.pk).first() if obj.pk else None
+    try:
+        if label in {"achievements.skill", "achievements.subject"}:
+            validate_new_taxonomy_references(SkillCategory, [obj.category_id],
+                retained_ids=[previous.category_id] if previous else ())
+        if label in {"achievements.skill", "achievements.badge"} and obj.subject_id:
+            validate_new_taxonomy_references(Subject, [obj.subject_id],
+                retained_ids=[previous.subject_id] if previous else ())
+    except ValidationError as error:
+        raise ContentPackError("; ".join(error.messages)) from error
     if label == "achievements.skill":
         if obj.subject_id is not None and obj.subject.category_id != obj.category_id:
             raise ContentPackError("The skill and its subject must belong to the same category; clear or replace the subject first.")

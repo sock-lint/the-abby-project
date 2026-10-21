@@ -149,6 +149,10 @@ class HomeworkService:
         if data.get("assigned_to") is not None:
             get_user_model().objects.select_for_update(no_key=True).get(pk=data["assigned_to"].pk)
 
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [tag["skill_id"] for tag in skill_tag_data], error_type=HomeworkError)
+
         assignment = HomeworkAssignment.objects.create(
             created_by=user,
             **data,
@@ -501,12 +505,16 @@ class HomeworkService:
     # Templates
     # ------------------------------------------------------------------
     @staticmethod
+    @transaction.atomic
     def save_as_template(assignment, user):
         """Save an assignment as a reusable template (parent-only)."""
         skill_tag_data = [
             {"skill_id": tag.skill_id, "xp_amount": tag.xp_amount}
             for tag in assignment.skill_tags.all()
         ]
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [tag["skill_id"] for tag in skill_tag_data], error_type=HomeworkError)
         return HomeworkTemplate.objects.create(
             title=assignment.title,
             description=assignment.description,
@@ -520,6 +528,10 @@ class HomeworkService:
     @transaction.atomic
     def create_from_template(template, assigned_to, due_date):
         """Create a new assignment from a template."""
+        get_user_model().objects.select_for_update(no_key=True).get(pk=assigned_to.pk)
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [tag["skill_id"] for tag in template.skill_tags], error_type=HomeworkError)
         assignment = HomeworkAssignment.objects.create(
             title=template.title,
             description=template.description,

@@ -109,7 +109,7 @@ function NextWeekGoalForm({ goal, token, onClose, onChanged, onReload }) {
   const [refreshedSchedule, setRefreshedSchedule] = useState(null);
   const [refreshingSettings, setRefreshingSettings] = useState(false);
   const [refreshError, setRefreshError] = useState('');
-  const fetchSkills = useCallback((signal) => getAllSkills({ token, signal }), [token]);
+  const fetchSkills = useCallback((signal) => getAllSkills({ includeRetired: true, token, signal }), [token]);
   const { data, loading, refreshing, error: skillsError, reload: reloadSkills } = useApi(fetchSkills, [token]);
   const skills = normalizeList(data);
   const wantsXp = Number(form.xp_reward) > 0;

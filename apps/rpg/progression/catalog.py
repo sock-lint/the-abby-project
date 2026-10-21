@@ -141,7 +141,7 @@ def snapshot_catalog():
     No account, family, inventory, ledger or reward writer is involved.
     """
     skills = _bounded(
-        Skill.objects.order_by("pk").select_related("category", "subject").prefetch_related("prerequisites"),
+        Skill.objects.order_by("pk").select_related("category", "subject__category").prefetch_related("prerequisites"),
         2048,
         "skill",
     )
@@ -178,8 +178,10 @@ def snapshot_catalog():
     pairs = {
         key: (species_records[s.pk], _record(p)) for key, (s, p) in pairs.items()
     }
+    from apps.achievements.taxonomy import available_for_new_choices
     skill_records = {
         s.pk: _record(s, category=_record(s.category),
+                      available_for_new_choices=available_for_new_choices(s),
                       prerequisites=FrozenRows(_record(p) for p in s.prerequisites.all()))
         for s in skills
     }
@@ -212,6 +214,8 @@ def snapshot_catalog():
                 s.category_id,
                 s.subject_id,
                 s.is_locked_by_default,
+                s.is_retired,
+                s.available_for_new_choices,
                 [(p.required_skill_id, p.required_level) for p in s.prerequisites.all()],
             )
             for s in skills

@@ -367,10 +367,22 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         return attrs
 
     @transaction.atomic
+    def update(self, instance, validated_data):
+        from apps.rpg.taxonomy_references import admit_references
+        instance = type(instance).objects.select_for_update().get(pk=instance.pk)
+        category = validated_data.get("category")
+        admit_references(SkillCategory, [category.pk] if category else [],
+                         retained_ids=[instance.category_id], error_type=serializers.ValidationError)
+        return super().update(instance, validated_data)
+
+    @transaction.atomic
     def create(self, validated_data):
         plan = validated_data.pop("plan_create", None)
         steps_data = validated_data.pop("steps_create", None) or []
         resources_data = validated_data.pop("resources_create", None) or []
+        from apps.rpg.taxonomy_references import admit_references
+        category = validated_data.get("category")
+        admit_references(SkillCategory, [category.pk] if category else [], error_type=serializers.ValidationError)
         project = super().create(validated_data)
         if plan is not None:
             from .planning import append_project_plan
@@ -479,6 +491,22 @@ class ProjectTemplateSerializer(serializers.ModelSerializer):
         qs = obj.resources.filter(step__isnull=True)
         return TemplateResourceSerializer(qs, many=True).data
 
+
+    @transaction.atomic
+    def create(self, validated_data):
+        from apps.rpg.taxonomy_references import admit_references
+        category = validated_data.get("category")
+        admit_references(SkillCategory, [category.pk] if category else [], error_type=serializers.ValidationError)
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        from apps.rpg.taxonomy_references import admit_references
+        instance = type(instance).objects.select_for_update().get(pk=instance.pk)
+        category = validated_data.get("category")
+        admit_references(SkillCategory, [category.pk] if category else [],
+                         retained_ids=[instance.category_id], error_type=serializers.ValidationError)
+        return super().update(instance, validated_data)
 
 class ProjectCollaboratorSerializer(NestedProjectResourceSerializer):
     user = UserSerializer(read_only=True)

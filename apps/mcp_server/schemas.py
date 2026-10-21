@@ -512,7 +512,7 @@ BadgeRarity = Literal["common", "uncommon", "rare", "epic", "legendary"]
 
 
 class ListSkillCategoriesIn(_Base):
-    pass
+    include_retired: bool = False
 
 
 class ListSkillsIn(_Base):
@@ -520,6 +520,7 @@ class ListSkillsIn(_Base):
     subject_id: Optional[int] = None
     q: Optional[str] = None
     limit: int = Field(default=200, ge=1, le=500)
+    include_retired: bool = False
 
 
 class GetSkillTreeIn(_Base):
@@ -546,6 +547,7 @@ class CreateCategoryIn(_Base):
     icon: str = ""
     color: str = Field(default="#D97706", pattern=r"^#[0-9A-Fa-f]{6}$")
     description: str = ""
+    is_retired: bool = False
 
 
 class UpdateCategoryIn(_Base):
@@ -554,6 +556,7 @@ class UpdateCategoryIn(_Base):
     icon: Optional[str] = None
     color: Optional[str] = Field(default=None, pattern=r"^#[0-9A-Fa-f]{6}$")
     description: Optional[str] = None
+    is_retired: Optional[bool] = None
 
 
 class DeleteCategoryIn(_Base):
@@ -566,6 +569,7 @@ class CreateSubjectIn(_Base):
     description: str = ""
     icon: str = ""
     order: int = 0
+    is_retired: bool = False
 
 
 class UpdateSubjectIn(_Base):
@@ -575,6 +579,7 @@ class UpdateSubjectIn(_Base):
     description: Optional[str] = None
     icon: Optional[str] = None
     order: Optional[int] = None
+    is_retired: Optional[bool] = None
 
 
 class DeleteSubjectIn(_Base):
@@ -596,6 +601,7 @@ class CreateSkillIn(_Base):
     is_locked_by_default: bool = False
     order: int = 0
     prerequisites: list[SkillPrereqDraft] = Field(default_factory=list)
+    is_retired: bool = False
 
 
 class UpdateSkillIn(_Base):
@@ -609,6 +615,7 @@ class UpdateSkillIn(_Base):
     is_locked_by_default: Optional[bool] = None
     order: Optional[int] = None
     clear_subject: bool = False
+    is_retired: Optional[bool] = None
 
 
 class DeleteSkillIn(_Base):

@@ -195,7 +195,23 @@ def _validate_values(section, values, *, new):
             seen.add(identity)
 
 
-def validate_changes(actor, changes):
+def _validate_taxonomy_choices(values, current, *, lock):
+    from apps.achievements.taxonomy import validate_new_taxonomy_references
+
+    if "required_skill" in values and values["required_skill"] is not None:
+        validate_new_taxonomy_references(Skill, [values["required_skill"]],
+            retained_ids=[current.required_skill_id] if current else (), lock=lock)
+    if "trigger_filter" in values:
+        category_id = values["trigger_filter"].get("skill_category_id")
+        if category_id is not None:
+            prior = current.trigger_filter.get("skill_category_id") if current else None
+            validate_new_taxonomy_references(SkillCategory, [category_id], retained_ids=[prior], lock=lock)
+    if "skill_tags" in values:
+        validate_new_taxonomy_references(Skill, [row["skill_id"] for row in values["skill_tags"]],
+            retained_ids=current.skill_tags.values_list("skill_id", flat=True) if current else (), lock=lock)
+
+
+def validate_changes(actor, changes, *, lock=False):
     """Validate replacement draft entries without applying catalog mutations."""
     require_actor(actor)
     try:
@@ -235,6 +251,7 @@ def validate_changes(actor, changes):
                 new_items.add(key)
             _validate_values(section, change["values"], new=object_id is None)
             if section == "quests":
+                _validate_taxonomy_choices(change["values"], obj if object_id else None, lock=lock)
                 quest_type = change["values"].get("quest_type", obj.quest_type if object_id else "collection")
                 filters = change["values"].get("trigger_filter", obj.trigger_filter if object_id else {})
                 status = challenge_trigger_status(quest_type, filters)

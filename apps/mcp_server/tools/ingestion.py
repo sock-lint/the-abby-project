@@ -137,6 +137,13 @@ def commit_ingestion_job(params: CommitIngestionJobIn) -> dict[str, Any]:
             category = None
 
     with transaction.atomic():
+        if category_id is not None:
+            from django.core.exceptions import ValidationError
+            from apps.achievements.taxonomy import validate_new_taxonomy_references
+            try:
+                validate_new_taxonomy_references(SkillCategory, [category_id])
+            except ValidationError as error:
+                raise MCPValidationError("; ".join(error.messages)) from None
         project = Project.objects.create(
             title=params.title or staged.title or "Untitled Project",
             description=params.description

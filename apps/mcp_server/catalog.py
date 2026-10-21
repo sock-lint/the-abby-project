@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 
 from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject, XP_THRESHOLDS
+from apps.achievements.taxonomy import available_for_new_choices
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition
 from apps.quests.queries import active_system_definitions
@@ -27,8 +28,8 @@ def catalog_queryset(section):
     """Only global definitions; custom parent quests never enter this surface."""
     return {
         "categories": lambda: SkillCategory.objects.all(),
-        "subjects": lambda: Subject.objects.all(),
-        "skills": lambda: Skill.objects.select_related("subject").prefetch_related("prerequisites"),
+        "subjects": lambda: Subject.objects.select_related("category"),
+        "skills": lambda: Skill.objects.select_related("category", "subject__category").prefetch_related("prerequisites"),
         "badges": lambda: Badge.objects.select_related("subject"),
         "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge", "prerequisite_quest", "required_skill").prefetch_related(
             "reward_items__item__pet_species", "reward_items__item__potion_type", "skill_tags__skill",
@@ -77,6 +78,8 @@ def _quest_available(quest):
 
 def catalog_row(section, row):
     common = {"id": row.pk}
+    if section in {"categories", "subjects", "skills"}:
+        common.update(is_retired=row.is_retired, available_for_new_choices=available_for_new_choices(row))
     if section == "categories":
         return {**common, **{key: getattr(row, key) for key in ("name", "icon", "color", "description")}}
     if section == "subjects":

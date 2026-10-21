@@ -45,6 +45,15 @@ additional scopes require explicit OAuth reconnection.
 
 ## Tools
 
+Taxonomy lists default to effective available choices; `include_retired=true`
+includes saved categories/skills for management/history. Existing `update_category`,
+`update_subject` and `update_skill` accept reversible `is_retired`. Retirement also
+hides descendants through `available_for_new_choices`, retaining their own flags.
+Trees, saved XP, existing tags and accepted rewards keep exact identities. New
+reference writers reject retired choices under transactional ancestor locks.
+Read [taxonomy authoring](../../docs/operations/mcp-authoring.md) before changing
+this boundary; default managers and award resolution must remain unfiltered.
+
 Tools are grouped under `apps/mcp_server/tools/`. Parent-only tools must call `require_parent()` (or `require_staff_parent()` for global content). Tools that accept an optional `user_id` must run it through `resolve_target_user`. Tools that look up objects by pk must use `get_in_family`.
 
 `list_timecards` accepts `status="closed"` for approved zero-dollar weeks that

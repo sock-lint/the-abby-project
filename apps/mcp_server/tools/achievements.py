@@ -15,6 +15,9 @@ from apps.achievements.models import (
     UserBadge,
 )
 from apps.achievements.services import SkillService
+from apps.achievements.taxonomy import (
+    available_categories, available_for_new_choices, available_skills, validate_new_taxonomy_references,
+)
 from apps.achievements.models import SkillCategory
 from apps.rpg.content.authoring import (
     direct_catalog_write, natural_lookup, record_direct_override,
@@ -62,10 +65,11 @@ from ..shapes import (
 @tool()
 @safe_tool
 def list_skill_categories(params: ListSkillCategoriesIn) -> dict[str, Any]:
-    """List all top-level skill categories."""
-    del params  # schema has no fields
+    """List available top-level categories; include_retired keeps saved identities readable."""
     get_current_user()
-    categories = list(SkillCategory.objects.all().order_by("name"))
+    categories = SkillCategory.objects.all().order_by("name")
+    if not params.include_retired:
+        categories = available_categories(categories)
     return {"categories": [skill_category_to_dict(c) for c in categories]}
 
 
@@ -74,7 +78,9 @@ def list_skill_categories(params: ListSkillCategoriesIn) -> dict[str, Any]:
 def list_skills(params: ListSkillsIn) -> dict[str, Any]:
     """Flat list of skills, optionally filtered by category/subject/name."""
     get_current_user()
-    qs = Skill.objects.select_related("category", "subject")
+    qs = Skill.objects.select_related("category", "subject__category")
+    if not params.include_retired:
+        qs = available_skills(qs)
     if params.category_id is not None:
         qs = qs.filter(category_id=params.category_id)
     if params.subject_id is not None:
@@ -143,6 +149,8 @@ def _subject_to_dict(subject: Subject) -> dict[str, Any]:
         "description": subject.description,
         "icon": subject.icon,
         "order": subject.order,
+        "is_retired": subject.is_retired,
+        "available_for_new_choices": available_for_new_choices(subject),
     }
 
 
@@ -209,6 +217,7 @@ def create_category(params: CreateCategoryIn) -> dict[str, Any]:
         icon=params.icon,
         color=params.color,
         description=params.description,
+        is_retired=params.is_retired,
     )
     validate_catalog_object(category)
     category.save()
@@ -277,6 +286,7 @@ def create_subject(params: CreateSubjectIn) -> dict[str, Any]:
         description=params.description,
         icon=params.icon,
         order=params.order,
+        is_retired=params.is_retired,
     )
     validate_catalog_object(subject)
     subject.save()
@@ -358,11 +368,13 @@ def create_skill(params: CreateSkillIn) -> dict[str, Any]:
             level_names=params.level_names,
             is_locked_by_default=params.is_locked_by_default,
             order=params.order,
+            is_retired=params.is_retired,
         )
         validate_catalog_object(skill)
         skill.save()
         if params.prerequisites:
             prereq_ids = [p.required_skill_id for p in params.prerequisites]
+            validate_new_taxonomy_references(Skill, prereq_ids)
             known = set(
                 Skill.objects.filter(id__in=prereq_ids).values_list("id", flat=True)
             )
@@ -451,6 +463,8 @@ def add_skill_prerequisite(params: AddSkillPrerequisiteIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"required_skill_id {params.required_skill_id} not found.",
         )
+    validate_new_taxonomy_references(Skill, [params.required_skill_id], retained_ids=SkillPrerequisite.objects.filter(
+        skill_id=params.skill_id).values_list("required_skill_id", flat=True))
     obj, created = SkillPrerequisite.objects.update_or_create(
         skill_id=params.skill_id,
         required_skill_id=params.required_skill_id,

@@ -11,7 +11,7 @@ import {
   getChoreCompletions, approveChoreCompletion, rejectChoreCompletion,
   withdrawChoreCompletion,
   listMyChoreProposals, approveChoreProposal,
-  getSkills,
+  getAllSkills,
 } from '../api';
 import { useApi } from '../hooks/useApi';
 import useMountedRef from '../hooks/useMountedRef';
@@ -242,7 +242,7 @@ function ChoresWorkspace({ context }) {
     isParent ? getFamilyChoreProposals : listMyChoreProposals,
     [isParent],
   );
-  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi(isParent ? getSkills : () => Promise.resolve([]), [isParent]);
+  const { data: skillsData, error: skillsError, reload: reloadSkills } = useApi((signal) => isParent ? getAllSkills({ includeRetired: true, signal }) : Promise.resolve([]), [isParent]);
 
   const [proposeParam, setProposeParam] = useSearchParamState('propose', '');
   const [error, setError] = useState('');

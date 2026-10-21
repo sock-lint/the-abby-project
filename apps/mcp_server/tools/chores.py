@@ -226,6 +226,9 @@ def set_chore_skill_tags(params: SetChoreSkillTagsIn) -> dict[str, Any]:
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=chore.skill_tags.values_list("skill_id", flat=True))
         ChoreSkillTag.objects.filter(chore=chore).delete()
         ChoreSkillTag.objects.bulk_create([
             ChoreSkillTag(chore=chore, skill_id=t.skill_id, xp_weight=t.xp_weight)

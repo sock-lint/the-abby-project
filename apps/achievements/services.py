@@ -157,6 +157,8 @@ class SkillService:
 
     @staticmethod
     def _serialize_skill(skill, sp, user):
+        from .taxonomy import available_for_new_choices
+
         prereqs = [
             {
                 "skill_id": p.required_skill_id,
@@ -179,6 +181,8 @@ class SkillService:
             "subject_name": skill.subject.name if skill.subject_id else None,
             "description": skill.description,
             "is_locked_by_default": skill.is_locked_by_default,
+            "is_retired": skill.is_retired,
+            "available_for_new_choices": available_for_new_choices(skill),
             "level_names": skill.level_names,
             "xp_points": sp.xp_points if sp else 0,
             "level": sp.level if sp else 0,
@@ -208,9 +212,10 @@ class SkillService:
     def get_skill_tree(cls, user, category):
         """Return subjects nested with skills + user progress for a category."""
         from .models import Subject
+        from .taxonomy import available_for_new_choices
 
         subjects = Subject.objects.filter(category=category).select_related("category").order_by("order", "name")
-        skills = Skill.objects.filter(category=category).select_related("category", "subject").prefetch_related(
+        skills = Skill.objects.filter(category=category).select_related("category", "subject__category").prefetch_related(
             "prerequisites__required_skill",
         )
         progress_map = {
@@ -237,6 +242,8 @@ class SkillService:
                 "category_name": category.name,
                 "description": subject.description,
                 "order": subject.order,
+                "is_retired": subject.is_retired,
+                "available_for_new_choices": available_for_new_choices(subject),
                 "summary": cls.get_subject_summary(user, subject),
                 "skills": skills_by_subject.get(subject.id, []),
             })
@@ -249,6 +256,8 @@ class SkillService:
                 "category_name": category.name,
                 "description": "",
                 "order": 9999,
+                "is_retired": False,
+                "available_for_new_choices": available_for_new_choices(category),
                 "summary": {"level": 0, "total_xp": 0},
                 "skills": orphan_skills,
             })

@@ -387,6 +387,11 @@ def set_quest_definition_skill_tags(
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.quests.reference_locks import lock_definition_write
+        lock_definition_write()
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=definition.skill_tags.values_list("skill_id", flat=True))
         QuestSkillTag.objects.filter(quest_definition=definition).delete()
         QuestSkillTag.objects.bulk_create([
             QuestSkillTag(

@@ -241,12 +241,14 @@ export const getSkills = () => api.get('/skills/');
 // Skill pickers and the Wayfinder need entries beyond DRF's first page.
 // Keep the single-page helpers above unchanged for their callers.
 async function getCatalogList(path, options) {
+  const normalized = typeof options?.addEventListener === 'function' ? { signal: options } : options;
+  const { includeRetired = false, ...requestOptions } = normalized || {};
   const entries = [];
   const visited = new Set();
-  let pagePath = path;
+  let pagePath = includeRetired ? `${path}?include_retired=true` : path;
 
   while (pagePath) {
-    options?.signal?.throwIfAborted();
+    requestOptions.signal?.throwIfAborted();
     const pageUrl = new URL(apiUrl(pagePath), window.location.origin);
     pageUrl.searchParams.delete('_abby_session');
     pageUrl.searchParams.sort();
@@ -254,7 +256,7 @@ async function getCatalogList(path, options) {
     if (visited.has(pageKey)) throw new Error('Repeated skill catalog page.');
     visited.add(pageKey);
 
-    const page = await api.get(pagePath, options);
+    const page = await api.get(pagePath, requestOptions);
     if (Array.isArray(page)) return [...entries, ...page];
     if (!page || !Array.isArray(page.results)
       || (page.next !== null && (typeof page.next !== 'string' || !page.next.trim()))) {
@@ -277,6 +279,8 @@ async function getCatalogList(path, options) {
     // A proxy may advertise a different origin. Follow only this endpoint on
     // our configured API; the client supplies a fresh private-read namespace.
     nextUrl.searchParams.delete('_abby_session');
+    if (includeRetired) nextUrl.searchParams.set('include_retired', 'true');
+    else nextUrl.searchParams.delete('include_retired');
     pagePath = `${path}${nextUrl.search}`;
   }
 
@@ -284,10 +288,12 @@ async function getCatalogList(path, options) {
 }
 
 export const getAllSkills = (options) => getCatalogList('/skills/', options);
-export const getSkillCatalog = async () => {
+export const getAllCategories = (options) => getCatalogList('/categories/', options);
+export const getAllSubjects = (options) => getCatalogList('/subjects/', options);
+export const getSkillCatalog = async (options) => {
   const [subjects, skills] = await Promise.all([
-    getCatalogList('/subjects/'),
-    getAllSkills(),
+    getAllSubjects(options),
+    getAllSkills(options),
   ]);
   return { subjects, skills };
 };

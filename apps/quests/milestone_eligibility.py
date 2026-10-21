@@ -125,6 +125,12 @@ def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, 
             {"kind": "policy", "met": False, "description": "This challenge's milestone rules need review."},
         ], "locked_reasons": ["This challenge's milestone rules need review."]}
     requirements = []
+    if new_enrollment:
+        from .models import QuestDefinition
+        from .reference_locks import definitions_with_available_taxonomy
+        if definition.pk and not definitions_with_available_taxonomy(QuestDefinition.objects.filter(pk=definition.pk)).exists():
+            requirements.append({"kind": "taxonomy", "met": False,
+                                 "description": "Restore retired taxonomy before starting this challenge."})
     if new_enrollment and has_milestone_gate(definition) and user is not None:
         from .models import ChallengeGoal, Quest
         definition_ids = _equivalent_ids(definition.pk)
@@ -141,10 +147,13 @@ def milestone_eligibility(user, definition, *, new_enrollment=True, facts=None, 
         requirements.append({"kind": "challenge", "met": met,
                              "description": f"Complete {definition.prerequisite_quest.name}."})
     if definition.required_skill_id:
+        from apps.achievements.taxonomy import available_skills
+        available = not new_enrollment or available_skills().filter(pk=definition.required_skill_id).exists()
         met = facts["skill_levels"].get(definition.required_skill_id, 0) >= definition.required_skill_level if facts is not None else SkillProgress.objects.filter(
             user=user, skill_id=definition.required_skill_id, level__gte=definition.required_skill_level,
             unlocked=True,
         ).exists()
+        met = met and available
         requirements.append({"kind": "skill", "met": met,
                              "description": f"Reach level {definition.required_skill_level} in {definition.required_skill.name}."})
     if definition.required_badge_id:

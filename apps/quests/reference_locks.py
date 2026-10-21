@@ -1,28 +1,60 @@
-"""Keep explicit category IDs valid through private definition insertion."""
-from django.db import connection
-
+"""Keep fresh explicit category choices valid through private definition writes."""
 from apps.achievements.models import SkillCategory
+from apps.rpg.taxonomy_references import admit_references
 
 
 def lock_filter_category(trigger_filter):
-    """Call after inserting the definition, in that same atomic transaction.
+    """Call AFTER definition INSERT, inside that same atomic transaction.
 
-    The definition INSERT obtains ROW EXCLUSIVE before the category KEY SHARE.
-    Taking the category first would invert publication/deletion's catalog-table
-    then target-row order. A missing category rejects and rolls back the insert.
+    Catalog retirement takes table admission before target-row locks; inserting
+    first preserves that order. SHARE also excludes non-key retirement UPDATEs.
     """
     category_id = trigger_filter.get("skill_category_id") if isinstance(trigger_filter, dict) else None
-    if not category_id:
+    if category_id is None:
         return
-    if type(category_id) is not int or category_id < 1:
+    if type(category_id) is not int or category_id < 1 or not SkillCategory.objects.filter(pk=category_id).exists():
         raise ValueError("Choose an existing skill category.")
+    admit_references(SkillCategory, [category_id])
+
+
+def admit_definition_choices(definition):
+    """Validate before NEW acceptance; accepted snapshots/payouts skip this."""
+    from apps.achievements.models import Skill
+    lock_filter_category(definition.trigger_filter)
+    ids = set(definition.skill_tags.values_list("skill_id", flat=True))
+    if definition.required_skill_id:
+        ids.add(definition.required_skill_id)
+    admit_references(Skill, ids)
+
+
+def lock_definition_write():
+    """Admit private tag replacements before taking taxonomy row locks."""
+    from django.db import connection
+    from .models import QuestDefinition
     if connection.vendor == "postgresql":
-        table = connection.ops.quote_name(SkillCategory._meta.db_table)
-        column = connection.ops.quote_name(SkillCategory._meta.pk.column)
         with connection.cursor() as cursor:
-            cursor.execute(f"SELECT {column} FROM {table} WHERE {column} = %s ORDER BY {column} FOR KEY SHARE", [category_id])
-            found = cursor.fetchone() is not None
-    else:
-        found = SkillCategory.objects.filter(pk=category_id).exists()
-    if not found:
-        raise ValueError("Choose an existing skill category.")
+            cursor.execute("LOCK TABLE " + connection.ops.quote_name(QuestDefinition._meta.db_table)
+                           + " IN ROW EXCLUSIVE MODE")
+
+
+def definitions_with_available_taxonomy(queryset):
+    """Projection-only filtering; canonical identities/history stay unfiltered."""
+    from django.db.models import Q, Subquery
+    from apps.achievements.models import Skill
+    from apps.achievements.taxonomy import available_skills
+    unavailable = Skill.objects.exclude(pk__in=Subquery(available_skills().values("pk")))
+    return queryset.exclude(
+        Q(required_skill_id__in=Subquery(unavailable.values("pk")))
+        | Q(skill_tags__skill_id__in=Subquery(unavailable.values("pk")))
+        | Q(trigger_filter__skill_category_id__in=Subquery(SkillCategory.objects.filter(is_retired=True).values("pk")))
+    ).distinct()
+
+
+def admit_snapshot_choices(snapshot, *, required_skill_id=None):
+    """Only a newly materialized occurrence/retry calls this admission gate."""
+    from apps.achievements.models import Skill
+    lock_filter_category(snapshot.get("filter", {}))
+    ids = {row["skill_id"] for row in snapshot.get("skill_tags", [])}
+    if required_skill_id:
+        ids.add(required_skill_id)
+    admit_references(Skill, ids)

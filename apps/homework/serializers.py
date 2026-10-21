@@ -1,5 +1,6 @@
 import re
 
+from django.db import transaction
 from rest_framework import serializers
 
 from .models import (
@@ -184,3 +185,23 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
             "skill_tags", "created_at", "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+
+    def _admit_tags(self, data, *, instance=None):
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        tags = data.get("skill_tags", [])
+        if not isinstance(tags, list) or any(not isinstance(row, dict) or type(row.get("skill_id")) is not int for row in tags):
+            raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
+        admit_references(Skill, [row["skill_id"] for row in tags],
+                         retained_ids=[row.get("skill_id") for row in instance.skill_tags] if instance else (),
+                         error_type=serializers.ValidationError)
+
+    @transaction.atomic
+    def create(self, validated_data):
+        self._admit_tags(validated_data)
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        self._admit_tags(validated_data, instance=instance)
+        return super().update(instance, validated_data)

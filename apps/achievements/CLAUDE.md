@@ -52,6 +52,17 @@ reviewed source reconciliation. Full target-row locks prevent incoming FK races.
 REST badge create/update joins the catalog write fence and rechecks current staff
 authority before saving; PATCH merges with the row current after that fence.
 
+Reversible taxonomy retirement lives in `taxonomy.py`. `is_retired` records a
+row's own state; `available_for_new_choices` also checks its ancestors. Only
+choice querysets filter retirement. History, default ORM managers, progress,
+prerequisites and award resolution retain all identities. New explicit references
+use `validate_new_taxonomy_references` within the saving transaction, retaining
+unchanged saved IDs. PostgreSQL `FOR SHARE` on ordered ancestors and the target
+conflicts with retirement/reparent updates; `KEY SHARE` alone does not. Catalog
+writers obtain their existing table admission before reference row locks.
+REST and MCP retire/restore share fresh authority, ownership and catalog fences.
+YAML omission preserves the saved state; explicit false restores it.
+
 - `SkillService` — `distribute_tagged_xp(user, tags, pool)` — splits by `xp_weight`.
 - `BadgeService` — badge evaluation across all criterion types.
 - `AwardService.grant(user, *, xp, coins, coin_reason, money, money_entry_type, xp_tags, xp_source_label, badge_scopes, …)` — **unified distribution helper**. Paired XP + coin + optional money ledger entry. Single entry point for all award flows. Applies `xp_boost_multiplier(user)` from `apps/rpg/services` before distributing XP (boosted total flows through tag-weighted splits; original base preserved in activity extras). Inner `CoinService`/`PaymentService` calls are wrapped in `activity_scope(suppress_inner_ledger=True)` to avoid double-logging. `badge_scopes` limits badge evaluation to the relevant criterion families for performance (see Badge Scopes below).

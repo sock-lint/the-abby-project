@@ -107,10 +107,13 @@ def get_template(params: GetTemplateIn) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _validate_content(params):
+def _validate_content(params, *, template=None):
     """Validate every external reference before changing any saved rows."""
     if params.category_id is not None and not SkillCategory.objects.filter(pk=params.category_id).exists():
         raise MCPValidationError(f"category_id {params.category_id} does not match any category.")
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(SkillCategory, [params.category_id] if params.category_id else [],
+                     retained_ids=[template.category_id] if template else [])
     all_tags = [params.skill_tags or []]
     if params.milestones is not None:
         all_tags.extend(milestone.skill_tags for milestone in params.milestones)
@@ -121,6 +124,10 @@ def _validate_content(params):
         missing = set(ids) - set(Skill.objects.filter(pk__in=ids).values_list("pk", flat=True))
         if missing:
             raise MCPValidationError(f"Unknown skill IDs: {sorted(missing)}")
+        # Root tags retain their exact saved identities. Replaced nested rows
+        # are new plan entries, so their choices must still be available.
+        retained = template.skill_tags.values_list("skill_id", flat=True) if template and tags is all_tags[0] else ()
+        admit_references(Skill, ids, retained_ids=retained)
     if params.steps is None:
         return
     for index, step in enumerate(params.steps):
@@ -228,7 +235,7 @@ def update_template(params: UpdateTemplateIn) -> dict[str, Any]:
         User.objects.select_for_update().get(pk=parent.pk)
         template = get_in_family(ProjectTemplate, params.template_id, actor=parent, family_path="family")
         template = ProjectTemplate.objects.select_for_update().get(pk=template.pk, family_id=parent.family_id)
-        _validate_content(params)
+        _validate_content(params, template=template)
         data = params.model_dump(exclude={"template_id", "skill_tags", "milestones", "materials", "steps", "resources"}, exclude_unset=True)
         for field, value in data.items():
             setattr(template, field, value)

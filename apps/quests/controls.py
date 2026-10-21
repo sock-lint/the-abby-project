@@ -35,9 +35,11 @@ def control_context(user):
     offered = {row.pk: row for row in active_system_definitions().select_related(
         "prerequisite_quest", "required_skill", "required_badge",
     )}
+    from .reference_locks import definitions_with_available_taxonomy
+    available_offers = set(definitions_with_available_taxonomy(active_system_definitions()).values_list("pk", flat=True))
     ctx = {"goals": {row.pk: row for row in goals}, "groups": {}, "group_goals": {}, "legacy": {},
            "paid": set(), "retried": set(),
-           "definitions": definitions, "offered": set(offered),
+           "definitions": definitions, "offered": available_offers,
            "cooperative": {pk for pk, row in offered.items() if row.is_cooperative},
            "repeatable": {pk for pk, row in offered.items() if row.is_repeatable},
            "now": timezone.now()}
@@ -170,6 +172,8 @@ def retry_challenge(actor, occurrence_id):
     duration = (original.ends_at.astimezone(zone).replace(tzinfo=None)
                 - original.starts_at.astimezone(zone).replace(tzinfo=None))
     snapshot = deepcopy(original.snapshot)
+    from .reference_locks import admit_snapshot_choices
+    admit_snapshot_choices(snapshot, required_skill_id=goal.catalog_definition.required_skill_id)
     snapshot["_retry_after_activity_id"] = ChallengeActivity.objects.filter(user_id=goal.user_id).aggregate(
         last=Max("pk"),
     )["last"] or 0
@@ -233,6 +237,7 @@ def update_schedule(actor, goal_id, data):
     start = week_start(goal, timezone.now()) + timedelta(days=7)
     snapshot, paused = effective_setup(goal, start)
     snapshot = deepcopy(snapshot)
+    retained_skill_ids = [row["skill_id"] for row in snapshot.get("skill_tags", [])]
     changes = data.get("next_week", {})
     for field in ("name", "description", "target", "skill_tags"):
         if field in changes:
@@ -253,7 +258,7 @@ def update_schedule(actor, goal_id, data):
         validator = GoalWriteSerializer(data=validation, context={"request": SimpleNamespace(user=goal.user)})
         validator.is_valid(raise_exception=True)
         from .goals import _lock_reward_skills
-        _lock_reward_skills(snapshot.get("skill_tags", []))
+        _lock_reward_skills(snapshot.get("skill_tags", []), retained_ids=retained_skill_ids)
     ChallengeSchedule.objects.update_or_create(goal=goal, starts_at=start, defaults={
         "snapshot": snapshot, "paused": data.get("paused", paused),
     })

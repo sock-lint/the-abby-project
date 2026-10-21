@@ -136,6 +136,8 @@ class CreateQuestView(APIView):
                 )
                 from .reference_locks import lock_filter_category
                 lock_filter_category(definition.trigger_filter)
+                from apps.rpg.taxonomy_references import admit_references
+                admit_references(Skill, [row["skill_id"] for row in skill_tag_rows])
 
                 # Skill tag fanout — dedup on skill_id; bulk_create.
                 if skill_tag_rows:

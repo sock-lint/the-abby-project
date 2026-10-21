@@ -142,6 +142,9 @@ def set_movement_type_skill_tags(params: SetMovementTypeSkillTagsIn) -> dict[str
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=mt.skill_tags.values_list("skill_id", flat=True))
         MovementTypeSkillTag.objects.filter(movement_type=mt).delete()
         MovementTypeSkillTag.objects.bulk_create([
             MovementTypeSkillTag(movement_type=mt, skill_id=t.skill_id, xp_weight=t.xp_weight)

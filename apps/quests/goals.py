@@ -200,6 +200,13 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if status == "active":
             active_deadlines[canonical_id] = max(active_deadlines.get(canonical_id, end_date), end_date)
     for definition in definitions:
+        from .reference_locks import admit_definition_choices
+        try:
+            admit_definition_choices(definition)
+        except ValueError:
+            # Retired/missing new choices cannot create a fresh promise. Existing
+            # goals bypass this loop and keep their frozen reward references.
+            continue
         gated = has_milestone_gate(definition)
         # Reads and retries cannot accept a milestone offer or start its clock.
         # This boundary was captured under the user lock before the fresh fact
@@ -320,7 +327,16 @@ def _occurrence(goal, at):
         if paused:
             return None
     else:
-        snapshot = None
+        existing = goal.occurrences.filter(starts_at=start).first()
+        if existing is not None:
+            return existing
+        snapshot = _snapshot(goal)
+    from .reference_locks import admit_snapshot_choices
+    try:
+        admit_snapshot_choices(snapshot, required_skill_id=(
+            goal.catalog_definition.required_skill_id if goal.is_catalog and goal.catalog_definition_id else None))
+    except ValueError:
+        return None
     occurrence, _ = ChallengeOccurrence.objects.get_or_create(
         goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": snapshot or (lambda: _snapshot(goal))},
     )
@@ -529,30 +545,14 @@ def void_activity(user, source_type, source_id):
         occurrence.save(update_fields=["progress", "updated_at"])
 
 
-def _lock_reward_skills(tags):
-    """Hold referenced skill identities until the surrounding JSON write commits.
-
-    JSON promises have no database FK. KEY SHARE cooperates with ordinary XP
-    writers while conflicting with taxonomy deletion's full target-row lock.
-    """
+def _lock_reward_skills(tags, *, retained_ids=()):
+    """Protect new JSON promises against deletion and effective retirement."""
     from apps.achievements.models import Skill
-    ids = sorted({row["skill_id"] for row in tags})
-    if not ids:
-        return
-    if connection.vendor == "postgresql":
-        table = connection.ops.quote_name(Skill._meta.db_table)
-        column = connection.ops.quote_name(Skill._meta.pk.column)
-        placeholders = ", ".join(["%s"] * len(ids))
-        with connection.cursor() as cursor:
-            cursor.execute(
-                f"SELECT {column} FROM {table} WHERE {column} IN ({placeholders}) "
-                f"ORDER BY {column} FOR KEY SHARE", ids,
-            )
-            found = {row[0] for row in cursor.fetchall()}
-    else:
-        found = set(Skill.objects.filter(pk__in=ids).values_list("pk", flat=True))
-    if found != set(ids):
+    from apps.rpg.taxonomy_references import admit_references
+    ids = {row["skill_id"] for row in tags}
+    if Skill.objects.filter(pk__in=ids).count() != len(ids):
         raise ValueError("Choose existing skills.")
+    admit_references(Skill, ids, retained_ids=retained_ids)
 
 
 @transaction.atomic

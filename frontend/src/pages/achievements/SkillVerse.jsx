@@ -5,6 +5,7 @@ import ArtworkImage from '../../components/rpg/ArtworkImage';
 import PrereqChain from './PrereqChain';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { XP_THRESHOLDS } from './skillTree.constants';
+import { taxonomyStatus } from '../../utils/taxonomy';
 
 /**
  * SkillVerse — a single illuminated row in the Folio recto. The skill's
@@ -49,7 +50,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
         ease: [0.4, 0, 0.2, 1],
       }}
       onClick={() => onSelect?.(skill)}
-      aria-label={ariaLabel}
+      aria-label={[ariaLabel, taxonomyStatus(skill)].filter(Boolean).join(', ')}
       data-skill-verse="true"
       data-locked={skill.unlocked ? 'false' : 'true'}
       className={`group w-full relative text-left flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors focus-visible:ring-2 focus-visible:ring-gold-leaf/60 ${
@@ -83,6 +84,7 @@ export default function SkillVerse({ skill, index = 0, onSelect, variant = 'foli
             </span>
           )}
         </span>
+        {taxonomyStatus(skill) && <span className="block text-caption text-ink-secondary">{taxonomyStatus(skill)}</span>}
         <span className={`flex items-center gap-2 mt-0.5 ${waypoint ? 'flex-wrap' : ''}`}>
           <span className={`font-script text-caption text-ink-whisper ${waypoint ? 'min-w-0 break-words' : 'truncate'}`}>
             {skill.unlocked

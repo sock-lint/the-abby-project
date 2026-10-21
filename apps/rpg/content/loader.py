@@ -347,6 +347,7 @@ class ContentPack:
                     self.stats.bump("skipped", skip[0])
                     self.warnings.append(skip[1])
                     return None, False
+            self._validate_taxonomy_links(model, model.objects.filter(**lookup).first(), {**lookup, **defaults})
             return model.objects.update_or_create(defaults=defaults, **lookup)
         import json
         from django.core.exceptions import ValidationError
@@ -383,12 +384,14 @@ class ContentPack:
                 raise ContentPackError(f"{kind} display/natural key collides with existing content.")
             if kind == "questdefinition":
                 self._protect_active_quest(obj, defaults, entry or {})
+            self._validate_taxonomy_links(model, obj, {**lookup, **defaults})
             for field_name, value in {**lookup, **defaults}.items():
                 setattr(obj, field_name, value)
             created = False
         else:
             if model.objects.filter(**lookup).exists():
                 raise ContentPackError(f"Unowned {kind} collision: existing content must be explicitly migrated, never adopted by name.")
+            self._validate_taxonomy_links(model, None, {**lookup, **defaults})
             obj = model(**lookup, **defaults)
             created = True
         if kind == "reward":
@@ -416,6 +419,33 @@ class ContentPack:
             ContentPackEntry.objects.create(pack=self.pack_key, family=self.family, kind=kind, key=key,
                 model_label=model._meta.label_lower, object_id=obj.pk)
         return obj, created
+
+    @staticmethod
+    def _admit_reference(model, ids, retained=()):
+        from django.core.exceptions import ValidationError
+        from apps.achievements.taxonomy import validate_new_taxonomy_references
+        try:
+            validate_new_taxonomy_references(model, ids, retained_ids=retained)
+        except ValidationError as error:
+            raise ContentPackError("; ".join(error.messages)) from error
+
+    def _validate_taxonomy_links(self, model, previous, values):
+        """Source identity stays global; only newly introduced links are choices."""
+        from apps.achievements.models import Skill, SkillCategory, Subject
+        from apps.quests.models import QuestDefinition
+        if model in (Subject, Skill):
+            category = values.get("category")
+            if category is not None:
+                self._admit_reference(SkillCategory, [category.pk], [previous.category_id] if previous else ())
+        if model is Skill and values.get("subject") is not None:
+            self._admit_reference(Subject, [values["subject"].pk], [previous.subject_id] if previous else ())
+        if model is QuestDefinition:
+            if values.get("required_skill") is not None:
+                self._admit_reference(Skill, [values["required_skill"].pk], [previous.required_skill_id] if previous else ())
+            category_id = (values.get("trigger_filter") or {}).get("skill_category_id")
+            if category_id is not None:
+                old_id = (previous.trigger_filter or {}).get("skill_category_id") if previous else None
+                self._admit_reference(SkillCategory, [category_id], [old_id] if old_id else ())
 
     # ---- parsing -------------------------------------------------------
 
@@ -465,6 +495,8 @@ class ContentPack:
                 "color": entry.get("color", "#888888"),
                 "description": entry.get("description", ""),
             }
+            if "is_retired" in entry:
+                defaults["is_retired"] = entry["is_retired"]
             obj, created = self._upsert(SkillCategory, entry=entry,
                 name=name, defaults=defaults,
             )
@@ -484,6 +516,8 @@ class ContentPack:
                 "order": entry.get("order", 0),
                 "description": entry.get("description", ""),
             }
+            if "is_retired" in entry:
+                defaults["is_retired"] = entry["is_retired"]
             obj, created = self._upsert(Subject, entry=entry,
                 name=entry["name"], category=cat_by_name[cat_name],
                 defaults=defaults,
@@ -508,6 +542,8 @@ class ContentPack:
                 "order": entry.get("order", 0),
                 "description": entry.get("description", ""),
             }
+            if "is_retired" in entry:
+                defaults["is_retired"] = entry["is_retired"]
             subject_name = entry.get("subject")
             if subject_name:
                 subject_key = (cat_name, subject_name)
@@ -568,6 +604,8 @@ class ContentPack:
                 raise ContentPackError(
                     f"skill {p['skill_name']!r} references unknown prereq {name!r}"
                 )
+            retained = SkillPrerequisite.objects.filter(skill=skill).values_list("required_skill_id", flat=True)
+            self._admit_reference(Skill, [req_skill.pk], retained)
             _, created = SkillPrerequisite.objects.update_or_create(
                 skill=skill, required_skill=req_skill,
                 defaults={"required_level": level},
@@ -1011,6 +1049,9 @@ class ContentPack:
             # Resolve once using the same identities checked by the active-promise guard.
             if entry.get("skill_tags") is not None:
                 tags = self._resolved_quest_skill_tags(entry)
+                from apps.achievements.models import Skill
+                self._admit_reference(Skill, [skill.pk for skill, _ in tags],
+                    QuestSkillTag.objects.filter(quest_definition=quest).values_list("skill_id", flat=True))
                 QuestSkillTag.objects.filter(quest_definition=quest).delete()
                 for skill, weight in tags:
                     _, created = QuestSkillTag.objects.get_or_create(
