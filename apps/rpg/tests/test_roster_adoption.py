@@ -42,7 +42,7 @@ class RosterLoadingTests(TestCase):
                 "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom",
             } else {"base"}
             self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
-            approved = {"base", "fire", "ice"} if species.slug == "meshtint-wolf" else {"base"}
+            approved = compatible
             for potion in PotionType.objects.all():
                 self.assertEqual(pet_is_available(species, potion), potion.slug in approved)
             egg = ItemDefinition.objects.get(slug=family["egg"]["item_slug"])

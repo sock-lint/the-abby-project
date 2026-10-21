@@ -1,11 +1,19 @@
-# Fire and Ice Dragon and Mushroom private review
+# Fire and Ice Dragon and Mushroom rollout
 
-The owner selected Dragon and Mushroom as the next elemental batch. This change
-integrates the verified private candidate for in-app artwork review. It does
-not approve artwork, canonically publish it, or enable another receiving pair.
+The owner accepted all twelve exact Fire/Ice Dragon and Mushroom appearances
+shown in the application and authorized their canonical runtime publication,
+guaranteed challenges, merge, deployment and live verification on October 21,
+2026. Accepted app revision: `56eb89c6037af424b1aa1de9ce16dea098abb49a`.
+No artwork regeneration or new potion identity is needed. This branch prepares
+activation; publication/readback and the established MAIN gates remain required
+before the four new receiving pairs become available in production.
 
-The shipped baseline is PR #307, squash
-`2fbff5ab6edb2be43b12284795e0b02399325185`. Preserve its nine release pins,
+The accepted artwork baseline is PR #307, squash
+`2fbff5ab6edb2be43b12284795e0b02399325185`. The current application baseline
+after PRs #306/#310 is `8ab17caec3166397281361a860a54782cf9de413`; the
+activation branch is refreshed onto it. Preserve that newer application work
+and record the actual pre-merge deployed baseline if MAIN advances again.
+Preserve all nine prior release pins,
 code packages, Chick/Wolf appearances, natural egg identities and existing saved
 progress. Its ordinary deployment/dedicated-family live checks passed; separate
 production elemental payload/renderer verification and physical-phone acceptance
@@ -28,12 +36,20 @@ incubation; eggs retain their natural appearance.
 `abby-elemental-dragon-mushroom` 1.0.0, and the app-owned challenge metadata.
 The descriptor and tenth runtime pin bind the verified review manifest
 `bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05`.
-This pin enables private presentation review; the release has no canonical
-version index yet. Keep this PR draft: a production build cannot fetch this
-new pin from the canonical release store until separate publication completes.
-The existing positive
-`shared/catalog/asset-support.json` stays unchanged: 15 Base pairs and only the
-four Chick/Wolf Fire/Ice pairs remain available.
+Canonical publication is verified through the application GET-only reader.
+The immutable version index is
+`releases/versions/abby-elemental-dragon-mushroom/1.0.0.json` (171 bytes), SHA-256
+`fc1b08f1dd3788bd4cd8540ef11dd614bbb3cdf741216be8a29692fb8a78ec29`.
+The canonical manifest is at the pinned family/version/digest directory.
+All 196 canonical objects (194 payloads, manifest and index) match their
+expected hashes/sizes, and all 196 anonymous GETs return HTTP 403.
+A fresh standard private import verifies all ten families and seven retained
+supplemental portraits. Keep this PR draft until fresh current-base checks and
+independent review complete; MAIN owns merge and deployment.
+The positive `shared/catalog/asset-support.json` now declares 23 exact pairs:
+15 Base and Fire/Ice for Chick, Wolf, Dragon and Mushroom. Existing nine pins
+and all previous receiving pairs stay unchanged. This source activation remains
+in the draft PR while fresh application validation is completed.
 
 | Prepared challenge | Accomplishments | Window | Guaranteed bundle |
 | --- | --- | --- | --- |
@@ -44,9 +60,9 @@ four Chick/Wolf Fire/Ice pairs remain available.
 
 These system collection goals are nonrepeatable with zero authored Coins/XP.
 They use the existing Nest/Trail qualifying accomplishment sources and source
-limits, without a daily streak requirement. New offers, auto enrollment,
-legacy starts and new-offer acquisition hints remain hidden until the exact
-reward pair is available. A broadly authored compatible potion does not enable
+limits, without a daily streak requirement. New offers, auto enrollment, legacy starts and new-offer acquisition hints
+use the same exact-pair availability guard. They become available through this
+policy activation only after normal publication and deployment gates complete. A broadly authored compatible potion does not enable
 incubation or consume ingredients. Accepted challenge and incubation promises
 retain their snapshots after a later policy change.
 
@@ -88,7 +104,7 @@ Keep licensed sources, runtime payloads, previews and editable masters private.
 5. Exercise all 12 forms and all actual native takes through Live and Hatchery,
    portraits/icons, incubation/start/hatch, saved identity, destination idle,
    missing-file behavior, Base/Fire/Ice material isolation and reduced motion.
-   Collect owner in-app appearance approval. Record actual app revision/source
+   Retain the existing exact owner in-app appearance approval. Record actual app revision/source
    drift and physical-phone acceptance separately from desktop viewports.
 6. Publication and application merge/deployment follow their separate established
    approvals and scoped routes. Keep this preparation PR draft until its
@@ -123,19 +139,42 @@ chat's private review workspace.
 
 The standard importer/verifier installs ten pinned families with 1,886 runtime
 files / 790,683,776 bytes for private app checks, retaining all nine prior pins.
-The positive acquisition policy remains byte-identical to the approved baseline.
-No publication, acquisition activation, merge, deployment or physical-phone
-acceptance is implied by these receipts.
+The intake receipt preserved the earlier 19-pair acquisition policy. Following
+owner approval this branch prepares only the four additional pairs, taking the
+positive registry to 23. Candidate verification is not canonical publication
+evidence; record fresh canonical index/manifest/payload readback in PR #312
+before merge. Production activation, deployment and physical-phone acceptance
+are not implied by private verification.
 
 Synthetic resolver fixtures test routing and explicit absence, not artwork,
 native take fidelity, performance, phone acceptance or production delivery.
 
 ## Rollback
 
-A rollback of this batch retains the shipped Chick/Wolf release and all prior
-Base releases. Close only the four new acquisition pairs in the positive policy,
+A rollback of this batch retains the shipped Chick/Wolf release, all prior
+Base releases and the application changes merged before PR #312. The current
+application baseline is `8ab17caec3166397281361a860a54782cf9de413`; MAIN must
+record any newer actual pre-merge baseline. Revert this batch through a reviewed
+PR rather than resetting production to the older PR #307 application commit.
+Close only the four new acquisition pairs in the positive policy,
 restore the prior lock/descriptor/presentation code together in a reviewed PR,
 and reverify the existing private inputs. Preserve saved elemental ownership,
 growth, names, accepted incubations/deadlines, promised challenge bundles and
 frozen expedition receipts. Never convert a saved appearance to Base or reverse
 an earned reward. Unavailable-art presentation must retain care/claim controls.
+
+## Rollout status and device boundary
+
+Owner artwork acceptance and application canonical readback are complete for
+the exact manifest above. The established AbbyAssets publisher/coordinator owns
+publication; this application seat uses only its GET-only reader and recorded
+no publication write. Retain the publisher receipt separately from the fresh
+196-object readback and standard import evidence in PR #312. Every accepted
+artifact byte and all three code-package integrity pins remain unchanged.
+
+Normal deployment runs `loadrpgcontent`, which loads the four guaranteed system
+definitions and uses the activated receiving policy. No separate production
+content-write command is needed. Current-base hosted CI, independent review,
+MAIN merge and exact served/deployed-commit trusted live checks remain required.
+Physical-phone performance/lifecycle acceptance remains pending and separate
+from this owner-approved web rollout; no signed native release is authorized.

@@ -46,11 +46,13 @@ replacement Coins. Ordinary XP/coin payouts and progress remain unchanged.
 System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
-legacy starts. The art policy enables Ember Nest, Frost
-Nest, Ember Trail and Frost Trail for exact Chick/Wolf Fire/Ice pairs. The
+legacy starts. The art policy enables Ember/Frost Nest, Trail, Grove and Summit for exact
+Chick/Wolf/Mushroom/Dragon Fire/Ice pairs. The
 pinned canonical release is verified; application rollout uses ordinary MAIN
-merge/deployment gates. Each is one-time, 180 days, zero authored Coins/XP, with
-targets 5 (Chick) or 20 (Wolf Pup); approved chores/homework, completed projects
+merge/deployment gates. Dragon/Mushroom publication/readback remains a separate
+rollout prerequisite. Each is one-time with zero authored Coins/XP: Nest targets
+5 actions, Trail 20 and Grove 10 within 180 days; Summit 50 within 365 days.
+Approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
 Saved elemental promises survive retirement. Bundle egg salvage checks every
 promised grown potion variant, Base included: owning a grown Base pet never

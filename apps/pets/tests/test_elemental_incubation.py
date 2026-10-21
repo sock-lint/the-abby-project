@@ -22,17 +22,6 @@ RETIRED_POLICY = {
     "potion_slugs": ["base"],
     "disabled_item_types": ["cosmetic_pet_accessory"],
 }
-# Test-only acceptance exercises the prepared path without enabling acquisition
-# in the checked-in policy while the new artwork is under owner review.
-SYNTHETIC_APPROVED_EXPANSION_POLICY = {
-    "schema_version": 1,
-    "pets": [
-        {"species_slug": slug, "sprite_key": slug, "potion_slugs": ["base", "fire", "ice"]}
-        for slug in ("meshtint-dragon", "meshtint-mushroom")
-    ],
-    "potion_slugs": ["base", "fire", "ice"],
-    "disabled_item_types": ["cosmetic_pet_accessory"],
-}
 NOW = datetime(2026, 10, 20, 18, tzinfo=dt_timezone.utc)
 
 
@@ -43,7 +32,9 @@ class ElementalIncubationTests(TestCase):
     def setUpTestData(cls):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Elemental incubation", children=[{"username": "element-incubator"}]).children[0]
-        cls.species = {slug: PetSpecies.objects.get(slug=slug) for slug in ("chick", "meshtint-wolf")}
+        cls.species = {slug: PetSpecies.objects.get(slug=slug) for slug in (
+            "chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom",
+        )}
         cls.potions = {slug: PotionType.objects.get(slug=slug) for slug in ("base", "fire", "ice")}
 
     def setUp(self):
@@ -57,9 +48,9 @@ class ElementalIncubationTests(TestCase):
             UserInventory.objects.get_or_create(user=self.child, item=item, defaults={"quantity": 3})
         return egg, potion
 
-    def start(self, egg, potion):
+    def start(self, egg, potion, request_id=None):
         return self.client.post("/api/pets/incubations/", {
-            "egg_item_id": egg.pk, "potion_item_id": potion.pk, "request_id": str(uuid4()),
+            "egg_item_id": egg.pk, "potion_item_id": potion.pk, "request_id": str(request_id or uuid4()),
         }, format="json")
 
     def assert_unspent(self, egg, potion):
@@ -70,10 +61,14 @@ class ElementalIncubationTests(TestCase):
 
     def assert_pair_waits_and_hatches(self, species_slug, potion_slug):
         egg, potion = self.ingredients(species_slug, potion_slug)
+        request_id = uuid4()
         with patch("django.utils.timezone.now", return_value=NOW):
-            response = self.start(egg, potion)
+            response = self.start(egg, potion, request_id)
+            replay = self.start(egg, potion, request_id)
         self.assertEqual(response.status_code, 201, response.content)
+        self.assertEqual(replay.status_code, 200, replay.content)
         row = response.json()["incubation"]
+        self.assertEqual(replay.json()["incubation"]["id"], row["id"])
         self.assertEqual((row["species"]["slug"], row["potion_type"]["slug"]), (species_slug, potion_slug))
         self.assertEqual(row["remaining_seconds"], 86400)
         self.assertFalse(UserPet.objects.filter(user=self.child).exists())
@@ -84,7 +79,10 @@ class ElementalIncubationTests(TestCase):
         with override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY), patch("django.utils.timezone.now", return_value=NOW + timedelta(days=1)):
             claimed = self.client.post(claim_url, {}, format="json")
             retry = self.client.post(claim_url, {}, format="json")
+            completed_replay = self.start(egg, potion, request_id)
         self.assertEqual((claimed.status_code, retry.status_code), (201, 200))
+        self.assertEqual(completed_replay.status_code, 200, completed_replay.content)
+        self.assertEqual(completed_replay.json()["incubation"]["id"], row["id"])
         pet = claimed.json()["pet"]
         self.assertEqual((pet["species"]["slug"], pet["potion"]["slug"]), (species_slug, potion_slug))
         self.assertEqual(pet["lifecycle_stage"], "baby")
@@ -107,24 +105,20 @@ class ElementalIncubationTests(TestCase):
     def test_ice_wolf_waits_then_claims_exact_variant(self):
         self.assert_pair_waits_and_hatches("meshtint-wolf", "ice")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
-    def test_synthetic_approved_fire_dragon_waits_then_claims_after_policy_retirement(self):
+    def test_shipped_fire_dragon_waits_then_claims_after_policy_retirement(self):
         self.assert_pair_waits_and_hatches("meshtint-dragon", "fire")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
-    def test_synthetic_approved_ice_dragon_waits_then_claims_after_policy_retirement(self):
+    def test_shipped_ice_dragon_waits_then_claims_after_policy_retirement(self):
         self.assert_pair_waits_and_hatches("meshtint-dragon", "ice")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
-    def test_synthetic_approved_fire_mushroom_waits_then_claims_after_policy_retirement(self):
+    def test_shipped_fire_mushroom_waits_then_claims_after_policy_retirement(self):
         self.assert_pair_waits_and_hatches("meshtint-mushroom", "fire")
 
-    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
-    def test_synthetic_approved_ice_mushroom_waits_then_claims_after_policy_retirement(self):
+    def test_shipped_ice_mushroom_waits_then_claims_after_policy_retirement(self):
         self.assert_pair_waits_and_hatches("meshtint-mushroom", "ice")
 
     @override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY)
-    def test_retired_policy_denies_all_four_pairs_without_consumption(self):
+    def test_retired_policy_denies_all_elemental_pairs_without_consumption(self):
         for species_slug in self.species:
             for potion_slug in ("fire", "ice"):
                 with self.subTest(species=species_slug, potion=potion_slug):
@@ -133,7 +127,7 @@ class ElementalIncubationTests(TestCase):
                     self.assert_unspent(egg, potion)
 
     def test_other_prepared_species_still_reject_elemental_potions_without_consumption(self):
-        for species in PetSpecies.objects.filter(slug__startswith="meshtint-").exclude(slug="meshtint-wolf"):
+        for species in PetSpecies.objects.filter(slug__startswith="meshtint-").exclude(slug__in=self.species):
             for potion_slug in ("fire", "ice"):
                 with self.subTest(species=species.slug, potion=potion_slug):
                     egg, potion = self.ingredients(species.slug, potion_slug)

@@ -1,4 +1,4 @@
-"""Dragon/Mushroom offers stay dormant until each exact art pair is adopted."""
+"""Approved Dragon/Mushroom acquisition and preserved withdrawn promises."""
 from copy import deepcopy
 from io import StringIO
 import json
@@ -35,6 +35,11 @@ TRIGGERS = {
 
 def approved_policy(*pairs):
     policy = deepcopy(json.loads(POLICY_PATH.read_text()))
+    # Start from the previous 19-pair release even after production activation.
+    # A selective test must not inherit the other three newly approved pairs.
+    for row in policy["pets"]:
+        if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom"}:
+            row["potion_slugs"] = ["base"]
     for species, potion in pairs:
         row = next(row for row in policy["pets"] if row["species_slug"] == species)
         if potion not in row["potion_slugs"]:
@@ -59,6 +64,53 @@ class ElementalExpansionPathTests(TestCase):
         drops = patch("apps.rpg.services.DropService.process_drops", return_value=[])
         drops.start()
         self.addCleanup(drops.stop)
+
+    def test_shipped_policy_adds_only_the_four_approved_pairs_and_exact_source(self):
+        policy = json.loads(POLICY_PATH.read_text())
+        pairs = {(row["species_slug"], potion) for row in policy["pets"] for potion in row["potion_slugs"]}
+        base_species = {row["species_slug"] for row in policy["pets"]}
+        elemental_species = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom"}
+        self.assertEqual(pairs, {(species, "base") for species in base_species} | {
+            (species, potion) for species in elemental_species for potion in ("fire", "ice")
+        })
+        self.assertEqual(len(base_species), 15)
+        self.assertEqual(len(available_pet_pairs()), 23)
+        descriptor = json.loads(POLICY_PATH.with_name("elemental-expansion.json").read_text())["release"]
+        source = next(row for row in policy["sources"] if row["id"] == descriptor["family_id"])
+        self.assertEqual((source["release_version"], source["manifest_sha256"]),
+                         (descriptor["release_version"], descriptor["manifest_sha256"]))
+        self.assertEqual(source["appearance_bindings_version"], 1)
+        self.assertEqual(set(source["prepared_species"]), {"meshtint-dragon", "meshtint-mushroom"})
+        self.assertEqual(set(source["prepared_potion_variants"]), {"fire", "ice"})
+        for row in policy["pets"]:
+            if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom"}:
+                self.assertEqual(row["potion_sources"], {"fire": source["id"], "ice": source["id"]})
+
+    def test_shipped_policy_exposes_whole_offers_and_exact_inventory_hints(self):
+        from apps.mcp_server.catalog import catalog_row
+
+        self.client.force_authenticate(self.child)
+        for slug in ("fire-potion", "ice-potion", "meshtint-mushroom-egg", "meshtint-dragon-egg"):
+            UserInventory.objects.create(user=self.child, item=ItemDefinition.objects.get(slug=slug))
+        inventory = self.client.get("/api/inventory/")
+        self.assertEqual(inventory.status_code, 200)
+        expected = {
+            "fire-potion": {"Ember Grove", "Ember Summit"},
+            "ice-potion": {"Frost Grove", "Frost Summit"},
+            "meshtint-mushroom-egg": {"Ember Grove", "Frost Grove"},
+            "meshtint-dragon-egg": {"Ember Summit", "Frost Summit"},
+        }
+        self.assertEqual({row["item"]["slug"] for row in inventory.data}, set(expected))
+        for row in inventory.data:
+            self.assertEqual({source["name"] for source in row["item"]["acquisition_sources"]
+                              if source["kind"] == "challenge"}, expected[row["item"]["slug"]])
+        self.assertFalse(ChallengeGoal.objects.filter(user=self.child).exists())
+        self.assertEqual({row["name"] for row in self.client.get("/api/quests/available/").data}, set(PATHS))
+        for definition in QuestDefinition.objects.filter(name__in=PATHS):
+            self.assertTrue(definition_is_available(definition))
+            self.assertTrue(catalog_row("quests", definition)["available_for_new_user"])
+        self.client.force_authenticate(self.parent)
+        self.assertEqual({row["name"] for row in self.client.get("/api/quests/catalog/").data}, set(PATHS))
 
     def test_authored_paths_preserve_exact_eggs_and_deliberate_progression(self):
         receiving = json.loads(POLICY_PATH.with_name("elemental-expansion.json").read_text())
@@ -94,7 +146,8 @@ class ElementalExpansionPathTests(TestCase):
             f"{species}-{potion}-egg" for species, potion, _target, _days in PATHS.values()
         ]).exists())
 
-    def test_current_art_policy_hides_prepared_offers_across_catalogs_and_starts(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy())
+    def test_withdrawn_art_policy_hides_offers_across_catalogs_and_starts(self):
         from apps.mcp_server.catalog import catalog_row
 
         self.assertEqual(QuestDefinition.objects.filter(name__in=PATHS).count(), 4)
@@ -116,7 +169,8 @@ class ElementalExpansionPathTests(TestCase):
         ingest_activity(self.child, "chore_complete", "dormant-offer-action", "chore_complete")
         self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
 
-    def test_authored_compatibility_cannot_enable_potion_choices_or_consume_ingredients(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy())
+    def test_withdrawn_pairs_cannot_enable_potion_choices_or_consume_ingredients(self):
         self.client.force_authenticate(self.child)
         self.assertEqual(len(available_pet_pairs()), 19)
         for species_slug, potion_slug, _target, _days in PATHS.values():
@@ -148,7 +202,8 @@ class ElementalExpansionPathTests(TestCase):
         with override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy(("meshtint-mushroom", "fire"))):
             self.assertEqual({row["name"] for row in list_goals(self.child)["results"]}, {"Ember Grove"})
 
-    def test_dormant_definitions_do_not_leak_into_earned_potion_or_egg_hints(self):
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy())
+    def test_withdrawn_definitions_do_not_leak_into_earned_potion_or_egg_hints(self):
         for slug in ("fire-potion", "ice-potion", "meshtint-mushroom-egg", "meshtint-dragon-egg"):
             UserInventory.objects.create(user=self.child, item=ItemDefinition.objects.get(slug=slug))
         self.client.force_authenticate(self.child)
@@ -160,35 +215,35 @@ class ElementalExpansionPathTests(TestCase):
                 self.assertEqual(row["item"]["acquisition_sources"], [])
                 self.assertFalse(random_item_is_available(ItemDefinition.objects.get(pk=row["item"]["id"])))
 
-    def test_approved_paths_share_facts_and_award_each_whole_bundle_once(self):
-        pairs = [(species, potion) for species, potion, _target, _days in PATHS.values()]
-        with override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy(*pairs)):
-            self.assertEqual({row["name"] for row in list_goals(self.child)["results"]}, set(PATHS))
-            for index in range(50):
-                trigger = ("chore_complete", "homework_complete", "milestone_complete", "project_complete")[index % 4]
-                ingest_activity(self.child, trigger, f"expansion-action-{index}", trigger)
-                if index == 9:
-                    self.assertEqual(set(ChallengeOccurrence.objects.filter(goal__user=self.child, status="completed")
-                                         .values_list("snapshot__name", flat=True)), {"Ember Grove", "Frost Grove"})
-            occurrences = list(ChallengeOccurrence.objects.filter(goal__user=self.child))
-            self.assertEqual(len(occurrences), 4)
-            for occurrence in occurrences:
-                species, potion, _target, _days = PATHS[occurrence.snapshot["name"]]
-                self.assertEqual(occurrence.status, "completed")
-                self.assertEqual((occurrence.reward_receipt["coins"], occurrence.reward_receipt["xp"]), (0, 0))
-                self.assertEqual({row["item_id"]: row["quantity"] for row in occurrence.reward_receipt["items"]}, {
-                    ItemDefinition.objects.get(slug=f"{species}-egg").pk: 1,
-                    ItemDefinition.objects.get(slug=f"{potion}-potion").pk: 1,
-                })
-            before = {row.pk: row.reward_receipt for row in occurrences}
-            ingest_activity(self.child, "chore_complete", "expansion-action-0", "chore_complete")
-            ingest_activity(self.child, "chore_complete", "expansion-after-completion", "chore_complete")
-            list_goals(self.child)
+    def test_shipped_paths_share_facts_and_award_each_whole_bundle_once(self):
+        # No synthetic art-policy override: this must exercise shipped support.
+        self.assertEqual({row["name"] for row in list_goals(self.child)["results"]}, set(PATHS))
+        for index in range(50):
+            trigger = ("chore_complete", "homework_complete", "milestone_complete", "project_complete")[index % 4]
+            ingest_activity(self.child, trigger, f"expansion-action-{index}", trigger)
+            if index == 9:
+                self.assertEqual(set(ChallengeOccurrence.objects.filter(goal__user=self.child, status="completed")
+                                     .values_list("snapshot__name", flat=True)), {"Ember Grove", "Frost Grove"})
+        occurrences = list(ChallengeOccurrence.objects.filter(goal__user=self.child))
+        self.assertEqual(len(occurrences), 4)
+        for occurrence in occurrences:
+            species, potion, _target, _days = PATHS[occurrence.snapshot["name"]]
+            self.assertEqual(occurrence.status, "completed")
+            self.assertEqual((occurrence.reward_receipt["coins"], occurrence.reward_receipt["xp"]), (0, 0))
+            self.assertEqual({row["item_id"]: row["quantity"] for row in occurrence.reward_receipt["items"]}, {
+                ItemDefinition.objects.get(slug=f"{species}-egg").pk: 1,
+                ItemDefinition.objects.get(slug=f"{potion}-potion").pk: 1,
+            })
+        before = {row.pk: row.reward_receipt for row in occurrences}
+        ingest_activity(self.child, "chore_complete", "expansion-action-0", "chore_complete")
+        ingest_activity(self.child, "chore_complete", "expansion-after-completion", "chore_complete")
+        list_goals(self.child)
         self.assertEqual({row.pk: row.reward_receipt for row in ChallengeOccurrence.objects.filter(goal__user=self.child)}, before)
         self.assertEqual(dict(UserInventory.objects.filter(user=self.child).values_list("item__slug", "quantity")), {
             "meshtint-mushroom-egg": 2, "meshtint-dragon-egg": 2, "fire-potion": 2, "ice-potion": 2,
         })
 
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=approved_policy())
     def test_saved_expansion_promise_survives_policy_retirement_and_base_ownership(self):
         species = PetSpecies.objects.get(slug="meshtint-mushroom")
         UserMount.objects.create(user=self.child, species=species, potion=PotionType.objects.get(slug="base"))
