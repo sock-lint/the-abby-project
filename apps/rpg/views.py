@@ -138,7 +138,7 @@ class InventoryView(APIView):
     def get(self, request):
         entries = UserInventory.objects.filter(
             user=request.user,
-        ).select_related("item__pet_species", "item__potion_type", "item__food_species").order_by("item__item_type", "item__name")
+        ).select_related("item__pet_species", "item__potion_type", "item__food_species").order_by("item__item_type", "item__name", "pk")
         return Response(UserInventorySerializer(entries, many=True, context={"request": request}).data)
 
 

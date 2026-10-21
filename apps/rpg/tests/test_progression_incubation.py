@@ -17,7 +17,7 @@ def companion_catalog():
               rarity="common", metadata={}, coin_value=0, display_name=f"Bird {pk} egg")
         for pk, bird in enumerate(species, 1)
     }
-    items[3] = N(pk=3, item_type="potion", potion_type_id=1, pet_species_id=None,
+    items[3] = N(pk=3, item_type="potion", potion_type_id=1, potion_type=potion, pet_species_id=None,
                  rarity="common", metadata={}, coin_value=0, display_name="Base potion")
     items[4] = N(pk=4, item_type="food", food_species_id=None, pet_species_id=None, potion_type_id=None,
                  rarity="common", metadata={"growth": 30}, coin_value=0, display_name="Food")

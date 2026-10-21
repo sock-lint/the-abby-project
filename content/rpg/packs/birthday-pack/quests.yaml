@@ -16,7 +16,5 @@ quests:
         quantity: 1
       - slug: frame-confetti
         quantity: 1
-      - slug: accessory-party-horn
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}

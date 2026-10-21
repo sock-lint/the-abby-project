@@ -2,6 +2,7 @@ import { isCatalogAvailable } from '../utils/catalogAvailability';
 import { resolveSharedBirdAppearance } from './sharedBirdRelease';
 import { companionFormName, companionStage } from './lifecycle';
 import { resolveRosterAppearance } from './sharedRosterRelease';
+import { resolveElementalAppearance } from './sharedElementalRelease';
 
 // Owned identities come from Django; these files provide appearance only.
 // Optional globs let public validation builds work without private paid art.
@@ -9,9 +10,10 @@ const manifests = import.meta.glob('./licensed/manifest.json', { eager: true, im
 const assets = import.meta.glob('./licensed/*.glb', { eager: true, query: '?url', import: 'default' });
 const manifest = manifests['./licensed/manifest.json'];
 
-export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets, shared, roster) {
+export function resolveAppearance(creature, kind = 'pet', source = manifest, urls = assets, shared, roster, elemental) {
   const suppliedLegacy = source !== manifest || urls !== assets;
-  const prepared = resolveSharedBirdAppearance(creature, kind, shared === undefined && suppliedLegacy ? null : shared)
+  const prepared = resolveElementalAppearance(creature, kind, elemental === undefined && suppliedLegacy ? null : elemental)
+    || resolveSharedBirdAppearance(creature, kind, shared === undefined && suppliedLegacy ? null : shared)
     || resolveRosterAppearance(creature, kind, roster === undefined && suppliedLegacy ? null : roster);
   if (prepared) {
     const woodland = source?.models?.woodland;

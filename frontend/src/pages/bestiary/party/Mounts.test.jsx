@@ -25,12 +25,14 @@ const MOUNTS = [
     species: { name: 'Griffon', sprite_key: 'griffon', icon: '🦅' },
     potion: { name: 'Sky', slug: 'sky', rarity: 'rare' },
     is_active: true,
+    expedition_available: true,
   },
   {
     id: 10,
     species: { name: 'Wolf', sprite_key: 'wolf', icon: '🐺' },
     potion: { name: 'Earth', slug: 'earth', rarity: 'common' },
     is_active: false,
+    expedition_available: true,
   },
 ];
 

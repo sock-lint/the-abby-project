@@ -82,19 +82,30 @@ Saved ownership is independent of model filenames and availability.
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive registry for new offers and acquisition. Its production pet
 allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
-identities in `shared/catalog/companion-roster.json`, with Base only. Exact
-egg slug, typed species FK and canonical metadata must agree. Native take
-order does not set gameplay thresholds; explicit server rules select stages. Fire, Ice, Shadow,
-Golden and Cosmic potions have no accepted bird appearances and are not new
-acquisition goals. Archer outfit palettes are separate avatar choices; they
+identities in `shared/catalog/companion-roster.json`, with Base for all fifteen.
+The approved Fire/Ice release prepares four additional pairs for exact `chick`
+and `meshtint-wolf` identities; the other thirteen families remain Base only.
+The owner accepted their actual app previews. The exact canonical release
+was published and independently verified on October 20, 2026. PR #307 uses
+the normal MAIN rollout gates;
+see [Fire and Ice companions](../../docs/operations/fire-ice-companions.md).
+Exact egg slug, typed species FK and canonical metadata must agree. Native take
+order does not set gameplay thresholds; explicit server rules select stages.
+Shadow, Golden and Cosmic remain outside new acquisition. Archer outfit
+palettes are separate avatar choices; they
 do not establish a potion variant or fitted creature outfit.
 
 `apps/rpg/catalog_support.py` applies this art gate without deleting saved
-catalog, inventory or collection rows. Existing service rules still decide
+catalog, inventory or collection rows. The separate owner-approved one-time
+prelaunch retirement removes only its exact obsolete identities after settling
+accepted supported resources; see the [retirement contract](../../docs/operations/companion-lifecycle.md#unused-first-party-content-retirement).
+That transition preserves current families, Base/Fire/Ice, unrelated custom
+content, SpriteAsset registration/rows and stored artwork. Existing service rules
+still decide
 permissions, authored potion compatibility, consumption and rewards. Generic
 domain tests can declare an explicit scoped synthetic policy; production
 defaults stay strict. Collection badge availability is checked against actual
-achievable capacity, including already-owned legacy pet/potion progress.
+achievable capacity, including remaining ownership outside the retirement list.
 Impossible goals remain unavailable without lowering their criteria or
 payouts; independent badge and consumable collections remain valid.
 
@@ -109,8 +120,9 @@ The following retains earlier source inventory and conversion notes, including
 later Bird adoption references. Its statuses describe those earlier sources;
 they do not define current app availability. The prepared 14-family roster
 supersedes the unprepared-creature rows for its exact namespaced identities,
-while the 17 legacy species and saved ownership remain intact. It does not
-change the Archer, Bird, pedestal/UI or catalog pins. Exact current intake and
+while the separate prelaunch retirement removes its explicitly listed old
+species and ownership after accepted-resource settlement. That content cleanup
+does not change the Archer, Bird, pedestal/UI or catalog pins. Exact current intake and
 application validation are recorded separately in the adoption runbook:
 
 | Art | Earlier source evidence | Earlier conversion status |

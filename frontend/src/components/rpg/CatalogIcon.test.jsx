@@ -4,6 +4,8 @@ import CatalogIcon from './CatalogIcon';
 import { resolveCatalogIcon } from '../../catalog/sharedCatalogIcons';
 import { resolveArtworkImage } from '../../catalog/sharedArtwork';
 import { SpriteCatalogContext } from '../../providers/spriteCatalog.context';
+import { resolveElementalCatalogIcon } from '../../companion/sharedElementalPortraits';
+vi.mock('../../companion/sharedElementalPortraits', () => ({ resolveElementalCatalogIcon: vi.fn(() => null) }));
 vi.mock('../../catalog/sharedCatalogIcons', () => ({ resolveCatalogIcon: vi.fn() }));
 vi.mock('../../catalog/sharedArtwork', () => ({ resolveArtworkImage: vi.fn() }));
 
@@ -15,6 +17,7 @@ describe('CatalogIcon', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resolveArtworkImage.mockReturnValue(null);
+    resolveElementalCatalogIcon.mockReturnValue(null);
     resolveCatalogIcon.mockImplementation((id) => ['item-meat', 'item-chicken-leg'].includes(id) ? { url: `/private/${id}.png`, label: 'Meat' } : null);
   });
   it.each([32, 40, 64, 96])('renders a smooth, static contained PNG at %s CSS pixels', (size) => {
@@ -52,4 +55,14 @@ describe('CatalogIcon', () => {
     fireEvent.error(image);
     expect(screen.getByRole('img', { name: 'New catalog art' })).toHaveTextContent('🎁');
   });
+  it.each(['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail'])(
+    'uses the exact elemental %s image and keeps an accessible failure fallback', (assetId) => {
+      resolveElementalCatalogIcon.mockImplementation((id) => id === assetId ? { url: `/elemental/${id}.png` } : null);
+      render(view(assetId, { alt: 'Elemental catalog art', icon: '🔥', spriteKey: 'missing-image' }));
+      const image = screen.getByRole('img', { name: 'Elemental catalog art' });
+      expect(image).toHaveAttribute('src', `/elemental/${assetId}.png`);
+      fireEvent.error(image);
+      expect(screen.getByRole('img', { name: 'Elemental catalog art' })).toHaveTextContent('🔥');
+    },
+  );
 });

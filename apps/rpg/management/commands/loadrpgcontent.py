@@ -19,8 +19,11 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 
 from apps.rpg.content.loader import ContentPack, ContentPackError
+from apps.rpg.retired_catalog import RetiredCatalogCollision, retire_unused_catalog_once, retirement_summary
+from apps.rpg.retirement_resources import RetirementResourceError
 
 
 DEFAULT_PACK = "content/rpg/initial"
@@ -61,6 +64,20 @@ class Command(BaseCommand):
         selections = ((options["pack"] or DEFAULT_PACK, namespace),) if options["pack"] or namespace else BUNDLED_PACKS
         try:
             with transaction.atomic():
+                if not options["pack"] and not namespace:
+                    # Expected identity/protection conflicts roll back only the
+                    # retirement savepoint. Authored content must never prevent
+                    # the ordinary startup seed/report/continue contract.
+                    try:
+                        retired = retire_unused_catalog_once()
+                    except (RetiredCatalogCollision, ProtectedError, RetirementResourceError) as exc:
+                        self.stdout.write(self.style.WARNING(f"Unused catalog retirement skipped: {exc}"))
+                    else:
+                        if retired is None:
+                            self.stdout.write("Unused catalog retirement already completed; skipping.")
+                        else:
+                            mode = "[dry-run] would retire unused catalog" if dry_run else "Retired unused catalog"
+                            self.stdout.write(f"{mode}: {retirement_summary(retired)}")
                 for pack_arg, pack_namespace in selections:
                     pack_path = Path(pack_arg)
                     if not pack_path.is_absolute():

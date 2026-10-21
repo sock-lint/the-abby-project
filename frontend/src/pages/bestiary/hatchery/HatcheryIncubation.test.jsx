@@ -31,6 +31,7 @@ const hatched = { ...ready, status: 'hatched', hatched_at: '2026-10-18T12:01:00Z
 function page(props = {}, handlers = []) {
   server.use(
     ...handlers,
+    http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{ slug: 'meshtint-bat', available_potions: [{ slug: 'base', name: 'Base' }] }] })),
     http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),
     http.get('*/api/inventory/', () => HttpResponse.json([egg, potion])),
   );

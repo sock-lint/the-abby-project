@@ -41,8 +41,17 @@ describe('Companion family lifecycle', () => {
   it('limits prepared form names to the registry’s complete species and potion identity', () => {
     const species = { slug: 'chick', sprite_key: 'cute-chick' };
     expect(companionLifecycle(species, { slug: 'base' }).map(({ form }) => form)).toEqual([null, 'Chick', 'Fledgling', 'Bird']);
-    for (const [otherSpecies, potion] of [[fox.species, { slug: 'base' }], [species, { slug: 'fire' }], [{ slug: 'fox', sprite_key: 'cute-chick' }, { slug: 'base' }]]) {
+    for (const [otherSpecies, potion] of [[fox.species, { slug: 'base' }], [species, { slug: 'cosmic' }], [{ slug: 'fox', sprite_key: 'cute-chick' }, { slug: 'base' }]]) {
       expect(companionLifecycle(otherSpecies, potion).map(({ form }) => form)).toEqual([null, null, null, null]);
     }
+  });
+
+  it.each(['fire', 'ice'])('keeps the confirmed Chick and Wolf form names for %s without widening other families', (slug) => {
+    expect(companionLifecycle({ slug: 'chick', sprite_key: 'cute-chick' }, { slug }).map(({ form }) => form))
+      .toEqual([null, 'Chick', 'Fledgling', 'Bird']);
+    expect(companionLifecycle({ slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf' }, { slug }).map(({ form }) => form))
+      .toEqual([null, 'Wolf Pup', 'Wolf', 'Werewolf']);
+    expect(companionLifecycle({ slug: 'meshtint-bat', sprite_key: 'meshtint-bat' }, { slug }).map(({ form }) => form))
+      .toEqual([null, null, null, null]);
   });
 });

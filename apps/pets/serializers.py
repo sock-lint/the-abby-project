@@ -283,17 +283,31 @@ class UserMountSerializer(serializers.ModelSerializer):
             self._expedition_today_by_owner[obj.user_id] = set(
                 MountExpedition.objects.filter(
                     mount__user_id=obj.user_id, started_at__date=self.expedition_today,
-                ).values_list("mount_id", flat=True)
+                ).values_list("mount__species_id", flat=True)
             )
-        return obj.pk in self._expedition_today_by_owner[obj.user_id]
+        return obj.species_id in self._expedition_today_by_owner[obj.user_id]
+
+    def _species_has_active_expedition(self, obj):
+        # An unclaimed trip on any potion appearance occupies this species'
+        # slot. Keep active_expedition itself bound to the exact mount so
+        # clients never mistake another appearance's receipt for their own.
+        if not hasattr(self, "_active_expedition_species_by_owner"):
+            self._active_expedition_species_by_owner = {}
+        if obj.user_id not in self._active_expedition_species_by_owner:
+            self._active_expedition_species_by_owner[obj.user_id] = set(
+                MountExpedition.objects.filter(
+                    mount__user_id=obj.user_id, status=MountExpedition.Status.ACTIVE,
+                ).values_list("mount__species_id", flat=True)
+            )
+        return obj.species_id in self._active_expedition_species_by_owner[obj.user_id]
 
     def get_expedition_available(self, obj):
-        return self._active_expedition(obj) is None and not self._expedition_used_today(obj)
+        return not self._species_has_active_expedition(obj) and not self._expedition_used_today(obj)
 
     def get_expedition_available_at(self, obj):
         # An unclaimed trip requires an explicit claim, so no timestamp can
         # promise another launch. Otherwise today's run resets at midnight.
-        if self._active_expedition(obj) is not None or not self._expedition_used_today(obj):
+        if self._species_has_active_expedition(obj) or not self._expedition_used_today(obj):
             return None
         return serializers.DateTimeField().to_representation(self.next_expedition_day)
 
@@ -305,7 +319,7 @@ class UserMountSerializer(serializers.ModelSerializer):
         )
 
     def get_expedition_available_in_seconds(self, obj):
-        if self._active_expedition(obj) is not None:
+        if self._species_has_active_expedition(obj):
             return None
         if not self._expedition_used_today(obj):
             return 0

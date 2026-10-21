@@ -36,7 +36,7 @@ class CuteChickCatalogTests(TestCase):
         return hatch_ready_pet(self.child, self.egg.pk, self.base_potion.pk)
 
     def test_catalog_wires_ingredients_and_existing_drop_macros(self):
-        self.assertEqual(list(self.chick.available_potions.values_list("slug", flat=True)), ["base"])
+        self.assertEqual(set(self.chick.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
         self.assertEqual(self.egg.pet_species, self.chick)
         self.assertEqual(self.egg.sprite_key, "big-egg")
         self.assertEqual(self.birdseed.food_species, self.chick)
@@ -46,23 +46,23 @@ class CuteChickCatalogTests(TestCase):
         self.assertTrue(DropTable.objects.filter(item=self.birdseed, trigger_type="chore_complete").exists())
 
     def test_stable_total_counts_only_art_supported_authored_variants(self):
-        self.assertEqual(PetSpecies.objects.count(), 32)
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
+        self.assertEqual(PetSpecies.objects.count(), 15)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 19)
 
     def test_unprepared_legacy_species_does_not_expand_available_completion_total(self):
         PetSpecies.objects.create(slug="legacy-bird", name="Legacy Bird", icon="🐦")
 
-        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 15)
-        self.assertEqual(self.chick.available_potions.count(), 1)
+        self.assertEqual(PetService.get_stable(self.child)["total_possible"], 19)
+        self.assertEqual(self.chick.available_potions.count(), 3)
 
-    def test_reload_keeps_existing_pet_mount_and_inventory(self):
-        wolf = PetSpecies.objects.get(slug="wolf")
+    def test_reload_keeps_supported_pet_mount_and_inventory(self):
+        wolf = PetSpecies.objects.get(slug="meshtint-wolf")
         pet = UserPet.objects.create(
             user=self.child, species=wolf, potion=self.fire,
             name="Pip", growth_points=100, evolved_to_mount=True,
         )
         mount = UserMount.objects.create(user=self.child, species=wolf, potion=self.fire, is_active=True)
-        inventory = self.give(ItemDefinition.objects.get(slug="wolf-egg"), quantity=4)
+        inventory = self.give(ItemDefinition.objects.get(slug="meshtint-wolf-egg"), quantity=4)
         pet_before = UserPet.objects.values().get(pk=pet.pk)
         mount_before = UserMount.objects.values().get(pk=mount.pk)
         inventory_before = UserInventory.objects.values().get(pk=inventory.pk)
@@ -79,7 +79,7 @@ class CuteChickCatalogTests(TestCase):
         self.assertEqual(dict(PetSpecies.objects.values_list("slug", "pk")), species_before)
         self.assertEqual(dict(ItemDefinition.objects.values_list("slug", "pk")), item_ids_before)
         self.assertEqual(DropTable.objects.count(), drop_count)
-        self.assertEqual(list(self.chick.available_potions.values_list("slug", flat=True)), ["base"])
+        self.assertEqual(set(self.chick.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
 
     def test_hatch_base_chick_consumes_one_of_each_ingredient(self):
         egg_inventory = self.give(self.egg, quantity=2)
@@ -156,11 +156,18 @@ class CuteChickCatalogTests(TestCase):
         assert_chick_identity(activate_mount.json(), "bird")
 
     def test_unsupported_potion_leaves_both_ingredients_intact(self):
+        # Chick now accepts every bundled potion (Base/Fire/Ice), so an
+        # unlisted synthetic variant exercises the compatibility refusal.
+        unlisted = PotionType.objects.create(slug="test-unlisted", name="Unlisted")
+        unsupported_potion = ItemDefinition.objects.create(
+            slug="test-unlisted-potion", name="Unlisted Potion", icon="P",
+            item_type=ItemDefinition.ItemType.POTION, potion_type=unlisted,
+        )
         egg_inventory = self.give(self.egg, quantity=2)
-        potion_inventory = self.give(self.fire_potion, quantity=3)
+        potion_inventory = self.give(unsupported_potion, quantity=3)
 
-        with self.assertRaisesMessage(ValueError, "Chick cannot hatch with a Fire potion"):
-            hatch_ready_pet(self.child, self.egg.pk, self.fire_potion.pk)
+        with self.assertRaisesMessage(ValueError, "Chick cannot hatch with a Unlisted potion"):
+            hatch_ready_pet(self.child, self.egg.pk, unsupported_potion.pk)
 
         egg_inventory.refresh_from_db()
         potion_inventory.refresh_from_db()
@@ -199,8 +206,11 @@ class CuteChickCatalogTests(TestCase):
     })
     def test_empty_compatibility_still_allows_an_explicitly_supported_hatch(self):
         self.chick.available_potions.clear()
-        cosmic = PotionType.objects.get(slug="cosmic")
-        cosmic_item = ItemDefinition.objects.get(slug="cosmic-potion")
+        cosmic = PotionType.objects.create(slug="cosmic", name="Cosmic", rarity="legendary")
+        cosmic_item = ItemDefinition.objects.create(
+            slug="cosmic-potion", name="Cosmic Potion", item_type="potion",
+            potion_type=cosmic, metadata={"variant": "cosmic"},
+        )
         self.give(self.egg)
         self.give(cosmic_item)
 

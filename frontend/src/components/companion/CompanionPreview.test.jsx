@@ -2,17 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CompanionPreview from './CompanionPreview';
+import { syntheticElemental } from '../../test/elementalReleaseFixture';
 
 const scene = vi.hoisted(() => ({ props: null, crash: false }));
 vi.mock('../../companion/appearance', async () => {
   const actual = await vi.importActual('../../companion/appearance');
+  const { stagedElementalFixture } = await import('../../test/elementalReleaseFixture');
   const manifest = {
     schema_version: 1,
     bindings: [{ species_slug: 'chick', species_sprite_key: 'cute-chick', potion_slug: 'base', pet: 'chick', evolved: 'bird', mount: 'bird' }],
     models: { chick: { file: 'chick.glb', interaction_clips: { play: { file: 'hop.glb', clip: 'Hop' }, left: { file: 'turn.glb', clip: 'Left' }, right: { file: 'turn.glb', clip: 'Right' } } }, bird: { file: 'bird.glb', interaction_clips: { play: { file: 'fly.glb', clip: 'Fly' } } } },
   };
   const urls = { './licensed/chick.glb': '/test-chick.glb', './licensed/bird.glb': '/test-bird.glb', './licensed/hop.glb': '/test-hop.glb', './licensed/fly.glb': '/test-fly.glb', './licensed/turn.glb': '/test-turn.glb' };
-  return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls) };
+  return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls, undefined, undefined, stagedElementalFixture()) };
 });
 vi.mock('../../companion/modelLoader', () => ({ resetModels: vi.fn() }));
 vi.mock('../../companion/CompanionScene', () => ({ default: (props) => {
@@ -25,6 +27,39 @@ const pet = { id: 1, species: { name: 'Chick', slug: 'chick', sprite_key: 'cute-
 beforeEach(() => { scene.props = null; scene.crash = false; vi.unstubAllEnvs(); });
 
 describe('Optional companion preview', () => {
+  it.each([['fire', 'baby', 'middle'], ['ice', 'middle', 'grown'], ['fire', 'baby', 'grown']])('queues exact %s Chick %s → %s transitions from saved lifecycle stages', async (potion, from, to) => {
+    const start = syntheticElemental('chick', potion, from);
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const view = render(<CompanionPreview variant="primary" creature={start} />);
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.appearance.key).toBe(`chick-${potion}-${from}`);
+    expect(scene.props.evolution).toBeNull();
+    view.rerender(<CompanionPreview variant="primary" creature={{ ...start, growth_points: 100 }} />);
+    expect(scene.props.evolution).toBeNull();
+    expect(scene.props.appearance.stage).toBe(from);
+    view.rerender(<CompanionPreview variant="primary" creature={syntheticElemental('chick', potion, to)} />);
+    await waitFor(() => expect(scene.props.appearance.stage).toBe(to));
+    expect(scene.props.evolution).toEqual({ id: 1, from, to });
+    const receipt = scene.props.evolution;
+    view.rerender(<CompanionPreview variant="primary" creature={{ ...syntheticElemental('chick', potion, to), last_fed_at: '2026-10-20T12:00:00Z' }} />);
+    expect(scene.props.evolution).toBe(receipt);
+    expect(fetchSpy.mock.calls.filter(([, options]) => options?.method && options.method !== 'GET')).toHaveLength(0);
+    fetchSpy.mockRestore();
+  });
+
+  it('selects a confirmed Wolf target with no invented transition and resets elemental identity on potion changes', async () => {
+    const start = syntheticElemental('meshtint-wolf', 'fire', 'baby');
+    const view = render(<CompanionPreview variant="primary" creature={start} />);
+    await screen.findByTestId('optional-scene');
+    expect(scene.props.appearance.key).toBe('meshtint-wolf-fire-baby');
+    view.rerender(<CompanionPreview variant="primary" creature={syntheticElemental('meshtint-wolf', 'fire', 'middle')} />);
+    await waitFor(() => expect(scene.props.appearance.stage).toBe('middle'));
+    expect(scene.props.evolution).toBeNull();
+    view.rerender(<CompanionPreview variant="primary" creature={syntheticElemental('chick', 'ice', 'grown')} />);
+    await waitFor(() => expect(scene.props.appearance.key).toBe('chick-ice-grown'));
+    expect(scene.props.evolution).toBeNull();
+  });
+
   it('keeps 2D art and controls while loading; greeting is local and 3D can be disabled', async () => {
     const user = userEvent.setup();
     render(<CompanionPreview creature={pet}><button>Feed using existing controls</button></CompanionPreview>);

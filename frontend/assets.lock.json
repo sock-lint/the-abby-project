@@ -47,6 +47,12 @@
       "family_id": "abby-artwork-completion",
       "manifest_sha256": "1ceb2d42a96c2c8f7c6ec912d8e0901b0d391c4ddbabb4827ed8d3d8ddaf9cde",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-elemental-companions/1.0.0/fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
+      "family_id": "abby-elemental-companions",
+      "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

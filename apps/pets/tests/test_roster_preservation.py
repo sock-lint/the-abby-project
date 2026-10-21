@@ -1,8 +1,9 @@
-"""Synthetic saved-data baseline for the additive companion roster adoption.
+"""Generic pack loading preserves explicitly supplied synthetic saved data.
 
 This disposable test database stands in for an existing household. It contains
-all 17 retained families and frozen promises; it reads no live database. An
-operator must review the reconciliation command's separate production dry run.
+all 17 earlier families and frozen promises; it reads no live database. The
+default startup command separately resets the owner's retired catalog; these
+tests exercise the non-destructive generic loader and acquisition reconciler.
 """
 from datetime import datetime, timedelta, timezone
 from io import StringIO
@@ -48,8 +49,9 @@ class RosterPreservationTests(APITestCase):
         clock = patch("django.utils.timezone.now", return_value=FIXED_NOW)
         clock.start()
         self.addCleanup(clock.stop)
-        # Load definitions before recording a saved household baseline. The
-        # later reload must neither mint awards nor rewrite its ownership.
+        # The current pack does not author earlier species. Supply the legacy
+        # baseline explicitly, then exercise generic reloads independently of
+        # the owner's separate default-command retirement/reset.
         ContentPack(INITIAL_PACK).load()
         household = make_family(
             "Synthetic retained roster", parents=[{"username": "roster-parent"}],
@@ -67,7 +69,12 @@ class RosterPreservationTests(APITestCase):
         )
         self.quest = quest
         for index, slug in enumerate(LEGACY_SLUGS):
-            species = PetSpecies.objects.get(slug=slug)
+            species = PetSpecies.objects.create(
+                slug=slug, name=slug.replace("-", " ").title(),
+                sprite_key={"seafang": "tropical-fish", "ripplecoil": "eel", "drift-jelly": "jellyfish",
+                            "deepkraken": "octopus", "stallion": "horse"}.get(slug, slug),
+            )
+            species.available_potions.add(self.base, self.fire)
             growth = (0, 49, 50, 99, 100)[index % 5]
             UserPet.objects.create(
                 user=self.child, species=species, potion=self.base,
@@ -80,7 +87,11 @@ class RosterPreservationTests(APITestCase):
                 user=self.child, species=species, potion=self.fire,
                 is_active=index == 0, last_bred_at=FIXED_NOW - timedelta(days=index + 2),
             ))
-            egg = ItemDefinition.objects.get(slug=f"{slug}-egg")
+            egg = ItemDefinition.objects.create(
+                slug=f"{slug}-egg", name=f"{species.name} Egg", icon="🥚",
+                sprite_key="big-egg", item_type="egg", pet_species=species,
+                metadata={"species": slug},
+            )
             self.eggs.append(egg)
             UserInventory.objects.create(user=self.child, item=egg, quantity=index + 2)
             DropLog.objects.create(
@@ -198,7 +209,7 @@ class RosterPreservationTests(APITestCase):
         catalog = {model._meta.label: list(model.objects.order_by("pk").values())
                    for model in (PetSpecies, PotionType, ItemDefinition)}
         report = self.reconcile(dry_run=True)
-        self.assertGreaterEqual(report["drops_removed"], 18)
+        self.assertGreaterEqual(report["drops_removed"], 17)
         self.assertEqual(report["rewards_deactivated"], 17)
         self.assertGreaterEqual(report["retained_quest_reward_links"], 17)
         self.assertEqual(self.saved_state(), before)
@@ -212,7 +223,9 @@ class RosterPreservationTests(APITestCase):
         self.assertFalse(Reward.objects.filter(pk__in=[reward.pk for reward in self.saved_rewards], is_active=True).exists())
         self.real_world.refresh_from_db()
         self.assertTrue(self.real_world.is_active)
-        retired = [egg.pk for egg in self.eggs] + [self.fire_item.pk]
+        # Fire is now supported art. It remains ineligible for random selection
+        # independently of whether an old authored DropTable row is retained.
+        retired = [egg.pk for egg in self.eggs]
         self.assertFalse(DropTable.objects.filter(item_id__in=retired).exists())
         self.assertEqual(self.reconcile()["drops_removed"], 0)
         self.assertEqual(self.reconcile()["rewards_deactivated"], 0)
@@ -222,7 +235,7 @@ class RosterPreservationTests(APITestCase):
             self.assertFalse(DropTable.objects.filter(item_id__in=retired).exists())
             self.assertFalse(Reward.objects.filter(pk__in=[reward.pk for reward in self.saved_rewards], is_active=True).exists())
         stable = self.client.get("/api/pets/stable/").json()
-        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 15))
+        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 19))
         self.assertTrue(all(not pet["catalog_available"] for pet in stable["pets"]))
         self.assertEqual({pet["name"] for pet in stable["pets"]}, {f"Saved {slug}" for slug in LEGACY_SLUGS})
 

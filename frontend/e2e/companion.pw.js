@@ -135,7 +135,7 @@ async function fixture(page, pet = chick, { mounts = [], avatarPreferences = ava
       if (path === `/api/pets/${ownedPet.id}/feed/` && request.method() === 'POST') {
         if (body?.food_item_id !== food.item.id || ownedPet.evolved_to_mount) return route.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: 'This food cannot be used.' }) });
         ownedPet = { ...ownedPet, growth_points: 100, evolved_to_mount: true };
-        ownedMounts.push({ id: 905, species: ownedPet.species, potion: ownedPet.potion, is_active: false, can_breed: true, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null });
+        ownedMounts.push({ id: 905, species: ownedPet.species, potion: ownedPet.potion, is_active: false, can_breed: true, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null, expedition_available: true, expedition_available_at: null, expedition_available_in_seconds: 0 });
         inventory = [{ ...food, quantity: food.quantity - 1 }];
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ growth_added: 15, new_growth: 100, evolved: true, mount_id: 905 }) });
       }
@@ -507,7 +507,7 @@ test('a broken model request leaves pet care available and can retry without awa
 });
 
 test('owned mounts open their expedition choices without starting a run on entry', async ({ page }) => {
-  const mount = { id: 905, species: chick.species, potion: chick.potion, catalog_available: true, is_active: true, can_breed: false, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null };
+  const mount = { id: 905, species: chick.species, potion: chick.potion, catalog_available: true, is_active: true, can_breed: false, breeding_cooldown_seconds: 0, last_bred_at: null, active_expedition: null, expedition_available: true, expedition_available_at: null, expedition_available_in_seconds: 0 };
   const mutations = await fixture(page, { ...chick, evolved_to_mount: true, growth_points: 100 }, { mounts: [mount] });
   await page.goto(`${origin}/bestiary?tab=mounts`);
   await expect(page.getByRole('button', { name: 'Show 3D view' })).toHaveCount(0);

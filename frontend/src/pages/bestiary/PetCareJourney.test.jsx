@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { act, renderWithProviders, screen, within, waitFor } from '../../test/render';
@@ -23,6 +23,8 @@ const baby = { id: 7, name: 'Pip', species, potion, lifecycle_stage: 'baby', gro
 const egg = { quantity: 1, item: { id: 11, slug: 'meshtint-bat-egg', name: 'Bat Egg', item_type: 'egg', pet_species_slug: species.slug, pet_species_name: species.name, metadata: { species: species.slug } } };
 const base = { quantity: 1, item: { id: 22, slug: 'base-potion', name: 'Base Potion', item_type: 'potion', metadata: { variant: 'base' } } };
 const food = { quantity: 2, item: { id: 33, name: 'Berries', item_type: 'food' } };
+
+beforeEach(() => server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{ ...species, available_potions: [potion] }] }))));
 
 function Location() {
   const { pathname, search } = useLocation();

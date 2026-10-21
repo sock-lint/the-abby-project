@@ -4,6 +4,28 @@ Non-monetary Coins economy + parent-approved reward shop + money→coins exchang
 
 ## Available offers and earlier promises (October 2026)
 
+The owner-authorized prelaunch retirement is an exact, one-time exception to
+ordinary promise preservation. Before deleting matching obsolete redemptions,
+it refunds the net actually recorded Coin hold for pending/approved undelivered
+digital-only requests and restores any reserved finite stock. A frozen price
+without a recorded debit cannot create a refund. Existing ledger entries remain; appended
+refunds can increase the balance. Fulfilled/delivered receipts receive no refund.
+Pure digital obsolete offers can be removed; an edited offer needed by an older
+supported frozen promise remains deactivated. Real-world and combined offer rows
+remain with the obsolete optional item FK cleared. Combined offers are
+deactivated and converted to real-world fulfillment. Their frozen combined
+receipts retain status, cost, audit and actual debits as real-world promises;
+they receive no refund and keep the physical delivery flow. Accounts and
+unrelated promises are not reset. See
+[unused first-party content retirement](../../docs/operations/companion-lifecycle.md#unused-first-party-content-retirement).
+
+Default startup records success transactionally and skips the transition on
+later loads. Identity/protection/resource-validation conflicts roll back all
+retirement changes, warn and continue bundled loading without a success marker.
+Dry runs and later bundled-load failures roll back both refunds and cleanup;
+explicit operator cleanup remains strict. These exceptions do not alter the
+ordinary availability and fulfillment rules below.
+
 `availability.py::reward_is_available` allows real-world rewards and requires
 an available `item_definition` for digital-item or combined fulfillment.
 It delegates item eligibility to the shared supported-art catalog in
@@ -61,6 +83,11 @@ does not count the same redemption twice or repeat its badge payout.
   The print request holds its fixed quote and ledger links; no real money moves.
 - `RewardService` — `request_redemption` locks/re-reads the authoritative offer before eligibility, price and stock checks, then holds coins and reserves one stock atomically. Stale instances and concurrent buyers cannot sell the final item twice; the loser receives the existing **409 Conflict** with `{error, code: "out_of_stock", similar: [...]}`. `approve` stamps and credits the saved digital item once, including combined offers; a real-world component awaits delivery even when pre-approval is disabled. `deliver` requires a parent in the child's family and records only the handover receipt, without another Coin debit/refund or inventory grant. `POST /api/redemptions/{id}/deliver/` accepts `{}` and returns the full redemption; fulfilled retries return the original result, while pending/denied/canceled or malformed digital-only approved requests return 409. `GET /api/redemptions/?status=approved` is the separate delivery queue; pending approval filters remain unchanged. `reject` refunds the saved price and restores stock only when the request reserved a finite unit and the current offer still uses finite stock. An unlimited request cannot invent a unit after a later stock limit; returning a finite offer to unlimited retains unlimited stock.
 - `ExchangeService` — `request_exchange` (validate balance, snapshot rate, notify parents), `approve` (atomic debit `PaymentLedger` + credit `CoinLedger` + chronicle first-ever hook), `reject` (no ledger side-effects — money was never held).
+
+Digital item fulfillment uses the shared locked inventory grant, so a delivered
+collection piece immediately evaluates collection badges within the redemption
+transaction. Badge bonuses and their completion loot roll back with a failed
+fulfillment; an approved/fulfilled retry cannot grant the item or badge again.
 
 ## Exceptions
 - `InsufficientCoinsError`, `InsufficientFundsError`, `RewardUnavailableError`.

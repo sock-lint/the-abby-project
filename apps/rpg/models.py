@@ -427,6 +427,13 @@ class RPGContentOverride(TimestampedModel):
         constraints = [models.UniqueConstraint(fields=["model_label", "object_id"], name="rpg_content_override_object")]
 
 
+class RPGContentRetirement(models.Model):
+    """Durable completion of an explicitly approved, one-time catalog cleanup."""
+
+    key = models.CharField(max_length=100, primary_key=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+
 class ProgressionExperiment(TimestampedModel):
     """Private design assumptions; selecting them never changes live rewards."""
 

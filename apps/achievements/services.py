@@ -1,4 +1,6 @@
 import logging
+from contextlib import contextmanager
+from contextvars import ContextVar
 
 from django.contrib.auth import get_user_model
 from django.db import models, transaction
@@ -10,6 +12,8 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+_badge_evaluations = ContextVar("badge_evaluations", default=None)
+_inventory_badge_batches = ContextVar("inventory_badge_batches", default=None)
 
 
 def _lock_award_user(user):
@@ -454,6 +458,75 @@ class BadgeService:
     @classmethod
     @transaction.atomic
     def evaluate_badges(cls, user, *, created_by=None, scopes=None):
+        """Award scoped badges, draining inventory changes without recursion.
+
+        A badge's loot can complete another collection. Coalesce that request
+        until the current ordered pass finishes, then read the saved ownership
+        and earned markers again. Each new badge pays once; no activity loop
+        is replayed, and a failed cascade rolls the entire award back.
+        """
+        _lock_award_user(user)
+        active = _badge_evaluations.get() or {}
+        key = (user._state.db, user.pk)
+        requested = set(scopes) if scopes else None
+        if key in active:
+            pending = active[key]
+            if requested is None:
+                pending[:] = [None]
+            elif None not in pending:
+                if pending:
+                    pending[0].update(requested)
+                else:
+                    pending.append(requested)
+            return []
+
+        pending = [requested]
+        token = _badge_evaluations.set({**active, key: pending})
+        newly_earned = []
+        try:
+            while pending:
+                newly_earned.extend(cls._evaluate_badges_once(
+                    user, created_by=created_by, scopes=pending.pop(0),
+                ))
+            return newly_earned
+        finally:
+            _badge_evaluations.reset(token)
+
+    @classmethod
+    def evaluate_inventory_badges(cls, user):
+        """Check collection/use milestones after a saved inventory change."""
+        batch = (_inventory_badge_batches.get() or {}).get((user._state.db, user.pk))
+        if batch is not None:
+            batch[0] = True
+            return []
+        return cls.evaluate_badges(user, scopes={"rpg_inventory", "badges"})
+
+    @classmethod
+    @contextmanager
+    def defer_inventory_badges(cls, user):
+        """Check final ownership after an atomic operation's grants and spends.
+
+        The caller holds the account gate and transaction through the flush.
+        Failed operations discard their requests; nested operations for the
+        same account leave the final check to the outermost successful block.
+        """
+        active = _inventory_badge_batches.get() or {}
+        key = (user._state.db, user.pk)
+        if key in active:
+            yield
+            return
+
+        requested = [False]
+        token = _inventory_badge_batches.set({**active, key: requested})
+        try:
+            yield
+        finally:
+            _inventory_badge_batches.reset(token)
+        if requested[0]:
+            cls.evaluate_inventory_badges(user)
+
+    @classmethod
+    def _evaluate_badges_once(cls, user, *, created_by=None, scopes=None):
         """Check unearned badges and award any newly qualified.
 
         Audit H8: ``scopes`` is an optional iterable of strings (see
@@ -472,10 +545,7 @@ class BadgeService:
             activity_scope,
         )
 
-        # Lock before the unique UserBadge insert: otherwise an XP award can
-        # hold the user lock while waiting for that insert's transaction.
-        # The earned marker and its payouts must also commit together.
-        _lock_award_user(user)
+        # evaluate_badges holds the user gate through every queued pass.
         earned_ids = set(
             UserBadge.objects.filter(user=user).values_list("badge_id", flat=True)
         )

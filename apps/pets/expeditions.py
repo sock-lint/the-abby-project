@@ -7,9 +7,10 @@ the loot is materialized into ``CoinLedger`` + ``UserInventory`` and the
 single ``GameLoopService`` orchestrator is invoked with ``drops_allowed=False``
 so streak/quest credit fires once without double-dipping the drop roll.
 
-Daily cap: each mount can run one expedition per local day. The check is on
-``created_at`` (start time), not ``returns_at`` — preserves "ran today"
-intent even if the long-tier expedition crosses midnight.
+Daily cap: each user's species shares one expedition per local day across
+potion appearances. The check is on ``started_at``, not ``returns_at``, so
+an overnight trip uses its launch day's allowance. An unclaimed trip also
+blocks other appearances until it is explicitly collected.
 """
 from __future__ import annotations
 
@@ -75,12 +76,18 @@ class ExpeditionService:
 
         Returns the new ``MountExpedition`` row.
         """
+        from apps.achievements.services import _lock_award_user
         from apps.pets.models import MountExpedition, UserMount
 
         if tier not in TIER_CONFIG:
             raise ExpeditionError(
                 f"Unknown tier {tier!r} — must be one of {sorted(TIER_CONFIG)}"
             )
+
+        # Different potion appearances have different mount rows. Serialize
+        # them on the existing user gate before locking any mount, matching
+        # care/claim lock order and making the shared species check atomic.
+        _lock_award_user(user)
 
         try:
             mount = UserMount.objects.select_for_update().get(
@@ -91,22 +98,22 @@ class ExpeditionService:
             # whether a mount with that pk exists in another household.
             raise ExpeditionNotFound("Mount not found")
 
-        # One active expedition per mount (DB constraint also enforces this,
-        # but we surface a friendly error before the IntegrityError).
-        active = MountExpedition.objects.filter(
-            mount=mount, status=MountExpedition.Status.ACTIVE,
-        ).first()
+        species_trips = MountExpedition.objects.filter(
+            mount__user=user, mount__species_id=mount.species_id,
+        )
+        # An unclaimed trip occupies the species slot even across midnight.
+        # Existing overlapping accepted trips keep their individual receipts.
+        active = species_trips.filter(status=MountExpedition.Status.ACTIVE).first()
         if active is not None:
             raise ExpeditionError(
                 f"{mount.species.name} is already out — "
                 f"returning in {max(0, active.seconds_remaining)} seconds"
             )
 
-        # Daily cap: one expedition per mount per local day.
-        today = timezone.localdate()
-        already_today = MountExpedition.objects.filter(
-            mount=mount, started_at__date=today,
-        ).exists()
+        # One clock snapshot binds this allowance to the saved launch day.
+        now = timezone.now()
+        today = timezone.localdate(now)
+        already_today = species_trips.filter(started_at__date=today).exists()
         if already_today:
             raise ExpeditionError(
                 f"{mount.species.name} has already been out today — "
@@ -114,7 +121,6 @@ class ExpeditionService:
             )
 
         config = TIER_CONFIG[tier]
-        now = timezone.now()
         returns_at = now + timedelta(minutes=config["duration_minutes"])
         loot = ExpeditionService._roll_loot(user, tier)
 

@@ -59,9 +59,6 @@ quests:
     coin_reward: 150
     xp_reward: 200
     is_system: true
-    reward_items:
-      - slug: dragon-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 3}
       - {skill: "Life Skills::Time Management", weight: 1}
@@ -96,9 +93,6 @@ quests:
     coin_reward: 100
     xp_reward: 150
     is_system: true
-    reward_items:
-      - slug: wolf-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 2}
@@ -119,8 +113,6 @@ quests:
     reward_items:
       - slug: pouch-large
         quantity: 1
-      - slug: clownling-egg
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}
       - {skill: "Outdoors::Nature ID", weight: 1}
@@ -137,9 +129,6 @@ quests:
     coin_reward: 35
     xp_reward: 70
     is_system: true
-    reward_items:
-      - slug: accessory-tribal-necklace
-        quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 3}
       - {skill: "Life Skills::Persistence", weight: 1}
@@ -318,9 +307,6 @@ quests:
     coin_reward: 80
     xp_reward: 150
     is_system: true
-    reward_items:
-      - slug: accessory-crown
-        quantity: 1
     skill_tags:
       - {skill: "Making & Fabrication::Tool Mastery", weight: 2}
       - {skill: "Life Skills::Project Planning", weight: 1}
@@ -446,9 +432,6 @@ quests:
     coin_reward: 200
     xp_reward: 75
     is_system: true
-    reward_items:
-      - slug: accessory-prayer-beads
-        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 1}
@@ -490,8 +473,6 @@ quests:
     xp_reward: 50
     is_system: true
     reward_items:
-      - slug: accessory-flower-crown  # placeholder — original Moonlit Frame item never made YAML
-        quantity: 1
       - slug: food-cake
         quantity: 3
     skill_tags:
@@ -635,9 +616,6 @@ quests:
     coin_reward: 50
     xp_reward: 75
     is_system: true
-    reward_items:
-      - slug: accessory-flower-crown
-        quantity: 1
     skill_tags:
       - {skill: "Outdoors::Gardening", weight: 2}
       - {skill: "Art & Crafts::Textile & Fiber", weight: 1}
@@ -1100,6 +1078,89 @@ quests:
       - slug: meshtint-wolf-egg
         quantity: 1
       - slug: base-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  # Elemental discovery bundles are offered only when their exact species +
+  # potion art pair is approved. Existing Base trails remain independent.
+  # Reading contributes its earned ten-minute daily receipt, once per day.
+  - name: Ember Nest
+    description: "Discover a Fire Chick: finish 5 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Chick Egg and one Fire potion."
+    icon: "🔥"
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: chick-egg
+        quantity: 1
+      - slug: fire-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Frost Nest
+    description: "Discover an Ice Chick: finish 5 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Chick Egg and one Ice potion."
+    icon: "❄️"
+    quest_type: collection
+    target_value: 5
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: chick-egg
+        quantity: 1
+      - slug: ice-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Ember Trail
+    description: "Discover a Fire Wolf Pup: finish 20 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and one Fire potion."
+    icon: "🔥"
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-wolf-egg
+        quantity: 1
+      - slug: fire-potion
+        quantity: 1
+    skill_tags:
+      - {skill: "Life Skills::Persistence", weight: 1}
+
+  - name: Frost Trail
+    description: "Discover an Ice Wolf Pup: finish 20 approved chores or homework assignments, project milestones, whole projects, eligible logged creations, or daily ten-minute reading achievements within 180 days. The first two creations each day count. Earn one Wolf Pup Egg and one Ice potion."
+    icon: "❄️"
+    quest_type: collection
+    target_value: 20
+    duration_days: 180
+    trigger_filter:
+      allowed_triggers: [chore_complete, homework_complete, milestone_complete, project_complete, creation_logged, reading_logged]
+    coin_reward: 0
+    xp_reward: 0
+    is_repeatable: false
+    is_system: true
+    reward_items:
+      - slug: meshtint-wolf-egg
+        quantity: 1
+      - slug: ice-potion
         quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}

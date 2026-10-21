@@ -70,7 +70,7 @@ class AuthoredArtworkImageIdentityTests(TestCase):
             call_command("loadrpgcontent", pack=str(Path(settings.BASE_DIR) / "content/rpg/packs" / pack),
                          namespace=f"{pack}-", stdout=StringIO())
 
-    def test_every_new_record_binding_matches_the_actual_final_authored_catalog(self):
+    def test_every_binding_matches_current_content_or_its_retired_artwork_identity(self):
         from apps.rpg.catalog_icons import artwork_bindings, badge_catalog_icon, category_catalog_icon, skill_catalog_icon, subject_catalog_icon
 
         registry = artwork_bindings()
@@ -90,7 +90,16 @@ class AuthoredArtworkImageIdentityTests(TestCase):
                         self.assertEqual(resolver(model.objects.get(category__name=category, name=name)), row["asset_id"])
         for slug, row in registry["items"].items():
             with self.subTest(item=slug):
-                self.assertEqual(item_catalog_icon(ItemDefinition.objects.get(slug=slug)), row["asset_id"])
+                if row["identity"]["item_type"] == "cosmetic_pet_accessory":
+                    self.assertFalse(ItemDefinition.objects.filter(slug=slug).exists())
+                    # An artwork binding does not republish retired content.
+                    # Its exact receiving identity remains a valid projection
+                    # for explicitly supplied synthetic or custom records.
+                    self.assertEqual(row["identity"]["slug"], slug)
+                    item = ItemDefinition(**row["identity"])
+                else:
+                    item = ItemDefinition.objects.get(slug=slug)
+                self.assertEqual(item_catalog_icon(item), row["asset_id"])
         for name, row in registry["challenges"].items():
             with self.subTest(challenge=name):
                 self.assertEqual(challenge_catalog_icon(QuestDefinition.objects.get(name=name, is_system=True)), row["asset_id"])

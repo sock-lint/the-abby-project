@@ -8,6 +8,7 @@ import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 import { birdStage } from '../../companion/birdEvolution';
+import { elementalEvolutionStages } from '../../companion/sharedElementalRelease';
 import PetEvolutionGuide from './PetEvolutionGuide';
 import { companionStage, companionStageLabel } from '../../companion/lifecycle';
 
@@ -33,7 +34,9 @@ function OwnedPreview({ creature, kind, variant, ...props }) {
   const stage = birdStage(creature, kind) || companionStage(creature, kind);
   const [observed, setObserved] = useState({ stage, count: 0, evolution: null });
   if (observed.stage !== stage) {
-    const forward = (observed.stage === 'chick' && (stage === 'fledgling' || stage === 'bird')) || (observed.stage === 'fledgling' && stage === 'bird');
+    const elementalStages = elementalEvolutionStages(creature);
+    const first = elementalStages.indexOf(observed.stage), last = elementalStages.indexOf(stage);
+    const forward = (first >= 0 && last > first) || (observed.stage === 'chick' && (stage === 'fledgling' || stage === 'bird')) || (observed.stage === 'fledgling' && stage === 'bird');
     setObserved({ stage, count: observed.count + 1, evolution: forward && enabled ? { id: observed.count + 1, from: observed.stage, to: stage } : null });
   }
   // Stage changes reset transient greetings/loading and invalidate old callbacks,
@@ -76,14 +79,14 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
   const reducedMotion = usePrefersReducedMotion();
   const evolutionMotionEnabled = animate && !reducedMotion;
   useEffect(() => {
-    onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && appearance?.pipeline === 'abby-assets-bird'), evolutionMotionEnabled });
-  }, [appearance?.pipeline, creature?.id, evolutionMotionEnabled, onPresentationChange, ready, showScene]);
+    onPresentationChange?.({ creatureId: creature?.id, sharedBirdReady: !!(showScene && ready && ['abby-assets-bird', 'abby-assets-elemental'].includes(appearance?.pipeline) && (appearance?.pipeline !== 'abby-assets-elemental' || appearance.speciesSlug === 'chick')), evolutionMotionEnabled });
+  }, [appearance?.pipeline, appearance?.speciesSlug, creature?.id, evolutionMotionEnabled, onPresentationChange, ready, showScene]);
   const mount = kind === 'mount' || creature?.evolved_to_mount === true;
   const sprite = petSpriteKeys(creature, kind);
   const playTogether = (action) => {
     const messages = {
       hello: `${name} is happy to see you.`,
-      play: appearance?.pipeline === 'abby-assets-roster' ? `${name} plays with you.` : appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.`
+      play: ['abby-assets-roster', 'abby-assets-elemental'].includes(appearance?.pipeline) ? `${name} plays with you.` : appearance?.key === 'bird' ? `${name} stretches their wings and takes a little flight.`
         : appearance?.key === 'fledgling' ? `${name} takes a little walk with you.` : `${name} hops along with you.`,
       left: `${name} looks around the clearing with you.`,
       right: `${name} looks around the clearing with you.`,
@@ -166,7 +169,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         </>}
       </div>}
       {appearance?.motions?.length > 0 && <CompanionMotionControls motions={appearance.motions} disabled={!showScene || !ready || !animate || reducedMotion} onPlay={playMotion} />}
-      {['abby-assets-bird', 'abby-assets-roster'].includes(appearance?.pipeline) && showScene && <p className="companion-playback-status" role="status" aria-label="Companion playback" aria-live="polite"
+      {['abby-assets-bird', 'abby-assets-roster', 'abby-assets-elemental'].includes(appearance?.pipeline) && showScene && <p className="companion-playback-status" role="status" aria-label="Companion playback" aria-live="polite"
         data-playback-status={playback?.status || 'loading'} data-variant-id={playback?.variantId} data-stage={playback?.stage || stage}>
         {playback?.status === 'idle' ? 'Your companion is resting.'
           : playback?.status === 'evolving' ? 'Your companion is growing into their next stage.'

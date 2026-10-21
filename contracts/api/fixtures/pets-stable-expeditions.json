@@ -217,12 +217,12 @@
     {
       "id": 63,
       "species": {
-        "id": 41,
-        "slug": "fixture-fox",
-        "name": "Fox",
-        "icon": "🦊",
-        "sprite_key": "fox",
-        "description": "A synthetic woodland friend.",
+        "id": 45,
+        "slug": "fixture-owl",
+        "name": "Owl",
+        "icon": "🦉",
+        "sprite_key": "owl",
+        "description": "A synthetic night companion.",
         "rarity": "common",
         "food_preference": "berries",
         "catalog_available": true,
@@ -258,10 +258,10 @@
         "claimed_at": null,
         "is_ready": false,
         "seconds_remaining": 28800,
-        "species_name": "Fox",
-        "species_slug": "fixture-fox",
-        "species_sprite_key": "fox",
-        "species_icon": "🦊",
+        "species_name": "Owl",
+        "species_slug": "fixture-owl",
+        "species_sprite_key": "owl",
+        "species_icon": "🦉",
         "potion_name": "Fire",
         "potion_slug": "fire",
         "loot": {
@@ -401,6 +401,6 @@
   ],
   "total_pets": 3,
   "total_mounts": 3,
-  "total_possible": 4,
+  "total_possible": 5,
   "breeding_available": false
 }

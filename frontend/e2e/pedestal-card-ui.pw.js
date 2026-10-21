@@ -280,10 +280,17 @@ test('the Hatchery keeps approved inventory, timed incubation and explicit serve
     }
     const bodies = {
       '/api/pets/stable/': { pets: [], mounts: [], total_possible: 1 },
+      '/api/pets/codex/': {
+        species: [{ id: 41, slug: 'chick', name: 'Chick', sprite_key: 'cute-chick', catalog_available: true,
+          available_potions: [{ id: 42, slug: 'base', name: 'Base', rarity: 'common' }],
+          discovered: false, owned_pet_ids: [], owned_mount_potion_ids: [] }],
+        potions: [{ id: 42, slug: 'base', name: 'Base', rarity: 'common', catalog_available: true }],
+        totals: { species: 1, discovered_species: 0, mounts_possible: 1, mounts_owned: 0 },
+      },
       '/api/pets/incubations/': { incubation: incubation && { ...incubation, is_ready: ready, remaining_seconds: ready ? 0 : 7200, status: ready ? 'ready' : 'incubating' }, duration_seconds: 7200, server_now: serverNow },
       '/api/inventory/': [
-        { id: 1, quantity: 1, item: { id: 11, name: 'Chick Egg', icon: '🥚', item_type: 'egg', catalog_available: true } },
-        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', icon: '🧪', item_type: 'potion', catalog_available: true } },
+        { id: 1, quantity: 1, item: { id: 11, name: 'Chick Egg', icon: '🥚', item_type: 'egg', pet_species_slug: 'chick', pet_species_name: 'Chick', catalog_available: true } },
+        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', icon: '🧪', item_type: 'potion', metadata: { variant: 'base' }, catalog_available: true } },
         { id: 3, quantity: 1, item: { id: 33, name: 'Earlier Egg', item_type: 'egg', catalog_available: false } },
       ],
       '/api/sprites/catalog/': {},

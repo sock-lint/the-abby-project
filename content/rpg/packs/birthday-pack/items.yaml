@@ -32,10 +32,3 @@ items:
     icon: "🎊"
     coin_value: 40
     description: Paper scraps in every color — a border that never stops celebrating.
-  - slug: accessory-party-horn
-    name: Party Horn
-    item_type: cosmetic_pet_accessory
-    rarity: uncommon
-    icon: "📯"
-    coin_value: 18
-    description: Toot toot. Your pet is celebrating too.

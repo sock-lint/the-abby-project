@@ -1,10 +1,11 @@
 """Catalog image identity stays separate from sprites, ownership and rewards."""
 from io import StringIO
 from pathlib import Path
+from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from apps.pets.models import PetSpecies
 from apps.pets.serializers import PetSpeciesCatalogSerializer, PetSpeciesSerializer
@@ -14,6 +15,46 @@ from apps.quests.serializers import QuestDefinitionSerializer, QuestRewardItemSe
 from apps.rpg.models import DropLog, ItemDefinition
 from apps.rpg.serializers import DropLogSerializer, ItemDefinitionSerializer
 from config.tests.factories import make_family
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class ElementalCatalogImageIdentityTests(SimpleTestCase):
+    def test_elemental_art_identity_and_acquisition_follow_separate_policy(self):
+        from apps.rpg.catalog_icons import item_catalog_icon
+        from apps.rpg.catalog_support import item_is_available, random_item_is_available
+
+        for index, element in enumerate(("fire", "ice"), start=900):
+            potion = SimpleNamespace(slug=element)
+            item = ItemDefinition(slug=f"{element}-potion", name=f"{element.title()} Potion",
+                                  item_type="potion", potion_type_id=index, metadata={"variant": element})
+            item._state.fields_cache["potion_type"] = potion
+            self.assertEqual(item_catalog_icon(item), f"item-{element}-potion")
+            self.assertTrue(item_is_available(item))
+            self.assertFalse(random_item_is_available(item))
+            with override_settings(RPG_ASSET_SUPPORT_POLICY={
+                "schema_version": 1, "pets": [], "potion_slugs": ["base"],
+            }):
+                self.assertEqual(item_catalog_icon(item), f"item-{element}-potion")
+                self.assertFalse(item_is_available(item))
+            for updates in ({"name": "Custom Potion"}, {"slug": "custom-potion"}, {"item_type": "food"},
+                            {"metadata": {"variant": "base"}}, {"potion_type_id": None}):
+                changed = SimpleNamespace(slug=item.slug, name=item.name, item_type=item.item_type,
+                                          potion_type=potion, potion_type_id=index, metadata=item.metadata)
+                for key, value in updates.items():
+                    setattr(changed, key, value)
+                with self.subTest(element=element, updates=updates):
+                    self.assertIsNone(item_catalog_icon(changed))
+
+    def test_elemental_challenge_art_never_attaches_to_a_parent_goal_or_wrong_type(self):
+        from apps.rpg.catalog_icons import challenge_catalog_icon
+
+        for name in ("Ember Nest", "Frost Nest", "Ember Trail", "Frost Trail"):
+            definition = SimpleNamespace(name=name, is_system=True, quest_type="collection")
+            self.assertEqual(challenge_catalog_icon(definition), f"challenge-{name.lower().replace(' ', '-')}")
+            definition.is_system = False
+            self.assertIsNone(challenge_catalog_icon(definition))
+            definition.is_system, definition.quest_type = True, "boss"
+            self.assertIsNone(challenge_catalog_icon(definition))
 
 
 class CatalogImageIdentityTests(TestCase):
@@ -96,14 +137,18 @@ class AuthoredCatalogImageIdentityTests(TestCase):
         for name in ("hs-prep-2026", "sleep-prep-2026", "spring-2026", "summer-2026", "birthday-pack", "year-in-review-pack"):
             call_command("loadrpgcontent", pack=str(Path(settings.BASE_DIR) / "content/rpg/packs" / name), namespace=f"{name}-", stdout=output)
 
-    def test_every_approved_item_and_challenge_resolves_actual_loader_created_record(self):
+    def test_every_binding_matches_current_content_or_its_retired_artwork_identity(self):
         from apps.rpg.catalog_icons import bindings, item_catalog_icon, challenge_catalog_icon
         registry = bindings()
         self.assertEqual(len(registry["items"]), 109)
         self.assertEqual(len(registry["challenges"]), 49)
         for slug, entry in registry["items"].items():
             with self.subTest(slug=slug):
-                item = ItemDefinition.objects.get(slug=slug)
+                if entry["item_type"] == "cosmetic_pet_accessory":
+                    self.assertFalse(ItemDefinition.objects.filter(slug=slug).exists())
+                    item = ItemDefinition(slug=slug, name=entry["name"], item_type=entry["item_type"])
+                else:
+                    item = ItemDefinition.objects.get(slug=slug)
                 self.assertEqual(item_catalog_icon(item), entry["asset_id"])
         for name, entry in registry["challenges"].items():
             with self.subTest(challenge=name):

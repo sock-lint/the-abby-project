@@ -9,7 +9,6 @@ describe('pet portrait state', () => {
     expect(petSpriteKeys(pet)).toEqual({ spriteKey: 'meshtint-wolf-middle', fallbackSpriteKey: null });
     expect(petSpriteKeys({ ...pet, lifecycle_stage: 'future-stage' })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
     expect(petSpriteKeys({ ...pet, lifecycle_stage: 'grown', evolved_to_mount: false })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
-    expect(petSpriteKeys({ ...pet, potion: { slug: 'fire' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
     expect(petSpriteKeys({ ...pet, species: { slug: 'wolf', sprite_key: 'meshtint-wolf' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
     expect(petSpriteKeys(pet, 'mount')).toEqual({ spriteKey: 'meshtint-wolf-mount', fallbackSpriteKey: null });
   });
@@ -19,7 +18,22 @@ describe('pet portrait state', () => {
     expect(petSpriteKeys({ ...chick, evolution_stage: null })).toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });
     expect(petSpriteKeys({ ...chick, evolution_stage: 'bird', growth_points: 100 })).toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });
     expect(petSpriteKeys({ ...chick, species: { slug: 'fox', sprite_key: 'cute-chick' } })).toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });
-    expect(petSpriteKeys({ ...chick, potion: { slug: 'fire' } })).toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });
+  });
+
+  it.each(['fire', 'ice'])('uses the exact confirmed %s Chick and Wolf stages without a different-stage fallback', (slug) => {
+    for (const [species, keys] of [
+      [{ slug: 'chick', sprite_key: 'cute-chick' }, ['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount']],
+      [{ slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf' }, ['meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount']],
+    ]) {
+      const pet = { id: 1, species, potion: { slug }, lifecycle_stage: 'baby', growth_points: 100 };
+      expect(petSpriteKeys(pet)).toEqual({ spriteKey: keys[0], fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: 'middle' })).toEqual({ spriteKey: keys[1], fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: 'grown' })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, evolved_to_mount: true })).toEqual({ spriteKey: keys[2], fallbackSpriteKey: null });
+      expect(petSpriteKeys(pet, 'mount')).toEqual({ spriteKey: keys[2], fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: undefined })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, species: { ...species, slug: 'wrong-species' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    }
   });
 
   it('keeps a fully grown pet on its base portrait until the server confirms evolution', () => {

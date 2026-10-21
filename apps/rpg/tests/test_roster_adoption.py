@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserPet
 from apps.pets.services import PetService
-from apps.rpg.catalog_support import item_is_available, pet_is_available
+from apps.rpg.catalog_support import item_is_available, pet_is_available, random_item_is_available
 from apps.rpg.content.loader import ContentPack, ContentPackError
 from apps.rpg.models import DropTable, ItemDefinition, UserInventory
 from config.tests.factories import make_family
@@ -31,14 +31,17 @@ ROSTER = json.loads(Path("shared/catalog/companion-roster.json").read_text())
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class RosterLoadingTests(TestCase):
-    def test_initial_load_keeps_legacy_definitions_and_adds_exact_base_only_roster(self):
+    def test_initial_load_authors_the_current_roster_with_exact_elemental_art_support(self):
         ContentPack("content/rpg/initial").load(stdout=StringIO())
-        self.assertEqual(PetSpecies.objects.count(), 32)
+        self.assertEqual(PetSpecies.objects.count(), 15)
         self.assertEqual(sum(pet_is_available(species) for species in PetSpecies.objects.all()), 15)
         for family in ROSTER["families"]:
             species = PetSpecies.objects.get(slug=family["species_slug"])
             self.assertEqual(species.sprite_key, family["sprite_key"])
-            self.assertEqual(list(species.available_potions.values_list("slug", flat=True)), ["base"])
+            compatible = {"base", "fire", "ice"} if species.slug == "meshtint-wolf" else {"base"}
+            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
+            for potion in PotionType.objects.all():
+                self.assertEqual(pet_is_available(species, potion), potion.slug in compatible)
             egg = ItemDefinition.objects.get(slug=family["egg"]["item_slug"])
             self.assertEqual(egg.pet_species_id, species.pk)
             self.assertEqual(egg.metadata, {"species": species.slug})
@@ -47,7 +50,7 @@ class RosterLoadingTests(TestCase):
             self.assertEqual(egg.rarity, species.rarity)
             self.assertEqual(species.food_preference, "")
             self.assertFalse(species.foods.exists())
-        self.assertNotEqual(PetSpecies.objects.get(slug="wolf").pk, PetSpecies.objects.get(slug="meshtint-wolf").pk)
+        self.assertFalse(PetSpecies.objects.filter(slug="wolf").exists())
         self.assertFalse(PetSpecies.objects.filter(slug__icontains="dummy").exists())
         self.assertFalse(ItemDefinition.objects.filter(slug__icontains="dummy").exists())
 
@@ -167,7 +170,7 @@ class RosterLoadingTests(TestCase):
         ContentPack("content/rpg/initial").load(stdout=StringIO())
         entries = [entry for entry in DropTable.objects.filter(trigger_type="clock_out").select_related(
             "item", "item__pet_species", "item__potion_type",
-        ) if item_is_available(entry.item)]
+        ) if random_item_is_available(entry.item)]
         weights = companion_drop_weights(entries)
         eggs = [(entry, weight) for entry, weight in zip(entries, weights) if entry.item.item_type == "egg"]
         self.assertEqual(len(eggs), 15)
@@ -210,6 +213,7 @@ class RosterLoadingTests(TestCase):
         ):
             DropService.process_drops(user, "clock_out")
         entries, weights = captures.pop()
+        self.assertTrue(all(entry.item.slug not in {"fire-potion", "ice-potion"} for entry in entries))
         for rarity, budget in {"common": 60, "uncommon": 25, "rare": 10, "epic": 4, "legendary": 1}.items():
             self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.rarity == rarity), budget)
             egg_weights = [weight for entry, weight in zip(entries, weights) if entry.item.item_type == "egg" and entry.item.rarity == rarity]
@@ -219,6 +223,7 @@ class RosterLoadingTests(TestCase):
         with patch("apps.pets.expeditions.random.choices", side_effect=select_food):
             ExpeditionService._roll_loot(user, "short")
         entries, weights = captures.pop()
+        self.assertTrue(all(entry.item.slug not in {"fire-potion", "ice-potion"} for entry in entries))
         for rarity, budget in {"common": 70, "uncommon": 25, "rare": 5, "epic": 0, "legendary": 0}.items():
             self.assertAlmostEqual(sum(weight for entry, weight in zip(entries, weights) if entry.item.rarity == rarity), budget)
         # Every egg in a positive tier shares that tier's egg allocation; new
@@ -243,6 +248,7 @@ class RosterLoadingTests(TestCase):
         with patch("apps.rpg.services.random.choices", side_effect=select_food):
             ConsumableService.use(user, box.pk)
         items, weights = captured[0]
+        self.assertTrue(all(item.slug not in {"fire-potion", "ice-potion"} for item in items))
         for rarity, budget in {"common": 70, "uncommon": 30}.items():
             self.assertAlmostEqual(sum(weight for item, weight in zip(items, weights) if item.rarity == rarity), budget)
             egg_weights = [weight for item, weight in zip(items, weights) if item.item_type == "egg" and item.rarity == rarity]

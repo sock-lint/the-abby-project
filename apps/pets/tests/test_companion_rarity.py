@@ -36,7 +36,8 @@ class CompanionRarityTests(TestCase):
         household = make_family("Rarity", children=[{"username": "rarity-child"}])
         cls.child = household.children[0]
         cls.base = PotionType.objects.get(slug="base")
-        cls.cosmic = PotionType.objects.get(slug="cosmic")
+        # Historical variants are synthetic fixtures, outside the shipped roster.
+        cls.cosmic = PotionType.objects.create(slug="cosmic", name="Cosmic", rarity="legendary")
 
     def test_supported_eggs_and_species_share_deliberate_acquisition_tiers(self):
         eggs = ItemDefinition.objects.filter(
@@ -70,7 +71,7 @@ class CompanionRarityTests(TestCase):
         self.assertEqual(UserMountSerializer(mount).data.get("rarity"), "legendary")
 
     def test_saved_higher_potion_rarity_is_preserved(self):
-        wolf = PetSpecies.objects.get(slug="wolf")
+        wolf = PetSpecies.objects.create(slug="wolf", name="Wolf", sprite_key="wolf")
         pet = UserPet.objects.create(user=self.child, species=wolf, potion=self.cosmic)
         self.assertEqual(UserPetSerializer(pet).data.get("rarity"), "legendary")
         self.assertFalse(UserPetSerializer(pet).data["catalog_available"])
@@ -84,7 +85,10 @@ class CompanionRarityTests(TestCase):
         self.assertEqual({row["rarity"] for row in data}, {"common", "rare", "legendary"})
 
     def test_migration_backfills_canonical_tiers_without_rewriting_saved_ownership(self):
-        legacy = PetSpecies.objects.get(slug="dragon")
+        legacy = PetSpecies.objects.create(slug="dragon", name="Dragon", sprite_key="dragon")
+        ItemDefinition.objects.create(
+            slug="dragon-egg", name="Dragon Egg", item_type="egg", pet_species=legacy, rarity="uncommon",
+        )
         supported = PetSpecies.objects.get(slug="meshtint-dragon")
         saved = UserPet.objects.create(user=self.child, species=supported, potion=self.base, growth_points=62, name="Spark")
         baseline = UserPet.objects.filter(pk=saved.pk).values().get()

@@ -20,12 +20,25 @@ def prepared_family(species):
     return family if family and sprite == family["sprite_key"] else None
 
 
-def prepared_base_potion(item):
-    """New families reuse the existing canonical global Base ingredient."""
-    metadata = getattr(item, "metadata", None)
-    metadata = metadata if isinstance(metadata, dict) else {}
+def prepared_potion(item):
+    """Recognize a canonical global ingredient independently of art approval.
+
+    Exact positive artwork policy and species compatibility still determine
+    whether a recognized ingredient may start a new incubation.
+    """
+    value = item.get if isinstance(item, Mapping) else lambda key, default=None: getattr(item, key, default)
+    metadata = value("metadata")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    potion = value("potion_type")
+    slug = potion.get("slug") if isinstance(potion, Mapping) else getattr(potion, "slug", None)
     return (
-        getattr(item, "item_type", None) == "potion" and getattr(item, "slug", None) == "base-potion"
-        and getattr(item, "potion_type_id", None) is not None and item.potion_type.slug == "base"
-        and metadata.get("variant") == "base"
+        value("item_type") == "potion" and slug in {"base", "fire", "ice"}
+        and value("potion_type_id") is not None and value("slug") == f"{slug}-potion"
+        and metadata.get("variant") == slug
     )
+
+
+def prepared_base_potion(item):
+    """Retain the canonical Base-only predicate for existing callers."""
+    slug = item.get("slug") if isinstance(item, Mapping) else getattr(item, "slug", None)
+    return slug == "base-potion" and prepared_potion(item)

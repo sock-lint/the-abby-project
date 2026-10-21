@@ -80,8 +80,8 @@
     "system_challenges": 2,
     "nonrepeatable_challenges": 2
   },
-  "rules_fingerprint": "4da9e3aff66259d76bffac0a95faf577722d7edc33787fe2fda96d49185460cc",
-  "engine_version": "2026-10-20.4",
+  "rules_fingerprint": "2493f6d2ab14306815d38f0938685ab5e6b38e5f4f004c2bffbbaf243c72344d",
+  "engine_version": "2026-10-21.1",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
@@ -90,6 +90,7 @@
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+      "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
       "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
       "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -112,6 +113,8 @@
       "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
       "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
       "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+      "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+      "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
       "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
       "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
       "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
@@ -4465,12 +4468,12 @@
     "longest_novelty_gap_p50": 11,
     "eligible_challenges": 2,
     "finite_breakdown": {
-      "badge": 1,
       "cosmetic": 1,
       "quest": 2,
-      "pet": 1,
+      "badge": 1,
       "mount": 1,
-      "middle": 1
+      "middle": 1,
+      "pet": 1
     },
     "level_p50": 4,
     "inventory_units_p50": 13,

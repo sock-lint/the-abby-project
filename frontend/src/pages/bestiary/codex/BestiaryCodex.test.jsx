@@ -41,6 +41,21 @@ describe('BestiaryCodex', () => {
     totals: { species: 2, discovered_species: 1, mounts_possible: 4, mounts_owned: 0 },
   };
 
+  it('counts each species’s compatible appearances instead of the global potion catalog', async () => {
+    const ice = { id: 3, slug: 'ice', name: 'Ice', rarity: 'uncommon' };
+    const all = [...samplePotions, ice];
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({
+      species: [
+        { id: 1, slug: 'meshtint-bat', name: 'Bat', sprite_key: 'meshtint-bat', discovered: true, available_potions: [samplePotions[0]], owned_pet_ids: [1], owned_mount_potion_ids: [] },
+        { id: 2, slug: 'meshtint-wolf', name: 'Wolf', sprite_key: 'meshtint-wolf', discovered: true, available_potions: all, owned_pet_ids: [2], owned_mount_potion_ids: [] },
+      ],
+      potions: all, totals: { species: 2, discovered_species: 2, mounts_possible: 4, mounts_owned: 0 },
+    })));
+    renderCodex();
+    expect(await screen.findByRole('button', { name: 'Bat — 0 of 1 grown pets collected' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wolf — 0 of 3 grown pets collected' })).toBeInTheDocument();
+  });
+
   it('reports a failed catalog load instead of an empty collection and retries the real request', async () => {
     let requests = 0;
     server.use(http.get('*/api/pets/codex/', () => {
