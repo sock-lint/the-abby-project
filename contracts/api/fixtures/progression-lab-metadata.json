@@ -451,6 +451,7 @@
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
       "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
       "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+      "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
       "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
       "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
       "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -562,8 +563,8 @@
       "message": "There is no assumed starter pet or guaranteed egg/potion. First hatch depends on the loaded eligible sources and random draws."
     }
   ],
-  "rules_fingerprint": "f651a21057b39d814a41942bc93d506503ecb75d79da641784121b0fcfcc58d3",
-  "engine_version": "2026-10-20.3",
+  "rules_fingerprint": "54cc38bc720004eaa43e3303dfd11530b28ef4f1abf8614e4da3b6b1840f87fe",
+  "engine_version": "2026-10-20.5",
   "source_commit": "unavailable",
   "work_budget": {
     "max_units": 10000,

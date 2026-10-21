@@ -167,6 +167,13 @@ Coins, badge evaluation and promised items, matching the live award order.
 Celebration loot awards no streak credit or daily effort and does not advance
 other challenges. Its obtainable items are included in finite-content and
 companion reachability only when the corresponding accomplishment is reachable.
+New inventory ownership immediately checks modeled collection badges, whether
+the item came from a random drop or an authored promise. A badge's completion
+drop can finish another collection: inventory checks queue behind the current
+ordered badge pass and drain without recursive award calls. Each saved earned
+marker still pays once; a duplicate cosmetic converted to Coins adds no new
+inventory check. Positive habits check habit milestones even when their
+configured XP reward is zero, without inventing a skill XP grant.
 Finite completion pools retain their physical capacity: each reachable badge
 or one-time challenge supplies one draw, and each authored item promise keeps
 its exact quantity. A draw cannot pay for both an egg and a potion, or be
@@ -179,7 +186,10 @@ companion. These bounded, conservative proofs may omit an alternative item
 acquisition order. Reachability remains per-target structural feasibility,
 not proof that all finite targets can be collected jointly or within the
 forecast horizon.
-The rules fingerprint binds these capacity checks, live completion hooks and rarity selector, so
+The rules fingerprint binds these capacity checks, live completion/inventory
+hooks, rarity selector, badge criteria implementation, scope map and registered
+checker identities. Installed badge rule changes invalidate saved evidence even
+when the catalog itself is unchanged, so
 saved comparisons from before these hooks changed must be rerun.
 
 Companion care includes the installed incubation duration, currently 24 elapsed
