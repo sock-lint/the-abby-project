@@ -14,7 +14,7 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
 
 ## Services
 - `HabitService`:
-  - `log_tap(user, habit, direction)` — validates type compatibility, enforces daily positive-tap cap, updates `strength`, distributes skill XP via `AwardService.grant` (positive taps only), fires RPG game loop. Returns `{direction, xp_reward, new_strength}`.
+  - `log_tap(user, habit, direction)` — validates type compatibility, enforces daily positive-tap cap, updates `strength`, distributes skill XP via `AwardService.grant` (positive taps only), fires RPG game loop. Every accepted positive tap evaluates habit and meta badges, including habits configured with zero XP; badge bonuses and loot share the tap transaction. Returns `{direction, xp_reward, new_strength}`.
   - `decay_all_habits(user, target_date)` — decays untapped habits toward 0 by `max(1, max_taps_per_day // 2)`. Called by Celery task.
 
 ## Endpoints

@@ -323,6 +323,11 @@ class DropService:
         """
         from apps.rpg.models import CharacterProfile, DropTable, DropLog, ItemDefinition, UserInventory
         from apps.activity.services import ActivityLogService
+        from apps.achievements.services import BadgeService, _lock_award_user
+
+        # Collection badges can award another drop; use the shared user-first
+        # order before taking an inventory lock, including ordinary activity rolls.
+        _lock_award_user(user)
 
         base_rate = BASE_DROP_RATES.get(trigger_type, 0.20)
         boost_bonus = drop_boost_additive(user)
@@ -446,6 +451,9 @@ class DropService:
                 "was_salvaged": was_salvaged,
             },
         )
+
+        if not was_salvaged:
+            BadgeService.evaluate_inventory_badges(user)
 
         return [{
             "item_id": item.pk,
@@ -985,6 +993,11 @@ class ConsumableService:
         else:
             inv.save(update_fields=["quantity", "updated_at"])
 
+        # Effects and final ownership must be saved before checking use/collection
+        # milestones. A same-item badge drop can now recreate a consumed stack.
+        from apps.achievements.services import BadgeService
+        BadgeService.evaluate_inventory_badges(user)
+
         return {
             "item_id": item.pk,
             "item_name": item.display_name,
@@ -1166,9 +1179,8 @@ class ConsumableService:
                         description=f"Lucky Dip salvage: {granted.display_name}",
                     )
             else:
-                UserInventory.objects.create(
-                    user=profile.user, item=granted, quantity=1,
-                )
+                from apps.rpg.inventory import grant_item
+                grant_item(profile.user, granted)
             return {
                 "granted_item_id": granted.pk,
                 "granted_item_name": granted.display_name,
@@ -1248,7 +1260,8 @@ class ConsumableService:
         if effect == "food_basket":
             # Hands out N random food items — low-effort pet-prep kit for
             # kids who want to build up a feeding stockpile.
-            from apps.rpg.models import ItemDefinition, UserInventory
+            from apps.rpg.models import ItemDefinition
+            from apps.rpg.inventory import grant_item
             count = int(meta.get("count", 2))
             foods = available_random_items(ItemDefinition.objects.filter(
                 item_type=ItemDefinition.ItemType.FOOD,
@@ -1258,12 +1271,7 @@ class ConsumableService:
             picks = random.choices(foods, k=count)
             granted = []
             for item in picks:
-                inv, _ = UserInventory.objects.get_or_create(
-                    user=profile.user, item=item, defaults={"quantity": 0},
-                )
-                UserInventory.objects.filter(pk=inv.pk).update(
-                    quantity=F("quantity") + 1,
-                )
+                grant_item(profile.user, item)
                 granted.append({"item_id": item.pk, "item_name": item.display_name})
             return {"granted": granted, "count": count}
         raise ValueError(f"Unknown consumable effect: {effect!r}")
@@ -1481,7 +1489,7 @@ class CosmeticService:
             logger.warning("Starter cover %r is unavailable in the supported catalog.", slug)
             return None
 
-        inventory, _ = UserInventory.objects.get_or_create(
+        inventory, created = UserInventory.objects.get_or_create(
             user=user, item=cover,
             defaults={"quantity": 1},
         )
@@ -1494,6 +1502,10 @@ class CosmeticService:
         if theme_slug in CosmeticService.VALID_THEME_SLUGS and user.theme != theme_slug:
             user.theme = theme_slug
             user.save(update_fields=["theme"])
+
+        if created:
+            from apps.achievements.services import BadgeService
+            BadgeService.evaluate_inventory_badges(user)
 
         return inventory
 

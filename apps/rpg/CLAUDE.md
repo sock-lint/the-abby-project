@@ -83,6 +83,21 @@ substitutes unsupported loot. Perfect Day filters out Common items before
 selection, retaining its Uncommon-or-better reward. `drop_tier_weights` is shared
 with the Lab. Drop notifications are best effort, with push deferred to commit.
 
+Saved inventory gains and completed consumable uses immediately evaluate
+collection/use badges through `BadgeService.evaluate_inventory_badges`.
+Acquisition and badge awards take the account gate before stack locks. Nested
+badge drops queue another scoped pass until the current pass ends, so a loot
+chain awards each newly qualified badge once without recursive game-loop
+events. Consumable checks run after the effect, usage history and final stack
+decrement; a same-item badge reward survives even when the old last unit was
+consumed. New starter-cover gifts also check collections; repeated gifts and
+content loading do not replay awards.
+
+Perfect Day evaluates counter badges in its existing receipt transaction,
+after its own Uncommon-or-better draw. Each newly earned counter badge has its
+separate ordinary badge drop, preserving one draw per accomplishment. Pending,
+ineligible and already receipted days never evaluate or backfill those awards.
+
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through

@@ -93,9 +93,8 @@ class HabitService:
             },
         )
 
-        # Skill-tree XP: positive taps only, only when the habit has tags.
-        # Pool = Habit.xp_reward, split proportionally across tagged skills.
-        # No tags → xp_reward silently drops (pre-life-RPG behaviour).
+        # Positive taps recognize habit milestones independently of XP.
+        # A nonzero pool splits across tags; no tags means no skill credit.
         if direction == 1 and habit.xp_reward > 0:
             from apps.achievements.services import AwardService
             AwardService.grant(
@@ -106,6 +105,11 @@ class HabitService:
                 created_by=user,
                 # Audit H8: habit tap moves habit ladders, skill XP, and meta.
                 badge_scopes={"habit", "skill_xp", "badges"},
+            )
+        elif direction == 1:
+            from apps.achievements.services import BadgeService
+            BadgeService.evaluate_badges(
+                user, created_by=user, scopes={"habit", "badges"},
             )
 
         if direction == 1:

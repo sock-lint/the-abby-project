@@ -53,6 +53,21 @@ transaction. Re-evaluation does not backfill old badges, and a failed drop rolls
 the award back for retry. This hook never invokes the activity game loop or
 advances another challenge. See `apps/rpg/tests/test_accomplishment_drops.py`.
 
+Badge evaluation follows saved eligibility changes: every positive habit tap
+checks habit milestones even when its configured XP is zero, and Perfect Day
+checks its counter badges within the daily receipt transaction. Inventory
+grants and consumable use check the `rpg_inventory` and `badges` scopes after
+their saved changes. This includes drop, challenge, expedition, digital shop,
+mystery/lucky-dip, food-basket and new starter-cover grants.
+
+`BadgeService.evaluate_badges` queues nested scope requests per account while
+an ordered pass is active. A badge drop can finish another collection; queued
+inventory checks run after that pass using current ownership and unique earned
+markers, without recursive calls or replaying the activity loop. All resulting
+badge XP, Coins and one loot draw per badge share the source transaction. A
+failure rolls back the cascade and leaves it retryable. Existing earned badges
+are never repaid; badge/inventory reads and catalog loading do not evaluate badges.
+
 ## XP transactions and lock order
 
 Every skill-progress or badge-evaluation mutation entry point opens an atomic
