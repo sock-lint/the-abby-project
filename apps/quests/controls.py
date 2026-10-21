@@ -12,6 +12,8 @@ from rest_framework.exceptions import NotFound
 
 from .models import ChallengeActivity, ChallengeGoal, ChallengeOccurrence, ChallengePin, ChallengeSchedule, Quest, QuestDefinition
 from .queries import active_system_definitions
+from .availability import RetryCatalogBusy as RetryCatalogBusy
+from .availability import lock_retry_reward_catalog, retry_reward_states
 
 
 def _retry_taxonomy_states(goals):
@@ -84,6 +86,7 @@ def control_context(user):
            "repeatable": {pk for pk, row in offered.items() if row.is_repeatable},
            "now": timezone.now()}
     ctx["retry_taxonomy"] = _retry_taxonomy_states(goals)
+    ctx["retry_rewards"] = retry_reward_states(row for goal in goals for row in goal.control_occurrences)
     ctx["base"] = {goal.pk: _snapshot(goal, item_catalog=items) for goal in goals
                    if not goal.is_catalog and goal.repeat_weekly}
     for goal in goals:
@@ -144,6 +147,8 @@ def retry_state(occurrence, ctx):
         reason = "not_expired"
     elif not ctx["retry_taxonomy"].get(occurrence.pk, False):
         reason = "retired"
+    elif not ctx["retry_rewards"].get(occurrence.pk, False):
+        reason = "reward_unavailable"
     else:
         reason = "milestone_locked" if ctx["milestone_retry"].get(canonical) is False else None
     result.update(allowed=reason is None, reason=reason)
@@ -215,8 +220,14 @@ def retry_challenge(actor, occurrence_id):
     duration = (original.ends_at.astimezone(zone).replace(tzinfo=None)
                 - original.starts_at.astimezone(zone).replace(tzinfo=None))
     snapshot = deepcopy(original.snapshot)
+    # Fence all binding/compatibility writes before taking taxonomy row locks.
+    # A projection is advisory; admission re-reads the original promise here.
+    if snapshot.get("items", []):
+        lock_retry_reward_catalog()
     from .reference_locks import admit_snapshot_choices
     admit_snapshot_choices(snapshot, required_skill_id=goal.catalog_definition.required_skill_id)
+    if not retry_reward_states([original])[original.pk]:
+        raise ValueError("reward_unavailable")
     snapshot["_retry_after_activity_id"] = ChallengeActivity.objects.filter(user_id=goal.user_id).aggregate(
         last=Max("pk"),
     )["last"] or 0

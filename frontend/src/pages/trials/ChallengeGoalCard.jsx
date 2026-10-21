@@ -9,7 +9,7 @@ import RewardItem from '../../components/rpg/RewardItem';
 import EarnedPetItemActions from '../../components/rpg/EarnedPetItemActions';
 import AchievementCard from '../../components/cards/AchievementCard';
 import ErrorAlert from '../../components/ErrorAlert';
-import { goalActionPath, goalNumber, goalPeriod, goalProgress, goalTargetSummary, goalUnit } from './goalDisplay';
+import { goalActionPath, goalNumber, goalPeriod, goalProgress, goalTargetSummary, goalUnit, REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
 
 function timingDate(value, timezone, withTime = false) {
   const date = new Date(value);
@@ -72,6 +72,7 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showPeriod = true, sh
 
 export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false }) {
   const period = goalPeriod(goal, timezone);
+  const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   return (
     <AchievementCard as="article" variant="tall" aria-label={goal.name}>
         <div className="space-y-3">
@@ -93,10 +94,11 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onR
             {onPin && goal.status === 'active' && <Button variant="ghost" size="sm" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>
               {goal.pinned ? 'Unpin' : 'Pin to Today'}
             </Button>}
-            {onRetry && goal.retry?.allowed === true && <Button variant="secondary" size="sm" aria-label={`Try ${goal.name} again`} disabled={busy} onClick={() => onRetry(goal)}>Try again</Button>}
+            {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <Button variant="secondary" size="sm" aria-label={`Try ${goal.name} again`} disabled={busy || rewardUnavailable} onClick={() => onRetry(goal)}>Try again</Button>}
             {isParent && goal.schedule?.next_week && <Button variant="ghost" size="sm" onClick={() => onSelect(goal)}>Manage future weeks</Button>}
           </div>
           {goal.retry?.allowed === true && <p className="font-body text-caption text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p>}
+          {rewardUnavailable && <p className="font-body text-caption text-ink-secondary">{REWARD_UNAVAILABLE_MESSAGE}</p>}
           {isParent && goal.schedule?.next_week && <p className="font-body text-caption text-ink-secondary">{goal.schedule.next_week.paused ? 'Future weeks paused' : 'Future weeks scheduled'}</p>}
         </div>
     </AchievementCard>
@@ -106,6 +108,7 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onR
 export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, busy, canAct = true, futureControls, actionError }) {
   const navigate = useNavigate();
   const path = goalActionPath(goal.action);
+  const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   const close = () => {
     onClose();
     // Pinning can move/remount the opener while the sheet is open. Keep the
@@ -140,7 +143,11 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, b
           {onPin && <Button variant="secondary" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>{goal.pinned ? 'Unpin' : 'Pin to Today'}</Button>}
         </div>}
         <ErrorAlert message={actionError} />
-        {onRetry && goal.retry?.allowed === true && <div className="space-y-2"><p className="font-body text-body text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p><Button aria-label={`Try ${goal.name} again`} disabled={busy} onClick={() => onRetry(goal)}>Try again</Button></div>}
+        {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <div className="space-y-2">
+          {rewardUnavailable ? !actionError && <p className="font-body text-body text-ink-secondary">{REWARD_UNAVAILABLE_MESSAGE}</p>
+            : <p className="font-body text-body text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p>}
+          <Button aria-label={`Try ${goal.name} again`} disabled={busy || rewardUnavailable} onClick={() => onRetry(goal)}>Try again</Button>
+        </div>}
         {futureControls}
       </div>
     </BottomSheet>

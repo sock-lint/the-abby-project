@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within, waitFor, act } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
+import retryUnavailableError from '../../../../contracts/api/fixtures/challenge-retry-reward-unavailable.json';
 import { buildParent, buildUser } from '../../test/factories';
 import { buildChallengeGoal, buildDailyBonus } from '../../test/challenges';
 import { CHALLENGES_CHANGED } from '../../hooks/useChallenges';
@@ -128,6 +129,31 @@ describe('Automatic challenges', () => {
     expect(await within(detail).findByRole('button', { name: 'Resume future weeks' })).toBeInTheDocument();
     expect(within(detail).getByText('0.75 / 2 miles')).toBeInTheDocument();
     expect(within(detail).getByText('Completion bonus · 10 coins')).toBeInTheDocument();
+  });
+
+  it('explains a newly unavailable reward and keeps retry disabled when the follow-up read fails', async () => {
+    const expired = buildChallengeGoal({ origin: 'catalog', status: 'expired', retry: { allowed: true, reason: null, latest_attempt_id: null } });
+    let reads = 0;
+    server.use(
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/challenges/', () => ++reads === 1
+        ? HttpResponse.json({ results: [expired], pin: null, daily_bonus: null })
+        : HttpResponse.json({ error: 'Reward status refresh unavailable.' }, { status: 503 })),
+    );
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?::|%3A)11\/retry\/$/, () => HttpResponse.json(retryUnavailableError, { status: 409 }));
+    server.use(retry.handler);
+    const { user } = renderWithProviders(<Trials />, { route: '/quests?tab=trials' });
+    await user.click(await screen.findByText('History · 1'));
+    await user.click(screen.getByRole('button', { name: `Try ${expired.name} again` }));
+    const detail = await screen.findByRole('dialog', { name: expired.name });
+    expect(await within(detail).findByRole('alert')).toHaveTextContent("A new attempt can't start while this challenge's reward is unavailable.");
+    const blocked = within(detail).getByRole('button', { name: `Try ${expired.name} again` });
+    expect(blocked).toBeDisabled();
+    await screen.findByText('Reward status refresh unavailable.');
+    await user.click(blocked);
+    expect(retry.calls).toHaveLength(1);
+    expect(retry.calls[0].body).toEqual({});
+    expect(within(detail).queryByText('reward_unavailable')).not.toBeInTheDocument();
   });
 
   it('shows a retry failure inside the details and retries only after another explicit click', async () => {

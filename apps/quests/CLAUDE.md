@@ -183,11 +183,21 @@ with no completion/award timestamp or invented receipt. Earlier snapshots,
 progress, contributions and paid history remain saved. Grandfathered duplicate
 promises without an explicit retry retain their existing policy.
 
-A retry continues the accepted item's frozen IDs and quantities within that one
-lifetime reward. Art withdrawal suppresses new catalog enrollment without
-rewriting this accepted retry entitlement; it never substitutes replacement
-items or Coins. Taxonomy retirement still uses the explicit retry's separate
-current-choice admission, while an existing successor remains replayable.
+A new retry requires every saved promised item to exist and remain available,
+including current art and authored compatibility for the exact egg/potion pair.
+It checks the original snapshot, not later definition reward edits, and never
+filters ingredients or substitutes items or Coins. Unavailable rewards expose
+`retry.allowed: false`, `reason: reward_unavailable`; an initial retry returns
+409 with that error. A zero-item promise needs no item availability. Accepted
+attempts still complete with their frozen IDs/quantities, and an existing
+predecessor-to-successor replay returns that successor even after withdrawal.
+Taxonomy retirement retains the explicit retry's separate choice admission.
+
+New retry writes acquire a bounded reward-catalog SHARE fence before taxonomy
+row admission, then re-read reward availability in the same transaction.
+PostgreSQL contention fails immediately with `RetryCatalogBusy` and a transient
+409; its nested savepoint releases partial fence locks. This is a refresh/retry
+conflict, not a claim that currently available rewards became unavailable.
 
 Recurring parent goals expose `goal_definition_id` and `schedule` with a
 revision and the next saved-timezone Monday's setup. Parent-only

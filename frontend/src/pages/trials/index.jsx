@@ -16,6 +16,7 @@ import FamilyChallengeForm from './FamilyChallengeForm';
 import { ChallengeGoalDetail } from './ChallengeGoalCard';
 import ChallengesFolio from './ChallengesFolio';
 import GoalScheduleControls from './GoalScheduleControls';
+import { REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
 
 function TrackedChallengeDetail({ user, onConfirmed, ...props }) {
   useChallengeOpening(props.goal, { user, onConfirmed });
@@ -88,7 +89,11 @@ function TrialsWorkspace({ context }) {
       window.dispatchEvent(new Event(CHALLENGES_CHANGED));
     } catch (failure) {
       if (!current()) return;
-      setActionError(failure.message || 'Could not start a fresh challenge period.');
+      const rewardUnavailable = failure.response?.error === 'reward_unavailable';
+      setActionError(rewardUnavailable ? REWARD_UNAVAILABLE_MESSAGE : failure.message || 'Could not start a fresh challenge period.');
+      if (rewardUnavailable) setData((previous) => ({ ...previous, results: previous.results.map((row) => (
+        row.id === goal.id ? { ...row, retry: { ...row.retry, allowed: false, reason: 'reward_unavailable' } } : row
+      )) }));
       if (failure.status === 409) reload();
     } finally { if (current()) setBusy(false); }
   };

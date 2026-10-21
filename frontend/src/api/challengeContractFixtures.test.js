@@ -1,5 +1,8 @@
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
+import { createElement } from 'react';
+import { renderWithProviders, screen } from '../test/render';
+import ChallengeGoalCard, { ChallengeGoalDetail } from '../pages/trials/ChallengeGoalCard';
 import createdGoal from '../../../contracts/api/fixtures/challenge-goal-created.json';
 import initialGoals from '../../../contracts/api/fixtures/challenges-initial.json';
 import goalOrigins from '../../../contracts/api/fixtures/challenges-origins.json';
@@ -27,6 +30,8 @@ import familyAssigned from '../../../contracts/api/fixtures/challenge-family-ass
 import familyCompleted from '../../../contracts/api/fixtures/challenges-family-completed.json';
 import retriedGoal from '../../../contracts/api/fixtures/challenge-retried.json';
 import retryCompleted from '../../../contracts/api/fixtures/challenges-retry-completed.json';
+import retryUnavailable from '../../../contracts/api/fixtures/challenges-retry-reward-unavailable.json';
+import retryUnavailableError from '../../../contracts/api/fixtures/challenge-retry-reward-unavailable.json';
 import pausedSchedule from '../../../contracts/api/fixtures/challenge-schedule-paused.json';
 import editedSchedule from '../../../contracts/api/fixtures/challenge-schedule-edited.json';
 import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-week.json';
@@ -41,6 +46,32 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it.each(['card', 'detail'])('explains the actual unavailable reward response and blocks retry in the %s', async (surface) => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(retryUnavailable)));
+    const saved = await getChallenges();
+    const goal = saved.results.find((row) => row.retry?.reason === 'reward_unavailable');
+    expect(goal).toMatchObject({ status: 'expired', retry: { allowed: false, reason: 'reward_unavailable' } });
+    expect(goal.rewards.items[0].item_catalog_available).toBe(false);
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?:%3A|:)1\/retry\/$/, () => HttpResponse.json(retryUnavailableError, { status: 409 }));
+    server.use(retry.handler);
+    const onRetry = () => retryChallenge(goal.id);
+    const { user } = renderWithProviders(createElement(surface === 'card' ? ChallengeGoalCard : ChallengeGoalDetail,
+      { goal, onSelect: () => {}, onClose: () => {}, onRetry }), { withAuth: false });
+    expect(screen.getByText("A new attempt can't start while this challenge's reward is unavailable.")).toBeInTheDocument();
+    const blocked = screen.getByRole('button', { name: `Try ${goal.name} again` });
+    expect(blocked).toBeDisabled();
+    await user.click(blocked);
+    expect(retry.calls).toHaveLength(0);
+  });
+
+  it('preserves the actual reward-unavailable rejection for readable retry feedback', async () => {
+    const retry = spyHandler('post', /\/api\/challenges\/goal(?:%3A|:)1\/retry\/$/, () => HttpResponse.json(retryUnavailableError, { status: 409 }));
+    server.use(retry.handler);
+    await expect(retryChallenge('goal:1')).rejects.toMatchObject({ status: 409, response: retryUnavailableError });
+    expect(retry.calls).toHaveLength(1);
+    expect(retry.calls[0].body).toEqual({});
+  });
+
   it('opens a fresh catalog attempt and keeps one actual award separate from closed unpaid history', async () => {
     const retry = spyHandler('post', /\/api\/challenges\/goal(?:%3A|:)1\/retry\/$/, retriedGoal);
     server.use(

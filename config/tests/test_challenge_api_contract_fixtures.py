@@ -246,6 +246,34 @@ class ChallengeApiResponseFixtureTests(APITestCase):
             "client_request_id": "11111111-1111-4111-8111-111111111111" if distance == "0.75" else "22222222-2222-4222-8222-222222222222",
         }, format="json")
 
+    def test_new_retry_requires_the_saved_item_reward_to_remain_available(self):
+        from apps.quests.models import ChallengeOccurrence
+
+        _, _, egg, policy = self.add_synthetic_egg_reward()
+        self.authenticate(self.child)
+        with self.settings(RPG_ASSET_SUPPORT_POLICY=policy):
+            original = self.client.get("/api/challenges/").json()["results"][0]
+        occurrence = ChallengeOccurrence.objects.get(pk=int(original["id"].split(":")[1]))
+        frozen = occurrence.snapshot.copy()
+        state = self.state()
+        with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=8)):
+            response = self.client.get("/api/challenges/")
+            row = next(row for row in response.json()["results"] if row["id"] == original["id"])
+            self.assertEqual(row["retry"]["reason"], "reward_unavailable")
+            self.assertFalse(row["retry"]["allowed"])
+            self.assertEqual(row["rewards"]["items"][0]["item_id"], egg.pk)
+            self.assertFalse(row["rewards"]["items"][0]["item_catalog_available"])
+            self.assert_response_fixture(response, "challenges-retry-reward-unavailable.json")
+            rejected = self.client.post(f"/api/challenges/{original['id']}/retry/", {}, format="json")
+            self.assertEqual(rejected.status_code, 409)
+            self.assertEqual(rejected.json(), {"error": "reward_unavailable"})
+            self.assert_response_fixture(rejected, "challenge-retry-reward-unavailable.json", status=409)
+        occurrence.refresh_from_db()
+        self.assertEqual(occurrence.snapshot, frozen)
+        self.assertIsNone(occurrence.awarded_at)
+        self.assertEqual(ChallengeOccurrence.objects.count(), 1)
+        self.assertEqual(self.state(), state)
+
     def test_expired_unpaid_catalog_retry_has_a_fresh_window_and_one_lifetime_reward(self):
         from apps.quests.models import ChallengeOccurrence
 

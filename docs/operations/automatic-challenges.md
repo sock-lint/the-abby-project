@@ -155,11 +155,14 @@ promises that have never been explicitly retried keep their original policy.
 Paid, repeatable, shared, parent-authored and retired goals cannot start retries.
 The list retains eligible expired offers beyond its general history limit.
 
-Retry carries forward the originally accepted item IDs and quantities within
-that one lifetime reward. Withdrawing reward art hides new catalog enrollment
-without rewriting the accepted retry entitlement or substituting items or Coins.
-Taxonomy retirement still applies the explicit retry's current-choice admission;
-an already accepted successor and its idempotent replay keep their saved promise.
+A new retry is blocked while any originally promised item is missing or
+unavailable, including withdrawn art or an incompatible egg/potion pair. The
+list reports `retry.allowed: false` with `reason: reward_unavailable`, and the
+first retry request returns 409. The check uses the saved item IDs/quantities;
+later template edits cannot replace or remove that promise. Item-free rewards
+remain retryable. Existing accepted attempts, late original completion and
+predecessor replay retain their frozen rewards and the one-lifetime payout
+guard. Taxonomy retirement keeps its separate new-retry admission check.
 
 Parents can pause/resume future weeks or edit next week's name, description,
 target, Coins, XP and skill tags for their household's recurring parent goals.

@@ -4,7 +4,7 @@ from django.utils import timezone
 from apps.pets.expeditions import ExpeditionNotFound, ExpeditionService
 from apps.pets.models import MountExpedition
 from apps.pets.serializers import MountExpeditionSerializer
-from apps.quests.controls import retry_challenge as retry_saved_challenge, update_schedule
+from apps.quests.controls import RetryCatalogBusy, retry_challenge as retry_saved_challenge, update_schedule
 from apps.quests.goal_serializers import GoalScheduleSerializer
 from apps.quests.goals import _pin_id, occurrence_payload
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, ChallengePin
@@ -89,7 +89,10 @@ def retry_challenge(params: RetryChallengeIn) -> ChallengeAttemptResult:
         ).first()
         if original is None:
             raise MCPNotFoundError("Challenge not found.")
-        successor, _ = retry_saved_challenge(parent_or_child, original.pk)
+        try:
+            successor, _ = retry_saved_challenge(parent_or_child, original.pk)
+        except RetryCatalogBusy as error:
+            raise MCPValidationError(str(error), code="retry_conflict", retryable=True) from error
         # Read the saved representation for both the new attempt and a replay;
         # timestamps otherwise retain different in-memory timezone offsets.
         successor.refresh_from_db()

@@ -109,6 +109,38 @@ class RPGManagementTests(TestCase):
             row = RewardService.approve(row, self.parent)
         return row
 
+    def test_retry_catalog_contention_is_retryable_without_a_successor(self):
+        from apps.quests.availability import RetryCatalogBusy
+        original = self.catalog_attempt()
+        original.snapshot["items"] = [{"item_id": self.food.pk, "quantity": 1}]
+        original.save(update_fields=["snapshot"])
+        with override_user(self.parent), patch(
+            "apps.quests.controls.lock_retry_reward_catalog",
+            side_effect=RetryCatalogBusy("Reward catalog is changing. Refresh and try again."),
+        ):
+            result = async_to_sync(mcp.call_tool)("retry_challenge", {"params": {
+                "challenge_id": f"goal:{original.pk}", "user_id": self.child.pk,
+            }, "confirmation": True})
+        payload = result.structuredContent if hasattr(result, "structuredContent") else result[1]
+        self.assertEqual(payload["error"]["code"], "retry_conflict")
+        self.assertIs(payload["error"]["retryable"], True)
+        self.assertEqual(payload["error"]["message"], "Reward catalog is changing. Refresh and try again.")
+        self.assertFalse(ChallengeOccurrence.objects.filter(retry_of=original).exists())
+
+    def test_unavailable_retry_reward_is_not_a_transient_transport_conflict(self):
+        original = self.catalog_attempt()
+        original.snapshot["items"] = [{"item_id": self.food.pk, "quantity": 1}]
+        original.save(update_fields=["snapshot"])
+        with override_user(self.parent), patch("apps.quests.availability.item_is_available", return_value=False):
+            result = async_to_sync(mcp.call_tool)("retry_challenge", {"params": {
+                "challenge_id": f"goal:{original.pk}", "user_id": self.child.pk,
+            }, "confirmation": True})
+        payload = result.structuredContent if hasattr(result, "structuredContent") else result[1]
+        self.assertEqual(payload["error"]["code"], "invalid_request")
+        self.assertEqual(payload["error"]["message"], "reward_unavailable")
+        self.assertIs(payload["error"]["retryable"], False)
+        self.assertFalse(ChallengeOccurrence.objects.filter(retry_of=original).exists())
+
     def catalog_attempt(self):
         from apps.quests.models import QuestDefinition
         with patch("django.utils.timezone.now", return_value=self.now - timedelta(days=10)):

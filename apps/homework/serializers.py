@@ -189,12 +189,31 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
     def _admit_tags(self, data, *, instance=None):
         from apps.achievements.models import Skill
         from apps.rpg.taxonomy_references import admit_references
+        from .services import HomeworkError, _saved_template_skill_tags
+
+        retained, legacy_strings = set(), set()
+        saved_tags = instance.skill_tags if instance and isinstance(instance.skill_tags, list) else []
+        for row in saved_tags:
+            try:
+                saved = _saved_template_skill_tags([row])[0]
+            except HomeworkError:
+                # Malformed old JSON grants no retention exemption, but must
+                # remain removable through a valid replacement/empty set.
+                continue
+            retained.add(saved["skill_id"])
+            if isinstance(row["skill_id"], str):
+                legacy_strings.add(row["skill_id"])
         tags = data.get("skill_tags", [])
-        if not isinstance(tags, list) or any(not isinstance(row, dict) or type(row.get("skill_id")) is not int for row in tags):
+        if not isinstance(tags, list) or any(not isinstance(row, dict) or
+                (type(row.get("skill_id")) is not int and
+                 not (isinstance(row.get("skill_id"), str) and row["skill_id"] in legacy_strings)) for row in tags):
             raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
-        admit_references(Skill, [row["skill_id"] for row in tags],
-                         retained_ids=[row.get("skill_id") for row in instance.skill_tags] if instance else (),
-                         error_type=serializers.ValidationError)
+        try:
+            normalized = _saved_template_skill_tags(tags)
+        except HomeworkError as error:
+            raise serializers.ValidationError({"skill_tags": "Choose existing skills."}) from error
+        admit_references(Skill, [row["skill_id"] for row in normalized],
+                         retained_ids=retained, error_type=serializers.ValidationError)
 
     @transaction.atomic
     def create(self, validated_data):

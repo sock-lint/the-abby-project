@@ -306,6 +306,11 @@ idempotency identity, so manual retries of an uncertain POST request the same
 attempt. Parents can retry a verified child's occurrence too. One lifetime
 reward remains server-owned; closed sibling attempts explain that another
 attempt earned it and never show a pending payout.
+The server's `reward_unavailable` retry reason shows a specific explanation and
+a disabled Try again control. A matching 409 from a previously eligible card
+uses the same explanation and retains the disabled state if refresh fails.
+The browser never replaces the unavailable reward or changes accepted attempts.
+
 
 - `trials/index.jsx` owns the parent's child selector, goal details and pin actions.
   `ChallengesFolio.jsx` presents the shared `QuestFolio` layout; `challengeFocus.js`

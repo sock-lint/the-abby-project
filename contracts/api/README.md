@@ -879,6 +879,14 @@ The predecessor occurrence is the retry identity: replay returns the same
 successor with HTTP 200 instead of creating another attempt; first creation is
 HTTP 201. Child self and parent same-family access use the saved goal owner.
 An ineligible attempt returns HTTP 409, while inaccessible IDs return HTTP 404.
+`challenges-retry-reward-unavailable.json` and
+`challenge-retry-reward-unavailable.json` preserve an expired saved item promise
+while reporting `retry.allowed: false`, `reason: reward_unavailable` and a 409
+`{"error": "reward_unavailable"}` for a new attempt. React explains why Try again
+is disabled and keeps that state if the rejection's follow-up refresh fails.
+Previously created successors still replay normally; accepted attempts retain
+their saved reward and completion behavior.
+
 The producer logs real movement before and after retry and verifies one actual
 challenge payout. Repeated requests and reads award nothing.
 

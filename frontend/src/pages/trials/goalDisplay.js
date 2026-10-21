@@ -1,3 +1,5 @@
+export const REWARD_UNAVAILABLE_MESSAGE = "A new attempt can't start while this challenge's reward is unavailable.";
+
 export function goalNumber(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number.toLocaleString(undefined, { maximumFractionDigits: 3 }) : '0';
