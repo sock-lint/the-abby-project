@@ -1,6 +1,8 @@
 """Tests for project-related MCP tools."""
 from __future__ import annotations
 
+from uuid import uuid4
+
 from decimal import Decimal
 
 from django.test import TestCase
@@ -41,6 +43,7 @@ class CreateProjectTests(TestCase):
 
     def test_parent_can_create_project_with_skill_tags(self) -> None:
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Build a weather station",
             description="First hardware build",
             assigned_to_id=self.child.id,
@@ -69,6 +72,7 @@ class CreateProjectTests(TestCase):
 
     def test_child_cannot_create_project(self) -> None:
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Sneaky", assigned_to_id=self.child.id,
         )
         with override_user(self.child), self.assertRaises(MCPPermissionDenied):
@@ -78,6 +82,7 @@ class CreateProjectTests(TestCase):
         """Steps and resources should materialize as rows; step_index should
         resolve to the real ``ProjectStep.pk`` the loop just created."""
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Rocket",
             assigned_to_id=self.child.id,
             steps=[
@@ -119,6 +124,7 @@ class CreateProjectTests(TestCase):
         """``milestone_index`` on a NewStep should resolve to the matching
         ``ProjectMilestone.pk`` so steps render under the right phase."""
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Birdhouse",
             assigned_to_id=self.child.id,
             milestones=[
@@ -147,6 +153,7 @@ class CreateProjectTests(TestCase):
         """A ``milestone_index`` outside the milestones list should fail
         validation BEFORE any DB writes — no half-created project."""
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Bad ms idx",
             assigned_to_id=self.child.id,
             milestones=[NewMilestone(title="only")],
@@ -160,6 +167,7 @@ class CreateProjectTests(TestCase):
         """step_index validation must happen BEFORE any DB writes so a bad
         payload can't half-create a project."""
         payload = CreateProjectIn(
+            request_id=uuid4(),
             title="Bad",
             assigned_to_id=self.child.id,
             steps=[NewStep(title="only step")],

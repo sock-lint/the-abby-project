@@ -3,7 +3,12 @@
 Staff parents open **Manage → Admin → RPG content** to manage global challenge
 and item definitions. This combines the catalog and publication services from
 the MCP authoring work with Progression Lab's anonymous new-child simulator.
-Ordinary parents and children cannot edit the global catalog.
+Ordinary parents and children cannot edit the global catalog. MCP exposes the same revisioned draft, preview, simulation and publication services; its catalog references omit family shop usage.
+
+Paired simulations capture their reviewed baseline/candidate under short catalog
+transactions, release every household/catalog lock for the pure calculations,
+then revalidate current MCP authority and the exact draft/preview/catalog before
+saving the evaluation. Revocation or an intervening edit rejects the result.
 
 Milestone fields select exact prerequisite challenge and skill IDs plus a
 minimum unlocked skill level. They currently support only one-time daily

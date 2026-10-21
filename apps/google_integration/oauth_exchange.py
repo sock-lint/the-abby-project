@@ -230,8 +230,8 @@ def _redeem(request, flow, users, payload):
     account.encrypted_credentials = GoogleAuthService.encrypt_credentials(payload["credentials"])
     account.save(update_fields=["encrypted_credentials", "updated_at"])
     token, _ = Token.objects.get_or_create(user=user)  # Documented Google login contract.
-    from apps.projects.serializers import UserSerializer
-    return {"mode": "login", "token": token.key, "user": UserSerializer(user).data}
+    from apps.projects.serializers import AuthenticatedUserSerializer
+    return {"mode": "login", "token": token.key, "user": AuthenticatedUserSerializer(user).data}
 
 
 def exchange(request):

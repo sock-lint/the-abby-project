@@ -2,6 +2,40 @@
   "id": "goal:1",
   "name": "Run 2 miles this week",
   "description": "",
+  "goal_definition_id": 1,
+  "qualifying_triggers": [
+    "movement_session"
+  ],
+  "retry": {
+    "allowed": false,
+    "reason": "not_catalog",
+    "latest_attempt_id": null
+  },
+  "retry_of": null,
+  "closed_reason": null,
+  "schedule": {
+    "revision": 0,
+    "paused": false,
+    "next_week": {
+      "starts_at": "2026-10-19T00:00:00-07:00",
+      "paused": false,
+      "name": "Run 2 miles this week",
+      "description": "",
+      "metric": "distance",
+      "target": "2",
+      "unit": "mi",
+      "trigger_type": "movement_session",
+      "movement_type_id": 31,
+      "coin_reward": 7,
+      "xp_reward": 15,
+      "skill_tags": [
+        {
+          "skill_id": 22,
+          "xp_weight": 1
+        }
+      ]
+    }
+  },
   "origin": "parent",
   "first_details_opened_at": null,
   "catalog_repeatable": false,

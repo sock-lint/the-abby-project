@@ -59,6 +59,7 @@ class CreationService:
     @staticmethod
     def _lock_creation(creation):
         """Reload the supplied instance under a lock held by the caller's transaction."""
+        get_user_model().objects.select_for_update(no_key=True).get(pk=creation.user_id)
         Creation.objects.select_for_update().get(pk=creation.pk)
         creation.refresh_from_db()
 
@@ -124,6 +125,11 @@ class CreationService:
         (for the Sketchbook/Yearbook surfaces) but silently skip the reward
         path. See docstring of ``_count_today`` for the soft-farm caveat.
         """
+        get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
+        from apps.achievements.models import Skill
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, [primary_skill_id] + ([secondary_skill_id] if secondary_skill_id else []),
+                         error_type=CreationError)
         primary, secondary = cls._load_and_validate_skills(
             primary_skill_id, secondary_skill_id
         )
@@ -285,6 +291,10 @@ class CreationService:
         # Resolve tags — write CreationBonusSkillTag rows for audit/ledger visibility.
         tags_payload = extra_skill_tags or []
         if tags_payload:
+            from apps.rpg.taxonomy_references import admit_references
+            admit_references(Skill, [row["skill_id"] for row in tags_payload],
+                             retained_ids=creation.bonus_skill_tags.values_list("skill_id", flat=True),
+                             error_type=CreationError)
             tag_objects = []
             for row in tags_payload:
                 skill = Skill.objects.get(pk=row["skill_id"])

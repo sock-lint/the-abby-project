@@ -7,8 +7,10 @@ import { TextAreaField, SelectField } from './form';
 import { formLabelClass } from '../constants/styles';
 import { useApi } from '../hooks/useApi';
 import { normalizeList } from '../utils/api';
+import { skillDisplayLabel } from '../utils/skillLabels';
 import { downscaleImage } from '../utils/image';
-import { createCreation, getCreationTodayStatus, getSkills } from '../api';
+import { createCreation, getCreationTodayStatus, getAllSkills } from '../api';
+import { isTaxonomyAvailable } from '../utils/taxonomy';
 
 // Creative-subset allow-list — must match apps/creations/constants.py.
 const CREATIVE_CATEGORY_NAMES = new Set([
@@ -28,10 +30,10 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10 MB
 const FORM_ID = 'creation-log-form';
 
 export default function CreationLogModal({ onClose, onSaved }) {
-  const { data: skillsData, loading: skillsLoading } = useApi(getSkills);
+  const { data: skillsData, loading: skillsLoading } = useApi(getAllSkills);
   const { data: todayStatus } = useApi(getCreationTodayStatus);
   const skills = normalizeList(skillsData).filter((s) =>
-    CREATIVE_CATEGORY_NAMES.has(s.category_name)
+    CREATIVE_CATEGORY_NAMES.has(s.category_name) && isTaxonomyAvailable(s)
   );
 
   const remainingWithXp = todayStatus?.remaining_with_xp;
@@ -195,7 +197,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
           {skillsByCategory.map(([catName, catSkills]) => (
             <optgroup key={catName} label={catName}>
               {catSkills.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+                <option key={s.id} value={s.id}>{skillDisplayLabel(s, skills)}</option>
               ))}
             </optgroup>
           ))}
@@ -213,7 +215,7 @@ export default function CreationLogModal({ onClose, onSaved }) {
               {catSkills
                 .filter((s) => String(s.id) !== primary)
                 .map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                  <option key={s.id} value={s.id}>{skillDisplayLabel(s, skills)}</option>
                 ))}
             </optgroup>
           ))}

@@ -3,6 +3,8 @@ import { X, Plus } from 'lucide-react';
 import { SelectField } from './form';
 import Button from './Button';
 import IconButton from './IconButton';
+import { skillDisplayLabel } from '../utils/skillLabels';
+import { isTaxonomyAvailable, taxonomyOptionLabel } from '../utils/taxonomy';
 
 /**
  * Parent UI for editing `skill_tags` on chores, habits, and quests.
@@ -16,7 +18,7 @@ import IconButton from './IconButton';
  * keyed by `skill_id` so the same skill can't be picked twice (the
  * dropdown filters out already-used skills).
  */
-export default function SkillTagEditor({ skills = [], value = [], onChange }) {
+export default function SkillTagEditor({ skills = [], value = [], onChange, emptyMessage = 'No skills tagged — this awards coins only, nothing in the skill tree.' }) {
   const tags = Array.isArray(value) ? value : [];
   const skillById = useMemo(() => {
     const m = new Map();
@@ -28,7 +30,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
     const used = new Set(tags.map((t) => t.skill_id));
     const byCat = new Map();
     for (const s of skills) {
-      if (used.has(s.id)) continue;
+      if (used.has(s.id) || !isTaxonomyAvailable(s)) continue;
       const cat = s.category_name || 'Other';
       if (!byCat.has(cat)) byCat.set(cat, []);
       byCat.get(cat).push(s);
@@ -71,7 +73,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
       </p>
       {tags.length === 0 && (
         <p className="font-body text-caption text-ink-secondary italic">
-          No skills tagged — this awards coins only, nothing in the skill tree.
+          {emptyMessage}
         </p>
       )}
       <ul className="space-y-2">
@@ -98,12 +100,13 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
                   }
                   aria-label={`Skill for tag ${idx + 1}`}
                 >
+                  {!skill && <option value={tag.skill_id} disabled>Retained skill (#{tag.skill_id}) · not listed</option>}
                   {[...availableByCat.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(
                     ([cat, list]) => (
                       <optgroup key={cat} label={cat}>
                         {list.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.icon ? `${s.icon} ` : ''}{s.name}
+                          <option key={s.id} value={s.id} disabled={!isTaxonomyAvailable(s)}>
+                            {s.icon ? `${s.icon} ` : ''}{taxonomyOptionLabel(s, skillDisplayLabel(s, skills))}
                           </option>
                         ))}
                       </optgroup>
@@ -127,7 +130,7 @@ export default function SkillTagEditor({ skills = [], value = [], onChange }) {
               </div>
               <IconButton
                 onClick={() => removeRow(idx)}
-                aria-label={`Remove ${skill?.name || 'skill tag'}`}
+                aria-label={`Remove ${skill ? skillDisplayLabel(skill, skills) : 'skill tag'}`}
                 variant="ghost"
                 size="sm"
                 className="mt-1"

@@ -73,3 +73,33 @@ class GoalWriteSerializer(serializers.Serializer):
         if data["xp_reward"] and not tags:
             raise serializers.ValidationError({"skill_tags": "Choose a skill to receive the XP reward."})
         return data
+
+
+class FutureGoalSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=100, required=False)
+    description = serializers.CharField(allow_blank=True, required=False)
+    target = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"), required=False)
+    coin_reward = serializers.IntegerField(min_value=0, max_value=10000, required=False)
+    xp_reward = serializers.IntegerField(min_value=0, max_value=10000, required=False)
+    skill_tags = SkillTagInput(many=True, required=False)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict) or set(data) - set(self.fields):
+            raise serializers.ValidationError("Supply only supported future goal fields.")
+        return super().to_internal_value(data)
+
+
+class GoalScheduleSerializer(serializers.Serializer):
+    expected_revision = serializers.IntegerField(min_value=0)
+    paused = serializers.BooleanField(required=False)
+    next_week = FutureGoalSerializer(required=False)
+
+    def to_internal_value(self, data):
+        if not isinstance(data, dict) or set(data) - set(self.fields):
+            raise serializers.ValidationError("Supply only supported schedule fields.")
+        return super().to_internal_value(data)
+
+    def validate(self, data):
+        if "paused" not in data and not data.get("next_week"):
+            raise serializers.ValidationError("Choose a pause/resume or future setup change.")
+        return data

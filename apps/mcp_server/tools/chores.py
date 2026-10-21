@@ -8,7 +8,7 @@ from django.db import transaction
 
 from apps.chores.models import Chore, ChoreCompletion, ChoreSkillTag
 from apps.chores.services import ChoreService
-from apps.accounts.models import User
+from apps.chores.serializers import ChoreWriteSerializer
 
 from ..context import get_current_user, require_parent, resolve_target_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
@@ -71,8 +71,9 @@ def get_chore(params: GetChoreIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@transaction.atomic
 def create_chore(params: CreateChoreIn) -> dict[str, Any]:
-    """Create a new chore (parent-only)."""
+    """Create a chore with the web workflow's reward and schedule validation."""
     parent = require_parent()
 
     assigned_to = None
@@ -81,36 +82,24 @@ def create_chore(params: CreateChoreIn) -> dict[str, Any]:
         if getattr(assigned_to, "role", None) != "child":
             raise MCPNotFoundError(f"Child {params.assigned_to_id} not found.")
 
-    # Audit C1: stamp family from the caller. ``resolve_target_user`` above
-    # already proves the assigned child (if set) is in this parent's
-    # family, so a single ``family=parent.family`` is consistent.
-    chore = Chore.objects.create(
-        title=params.title,
-        description=params.description,
-        icon=params.icon,
-        reward_amount=params.reward_amount,
-        coin_reward=params.coin_reward,
-        recurrence=params.recurrence,
-        week_schedule=params.week_schedule,
-        schedule_start_date=params.schedule_start_date,
-        assigned_to=assigned_to,
-        created_by=parent,
-        is_active=params.is_active,
-        order=params.order,
-        family=parent.family,
-    )
+    data = params.model_dump(exclude={"assigned_to_id"})
+    data["assigned_to"] = assigned_to.pk if assigned_to else None
+    serializer = ChoreWriteSerializer(data=data)
+    serializer.is_valid(raise_exception=True)
+    chore = serializer.save(created_by=parent, family=parent.family)
     return chore_to_dict(chore)
 
 
 @tool()
 @safe_tool
+@transaction.atomic
 def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
     """Update an existing chore (parent-only, same-family)."""
     parent = require_parent()
     # Audit C1: family-scope the lookup so a parent can't mutate another
     # family's chore.
     try:
-        chore = Chore.objects.get(pk=params.chore_id, family=parent.family)
+        chore = Chore.objects.select_for_update(no_key=True).get(pk=params.chore_id, family=parent.family)
     except Chore.DoesNotExist:
         raise MCPNotFoundError(f"Chore {params.chore_id} not found.")
 
@@ -119,16 +108,16 @@ def update_chore(params: UpdateChoreIn) -> dict[str, Any]:
     if "assigned_to_id" in updates:
         aid = updates.pop("assigned_to_id")
         if aid is None:
-            chore.assigned_to = None
+            updates["assigned_to"] = None
         else:
             target = resolve_target_user(parent, aid)
             if getattr(target, "role", None) != "child":
                 raise MCPNotFoundError(f"Child {aid} not found.")
-            chore.assigned_to = target
+            updates["assigned_to"] = target.pk
 
-    for field, value in updates.items():
-        setattr(chore, field, value)
-    chore.save()
+    serializer = ChoreWriteSerializer(chore, data=updates, partial=True)
+    serializer.is_valid(raise_exception=True)
+    chore = serializer.save()
     return chore_to_dict(chore)
 
 
@@ -237,6 +226,9 @@ def set_chore_skill_tags(params: SetChoreSkillTagsIn) -> dict[str, Any]:
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=chore.skill_tags.values_list("skill_id", flat=True))
         ChoreSkillTag.objects.filter(chore=chore).delete()
         ChoreSkillTag.objects.bulk_create([
             ChoreSkillTag(chore=chore, skill_id=t.skill_id, xp_weight=t.xp_weight)

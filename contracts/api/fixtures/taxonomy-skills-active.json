@@ -1,0 +1,23 @@
+{
+  "count": 1,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "id": 955,
+      "name": "New skill",
+      "category": 954,
+      "category_name": "New practice",
+      "subject": null,
+      "subject_name": null,
+      "description": "",
+      "icon": "",
+      "catalog_icon": null,
+      "level_names": {},
+      "is_locked_by_default": false,
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true
+    }
+  ]
+}

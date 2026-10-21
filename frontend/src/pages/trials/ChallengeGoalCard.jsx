@@ -8,7 +8,8 @@ import CatalogIcon from '../../components/rpg/CatalogIcon';
 import RewardItem from '../../components/rpg/RewardItem';
 import EarnedPetItemActions from '../../components/rpg/EarnedPetItemActions';
 import AchievementCard from '../../components/cards/AchievementCard';
-import { goalActionPath, goalNumber, goalProgress, goalUnit } from './goalDisplay';
+import ErrorAlert from '../../components/ErrorAlert';
+import { goalActionPath, goalNumber, goalPeriod, goalProgress, goalTargetSummary, goalUnit, REWARD_UNAVAILABLE_MESSAGE } from './goalDisplay';
 
 function timingDate(value, timezone, withTime = false) {
   const date = new Date(value);
@@ -22,7 +23,7 @@ function timingDate(value, timezone, withTime = false) {
   }
 }
 
-function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = false, allowRewardActions = true, onRewardNavigate }) {
+function GoalBody({ goal, timezone, showWhatCounts = true, showPeriod = true, showExactDeadline = false, allowRewardActions = true, onRewardNavigate }) {
   const completed = goal.status === 'completed';
   const awarded = completed && goal.reward_receipt?.status === 'awarded';
   const rewards = awarded ? { coins: goal.reward_receipt.coins_awarded, xp: goal.reward_receipt.xp_awarded } : goal.rewards;
@@ -44,19 +45,20 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = f
       <p className="font-body text-body text-ink-primary font-semibold">{goalProgress(goal)}</p>
       <ProgressBar value={Number(goal.progress)} max={Number(goal.target)} aria-label={`${goal.name} progress`} />
       <div className="flex flex-wrap gap-x-3 gap-y-1 font-body text-caption text-ink-secondary">
-        <span>{completed ? 'Completed' : ended ? 'Period ended' : goal.status === 'upcoming' ? 'Upcoming' : 'Active'}</span>
+        <span>{completed ? 'Completed' : goal.status === 'closed' ? 'Attempt closed' : ended ? 'Period ended' : goal.status === 'upcoming' ? 'Upcoming' : 'Active'}</span>
         {goal.repeat_weekly && <span>Repeats weekly</span>}
       </div>
       <div className="space-y-1 font-body text-caption text-ink-secondary">
-        {starts && ends && <p>Goal period <time dateTime={goal.starts_at}>{starts}</time> – <time dateTime={finalIncludedAt}>{ends}</time></p>}
+        {showPeriod && starts && ends && <p>Goal period <time dateTime={goal.starts_at}>{starts}</time> – <time dateTime={finalIncludedAt}>{ends}</time></p>}
         {showExactDeadline && deadline && <p>Counts work before <time dateTime={goal.ends_at}>{deadline}</time></p>}
         {completed && (completedDate
           ? <p>Completion recorded <time dateTime={goal.completed_at}>{completedDate}</time></p>
           : <p>Completion date unavailable</p>)}
       </div>
       {showWhatCounts && <p className="font-body text-body text-ink-secondary">{goal.what_counts}</p>}
+      {goal.closed_reason === 'reward_already_awarded' && <p className="font-body text-body text-ink-secondary">Another attempt earned this challenge&apos;s one-time bonus.</p>}
       <p className="font-body text-caption text-ink-secondary">
-        {awarded ? 'Bonus earned automatically' : completed ? goal.legacy ? 'Original completion bonus' : 'Bonus pending' : 'Completion bonus'}
+        {awarded ? 'Bonus earned automatically' : goal.status === 'closed' ? 'Original completion bonus' : completed ? goal.legacy ? 'Original completion bonus' : 'Bonus pending' : 'Completion bonus'}
         {rewards?.coins > 0 && ` · ${rewards.coins} coins`}
         {rewards?.xp > 0 && ` · ${rewards.xp} XP`}
       </p>
@@ -68,7 +70,9 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showExactDeadline = f
   );
 }
 
-export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, busy = false, isParent = false }) {
+export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false }) {
+  const period = goalPeriod(goal, timezone);
+  const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   return (
     <AchievementCard as="article" variant="tall" aria-label={goal.name}>
         <div className="space-y-3">
@@ -78,25 +82,33 @@ export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, bus
               <div className="min-w-0 flex-1 basis-32 space-y-1">
                 <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
                 <h4 className="font-body font-bold text-lede text-ink-primary break-words [overflow-wrap:anywhere]">{goal.name}</h4>
+                <p className="font-body text-caption text-ink-secondary break-words">{goalTargetSummary(goal)}</p>
+                {period && <p className="font-body text-caption text-ink-secondary">{period}</p>}
               </div>
             </div>
             {goal.pinned && <span className="inline-flex shrink-0 items-center gap-1 text-caption text-sheikah-teal-deep"><Pin size={14} aria-hidden="true" /> Pinned</span>}
           </div>
-          <GoalBody goal={goal} timezone={timezone} allowRewardActions={!isParent} />
+          <GoalBody goal={goal} timezone={timezone} showWhatCounts={false} showPeriod={false} allowRewardActions={!isParent} />
           <div className="flex flex-wrap gap-2">
             <Button data-challenge-view={goal.id} className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]" variant="secondary" size="sm" onClick={() => onSelect(goal)}>View {goal.name}</Button>
             {onPin && goal.status === 'active' && <Button variant="ghost" size="sm" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>
               {goal.pinned ? 'Unpin' : 'Pin to Today'}
             </Button>}
+            {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <Button variant="secondary" size="sm" aria-label={`Try ${goal.name} again`} disabled={busy || rewardUnavailable} onClick={() => onRetry(goal)}>Try again</Button>}
+            {isParent && goal.schedule?.next_week && <Button variant="ghost" size="sm" onClick={() => onSelect(goal)}>Manage future weeks</Button>}
           </div>
+          {goal.retry?.allowed === true && <p className="font-body text-caption text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p>}
+          {rewardUnavailable && <p className="font-body text-caption text-ink-secondary">{REWARD_UNAVAILABLE_MESSAGE}</p>}
+          {isParent && goal.schedule?.next_week && <p className="font-body text-caption text-ink-secondary">{goal.schedule.next_week.paused ? 'Future weeks paused' : 'Future weeks scheduled'}</p>}
         </div>
     </AchievementCard>
   );
 }
 
-export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, busy, canAct = true }) {
+export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, busy, canAct = true, futureControls, actionError }) {
   const navigate = useNavigate();
   const path = goalActionPath(goal.action);
+  const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
   const close = () => {
     onClose();
     // Pinning can move/remount the opener while the sheet is open. Keep the
@@ -130,6 +142,13 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, busy, canA
           {path && canAct && <Button onClick={() => { onClose(); navigate(path); }}>{goal.action.label}</Button>}
           {onPin && <Button variant="secondary" aria-pressed={Boolean(goal.pinned)} disabled={busy} onClick={() => onPin(goal)}>{goal.pinned ? 'Unpin' : 'Pin to Today'}</Button>}
         </div>}
+        <ErrorAlert message={actionError} />
+        {onRetry && (goal.retry?.allowed === true || rewardUnavailable) && <div className="space-y-2">
+          {rewardUnavailable ? !actionError && <p className="font-body text-body text-ink-secondary">{REWARD_UNAVAILABLE_MESSAGE}</p>
+            : <p className="font-body text-body text-ink-secondary">Start a fresh period at zero progress. This challenge&apos;s bonus can be earned once.</p>}
+          <Button aria-label={`Try ${goal.name} again`} disabled={busy || rewardUnavailable} onClick={() => onRetry(goal)}>Try again</Button>
+        </div>}
+        {futureControls}
       </div>
     </BottomSheet>
   );

@@ -105,9 +105,9 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-20.5",
-    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "rules_fingerprint": "3f00f51a0f3a5e42bc2204011b2ec457938fa4e782ec5131ed7beff3f42369ad",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
-    "catalog_fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
+    "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
     "source_commit": "unavailable"
   },
   "inputs": {
@@ -241,7 +241,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
+      "fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -251,7 +251,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "rules_fingerprint": "3f00f51a0f3a5e42bc2204011b2ec457938fa4e782ec5131ed7beff3f42369ad",
     "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "coverage": {
@@ -4191,10 +4191,10 @@
       "finite_breakdown": {
         "mount": 1,
         "pet": 1,
-        "quest": 1,
         "cosmetic": 1,
-        "badge": 1,
-        "middle": 1
+        "middle": 1,
+        "quest": 1,
+        "badge": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 8,
@@ -6278,7 +6278,7 @@
       }
     },
     "catalog": {
-      "fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
+      "fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
       "skills": 5,
       "supported_items": 5,
       "supported_pet_variants": 1,
@@ -6288,7 +6288,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
+    "rules_fingerprint": "3f00f51a0f3a5e42bc2204011b2ec457938fa4e782ec5131ed7beff3f42369ad",
     "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "coverage": {
@@ -10228,10 +10228,10 @@
       "finite_breakdown": {
         "mount": 1,
         "pet": 1,
-        "quest": 1,
         "cosmetic": 1,
-        "badge": 1,
-        "middle": 1
+        "middle": 1,
+        "quest": 1,
+        "badge": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 8,

@@ -305,6 +305,13 @@ before rollout. Egg-category weights remain unchanged in live selection. See
 [the adoption runbook](../../docs/operations/companion-lifecycle.md).
 
 
+Textual Lorebook and affirmation publication uses `content/editorial.py` and
+`RPGEditorialDraft`/`RPGEditorialOverride`. Private actor/family revisions require
+exact reviewed preview/digest and confirmed publication. Published prose overlays
+cached source on every read; retired affirmation identities still resolve in
+history. Handler identities, trial logic and reward rules remain source-owned.
+See the [MCP authoring guide](../../docs/operations/mcp-authoring.md#textual-editorial-content).
+
 `catalog_icons.py` also reads exact potion/challenge image identities from
 `shared/catalog/elemental-bindings.json`. Canonical Fire/Ice potion ingredients
 require the matching typed potion FK, metadata variant, slug, name and type;

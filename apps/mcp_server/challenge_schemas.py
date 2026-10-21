@@ -31,7 +31,7 @@ class PreviewChallengeGoalIn(_Base):
     trigger_type: Literal[
         "clock_out", "chore_complete", "homework_complete", "homework_created",
         "milestone_complete", "project_complete", "habit_log", "journal_entry",
-        "creation_logged", "movement_session", "savings_goal_complete",
+        "creation_logged", "movement_session", "savings_goal_complete", "reading_logged",
     ]
     movement_type_id: int | None = Field(default=None, ge=1)
     metric: Literal["count", "minutes", "distance"]

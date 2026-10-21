@@ -1,6 +1,7 @@
 import Button from '../../components/Button';
 import EmptyState from '../../components/EmptyState';
 import ArtworkImage from '../../components/rpg/ArtworkImage';
+import { taxonomyStatus } from '../../utils/taxonomy';
 import './WayfinderMap.css';
 
 function countLabel(count, name) {
@@ -47,12 +48,13 @@ export function WayfinderCategoryMap({ categories = [], catalog, onSelectCategor
               <Button
                 variant="ghost"
                 className="wayfinder-category-node"
-                aria-label={meta ? `${category.name}, ${meta}` : category.name}
+                aria-label={[category.name, meta, taxonomyStatus(category, 'category')].filter(Boolean).join(', ')}
                 onClick={() => onSelectCategory(category.id)}
               >
                 <span className="wayfinder-marker" aria-hidden="true"><ArtworkImage assetId={category.catalog_icon} fallback={category.icon || '✦'} size={32} /></span>
                 <span className="wayfinder-node-copy">
                   <strong>{category.name}</strong>
+                  {taxonomyStatus(category, 'category') && <small>{taxonomyStatus(category, 'category')}</small>}
                   {meta && <small>{meta}</small>}
                 </span>
               </Button>
@@ -86,12 +88,13 @@ export function WayfinderSubjectMap({ category, subjects = [], onSelectSubject }
               <Button
                 variant="ghost"
                 className="wayfinder-destination"
-                aria-label={`${name}, ${countLabel(skills.length, 'skill')}`}
+                aria-label={[name, countLabel(skills.length, 'skill'), taxonomyStatus(subject, 'subject')].filter(Boolean).join(', ')}
                 onClick={() => onSelectSubject(subject)}
               >
                 <span className="wayfinder-marker" aria-hidden="true"><ArtworkImage assetId={subject.catalog_icon} fallback={subject.icon || category?.icon || '✦'} size={32} /></span>
                 <span className="wayfinder-node-copy">
                   <strong>{name}</strong>
+                  {taxonomyStatus(subject, 'subject') && <small>{taxonomyStatus(subject, 'subject')}</small>}
                   <small>{countLabel(skills.length, 'skill')}</small>
                 </span>
               </Button>

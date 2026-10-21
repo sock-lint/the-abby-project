@@ -1,0 +1,50 @@
+{
+  "id": "goal:2",
+  "name": "Two movement sessions",
+  "description": "Log two movement sessions during this window.",
+  "goal_definition_id": 1,
+  "qualifying_triggers": [
+    "movement_session"
+  ],
+  "retry": {
+    "allowed": false,
+    "reason": "not_expired",
+    "latest_attempt_id": "goal:2"
+  },
+  "retry_of": "goal:1",
+  "closed_reason": null,
+  "schedule": null,
+  "origin": "catalog",
+  "first_details_opened_at": null,
+  "catalog_repeatable": false,
+  "catalog_icon": null,
+  "metric": "count",
+  "target": "2",
+  "progress": "0",
+  "unit": "actions",
+  "status": "active",
+  "starts_at": "2026-10-22T12:00:00-07:00",
+  "ends_at": "2026-10-29T12:00:00-07:00",
+  "completed_at": null,
+  "timezone": "America/Phoenix",
+  "what_counts": "movement sessions",
+  "rewards": {
+    "coins": 5,
+    "xp": 10,
+    "items": []
+  },
+  "action": {
+    "label": "Log movement",
+    "path": "/quests?tab=movement"
+  },
+  "pinned": false,
+  "repeat_weekly": false,
+  "legacy": false,
+  "reward_receipt": {
+    "id": "goal:2",
+    "status": "pending",
+    "coins_awarded": 0,
+    "xp_awarded": 0,
+    "awarded_at": null
+  }
+}

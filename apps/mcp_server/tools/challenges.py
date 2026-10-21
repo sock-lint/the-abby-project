@@ -5,6 +5,7 @@ from typing import Any
 from rest_framework.exceptions import PermissionDenied as DRFPermissionDenied
 from rest_framework.exceptions import ValidationError
 
+from apps.quests.controls import control_context
 from apps.quests.daily_bonus import get_daily_bonus_payload
 from apps.quests.goal_serializers import GoalWriteSerializer
 from apps.quests.goals import (
@@ -54,10 +55,12 @@ def get_voyager_feedback(params: GetVoyagerFeedbackIn) -> dict[str, Any]:
     starts, repairs, publishes, expires or rewards a challenge.
     """
     from apps.quests.voyager_feedback import voyager_feedback
+    from ..retries import authorized_household
 
     actor = require_staff_parent()
     try:
-        return to_plain(voyager_feedback(actor))
+        with authorized_household(actor, actor) as (fresh_actor, _):
+            return to_plain(voyager_feedback(fresh_actor))
     except DRFPermissionDenied as exc:
         raise MCPPermissionDenied(str(exc.detail)) from None
 
@@ -72,6 +75,7 @@ def list_challenges(params: ListChallengesIn) -> dict[str, Any]:
     in their family. No private journal text or source contexts are returned.
     """
     target = resolve_target_user(get_current_user(), params.user_id)
+    controls = control_context(target)
     pin = ChallengePin.objects.filter(user=target).first()
     pin_id = None
     if pin:
@@ -81,7 +85,7 @@ def list_challenges(params: ListChallengesIn) -> dict[str, Any]:
         goal__user=target, goal__family_id=target.family_id,
     ).select_related("goal", "goal__catalog_definition").order_by("-starts_at", "-pk")
     selected = list(occurrences[:params.limit])
-    results = [occurrence_payload(row, pin_id) for row in selected]
+    results = [occurrence_payload(row, pin_id, controls=controls) for row in selected]
     if params.include_legacy:
         legacy = Quest.objects.filter(participants__user=target).select_related("definition").distinct()
         results.extend(_legacy_payload(row, pin_id) for row in legacy.order_by("-start_date", "-pk")[:params.limit])
@@ -94,7 +98,7 @@ def list_challenges(params: ListChallengesIn) -> dict[str, Any]:
         "results": results,
         "pin": pin_id,
         "daily_bonus": get_daily_bonus_payload(target),
-        "recent_receipts": [occurrence_payload(row, pin_id) for row in receipts],
+        "recent_receipts": [occurrence_payload(row, pin_id, controls=controls) for row in receipts],
         "challenge_receipts": [context["_receipt"] for context in activities],
         "saved_state_only": True,
     })

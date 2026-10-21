@@ -1,5 +1,15 @@
 # Shared API response fixtures
 
+`challenge-family-assigned.json` and `challenges-family-completed.json` bind
+parent assignment to a real shared campaign. The producer checks the parent's
+catalog `is_cooperative` flag, assigns two same-family children, and approves ten
+real chores per child toward one 20-action target. Saved participants retain
+their separate ten-action contributions. It independently verifies each child's
+actual Coin/skill XP award once; the legacy response retains its truthful
+unavailable historical receipt shape. The existing challenge React consumer
+checks the exact assignment request and the shared completed goal. Catalog and
+nested quest responses expose additive `is_cooperative` for this distinction.
+
 `pets-shared-expedition-allowance.json` is a real stable response with synthetic
 saved Base/Fire/Ice Chick mounts. A claimed Base trip uses the species's daily
 allowance for all three appearances. Saved elemental ownership does not enable
@@ -198,6 +208,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `printing-cancel-refunded.json` | Cancellation before the first job returns the exact charge once |
 | `printing-exchange-invalid.json`, `printing-request-not-owned.json` | Caller-supplied prices/accounts and another family's request are rejected without spending |
 | `challenge-goal-created.json` | `POST /api/challenges/goals/`; parent-created repeating weekly running goal with decimal distance and an unpaid reward preview |
+| `challenge-family-assigned.json`, `challenges-family-completed.json` | Parent catalog mode and real co-op assignment to two family children, then ten approved chores each toward one shared target; producer verifies the full reward once per child, while retained legacy history keeps its explicit unavailable receipt marker |
 | `challenges-initial.json` | `GET /api/challenges/`; personal parent goal and eligible catalog goal track automatically before either is pinned |
 | `challenges-origins.json` | Same list endpoint; parent, retired catalog and saved legacy goals retain distinct server-owned origins despite identical names |
 | `challenge-pinned.json`, `challenge-unpinned.json` | `POST`/`DELETE /api/challenges/goal:1/pin/`; self-scoped presentation preference, without progress or rewards |
@@ -255,6 +266,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `parent-reward-approved.json`, `parent-reward-delivered.json` | Distinct real-world approval and handover receipts, preserving approval audit and recording explicit delivery without another reward/payment |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
+| `auth-login-staff-parent.json`, `auth-me-staff-parent.json` | Password login and verified staff-parent identity, including read-only `is_staff: true` |
+| `auth-login-ordinary-parent.json`, `auth-me-ordinary-parent.json` | Password login and verified ordinary-parent identity, including read-only `is_staff: false` |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
@@ -632,6 +645,34 @@ the pinned editor and batch-mode commands.
 
 ## Update an intentional API change
 
+Authenticated current-user responses include the read-only boolean `is_staff`
+through `AuthenticatedUserSerializer`: password login, GET/PATCH `/auth/me/`,
+parent signup, and Google login exchange. Nested project/member identity shapes
+continue to use `UserSerializer`. This field lets React show staff-only global
+catalog controls; server `IsStaffParent` authorization remains authoritative.
+The real shared-auth producer covers staff, ordinary-parent and child identity,
+and the taxonomy retirement consumer opens the real Login/AuthProvider/Skills
+flow before exercising retire/restore. Self-profile PATCH and signup cannot
+change or grant staff status.
+
+Reversible taxonomy retirement uses `taxonomy-category-retired.json`,
+`taxonomy-category-restored.json`, `taxonomy-skills-active.json`,
+`taxonomy-skills-retired-management.json` and `taxonomy-tree-retired-history.json`.
+The real producer `config.tests.test_taxonomy_retirement_api_contract_fixtures`
+and React consumer `src/api/taxonomyRetirementContractFixtures.test.jsx` run in
+the required fixture job. Category/subject/skill responses add direct
+`is_retired` and inherited `available_for_new_choices`. Default list endpoints
+hide unavailable choices; `include_retired=true` includes them for management
+and retained selections. Tree/history responses retain the saved identity and
+XP. PATCH `is_retired` accepts true/false under the existing staff-parent and
+catalog ownership rules. Restoring a parent does not clear child retirement.
+
+Protected taxonomy deletion uses `taxonomy-delete-in-use.json`, produced by
+`config.tests.test_taxonomy_delete_api_contract_fixtures` and consumed by
+`src/api/taxonomyContractFixtures.test.jsx`. REST returns 409 with a readable
+`detail` and `code: taxonomy_in_use`; management retains the row and displays
+the explanation. Successful DELETE responses remain 204 without a JSON body.
+
 Review the server and affected React consumers first. Regenerate only through the
 backend suite so sample payloads cannot drift into invented shapes. In PowerShell,
 after configuring the test environment:
@@ -812,7 +853,7 @@ definitions. Retained legacy rows use `legacy:91`. Each goal reports server-owne
 `origin: parent|catalog|legacy`; catalog origin survives template retirement and
 legacy rows retain `legacy` regardless of their original author. Clients can group
 these for presentation without inferring origin from a name or pin. `target` and `progress` are
-decimal strings. Goal status is `upcoming`, `active`, `completed` or `expired`.
+decimal strings. Goal status is `upcoming`, `active`, `completed`, `expired` or `closed`.
 New catalog goals receive their full window on first automatic offer/evaluation,
 subject to cutover, template creation, badge and legacy cutoffs. Pending eligible
 saved work can anchor the first window; processed history does not replay, and
@@ -823,6 +864,64 @@ describes the activity filter and catalog eligibility. Catalog planning says
 (first two per day)”; parent-created goals count all valid matching records.
 The eligibility flag is private server state and is never authorable through the
 API. The action may include a movement type ID.
+
+`qualifying_triggers` supplies actual trigger names for presentation filters;
+`what_counts` remains the readable rule, including additional restrictions.
+Clients show the rule, target and saved period beneath themed titles instead of
+inferring requirements from a name. Deadline filters use the last included date
+in the saved timezone; they do not change server eligibility.
+
+`challenge-retried.json` and `challenges-retry-completed.json` exercise explicit
+retry through `POST /api/challenges/<occurrence_id>/retry/` with `{}`. An eligible
+unpaid expired one-time personal catalog challenge receives a new window, zero
+progress and its saved promise. Earlier facts and progress do not carry over.
+The predecessor occurrence is the retry identity: replay returns the same
+successor with HTTP 200 instead of creating another attempt; first creation is
+HTTP 201. Child self and parent same-family access use the saved goal owner.
+An ineligible attempt returns HTTP 409, while inaccessible IDs return HTTP 404.
+`challenges-retry-reward-unavailable.json` and
+`challenge-retry-reward-unavailable.json` preserve an expired saved item promise
+while reporting `retry.allowed: false`, `reason: reward_unavailable` and a 409
+`{"error": "reward_unavailable"}` for a new attempt. React explains why Try again
+is disabled and keeps that state if the rejection's follow-up refresh fails.
+Previously created successors still replay normally; accepted attempts retain
+their saved reward and completion behavior.
+
+The producer logs real movement before and after retry and verifies one actual
+challenge payout. Repeated requests and reads award nothing.
+
+Goal payloads expose `retry: {allowed, reason, latest_attempt_id}`, nullable
+`retry_of` and nullable `closed_reason`. Only an explicit retry opts an identity
+into the lifetime limit across equivalent automatic and legacy attempts. The
+first completed attempt earns its bonus once; other unpaid attempts close with
+`status: closed` and a reason, retaining their original progress and promise.
+A closed attempt has no award timestamp or fabricated paid receipt. Old accepted
+duplicate promises without an explicit retry retain their earlier behavior.
+Paid, recurring, parent-authored, cooperative and retired offers cannot open a
+new personal retry. Eligible expired catalog attempts remain discoverable beyond
+the bounded recent-history list.
+
+Recurring parent goals expose `goal_definition_id` and `schedule` with an integer
+`revision`, the current pause state, and a complete `next_week` setup. Other goals
+have no editable schedule. `PATCH /api/challenges/goals/<goal_definition_id>/schedule/`
+accepts the exact `expected_revision` and at least one of `paused` or `next_week`.
+The latter may change name, description, target, Coins, XP and skill tags; the
+activity, metric and unit remain fixed. The response is
+`{goal_definition_id, schedule}`. Stale revisions return HTTP 409 without a write.
+Only a same-family parent can change this schedule.
+The merged future setup uses the ordinary goal validator. A pure pause can still
+stop future promises if a previously selected skill was deleted; resuming or
+editing requires repairing that reference.
+
+`challenge-schedule-paused.json`, `challenge-schedule-edited.json` and
+`challenges-scheduled-week.json` bind pause, later resume and edited setup to
+real endpoints. Revisions take effect from the next Monday in the goal's saved
+timezone. Existing current and already accepted future occurrences keep their
+snapshots; paused unmaterialized weeks create no new promise, including after
+late approval. The producer verifies a skipped week, an edited later week, the
+unchanged original promise, and no payment from schedule changes or reads.
+Both new workflows use the existing challenge producer and React consumer
+modules in required API validation.
 
 Catalog image IDs are presentation only. `catalog_icon` is an approved asset ID
 or null, resolved by Django from `shared/catalog/icon-bindings.json` using exact
@@ -1094,6 +1193,9 @@ snapshot with their rule binding. Real setting drift marks historical evidence
 stale and blocks decisions without replacing saved report bodies. The quota,
 commitment and incubation fixtures are regenerated together against that model.
 
+The content-workbench item catalog includes read-only `effect_summary`, shared
+with authoritative item calculations. Its real Django producer and React consumer
+pin the rarity floor and preferred-food explanation alongside saved identity.
 
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed

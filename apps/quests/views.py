@@ -7,7 +7,7 @@ from config.permissions import IsParent
 from config.viewsets import get_child_or_404, child_not_found_response
 
 from .models import QuestDefinition, Quest
-from .queries import definitions_visible_to
+from .queries import active_system_definitions, definitions_visible_to
 from .availability import definition_is_available
 from .serializers import (
     DailyChallengeSerializer,
@@ -34,7 +34,7 @@ class AvailableQuestsView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        system_quests = [row for row in QuestDefinition.objects.filter(is_system=True).select_related(
+        system_quests = [row for row in active_system_definitions().select_related(
             "prerequisite_quest", "required_skill", "required_badge",
         ).prefetch_related(
             "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
@@ -137,6 +137,10 @@ class CreateQuestView(APIView):
                     trigger_filter=data.get("trigger_filter", {}),
                     created_by=request.user,
                 )
+                from .reference_locks import lock_filter_category
+                lock_filter_category(definition.trigger_filter)
+                from apps.rpg.taxonomy_references import admit_references
+                admit_references(Skill, [row["skill_id"] for row in skill_tag_rows])
 
                 # Skill tag fanout — dedup on skill_id; bulk_create.
                 if skill_tag_rows:

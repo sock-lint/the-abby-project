@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from apps.families.serializers import FamilySerializer
 from apps.families.services import FamilyService, FamilyServiceError
-from apps.projects.serializers import UserSerializer
+from apps.projects.serializers import AuthenticatedUserSerializer
 
 
 class SignupView(APIView):
@@ -42,7 +42,7 @@ class SignupView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user_data = UserSerializer(parent).data
+        user_data = AuthenticatedUserSerializer(parent).data
         user_data["token"] = token.key
         return Response(
             {

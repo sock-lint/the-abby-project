@@ -1,5 +1,6 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import StarRating from '../../components/StarRating';
+import { isTaxonomyAvailable } from '../../utils/taxonomy';
 
 // Journal tokens, not Tailwind's fuchsia ramp — the original text-fuchsia-200
 // was leftover dark-theme styling that sat at roughly 1:1 against parchment,
@@ -18,7 +19,7 @@ export default function AISuggestions({
 }) {
   const applyCategory = () => {
     const match = categories.find(
-      (c) => c.name.toLowerCase() === String(suggestions.category).toLowerCase(),
+      (c) => isTaxonomyAvailable(c) && c.name.toLowerCase() === String(suggestions.category).toLowerCase(),
     );
     if (match) setOverrides({ ...overrides, category_id: match.id });
   };

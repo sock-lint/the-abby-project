@@ -82,7 +82,7 @@ class EnrichStage:
 
         # Keep this import local so the pipeline module stays Django-agnostic.
         from apps.achievements.models import SkillCategory
-        categories = list(SkillCategory.objects.values_list("name", flat=True))
+        categories = list(SkillCategory.objects.filter(is_retired=False).values_list("name", flat=True))
 
         prompt = PROMPT.format(
             categories=", ".join(categories) or "(none)",

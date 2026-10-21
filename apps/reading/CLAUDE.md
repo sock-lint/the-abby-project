@@ -32,9 +32,14 @@ Replays, corrections and deletion do not change shelf status, and existing
 history is not backfilled. Book creation retry payloads retain their original
 status even after this automatic change.
 
-Every create requires a UUID `client_request_id`. All reading writes lock the
-owner user row, then recheck family membership. Each model uniquely binds the
-owner and UUID. `create_payload` retains the normalized original request so an
+Every create requires a UUID `client_request_id`. Reading writes and MCP reads
+hold family, then sorted actor/owner member locks while checking the current
+actor's role, staff status, activity and family membership after waiting. Create
+and replay responses materialize their book and reward fields before releasing
+those locks. Parents can still maintain an inactive child's saved history.
+Each model uniquely binds
+the owner and UUID. `create_payload` retains
+the normalized original request so an
 identical retry returns the current record even after a correction. Conflicting
 reuse returns 400. An omitted session date stays omitted from that payload,
 allowing retries across midnight without changing the original entry date.
@@ -62,6 +67,13 @@ hook leaves the previous activity pipeline unchanged. See
 Migration `0003` preserves existing live session UUIDs as zero-credit identities;
 it reads only owner, UUID and date, without creating progress or awards. Requests
 deleted before that migration have no surviving identity evidence to preserve.
+
+MCP reading maintenance uses these same shared correction and deletion services.
+Parents explicitly choose a same-family child; children select only themselves.
+Book and session detail reads and signed, paginated session history are saved-state
+reads. Confirmed edits preserve omitted fields and the original create identity;
+confirmed removal of a book with sessions returns a history conflict. Deleting a
+session retains its daily receipt and UUID reward credit, including on later retries.
 
 `ReadingRewardService.credit_new_session` runs only after a new session insert,
 under the same account lock as every reading write. The inserted log, request

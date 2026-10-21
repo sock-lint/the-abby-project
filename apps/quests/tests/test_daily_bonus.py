@@ -21,7 +21,7 @@ class AutomaticDailyBonusTests(TestCase):
     def setUp(self):
         family = make_family("Daily bonus", parents=[{"username": "dailyparent"}], children=[{"username": "dailychild"}])
         self.child = family.children[0]
-        category = SkillCategory.objects.create(name="Physical")
+        category = SkillCategory.objects.create(name="Life Skills")
         self.skill = Skill.objects.create(name="Persistence", category=category)
         self.running = MovementType.objects.create(name="Run", slug="daily-run")
         MovementTypeSkillTag.objects.create(movement_type=self.running, skill=self.skill, xp_weight=1)

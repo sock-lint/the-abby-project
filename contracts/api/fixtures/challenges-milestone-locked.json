@@ -4,6 +4,18 @@
       "id": "goal:1",
       "name": "Reading Companion",
       "description": "Three daily Reading Adventures.",
+      "goal_definition_id": 1,
+      "qualifying_triggers": [
+        "reading_logged"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_expired",
+        "latest_attempt_id": "goal:1"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,
@@ -42,6 +54,18 @@
       "id": "goal:2",
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
+      "goal_definition_id": 2,
+      "qualifying_triggers": [
+        "movement_session"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_expired",
+        "latest_attempt_id": "goal:2"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,
@@ -137,6 +161,7 @@
       },
       "is_repeatable": false,
       "is_system": true,
+      "is_cooperative": false,
       "created_at": "2026-10-14T12:00:00-07:00",
       "catalog_available": true
     }

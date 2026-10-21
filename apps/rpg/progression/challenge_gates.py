@@ -137,7 +137,8 @@ def validate_challenge_gate_catalog(config, catalog):
 def challenge_gate_choices(catalog):
     return {
         "quests": [{"id": q.pk, "name": q.name, "is_repeatable": q.is_repeatable} for q in catalog.quests],
-        "skills": [{"id": s.pk, "name": s.name, "category": s.category.name} for s in catalog.skills.values()],
+        "skills": [{"id": s.pk, "name": s.name, "category": s.category.name}
+                   for s in catalog.skills.values() if getattr(s, "available_for_new_choices", True)],
     }
 
 

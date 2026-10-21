@@ -183,37 +183,41 @@ class BundledProgressionContentTests(TestCase):
     def test_default_load_includes_registered_additive_packs_with_stable_namespaces(self):
         calls = []
         class Pack:
-            def __init__(self, path, namespace):
-                calls.append((Path(path).name, namespace))
+            def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
+                calls.append((Path(path).name, namespace, defer_retired_references))
             def load(self, **kwargs):
                 pass
         with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
             call_command("loadrpgcontent", stdout=StringIO())
-        self.assertEqual(calls, [("initial", ""), ("reading-adventures", "reading-adventures-"),
-                                 ("collector-reading-2026", "collector-reading-2026-")])
+        self.assertEqual(calls, [("initial", "", True), ("reading-adventures", "reading-adventures-", True),
+                                 ("collector-reading-2026", "collector-reading-2026-", True)])
 
     def test_explicit_pack_remains_single_and_does_not_inject_default_extras(self):
         calls = []
         class Pack:
-            def __init__(self, path, namespace):
-                calls.append((Path(path).name, namespace))
+            def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
+                calls.append((Path(path).name, namespace, defer_retired_references))
             def load(self, **kwargs):
                 pass
         with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
             call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
-        self.assertEqual(calls, [("initial", "")])
+        self.assertEqual(calls, [("initial", "", False)])
 
     def test_later_pack_failure_rolls_back_the_entire_default_batch(self):
+        calls = []
         class Pack:
-            def __init__(self, path, namespace):
+            def __init__(self, path, namespace, *, defer_retired_references, startup_deferrals=None):
                 self.name = Path(path).name
+                calls.append((self.name, namespace, defer_retired_references))
             def load(self, **kwargs):
                 if self.name == "collector-reading-2026":
                     raise ContentPackError("invalid final pack")
                 ItemDefinition.objects.create(slug=self.name, name=self.name, item_type="food")
         with patch("apps.rpg.management.commands.loadrpgcontent.ContentPack", Pack), patch.object(Path, "is_dir", return_value=True):
-            with self.assertRaises(CommandError):
+            with self.assertRaisesMessage(CommandError, "invalid final pack"):
                 call_command("loadrpgcontent", stdout=StringIO())
+        self.assertEqual(calls, [("initial", "", True), ("reading-adventures", "reading-adventures-", True),
+                                 ("collector-reading-2026", "collector-reading-2026-", True)])
         self.assertFalse(ItemDefinition.objects.exists())
 
     def test_real_default_reload_installs_paths_once_with_their_cross_pack_gates(self):

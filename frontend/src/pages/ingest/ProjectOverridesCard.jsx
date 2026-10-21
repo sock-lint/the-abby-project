@@ -1,5 +1,6 @@
 import ParchmentCard from '../../components/journal/ParchmentCard';
 import { TextField, SelectField, TextAreaField } from '../../components/form';
+import TaxonomyOptions from '../../components/form/TaxonomyOptions';
 
 /**
  * The "Review & Edit" card — title/description from the parsed draft, plus
@@ -38,9 +39,7 @@ export default function ProjectOverridesCard({
           <option value="">
             {draft.category_hint ? `Suggested: ${draft.category_hint}` : 'None'}
           </option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-          ))}
+          <TaxonomyOptions entries={categories} selected={overrides.category_id} kind="category" />
         </SelectField>
         <SelectField label="Difficulty" value={overrides.difficulty} onChange={setOverride('difficulty')}>
           {[1, 2, 3, 4, 5].map((d) => (

@@ -1,9 +1,11 @@
 """Homework-related MCP tools."""
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 from django.db import transaction
+from django.http import Http404
 
 from apps.homework.models import (
     HomeworkAssignment,
@@ -11,6 +13,7 @@ from apps.homework.models import (
     HomeworkSubmission,
     HomeworkTemplate,
 )
+from apps.homework.serializers import HomeworkTemplateSerializer
 from apps.homework.services import HomeworkError, HomeworkService
 
 from ..context import (
@@ -39,19 +42,25 @@ from ..server import tool
 from ..shapes import homework_assignment_to_dict, homework_submission_to_dict, many
 
 
-@tool()
-@safe_tool
-def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
-    """List homework assignments. Parents see all; children see their own."""
-    user = get_current_user()
-
+def _readable_assignments(user):
+    """Apply the same active, self/family visibility as the REST queryset."""
     qs = HomeworkAssignment.objects.filter(is_active=True).select_related(
         "assigned_to", "created_by",
     ).prefetch_related("skill_tags__skill", "submissions")
-
     if user.role == "child":
-        qs = qs.filter(assigned_to=user)
-    elif params.assigned_to_id:
+        return qs.filter(assigned_to=user)
+    if user.role == "parent" and user.family_id is not None:
+        return qs.filter(assigned_to__family_id=user.family_id)
+    return qs.none()
+
+
+@tool()
+@safe_tool
+def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
+    """List active homework in the parent's family, or the child's own work."""
+    user = get_current_user()
+    qs = _readable_assignments(user)
+    if user.role == "parent" and params.assigned_to_id is not None:
         qs = qs.filter(assigned_to_id=params.assigned_to_id)
 
     if params.subject:
@@ -63,14 +72,10 @@ def list_homework(params: ListHomeworkIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def get_homework(params: GetHomeworkIn) -> dict[str, Any]:
-    """Get details for a single homework assignment."""
-    get_current_user()
+    """Read an active assignment visible to the caller; inaccessible IDs are not found."""
+    user = get_current_user()
     try:
-        assignment = HomeworkAssignment.objects.select_related(
-            "assigned_to", "created_by",
-        ).prefetch_related(
-            "skill_tags__skill", "submissions",
-        ).get(pk=params.assignment_id)
+        assignment = _readable_assignments(user).get(pk=params.assignment_id)
     except HomeworkAssignment.DoesNotExist:
         raise MCPNotFoundError(f"Assignment {params.assignment_id} not found.")
     return homework_assignment_to_dict(assignment)
@@ -258,6 +263,9 @@ def set_homework_skill_tags(params: SetHomeworkSkillTagsIn) -> dict[str, Any]:
     if missing:
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=assignment.skill_tags.values_list("skill_id", flat=True))
         HomeworkSkillTag.objects.filter(assignment=assignment).delete()
         HomeworkSkillTag.objects.bulk_create([
             HomeworkSkillTag(
@@ -313,7 +321,6 @@ def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
 
 
 def _template_to_dict(template: HomeworkTemplate) -> dict[str, Any]:
-    from apps.homework.serializers import HomeworkTemplateSerializer
     from ..shapes import to_plain
 
     return to_plain(HomeworkTemplateSerializer(template).data)
@@ -348,14 +355,9 @@ def get_homework_template(params: GetHomeworkTemplateIn) -> dict[str, Any]:
 def create_homework_template(params: CreateHomeworkTemplateIn) -> dict[str, Any]:
     """Create a reusable homework template (parent-only)."""
     parent = require_parent()
-    template = HomeworkTemplate.objects.create(
-        title=params.title,
-        description=params.description,
-        subject=params.subject,
-        effort_level=params.effort_level,
-        created_by=parent,
-        skill_tags=[t.model_dump() for t in params.skill_tags],
-    )
+    serializer = HomeworkTemplateSerializer(data=params.model_dump(), context={"request": SimpleNamespace(user=parent)})
+    serializer.is_valid(raise_exception=True)
+    template = serializer.save(created_by=parent)
     return _template_to_dict(template)
 
 
@@ -373,11 +375,15 @@ def update_homework_template(params: UpdateHomeworkTemplateIn) -> dict[str, Any]
     data = params.model_dump(
         exclude={"template_id", "skill_tags"}, exclude_unset=True,
     )
-    for field, value in data.items():
-        setattr(template, field, value)
     if params.skill_tags is not None:
-        template.skill_tags = [t.model_dump() for t in params.skill_tags]
-    template.save()
+        data["skill_tags"] = [tag.model_dump() for tag in params.skill_tags]
+    serializer = HomeworkTemplateSerializer(template, data=data, partial=True,
+                                            context={"request": SimpleNamespace(user=parent)})
+    serializer.is_valid(raise_exception=True)
+    try:
+        template = serializer.save()
+    except Http404 as error:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.") from error
     return _template_to_dict(template)
 
 
