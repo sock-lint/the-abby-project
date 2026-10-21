@@ -4,7 +4,11 @@ import { once } from 'node:events';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
-import { chooseDropdown } from './dropdown-helpers.js';
+import { chooseDropdown as chooseSharedDropdown } from './dropdown-helpers.js';
+
+// Real SwiftShader scene changes measured up to 12.5s before click completion.
+// Keep actionability checks and the shared helper's default for other suites.
+const chooseDropdown = (control, selection) => chooseSharedDropdown(control, selection, { timeout: 30_000 });
 
 const lock = JSON.parse(readFileSync(new URL('../assets.lock.json', import.meta.url), 'utf8'));
 function installedManifest(family) {
