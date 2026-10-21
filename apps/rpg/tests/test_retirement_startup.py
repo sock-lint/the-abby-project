@@ -284,3 +284,20 @@ class ExplicitRetirementMarkerTests(TestCase):
         call_command("retire_unused_rpg_content", "--dry-run", stdout=StringIO())
         self.assertTrue(ItemDefinition.objects.filter(pk=item.pk).exists())
         self.assertFalse(self.marker_applied())
+
+    def test_explicit_retry_locks_the_marker_before_retirement_locks(self):
+        # Startup takes the marker before user/catalog locks; the explicit
+        # retry must use the same order so overlapping runs cannot deadlock.
+        from apps.rpg import retired_catalog
+        from apps.rpg.models import RPGContentRetirement
+        real = retired_catalog.retire_unused_catalog
+        seen = []
+
+        def observe(*args, **kwargs):
+            seen.append(RPGContentRetirement.objects.filter(key=retired_catalog.RETIREMENT_KEY).exists())
+            return real(*args, **kwargs)
+
+        with patch.object(retired_catalog, "retire_unused_catalog", side_effect=observe):
+            call_command("retire_unused_rpg_content", stdout=StringIO())
+        self.assertEqual(seen, [True])
+        self.assertTrue(self.marker_applied())

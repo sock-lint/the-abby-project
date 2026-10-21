@@ -76,14 +76,15 @@ def retire_unused_catalog_explicitly():
     """Apply the strict operator retry and complete the one-time transition.
 
     Without the marker, every later default startup would repeat the cleanup
-    and delete content re-authored with an exact retired identity.
+    and delete content re-authored with an exact retired identity. The marker
+    is locked before the user/catalog locks, matching startup's order.
     """
     from django.utils import timezone
     from .models import RPGContentRetirement
 
-    report = retire_unused_catalog()
     marker, _ = RPGContentRetirement.objects.get_or_create(key=RETIREMENT_KEY)
     marker = RPGContentRetirement.objects.select_for_update().get(pk=marker.pk)
+    report = retire_unused_catalog()
     if marker.applied_at is None:
         marker.applied_at = timezone.now()
         marker.save(update_fields=["applied_at"])
