@@ -142,7 +142,7 @@ def _proposal(actor, section, changes):
             raise ContentPackError("Editorial slugs must be unique bounded lowercase identities.")
         seen.add(slug)
         if slug in owners and owners[slug] != actor.family_id:
-            raise ContentPackError("This editorial entry is owned by another family or needs reconciliation.")
+            raise ContentAuthorPermissionDenied("This editorial entry is owned by another family or needs reconciliation.")
         fields = LORE_FIELDS if section == "lorebook" else AFFIRMATION_FIELDS
         allowed = set(fields) | ({"mechanics"} if section == "lorebook" else {"is_active"})
         if not isinstance(values, dict) or not values or set(values) - allowed:

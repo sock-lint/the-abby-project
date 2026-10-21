@@ -4,6 +4,7 @@ from datetime import timedelta
 import json
 from uuid import uuid4
 
+from asgiref.sync import async_to_sync
 from django.test import TestCase
 from django.utils import timezone
 
@@ -14,6 +15,7 @@ from apps.mcp_server.editorial_schemas import (
     EditorialRevisionIn, ListEditorialDraftsIn, PublishEditorialDraftIn, SaveEditorialDraftIn,
 )
 from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
+from apps.mcp_server.server import mcp
 from apps.mcp_server.tools import editorial as tools
 from apps.rpg.content.editorial import editorial_catalog
 from apps.rpg.models import RPGEditorialDraft, RPGEditorialOverride
@@ -103,9 +105,30 @@ class EditorialPublicationTests(TestCase):
         self.publish(draft)
         with override_user(self.other):
             other = tools.create_editorial_draft(CreateEditorialDraftIn(section="lorebook", name="Other"))
-            with self.assertRaises(MCPValidationError):
+            with self.assertRaises(MCPPermissionDenied):
                 tools.save_editorial_draft(SaveEditorialDraftIn(draft_id=other["id"], revision=1,
                     changes=[{"slug": "duties", "values": {"title": "Other edit"}}]))
+
+    def test_wire_rejects_other_familys_published_entry_as_permission_denied_without_writes(self):
+        self.publish(self.preview(self.draft()))
+        with override_user(self.other):
+            other = tools.create_editorial_draft(CreateEditorialDraftIn(section="lorebook", name="Other"))
+        before = (list(RPGEditorialDraft.objects.order_by("pk").values()),
+                  list(RPGEditorialOverride.objects.order_by("pk").values()))
+        with override_user(self.other):
+            response = async_to_sync(mcp.call_tool)("save_editorial_draft", {
+                "params": {"draft_id": other["id"], "revision": 1,
+                           "changes": [{"slug": "duties", "values": {"title": "Other edit"}}]},
+                "confirmation": True,
+            })
+        payload = response.structuredContent if hasattr(response, "structuredContent") else response[1]
+        self.assertEqual(payload, {"error": {
+            "code": "permission_denied",
+            "message": "This editorial entry is owned by another family or needs reconciliation.",
+            "retryable": False, "field_errors": {},
+        }})
+        self.assertEqual((list(RPGEditorialDraft.objects.order_by("pk").values()),
+                          list(RPGEditorialOverride.objects.order_by("pk").values())), before)
 
     def test_revisions_catalog_changes_expiry_and_wrong_preview_cannot_publish(self):
         draft = self.preview(self.draft())
