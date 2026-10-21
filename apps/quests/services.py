@@ -11,7 +11,8 @@ logger = logging.getLogger(__name__)
 
 # Damage values per trigger type (for boss fights).
 #
-# QUEST_COMPLETE and PERFECT_DAY are intentionally absent: they fire as
+# CREATION_LOGGED is intentionally absent: child-authored creations do not
+# deal boss damage. QUEST_COMPLETE and PERFECT_DAY are also absent: they fire as
 # *rewards* for existing work, not new effort — so they don't count as
 # damage against a separate boss quest. If a future design wants them to
 # cross-count, add them here explicitly.
@@ -280,7 +281,8 @@ class QuestService:
         """Record quest progress from a completed task.
 
         Returns dict with: quest_id, quest_name, damage_dealt, new_progress, completed (bool), rewards (if completed).
-        Returns None if no active quest or trigger doesn't match filter.
+        Returns None if no active quest, the trigger doesn't match its filter,
+        or the trigger is ineligible for boss damage.
         """
         from apps.quests.models import Quest, QuestParticipant
 
@@ -350,7 +352,11 @@ class QuestService:
 
         # Calculate damage/progress
         if definition.quest_type == "boss":
-            base_damage = TRIGGER_DAMAGE.get(trigger_type, 10)
+            base_damage = TRIGGER_DAMAGE.get(trigger_type, 0)
+            # Excluded triggers must not record boss activity, refresh rage
+            # timestamps or finish a campaign already at its target.
+            if base_damage <= 0:
+                return None
             # Scale by hours for clock_out
             if trigger_type == TriggerType.CLOCK_OUT and "hours" in context:
                 damage = int(base_damage * context["hours"])
