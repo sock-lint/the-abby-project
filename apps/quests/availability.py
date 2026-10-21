@@ -9,12 +9,15 @@ from apps.rpg.catalog_support import egg_species, item_is_available, pet_is_avai
 ELEMENTAL_POTIONS = frozenset({"fire", "ice"})
 
 
-def elemental_potion_ids(items):
-    """Resolve the typed potion promise without consulting today's art policy."""
+def promised_potion_ids(items):
+    """Every typed potion a companion bundle promises, Base included.
+
+    A bundle's egg stays useful until each promised grown appearance is owned;
+    another color of the same species does not make the egg a duplicate.
+    """
     return {
         item.potion_type_id for item in items
         if item.item_type == "potion" and item.potion_type_id
-        and item.potion_type.slug in ELEMENTAL_POTIONS
     }
 
 

@@ -186,7 +186,7 @@
       "freshness": "current",
       "binding": {
         "engine_version": "2026-10-20.3",
-        "rules_fingerprint": "52c66b658ce40bd8c4c12f71f9cf9e269e6780c1aaf90d8ed3d5a72c9380b180",
+        "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "catalog_fingerprint": "06383016e29f7f178f5f9bce857c18c3829cdbf0a8d0537c5663afa97dae964d",
         "source_commit": "unavailable"
@@ -271,7 +271,7 @@
       },
       "binding": {
         "source_commit": "unavailable",
-        "rules_fingerprint": "52c66b658ce40bd8c4c12f71f9cf9e269e6780c1aaf90d8ed3d5a72c9380b180",
+        "rules_fingerprint": "8151797889e1cefaf06fb07d2567b7f896d00e70d04d1bfe06ab9fed48a297c2",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "policy": "installed_uncapped",
         "scope": "own_family_recent_children"

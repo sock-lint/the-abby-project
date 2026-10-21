@@ -6,21 +6,23 @@ from django.db import transaction
 
 
 def egg_reward_is_duplicate(user, item, companion_items):
-    """Elemental bundles retain their egg until that exact grown color is owned.
+    """Bundles retain their egg until every promised grown color is owned.
 
-    Existing non-elemental promises keep their established species-wide egg
-    salvage. The companion items come from the accepted snapshot, so later
-    catalog retirement cannot change which potion the egg was intended for.
+    A Base or elemental potion in the bundle names the appearance the egg is
+    for, so owning only another color of the species keeps the egg. Eggs
+    promised without a typed potion keep the established species-wide salvage.
+    The companion items come from the accepted snapshot, so later catalog
+    retirement cannot change which potion the egg was intended for.
     """
     from apps.pets.models import UserMount
-    from .availability import elemental_potion_ids
+    from .availability import promised_potion_ids
 
     if item.item_type != "egg" or item.pet_species_id is None:
         return False
     mounts = UserMount.objects.filter(user=user, species_id=item.pet_species_id)
-    potion_ids = elemental_potion_ids(companion_items)
+    potion_ids = promised_potion_ids(companion_items)
     if potion_ids:
-        # An egg remains useful if any of the promised elemental forms is new.
+        # An egg remains useful if any of the promised grown forms is new.
         return potion_ids.issubset(set(mounts.values_list("potion_id", flat=True)))
     return mounts.exists()
 

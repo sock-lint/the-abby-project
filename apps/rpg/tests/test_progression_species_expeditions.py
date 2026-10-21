@@ -127,8 +127,20 @@ class ElementalChallengeProjectionTests(SimpleTestCase):
         self.assertEqual(trial.inventory[1], 1)
         self.assertEqual((trial.inventory[5], trial.inventory[6]), (1, 1))
 
-    def test_base_bundle_keeps_existing_species_wide_salvage(self):
+    def test_base_bundle_keeps_egg_while_only_another_color_is_grown(self):
         trial = self.trial(rewards=(1, 3), owned=((1, 2),))
+        trial.advance_challenges("reading_logged", {})
+        self.assertEqual(trial.inventory[1], 1)
+        self.assertEqual(trial.source_totals["challenges_salvage"]["coins"], 0)
+
+    def test_base_bundle_salvages_once_the_base_appearance_is_grown(self):
+        trial = self.trial(rewards=(1, 3), owned=((1, 1),))
+        trial.advance_challenges("reading_logged", {})
+        self.assertEqual(trial.inventory[1], 0)
+        self.assertEqual(trial.source_totals["challenges_salvage"]["coins"], 7)
+
+    def test_egg_without_a_promised_potion_keeps_species_wide_salvage(self):
+        trial = self.trial(rewards=(1,), owned=((1, 2),))
         trial.advance_challenges("reading_logged", {})
         self.assertEqual(trial.inventory[1], 0)
         self.assertEqual(trial.source_totals["challenges_salvage"]["coins"], 7)

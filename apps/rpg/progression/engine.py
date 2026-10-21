@@ -30,7 +30,7 @@ from apps.pets.expeditions import ExpeditionService, TIER_CONFIG
 from apps.pets.lifecycle import growth_thresholds
 from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
-from apps.quests.availability import elemental_potion_ids
+from apps.quests.availability import promised_potion_ids
 from apps.quests.services import QuestService, TRIGGER_DAMAGE
 from apps.quests import goals
 from apps.quests.models import DailyBonus
@@ -303,7 +303,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 _award_perfect_day,
                 food_base_growth,
                 growth_thresholds,
-                elemental_potion_ids,
+                promised_potion_ids,
                 process_daily_bonus,
                 ClockService.clock_out,
                 PetService.feed_pet,
@@ -363,7 +363,7 @@ def coverage(catalog):
             "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
             "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
-            "Elemental challenge bundles keep their egg until every promised grown elemental appearance is owned; other challenge eggs retain species-wide duplicate salvage",
+            "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
             "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
             "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
@@ -1144,7 +1144,7 @@ class Trial:
             self.award_xp(q.xp_reward, list(q.skill_tags.all()), "challenges")
             self.evaluate_badges(scopes={"quest", "coin", "skill_xp", "badges"})
             rewards = tuple(q.reward_items.all())
-            promised_potions = elemental_potion_ids(
+            promised_potions = promised_potion_ids(
                 self.catalog.items[row.item_id] for row in rewards if row.item_id in self.catalog.items
             )
             for row in rewards:
