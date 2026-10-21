@@ -136,6 +136,7 @@ def validate_content(parsed, *, strict=True):
                         if field in entry:
                             if section == "quests" and field == "duration_days" and entry[field] is None:
                                 if (entry.get("quest_type") != "collection" or entry.get("is_repeatable", False)
+                                        or entry.get("is_cooperative", False)
                                         or entry.get("is_system", True) is not True
                                         or entry.get("trigger_filter", {}) != {"allowed_triggers": ["reading_logged"]}):
                                     raise ValidationError("Untimed challenges must be one-time global reading collections.")

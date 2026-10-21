@@ -108,7 +108,9 @@ with read-only catalog metadata and server-confirmed `milestone_eligibility`.
 An unlocked row still waits for the next qualifying saved reading receipt;
 it has no accepted window, countdown or pinnable goal identity. Rows whose
 one-time prerequisite can no longer finish (its only accepted window ended
-uncompleted, directly or through a gated predecessor chain) are omitted;
+uncompleted, directly or through a gated predecessor chain, and no explicit
+retry is currently allowed) are omitted; an expired unpaid prerequisite that
+can still be retried keeps its successors discoverable.
 `milestone_eligibility.prerequisite_unavailable` owns that rule. Reading this
 metadata awards nothing. New milestone-gated solo, co-op and scroll starts are
 refused after explaining any unmet requirement: a manual legacy start cannot
@@ -126,6 +128,7 @@ Keep list/process/pin, prerequisite availability and acquisition queries null
 safe; never invent a distant date or treat null as expired. Parent-created
 measurable goals and legacy accepted quests keep their existing timed contract.
 New legacy solo/co-op starts and reroll selections exclude untimed definitions.
+Untimed definitions cannot be shared family challenges (`is_cooperative`).
 The schema migration changes no saved dates or rewards. Reading Companion and
 Voyager activation is the separate reviewed Workbench draft described in
 `docs/operations/reading-voyager-milestones.md`.

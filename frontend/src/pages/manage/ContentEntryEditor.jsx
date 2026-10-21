@@ -31,7 +31,7 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
     hasAdditionalFilters = !additionalFilters || typeof additionalFilters !== 'object' || Array.isArray(additionalFilters) || Object.keys(additionalFilters).length > 0;
   } catch { /* Invalid filters must be corrected before enabling untimed challenges. */ }
   const selectedTriggers = Array.isArray(values.trigger_filter?.allowed_triggers) ? values.trigger_filter.allowed_triggers : [];
-  const canBeUntimed = values.quest_type === 'collection' && !values.is_repeatable
+  const canBeUntimed = values.quest_type === 'collection' && !values.is_repeatable && !values.is_cooperative
     && selectedTriggers.length === 1 && selectedTriggers[0] === 'reading_logged' && !hasAdditionalFilters;
   const triggerChoices = [...new Set([...supportedTriggers.keys(), ...selectedTriggers])];
   const rewardItems = values.reward_items ?? [];

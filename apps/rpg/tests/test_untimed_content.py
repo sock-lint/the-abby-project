@@ -68,6 +68,15 @@ class UntimedContentTests(TestCase):
     def test_content_rejects_null_repeatable_boss_or_nonreading_rules(self):
         base={"name": "Invalid", "quest_type": "collection", "target_value": 3, "duration_days": None,
               "trigger_filter": {"allowed_triggers": ["reading_logged"]}}
-        for edit in ({"is_repeatable": True}, {"quest_type": "boss"}, {"trigger_filter": {"allowed_triggers": ["habit_log"]}}):
+        for edit in ({"is_repeatable": True}, {"quest_type": "boss"}, {"trigger_filter": {"allowed_triggers": ["habit_log"]}},
+                     {"is_cooperative": True}):
             with self.subTest(edit=edit), self.assertRaises(ContentPackError):
                 validate_content({"quests": {"quests": [{**base, **edit}]}})
+
+    def test_workbench_cannot_publish_an_untimed_shared_family_challenge(self):
+        draft = create_draft(self.actor, "Untimed shared")
+        with self.assertRaisesMessage(ContentPackError, "No deadline is supported only"):
+            save_draft(self.actor, draft["id"], draft["revision"], [{"section": "quests", "object_id": self.quest.pk,
+                "key": "untimed-reading", "values": {"duration_days": None, "is_cooperative": True}}])
+        self.quest.refresh_from_db()
+        self.assertEqual((self.quest.duration_days, self.quest.is_cooperative), (14, False))

@@ -75,7 +75,10 @@ challenge card, or the Challenges page. A child who misses its three readings
 in that window may explicitly retry it; reading or opening the page cannot
 start that retry. The selected untimed definition removes that deadline: a
 child can finish three qualifying Adventures after a late start or a long gap.
-An untimed promise never expires, so it is never offered a retry.
+An untimed promise never expires, so it is never offered a retry. A child
+whose earlier timed Companion window already expired keeps that saved promise:
+an explicit retry opens another window with the same 14-day span, not the
+untimed definition.
 Previously accepted timed Companion promises retain their saved deadline; this
 schema migration does not reopen, extend or pay those saved rows. The existing
 automatic-tracking cutover can create a child's first catalog Companion goal

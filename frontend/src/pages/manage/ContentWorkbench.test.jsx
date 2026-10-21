@@ -66,6 +66,15 @@ describe('RPG content workbench', () => {
     expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
   });
 
+  it('does not offer no deadline for a shared family challenge', async () => {
+    const current = metadata.catalog.quests[0];
+    setup({ ...metadata, catalog: { ...metadata.catalog, quests: [{ ...current, values: { ...current.values, is_cooperative: true } }] } });
+    const { user } = renderWithProviders(<ContentWorkbench />);
+    await openDraft(user); await openChallenge(user);
+    expect(screen.getByRole('checkbox', { name: 'Shared family challenge' })).toBeChecked();
+    expect(screen.getByRole('checkbox', { name: 'No deadline' })).toBeDisabled();
+  });
+
   it('saves exact challenge and named skill milestone IDs while keeping reward XP tags and publication separate', async () => {
     const prerequisite = { id: 10, name: 'Reading Companion', is_system: true, coin_reward: 0, xp_reward: 0 };
     const milestoneMetadata = { ...metadata, catalog: { ...metadata.catalog, quests: [...metadata.catalog.quests, prerequisite] } };

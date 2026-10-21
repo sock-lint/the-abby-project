@@ -79,7 +79,7 @@ function ScopedFamilyChallengeForm({ children, token, onAssigned }) {
           {!pending && !error && !catalog.length && <p className="font-body text-body text-ink-secondary">No family challenges are available right now.</p>}
           {selected && <section aria-label="Family challenge preview" className="space-y-2 rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3">
             <p className="font-body text-body text-ink-primary">{selected.description}</p>
-            <p className="font-body text-caption text-ink-secondary">Shared target: {goalNumber(selected.target_value)} {selected.quest_type === 'boss' ? 'damage' : 'activities'} · {selected.duration_days} days</p>
+            <p className="font-body text-caption text-ink-secondary">Shared target: {goalNumber(selected.target_value)} {selected.quest_type === 'boss' ? 'damage' : 'activities'} · {selected.duration_days === null ? 'No deadline' : `${selected.duration_days} days`}</p>
             <p className="font-body text-caption text-ink-secondary">Completion reward for each child: {selected.coin_reward} coins · {selected.xp_reward} XP</p>
             {selected.reward_items?.length > 0 && <ul aria-label="Reward items for each child" className="space-y-2">
               {selected.reward_items.map((item) => <li key={item.id || item.item}><RewardItem item={item} /></li>)}
