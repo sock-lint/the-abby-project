@@ -13,23 +13,27 @@ only. Fire/Ice potions remain excluded from random pools and their four
 one-time challenges guarantee exact egg/potion bundles. The exact canonical
 asset release is verified; application rollout uses ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
-Authored YAML and database rows remain intact; artwork filenames and generic
-icons do not establish supported acquisition.
+Artwork filenames and generic icons do not establish supported acquisition.
+The shipped roster contains fifteen families. The owner's unused-content
+retirement removes the seventeen original species/eggs, Shadow/Golden/Cosmic
+potions and known unsupported pet accessories. Base, Fire and Ice definitions
+remain; Fire/Ice acquisition still requires their separately approved art policy.
 
 `ItemDefinitionSerializer.catalog_available` distinguishes offers from saved
 ownership. New item/cosmetic catalogs omit unavailable rows; owned inventory
 and cosmetic reads retain them, without blocked hatch/equip actions. Frames,
 Titles and valid Covers are implemented DOM cosmetics. Pet accessories have
-no supported fitted art: new grants and equip are rejected, an existing active
-selection is preserved, and unequip is allowed. Avatar appearance choices
+no supported fitted art: new grants and equip are rejected. Cleanup clears
+equipped references to the explicitly retired items. Avatar appearance choices
 remain separate saved presentation preferences.
 
 Drop and mystery/lucky-dip pools filter before selection. An empty eligible
 pool cannot grant an unsupported item; random consumable use fails without
 consuming the box/dip when no eligible reward exists. Quest completion skips
 unsupported item grants without substituting Coins, while keeping authored
-XP/coin rewards. Previously committed rewards, ownership and locked expedition
-loot are preserved through their existing reconciliation/claim paths.
+XP/coin rewards. Outside the exact unused-content retirement list, previously
+committed rewards, ownership and locked expedition loot keep their existing
+reconciliation/claim paths.
 `force_drop` and hatch-ingredient helpers use the same policy.
 
 The production registry is immutable by default. A scoped
@@ -90,7 +94,7 @@ Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
 the existing factual Challenge engine, with no extra Coins or XP.
-- `SpriteAsset` (runtime-authored sprite catalog — slug + ImageField + animation metadata + authoring inputs `prompt / original_intent / motion / style_hint / tile_size / reference_image_url` — persisted so reroll can replay them).
+- `SpriteAsset` (runtime-authored sprite catalog — slug + ImageField + animation metadata + authoring inputs `prompt / original_intent / motion / style_hint / tile_size / reference_image_url` — retained as historical metadata; no in-app generation or reroll).
 
 ## Services (`apps/rpg/services.py`)
 - `StreakService`, `DropService`, `CosmeticService`, `ConsumableService`, `GameLoopService` (central orchestrator).
@@ -190,7 +194,7 @@ best-effort policy and leave the quest retryable.
   structurally unreachable targets and expired windows remain separate from
   playable content. Never write these policies into live challenge definitions.
 - `/api/sprites/catalog/` (`SpriteCatalogView`, public, ETag-cached) — read API.
-- Parent-only admin CRUD at `/api/sprites/admin/*` in `sprite_admin_views.py` powers the `/manage → Codex → Sprites` panel.
+- Compatibility admin endpoints at `/api/sprites/admin/*` remain in `sprite_admin_views.py`; Content catalog no longer exposes sprite administration.
 - `POST /api/inventory/<item_id>/use/` — consume one consumable.
 - `POST /api/character/trophy/` — set/clear the active trophy badge.
 - `POST /api/character/avatar/` — replace the authenticated account's saved Archer appearance with strict supported options; returns the full character, defaults omitted options, and changes no earned state. See `avatar.py` and `tests/test_avatar.py`.
@@ -235,7 +239,7 @@ host bind mount over `content/rpg/packs/` would otherwise hide them at startup.
 
 - **Prepared sprite artwork**: AI sprite generation was retired on October 17, 2026. There is no generation, reroll, prompt-refinement or playbook implementation, Gemini configuration, or image-generation SDK. The former REST generation/reroll POST URLs return JSON HTTP 410 to authenticated staff parents. Keep existing `SpriteAsset` rows, files, animation metadata and historical authoring fields readable. New artwork is prepared outside the application and can be registered through the staff-only MCP `register_sprite`, `register_sprite_batch` and `register_sprite_assets` tools. Do not reintroduce provider calls into the sprite path.
 
-- **Sprite admin UI on `/manage → Codex`**: the Sprites section browses the saved catalog; the detail sheet permits metadata edits and deletion for staff parents. The Grown pets section browses existing artwork. There are no generation or regeneration buttons. `GET /api/sprites/admin/` remains a parent-only catalog read; `PATCH` and `DELETE /api/sprites/admin/<slug>/` require `IsStaffParent`. Legacy prompt/reference fields are historical metadata, not a private family content store.
+- **Content catalog** (`/codex`): the parent reference page contains Items, Pet species, Grown pets and Challenges. The obsolete Sprites section and its metadata/deletion sheets are removed; the page does not request `/api/sprites/admin/`. A remembered Sprites selection falls back to Items. Compatibility endpoints remain: `GET /api/sprites/admin/` is a parent-only catalog read; `PATCH` and `DELETE /api/sprites/admin/<slug>/` require `IsStaffParent`. Legacy prompt/reference fields are historical metadata, not a private family content store.
 
 - **Runtime sprite presentation**: `RpgSprite.jsx` tries prepared companion-roster portraits and licensed portraits before the runtime sprite catalog, with image-error and emoji fallback. `SpriteAsset` stores slug, image, pack and animation metadata. Static sprites have `frame_count=1` and `fps=0`; animated sprites require positive fps. Prepared PNG/WebP uploads use the separate public sprite storage backend and content-hash filenames; family media stays on the private default storage backend. Registration validates and uploads replacements before switching the database record; old-file cleanup follows a successful commit. Catalog reads remain public and ETag-cached, with animation metadata and reduced-motion support. See [asset preparation guidance](../../content/rpg/react-three-fiber-assets.md) for current models and portraits.
 
@@ -272,10 +276,10 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `ConsumableService.SUPPORTED_EFFECTS` in `services.py` — canonical effect names shared by runtime dispatch and catalog audits; handler tests keep them aligned.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
-Prepared roster adoption registers 14 namespaced families plus retained Chick.
+Prepared roster adoption registers 14 namespaced families plus Chick.
 The Fire/Ice policy adds only exact Chick/Wolf elemental pairs;
-the other thirteen families remain Base only. The content loader rejects existing identity collisions before
-upserts, applies the namespace once and preserves legacy definitions.
+the other thirteen families remain Base only. The content loader rejects
+existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward
 links or frozen promises. Use `reconcile_companion_catalog --dry-run --json`
@@ -290,3 +294,37 @@ challenge images require the exact system collection definition. These read-only
 image IDs do not enable acquisition. The exact Fire/Ice runtime is canonically
 published and verified, with application rollout through the ordinary MAIN gates;
 see `docs/operations/fire-ice-companions.md`.
+
+`retired_catalog.py` owns the exact owner-approved prelaunch retirement list.
+Default `loadrpgcontent` attempts it once before bundled upserts and records
+`RPGContentRetirement.applied_at` in the same transaction. Later startup loads
+skip a completed transition rather than continually deleting newly authored
+content. Explicit custom-pack loads do not run it. Changed identity, protected
+reference or resource-validation conflicts roll back the entire retirement
+savepoint, emit a warning and continue ordinary bundled loading without a
+success marker. The standalone `retire_unused_rpg_content` command is strict;
+a successful non-dry run records the same marker, so later startups skip it.
+`--dry-run --json` previews exact catalog/dependent IDs, cascades and settlements.
+
+Before removing obsolete ownership and receipts, `retirement_resources.py`
+refunds the net recorded Coin holds for pending/approved undelivered digital-only
+redemptions, returns matching supported ingredients from an unfinished accepted
+incubation, and settles ACTIVE unclaimed deleted-mount expeditions from their saved Coins
+and surviving supported item loot. This does not roll new rewards, apply current
+boosts, grant XP/badges or run the game loop. Existing ledger entries remain;
+new refund/settlement entries can increase balances. Deletion and settlement
+commit together, so retry cannot pay twice.
+
+Cleanup prunes only the exact retired JSON reward/loot slots and clears their
+equipped references. An edited obsolete digital offer with a supported frozen
+promise retains that receipt and is deactivated. Real-world and combined offer
+rows survive with the obsolete optional item FK cleared. Combined offers are
+deactivated and converted to real-world fulfillment; their frozen combined
+receipts retain status, cost, audit and actual debits as real-world promises,
+without a refund, so physical delivery remains possible. Current fifteen
+families, Base/Fire/Ice, unknown/custom identities, accounts, generic SpriteAsset
+registration/rows and image storage
+are outside the list. No old species is migrated into a different new family.
+Default-loader dry runs and later bundled-load failures roll back the marker,
+settlement and cleanup together. See the adoption runbook for the exact scope;
+this implementation does not establish a production release.

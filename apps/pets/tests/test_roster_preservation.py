@@ -1,8 +1,9 @@
-"""Synthetic saved-data baseline for the additive companion roster adoption.
+"""Generic pack loading preserves explicitly supplied synthetic saved data.
 
 This disposable test database stands in for an existing household. It contains
-all 17 retained families and frozen promises; it reads no live database. An
-operator must review the reconciliation command's separate production dry run.
+all 17 earlier families and frozen promises; it reads no live database. The
+default startup command separately resets the owner's retired catalog; these
+tests exercise the non-destructive generic loader and acquisition reconciler.
 """
 from datetime import datetime, timedelta, timezone
 from io import StringIO
@@ -48,8 +49,9 @@ class RosterPreservationTests(APITestCase):
         clock = patch("django.utils.timezone.now", return_value=FIXED_NOW)
         clock.start()
         self.addCleanup(clock.stop)
-        # Load definitions before recording a saved household baseline. The
-        # later reload must neither mint awards nor rewrite its ownership.
+        # The current pack does not author earlier species. Supply the legacy
+        # baseline explicitly, then exercise generic reloads independently of
+        # the owner's separate default-command retirement/reset.
         ContentPack(INITIAL_PACK).load()
         household = make_family(
             "Synthetic retained roster", parents=[{"username": "roster-parent"}],
@@ -67,7 +69,12 @@ class RosterPreservationTests(APITestCase):
         )
         self.quest = quest
         for index, slug in enumerate(LEGACY_SLUGS):
-            species = PetSpecies.objects.get(slug=slug)
+            species = PetSpecies.objects.create(
+                slug=slug, name=slug.replace("-", " ").title(),
+                sprite_key={"seafang": "tropical-fish", "ripplecoil": "eel", "drift-jelly": "jellyfish",
+                            "deepkraken": "octopus", "stallion": "horse"}.get(slug, slug),
+            )
+            species.available_potions.add(self.base, self.fire)
             growth = (0, 49, 50, 99, 100)[index % 5]
             UserPet.objects.create(
                 user=self.child, species=species, potion=self.base,
@@ -80,7 +87,11 @@ class RosterPreservationTests(APITestCase):
                 user=self.child, species=species, potion=self.fire,
                 is_active=index == 0, last_bred_at=FIXED_NOW - timedelta(days=index + 2),
             ))
-            egg = ItemDefinition.objects.get(slug=f"{slug}-egg")
+            egg = ItemDefinition.objects.create(
+                slug=f"{slug}-egg", name=f"{species.name} Egg", icon="🥚",
+                sprite_key="big-egg", item_type="egg", pet_species=species,
+                metadata={"species": slug},
+            )
             self.eggs.append(egg)
             UserInventory.objects.create(user=self.child, item=egg, quantity=index + 2)
             DropLog.objects.create(

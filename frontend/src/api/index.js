@@ -727,14 +727,6 @@ export async function fetchSpriteCatalog(etag = null, { signal } = {}) {
   return resp.json();
 }
 
-// Parent-only sprite admin surface (powers the /manage → Codex → Sprites panel).
-export const fetchSpriteAdminList = (pack) =>
-  api.get(`/sprites/admin/${pack ? `?pack=${encodeURIComponent(pack)}` : ''}`);
-export const updateSpriteMeta = (slug, body) =>
-  api.patch(`/sprites/admin/${encodeURIComponent(slug)}/`, body);
-export const deleteSprite = (slug) =>
-  api.delete(`/sprites/admin/${encodeURIComponent(slug)}/`);
-
 // Chronicle / Yearbook
 export const getChronicleEntries = (params = {}) => {
   const qs = Object.entries(params)
