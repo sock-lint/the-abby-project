@@ -22,7 +22,7 @@ const captureDirectory = process.env.ABBY_EARNED_IDENTITY_CAPTURE_DIR;
 let devServer;
 let origin;
 
-test.use({ trace: 'off', actionTimeout: 15_000 });
+test.use({ trace: 'off', video: 'off', screenshot: 'off', actionTimeout: 15_000 });
 
 test.beforeAll(async () => {
   // Run the actual application against intercepted, synthetic API state only.
@@ -99,7 +99,9 @@ async function fixture(page, { parent = false, longNames = false, failedAvatar =
       return reply({ error: 'Unexpected mutation in read-only identity fixture.' }, 400);
     }
     if (url.pathname.includes('pending-celebration')) return route.fulfill({ status: 204 });
-    const profile = { ...profileFixture, ...identity };
+    // The identity acceptance suite does not need a GPU or private 3D avatar.
+    const profile = { ...profileFixture, ...identity,
+      avatar_configuration: { avatar_id: 'synthetic-unprepared', appearance: {}, accessories: {} } };
     const responses = {
       '/api/auth/me/': user,
       '/api/pulse/': { unread_count: 0, notifications: [], recent_drops: [], active_quest: null, companion_growth: { events: [] },
@@ -154,7 +156,7 @@ for (const width of [320, 375, 1280]) {
     await expect(today).toContainText('First Project');
     await expect(today.locator('[data-portrait-frame="laurel"]')).toBeVisible();
     await expect(today.locator('.profile-portrait__initial')).toHaveText('A');
-    await expect(today.locator('img')).toHaveCount(0);
+    await expect(today.locator('.profile-portrait__image img')).toHaveCount(0);
     const trigger = profileTrigger(page);
     await expect(trigger.locator('[data-portrait-frame="laurel"]')).toBeVisible();
     await expect(trigger).toContainText('Extraordinarily Thoughtful Maker of Wonderful Things');
@@ -162,10 +164,15 @@ for (const width of [320, 375, 1280]) {
     if (captureDirectory) await page.screenshot({ path: join(captureDirectory, `today-${width}.png`) });
     await fitsViewport(page, today);
     await fitsViewport(page, trigger);
+    const target = await trigger.boundingBox();
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
     await trigger.focus();
     await page.keyboard.press('ArrowDown');
     const menu = page.getByRole('menu', { name: 'Profile', exact: true });
     await expect(menu).toBeVisible();
+    await expect(menu).toHaveCSS('transform', 'none');
+    for (const item of await menu.getByRole('menuitem').all()) expect((await item.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await expect(menu.getByRole('menuitem', { name: /Profile/ })).toBeFocused();
     await page.keyboard.press('End');
     await expect(menu.getByRole('menuitem', { name: /Settings/ })).toBeFocused();
@@ -234,9 +241,18 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
     const portrait = today.locator(`[data-portrait-frame="${family}"]`);
     await expect(portrait).toBeVisible();
     await expect(profileTrigger(page).locator(`[data-portrait-frame="${family}"]`)).toBeVisible();
-    await expect(portrait.locator('svg')).toBeVisible();
-    shapes.add(await portrait.locator('svg > g').evaluate((element) => element.innerHTML));
-    if (captureDirectory) portraits.push({ name: frame.name, html: await portrait.evaluate((element) => element.outerHTML) });
+    const overlay = portrait.locator('[data-portrait-overlay]');
+    if (await overlay.count()) {
+      await expect(overlay).toBeVisible();
+      await expect.poll(() => overlay.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+      shapes.add(await overlay.getAttribute('src'));
+    } else {
+      await expect(portrait.locator('svg')).toBeVisible();
+      shapes.add(await portrait.locator('svg > g').evaluate((element) => element.innerHTML));
+    }
+    if (captureDirectory) portraits.push({ name: frame.name,
+      smallHtml: await profileTrigger(page).locator(`[data-portrait-frame="${family}"]`).evaluate((element) => element.outerHTML),
+      bigHtml: await portrait.evaluate((element) => element.outerHTML) });
   }
   expect(shapes.size).toBe(frames.length);
   await page.evaluate(async () => (await import('/src/themes.js')).applyTheme('vigil'));
@@ -245,8 +261,8 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
   if (captureDirectory) await page.screenshot({ path: join(captureDirectory, 'today-dark-375.png') });
   expect(state.mutations).toEqual([]);
   if (captureDirectory) {
-    // A private contact sheet uses the actual rendered ornaments at 32/80px.
-    // Rename cloned mask IDs so every portrait keeps its own clear opening.
+    // Copy the actual 40px navigation and 64px Today compositions without
+    // resizing a private PNG into a different, unreviewed geometry tier.
     await page.setViewportSize({ width: 1280, height: 850 });
     await page.evaluate((examples) => {
       const gallery = document.createElement('section');
@@ -254,7 +270,7 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
       Object.assign(gallery.style, { position: 'absolute', top: '0', left: '0', zIndex: '10000', width: '100%',
         background: 'var(--color-ink-page)', color: 'var(--color-ink-primary)', display: 'grid',
         gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', padding: '24px' });
-      examples.forEach(({ name, html }, index) => {
+      examples.forEach(({ name, smallHtml, bigHtml }, index) => {
         const card = document.createElement('div');
         card.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid var(--color-ink-page-shadow);border-radius:12px';
         const label = document.createElement('p');
@@ -262,11 +278,10 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
         label.style.cssText = 'font:600 13px var(--font-body);text-align:center';
         const previews = document.createElement('div');
         previews.style.cssText = 'display:flex;align-items:center;gap:14px';
-        for (const size of [32, 80]) {
+        for (const [size, html] of [[40, smallHtml], [64, bigHtml]]) {
           const holder = document.createElement('div');
           const originalId = html.match(/<mask id="([^"]+)"/)?.[1];
           holder.innerHTML = originalId ? html.replaceAll(originalId, `audit-${index}-${size}`) : html;
-          holder.firstElementChild.style.setProperty('--portrait-size', `${size}px`);
           previews.append(holder);
         }
         card.append(label, previews);

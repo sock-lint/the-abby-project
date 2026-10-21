@@ -53,6 +53,12 @@
       "family_id": "abby-elemental-companions",
       "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-portrait-frame-kit/1.1.0/9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
+      "family_id": "abby-portrait-frame-kit",
+      "manifest_sha256": "9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
+      "release_version": "1.1.0"
     }
   ],
   "schema_version": 1
