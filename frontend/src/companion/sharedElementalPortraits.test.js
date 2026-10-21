@@ -33,7 +33,7 @@ describe('exact elemental portrait and catalog bindings', () => {
         const image = resolveElementalPortrait(`${species}${suffix}`, potion, staged);
         expect(image).toMatchObject({ frames: 1 });
         expect(resolveElementalCatalogIcon(`${species}-${potion}-${stage}-portrait`, staged)).toEqual(image);
-        expect(resolveElementalPortrait(`${species}${suffix}`, potion)).toBeNull();
+        expect(resolveElementalPortrait(`${species}${suffix}`, potion, null)).toBeNull();
         expect(resolveElementalPortrait(`${species}${suffix}`, potion, stagedElementalFixture())).toBeNull();
       }
     }
