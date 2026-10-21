@@ -74,10 +74,11 @@ of pin, with one contribution per source per occurrence.
 
 Fire and Ice potions are excluded from random drops, expeditions and random
 consumable pools under the checked-in policy. The first release's
-guarantee comes from the fixed bundles. A Base mount does not cause an egg in
-an elemental bundle to be salvaged: the egg remains useful until all elemental
-forms promised by that bundle already have grown ownership. Other bundles
-retain their existing salvage behavior. The anonymous Progression Lab mirrors
+guarantee comes from the fixed bundles. An egg in any bundle that promises a
+typed potion remains useful until every grown form promised by that bundle is
+owned: a Base mount does not salvage an elemental bundle's egg, and a Fire/Ice
+mount does not salvage a Base bundle's egg. Eggs promised without a typed
+potion keep species-wide salvage. The anonymous Progression Lab mirrors
 whole-offer availability and this bundle-specific salvage.
 
 ## Shared expeditions
