@@ -11,6 +11,7 @@ from apps.achievements.taxonomy import available_for_new_choices
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition
 from apps.quests.queries import active_system_definitions
+from apps.quests.availability import definition_is_available
 from apps.quests.validators import validate_trigger_filter
 from apps.rpg.catalog_support import (
     available_pet_variants, egg_species, item_is_available, item_unavailable_reason,
@@ -32,7 +33,7 @@ def catalog_queryset(section):
         "skills": lambda: Skill.objects.select_related("category", "subject__category").prefetch_related("prerequisites"),
         "badges": lambda: Badge.objects.select_related("subject"),
         "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge", "prerequisite_quest", "required_skill").prefetch_related(
-            "reward_items__item__pet_species", "reward_items__item__potion_type", "skill_tags__skill",
+            "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
         ),
         "items": lambda: ItemDefinition.objects.select_related("pet_species", "potion_type", "food_species"),
         "drops": lambda: DropTable.objects.select_related("item__pet_species", "item__potion_type"),
@@ -111,7 +112,7 @@ def catalog_row(section, row):
                 "required_skill": row.required_skill_id,
                 "required_skill_name": row.required_skill.name if row.required_skill_id else None,
                 "required_skill_level": row.required_skill_level,
-                "available_for_new_user": _quest_available(row),
+                "available_for_new_user": definition_is_available(row) and _quest_available(row),
                 "skill_tags": [{"skill_id": tag.skill_id, "skill_name": tag.skill.name, "xp_weight": tag.xp_weight}
                                for tag in row.skill_tags.all()],
                 "reward_items": [{"item_id": reward.item_id, "slug": reward.item.slug, "name": reward.item.name,

@@ -140,6 +140,7 @@ class MountsView(APIView):
             UserMount.objects
             .filter(user=request.user)
             .select_related("species", "potion")
+            .order_by("-is_active", "species__name", "pk")
             .prefetch_related(Prefetch(
                 "expeditions",
                 queryset=MountExpedition.objects.filter(

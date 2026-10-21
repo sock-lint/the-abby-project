@@ -3,13 +3,17 @@ from datetime import timedelta
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.db import transaction
 from django.db.models import Sum
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from apps.achievements.models import Badge, Skill, SkillCategory, SkillProgress, UserBadge
+from apps.activity.models import ActivityEvent
 from apps.pets.models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserMount
 from apps.rewards.models import CoinLedger, Reward, RewardRedemption
-from apps.rpg.models import ItemDefinition, UserInventory
+from apps.rpg.constants import TriggerType
+from apps.rpg.models import DropLog, DropTable, ItemDefinition, UserInventory
 from apps.rpg.retired_catalog import retire_unused_catalog
 from apps.rpg.retirement_resources import (
     RETURN_MARKER, RetirementResourceError, collect_retirement_resource_user_ids, settle_retirement_resources,
@@ -129,6 +133,68 @@ class RetirementResourceSettlementTests(_RetirementResourceCase):
             redemption_ids=[row.pk for row in redemptions], incubation_ids=[row.pk for row in incubations],
             mount_ids=[row.pk for row in mounts], retired_item_ids=[self.egg.pk],
         )
+
+    def inventory_badge_waiting_for(self, item):
+        frame = ItemDefinition.objects.create(
+            slug="frame-compensation", name="Compensation frame", item_type="cosmetic_frame",
+        )
+        UserInventory.objects.create(user=self.user, item=frame, quantity=1)
+        category = SkillCategory.objects.create(name="Compensation skills")
+        skill = Skill.objects.create(name="Compensation persistence", category=category)
+        progress = SkillProgress.objects.create(user=self.user, skill=skill, xp_points=100, level=1)
+        badge = Badge.objects.create(
+            name="Compensation collection", criteria_type="cosmetic_set_owned",
+            criteria_value={"slugs": [frame.slug, item.slug]}, xp_bonus=10,
+            award_coins=True, rarity="common",
+        )
+        bonus = ItemDefinition.objects.create(
+            slug="food-compensation-bonus", name="Unpromised badge snack", item_type="food",
+        )
+        DropTable.objects.create(trigger_type=TriggerType.BADGE_EARNED, item=bonus)
+        return badge, progress, bonus
+
+    def assert_no_new_rewards(self, badge, progress, bonus):
+        progress.refresh_from_db()
+        actual = {
+            "earned_badges": UserBadge.objects.filter(user=self.user, badge=badge).count(),
+            "badge_coin_entries": CoinLedger.objects.filter(user=self.user, reason=CoinLedger.Reason.BADGE_BONUS).count(),
+            "drop_logs": DropLog.objects.filter(user=self.user).count(),
+            "activity_events": ActivityEvent.objects.filter(subject=self.user).count(),
+            "skill_xp": progress.xp_points,
+            "bonus_items": UserInventory.objects.filter(user=self.user, item=bonus).count(),
+        }
+        self.assertEqual(actual, {
+            "earned_badges": 0, "badge_coin_entries": 0, "drop_logs": 0,
+            "activity_events": 0, "skill_xp": 100, "bonus_items": 0,
+        })
+
+    def test_expedition_compensation_does_not_award_inventory_badges(self):
+        badge, progress, bonus = self.inventory_badge_waiting_for(self.food)
+        expedition = self.expedition()
+
+        with transaction.atomic():
+            result = self.settle(mounts=[expedition.mount])
+            repeat = self.settle(mounts=[expedition.mount])
+
+        self.assertEqual(result["expeditions"][0]["coins"], 17)
+        self.assertEqual(UserInventory.objects.get(user=self.user, item=self.food).quantity, 3)
+        self.assertEqual(repeat["expeditions"], [])
+        self.assert_no_new_rewards(badge, progress, bonus)
+        self.assertEqual(self.balance(), 17)
+
+    def test_incubation_ingredient_return_does_not_award_inventory_badges(self):
+        badge, progress, bonus = self.inventory_badge_waiting_for(self.potion)
+        incubation = self.incubation()
+
+        with transaction.atomic():
+            result = self.settle(incubations=[incubation])
+            repeat = self.settle(incubations=[incubation])
+
+        self.assertEqual(len(result["potion_returns"]), 1)
+        self.assertEqual(UserInventory.objects.get(user=self.user, item=self.potion).quantity, 1)
+        self.assertEqual(repeat["potion_returns"], [])
+        self.assert_no_new_rewards(badge, progress, bonus)
+        self.assertEqual(self.balance(), 0)
 
     def test_pending_and_approved_refunds_use_net_actual_debits_and_run_once(self):
         rows = [self.redemption(status=status, debit=7) for status in ("pending", "approved")]

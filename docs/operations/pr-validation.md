@@ -1,6 +1,6 @@
 # Pull request validation
 
-Updated October 13, 2026 for the React Three Fiber/Capacitor application.
+Updated October 21, 2026 for the React Three Fiber/Capacitor application.
 The owner authorized immediate Unity retirement because the app has no active
 users. The [historical Unity runner instructions](unity-pr-validation.md) remain
 available for source recovery, without active build or release requirements.
@@ -33,6 +33,19 @@ run `python manage.py migrate --noinput` and
 `python manage.py test --noinput --verbosity=2`. Never point these commands at
 the production database. SQLite fixture checks remain useful contract checks;
 they do not satisfy this backend gate.
+
+The backend job has a **45-minute limit**, including service/dependency setup,
+migrations and the full suite. The former 30-minute limit canceled the
+[5,200-test run on `3845ab36`](https://github.com/sock-lint/the-abby-project/actions/runs/39535329812/job/119010547059)
+after 5,184 recorded passes and no recorded failures; 16 tests had no result, so
+that run remained incomplete. It was still passing real migration tests near
+cancellation. The earlier 5,077-test suite completed in 24 minutes 31 seconds;
+comparison at the same late migration checkpoint projects roughly 32 minutes
+including setup for the larger run, before the next merged test additions.
+The 45-minute cap provides bounded headroom for that growth and hosted timing
+variation. It preserves the single full PostgreSQL/Redis run and its assertions;
+the required check still needs a complete successful result on the reviewed
+commit. A canceled run does not satisfy the gate.
 
 From `frontend/`, reproduce with `npm ci`, `npm run lint`,
 `npm run test:coverage -- --maxWorkers=4` and `npm run build`. Set shell variables

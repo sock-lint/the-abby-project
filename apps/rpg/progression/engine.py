@@ -21,15 +21,18 @@ from apps.quests import activity as challenge_activity_rules
 from apps.quests import milestone_eligibility as milestone_rules
 
 from apps.achievements.models import XP_THRESHOLDS
+from apps.achievements import criteria as badge_criteria
 from apps.achievements.criteria import criteria_types_for_scopes
 from apps.achievements.services import BadgeService, SkillService
 from apps.chronicle.services import JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL
 from apps.creations.services import CreationService
+from apps.habits.services import HabitService
 from apps.movement.services import MovementSessionService
 from apps.pets.expeditions import ExpeditionService, TIER_CONFIG
 from apps.pets.lifecycle import growth_thresholds
 from apps.pets.services import PetService
 from apps.quests.goals import EFFORT_TRIGGERS, FACT_TRIGGERS, _amount
+from apps.quests.availability import promised_potion_ids
 from apps.quests.services import QuestService, TRIGGER_DAMAGE
 from apps.quests import goals
 from apps.quests.models import DailyBonus
@@ -54,7 +57,10 @@ from apps.rpg.services import (
     STREAK_MULTIPLIER_CAP,
     STREAK_MULTIPLIER_PER_DAY,
     DropService,
+    ConsumableService,
+    StreakService,
 )
+from apps.rpg import inventory as inventory_rules
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
 from .catalog import load_catalog
@@ -85,7 +91,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-20.3"
+ENGINE_VERSION = "2026-10-20.5"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -243,6 +249,13 @@ def rules_fingerprint(*, incubation_policy=None):
         "milestone_goal_source": inspect.getsource(inspect.getmodule(_amount)),
         "milestone_source": inspect.getsource(milestone_rules),
         "milestone_activity_source": inspect.getsource(challenge_activity_rules),
+        "badge_criteria_source": inspect.getsource(badge_criteria),
+        "badge_criteria_scopes": {str(key): sorted(value) for key, value in badge_criteria._CRITERIA_SCOPES.items()},
+        "badge_criteria_registry": {str(key): f"{fn.__module__}.{fn.__qualname__}"
+                                    for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
+        "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
+        "inventory_grant_source": inspect.getsource(inventory_rules),
+        "inventory_badge_hook": inspect.getsource(BadgeService.evaluate_inventory_badges),
         "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
         "seconds_per_day": SECONDS_PER_DAY,
         "xp": XP_THRESHOLDS,
@@ -297,11 +310,16 @@ def rules_fingerprint(*, incubation_policy=None):
                 tier_balanced_weights,
                 drop_tier_weights,
                 DropService.award_accomplishment,
+                DropService.process_drops,
+                ConsumableService.use,
+                StreakService.record_activity,
+                HabitService.log_tap,
                 goals._award,
                 QuestService._award_quest_rewards,
                 _award_perfect_day,
                 food_base_growth,
                 growth_thresholds,
+                promised_potion_ids,
                 process_daily_bonus,
                 ClockService.clock_out,
                 PetService.feed_pet,
@@ -338,6 +356,7 @@ def coverage(catalog):
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
             "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
+            "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
             "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
             "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
             "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -360,6 +379,8 @@ def coverage(catalog):
             "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
             "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+            "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+            "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
             "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
             "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
             "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
@@ -478,6 +499,7 @@ class Trial:
         }
         self.badges, self.completed_quests, self.seen_items = set(), set(), set()
         self.pets, self.pending_expeditions, self.quest_windows = {}, [], {}
+        self.expedition_launch_day_by_species = {}
         self.habit_strength = [0] * self.config["habits_per_day"]
         self.source_totals, self.sink_totals = defaultdict(Counter), defaultdict(Counter)
         self.milestones, self.trace, self.events = {}, [], []
@@ -486,6 +508,8 @@ class Trial:
         self._pool_cache = {}
         self._initial_mount_possible_cache = {}
         self._badge_scope_cache = {}
+        self._evaluating_badges = False
+        self._pending_badge_scopes = []
         self.last_novelty_day = self.longest_novelty_gap = 0
         self.tags = {
             source: [
@@ -811,7 +835,7 @@ class Trial:
             (c["reading_minutes"] >= ReadingRewardService.TARGET_MINUTES, {"skill_xp", "coin"}),
             (c["project_minutes"], {"time", "skill_xp", "coin"}),
             (c["chores_per_day"], {"chore", "skill_xp", "coin", "money"}),
-            (c["habits_per_day"] and c["habit_xp"], {"habit", "skill_xp"}),
+            (c["habits_per_day"], {"habit", "skill_xp"} if c["habit_xp"] else {"habit"}),
             (c["creations_per_day"], {"creation", "skill_xp"}),
             (c["journal_per_day"], {"chronicle"}),
             (self.quests, {"quest", "coin", "skill_xp"}),
@@ -932,7 +956,8 @@ class Trial:
             # Recompute after each pass: a badge-gated challenge can introduce
             # the first obtainable pair or the food needed for its evolution.
             care_scopes = {"pet"} if potential.pets else set()
-            reachable_types = None if unscoped else criteria_types_for_scopes(available_scopes | care_scopes)
+            inventory_scopes = {"rpg_inventory", "badges"} if obtainable else set()
+            reachable_types = None if unscoped else criteria_types_for_scopes(available_scopes | care_scopes | inventory_scopes)
             for badge in self.catalog.badges:
                 if (reachable_types is None or badge.criteria_type in reachable_types) and potential._badge_matches(
                     badge
@@ -1006,16 +1031,20 @@ class Trial:
             if all(self.xp[required] >= XP_THRESHOLDS.get(level, math.inf) for required, level in prerequisites):
                 self.unlocked.add(pk)
 
-    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False):
+    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False, egg_potion_ids=()):
         item = self.catalog.items.get(pk)
         if not item or quantity <= 0:
             return
+        duplicate_egg = False
+        if salvage_egg and item.item_type == "egg":
+            grown_potions = {potion for species, potion in self.mounts if species == item.pet_species_id}
+            duplicate_egg = set(egg_potion_ids).issubset(grown_potions) if egg_potion_ids else bool(grown_potions)
         if (
             salvage_cosmetic
             and item.item_type in COSMETIC_TYPES
             and self.inventory[pk] > 0
             and (source != "expeditions" or item.coin_value > 0)
-        ) or (salvage_egg and item.item_type == "egg" and any(pair[0] == item.pet_species_id for pair in self.mounts)):
+        ) or duplicate_egg:
             self.coin_award(item.coin_value * quantity, f"{source}_salvage")
             return
         self.inventory[pk] += quantity
@@ -1023,6 +1052,7 @@ class Trial:
         self.seen_items.add(pk)
         self.source_totals[source]["items"] += quantity
         self.record(source, items=quantity, target=item.display_name)
+        self.evaluate_inventory_badges()
 
     def consume(self, pk, quantity, source):
         self.inventory[pk] -= quantity
@@ -1070,9 +1100,11 @@ class Trial:
         if (
             evaluate_source_badges
             and trigger != "expedition_returned"
-            and not (trigger == "habit_log" and self.config["habit_xp"] == 0)
         ):
-            self.evaluate_badges(scopes=scopes.get(trigger))
+            source_scopes = scopes.get(trigger)
+            if trigger == "habit_log" and self.config["habit_xp"] == 0:
+                source_scopes = {"habit", "badges"}
+            self.evaluate_badges(scopes=source_scopes)
         self.check_in()
         if drops:
             self.drop(trigger)
@@ -1134,8 +1166,13 @@ class Trial:
             self.coin_award(q.coin_reward, "challenges")
             self.award_xp(q.xp_reward, list(q.skill_tags.all()), "challenges")
             self.evaluate_badges(scopes={"quest", "coin", "skill_xp", "badges"})
-            for row in q.reward_items.all():
-                self.grant_item(row.item_id, row.quantity, "challenges", salvage_egg=True)
+            rewards = tuple(q.reward_items.all())
+            promised_potions = promised_potion_ids(
+                self.catalog.items[row.item_id] for row in rewards if row.item_id in self.catalog.items
+            )
+            for row in rewards:
+                self.grant_item(row.item_id, row.quantity, "challenges", salvage_egg=True,
+                                egg_potion_ids=promised_potions)
             self.record("challenge_completed", target=q.name)
             self.drop("quest_complete")
             self.milestones.setdefault("first_challenge", self.day)
@@ -1231,9 +1268,32 @@ class Trial:
             return self.counters["movement_minutes"] >= int(c.get("minutes", 60))
         return False
 
+    def evaluate_inventory_badges(self):
+        self.evaluate_badges(scopes={"rpg_inventory", "badges"})
+
     def evaluate_badges(self, *, scopes=None):
-        # Same ordered one-pass evaluation as BadgeService, with later source
-        # events providing subsequent meta-badge evaluations.
+        # Preserve each ordered live pass. Only scopes queued by an inventory
+        # mutation drain afterward; rewards never re-enter the activity loop.
+        requested = set(scopes) if scopes else None
+        if self._evaluating_badges:
+            if requested is None:
+                self._pending_badge_scopes[:] = [None]
+            elif None not in self._pending_badge_scopes:
+                if self._pending_badge_scopes:
+                    self._pending_badge_scopes[0].update(requested)
+                else:
+                    self._pending_badge_scopes.append(requested)
+            return
+        self._evaluating_badges = True
+        self._pending_badge_scopes = [requested]
+        try:
+            while self._pending_badge_scopes:
+                self._evaluate_badge_pass(scopes=self._pending_badge_scopes.pop(0))
+        finally:
+            self._evaluating_badges = False
+            self._pending_badge_scopes = []
+
+    def _evaluate_badge_pass(self, *, scopes=None):
         key = frozenset(scopes) if scopes else None
         if key not in self._badge_scope_cache:
             relevant = criteria_types_for_scopes(scopes) if scopes else None
@@ -1349,11 +1409,18 @@ class Trial:
         self.pending_expeditions = remaining
 
     def launch_expeditions(self):
-        active = {e["pair"] for e in self.pending_expeditions}
+        active_species = {e["pair"][0] for e in self.pending_expeditions}
         tier = self.config["expedition_tier"]
         tier_config = TIER_CONFIG[tier]
         item_slots = COMMITMENT_POLICY["tiers"][tier]["item_slots"] if self.reward_commitment.enabled else tier_config["item_slots"]
-        available = [pair for pair in self.mounts if pair not in active]
+        available = []
+        seen_species = set(active_species)
+        for pair in sorted(self.mounts):
+            species_id = pair[0]
+            if species_id in seen_species or self.expedition_launch_day_by_species.get(species_id) == self.day:
+                continue
+            available.append(pair)
+            seen_species.add(species_id)
         allowed_launches = self.expedition_budget.prepare_launches(self.day, self.config["expeditions_per_day"], len(available))
         for pair in available[:allowed_launches]:
             coins = (self.reward_commitment.reserve_direct(self.day, tier) if self.reward_commitment.enabled
@@ -1388,6 +1455,7 @@ class Trial:
                     **({"salvage_reserve": salvage_reserve} if self.reward_commitment.enabled else {}),
                 }
             )
+            self.expedition_launch_day_by_species[pair[0]] = self.day
             if self.reward_commitment.enabled:
                 totals = self.reward_commitment.totals
                 totals["expedition_launches"] += 1

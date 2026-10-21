@@ -41,7 +41,7 @@ const TIERS = [
 /**
  * ExpeditionLaunchSheet — bottom sheet for sending a mount on an offline run.
  *
- * Once a mount is sent, it can't be sent again until the next local day
+ * Once a species is sent, its other appearances share the same daily limit
  * (matches apps/pets/expeditions.py::ExpeditionService.start). The mount
  * card on Mounts.jsx flips into the out-on-expedition state on success.
  */
@@ -81,8 +81,9 @@ export default function ExpeditionLaunchSheet({ mount, onDismiss, onLaunched }) 
           <MapIcon size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
             Choose a duration. Your rewards are saved when the expedition
-            starts, so you can collect them any time after it ends. Each grown pet
-            can start one expedition per day.
+            starts, so you can collect them any time after it ends. All appearances
+            of the same species share one expedition per day. Finish collecting
+            a species’s current trip before sending another appearance.
           </span>
         </p>
         <ErrorAlert message={error} />

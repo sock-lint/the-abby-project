@@ -137,11 +137,14 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
     collection quests.
     """
     actor = require_parent()
-    qs = definitions_visible_to(actor).prefetch_related("reward_items__item")
+    qs = definitions_visible_to(actor).prefetch_related(
+        "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
+    )
     if params.quest_type:
         qs = qs.filter(quest_type=params.quest_type)
     qs = qs.order_by("quest_type", "name")
-    return {"quest_definitions": [_definition_to_dict(d) for d in qs]}
+    from apps.quests.availability import definition_is_available
+    return {"quest_definitions": [_definition_to_dict(d) for d in qs if definition_is_available(d)]}
 
 
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 """Real current-policy responses, including preserved unsupported ownership."""
 import json
+from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
 import yaml
@@ -8,7 +9,7 @@ from django.conf import settings
 from django.test import override_settings
 from rest_framework.test import APITestCase
 
-from apps.pets.models import PetIncubation, PetSpecies, PotionType, UserMount, UserPet
+from apps.pets.models import MountExpedition, PetIncubation, PetSpecies, PotionType, UserMount, UserPet
 from apps.rpg.models import ItemDefinition, UserInventory
 from config.tests.factories import make_family
 from config.tests import test_api_contract_fixtures as shared
@@ -33,7 +34,8 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.cat = PetSpecies.objects.create(id=43, slug="cat", name="Cat", icon="K", sprite_key="cat")
         self.cat.available_potions.add(self.base)
         # The production codex contains 15 species identities, independently of
-        # their 45 post-hatch artwork forms. All new pairs use global Base.
+        # their 45 Base post-hatch artwork forms. This fixture explicitly authors
+        # only Base compatibility; elemental-policy fixtures cover Fire/Ice.
         roster = json.loads((Path(settings.BASE_DIR) / "shared/catalog/companion-roster.json").read_text())
         species_content = yaml.safe_load((Path(settings.BASE_DIR) / "content/rpg/initial/pet_species.yaml").read_text())
         rarities = {entry["slug"]: entry.get("egg_rarity", "common") for entry in species_content["species"]}
@@ -69,6 +71,32 @@ class CatalogApiResponseFixtureTests(APITestCase):
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-preserved-collection.json")
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")
+
+    def test_saved_elemental_mounts_share_species_launch_allowance(self):
+        UserPet.objects.filter(pk=61).update(growth_points=100, evolved_to_mount=True)
+        mounts = [UserMount.objects.create(id=81, user=self.child, species=self.chick, potion=self.base)]
+        for potion_id, pet_id, mount_id, slug in ((44, 63, 82, "fire"), (45, 64, 83, "ice")):
+            potion = PotionType.objects.create(id=potion_id, slug=slug, name=slug.title(), rarity="uncommon")
+            UserPet.objects.create(id=pet_id, user=self.child, species=self.chick, potion=potion,
+                                   growth_points=100, evolved_to_mount=True)
+            mounts.append(UserMount.objects.create(id=mount_id, user=self.child, species=self.chick, potion=potion))
+        MountExpedition.objects.create(
+            id=91, mount=mounts[0], tier="short", status="claimed",
+            started_at=shared.FIXED_NOW - timedelta(minutes=120), returns_at=shared.FIXED_NOW,
+            claimed_at=shared.FIXED_NOW, loot={"coins": 0, "items": []},
+        )
+        body = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-shared-expedition-allowance.json")
+        self.assertEqual(len(body["mounts"]), 3)
+        mount_response = self.client.get("/api/mounts/")
+        self.assertEqual(mount_response.status_code, 200)
+        self.assertEqual([mount["id"] for mount in mount_response.json()], [81, 82, 83])
+        self.assertEqual(mount_response.json(), body["mounts"])
+        for mount in body["mounts"]:
+            self.assertFalse(mount["expedition_available"])
+            self.assertIsNotNone(mount["expedition_available_at"])
+            self.assertGreater(mount["expedition_available_in_seconds"], 0)
+        self.assertEqual({m["potion"]["slug"] for m in body["mounts"]}, {"base", "fire", "ice"})
+        self.assertEqual(self.client.post("/api/mounts/82/expedition/", {"tier": "short"}, format="json").status_code, 400)
 
     def test_namespaced_roster_egg_hatches_one_base_baby_with_exact_family_identity(self):
         species = next(species for species in self.roster_species if species.slug == "meshtint-bat")

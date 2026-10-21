@@ -13,7 +13,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from apps.pets.roster import prepared_base_potion, prepared_family
+from apps.pets.roster import prepared_family, prepared_potion
 
 
 POLICY_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/asset-support.json"
@@ -87,7 +87,7 @@ def pet_is_available(species, potion=None):
     if rule is None:
         return False
     if str(_value(species, "slug", "")).startswith("meshtint-"):
-        if prepared_family(species) is None or (potion is not None and _value(potion, "slug") != "base"):
+        if prepared_family(species) is None:
             return False
     return potion is None or _value(potion, "slug") in rule.potion_slugs
 
@@ -201,7 +201,9 @@ def item_is_available(item):
         return pet_is_available(egg_species(item))
     if kind == "potion":
         if getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None:
-            return prepared_base_potion(item)
+            # Canonical typed ingredients still need their own approved art.
+            # The checked-in policy binds the exact accepted potion variants.
+            return prepared_potion(item) and potion_is_available(_value(item, "potion_type"))
         if str(_value(item, "slug", "")).startswith("meshtint-"):
             return False
         return potion_is_available(potion_type_for_item(item))
@@ -218,6 +220,8 @@ def available_items(queryset):
 def random_item_is_available(item):
     """Keep earned-only rewards out of new random grants, retaining ownership."""
     metadata = _value(item, "metadata")
+    if _value(item, "item_type") == "potion" and _value(potion_type_for_item(item), "slug") in {"fire", "ice"}:
+        return False
     return item_is_available(item) and not (
         isinstance(metadata, Mapping) and metadata.get("no_random_drop") is True
     )

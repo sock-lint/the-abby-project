@@ -7,8 +7,11 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Chick and fourteen prepared
-namespaced families accept Base only. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and exact namespaced Wolf
+accept Base, Fire and Ice; the other thirteen prepared families accept Base
+only. Fire/Ice potions remain excluded from random pools and their four
+one-time challenges guarantee exact egg/potion bundles. The exact canonical
+asset release is verified; application rollout uses ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
 The shipped roster contains fifteen families. The owner's unused-content
@@ -86,6 +89,24 @@ catalog, level and salvage rules still apply; an empty eligible pool never
 substitutes unsupported loot. Perfect Day filters out Common items before
 selection, retaining its Uncommon-or-better reward. `drop_tier_weights` is shared
 with the Lab. Drop notifications are best effort, with push deferred to commit.
+
+Saved inventory gains and completed consumable uses immediately evaluate
+collection/use badges through `BadgeService.evaluate_inventory_badges`.
+Exact catalog-retirement compensation uses `grant_item(..., evaluate_badges=False)`
+to restore existing promises without badge, XP, Coin-bonus or activity hooks.
+Acquisition and badge awards take the account gate before stack locks. Nested
+badge drops queue another scoped pass until the current pass ends, so a loot
+chain awards each newly qualified badge once without recursive game-loop
+events. Consumable checks, including those requested by item-granting effects,
+run after the effect, usage history and final stack decrement; a collection
+cannot count the last unit being spent. A same-item badge reward survives even
+when the old last unit was consumed. New starter-cover gifts also check
+collections; repeated gifts and content loading do not replay awards.
+
+Perfect Day evaluates counter badges in its existing receipt transaction,
+after its own Uncommon-or-better draw. Each newly earned counter badge has its
+separate ordinary badge drop, preserving one draw per accomplishment. Pending,
+ineligible and already receipted days never evaluate or backfill those awards.
 
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
@@ -273,8 +294,9 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `ConsumableService.SUPPORTED_EFFECTS` in `services.py` — canonical effect names shared by runtime dispatch and catalog audits; handler tests keep them aligned.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
-Prepared roster adoption registers 14 namespaced families plus Chick, all
-Base-only under the current acquisition registry. The content loader rejects
+Prepared roster adoption registers 14 namespaced families plus Chick.
+The Fire/Ice policy adds only exact Chick/Wolf elemental pairs;
+the other thirteen families remain Base only. The content loader rejects
 existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward
@@ -290,6 +312,13 @@ cached source on every read; retired affirmation identities still resolve in
 history. Handler identities, trial logic and reward rules remain source-owned.
 See the [MCP authoring guide](../../docs/operations/mcp-authoring.md#textual-editorial-content).
 
+`catalog_icons.py` also reads exact potion/challenge image identities from
+`shared/catalog/elemental-bindings.json`. Canonical Fire/Ice potion ingredients
+require the matching typed potion FK, metadata variant, slug, name and type;
+challenge images require the exact system collection definition. These read-only
+image IDs do not enable acquisition. The exact Fire/Ice runtime is canonically
+published and verified, with application rollout through the ordinary MAIN gates;
+see `docs/operations/fire-ice-companions.md`.
 
 `retired_catalog.py` owns the exact owner-approved prelaunch retirement list.
 Default `loadrpgcontent` attempts it once before bundled upserts and records

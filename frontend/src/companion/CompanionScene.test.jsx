@@ -38,6 +38,13 @@ vi.mock('./sharedRosterPlayback', () => ({ createSharedRosterPlayback: vi.fn((_a
   return instance;
 }) }));
 
+vi.mock('./sharedElementalPlayback', () => ({ createSharedElementalPlayback: vi.fn((_appearance, callbacks) => {
+  const instance = { root: new Group(), callbacks, evolve: vi.fn(), reset: vi.fn(), play: vi.fn(), update: vi.fn(), dispose: vi.fn() };
+  harness.instances.push(instance);
+  queueMicrotask(() => { if (!instance.dispose.mock.calls.length) callbacks.onReady(); });
+  return instance;
+}) }));
+
 const appearance = { pipeline: 'abby-assets-bird', key: 'bird', rotationY: 0 };
 const evolution = { id: 4, from: 'fledgling', to: 'bird' };
 let media;
@@ -52,6 +59,32 @@ beforeEach(() => {
 });
 
 describe('Shared bird scene lifecycle', () => {
+  it('uses the exact elemental native loader with deferred visibility, reduced-motion settlement and disposal', () => {
+    harness.allowed = false;
+    const props = { appearance: { ...appearance, pipeline: 'abby-assets-elemental', key: 'chick-ice-grown', stage: 'grown' }, animate: true,
+      evolution: { id: 22, from: 'baby', to: 'grown' }, interaction: { id: 23, action: 'source-fly-forward-in-place' }, onReady: vi.fn(), onUnavailable: vi.fn() };
+    const view = render(<CompanionScene {...props} />);
+    const instance = harness.instances[0];
+    expect(instance.evolve).not.toHaveBeenCalled();
+    expect(instance.play).not.toHaveBeenCalled();
+    harness.allowed = true;
+    view.rerender(<CompanionScene {...props} />);
+    expect(instance.evolve).toHaveBeenCalledExactlyOnceWith('baby', 'grown');
+    expect(instance.play).toHaveBeenCalledExactlyOnceWith('source-fly-forward-in-place');
+    act(() => harness.frame({}, 0.05));
+    expect(instance.update).toHaveBeenCalledOnce();
+    media.matches = true;
+    act(() => media.addEventListener.mock.calls[0][1]());
+    expect(instance.reset).toHaveBeenCalledOnce();
+    act(() => harness.frame({}, 1));
+    expect(instance.update).toHaveBeenCalledOnce();
+    media.matches = false;
+    act(() => media.addEventListener.mock.calls[0][1]());
+    expect(instance.evolve).toHaveBeenCalledOnce();
+    view.unmount();
+    expect(instance.dispose).toHaveBeenCalledOnce();
+  });
+
   it('retains a queued interaction when immutable roster resources replace the native instance', () => {
     const props = { appearance: { ...appearance, pipeline: 'abby-assets-roster', key: 'wolf-middle' }, animate: true,
       interaction: { id: 8, action: 'source-cast-spell' }, onReady: vi.fn(), onUnavailable: vi.fn() };

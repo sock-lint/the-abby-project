@@ -209,7 +209,7 @@ class RosterPreservationTests(APITestCase):
         catalog = {model._meta.label: list(model.objects.order_by("pk").values())
                    for model in (PetSpecies, PotionType, ItemDefinition)}
         report = self.reconcile(dry_run=True)
-        self.assertGreaterEqual(report["drops_removed"], 18)
+        self.assertGreaterEqual(report["drops_removed"], 17)
         self.assertEqual(report["rewards_deactivated"], 17)
         self.assertGreaterEqual(report["retained_quest_reward_links"], 17)
         self.assertEqual(self.saved_state(), before)
@@ -223,7 +223,9 @@ class RosterPreservationTests(APITestCase):
         self.assertFalse(Reward.objects.filter(pk__in=[reward.pk for reward in self.saved_rewards], is_active=True).exists())
         self.real_world.refresh_from_db()
         self.assertTrue(self.real_world.is_active)
-        retired = [egg.pk for egg in self.eggs] + [self.fire_item.pk]
+        # Fire is now supported art. It remains ineligible for random selection
+        # independently of whether an old authored DropTable row is retained.
+        retired = [egg.pk for egg in self.eggs]
         self.assertFalse(DropTable.objects.filter(item_id__in=retired).exists())
         self.assertEqual(self.reconcile()["drops_removed"], 0)
         self.assertEqual(self.reconcile()["rewards_deactivated"], 0)
@@ -233,7 +235,7 @@ class RosterPreservationTests(APITestCase):
             self.assertFalse(DropTable.objects.filter(item_id__in=retired).exists())
             self.assertFalse(Reward.objects.filter(pk__in=[reward.pk for reward in self.saved_rewards], is_active=True).exists())
         stable = self.client.get("/api/pets/stable/").json()
-        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 15))
+        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 19))
         self.assertTrue(all(not pet["catalog_available"] for pet in stable["pets"]))
         self.assertEqual({pet["name"] for pet in stable["pets"]}, {f"Saved {slug}" for slug in LEGACY_SLUGS})
 

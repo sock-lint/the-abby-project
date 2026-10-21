@@ -1,0 +1,163 @@
+{
+  "species": [
+    {
+      "id": 63,
+      "slug": "meshtint-bat",
+      "name": "Bat",
+      "icon": "S",
+      "sprite_key": "meshtint-bat",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "bat-baby-portrait",
+      "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 61,
+      "slug": "chick",
+      "name": "Chick",
+      "icon": "S",
+      "sprite_key": "cute-chick",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "portrait-chick",
+      "grown_catalog_icon": "portrait-chick-grown",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 62,
+      "slug": "meshtint-wolf",
+      "name": "Wolf",
+      "icon": "S",
+      "sprite_key": "meshtint-wolf",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": null,
+      "grown_catalog_icon": null,
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    }
+  ],
+  "potions": [
+    {
+      "id": 43,
+      "slug": "base",
+      "name": "Base",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "common",
+      "description": "",
+      "catalog_available": true
+    },
+    {
+      "id": 41,
+      "slug": "fire",
+      "name": "Fire",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "uncommon",
+      "description": "",
+      "catalog_available": true
+    },
+    {
+      "id": 42,
+      "slug": "ice",
+      "name": "Ice",
+      "sprite_key": "",
+      "color_hex": "#8B7355",
+      "rarity": "uncommon",
+      "description": "",
+      "catalog_available": true
+    }
+  ],
+  "totals": {
+    "species": 3,
+    "discovered_species": 0,
+    "mounts_possible": 7,
+    "mounts_owned": 0
+  }
+}

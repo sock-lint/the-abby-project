@@ -16,7 +16,7 @@ class EffectiveRulesTests(SimpleTestCase):
             item=SimpleNamespace(pk=index, slug=tier, rarity=tier, item_type="food"),
         ) for index, tier in enumerate(("common", "rare"), 1)]
         with patch("apps.mcp_server.economy.DropTable.objects") as manager, patch(
-            "apps.mcp_server.economy.item_is_available", return_value=True,
+            "apps.mcp_server.economy.random_item_is_available", return_value=True,
         ):
             manager.filter.return_value.select_related.return_value.order_by.return_value.__getitem__.return_value = entries
             return _drop_pools(0, {trigger})[trigger]["outcomes"]

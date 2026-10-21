@@ -1,5 +1,5 @@
 import { selectDropdown, openDropdown } from '../../../test/selectDropdown';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { render, screen, waitFor, within } from '@testing-library/react';
@@ -17,6 +17,8 @@ vi.mock('framer-motion', async () => {
 vi.mock('../../../pedestal/PedestalPreview', () => ({
   default: ({ eggAssetId = 'normal-egg' }) => <div role="img" aria-label="Decorative model preview" data-egg={eggAssetId} />,
 }));
+
+beforeEach(() => server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({ species: ['chick', 'meshtint-bat', 'meshtint-dragon', 'fox'].map((slug) => ({ slug, available_potions: [{ slug: 'base', name: 'Base' }] })) }))));
 
 function renderHatchery() {
   return render(
@@ -84,8 +86,8 @@ describe('Hatchery', () => {
     const guide = screen.getByRole('list', { name: 'Pet growth stages' });
     expect(within(guide).queryByText(/Chick|Fledgling|Bird|Vampire Bat|Bat Lord/)).toBeNull();
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Egg' }), String(chick.id));
-    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(fire.id));
-    expect(within(guide).queryByText(/Chick|Fledgling|Bird/)).toBeNull();
+    const choices = await openDropdown(user, screen.getByRole('combobox', { name: 'Potion' }));
+    expect(choices.queryByRole('option', { name: /Fire/ })).toBeNull();
   });
 
   it('connects the selected egg to its four-stage family and previews hatching into a baby without consuming anything', async () => {
@@ -126,8 +128,7 @@ describe('Hatchery', () => {
     const eggs = await openDropdown(user, screen.getByRole('combobox', { name: 'Egg' }));
     expect(eggs.getByRole('option', { name: /Chick Egg/ })).toBeInTheDocument();
     expect(eggs.queryByRole('option', { name: /Earlier Wolf Egg/ })).toBeNull();
-    const potions = await openDropdown(user, screen.getByRole('combobox', { name: 'Potion' }));
-    expect(potions.queryByRole('option', { name: /Fire Potion/ })).toBeNull();
+    expect(screen.getByRole('combobox', { name: 'Potion' })).toBeDisabled();
     expect(screen.queryByRole('combobox', { name: /grown pet/ })).toBeNull();
     expect(screen.queryByText(/hybrid/i)).toBeNull();
     expect(screen.getByRole('img', { name: 'Decorative model preview' })).toHaveAttribute('data-egg', 'normal-egg');
@@ -185,8 +186,8 @@ describe('Hatchery', () => {
       ),
       http.get('*/api/inventory/', () =>
         HttpResponse.json([
-          { id: 1, quantity: 1, item: { id: 11, name: 'Dragon Egg', icon: '🥚', item_type: 'egg' } },
-          { id: 2, quantity: 1, item: { id: 22, name: 'Fire Potion', icon: '🧪', item_type: 'potion' } },
+          { id: 1, quantity: 1, item: { id: 11, name: 'Dragon Egg', icon: '🥚', item_type: 'egg', pet_species_slug: 'meshtint-dragon' } },
+          { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', icon: '🧪', item_type: 'potion', metadata: { variant: 'base' } } },
         ]),
       ),
     );
@@ -212,8 +213,8 @@ describe('Hatchery', () => {
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
       http.get('*/api/inventory/', () => HttpResponse.json([
-        { id: 1, quantity: 1, item: { id: 11, name: 'A very long saved egg name including Legendary artwork words', item_type: 'egg', catalog_available: true } },
-        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', item_type: 'potion', catalog_available: true } },
+        { id: 1, quantity: 1, item: { id: 11, name: 'A very long saved egg name including Legendary artwork words', item_type: 'egg', pet_species_slug: 'chick', catalog_available: true } },
+        { id: 2, quantity: 1, item: { id: 22, name: 'Base Potion', item_type: 'potion', metadata: { variant: 'base' }, catalog_available: true } },
       ])),
     );
     const hatch = spyHandler('post', /\/api\/pets\/incubations\/$/, HttpResponse.json({ detail: 'This pair cannot be hatched.' }, { status: 400 }));
