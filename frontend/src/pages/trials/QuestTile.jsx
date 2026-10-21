@@ -96,7 +96,7 @@ function AvailableTile({ quest, canBegin, starting, onBegin, onSelect }) {
           {coop && <RuneBadge tone="royal" size="sm">co-op</RuneBadge>}
         </div>
         <div className="mt-1 font-rune text-tiny text-ink-whisper tabular-nums">
-          target {def.target_value} · {def.duration_days}d
+          target {def.target_value} · {def.duration_days === null ? 'No deadline' : `${def.duration_days}d`}
           {def.coin_reward > 0 && <span> · {def.coin_reward}c</span>}
           {def.xp_reward > 0 && <span> · {def.xp_reward}xp</span>}
         </div>

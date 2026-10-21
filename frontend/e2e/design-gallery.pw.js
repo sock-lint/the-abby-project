@@ -182,6 +182,38 @@ test('design library preserves a dirty form and returns focus after saving', asy
   expect(await page.evaluate(() => document.body.style.getPropertyValue('--text-base'))).toBe('');
 });
 
+test('challenge browser filters fit phone screens with enlarged text and make no account requests', async ({ page }) => {
+  const apiRequests = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.startsWith('/api/')) apiRequests.push(request.url());
+  });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  for (const width of [320, 375]) {
+    await page.setViewportSize({ width, height: 740 });
+    await page.goto(`${origin}/e2e/design-gallery-fixture.html`);
+    await page.getByRole('checkbox', { name: 'Larger text', exact: true }).check();
+    const folio = page.getByRole('region', { name: 'Task folio', exact: true });
+    await folio.locator('summary').filter({ hasText: 'Browse bonus challenges' }).click();
+    const browser = folio.getByRole('region', { name: 'Browse all bonus challenges', exact: true });
+    await expect(browser.getByRole('status')).toHaveText('5 of 5 bonus challenges');
+    await chooseDropdown(browser.getByRole('combobox', { name: 'Qualifying activity', exact: true }), 'movement_session');
+    await expect(browser.getByRole('status')).toHaveText('1 of 5 bonus challenges');
+    await expect(browser.getByRole('article', { name: 'Keep moving', exact: true })).toContainText('50 minutes · Minutes from valid logged movement sessions.');
+    await browser.getByRole('searchbox', { name: 'Search bonus challenges', exact: true }).fill('No matching challenge');
+    await expect(browser.getByText('No bonus challenges match these filters.', { exact: true })).toBeVisible();
+    await browser.getByRole('button', { name: 'Clear filters', exact: true }).click();
+    await expect(browser.getByRole('status')).toHaveText('5 of 5 bonus challenges');
+    for (const control of await browser.locator('input, button').all()) {
+      const bounds = await control.boundingBox();
+      expect(bounds.height).toBeGreaterThanOrEqual(44);
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    }
+    expect(await folio.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  }
+  expect(apiRequests).toEqual([]);
+});
+
 test('design library retains an attachment after failure and removes it locally', async ({ page }) => {
   const writes = [];
   page.on('request', request => {

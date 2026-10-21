@@ -19,5 +19,6 @@
     "slug": "fixture-family",
     "timezone": "America/Phoenix",
     "default_theme": "hyrule"
-  }
+  },
+  "is_staff": false
 }

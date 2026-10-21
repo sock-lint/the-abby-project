@@ -68,6 +68,7 @@
     },
     "is_repeatable": false,
     "is_system": true,
+    "is_cooperative": false,
     "created_at": "2026-10-10T12:00:00-07:00",
     "catalog_available": true
   },
@@ -101,6 +102,7 @@
     },
     "is_repeatable": false,
     "is_system": false,
+    "is_cooperative": false,
     "created_at": "2026-10-10T12:00:00-07:00",
     "catalog_available": true
   },
@@ -173,6 +175,7 @@
     },
     "is_repeatable": false,
     "is_system": true,
+    "is_cooperative": false,
     "created_at": "2026-10-10T12:00:00-07:00",
     "catalog_available": true
   },
@@ -245,6 +248,7 @@
     },
     "is_repeatable": false,
     "is_system": true,
+    "is_cooperative": false,
     "created_at": "2026-10-10T12:00:00-07:00",
     "catalog_available": true
   },
@@ -317,6 +321,7 @@
     },
     "is_repeatable": false,
     "is_system": true,
+    "is_cooperative": false,
     "created_at": "2026-10-10T12:00:00-07:00",
     "catalog_available": true
   }

@@ -427,6 +427,34 @@ class RPGContentOverride(TimestampedModel):
         constraints = [models.UniqueConstraint(fields=["model_label", "object_id"], name="rpg_content_override_object")]
 
 
+class RPGEditorialDraft(TimestampedModel):
+    """Private textual content changes and the exact reviewed publication receipt."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    section = models.CharField(max_length=20, choices=[("lorebook", "Lorebook"), ("affirmations", "Affirmations")])
+    name = models.CharField(max_length=100)
+    revision = models.PositiveIntegerField(default=1)
+    changes = models.JSONField(default=list)
+    preview = models.JSONField(default=dict)
+    published_at = models.DateTimeField(null=True)
+
+
+class RPGEditorialOverride(TimestampedModel):
+    """Published copy; retirement affects future selection, never saved identity."""
+
+    section = models.CharField(max_length=20)
+    slug = models.SlugField(max_length=80)
+    family = models.ForeignKey("families.Family", null=True, on_delete=models.SET_NULL)
+    values = models.JSONField(default=dict)
+    is_active = models.BooleanField(default=True)
+    publication = models.ForeignKey(RPGEditorialDraft, null=True, on_delete=models.SET_NULL)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["section", "slug"], name="rpg_editorial_identity")]
+
+
 class RPGContentRetirement(models.Model):
     """Durable completion of an explicitly approved, one-time catalog cleanup."""
 

@@ -51,6 +51,8 @@ class ContentWorkbenchResponseFixtureTests(APITestCase):
             self.client.get("/api/rpg/content-workbench/"), "content-workbench-catalog.json",
         )
         self.assertEqual(len(body["catalog"]["items"]), 1)
+        self.assertEqual(body["catalog"]["items"][0]["effect_summary"],
+            "Adds 5 growth, plus 10 for a preferred food. Growth Tonic doubles the total.")
         self.assertEqual(len(body["catalog"]["quests"]), 2)
         target = next(row for row in body["catalog"]["quests"] if row["id"] == 904)
         self.assertEqual((target["prerequisite_quest"], target["required_skill"], target["required_skill_level"]), (908, 902, 1))

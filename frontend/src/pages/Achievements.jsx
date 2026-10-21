@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getCategories } from '../api';
+import { getAllCategories } from '../api';
 import Loader from '../components/Loader';
 import ErrorAlert from '../components/ErrorAlert';
 import Button from '../components/Button';
@@ -20,10 +20,10 @@ import SkillTreeView from './achievements/SkillTreeView';
  * here because ManagePanel is a single cross-cutting admin surface).
  */
 export default function Achievements() {
-  const { isParent } = useRole();
+  const { isParent, user } = useRole();
   const {
     data: categoriesData, loading, error, reload: reloadCategories,
-  } = useApi(getCategories);
+  } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const [topTab, setTopTab] = useState('view');
 
   if (loading) return <Loader />;
@@ -68,7 +68,7 @@ export default function Achievements() {
       </header>
 
       {topTab === 'manage' && isParent ? (
-        <ManagePanel categories={categories} reloadCategories={reloadCategories} />
+        <ManagePanel categories={categories} reloadCategories={reloadCategories} canManageTaxonomy={Boolean(user?.is_staff)} />
       ) : (
         <SkillTreeView categories={categories} />
       )}

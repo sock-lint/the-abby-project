@@ -170,6 +170,16 @@ def _catalog_lock():
             tables = sorted({model._meta.db_table for model in [*_models(), ContentPackEntry]})
             cursor.execute("LOCK TABLE " + ", ".join(connection.ops.quote_name(table) for table in tables)
                            + " IN SHARE ROW EXCLUSIVE MODE")
+            # Admission readers share every current category in this same PK
+            # order. Take the writer prefix AFTER catalog-table admission but
+            # BEFORE any target rows: raw loaders may otherwise update HIGH
+            # then LOW in YAML order, opposite a reader's category scan.
+            # NO KEY UPDATE keeps ordinary saved-reference FK checks compatible.
+            category = apps.get_model("achievements.SkillCategory")
+            table = connection.ops.quote_name(category._meta.db_table)
+            key = connection.ops.quote_name(category._meta.pk.column)
+            cursor.execute(f"SELECT {key} FROM {table} ORDER BY {key} FOR NO KEY UPDATE")
+            cursor.fetchall()
 
 
 def _run(path, pack, actor, parsed):

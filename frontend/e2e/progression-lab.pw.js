@@ -192,11 +192,17 @@ for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: width === 375 ? 640 : 900 });
     const { requests, external } = await openLab(page);
     const panel = page.getByRole('region', { name: 'Reading Voyager feedback', exact: true });
-    await expect(panel.getByRole('definition')).toHaveText(['1', '1', '1', '2', '1', '1']);
+    await expect(panel.getByRole('definition')).toHaveText(['1', '1', '2', '4', '2', '1']);
     await expect(panel.getByText('Ready for next Reading Adventure', { exact: true })).toBeVisible();
     const table = panel.getByRole('table', { name: 'Voyager outcomes by saved policy' });
     await expect(table.getByRole('row', { name: /^Saved 45-day windows/ })).toContainText('1 of 1 resolved mature windows');
-    await expect(table.getByRole('row', { name: /^56 days/ })).toContainText('0 of 1 resolved mature windows');
+    await expect(table.getByRole('row', { name: /^56 days · milestones/ })).toContainText('0 of 1 resolved mature windows');
+    const selected = table.getByRole('row', { name: /^84 days · selected milestones/ });
+    // Four accepted windows include two still pending; only the mature success
+    // and mature expiry enter the denominator, so the selected rate is 50%.
+    await expect(selected.getByRole('cell')).toHaveText([
+      '4', '2', '1', '1', '0', /50%.*1 of 2 resolved mature windows/, '0',
+    ]);
     await expect(panel.getByText(/Still observing includes early completions/)).toBeVisible();
     const scrolling = panel.getByRole('region', { name: 'Saved Voyager policies, horizontally scrollable' });
     await scrolling.focus();

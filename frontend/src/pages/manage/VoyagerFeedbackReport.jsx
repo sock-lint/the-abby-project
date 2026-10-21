@@ -78,7 +78,7 @@ function FamilyVoyagerFeedback({ token }) {
           </table>
         </div> : <p className="text-body text-ink-secondary">No saved Voyager windows are recorded for this cohort.</p>}
         <p className="text-caption text-ink-secondary">Mature completion uses completed plus expired windows whose full saved deadline has passed. Still observing includes early completions before that deadline. Windows still within their deadline are not counted as failures. Unresolved outcomes and unknown timing are excluded from the rate.</p>
-        <p className="text-caption text-ink-secondary">Policies come from saved promises. Older 45-day windows, the selected 56-day milestones and other or unknown policies stay separate; today’s catalog does not rewrite history.</p>
+        <p className="text-caption text-ink-secondary">Policies come from saved promises. Historical 45- and 56-day windows, the selected 84-day milestones and other or unknown policies stay separate; today’s catalog does not rewrite history. Selecting a policy for review does not publish it.</p>
       </>}
       <details>
         <summary className="min-h-11 py-3 cursor-pointer font-semibold">Voyager coverage and accounting</summary>

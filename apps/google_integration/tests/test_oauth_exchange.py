@@ -153,6 +153,16 @@ class GoogleExchangeTests(TestCase):
         self.assertFalse(Token.objects.exists())
         self.provider_exchange.assert_called_once_with("synthetic-provider-code", "synthetic-provider-pkce-verifier")
 
+    def test_staff_login_preserves_current_account_authoring_identity(self):
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        self.linked()
+        response = self.redeem(self.ticket(self.begin()))
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertIs(response.json()["user"]["is_staff"], True)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {response.json()['token']}")
+        self.assertIs(self.client.get("/api/auth/me/").json()["is_staff"], True)
+
     def test_login_exchanges_once_and_preserves_existing_shared_token_and_calendar_settings(self):
         account = self.linked()
         account.calendar_sync_enabled, account.calendar_id = True, "synthetic-owned-calendar"

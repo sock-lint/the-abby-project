@@ -3,6 +3,7 @@ import ErrorAlert from '../../components/ErrorAlert';
 import BottomSheet from '../../components/BottomSheet';
 import { useFormState } from '../../hooks/useFormState';
 import Button from '../../components/Button';
+import TaxonomyOptions from '../../components/form/TaxonomyOptions';
 import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from '../../components/form';
 
 export default function SkillFormModal({ item, categories, subjects, onClose, onSaved }) {
@@ -62,15 +63,11 @@ export default function SkillFormModal({ item, categories, subjects, onClose, on
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category} onChange={onField('category')} required>
             <option value="">Select...</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
-            ))}
+            <TaxonomyOptions entries={categories} selected={form.category} kind="category" />
           </SelectField>
           <SelectField label="Subject" value={form.subject} onChange={onField('subject')}>
             <option value="">None</option>
-            {filteredSubjects.map((s) => (
-              <option key={s.id} value={s.id}>{s.icon} {s.name}</option>
-            ))}
+            <TaxonomyOptions entries={filteredSubjects} selected={form.subject} kind="subject" />
           </SelectField>
         </div>
         <IconPicker value={form.icon} placeholder="" onChange={(icon) => set({ icon })} disabled={saving} />

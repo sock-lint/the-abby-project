@@ -3,7 +3,6 @@ from rest_framework.decorators import action
 from rest_framework.generics import get_object_or_404
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.db import transaction
 
 from config.permissions import IsParent
 from config.viewsets import (
@@ -40,94 +39,17 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
     def perform_create(self, serializer):
         serializer.save(family=self.request.user.family)
 
-    @transaction.atomic
     def perform_update(self, serializer):
-        # Stock-restock fanout: when a parent edits a reward and the stock
-        # transitions from 0 → ≥1, notify every child who'd wishlisted it
-        # AND clear their wishlist row so the next stock-out → restock
-        # cycle isn't a re-spam. The notification fires once per edit
-        # that actually crosses the boundary, never on PATCHes that
-        # leave stock unchanged.
-        # A metadata PATCH may have read its offer before a concurrent
-        # purchase reserved stock. Revalidate against the locked row, so
-        # only an explicit stock edit can replace its current quantity.
-        current = get_object_or_404(
-            Reward.objects.select_for_update(no_key=True),
-            pk=serializer.instance.pk, family_id=self.request.user.family_id,
+        from .offer_services import update_reward_offer
+        serializer.instance = update_reward_offer(
+            self.request.user, serializer.instance.pk, serializer.initial_data,
+            serializer_class=type(serializer), context=serializer.context, partial=serializer.partial,
         )
-        refreshed = type(serializer)(
-            current, data=serializer.initial_data, partial=serializer.partial,
-            context=serializer.context,
-        )
-        refreshed.is_valid(raise_exception=True)
-        previous_stock = current.stock
-        reward = refreshed.save()
-        serializer.instance = reward
-        new_stock = reward.stock
-        was_out = previous_stock == 0
-        is_in = new_stock is not None and new_stock >= 1
-        if was_out and is_in:
-            self._notify_wishlist_on_restock(reward)
 
     @staticmethod
     def _notify_wishlist_on_restock(reward):
-        # Retired offers can still be edited and bookmarked in saved history.
-        # Keep those bookmarks without promising a currently unavailable item.
-        if not reward.is_active or not reward_is_available(reward):
-            return
-        import logging
-
-        from django.conf import settings as django_settings
-        from django.core.mail import send_mail
-
-        from apps.notifications.models import NotificationType
-        from apps.notifications.services import notify
-
-        logger = logging.getLogger(__name__)
-
-        wishlist_users = list(
-            User.objects.filter(reward_wishlist_entries__reward=reward).distinct()
-        )
-        for user in wishlist_users:
-            notify(
-                user,
-                title=f"Back in stock: {reward.name}",
-                message=(
-                    f'"{reward.name}" is available again — head to the '
-                    f'rewards shelf to redeem.'
-                ),
-                notification_type=NotificationType.REWARD_RESTOCKED,
-                link="/rewards",
-            )
-            # Restocks are time-sensitive (stock can sell out again) and the
-            # wishlist row is cleared below, so this is the one shot at
-            # reaching a kid who isn't in-app. Email rides along when an
-            # address exists; failures log without breaking the in-app
-            # fanout (same posture as the weekly-summary emails).
-            if not user.email:
-                continue
-            try:
-                send_mail(
-                    subject=f"Back in stock: {reward.name}",
-                    message=(
-                        f"Hi {user.display_label}!\n\n"
-                        f'"{reward.name}" from your wishlist is available '
-                        f"again ({reward.cost_coins} coins). Head to the "
-                        f"rewards shelf to redeem it before it sells out.\n"
-                    ),
-                    from_email=django_settings.DEFAULT_FROM_EMAIL,
-                    recipient_list=[user.email],
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to send restock email to user %s for reward %s",
-                    user.pk, reward.pk,
-                )
-        # Clear the wishlist rows so a future stock-out → restock cycle
-        # doesn't re-fire the same notification on the same wishlist
-        # entries — the kid had their chance to redeem; if they still
-        # want it back on the wishlist after, they can re-add it.
-        RewardWishlist.objects.filter(reward=reward).delete()
+        from .offer_services import notify_wishlist_on_restock
+        return notify_wishlist_on_restock(reward)
 
     @action(detail=True, methods=["post"])
     def redeem(self, request, pk=None):
@@ -203,11 +125,6 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
         return Response(
             RewardSerializer(available_rewards(rewards), many=True, context={"request": request}).data,
         )
-
-
-# Imported here rather than at module top to avoid circular reference with
-# apps.projects.models (which re-exports User for back-compat).
-from apps.projects.models import User  # noqa: E402
 
 
 def _similar_rewards_payload(request, reward):

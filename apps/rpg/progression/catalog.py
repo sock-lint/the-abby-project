@@ -11,7 +11,7 @@ from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill
 from apps.pets.models import PetSpecies
 from apps.pets.lifecycle import growth_thresholds
-from apps.quests.models import QuestDefinition
+from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_variants, egg_species, item_is_available, potion_type_for_item, random_item_is_available
 from apps.rpg.models import DropTable, ItemDefinition
 
@@ -141,7 +141,7 @@ def snapshot_catalog():
     No account, family, inventory, ledger or reward writer is involved.
     """
     skills = _bounded(
-        Skill.objects.order_by("pk").select_related("category", "subject").prefetch_related("prerequisites"),
+        Skill.objects.order_by("pk").select_related("category", "subject__category").prefetch_related("prerequisites"),
         2048,
         "skill",
     )
@@ -163,10 +163,10 @@ def snapshot_catalog():
             badges.append(badge)
         else:
             excluded[badge.criteria_type] += 1
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
     from apps.quests.availability import definition_is_available
-
     quests = _bounded(
-        QuestDefinition.objects.filter(is_system=True)
+        definitions_with_available_taxonomy(active_system_definitions()).filter(is_cooperative=False)
         .order_by("pk")
         .prefetch_related("skill_tags__skill", "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"),
         256,
@@ -181,8 +181,10 @@ def snapshot_catalog():
     pairs = {
         key: (species_records[s.pk], _record(p)) for key, (s, p) in pairs.items()
     }
+    from apps.achievements.taxonomy import available_for_new_choices
     skill_records = {
         s.pk: _record(s, category=_record(s.category),
+                      available_for_new_choices=available_for_new_choices(s),
                       prerequisites=FrozenRows(_record(p) for p in s.prerequisites.all()))
         for s in skills
     }
@@ -215,6 +217,8 @@ def snapshot_catalog():
                 s.category_id,
                 s.subject_id,
                 s.is_locked_by_default,
+                s.is_retired,
+                s.available_for_new_choices,
                 [(p.required_skill_id, p.required_level) for p in s.prerequisites.all()],
             )
             for s in skills

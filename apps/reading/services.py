@@ -1,20 +1,206 @@
-"""Server-owned reading progress and once-daily RPG rewards."""
+"""Shared reading writes, saved summaries and once-daily RPG rewards."""
+import json
+from contextlib import contextmanager
 from types import SimpleNamespace
 
 from django.contrib.auth import get_user_model
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import transaction
-from django.db.models import Max, Sum
+from django.db.models import Count, Max, Q, RestrictedError, Sum
 from django.utils import timezone
+from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.achievements.models import Skill
 from apps.achievements.services import AwardService
+from apps.families.models import Family
 from apps.notifications.services import defer_push_until_commit
 from apps.quests.activity import household_timezone
 from apps.rewards.models import CoinLedger
 from apps.rpg.constants import TriggerType
 from apps.rpg.services import GameLoopService
 
-from .models import ReadingDailyReward, ReadingRewardCredit
+from .models import ReadingBook, ReadingDailyReward, ReadingRewardCredit, ReadingSession
+
+
+def _locked_reading_members(target, requester):
+    """Check current authority in account-lifecycle Family -> member order."""
+    family = Family.objects.select_for_update(no_key=True).filter(pk=requester.family_id).first()
+    if family is None:
+        raise NotFound("Child not found.")
+    members = {
+        member.pk: member for member in get_user_model().objects.select_for_update(no_key=True).filter(
+            pk__in={requester.pk, target.pk}, family=family,
+        ).order_by("pk")
+    }
+    actor, target = members.get(requester.pk), members.get(target.pk)
+    if (
+        target is None or target.role != "child" or actor is None or not actor.is_active
+        or (actor.role, actor.is_staff) != (requester.role, requester.is_staff)
+        or actor.role not in {"parent", "child"}
+        or (actor.role == "child" and actor.pk != target.pk)
+    ):
+        raise NotFound("Child not found.")
+    # Parents may maintain an inactive child's historical records. The actor
+    # must remain active; do not inherit generic active-target mutation rules.
+    actor.family = family
+    target.family = family
+    return actor, target
+
+
+def lock_reading_owner(target, requester):
+    """Serialize writes and retain current member locks in the caller's transaction."""
+    return _locked_reading_members(target, requester)[1]
+
+
+@contextmanager
+def authorized_reading(requester, target):
+    """Hold current read authority through query evaluation and serialization."""
+    with transaction.atomic():
+        yield _locked_reading_members(target, requester)
+
+
+def reading_payload(data):
+    return json.loads(json.dumps(data, cls=DjangoJSONEncoder))
+
+
+def _create_details(validated_data):
+    values = dict(validated_data)
+    values.pop("user_id", None)
+    request_id = values.pop("client_request_id")
+    payload = reading_payload(values)
+    return values, request_id, payload
+
+
+def _existing_request(model, target, request_id, payload):
+    existing = model.objects.filter(user=target, client_request_id=request_id).first()
+    if existing is not None and existing.create_payload != payload:
+        raise ValidationError({"client_request_id": "This request was already saved with different details."})
+    return existing
+
+
+@transaction.atomic
+def create_reading_book(requester, target, validated_data):
+    """Save shared-serializer data once; identical retries return current state."""
+    values, request_id, payload = _create_details(validated_data)
+    target = lock_reading_owner(target, requester)
+    book = _existing_request(ReadingBook, target, request_id, payload)
+    created = book is None
+    if created:
+        book = ReadingBook.objects.create(
+            user=target, client_request_id=request_id, create_payload=payload, **values,
+        )
+    return book, created
+
+
+@transaction.atomic
+def create_reading_session(requester, target, validated_data):
+    """Save and credit a new session in the same transaction for REST and MCP."""
+    values, request_id, payload = _create_details(validated_data)
+    book_id = values.pop("book")
+    target = lock_reading_owner(target, requester)
+    session = _existing_request(ReadingSession, target, request_id, payload)
+    created = session is None
+    if created:
+        book = ReadingBook.objects.filter(pk=book_id, user=target).first()
+        if book is None:
+            raise ValidationError({"book": "Choose a book from this reader's shelf."})
+        # Default only after constructing the retry identity: an omitted date
+        # still identifies the original request when a client retries tomorrow.
+        values.setdefault("occurred_on", timezone.localdate(timezone=household_timezone(target)))
+        session = ReadingSession.objects.create(
+            user=target, book=book, client_request_id=request_id, create_payload=payload, **values,
+        )
+        if book.status in (ReadingBook.Status.WANT_TO_READ, ReadingBook.Status.PAUSED):
+            book.status = ReadingBook.Status.READING
+            book.save(update_fields=["status", "updated_at"])
+        ReadingRewardService.credit_new_session(target, session)
+    return session, created
+
+
+class ReadingHistoryConflict(APIException):
+    status_code = 409
+    default_code = "reading_history_conflict"
+    default_detail = "This book has reading entries. Keep it on your shelf to preserve your reading history."
+
+
+def _locked_reading_record(requester, target, record_id, model):
+    # The same account lock protects creates, corrections and removals. Always
+    # fetch again after waiting so partial edits merge with the current record.
+    if requester.role not in {"parent", "child"} or (
+        requester.role == "child" and requester.pk != target.pk
+    ):
+        raise NotFound("Reading record not found.")
+    target = lock_reading_owner(target, requester)
+    queryset = model.objects.select_related("user", "user__family")
+    if model is ReadingSession:
+        queryset = queryset.select_related("book", "reading_daily_reward")
+    record = queryset.filter(pk=record_id, user=target).first()
+    if record is None:
+        raise NotFound("Reading record not found.")
+    return target, record
+
+
+@transaction.atomic
+def _update_reading_record(requester, target, record_id, data, *, model, serializer_class):
+    target, record = _locked_reading_record(requester, target, record_id, model)
+    write = serializer_class(record, data=data, partial=True, context={"target_user": target})
+    write.is_valid(raise_exception=True)
+    for field, value in write.validated_data.items():
+        setattr(record, field, value)
+    record.save()
+    # Corrections deliberately leave create_payload and all daily credit alone.
+    return record
+
+
+def update_reading_book(requester, target, book_id, data):
+    from .serializers import ReadingBookWriteSerializer
+
+    return _update_reading_record(
+        requester, target, book_id, data,
+        model=ReadingBook, serializer_class=ReadingBookWriteSerializer,
+    )
+
+
+def update_reading_session(requester, target, session_id, data):
+    from .serializers import ReadingSessionWriteSerializer
+
+    return _update_reading_record(
+        requester, target, session_id, data,
+        model=ReadingSession, serializer_class=ReadingSessionWriteSerializer,
+    )
+
+
+@transaction.atomic
+def delete_reading_book(requester, target, book_id):
+    _, book = _locked_reading_record(requester, target, book_id, ReadingBook)
+    try:
+        book.delete()
+    except RestrictedError:
+        raise ReadingHistoryConflict() from None
+
+
+@transaction.atomic
+def delete_reading_session(requester, target, session_id):
+    _, session = _locked_reading_record(requester, target, session_id, ReadingSession)
+    # SET_NULL preserves an awarded daily receipt; UUID credit survives too.
+    session.delete()
+
+
+def reading_summary(target):
+    """Project saved history and actual daily credit without creating records."""
+    books = ReadingBook.objects.filter(user=target).aggregate(
+        books_total=Count("id"), books_finished=Count("id", filter=Q(status=ReadingBook.Status.FINISHED)),
+    )
+    sessions = ReadingSession.objects.filter(user=target).aggregate(
+        sessions_total=Count("id"), total_minutes=Sum("duration_minutes", default=0),
+        total_pages=Sum("pages_read", default=0),
+    )
+    tz = household_timezone(target)
+    day = timezone.localdate(timezone=tz)
+    return {
+        **books, **sessions, "today": day.isoformat(), "timezone": str(tz),
+        "reading_adventure": ReadingRewardService.daily_payload(target, day=day),
+    }
 
 
 class ReadingRewardService:

@@ -225,6 +225,9 @@ def set_habit_skill_tags(params: SetHabitSkillTagsIn) -> dict[str, Any]:
         raise MCPValidationError(f"Unknown skill IDs: {missing}")
 
     with transaction.atomic():
+        from apps.rpg.taxonomy_references import admit_references
+        admit_references(Skill, skill_ids,
+                         retained_ids=habit.skill_tags.values_list("skill_id", flat=True))
         HabitSkillTag.objects.filter(habit=habit).delete()
         HabitSkillTag.objects.bulk_create([
             HabitSkillTag(habit=habit, skill_id=t.skill_id, xp_weight=t.xp_weight)

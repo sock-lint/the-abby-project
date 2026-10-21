@@ -21,6 +21,31 @@ function renderPage({ user = buildUser(), handlers = [] } = {}) {
 }
 
 describe('Achievements (Skills page)', () => {
+  it('keeps a retired category and its saved XP reachable through the history tree', async () => {
+    const user = userEvent.setup();
+    const reads = [];
+    renderPage({ handlers: [
+      http.get('*/api/categories/', ({ request }) => {
+        reads.push(new URL(request.url).searchParams.get('include_retired'));
+        return HttpResponse.json(new URL(request.url).searchParams.get('include_retired') === 'true'
+          ? [{ id: 1, name: 'Earlier category', is_retired: true, available_for_new_choices: false }] : []);
+      }),
+      http.get('*/api/skills/tree/1/', () => HttpResponse.json({
+        category: { id: 1, name: 'Earlier category', is_retired: true, available_for_new_choices: false },
+        summary: { level: 1, total_xp: 75 },
+        subjects: [{ id: 10, name: 'Earlier subject', is_retired: false, available_for_new_choices: false,
+          skills: [{ id: 100, name: 'Saved skill', is_retired: true, available_for_new_choices: false, level: 1, xp_points: 75, unlocked: true }] }],
+      })),
+    ] });
+    await user.click(await screen.findByRole('button', { name: /Earlier category/ }));
+    await user.click(await screen.findByRole('button', { name: /Earlier subject/ }));
+    await user.click(await screen.findByRole('button', { name: /^Saved skill/ }));
+    expect(await screen.findByRole('heading', { name: 'Saved skill' })).toBeInTheDocument();
+    expect(screen.getByText(/75 XP/)).toBeInTheDocument();
+    expect(screen.getByText('Retired from new choices. Saved progress and rewards remain available.')).toBeInTheDocument();
+    expect(reads).toEqual(['true']);
+  });
+
   it('lets a parent switch modes with the shared arrow-key tab behavior', async () => {
     const user = userEvent.setup();
     renderPage({ user: buildParent(), handlers: [

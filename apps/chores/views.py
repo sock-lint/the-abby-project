@@ -50,6 +50,11 @@ def _apply_skill_tags(chore, tag_dicts):
                 "skill_tags": [f"Unknown skill IDs: {missing}"],
             })
 
+    from apps.rpg.taxonomy_references import admit_references
+    admit_references(Skill, skill_ids,
+                     retained_ids=chore.skill_tags.values_list("skill_id", flat=True),
+                     error_type=ValidationError)
+
     ChoreSkillTag.objects.filter(chore=chore).delete()
     ChoreSkillTag.objects.bulk_create([
         ChoreSkillTag(

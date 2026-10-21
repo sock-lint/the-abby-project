@@ -60,7 +60,7 @@ production Google or family data.
 
 MCP content authoring now separates global catalog reads (`mcp:catalog`),
 private drafts/asset briefs (`mcp:author`), runtime publication (`mcp:publish`)
-and household reads/writes. Catalog-only access excludes household records.
+and household reads/writes. Database content drafts, paired progression simulations and textual editorial drafts use these same independent grants. Catalog-only access excludes household records. Reading corrections and RPG management return only authorized household records; their services recheck current membership under locks. These deterministic tools call no new model provider.
 Challenge, reward-audit and scenario tools execute deterministic application
 code; the connected external assistant may receive their permitted results.
 Asset proposals can be exported as reviewed JSON for an external creation

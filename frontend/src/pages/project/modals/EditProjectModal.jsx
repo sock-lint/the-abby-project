@@ -1,4 +1,5 @@
-import { getCategories, getChildren, updateProject } from '../../../api';
+import { getAllCategories, getChildren, updateProject } from '../../../api';
+import TaxonomyOptions from '../../../components/form/TaxonomyOptions';
 import BottomSheet from '../../../components/BottomSheet';
 import ErrorAlert from '../../../components/ErrorAlert';
 import { useApi } from '../../../hooks/useApi';
@@ -8,7 +9,7 @@ import { TextField, SelectField, TextAreaField, DueDateChips } from '../../../co
 import { normalizeList } from '../../../utils/api';
 
 export default function EditProjectModal({ project, onClose, onSaved }) {
-  const { data: categoriesData } = useApi(getCategories);
+  const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const { data: childrenData } = useApi(getChildren);
   const categories = normalizeList(categoriesData);
   const children = normalizeList(childrenData);
@@ -59,7 +60,7 @@ export default function EditProjectModal({ project, onClose, onSaved }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Category" value={form.category_id} onChange={onField('category_id')}>
             <option value="">None</option>
-            {categories.map((c) => <option key={c.id} value={c.id}>{c.icon} {c.name}</option>)}
+            <TaxonomyOptions entries={categories} selected={form.category_id} kind="category" />
           </SelectField>
           <SelectField label="Difficulty" value={form.difficulty} onChange={onField('difficulty')}>
             {[1, 2, 3, 4, 5].map((d) => <option key={d} value={d}>{'\u2605'.repeat(d)} ({d})</option>)}

@@ -23,7 +23,7 @@ def get_project_suggestions(user):
         .select_related("skill", "skill__category")
         .values_list("skill__name", "skill__category__name", "level")
     )
-    categories = list(SkillCategory.objects.values_list("name", flat=True))
+    categories = list(SkillCategory.objects.filter(is_retired=False).values_list("name", flat=True))
 
     completed_text = "\n".join(
         f"- {title} (category: {cat}, difficulty: {diff})"
@@ -72,6 +72,7 @@ def get_project_suggestions(user):
     else:
         suggestions = []
 
+    suggestions = [row for row in suggestions if isinstance(row, dict) and row.get("category") in categories]
     if not suggestions:
         return _fallback_suggestions(completed, skills, categories)
     return suggestions[:3]
@@ -80,8 +81,8 @@ def get_project_suggestions(user):
 def _fallback_suggestions(completed, skills, categories):
     """Return curated suggestions when API is unavailable."""
     completed_cats = {cat for _, cat, _ in completed if cat}
-    skill_cats = {cat for _, cat, _ in skills}
     all_cats = set(categories)
+    skill_cats = {cat for _, cat, _ in skills} & all_cats
 
     # Suggest from unexplored categories first
     unexplored = all_cats - completed_cats - skill_cats

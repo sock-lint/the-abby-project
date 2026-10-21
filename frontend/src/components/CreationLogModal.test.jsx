@@ -26,6 +26,32 @@ function stubSkills() {
 }
 
 describe('CreationLogModal', () => {
+  it('keeps duplicate creative skill names distinct and submits their exact primary and secondary IDs', async () => {
+    server.use(http.get('*/api/skills/', () => HttpResponse.json([
+      { id: 21, name: 'Improvisation', category_name: 'Cooking' },
+      { id: 22, name: 'Improvisation', category_name: 'Music' },
+      { id: 11, name: 'Drawing', category_name: 'Art & Crafts' },
+    ])));
+    const calls = [];
+    server.use(http.post('*/api/creations/', async ({ request }) => {
+      const body = await request.formData();
+      calls.push({ primary: body.get('primary_skill_id'), secondary: body.get('secondary_skill_id') });
+      return HttpResponse.json({ id: 42 }, { status: 201 });
+    }));
+    const onSaved = vi.fn();
+    const { user } = renderWithProviders(<CreationLogModal onClose={vi.fn()} onSaved={onSaved} />);
+    const primary = screen.getByRole('combobox', { name: /primary skill/i });
+    const options = await openDropdown(user, primary);
+    expect(options.getByRole('option', { name: 'Drawing', exact: true })).toBeVisible();
+    await user.click(options.getByRole('option', { name: 'Improvisation (Music)', exact: true }));
+    expect(primary).toHaveTextContent('Improvisation (Music)');
+    await selectDropdown(user, screen.getByRole('combobox', { name: /secondary skill/i }), 'Improvisation (Cooking)');
+    await user.upload(screen.getByLabelText(/photo/i), new File(['small image'], 'art.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /log creation/i }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledExactlyOnceWith({ id: 42 }));
+    expect(calls).toEqual([{ primary: '22', secondary: '21' }]);
+  });
+
   it('renders only creative-subset skills in the primary picker', async () => {
     stubSkills();
     const { user } = renderWithProviders(<CreationLogModal onClose={() => {}} onSaved={() => {}} />);

@@ -3,6 +3,7 @@ import random
 from datetime import timedelta
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.rpg.constants import TriggerType
@@ -105,7 +106,7 @@ class QuestService:
         Returns the new Quest, or raises ValueError.
         """
         from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
-        from apps.quests.queries import definitions_visible_to
+        from apps.quests.queries import definitions_visible_to, equivalent_definition_ids
         from django.contrib.auth import get_user_model
 
         # Serialize this legacy compatibility path with automatic enrollment.
@@ -117,8 +118,15 @@ class QuestService:
         from .availability import definition_is_available
         if not definition_is_available(definition):
             raise ValueError("This challenge needs companion artwork that is not currently available.")
-        if ChallengeGoal.objects.filter(user=user, catalog_definition_id=definition_id).exists():
+        if definition.is_cooperative:
+            raise ValueError("Ask a parent to assign this shared challenge to at least two children.")
+        from .reference_locks import admit_definition_choices
+        admit_definition_choices(definition)
+        definition_ids = equivalent_definition_ids(definition)
+        if ChallengeGoal.objects.filter(user=user, catalog_definition_id__in=definition_ids).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline. Pin it to follow your progress.")
 
         # Check no active quest
         if Quest.objects.filter(
@@ -127,7 +135,7 @@ class QuestService:
             raise ValueError("You already have an active quest")
 
         if not definition.is_repeatable and Quest.objects.filter(
-            definition=definition, participants__user=user, status=Quest.Status.COMPLETED,
+            definition_id__in=definition_ids, participants__user=user, status=Quest.Status.COMPLETED,
         ).exists():
             raise ValueError("You have already completed this quest")
 
@@ -191,7 +199,7 @@ class QuestService:
         Quest. Raises ``ValueError`` on invalid input.
         """
         from apps.quests.models import ChallengeGoal, QuestDefinition, Quest, QuestParticipant
-        from apps.quests.queries import definitions_visible_to
+        from apps.quests.queries import definitions_visible_to, equivalent_definition_ids
         from django.contrib.auth import get_user_model
 
         users = list(users)
@@ -212,8 +220,29 @@ class QuestService:
         from .availability import definition_is_available
         if not definition_is_available(definition):
             raise ValueError("This challenge needs companion artwork that is not currently available.")
-        if ChallengeGoal.objects.filter(user__in=users, catalog_definition_id=definition_id).exists():
+        from .reference_locks import admit_definition_choices
+        admit_definition_choices(definition)
+        definition_ids = equivalent_definition_ids(definition)
+        personal_goals = ChallengeGoal.objects.filter(user__in=users, catalog_definition_id__in=definition_ids)
+        if definition.is_cooperative:
+            if len(users) < 2:
+                raise ValueError("A shared challenge needs at least two children.")
+            if any(user.role != "child" for user in users):
+                raise ValueError("Shared challenge participants must be children.")
+            # Accepted personal promises can still finish after their end,
+            # when an earlier accepted fact is repaired. A one-time promise
+            # therefore cannot be reassigned for a second full reward.
+            now = timezone.now()
+            if not definition.is_repeatable and personal_goals.exists():
+                raise ValueError("A participant already has an accepted individual version of this one-time challenge. Its original promise is preserved and cannot be reassigned as a shared reward.")
+            if personal_goals.filter(
+                Q(occurrences__ends_at__gt=now) | Q(occurrences__isnull=True, ends_at__gt=now),
+            ).exists():
+                raise ValueError("A saved individual challenge window is still open. Wait for it to expire before this shared assignment.")
+        elif personal_goals.exists():
             raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
+        if definition.duration_days is None:
+            raise ValueError("This challenge progresses automatically with no deadline for each child.")
 
         # Pre-flight: no participant may already have an active quest.
         # Doing this as one SQL query keeps the check atomic.
@@ -227,7 +256,7 @@ class QuestService:
             )
 
         if not definition.is_repeatable and Quest.objects.filter(
-            definition=definition, participants__user__in=users, status=Quest.Status.COMPLETED,
+            definition_id__in=definition_ids, participants__user__in=users, status=Quest.Status.COMPLETED,
         ).exists():
             raise ValueError("A participant has already completed this quest")
 

@@ -28,8 +28,8 @@
             {
               "subject": "Science",
               "grade_format": "points",
-              "score": "11.25",
-              "possible": "10"
+              "possible": "10",
+              "score": "11.25"
             },
             {
               "subject": "English",
@@ -100,8 +100,8 @@
             {
               "subject": "Science",
               "grade_format": "points",
-              "score": "11.25",
-              "possible": "10"
+              "possible": "10",
+              "score": "11.25"
             },
             {
               "subject": "English",

@@ -24,6 +24,7 @@ from ..schemas import (
     UpdateRewardIn,
 )
 from ..server import tool
+from ..retries import mutation_once
 from ..shapes import (
     coin_ledger_entry_to_dict,
     redemption_to_dict,
@@ -83,7 +84,8 @@ def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
 
     Deducts coins immediately (held) and — depending on the reward —
     either fulfills immediately or creates a PENDING request for parent
-    approval. Delegates to :class:`RewardService.request_redemption`.
+    approval. Supply a stable request_id UUID: an identical retry returns
+    the original receipt without another Coin debit or stock reservation.
     """
     user = get_current_user()
     # Audit C8: Reward is per-family content. Without family-scoping a child
@@ -94,8 +96,12 @@ def request_redemption(params: RequestRedemptionIn) -> dict[str, Any]:
         Reward, params.reward_id, actor=user, family_path="family",
     )
 
-    redemption = RewardService.request_redemption(user, reward)
-    return redemption_to_dict(redemption)
+    return mutation_once(
+        actor=user, target=user, operation="request_redemption", request_id=params.request_id,
+        payload=params.model_dump(exclude={"request_id"}), result_model=RewardRedemption,
+        create=lambda actor, target: RewardService.request_redemption(target, reward),
+        serialize=redemption_to_dict,
+    )
 
 
 def _get_pending_redemption(redemption_id: int, parent) -> RewardRedemption:
@@ -220,39 +226,18 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
     reward = get_in_family(
         Reward, params.reward_id, actor=parent, family_path="family",
     )
-    # Keep the family helper's concealment guard, then re-read after taking
-    # the same offer lock used by the shop. A metadata-only edit cannot
-    # overwrite stock reserved since its initial family-scoped lookup.
-    reward = Reward.objects.select_for_update(no_key=True).get(
-        pk=reward.pk, family_id=parent.family_id,
-    )
-
     data = params.model_dump(
-        exclude={
-            "reward_id", "clear_stock", "item_definition_slug",
-            "clear_item_definition",
-        },
+        exclude={"reward_id", "clear_stock", "item_definition_slug", "clear_item_definition"},
         exclude_unset=True,
     )
-    # Audit C8: name uniqueness is per-family.
-    if "name" in data and Reward.objects.filter(
-        name=data["name"], family_id=reward.family_id,
-    ).exclude(pk=reward.pk).exists():
-        raise MCPValidationError(
-            f"Another reward is already named {data['name']!r}.",
-        )
-    for field, value in data.items():
-        setattr(reward, field, value)
     if params.clear_stock:
-        reward.stock = None
+        data["stock"] = None
     if params.clear_item_definition:
-        reward.item_definition = None
+        data["item_definition"] = None
     elif params.item_definition_slug is not None:
-        reward.item_definition = _resolve_item_definition(
-            params.item_definition_slug,
-        )
-    _validate_reward_publication(reward)
-    reward.save()
+        data["item_definition"] = _resolve_item_definition(params.item_definition_slug).pk
+    from apps.rewards.offer_services import update_reward_offer
+    reward = update_reward_offer(parent, reward.pk, data)
     return reward_to_dict(reward)
 
 

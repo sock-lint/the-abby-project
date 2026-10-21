@@ -4,6 +4,7 @@ YAML remains the shipped baseline. Explicitly published overrides preserve the
 selected database identities and take precedence when that baseline is loaded.
 """
 from copy import deepcopy
+from contextlib import nullcontext
 from datetime import timedelta
 import json
 
@@ -139,7 +140,7 @@ def _protect_legacy(obj, values):
 
 def _apply(draft, *, publication=None):
     """The exact same bounded writers run inside preview rollback and publish."""
-    validate_changes(draft.actor, draft.changes)
+    validate_changes(draft.actor, draft.changes, lock=True)
     changes = sorted(draft.changes, key=lambda c: (c["section"] != "items", c["key"]))
     quest_ids = [c["object_id"] for c in changes if c["section"] == "quests" and c["object_id"]]
     # Freeze accepted presentation before a display edit. Existing item behavior
@@ -174,7 +175,13 @@ def _apply(draft, *, publication=None):
             obj.is_system = True
             # A quest name is also used by authored badge conditions. Retain
             # explicit IDs, refuse collisions, and surface named dependencies.
-            if QuestDefinition.objects.filter(name=obj.name).exclude(pk=obj.pk).exists():
+            if obj.superseded_by_id:
+                raise ContentPackError("This challenge identity is a retained alias; edit its canonical definition.")
+            from .authoring import validate_source_identity
+            # Earlier changes in this same draft may have just retained a
+            # source identity that was not present during preflight.
+            validate_source_identity(obj)
+            if QuestDefinition.objects.filter(name=obj.name, superseded_by__isnull=True).exclude(pk=obj.pk).exists():
                 raise ContentPackError("Challenge name collides with existing content; choose a distinct name.")
         else:
             validate_item_runtime(obj)
@@ -288,7 +295,7 @@ def _same_plan(stats, changes, plan):
         raise WorkbenchConflict("Publication no longer matches the reviewed changes; preview it again.")
 
 
-def simulate_draft(actor, draft_id, revision, preview_id, config=None):
+def simulate_draft(actor, draft_id, revision, preview_id, config=None, *, authorize=None):
     from apps.rpg.progression import normalize_config, simulate_progression
     from apps.rpg.progression.catalog import snapshot_catalog
     from apps.rpg.progression.engine import pet_incubation_policy
@@ -296,9 +303,13 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None):
     incubation_policy = pet_incubation_policy()
     # Snapshot only global definitions while serialized against publication.
     # Roll back every candidate write before running either bounded simulation.
-    with transaction.atomic():
+    # Transports may need fresh household/member authority. Reacquire it for
+    # each short database phase, before catalog admission, never around the
+    # detached calculation. An outer atomic would retain PostgreSQL locks even
+    # after these inner blocks exit.
+    with (authorize() if authorize else nullcontext(actor)) as current_actor, transaction.atomic():
         _catalog_lock()
-        draft = _draft(actor, draft_id, lock=True)
+        draft = _draft(current_actor, draft_id, lock=True)
         _revision(draft, revision)
         plan = _reviewed(draft, preview_id)
         before = _current(draft, plan)
@@ -310,9 +321,9 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None):
             transaction.set_rollback(True)
     comparison = {"baseline": simulate_progression(config, catalog=baseline, incubation_policy=incubation_policy),
                   "proposed": simulate_progression(config, catalog=proposed, incubation_policy=incubation_policy)}
-    with transaction.atomic():
+    with (authorize() if authorize else nullcontext(actor)) as current_actor, transaction.atomic():
         _catalog_lock()
-        draft = _draft(actor, draft_id, lock=True)
+        draft = _draft(current_actor, draft_id, lock=True)
         _revision(draft, revision)
         plan = _reviewed(draft, preview_id)
         _current(draft, plan)

@@ -88,7 +88,9 @@ class ElementalAvailabilityTests(TestCase):
 
     def test_milestone_metadata_requires_both_whole_pair_art_and_a_reachable_prerequisite(self):
         from apps.mcp_server.catalog import catalog_row
+        from apps.quests.controls import control_context, retry_state
         from apps.quests.milestone_eligibility import prerequisite_unavailable
+        from apps.rewards.models import CoinLedger
 
         prior = QuestDefinition.objects.create(
             name="Synthetic elemental reading prerequisite", description="A separate accepted reading window",
@@ -122,13 +124,32 @@ class ElementalAvailabilityTests(TestCase):
             self.assertTrue(projection["available_for_new_user"])
             self.assertEqual(projection["prerequisite_quest"], prior.pk)
             self.client.force_authenticate(self.child)
-            # Approved art cannot revive an ended one-time prerequisite path.
+            # Native explicit retries keep this accepted starter reachable;
+            # reading metadata neither starts the successor nor retries it.
+            accepted_count = ChallengeOccurrence.objects.count()
             with patch("django.utils.timezone.now", return_value=timezone.now() + timedelta(days=31)):
                 response = self.client.get("/api/challenges/")
                 self.assertEqual(response.status_code, 200)
+                original = ChallengeOccurrence.objects.get(goal__user=self.child, goal__catalog_definition=prior)
+                self.assertTrue(retry_state(original, control_context(self.child))["allowed"])
+                saved = next(row for row in response.data["results"] if row["id"] == f"goal:{original.pk}")
+                self.assertTrue(saved["retry"]["allowed"])
+                self.assertFalse(prerequisite_unavailable(self.child, prior.pk))
+                locked = next(row for row in response.data["locked_catalog"] if row["id"] == self.definition.pk)
+                self.assertFalse(locked["milestone_eligibility"]["unlocked"])
+                self.assertEqual(ChallengeOccurrence.objects.count(), accepted_count)
+                # Approved artwork cannot revive an ambiguous prerequisite
+                # identity, for which the current offer has no retry path.
+                QuestDefinition.objects.create(name=prior.name, quest_type="collection", target_value=3,
+                    duration_days=14, is_system=True, trigger_filter=prior.trigger_filter)
+                response = self.client.get("/api/challenges/")
+                self.assertEqual(response.status_code, 200)
+                self.assertFalse(retry_state(original, control_context(self.child))["allowed"])
                 self.assertTrue(prerequisite_unavailable(self.child, prior.pk))
                 self.assertNotIn(self.definition.pk, [row["id"] for row in response.data["locked_catalog"]])
+                self.assertEqual(ChallengeOccurrence.objects.count(), accepted_count)
             self.assertFalse(ChallengeGoal.objects.filter(user=self.child, catalog_definition=self.definition).exists())
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())
         self.assertFalse(UserInventory.objects.filter(user=self.child).exists())
 
     def test_globally_available_fire_does_not_enable_an_unprepared_species_pair(self):

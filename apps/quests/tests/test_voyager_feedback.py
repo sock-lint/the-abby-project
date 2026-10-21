@@ -32,7 +32,7 @@ class VoyagerFeedbackTests(TestCase):
         )
         self.parent = self.household.parents[0]
         self.child = self.household.children[0]
-        get_user_model().objects.filter(pk=self.child.pk).update(date_joined=self.now - timedelta(days=80))
+        get_user_model().objects.filter(pk=self.child.pk).update(date_joined=self.now - timedelta(days=120))
         self.category = SkillCategory.objects.create(name="Language Arts")
         self.skill = Skill.objects.create(category=self.category, name="Reading Comprehension")
         self.companion = QuestDefinition.objects.create(
@@ -42,7 +42,7 @@ class VoyagerFeedbackTests(TestCase):
         )
         self.voyager = QuestDefinition.objects.create(
             name="Reading Voyager", description="Public voyage", quest_type="collection",
-            target_value=20, duration_days=56, is_system=True,
+            target_value=20, duration_days=84, is_system=True,
             trigger_filter={"allowed_triggers": ["reading_logged"]},
             prerequisite_quest=self.companion, required_skill=self.skill, required_skill_level=1,
         )
@@ -66,7 +66,7 @@ class VoyagerFeedbackTests(TestCase):
     def child_user(self, suffix, **changes):
         return get_user_model().objects.create_user(
             username=f"voyager-{suffix}", password="pw", family=self.household.family,
-            date_joined=self.now - timedelta(days=80), role="child", **changes,
+            date_joined=self.now - timedelta(days=120), role="child", **changes,
         )
 
     def occurrence(self, *, user=None, days=56, gated=True, status="active", start=None, **changes):
@@ -160,7 +160,7 @@ class VoyagerFeedbackTests(TestCase):
         self.prior()
         self.assertEqual(self.report().data["current_states"]["ready"], 1)
 
-    def test_saved_45_and_selected_56_are_separate_and_include_older_than_30_days(self):
+    def test_saved_45_and_historical_56_are_separate_and_include_older_than_30_days(self):
         self.occurrence(days=45, gated=False, status="completed")
         second = self.child_user("expired")
         self.occurrence(user=second)
@@ -181,6 +181,70 @@ class VoyagerFeedbackTests(TestCase):
             {"accepted_windows": 4, "pending_windows": 2, "mature_completed": 0,
              "mature_expired": 1, "mature_unknown": 1, "mature_denominator": 1, "completion_rate": 0})
         self.assert_partition(report)
+
+    def test_saved_45_56_and_selected_84_keep_distinct_promises_after_catalog_edit(self):
+        self.occurrence(days=45, gated=False, status="completed")
+        self.occurrence(user=self.child_user("historical56"), days=56)
+        self.occurrence(user=self.child_user("selected84"), days=84, start=self.now - timedelta(days=90),
+                        status="completed")
+        QuestDefinition.objects.filter(pk=self.voyager.pk).update(duration_days=98, target_value=7)
+        before = self.saved_state()
+        report = self.report().data
+        groups = self.groups(report)
+        self.assertEqual(groups["saved_45_day"]["mature_completed"], 1)
+        self.assertEqual(groups["milestone_56_day"]["mature_expired"], 1)
+        self.assertEqual(groups["milestone_56_day"]["label"], "56 days · milestones")
+        self.assertEqual(groups["milestone_84_day"]["mature_completed"], 1)
+        self.assertEqual(groups["milestone_84_day"]["label"], "84 days · selected milestones")
+        self.assertEqual(groups["other_or_unknown"]["accepted_windows"], 0)
+        self.assertEqual(before, self.saved_state())
+        self.assert_partition(report)
+
+    def test_selected_84_matures_only_at_its_full_saved_deadline(self):
+        row = self.occurrence(days=84, start=self.now - timedelta(days=84), status="completed")
+        before = self.saved_state()
+        self.now -= timedelta(microseconds=1)
+        pending = self.groups()["milestone_84_day"]
+        self.assertEqual(pending["pending_windows"], 1)
+        self.assertEqual(pending["mature_denominator"], 0)
+        self.assertIsNone(pending["completion_rate"])
+        self.now += timedelta(microseconds=1)
+        mature = self.groups()["milestone_84_day"]
+        self.assertEqual(mature["mature_completed"], 1)
+        self.assertEqual(mature["mature_denominator"], 1)
+        self.assertEqual(mature["completion_rate"], 1)
+        self.assertEqual(row.ends_at, self.now)
+        self.assertEqual(before, self.saved_state())
+
+    def test_selected_84_requires_strict_matching_native_gate_snapshots(self):
+        row = self.occurrence(days=84)
+        original = row.snapshot
+        gate = row.goal.catalog_gate_snapshot
+        self.assertEqual(self.groups()["milestone_84_day"]["accepted_windows"], 1)
+        invalid = [[], {}, {**gate, "version": True}, {**gate, "required_skill_level": True},
+                   {**gate, "required_skill_id": 9999}, {**gate, "prerequisite_quest_id": 9999},
+                   {**gate, "required_badge_id": 4}, {**gate, "extra": 1}]
+        for changed in invalid:
+            with self.subTest(gate=changed):
+                ChallengeGoal.objects.filter(pk=row.goal_id).update(catalog_gate_snapshot=changed)
+                saved = {**changed, "opening_activity_id": 17} if isinstance(changed, dict) else changed
+                ChallengeOccurrence.objects.filter(pk=row.pk).update(snapshot={**original, "catalog_gate": saved})
+                groups = self.groups()
+                self.assertEqual(groups["other_or_unknown"]["accepted_windows"], 1)
+                self.assertEqual(groups["milestone_84_day"]["accepted_windows"], 0)
+        ChallengeGoal.objects.filter(pk=row.goal_id).update(catalog_gate_snapshot=gate)
+        for saved in [None, [], {**gate, "opening_activity_id": 18},
+                      {**gate, "opening_activity_id": True},
+                      {**gate, "opening_activity_id": 17, "version": True},
+                      {**gate, "opening_activity_id": 17, "extra": 1}]:
+            with self.subTest(occurrence_gate=saved):
+                ChallengeOccurrence.objects.filter(pk=row.pk).update(snapshot={**original, "catalog_gate": saved})
+                self.assertEqual(self.groups()["other_or_unknown"]["accepted_windows"], 1)
+        ChallengeOccurrence.objects.filter(pk=row.pk).update(snapshot=original)
+        for opening_id in [None, 0]:
+            with self.subTest(opening_id=opening_id):
+                ChallengeGoal.objects.filter(pk=row.goal_id).update(catalog_gate_activity_id=opening_id)
+                self.assertEqual(self.groups()["other_or_unknown"]["accepted_windows"], 1)
 
     def test_maturity_uses_exclusive_full_deadline_and_early_completion_stays_pending(self):
         row = self.occurrence(start=self.now - timedelta(days=56), status="completed")
@@ -306,9 +370,15 @@ class VoyagerFeedbackTests(TestCase):
         for sql in distinct_reads:
             self.assertNotIn("ORDER BY", sql, "Model history ordering defeats identity DISTINCT bounds")
 
-    def test_non_selected_duration_and_missing_frozen_policy_are_other(self):
+    def test_unreviewed_durations_and_missing_frozen_policy_are_other(self):
         row = self.occurrence(days=49)
-        self.assertEqual(self.groups()["other_or_unknown"]["accepted_windows"], 1)
+        for duration in [timedelta(days=49), timedelta(days=70), timedelta(days=98),
+                         timedelta(days=84, microseconds=1)]:
+            with self.subTest(duration=duration):
+                end = row.starts_at + duration
+                ChallengeOccurrence.objects.filter(pk=row.pk).update(ends_at=end)
+                ChallengeGoal.objects.filter(pk=row.goal_id).update(ends_at=end)
+                self.assertEqual(self.groups()["other_or_unknown"]["accepted_windows"], 1)
         ChallengeOccurrence.objects.filter(pk=row.pk).update(snapshot={"metric": "count", "target": "20"})
         self.assertEqual(self.groups()["other_or_unknown"]["accepted_windows"], 1)
 

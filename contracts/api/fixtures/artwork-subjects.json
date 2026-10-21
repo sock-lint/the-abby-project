@@ -11,7 +11,9 @@
       "description": "",
       "icon": "APPS",
       "catalog_icon": "subject-coding-languages-apps",
-      "order": 0
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true
     },
     {
       "id": 202,
@@ -21,7 +23,9 @@
       "description": "",
       "icon": "ALT",
       "catalog_icon": null,
-      "order": 0
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true
     }
   ]
 }

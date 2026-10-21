@@ -5,6 +5,7 @@ import SectionHeader from '../../components/SectionHeader';
 import SkillTagEditor from '../../components/SkillTagEditor';
 import { CheckboxField, IconPicker, SelectField, TextAreaField, TextField } from '../../components/form';
 import { milestoneReferenceLabel } from './contentWorkbenchEditor';
+import { isTaxonomyAvailable, taxonomyChoices, taxonomyOptionLabel } from '../../utils/taxonomy';
 
 const labels = {
   food: 'Pet food', cosmetic_frame: 'Profile frame', cosmetic_title: 'Title',
@@ -24,7 +25,14 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
   const editable = source?.editable !== false;
   const availableTriggers = values.quest_type === 'boss' ? rules.boss_triggers ?? rules.triggers : rules.triggers;
   const supportedTriggers = new Map((availableTriggers ?? []).map((choice) => [choiceValue(choice), choice]));
+  let hasAdditionalFilters = true;
+  try {
+    const additionalFilters = JSON.parse(editor.filterText);
+    hasAdditionalFilters = !additionalFilters || typeof additionalFilters !== 'object' || Array.isArray(additionalFilters) || Object.keys(additionalFilters).length > 0;
+  } catch { /* Invalid filters must be corrected before enabling untimed challenges. */ }
   const selectedTriggers = Array.isArray(values.trigger_filter?.allowed_triggers) ? values.trigger_filter.allowed_triggers : [];
+  const canBeUntimed = values.quest_type === 'collection' && !values.is_repeatable && !values.is_cooperative
+    && selectedTriggers.length === 1 && selectedTriggers[0] === 'reading_logged' && !hasAdditionalFilters;
   const triggerChoices = [...new Set([...supportedTriggers.keys(), ...selectedTriggers])];
   const rewardItems = values.reward_items ?? [];
   const itemIdentity = (item) => item.id ? `id:${item.id}` : `new:${item.key}`;
@@ -63,9 +71,15 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <SelectField label="Challenge type" value={values.quest_type} onChange={(event) => set('quest_type', event.target.value)}><option value="collection">Activity count</option><option value="boss">Boss challenge</option></SelectField>
           {numeric('target_value', values.quest_type === 'boss' ? 'Target damage' : 'Target count', 1)}
-          {numeric('duration_days', 'Duration in days', 1)}
+          {values.duration_days !== null && numeric('duration_days', 'Duration in days', 1)}
         </div>
+        <CheckboxField label="No deadline" checked={values.duration_days === null} disabled={!canBeUntimed && values.duration_days !== null} onChange={(event) => onChange({
+          ...editor,
+          timedDurationDays: values.duration_days ?? editor.timedDurationDays,
+          values: { ...values, duration_days: event.target.checked ? null : editor.timedDurationDays ?? 7 },
+        })} helpText="Available for one-time activity count challenges that count only daily Reading Adventures. Saved goals keep their original completion windows." />
         <CheckboxField label="Repeatable challenge" checked={values.is_repeatable ?? false} onChange={(event) => set('is_repeatable', event.target.checked)} />
+        <CheckboxField label="Shared family challenge" checked={values.is_cooperative ?? false} onChange={(event) => set('is_cooperative', event.target.checked)} helpText="A parent selects at least two children to work toward one shared target. Each participant receives the full completion reward." />
         <SelectField label="Required badge" value={values.required_badge ?? ''} onChange={(event) => set('required_badge', event.target.value ? Number(event.target.value) : null)}><option value="">No badge required</option>{catalog.badges.map((badge) => <option key={badge.id} value={badge.id}>{badge.name}</option>)}</SelectField>
         <section aria-label="Challenge milestones" className="space-y-3 rounded-lg bg-ink-page-aged p-3">
           <h4 className="font-semibold text-ink-primary">Milestones before a new offer</h4>
@@ -83,7 +97,7 @@ export default function ContentEntryEditor({ editor, onChange, catalog, rules, b
             }} helpText="Use a named skill’s attained level. XP reward tags below do not create this requirement.">
               <option value="">No skill required</option>
               {values.required_skill && !selectedSkillListed && <option value={values.required_skill} disabled>{source?.required_skill_name || 'Retained skill'} (#{values.required_skill}) · not listed</option>}
-              {catalog.skills.map((skill) => <option key={skill.id} value={skill.id}>{skill.category_name ? `${skill.category_name} / ` : ''}{milestoneReferenceLabel(skill, catalog.skills)}</option>)}
+              {taxonomyChoices(catalog.skills, values.required_skill).map((skill) => <option key={skill.id} value={skill.id} disabled={!isTaxonomyAvailable(skill)}>{skill.category_name ? `${skill.category_name} / ` : ''}{taxonomyOptionLabel(skill, milestoneReferenceLabel(skill, catalog.skills))}</option>)}
             </SelectField>
             <TextField label="Required skill level" type="number" min="1" max="6" step="1" required={Boolean(values.required_skill)} disabled={!values.required_skill} value={values.required_skill_level ?? 0} onChange={(event) => set('required_skill_level', event.target.value === '' ? '' : Number(event.target.value))} helpText="Levels 1 to 6. Clearing the skill removes the level requirement." />
           </div>

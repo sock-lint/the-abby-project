@@ -4,6 +4,18 @@
       "id": "goal:1",
       "name": "Two movement sessions",
       "description": "Log two movement sessions during this window.",
+      "goal_definition_id": 1,
+      "qualifying_triggers": [
+        "movement_session"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_expired",
+        "latest_attempt_id": "goal:1"
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "catalog",
       "first_details_opened_at": null,
       "catalog_repeatable": false,
@@ -42,6 +54,18 @@
       "id": "legacy:1",
       "name": "Saved egg promise",
       "description": "A synthetic accepted family quest.",
+      "goal_definition_id": null,
+      "qualifying_triggers": [
+        "movement_session"
+      ],
+      "retry": {
+        "allowed": false,
+        "reason": "not_catalog",
+        "latest_attempt_id": null
+      },
+      "retry_of": null,
+      "closed_reason": null,
+      "schedule": null,
       "origin": "legacy",
       "first_details_opened_at": null,
       "catalog_repeatable": false,

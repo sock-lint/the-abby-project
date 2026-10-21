@@ -4,7 +4,7 @@ import BackLink from '../components/BackLink';
 import {
   commitIngestJob,
   discardIngestJob,
-  getCategories,
+  getAllCategories,
   getIngestJob,
   startIngest,
   startGoogleDriveIngest,
@@ -37,7 +37,7 @@ export default function ProjectIngest() {
 
 function IngestForm({ userId }) {
   const navigate = useNavigate();
-  const { data: categoriesData } = useApi(getCategories);
+  const { data: categoriesData } = useApi((signal) => getAllCategories({ includeRetired: true, signal }));
   const categories = normalizeList(categoriesData);
 
   const [restored] = useState(() => readIngestDraft(userId));

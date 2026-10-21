@@ -7,8 +7,10 @@ from django.core.exceptions import ValidationError
 
 from apps.achievements.availability import badge_goal_is_available
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject, XP_THRESHOLDS
+from apps.achievements.taxonomy import available_for_new_choices
 from apps.pets.models import PetSpecies, PotionType
 from apps.quests.models import QuestDefinition
+from apps.quests.queries import active_system_definitions
 from apps.quests.availability import definition_is_available
 from apps.quests.validators import validate_trigger_filter
 from apps.rpg.catalog_support import (
@@ -18,6 +20,7 @@ from apps.rpg.catalog_support import (
 from apps.rpg.constants import TriggerType
 from apps.rpg.content.validation import validate_badge_criteria
 from apps.rpg.models import DropTable, ItemDefinition
+from apps.rpg.item_effects import effect_summary
 
 from .shapes import to_plain
 
@@ -26,8 +29,8 @@ def catalog_queryset(section):
     """Only global definitions; custom parent quests never enter this surface."""
     return {
         "categories": lambda: SkillCategory.objects.all(),
-        "subjects": lambda: Subject.objects.all(),
-        "skills": lambda: Skill.objects.select_related("subject").prefetch_related("prerequisites"),
+        "subjects": lambda: Subject.objects.select_related("category"),
+        "skills": lambda: Skill.objects.select_related("category", "subject__category").prefetch_related("prerequisites"),
         "badges": lambda: Badge.objects.select_related("subject"),
         "quests": lambda: QuestDefinition.objects.filter(is_system=True).select_related("required_badge", "prerequisite_quest", "required_skill").prefetch_related(
             "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
@@ -69,11 +72,16 @@ def _quest_available(quest):
         validate_milestone_gate(quest)
     except ValidationError:
         return False
-    return not quest.required_badge_id or _badge_available(quest.required_badge)
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
+    return definitions_with_available_taxonomy(active_system_definitions()).filter(pk=quest.pk).exists() and (
+        not quest.required_badge_id or _badge_available(quest.required_badge)
+    )
 
 
 def catalog_row(section, row):
     common = {"id": row.pk}
+    if section in {"categories", "subjects", "skills"}:
+        common.update(is_retired=row.is_retired, available_for_new_choices=available_for_new_choices(row))
     if section == "categories":
         return {**common, **{key: getattr(row, key) for key in ("name", "icon", "color", "description")}}
     if section == "subjects":
@@ -91,13 +99,14 @@ def catalog_row(section, row):
         return {**common, **{key: getattr(row, key) for key in (
             "slug", "name", "description", "icon", "sprite_key", "item_type", "rarity", "coin_value", "metadata",
             "pet_species_id", "potion_type_id", "food_species_id",
-        )}, **_item_availability(row)}
+        )}, "effect_summary": effect_summary(row), **_item_availability(row)}
     if section == "quests":
         return {**common, **{key: getattr(row, key) for key in (
             "name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days", "trigger_filter",
-            "coin_reward", "xp_reward", "is_repeatable", "is_system",
+            "coin_reward", "xp_reward", "is_repeatable", "is_system", "is_cooperative",
         )}, "required_badge": row.required_badge_id,
                 "required_badge_name": row.required_badge.name if row.required_badge_id else None,
+                "superseded_by": row.superseded_by_id,
                 "prerequisite_quest": row.prerequisite_quest_id,
                 "prerequisite_quest_name": row.prerequisite_quest.name if row.prerequisite_quest_id else None,
                 "required_skill": row.required_skill_id,
@@ -170,6 +179,14 @@ def audit_catalog_rows(section, rows):
             if not item_is_available(row):
                 findings.append(_finding("unsupported_item", section, row, item_unavailable_reason(row), "info"))
         elif section == "quests":
+            if row.superseded_by_id:
+                findings.append(_finding("superseded_quest_definition", section, row,
+                    f"Retained history alias of definition {row.superseded_by_id}; no new offers or repeat windows.", "info"))
+            elif QuestDefinition.objects.filter(
+                is_system=True, name=row.name, superseded_by__isnull=True,
+            ).exclude(pk=row.pk).exists():
+                findings.append(_finding("ambiguous_system_quest", section, row,
+                    "Multiple unreconciled system definitions share this name; new offers and starts are held.", "error"))
             from apps.quests.milestone_eligibility import validate_milestone_gate
             try:
                 validate_milestone_gate(row)
@@ -215,7 +232,7 @@ def audit_catalog_rows(section, rows):
                 names = criteria.get("quest_names") or ([criteria["quest_name"]] if criteria.get("quest_name") else [])
                 if isinstance(names, list) and all(isinstance(name, str) for name in names):
                     # Parent-authored private definitions cannot make a global catalog goal reachable.
-                    if QuestDefinition.objects.filter(is_system=True, name__in=names).count() != len(set(names)):
+                    if active_system_definitions().filter(name__in=names).values("name").distinct().count() != len(set(names)):
                         findings.append(_finding("orphan_reference", section, row, "Badge names a quest absent from the global system catalog."))
         elif section == "skills":
             if row.pk in cycle_ids:

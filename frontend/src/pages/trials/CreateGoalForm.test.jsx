@@ -1,6 +1,6 @@
 import { selectDropdown } from '../../test/selectDropdown';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import { renderWithProviders, screen, within, waitFor } from '../../test/render';
 import { server } from '../../test/server';
 import { spyHandler } from '../../test/spy';
@@ -120,5 +120,78 @@ describe('Parent measurable challenges', () => {
     await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' }));
     expect(create.calls).toHaveLength(0);
     expect(screen.getByLabelText('Target')).toBeInvalid();
+  });
+
+  it('explains the required XP skill before saving and submits the corrected reward', async () => {
+    server.use(http.get('*/api/skills/', () => HttpResponse.json([{ id: 12, name: 'Persistence' }])));
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    const { user } = renderForm();
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await user.clear(screen.getByLabelText('XP bonus'));
+    await user.type(screen.getByLabelText('XP bonus'), '20');
+    expect(screen.queryByText(/this awards coins only/i)).not.toBeInTheDocument();
+    const submit = () => within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' });
+    await user.click(submit());
+    const skills = screen.getByRole('group', { name: 'Skills this rewards' });
+    expect(skills).toHaveAttribute('aria-invalid', 'true');
+    expect(skills).toHaveAccessibleDescription('Choose a skill to receive the XP bonus.');
+    expect(within(skills).getByRole('alert')).toHaveTextContent('Choose a skill to receive the XP bonus.');
+    expect(create.calls).toHaveLength(0);
+    await user.click(within(skills).getByRole('button', { name: 'Add skill' }));
+    expect(skills).not.toHaveAttribute('aria-invalid', 'true');
+    await user.click(submit());
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].url).toMatch(/\/api\/challenges\/goals\/$/);
+    expect(create.calls[0].body).toEqual({ request_id: expect.stringMatching(/^[a-f0-9-]{36}$/), user_id: 7, name: 'Approved chores · 2 activities this week', trigger_type: 'chore_complete', metric: 'count', target: '2', unit: 'actions', period: 'this_week', repeat_weekly: false, coin_reward: 10, xp_reward: 20, skill_tags: [{ skill_id: 12, xp_weight: 1 }] });
+  });
+
+  it('keeps a server skill error beside the selected skill and preserves the challenge draft', async () => {
+    server.use(http.get('*/api/skills/', () => HttpResponse.json([{ id: 12, name: 'Persistence' }])));
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, () => HttpResponse.json({ skill_tags: ['Choose existing skills.'] }, { status: 400 }));
+    server.use(create.handler);
+    const { user } = renderForm();
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await user.type(screen.getByLabelText('Title (optional)'), 'Weekly practice');
+    await user.clear(screen.getByLabelText('XP bonus'));
+    await user.type(screen.getByLabelText('XP bonus'), '20');
+    await user.click(await screen.findByRole('button', { name: 'Add skill' }));
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    const skills = screen.getByRole('group', { name: 'Skills this rewards' });
+    expect(skills).toHaveAccessibleDescription('Choose existing skills.');
+    expect(within(skills).getByRole('alert')).toHaveTextContent('Choose existing skills.');
+    expect(screen.getByLabelText('Skill for tag 1')).toHaveValue('12');
+    expect(screen.getByLabelText('Title (optional)')).toHaveValue('Weekly practice');
+    expect(screen.getByLabelText('XP bonus')).toHaveValue(20);
+  });
+
+  it('shows unavailable skills and retries them without losing the XP challenge draft', async () => {
+    let skillReads = 0;
+    server.use(http.get('*/api/skills/', async () => {
+      skillReads += 1;
+      if (skillReads === 1) return HttpResponse.json({ error: 'Skills are unavailable.' }, { status: 503 });
+      await delay(200);
+      return HttpResponse.json([{ id: 12, name: 'Persistence' }]);
+    }));
+    const create = spyHandler('post', /\/api\/challenges\/goals\/$/, buildChallengeGoal());
+    server.use(create.handler);
+    const { user } = renderForm();
+    await user.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await user.type(screen.getByLabelText('Title (optional)'), 'Weekly practice');
+    await user.clear(screen.getByLabelText('XP bonus'));
+    await user.type(screen.getByLabelText('XP bonus'), '20');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Skills are unavailable.');
+    await user.click(screen.getByRole('button', { name: 'Retry skills' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading skills…');
+    expect(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' })).toBeDisabled();
+    await user.click(await screen.findByRole('button', { name: 'Add skill' }));
+    expect(skillReads).toBe(2);
+    expect(screen.getByLabelText('Title (optional)')).toHaveValue('Weekly practice');
+    expect(screen.getByLabelText('XP bonus')).toHaveValue(20);
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Create challenge' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(create.calls[0].url).toMatch(/\/api\/challenges\/goals\/$/);
+    expect(create.calls[0].body).toMatchObject({ name: 'Weekly practice', xp_reward: 20, skill_tags: [{ skill_id: 12, xp_weight: 1 }] });
   });
 });

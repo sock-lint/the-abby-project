@@ -15,7 +15,9 @@
       "catalog_icon": "skill-coding-python",
       "level_names": {},
       "is_locked_by_default": false,
-      "order": 0
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true
     },
     {
       "id": 302,
@@ -29,7 +31,9 @@
       "catalog_icon": null,
       "level_names": {},
       "is_locked_by_default": true,
-      "order": 0
+      "order": 0,
+      "is_retired": false,
+      "available_for_new_choices": true
     }
   ]
 }

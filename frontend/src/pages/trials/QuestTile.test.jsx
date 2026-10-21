@@ -21,6 +21,12 @@ const definition = (overrides = {}) => ({
 });
 
 describe('QuestTile', () => {
+  it('describes a catalog challenge with a null duration as having no deadline', () => {
+    renderWithProviders(<QuestTile quest={definition({ name: 'Reading Companion', quest_type: 'collection', duration_days: null })} chapter="available" />);
+    expect(screen.getByText(/target 100 · No deadline/)).toBeInTheDocument();
+    expect(screen.queryByText(/· d(?:\s|$)|NaN|0d/)).not.toBeInTheDocument();
+  });
+
   it('opens the detail from a whole-card tap on an available tile', async () => {
     const onSelect = vi.fn();
     const { user } = renderWithProviders(

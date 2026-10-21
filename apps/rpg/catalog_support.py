@@ -138,17 +138,57 @@ def available_pet_pairs():
     return pairs
 
 
-def _legacy_reference(model, value):
+class _LegacyReferenceCache(dict):
+    """Exact requested-name results evaluated with the database's lookups."""
+
+
+def preload_legacy_references(model, rows, values):
+    """Resolve requested names in bounded batches using actual DB semantics."""
+    from django.db.models import Q
+
+    rows = {row.pk: row for row in rows}
+    keys = sorted({value.strip() for value in values if isinstance(value, str) and value.strip()})
+    resolved = _LegacyReferenceCache()
+    if not rows:
+        return resolved
+    for start in range(0, len(keys), 50):
+        batch = keys[start:start + 50]
+        annotations = {}
+        for index, key in enumerate(batch):
+            annotations[f"_legacy_name_{index}"] = Q(name__iexact=key)
+            annotations[f"_legacy_slug_{index}"] = Q(slug=key)
+        names, slugs = {}, {}
+        # Default model ordering matches each ordinary .filter(...).first().
+        matches = model.objects.filter(pk__in=rows).annotate(**annotations).values_list("pk", *annotations)
+        for row in matches:
+            for index, key in enumerate(batch):
+                if row[1 + index * 2]:
+                    names.setdefault(key, rows[row[0]])
+                if row[2 + index * 2]:
+                    slugs.setdefault(key, rows[row[0]])
+        resolved.update((key, names.get(key) or slugs.get(key)) for key in batch)
+    return resolved
+
+
+def _legacy_reference(model, value, *, rows=None):
     if not isinstance(value, str) or not value.strip():
         return None
     key = value.strip()
     # Existing hatch services resolve legacy names case-insensitively. Keep
     # that precedence, then support canonical slugs without trusting artwork
     # names or granting an absent catalog identity.
-    return model.objects.filter(name__iexact=key).first() or model.objects.filter(slug=key).first()
+    if isinstance(rows, _LegacyReferenceCache):
+        return rows.get(key)
+    queryset = model.objects.all()
+    if rows is not None:
+        ids = [row.pk for row in rows]
+        if not ids:
+            return None
+        queryset = queryset.filter(pk__in=ids)
+    return queryset.filter(name__iexact=key).first() or queryset.filter(slug=key).first()
 
 
-def egg_species(item):
+def egg_species(item, *, legacy_species=None):
     """Resolve saved legacy eggs, but require exact typed prepared bindings."""
     from apps.pets.models import PetSpecies
 
@@ -174,7 +214,7 @@ def egg_species(item):
                 or metadata_slug != family["species_slug"]):
             return None
         return species
-    legacy = species or _legacy_reference(PetSpecies, metadata_slug)
+    legacy = species or _legacy_reference(PetSpecies, metadata_slug, rows=legacy_species)
     # Display-name fallback is exclusively for genuine legacy identities.
     # It must never resolve an untyped alias into a prepared family.
     legacy_slug = str(_value(legacy, "slug", ""))
@@ -183,22 +223,22 @@ def egg_species(item):
     return legacy
 
 
-def potion_type_for_item(item):
+def potion_type_for_item(item, *, legacy_potions=None):
     from apps.pets.models import PotionType
 
     metadata = _value(item, "metadata")
     metadata = metadata if isinstance(metadata, Mapping) else {}
-    return _value(item, "potion_type") or _legacy_reference(PotionType, metadata.get("variant"))
+    return _value(item, "potion_type") or _legacy_reference(PotionType, metadata.get("variant"), rows=legacy_potions)
 
 
-def item_is_available(item):
+def item_is_available(item, *, legacy_species=None, legacy_potions=None):
     kind = _value(item, "item_type")
     if kind in _policy().disabled_item_types:
         return False
     metadata = _value(item, "metadata")
     metadata = metadata if isinstance(metadata, Mapping) else {}
     if kind == "egg":
-        return pet_is_available(egg_species(item))
+        return pet_is_available(egg_species(item, legacy_species=legacy_species))
     if kind == "potion":
         if getattr(settings, "RPG_ASSET_SUPPORT_POLICY", None) is None:
             # Canonical typed ingredients still need their own approved art.
@@ -206,7 +246,7 @@ def item_is_available(item):
             return prepared_potion(item) and potion_is_available(_value(item, "potion_type"))
         if str(_value(item, "slug", "")).startswith("meshtint-"):
             return False
-        return potion_is_available(potion_type_for_item(item))
+        return potion_is_available(potion_type_for_item(item, legacy_potions=legacy_potions))
     # DOM frames/titles/covers, food, coins and utility items need no fitted
     # creature art. Their existing service still validates actual metadata.
     return item is not None
