@@ -5,6 +5,7 @@ import { spyHandler } from '../test/spy';
 import { equipCosmetic, getChallenges, getCosmeticCatalog, getInventory, getItemCatalog, getPetCodex, getPetSpeciesCatalog, getQuestCatalog, getRecentDrops, getStable, startIncubation, hatchIncubation } from './index';
 import catalog from '../../../contracts/api/fixtures/pets-supported-catalog.json';
 import stable from '../../../contracts/api/fixtures/pets-preserved-collection.json';
+import sharedExpeditionStable from '../../../contracts/api/fixtures/pets-shared-expedition-allowance.json';
 import cosmetics from '../../../contracts/api/fixtures/cosmetics-supported-catalog.json';
 import inventory from '../../../contracts/api/fixtures/items-preserved-inventory.json';
 import appearanceInventory from '../../../contracts/api/fixtures/inventory-appearance.json';
@@ -15,6 +16,9 @@ import imageChallenges from '../../../contracts/api/fixtures/catalog-icons-chall
 import imageSpecies from '../../../contracts/api/fixtures/catalog-icons-species.json';
 import imageDrops from '../../../contracts/api/fixtures/catalog-icons-drops.json';
 import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json';
+import elementalInventory from '../../../contracts/api/fixtures/catalog-icons-elemental-inventory.json';
+import elementalChallenges from '../../../contracts/api/fixtures/catalog-icons-elemental-challenges.json';
+import elementalCatalog from '../../../contracts/api/fixtures/pets-elemental-supported-catalog.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
@@ -24,6 +28,63 @@ import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-b
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('offers hatching for canonical Fire/Ice potions while same-name copies stay unavailable', async () => {
+    server.use(http.get('*/api/inventory/', () => HttpResponse.json(elementalInventory)));
+    const rows = await getInventory();
+    expect(rows).toEqual(elementalInventory);
+    expect(new Map(rows.map((row) => [row.item.id, row.item.catalog_icon]))).toEqual(new Map([
+      [51, 'item-fire-potion'], [52, 'item-ice-potion'], [53, null], [54, null],
+    ]));
+    expect(new Set(rows.map((row) => row.id))).toEqual(new Set([101, 102, 103, 104]));
+    expect(rows.every((row) => row.quantity === 2)).toBe(true);
+    for (const row of rows) {
+      const canonical = [51, 52].includes(row.item.id);
+      expect(row.item.catalog_available).toBe(canonical);
+      expect(row.available_actions).toEqual(canonical ? [{ id: 'hatch', label: 'Hatch a companion', to: '/bestiary?tab=hatchery' }] : []);
+    }
+    expect(rows.find((row) => row.item.id === 51).item).toMatchObject({
+      slug: 'fire-potion', item_type: 'potion', potion_type_name: 'Fire', metadata: { variant: 'fire' },
+    });
+    expect(rows.find((row) => row.item.id === 52).item).toMatchObject({
+      slug: 'ice-potion', item_type: 'potion', potion_type_name: 'Ice', metadata: { variant: 'ice' },
+    });
+    expect(rows.filter((row) => row.item.name === 'Fire Potion').map((row) => row.item.catalog_icon)).toEqual(['item-fire-potion', null]);
+  });
+
+  it('transports four shipped elemental challenge offers and complete reward pairs while custom names stay unbound', async () => {
+    server.use(http.get('*/api/quests/catalog/', () => HttpResponse.json(elementalChallenges)));
+    const rows = await getQuestCatalog();
+    expect(rows).toEqual(elementalChallenges);
+    expect(new Map(rows.map((row) => [row.id, row.catalog_icon]))).toEqual(new Map([
+      [91, 'challenge-ember-nest'], [92, 'challenge-frost-nest'], [93, 'challenge-ember-trail'], [94, 'challenge-frost-trail'], [95, null],
+    ]));
+    for (const [id, egg, potion] of [[91, 71, 51], [92, 71, 52], [93, 72, 51], [94, 72, 52]]) {
+      const challenge = rows.find((row) => row.id === id);
+      expect(challenge).toMatchObject({ quest_type: 'collection', is_system: true, is_repeatable: false, duration_days: 180, coin_reward: 0, xp_reward: 0 });
+      expect(new Set(challenge.reward_items.map((reward) => reward.item))).toEqual(new Set([egg, potion]));
+      expect(challenge.reward_items).toHaveLength(2);
+      expect(challenge.reward_items.every((reward) => reward.quantity === 1 && reward.item_catalog_available === true)).toBe(true);
+      expect(challenge.reward_items.find((reward) => reward.item_type === 'potion').item_catalog_icon).toBe(potion === 51 ? 'item-fire-potion' : 'item-ice-potion');
+    }
+    expect(rows.find((row) => row.id === 95)).toMatchObject({ name: 'Ember Nest', is_system: false, catalog_icon: null, reward_items: [] });
+  });
+  it('uses server-confirmed Fire/Ice compatibility for Chick and Wolf while another prepared family stays Base only', async () => {
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(elementalCatalog)));
+    const codex = await getPetCodex();
+    expect(codex).toEqual(elementalCatalog);
+    expect(new Set(codex.potions.map((potion) => potion.slug))).toEqual(new Set(['base', 'fire', 'ice']));
+    expect(Object.fromEntries(codex.species.map((species) => [species.slug, species.available_potions.map((potion) => potion.slug)]))).toEqual({
+      chick: ['base', 'fire', 'ice'], 'meshtint-wolf': ['base', 'fire', 'ice'], 'meshtint-bat': ['base'],
+    });
+  });
+  it('uses the shared species allowance for every saved potion appearance', async () => {
+    server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(sharedExpeditionStable)));
+    const stable = await getStable();
+    expect(new Set(stable.mounts.map((mount) => mount.potion.slug))).toEqual(new Set(['base', 'fire', 'ice']));
+    expect(stable.mounts.every((mount) => mount.expedition_available === false)).toBe(true);
+    expect(new Set(stable.mounts.map((mount) => mount.expedition_available_at)).size).toBe(1);
+    expect(stable.mounts.every((mount) => mount.expedition_available_in_seconds > 0 && mount.active_expedition === null)).toBe(true);
+  });
   it('preserves base coin bonuses in catalog and earned badge responses', async () => {
     server.use(
       http.get('*/api/badges/', () => HttpResponse.json(badgeCatalog)),

@@ -41,4 +41,19 @@ describe('Daily expedition card', () => {
     expect(screen.getByText(/Come back tomorrow/)).toHaveTextContent('you can still play together now');
     expect(screen.queryByRole('button', { name: 'Choose an expedition' })).toBeNull();
   });
+  it('explains an unavailable appearance without claiming that this pet already traveled', () => {
+    render(<DailyExpeditionCard mount={{ ...mount, expedition_available: false, expedition_available_at: null, expedition_available_in_seconds: null }} name="Frost" />);
+    expect(screen.getByText(/Another appearance of this species has an expedition to finish/)).toBeInTheDocument();
+    expect(screen.getByText(/All appearances of the same species share one expedition per day/)).toBeInTheDocument();
+    expect(screen.queryByText(/Frost has explored/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Choose an expedition' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Collect your finds' })).toBeNull();
+  });
+  it('requests a server refresh instead of offering a trip when eligibility is unknown', async () => {
+    const refresh = vi.fn();
+    render(<DailyExpeditionCard mount={{ ...mount, expedition_available: undefined }} name="Frost" onRefresh={refresh} />);
+    expect(screen.queryByRole('button', { name: 'Choose an expedition' })).toBeNull();
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Check availability' }));
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
 });

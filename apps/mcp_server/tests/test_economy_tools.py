@@ -1,8 +1,10 @@
 """Persisted accounting, bounded cursors and mutation-free anonymous projections."""
 from datetime import date, datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from django.core.management import call_command
 from django.db import connection
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
@@ -242,6 +244,49 @@ class AnonymousPreviewTests(EconomyTestCase):
         DropTable.objects.filter(trigger_type="reading_logged").update(weight=0)
         with self.assertRaisesRegex(MCPValidationError, "positive effective selection weight"):
             self.preview(days=1, reading_minutes_per_day=10)
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+    def test_shipped_elemental_potions_stay_out_of_preview_and_live_random_pools(self):
+        from apps.rpg.catalog_support import item_is_available
+        from apps.rpg.services import DropService
+
+        call_command("loadrpgcontent", stdout=StringIO())
+        elemental_slugs = {"fire-potion", "ice-potion"}
+        triggers = ("chore_complete", "clock_out")
+        for potion in ItemDefinition.objects.filter(slug__in=elemental_slugs):
+            self.assertTrue(item_is_available(potion))
+            for trigger in triggers:
+                # Retained authored rows must not make an earned-only potion
+                # randomly obtainable once its artwork becomes available.
+                DropTable.objects.create(trigger_type=trigger, item=potion, weight=999)
+
+        for trigger in triggers:
+            with self.subTest(trigger=trigger):
+                scenario = {"chores_per_day": [{"count": 1}]} if trigger == "chore_complete" else {
+                    "one_off_awards": [{"kind": "tracked_work", "source_key": "elemental-work", "day": 1,
+                                        "duration_minutes": 10}],
+                }
+                projected = self.preview(days=1, **scenario)["drop_expected_value"]
+                outcomes = projected["by_item"]
+                self.assertTrue(outcomes)
+                self.assertFalse(projected["item_rows_truncated"])
+                self.assertTrue(elemental_slugs.isdisjoint(row["item_slug"] for row in outcomes))
+                captured = []
+
+                def select_food(entries, *, weights, k):
+                    captured.extend(entry.item.slug for entry, weight in zip(entries, weights) if weight > 0)
+                    return [next(entry for entry, weight in zip(entries, weights)
+                                 if weight > 0 and entry.item.item_type == "food")]
+
+                with patch("apps.rpg.services.random.random", return_value=0), patch(
+                    "apps.rpg.services.random.choices", side_effect=select_food,
+                ):
+                    DropService.process_drops(self.child, trigger)
+                self.assertTrue(elemental_slugs.isdisjoint(captured))
+                self.assertEqual({row["item_slug"] for row in outcomes if row["trigger"] == trigger},
+                                 set(captured))
+                summary = next(row for row in projected["by_trigger"] if row["trigger"] == trigger)
+                self.assertGreaterEqual(summary["unsupported_rows_excluded"], 2)
 
     def test_one_project_and_its_conditional_goal_stack_rewards_without_an_extra_source_event(self):
         DropTable.objects.create(trigger_type="project_complete", item=self.item, weight=1)

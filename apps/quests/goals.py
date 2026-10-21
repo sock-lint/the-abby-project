@@ -173,8 +173,9 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         queryset = queryset.filter(Q(prerequisite_quest__isnull=False) | Q(required_skill__isnull=False)
                                    | Q(required_skill_level__gt=0))
     definitions = list(queryset.select_related("prerequisite_quest", "required_skill", "required_badge").prefetch_related(
-        "skill_tags__skill", "reward_items__item",
+        "skill_tags__skill", "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
     ))
+    from .availability import definition_is_available
     from .milestone_eligibility import (
         gate_snapshot, has_milestone_gate, milestone_eligibility, prerequisite_completion,
     )
@@ -190,6 +191,8 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         if status == "active":
             active_deadlines.setdefault(definition_id, end_date)
     for definition in definitions:
+        if not definition_is_available(definition):
+            continue
         gated = has_milestone_gate(definition)
         # Reads and retries cannot accept a milestone offer or start its clock.
         # This boundary was captured under the user lock before the fresh fact
@@ -335,9 +338,8 @@ def _award(occurrence, user):
     from apps.achievements.services import AwardService
     from apps.rpg.models import ItemDefinition
     from apps.rpg.inventory import grant_item
-    from apps.pets.models import UserMount
     from apps.rewards.services import CoinService
-    from .reward_items import reward_item_details
+    from .reward_items import egg_reward_is_duplicate, reward_item_details
     snapshot = occurrence.snapshot
     rows = snapshot.get("skill_tags", [])
     skills = Skill.objects.in_bulk([row["skill_id"] for row in rows])
@@ -365,7 +367,7 @@ def _award(occurrence, user):
             continue
         quantity = row["quantity"]
         details = {"item_id": item.pk, **reward_item_details(item, snapshot=row), "quantity": quantity}
-        if item.item_type == "egg" and item.pet_species_id and UserMount.objects.filter(user=user, species_id=item.pet_species_id).exists() and item.coin_value > 0:
+        if item.coin_value > 0 and egg_reward_is_duplicate(user, item, catalog.values()):
             salvage = item.coin_value * quantity
             CoinService.award_coins(user, salvage, "adjustment", description=f"Challenge egg salvage: {item.display_name}")
             coins += salvage
@@ -724,16 +726,17 @@ def list_goals(user):
     rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
              for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
+    from .availability import definition_is_available
     from .milestone_eligibility import gated_definitions, prerequisite_unavailable
     from .serializers import QuestDefinitionSerializer
     accepted_ids = set(goals.values_list("catalog_definition_id", flat=True))
     accepted_ids.update(Quest.objects.filter(participants__user=user).values_list("definition_id", flat=True))
     locked = gated_definitions().exclude(pk__in=accepted_ids - {None}).prefetch_related(
-        "reward_items__item", "skill_tags__skill",
+        "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type", "skill_tags__skill",
     ).order_by("quest_type", "name", "pk") if user.role == "child" else []
     # A one-time prerequisite whose only window ended unfinished can never be
     # met, so its successor is omitted rather than shown as "Coming next".
-    locked = [definition for definition in locked if not (
+    locked = [definition for definition in locked if definition_is_available(definition) and not (
         definition.prerequisite_quest_id and prerequisite_unavailable(user, definition.prerequisite_quest_id)
     )]
     return {"results": rows, "pin": pin_id, "recent_receipts": [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache) for row in recent],

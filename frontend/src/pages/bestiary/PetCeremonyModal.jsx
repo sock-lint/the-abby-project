@@ -135,7 +135,9 @@ function HatchSequence({ pet, phase, reduced, titleId, onDismiss }) {
   const potionName = pet?.potion?.name;
   const potionSlug = pet?.potion?.slug;
   const headline = `${potionName} ${speciesName}`;
-  const family = roster.families.find((entry) => entry.species_slug === pet?.species?.slug && entry.sprite_key === pet?.species?.sprite_key && entry.potion_slugs.includes(potionSlug));
+  // The retained egg belongs to the species; potion appearance begins only
+  // after hatching and never changes the egg's natural artwork identity.
+  const family = roster.families.find((entry) => entry.species_slug === pet?.species?.slug && entry.sprite_key === pet?.species?.sprite_key);
 
   // phase semantics:  0 = wobble, 1 = flash, 2 = reveal, 3 = settled
   const showEgg = phase < 2 && !reduced;

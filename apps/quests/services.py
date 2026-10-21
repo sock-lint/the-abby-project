@@ -114,6 +114,9 @@ class QuestService:
             definition = definitions_visible_to(user).get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
+        from .availability import definition_is_available
+        if not definition_is_available(definition):
+            raise ValueError("This challenge needs companion artwork that is not currently available.")
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id=definition_id).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
 
@@ -206,6 +209,9 @@ class QuestService:
             definition = definitions_visible_to(users[0]).get(pk=definition_id)
         except QuestDefinition.DoesNotExist:
             raise ValueError("Quest not found")
+        from .availability import definition_is_available
+        if not definition_is_available(definition):
+            raise ValueError("This challenge needs companion artwork that is not currently available.")
         if ChallengeGoal.objects.filter(user__in=users, catalog_definition_id=definition_id).exists():
             raise ValueError("These challenges already progress automatically; a second campaign cannot be started.")
 
@@ -487,21 +493,14 @@ class QuestService:
         # in the inventory of a kid who's already evolved both lifecycles.
         # Salvage value = item.coin_value × quantity, mirroring the
         # cosmetic-dupe rule in DropService.
-        from apps.pets.models import UserMount
-        from apps.rpg.models import ItemDefinition
-        from apps.quests.reward_items import accepted_reward_items, reward_item_details
-        for reward_item in accepted_reward_items(quest):
+        from apps.quests.reward_items import accepted_reward_items, egg_reward_is_duplicate, reward_item_details
+        accepted_items = accepted_reward_items(quest)
+        for reward_item in accepted_items:
             item = reward_item.item
             details = {"item_id": item.pk, **reward_item_details(
                 item, snapshot=getattr(reward_item, "reward_snapshot", None),
             ), "quantity": reward_item.quantity}
-            is_owned_egg = (
-                item.item_type == ItemDefinition.ItemType.EGG
-                and item.pet_species_id is not None
-                and UserMount.objects.filter(
-                    user=user, species_id=item.pet_species_id,
-                ).exists()
-            )
+            is_owned_egg = egg_reward_is_duplicate(user, item, (row.item for row in accepted_items))
             if is_owned_egg and item.coin_value > 0:
                 salvage = item.coin_value * reward_item.quantity
                 CoinService.award_coins(

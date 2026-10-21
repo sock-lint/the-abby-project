@@ -17,6 +17,7 @@ const savedEgg = inventory.find(({ item }) => item.slug === 'cat-egg');
 
 function setup(rows, stable = { pets: [], mounts: [] }, props = {}) {
   server.use(
+    http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{ slug: 'meshtint-bat', available_potions: [{ slug: 'base', name: 'Base' }] }] })),
     http.get('*/api/pets/stable/', () => HttpResponse.json(stable)),
     http.get('*/api/inventory/', () => HttpResponse.json(rows)),
   );

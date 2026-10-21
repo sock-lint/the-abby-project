@@ -100,6 +100,9 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
         return QuestRewardItemSerializer(rewards, many=True, context=self.context).data
 
     def get_catalog_available(self, obj):
+        from .availability import definition_is_available
+        if not definition_is_available(obj):
+            return False
         if obj.required_badge_id is None:
             return True
         from apps.achievements.availability import badge_goal_is_available

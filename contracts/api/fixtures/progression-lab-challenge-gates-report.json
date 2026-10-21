@@ -80,7 +80,7 @@
     "system_challenges": 2,
     "nonrepeatable_challenges": 2
   },
-  "rules_fingerprint": "54cc38bc720004eaa43e3303dfd11530b28ef4f1abf8614e4da3b6b1840f87fe",
+  "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
   "engine_version": "2026-10-20.5",
   "source_commit": "unavailable",
   "coverage": {
@@ -113,6 +113,8 @@
       "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
       "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
       "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+      "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+      "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
       "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
       "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
       "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
@@ -4466,11 +4468,11 @@
     "longest_novelty_gap_p50": 11,
     "eligible_challenges": 2,
     "finite_breakdown": {
-      "badge": 1,
-      "cosmetic": 1,
-      "quest": 2,
-      "pet": 1,
       "mount": 1,
+      "pet": 1,
+      "quest": 2,
+      "cosmetic": 1,
+      "badge": 1,
       "middle": 1
     },
     "level_p50": 4,

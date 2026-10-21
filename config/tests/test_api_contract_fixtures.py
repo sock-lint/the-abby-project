@@ -44,6 +44,7 @@ SYNTHETIC_TOKEN = "0123456789012345678901234567890123456789"
         "pets": [
             {"species_slug": "fixture-fox", "sprite_key": "fox", "potion_slugs": ["base", "fire", "ice", "cosmic"]},
             {"species_slug": "fixture-wolf", "sprite_key": "wolf", "potion_slugs": ["base", "fire", "ice", "cosmic"]},
+            {"species_slug": "fixture-owl", "sprite_key": "owl", "potion_slugs": ["fire"]},
             {"species_slug": "fox", "sprite_key": "fox", "potion_slugs": ["fire", "ice"]},
         ],
         "potion_slugs": ["base", "fire", "ice", "cosmic"],
@@ -505,6 +506,14 @@ class SharedApiResponseFixtureTests(APITestCase):
 
     def test_expedition_start_tiers_lock_loot_without_awarding_or_changing_inventory(self):
         self.seed_expeditions()
+        # Exercise all three durations concurrently with separate species.
+        # Extra colors of Fox share its allowance and cannot add a third run.
+        owl = PetSpecies.objects.create(
+            id=45, slug="fixture-owl", name="Owl", icon="🦉", sprite_key="owl",
+            description="A synthetic night companion.", food_preference="berries",
+        )
+        owl.available_potions.add(PotionType.objects.get(pk=43))
+        UserMount.objects.filter(pk=63).update(species=owl)
         before = self.expedition_reward_state()
         for index, (tier, duration, coins, slots) in enumerate((
             ("short", 7200, 15, 1), ("standard", 14400, 35, 2), ("long", 28800, 75, 3),
@@ -525,6 +534,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual(self.expedition_reward_state(), before)
         rows = self.assert_response_fixture(self.client.get("/api/expeditions/?user_id=99"), "expeditions.json")["expeditions"]
         self.assertEqual([row["id"] for row in rows], [105, 104, 103])
+        self.assertEqual({row["species_slug"] for row in rows}, {"fixture-fox", "fixture-wolf", "fixture-owl"})
         stable = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-expeditions.json")
         self.assertEqual({mount["active_expedition"]["id"] for mount in stable["mounts"]}, {103, 104, 105})
         with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2)):
@@ -604,9 +614,15 @@ class SharedApiResponseFixtureTests(APITestCase):
             rested_mount = next(mount for mount in rested["mounts"] if mount["id"] == 61)
             self.assertFalse(rested_mount["expedition_available"])
             self.assertEqual(rested_mount["expedition_available_at"], "2026-10-11T00:00:00-07:00")
+            alternate_fox = next(mount for mount in rested["mounts"] if mount["id"] == 63)
+            self.assertFalse(alternate_fox["expedition_available"])
+            self.assertIsNone(alternate_fox["active_expedition"])
+            self.assertEqual(alternate_fox["expedition_available_at"], rested_mount["expedition_available_at"])
+            self.assertEqual(alternate_fox["expedition_available_in_seconds"], rested_mount["expedition_available_in_seconds"])
             with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(days=1)):
                 tomorrow = self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-stable-expedition-next-day.json")
-            self.assertTrue(next(mount for mount in tomorrow["mounts"] if mount["id"] == 61)["expedition_available"])
+            for mount_id in (61, 63):
+                self.assertTrue(next(mount for mount in tomorrow["mounts"] if mount["id"] == mount_id)["expedition_available"])
             self.assertEqual((self.expedition_reward_state(), self.expedition_rows_state()), after_claim)
         self.assertEqual(foreign_inventory, list(UserInventory.objects.exclude(user=self.child).order_by("pk").values_list("pk", "quantity", "updated_at")))
 
@@ -705,6 +721,10 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertIsNone(mounts[61]["last_bred_at"])
         self.assertEqual(mounts[62]["last_bred_at"], "2026-10-08T12:00:00-07:00")
         self.assertEqual(mounts[63]["last_bred_at"], "2026-10-03T12:00:00-07:00")
+        self.assertIsNone(mounts[63]["active_expedition"])
+        self.assertFalse(mounts[63]["expedition_available"])
+        self.assertIsNone(mounts[63]["expedition_available_at"])
+        self.assertIsNone(mounts[63]["expedition_available_in_seconds"])
         for row in mounts.values():
             self.assertEqual((row["can_breed"], row["breeding_cooldown_seconds"]), (False, 0))
         # Old timestamps remain history even after their former cooldown elapses.

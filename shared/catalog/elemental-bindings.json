@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "family_id": "abby-elemental-companions",
+  "release_version": "1.0.0",
+  "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
+  "items": {
+    "fire-potion": {
+      "asset_id": "item-fire-potion",
+      "variant_id": "icon",
+      "sha256": "dbd19b9c1f5f0ce0bd0f646cdd24d85566cda9eebcc7ca3e62584cfbd301f92e",
+      "name": "Fire Potion",
+      "item_type": "potion",
+      "potion_slug": "fire"
+    },
+    "ice-potion": {
+      "asset_id": "item-ice-potion",
+      "variant_id": "icon",
+      "sha256": "df04cdcacd7db391a129673cdb49add63ce8f3fe9fd4285220869e11967ebcef",
+      "name": "Ice Potion",
+      "item_type": "potion",
+      "potion_slug": "ice"
+    }
+  },
+  "challenges": {
+    "Ember Nest": {
+      "asset_id": "challenge-ember-nest",
+      "variant_id": "icon",
+      "sha256": "67810dac52365cbad0805fae0234cd9effd15628650411e9131873e973d8ccd0",
+      "quest_type": "collection"
+    },
+    "Frost Nest": {
+      "asset_id": "challenge-frost-nest",
+      "variant_id": "icon",
+      "sha256": "c74e2d9b0a9646fd953c3601dfeffc8c5aa85f5b2300c82f80f857e69292883c",
+      "quest_type": "collection"
+    },
+    "Ember Trail": {
+      "asset_id": "challenge-ember-trail",
+      "variant_id": "icon",
+      "sha256": "60aec4287d1a398f0417473eed1bb6699c0e0a5e9909996c04928586e2ee7fe2",
+      "quest_type": "collection"
+    },
+    "Frost Trail": {
+      "asset_id": "challenge-frost-trail",
+      "variant_id": "icon",
+      "sha256": "7054b773a4b7ddf0cb9c2928d1bb47d1936ccae91179136fc30d59d1aa4283d9",
+      "quest_type": "collection"
+    }
+  }
+}

@@ -22,15 +22,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "name": "Practice snack",
-          "sprite_key": "",
-          "description": "",
+          "icon": "🍎",
           "metadata": {
             "growth": 5
           },
+          "name": "Practice snack",
+          "sprite_key": "",
           "coin_value": 2,
-          "rarity": "common",
-          "icon": "🍎"
+          "description": "",
+          "rarity": "common"
         },
         "has_database_override": false,
         "used_by": {
@@ -100,20 +100,20 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "is_repeatable": false,
+          "description": "Complete two daily Reading Adventures.",
+          "required_skill_level": 1,
           "coin_reward": 10,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "sprite_key": "",
-          "description": "Complete two daily Reading Adventures.",
           "xp_reward": 15,
-          "target_value": 2,
           "name": "Practice challenge",
+          "sprite_key": "",
+          "target_value": 2,
           "icon": "⚔️",
-          "is_repeatable": false,
-          "required_skill_level": 1,
           "quest_type": "collection",
           "duration_days": 7,
           "required_badge": null,
@@ -167,20 +167,20 @@
         "editable": true,
         "edit_reason": "",
         "values": {
+          "is_repeatable": false,
+          "description": "Complete one approved chore.",
+          "required_skill_level": 0,
           "coin_reward": 0,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "sprite_key": "",
-          "description": "Complete one approved chore.",
           "xp_reward": 0,
-          "target_value": 1,
           "name": "Starter practice",
+          "sprite_key": "",
+          "target_value": 1,
           "icon": "⚔️",
-          "is_repeatable": false,
-          "required_skill_level": 0,
           "quest_type": "collection",
           "duration_days": 7,
           "required_badge": null,
@@ -760,6 +760,8 @@
         "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
         "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
         "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
+        "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+        "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
         "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
         "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
         "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
@@ -849,7 +851,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "54cc38bc720004eaa43e3303dfd11530b28ef4f1abf8614e4da3b6b1840f87fe",
+    "rules_fingerprint": "c37d44ae6a7727bf95fe3103f976130cc1bec83cf8efffb7e933a018dd1e1047",
     "engine_version": "2026-10-20.5",
     "source_commit": "unavailable",
     "work_budget": {

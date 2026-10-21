@@ -28,29 +28,36 @@ class OwnedArtCatalogPolicyTests(TestCase):
         cls.fox = PetSpecies.objects.create(slug="fox", name="Fox", sprite_key="fox", icon="🦊")
         cls.base = PotionType.objects.create(slug="base", name="Base")
         cls.fire = PotionType.objects.create(slug="fire", name="Fire")
+        cls.ice = PotionType.objects.create(slug="ice", name="Ice")
+        cls.cosmic = PotionType.objects.create(slug="cosmic", name="Cosmic")
 
     def test_positive_identity_requires_exact_species_and_sprite(self):
         self.assertTrue(species_is_available(self.chick))
         self.assertTrue(pet_is_available(self.chick, self.base))
-        self.assertFalse(pet_is_available(self.chick, self.fire))
+        self.assertTrue(pet_is_available(self.chick, self.fire))
+        self.assertTrue(pet_is_available(self.chick, self.ice))
+        self.assertFalse(pet_is_available(self.chick, self.cosmic))
         self.assertFalse(pet_is_available(self.fox, self.base))
         self.assertFalse(pet_is_available(SimpleNamespace(slug="fox", sprite_key="cute-chick"), self.base))
         self.assertFalse(pet_is_available(SimpleNamespace(slug="chick", sprite_key="dragon"), self.base))
         self.assertFalse(pet_is_available(None))
 
-    def test_only_base_potion_is_available(self):
-        self.assertTrue(potion_is_available(self.base))
-        self.assertFalse(potion_is_available(self.fire))
+    def test_only_base_fire_and_ice_potions_are_available(self):
+        for potion in (self.base, self.fire, self.ice):
+            self.assertTrue(potion_is_available(potion))
+        self.assertFalse(potion_is_available(self.cosmic))
         self.assertFalse(potion_is_available(None))
 
     def test_unrestricted_legacy_relation_still_returns_only_approved_variants(self):
-        self.assertQuerySetEqual(available_pet_variants(self.chick), [self.base])
+        self.assertCountEqual(available_pet_variants(self.chick), [self.base, self.fire, self.ice])
         self.assertQuerySetEqual(available_pet_variants(self.fox), [])
 
     def test_authored_compatibility_is_intersected_not_replaced(self):
         self.chick.available_potions.set([self.base, self.fire])
-        self.assertQuerySetEqual(available_pet_variants(self.chick), [self.base])
+        self.assertCountEqual(available_pet_variants(self.chick), [self.base, self.fire])
         self.chick.available_potions.set([self.fire])
+        self.assertQuerySetEqual(available_pet_variants(self.chick), [self.fire])
+        self.chick.available_potions.set([self.cosmic])
         self.assertQuerySetEqual(available_pet_variants(self.chick), [])
 
     def test_batch_pet_pairs_match_single_species_querysets(self):

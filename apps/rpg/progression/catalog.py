@@ -163,13 +163,16 @@ def snapshot_catalog():
             badges.append(badge)
         else:
             excluded[badge.criteria_type] += 1
+    from apps.quests.availability import definition_is_available
+
     quests = _bounded(
         QuestDefinition.objects.filter(is_system=True)
         .order_by("pk")
-        .prefetch_related("skill_tags__skill", "reward_items__item"),
+        .prefetch_related("skill_tags__skill", "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"),
         256,
         "challenge",
     )
+    quests = [q for q in quests if definition_is_available(q)]
     # Detach the entire graph, including every relation consumed by pure rules.
     species_records = {
         s.pk: _record(s, available_potions=FrozenRows(_record(p) for p in s.available_potions.all()))

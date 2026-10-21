@@ -1,12 +1,14 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-companion-roster-2026-10-17",
+  "policy_id": "owned-r3f-elemental-companions-2026-10-20",
   "pets": [
     {
       "species_slug": "chick",
       "sprite_key": "cute-chick",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "stages": {
         "pet": "chick",
@@ -14,7 +16,8 @@
         "evolved": "bird",
         "mount": "bird"
       },
-      "source": "meshtint-bird-family"
+      "source": "meshtint-bird-family",
+      "potion_sources": {"fire": "abby-elemental-companions", "ice": "abby-elemental-companions"}
     },
     {
       "species_slug": "meshtint-bat",
@@ -76,9 +79,12 @@
       "species_slug": "meshtint-wolf",
       "sprite_key": "meshtint-wolf",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-companions", "ice": "abby-elemental-companions"}
     },
     {
       "species_slug": "meshtint-dragon",
@@ -129,7 +135,7 @@
       "source": "meshtint-companion-roster"
     }
   ],
-  "potion_slugs": ["base"],
+  "potion_slugs": ["base", "fire", "ice"],
   "disabled_item_types": ["cosmetic_pet_accessory"],
   "avatar": {
     "source": "meshtint-female-archer-01",
@@ -179,6 +185,16 @@
       "prepared_materials": ["Hair Black", "Hair Blonde", "Hair Brown", "Hair Orange", "Hair Grey"],
       "owned_unprepared_materials": [],
       "supplies_creature_accessories": false
+    },
+    {
+      "id": "abby-elemental-companions",
+      "publisher": "Meshtint Studio",
+      "pack": "Fire and Ice Chick / Fledgling / Bird and Wolf Pup / Wolf / Werewolf derivatives",
+      "release_version": "1.0.0",
+      "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
+      "appearance_bindings_version": 1,
+      "prepared_species": ["chick", "meshtint-wolf"],
+      "prepared_potion_variants": ["fire", "ice"]
     }
   ],
   "provenance_document": "content/rpg/react-three-fiber-assets.md",

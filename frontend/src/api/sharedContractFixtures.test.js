@@ -707,6 +707,7 @@ describe('shared Django response fixtures through the React API client', () => {
     const stable = await getStable();
     expect(stable).toEqual(expeditionStable);
     expect(stable.mounts.map((mount) => mount.active_expedition.id).sort()).toEqual([103, 104, 105]);
+    expect(new Set(stable.mounts.map((mount) => mount.species.slug)).size).toBe(3);
     for (const mount of stable.mounts) {
       expect(mount.active_expedition).toEqual(allExpeditions.expeditions.find((row) => row.mount_id === mount.id));
       expect(mount.expedition_available).toBe(false);
@@ -716,10 +717,21 @@ describe('shared Django response fixtures through the React API client', () => {
 
   it('keeps the server daily expedition rest separate from unclaimed trips and opens it the next day', async () => {
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(restedExpeditionStable)));
-    const rested = (await getStable()).mounts.find((mount) => mount.id === 61);
+    const stable = await getStable();
+    const rested = stable.mounts.find((mount) => mount.id === 61);
     expect(rested).toMatchObject({ active_expedition: null, expedition_available: false, expedition_available_at: '2026-10-11T00:00:00-07:00' });
+    expect(stable.mounts.find((mount) => mount.id === 63)).toMatchObject({
+      active_expedition: null, expedition_available: false,
+      expedition_available_at: rested.expedition_available_at,
+      expedition_available_in_seconds: rested.expedition_available_in_seconds,
+    });
     server.use(http.get('*/api/pets/stable/', () => HttpResponse.json(nextDayExpeditionStable)));
-    expect((await getStable()).mounts.find((mount) => mount.id === 61)).toMatchObject({ active_expedition: null, expedition_available: true, expedition_available_at: null });
+    const nextDay = await getStable();
+    for (const mountId of [61, 63]) {
+      expect(nextDay.mounts.find((mount) => mount.id === mountId)).toMatchObject({
+        active_expedition: null, expedition_available: true, expedition_available_at: null,
+      });
+    }
   });
 
   it.each([
@@ -813,6 +825,10 @@ describe('shared Django response fixtures through the React API client', () => {
     });
     expect(stable.mounts.find((mount) => mount.id === 62).last_bred_at).toBe('2026-10-08T12:00:00-07:00');
     expect(stable.mounts.find((mount) => mount.id === 63).last_bred_at).toBe('2026-10-03T12:00:00-07:00');
+    expect(stable.mounts.find((mount) => mount.id === 63)).toMatchObject({
+      active_expedition: null, expedition_available: false,
+      expedition_available_at: null, expedition_available_in_seconds: null,
+    });
     expect(methods).toEqual(['GET']);
   });
 

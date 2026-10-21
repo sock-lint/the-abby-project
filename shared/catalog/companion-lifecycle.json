@@ -25,7 +25,9 @@
       "species_slug": "chick",
       "sprite_key": "cute-chick",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",
@@ -129,7 +131,9 @@
       "species_slug": "meshtint-wolf",
       "sprite_key": "meshtint-wolf",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",

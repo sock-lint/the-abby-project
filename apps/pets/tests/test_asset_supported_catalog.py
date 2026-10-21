@@ -85,13 +85,14 @@ class AssetSupportedAcquisitionTests(APITestCase):
         self.assertTrue(all(row["available_actions"] == [] for row in inventory if not row["item"]["catalog_available"]))
         codex = self.client.get("/api/pets/codex/").data
         self.assertEqual([row["slug"] for row in codex["species"]], ["chick"])
-        self.assertEqual([row["slug"] for row in codex["potions"]], ["base"])
+        self.assertEqual({row["slug"] for row in codex["potions"]}, {"base", "fire"})
         self.assertEqual([row["name"] for row in codex["species"][0]["available_potions"]], ["Base"])
         self.assertEqual(codex["totals"]["mounts_owned"], 0)
 
     def test_an_unsupported_owned_chick_variant_does_not_claim_the_supported_codex_entry(self):
-        UserPet.objects.create(user=self.child, species=self.chick, potion=self.fire)
-        UserMount.objects.create(user=self.child, species=self.chick, potion=self.fire)
+        unsupported = PotionType.objects.create(slug="cosmic", name="Cosmic")
+        UserPet.objects.create(user=self.child, species=self.chick, potion=unsupported)
+        UserMount.objects.create(user=self.child, species=self.chick, potion=unsupported)
         codex = self.client.get("/api/pets/codex/").data
         self.assertFalse(codex["species"][0]["discovered"])
         self.assertEqual(codex["species"][0]["owned_pet_ids"], [])

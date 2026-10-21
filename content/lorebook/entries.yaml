@@ -523,7 +523,7 @@ entries:
       - "A pet automatically creates a matching mount when it reaches 100 growth."
       - "Only one mount can be active for a user at a time."
       - "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback."
-      - "Each mount can start one expedition per local day, lasting 2, 4, or 8 hours. Collect a returned trip before starting another; the Pets screen shows when the mount can explore again."
+      - "All your appearances of the same species share one expedition per local day, lasting 2, 4, or 8 hours. Collect that species's returned trip before sending another appearance; the Pets screen shows when it can explore again."
       - "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw."
       - "Base loot is fixed when the trip starts. New trips choose available items; supported recorded loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
     parent_knobs:

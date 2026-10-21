@@ -33,8 +33,8 @@
     "postbuild:native": "node scripts/verify-built-shared-assets.mjs dist-native"
   },
   "dependencies": {
-    "@abby-assets/avatar-runtime": "file:vendor/abby-assets-avatar-runtime-1.2.0.tgz",
-    "@abby-assets/contracts": "file:vendor/abby-assets-contracts-1.3.0.tgz",
+    "@abby-assets/avatar-runtime": "file:vendor/abby-assets-avatar-runtime-1.3.0.tgz",
+    "@abby-assets/contracts": "file:vendor/abby-assets-contracts-1.4.0.tgz",
     "@capacitor/android": "^8.5.3",
     "@capacitor/core": "^8.5.3",
     "@capacitor/ios": "^8.5.3",
@@ -49,7 +49,7 @@
     "three": "^0.186.1"
   },
   "devDependencies": {
-    "@abby-assets/release-tools": "file:vendor/abby-assets-release-tools-1.5.0.tgz",
+    "@abby-assets/release-tools": "file:vendor/abby-assets-release-tools-1.6.0.tgz",
     "@aws-sdk/client-s3": "^3.1149.0",
     "@capacitor/cli": "^8.5.3",
     "@eslint/js": "^9.39.4",
