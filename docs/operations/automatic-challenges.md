@@ -66,6 +66,14 @@ must not rewrite earlier earned progress or promised rewards. Explicit midweek
 weekly creation includes already saved matching work from that week and may
 complete immediately; the parent form explains this before saving.
 
+Taxonomy retirement does not cancel a saved recurring rule or an accepted
+future weekly setup. Later windows retain the rule's reward skill IDs even if
+the skill or an ancestor is retired. A historical deleted skill stays in the
+saved snapshot without a fabricated XP award; completion still pays its saved
+Coins and records actual XP for surviving skills. New goals and newly selected
+future reward skills still require available taxonomy. Explicit retries have
+their own current-offer eligibility checks.
+
 Catalog goals use the stored trigger filters, not their names, artwork or reward
 skill tags. A coding theme does not restrict contributions to coding unless the
 filter explicitly does so. A new catalog goal receives its full window when it
@@ -146,6 +154,12 @@ progress and rules without claiming another payout. Original grandfathered
 promises that have never been explicitly retried keep their original policy.
 Paid, repeatable, shared, parent-authored and retired goals cannot start retries.
 The list retains eligible expired offers beyond its general history limit.
+
+Retry carries forward the originally accepted item IDs and quantities within
+that one lifetime reward. Withdrawing reward art hides new catalog enrollment
+without rewriting the accepted retry entitlement or substituting items or Coins.
+Taxonomy retirement still applies the explicit retry's current-choice admission;
+an already accepted successor and its idempotent replay keep their saved promise.
 
 Parents can pause/resume future weeks or edit next week's name, description,
 target, Coins, XP and skill tags for their household's recurring parent goals.

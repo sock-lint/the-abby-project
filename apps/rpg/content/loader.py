@@ -19,6 +19,8 @@ Used by:
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -43,6 +45,10 @@ FILES = {
 
 class ContentPackError(ValueError):
     """Raised when a pack is malformed or references missing content."""
+
+
+class RetiredContentReference(ContentPackError):
+    """A valid source row introduces a reference to retired taxonomy."""
 
 
 @dataclass
@@ -73,7 +79,8 @@ class ContentPack:
     ``namespace`` prefixes every slug (useful for third-party packs).
     """
 
-    def __init__(self, path: Path | str, namespace: str = "", *, pack_key=None, family=None, parsed_content=None):
+    def __init__(self, path: Path | str, namespace: str = "", *, pack_key=None, family=None, parsed_content=None,
+                 defer_retired_references=False):
         self.path = Path(path)
         if not self.path.is_dir():
             raise ContentPackError(f"Pack directory not found: {self.path}")
@@ -82,8 +89,13 @@ class ContentPack:
         self.parsed_content = parsed_content
         self.pack_key = pack_key
         self.family = family
+        # Only the default bundled startup command opts into selective deferral.
+        # Reviewed/keyed publications and explicit/manual loads remain strict.
+        self.defer_retired_references = defer_retired_references and not pack_key
         self.seen_entries = set()
         self._created_taxonomy: dict[type, set[int]] = {}
+        self._deferred_skill_references: set[tuple[str, str]] = set()
+        self._deferred_quests: set[str] = set()
         # Unkeyed (deploy-time) loads report entries they leave unchanged
         # here instead of failing: they run before gunicorn starts.
         self.warnings: list[str] = []
@@ -106,6 +118,8 @@ class ContentPack:
         # overwrite an override that committed during that wait.
         from .publication import _catalog_lock
         self._created_taxonomy.clear()
+        self._deferred_skill_references.clear()
+        self._deferred_quests.clear()
         _catalog_lock()
         parsed = self.parsed_content if self.parsed_content is not None else self._parse_all()
         from .validation import validate_content
@@ -159,6 +173,8 @@ class ContentPack:
             # A reused loader must not treat rows from an earlier load (or
             # rolled-back IDs reused later) as part of this source bootstrap.
             self._created_taxonomy.clear()
+            self._deferred_skill_references.clear()
+            self._deferred_quests.clear()
 
         for line in self.stats.as_lines():
             write(line)
@@ -247,6 +263,8 @@ class ContentPack:
             else:
                 matches = self._source_reference_matches(Skill, name=reference)
             if len(matches) != 1:
+                if not matches and self._deferred_skill_reference(reference):
+                    raise RetiredContentReference(f"Skill source {reference!r} was deferred for a retired reference.")
                 raise ContentPackError(f"quest {entry['name']!r} skill_tag references unknown or ambiguous skill {reference!r}; use Category::Skill Name.")
             skill = matches[0]
             if skill.pk in seen:
@@ -254,6 +272,15 @@ class ContentPack:
             seen.add(skill.pk)
             resolved.append((skill, weight))
         return resolved
+
+    def _deferred_skill_reference(self, reference, *, category=None):
+        # Quest tags may use a globally unambiguous bare name. Prerequisite
+        # bare names belong to their dependent's category; a deferred skill
+        # elsewhere cannot turn an unknown reference into a safe deferral.
+        matches = [key for key in self._deferred_skill_references if
+                   (f"{key[0]}::{key[1]}" == reference if "::" in reference else
+                    key[1] == reference and (category is None or key[0] == category))]
+        return len(matches) == 1
 
     def _protect_active_quest(self, quest, defaults, entry):
         active, changed = self._active_quest_changes(quest, defaults, entry)
@@ -426,12 +453,34 @@ class ContentPack:
                 model_label=model._meta.label_lower, object_id=obj.pk)
         return obj, created
 
+    @contextmanager
+    def _source_row(self, kind, name):
+        """Defer one retired-reference row without retaining any of its writes."""
+        state = {"deferred": False}
+        if not self.defer_retired_references:
+            yield state
+            return
+        stats, created = deepcopy(self.stats), deepcopy(self._created_taxonomy)
+        warnings = len(self.warnings)
+        try:
+            with transaction.atomic():
+                yield state
+        except RetiredContentReference as error:
+            self.stats = stats
+            self._created_taxonomy = created
+            state["deferred"] = True
+            del self.warnings[warnings:]
+            self.stats.bump("skipped", "retired_reference_" + kind)
+            self.warnings.append(f"Left {kind} {name!r} unchanged: {error}")
+
     @staticmethod
     def _admit_reference(model, ids, retained=()):
         from django.core.exceptions import ValidationError
-        from apps.achievements.taxonomy import validate_new_taxonomy_references
+        from apps.achievements.taxonomy import RetiredTaxonomyReference, validate_new_taxonomy_references
         try:
             validate_new_taxonomy_references(model, ids, retained_ids=retained)
+        except RetiredTaxonomyReference as error:
+            raise RetiredContentReference("; ".join(error.messages)) from error
         except ValidationError as error:
             raise ContentPackError("; ".join(error.messages)) from error
 
@@ -522,122 +571,141 @@ class ContentPack:
         # Subjects (grouping tier between Category and Skill). Unique per category.
         subject_by_key: dict[tuple[str, str], Any] = {}
         for entry in data.get("subjects", []) or []:
-            cat_name = entry["category"]
-            if cat_name not in cat_by_name:
-                raise ContentPackError(
-                    f"subject {entry['name']!r} references unknown category {cat_name!r}"
+            subject_by_key[entry["category"], entry["name"]] = None
+            with self._source_row("subject", entry["name"]):
+                cat_name = entry["category"]
+                if cat_name not in cat_by_name:
+                    raise ContentPackError(
+                        f"subject {entry['name']!r} references unknown category {cat_name!r}"
+                    )
+                defaults = {
+                    "icon": entry.get("icon", ""),
+                    "order": entry.get("order", 0),
+                    "description": entry.get("description", ""),
+                }
+                if "is_retired" in entry:
+                    defaults["is_retired"] = entry["is_retired"]
+                obj, created = self._upsert(Subject, entry=entry,
+                    name=entry["name"], category=cat_by_name[cat_name],
+                    defaults=defaults,
                 )
-            defaults = {
-                "icon": entry.get("icon", ""),
-                "order": entry.get("order", 0),
-                "description": entry.get("description", ""),
-            }
-            if "is_retired" in entry:
-                defaults["is_retired"] = entry["is_retired"]
-            obj, created = self._upsert(Subject, entry=entry,
-                name=entry["name"], category=cat_by_name[cat_name],
-                defaults=defaults,
-            )
-            if created:
-                self._created_taxonomy.setdefault(Subject, set()).add(obj.pk)
-            subject_by_key[cat_name, entry["name"]] = obj
-            self.stats.bump("created" if created else "updated", "subject")
+                if created:
+                    self._created_taxonomy.setdefault(Subject, set()).add(obj.pk)
+                subject_by_key[cat_name, entry["name"]] = obj
+                self.stats.bump("created" if created else "updated", "subject")
 
         # Skills (category resolved by name; skill has composite unique (category, name))
         skill_by_key: dict[tuple[str, str], Any] = {}
         skill_prereqs: list[dict] = []
         explicit_prereqs: dict[int, list[int]] = {}
         for entry in data.get("skills", []) or []:
-            cat_name = entry["category"]
-            if cat_name not in cat_by_name:
-                raise ContentPackError(
-                    f"skill {entry['name']!r} references unknown category {cat_name!r}"
-                )
-            defaults = {
-                "icon": entry.get("icon", ""),
-                "level_names": entry.get("levels", {}),
-                "is_locked_by_default": entry.get("locked", False),
-                "order": entry.get("order", 0),
-                "description": entry.get("description", ""),
-            }
-            if "is_retired" in entry:
-                defaults["is_retired"] = entry["is_retired"]
-            subject_name = entry.get("subject")
-            if subject_name:
-                subject_key = (cat_name, subject_name)
-                subject = subject_by_key.get(subject_key)
-                if not subject:
+            skill_by_key[entry["category"], entry["name"]] = None
+            with self._source_row("skill", entry["name"]):
+                cat_name = entry["category"]
+                if cat_name not in cat_by_name:
                     raise ContentPackError(
-                        f"skill {entry['name']!r} references unknown subject "
-                        f"{subject_name!r} in category {cat_name!r}"
+                        f"skill {entry['name']!r} references unknown category {cat_name!r}"
                     )
-                defaults["subject"] = subject
-            obj, created = self._upsert(Skill, entry=entry,
-                name=entry["name"], category=cat_by_name[cat_name],
-                defaults=defaults,
-            )
-            if created:
-                self._created_taxonomy.setdefault(Skill, set()).add(obj.pk)
-            skill_by_key[cat_name, entry["name"]] = obj
-            self.stats.bump("created" if created else "updated", "skill")
-            from .authoring import preserves_skill_prerequisites
-            if preserves_skill_prerequisites(obj):
-                # The direct editor saved the complete current relationship
-                # set, including an explicitly empty set. YAML cannot re-add it.
-                continue
-            if self.pack_key and "prereqs" in entry:
-                # Omission retains existing links. An explicit list replaces
-                # only the relationships of this pack's own skill identity.
-                explicit_prereqs[obj.pk] = []
-            for prereq in entry.get("prereqs", []) or []:
-                skill_prereqs.append({
-                    "category": cat_name,
-                    "skill_name": entry["name"],
-                    "requires": prereq,
-                })
+                defaults = {
+                    "icon": entry.get("icon", ""),
+                    "level_names": entry.get("levels", {}),
+                    "is_locked_by_default": entry.get("locked", False),
+                    "order": entry.get("order", 0),
+                    "description": entry.get("description", ""),
+                }
+                if "is_retired" in entry:
+                    defaults["is_retired"] = entry["is_retired"]
+                subject_name = entry.get("subject")
+                if subject_name:
+                    subject_key = (cat_name, subject_name)
+                    subject = subject_by_key.get(subject_key)
+                    if not subject:
+                        if subject_key in subject_by_key:
+                            raise RetiredContentReference(f"Subject source {subject_name!r} was deferred for a retired reference.")
+                        raise ContentPackError(
+                            f"skill {entry['name']!r} references unknown subject "
+                            f"{subject_name!r} in category {cat_name!r}"
+                        )
+                    defaults["subject"] = subject
+                if self.defer_retired_references:
+                    self._admit_startup_prerequisites(entry, cat_by_name[cat_name], defaults,
+                                                     data.get("skills", []), cat_by_name, subject_by_key)
+                obj, created = self._upsert(Skill, entry=entry,
+                    name=entry["name"], category=cat_by_name[cat_name],
+                    defaults=defaults,
+                )
+                if created:
+                    self._created_taxonomy.setdefault(Skill, set()).add(obj.pk)
+                skill_by_key[cat_name, entry["name"]] = obj
+                self.stats.bump("created" if created else "updated", "skill")
+                from .authoring import preserves_skill_prerequisites
+                if preserves_skill_prerequisites(obj):
+                    # The direct editor saved the complete current relationship
+                    # set, including an explicitly empty set. YAML cannot re-add it.
+                    continue
+                if self.pack_key and "prereqs" in entry:
+                    # Omission retains existing links. An explicit list replaces
+                    # only the relationships of this pack's own skill identity.
+                    explicit_prereqs[obj.pk] = []
+                for prereq in entry.get("prereqs", []) or []:
+                    skill_prereqs.append({
+                        "category": cat_name,
+                        "skill_name": entry["name"],
+                        "requires": prereq,
+                    })
+            if skill_by_key[entry["category"], entry["name"]] is None:
+                self._deferred_skill_references.add((entry["category"], entry["name"]))
 
         # Prerequisites (after all skills exist)
         qualified_skills = {}
         for (category, name), skill in skill_by_key.items():
-            qualified_skills.setdefault(f"{category}::{name}", {})[skill.pk] = skill
+            if skill is not None:
+                qualified_skills.setdefault(f"{category}::{name}", {})[skill.pk] = skill
+        prereqs_by_skill = {}
         for p in skill_prereqs:
-            skill = skill_by_key[p["category"], p["skill_name"]]
-            req = p["requires"]
-            # Accept: "Skill Name" (same category) or "Category::Skill Name"
-            if isinstance(req, dict):
-                name = req["skill"]
-                level = int(req.get("level", 2))
-            else:
-                name = req
-                level = 2
-            if "::" in name:
-                matches = qualified_skills.get(name, {})
-                if len(matches) > 1:
-                    raise ContentPackError(
-                        f"skill {p['skill_name']!r} references ambiguous prereq {name!r}; "
-                        "use an unambiguous category-qualified skill name."
+            prereqs_by_skill.setdefault((p["category"], p["skill_name"]), []).append(p)
+        for key, prerequisites in prereqs_by_skill.items():
+            skill = skill_by_key[key]
+            with self._source_row("skill_prerequisites", key[1]):
+                for p in prerequisites:
+                    req = p["requires"]
+                    # Accept: "Skill Name" (same category) or "Category::Skill Name"
+                    if isinstance(req, dict):
+                        name = req["skill"]
+                        level = int(req.get("level", 2))
+                    else:
+                        name = req
+                        level = 2
+                    if "::" in name:
+                        matches = qualified_skills.get(name, {})
+                        if len(matches) > 1:
+                            raise ContentPackError(
+                                f"skill {p['skill_name']!r} references ambiguous prereq {name!r}; "
+                                "use an unambiguous category-qualified skill name."
+                            )
+                        req_skill = next(iter(matches.values()), None)
+                    else:
+                        req_skill = skill_by_key.get((p["category"], name))
+                    if not req_skill:
+                        if self._deferred_skill_reference(name, category=p["category"]):
+                            raise RetiredContentReference(f"Prerequisite source {name!r} was deferred for a retired reference.")
+                        raise ContentPackError(
+                            f"skill {p['skill_name']!r} references unknown prereq {name!r}"
+                        )
+                    retained = set(SkillPrerequisite.objects.filter(skill=skill).values_list("required_skill_id", flat=True))
+                    new_skills = self._created_taxonomy.get(Skill, ())
+                    if skill.pk in new_skills and req_skill.pk in new_skills and not available_for_new_choices(skill):
+                        # Archived prerequisite graphs may bootstrap together. An
+                        # active new skill still cannot choose an unavailable target.
+                        retained.add(req_skill.pk)
+                    self._admit_reference(Skill, [req_skill.pk], retained)
+                    _, created = SkillPrerequisite.objects.update_or_create(
+                        skill=skill, required_skill=req_skill,
+                        defaults={"required_level": level},
                     )
-                req_skill = next(iter(matches.values()), None)
-            else:
-                req_skill = skill_by_key.get((p["category"], name))
-            if not req_skill:
-                raise ContentPackError(
-                    f"skill {p['skill_name']!r} references unknown prereq {name!r}"
-                )
-            retained = set(SkillPrerequisite.objects.filter(skill=skill).values_list("required_skill_id", flat=True))
-            new_skills = self._created_taxonomy.get(Skill, ())
-            if skill.pk in new_skills and req_skill.pk in new_skills and not available_for_new_choices(skill):
-                # Archived prerequisite graphs may bootstrap together. An
-                # active new skill still cannot choose an unavailable target.
-                retained.add(req_skill.pk)
-            self._admit_reference(Skill, [req_skill.pk], retained)
-            _, created = SkillPrerequisite.objects.update_or_create(
-                skill=skill, required_skill=req_skill,
-                defaults={"required_level": level},
-            )
-            self.stats.bump("created" if created else "updated", "skill_prereq")
-            if skill.pk in explicit_prereqs:
-                explicit_prereqs[skill.pk].append(req_skill.pk)
+                    self.stats.bump("created" if created else "updated", "skill_prereq")
+                    if skill.pk in explicit_prereqs:
+                        explicit_prereqs[skill.pk].append(req_skill.pk)
 
         if explicit_prereqs:
             from apps.rpg.models import ContentPackEntry
@@ -650,6 +718,68 @@ class ContentPack:
                     required_skill_id__in=explicit_prereqs[skill_id],
                 ).delete()
                 self.stats.bump("retired", "skill_prereq", removed)
+
+    def _admit_startup_prerequisites(self, entry, category, defaults, entries, categories, subjects, checking=frozenset()):
+        """Check retired targets before changing a dependent's scalar rules.
+
+        The ordinary second pass still resolves every exact source identity
+        and validates forward references. This startup-only precheck prevents
+        a deferred prerequisite from leaving a newly unlocked/edited skill.
+        """
+        from apps.achievements.models import Skill, SkillCategory, SkillPrerequisite, Subject
+        from apps.achievements.taxonomy import available_for_new_choices
+        from .authoring import preserves_skill_prerequisites
+
+        key = (entry["category"], entry["name"])
+        if key in checking:
+            return
+        checking = checking | {key}
+        matches = self._source_reference_matches(Skill, category=category, name=entry["name"])
+        previous = matches[0] if len(matches) == 1 else None
+        if previous and preserves_skill_prerequisites(previous):
+            return
+        self._validate_taxonomy_links(Skill, previous, {"category": category, **defaults})
+        retained = set(SkillPrerequisite.objects.filter(skill=previous).values_list("required_skill_id", flat=True)) if previous else set()
+        candidate = Skill(category=category, **defaults)
+        if "is_retired" not in defaults and previous:
+            candidate.is_retired = previous.is_retired
+        for prerequisite in entry.get("prereqs", []) or []:
+            name = prerequisite["skill"] if isinstance(prerequisite, dict) else prerequisite
+            targets = (self._qualified_skill_matches(name) if "::" in name else
+                       self._source_reference_matches(Skill, category=category, name=name))
+            if len(targets) == 1:
+                target = targets[0]
+                bootstrap = (previous is None and target.pk in self._created_taxonomy.get(Skill, ())
+                             and not available_for_new_choices(candidate))
+                self._admit_reference(Skill, [target.pk], retained | ({target.pk} if bootstrap else set()))
+            elif not targets:
+                # A forward, newly authored archived target has no DB identity
+                # yet. It can bootstrap only with a new archived dependent.
+                sources = [row for row in entries if
+                           (f"{row['category']}::{row['name']}" == name if "::" in name else
+                            row["category"] == entry["category"] and row["name"] == name)]
+                if len(sources) == 1 and sources[0]["category"] in categories:
+                    source = sources[0]
+                    parent = categories[source["category"]]
+                    subject_key = (source["category"], source.get("subject"))
+                    subject = subjects.get(subject_key)
+                    if ((parent.is_retired and parent.pk not in self._created_taxonomy.get(SkillCategory, ()))
+                            or (subject_key in subjects and subject is None)
+                            or (subject and not available_for_new_choices(subject)
+                                and subject.pk not in self._created_taxonomy.get(Subject, ()))):
+                        raise RetiredContentReference(f"Prerequisite source {name!r} has a retired parent.")
+                    target = Skill(category=parent, subject=subject,
+                                   is_retired=source.get("is_retired", False))
+                    if not available_for_new_choices(target) and (previous or available_for_new_choices(candidate)):
+                        raise RetiredContentReference(f"Prerequisite source {name!r} is retired for new work.")
+                    # A new forward target may itself be deferred for a new
+                    # retired prerequisite. Validate that source chain before
+                    # any dependent's scalar fields or identity are written.
+                    self._admit_startup_prerequisites(source, parent,
+                        {"subject": subject, "is_retired": source.get("is_retired", False)},
+                        entries, categories, subjects, checking)
+                if self._deferred_skill_reference(name, category=entry["category"]):
+                    raise RetiredContentReference(f"Prerequisite source {name!r} was deferred for a retired reference.")
 
     # ---- badges --------------------------------------------------------
 
@@ -994,95 +1124,100 @@ class ContentPack:
             ordered.extend(ready)
             pending = [entry for entry in pending if entry not in ready]
         for entry in ordered:
-            from .workbench import preserved_loader_entry
-            if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
-                self.stats.bump("skipped", "database_authored_quest")
-                continue
-            defaults = {
-                "description": entry.get("description", ""),
-                "icon": entry.get("icon", "⚔️"),
-                "sprite_key": entry.get("sprite_key", ""),
-                "quest_type": entry["quest_type"],
-                "target_value": int(entry["target_value"]),
-                "duration_days": int(entry.get("duration_days", 7)),
-                "trigger_filter": entry.get("trigger_filter", {}),
-                "coin_reward": int(entry.get("coin_reward", 0)),
-                "xp_reward": int(entry.get("xp_reward", 0)),
-                "is_repeatable": bool(entry.get("is_repeatable", False)),
-                "is_system": bool(entry.get("is_system", True)),
-                "is_cooperative": bool(entry.get("is_cooperative", False)),
-            }
-            if "prerequisite_quest" in entry:
-                reference = entry["prerequisite_quest"]
-                matches = self._source_reference_matches(QuestDefinition, name=reference) if reference else []
-                if reference and len(matches) != 1:
-                    raise ContentPackError(f"Unknown or ambiguous global prerequisite_quest: {reference!r}.")
-                defaults["prerequisite_quest"] = matches[0] if matches else None
-            if "required_skill" in entry or "required_skill_level" in entry:
-                tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry.get("required_skill") else []
-                defaults["required_skill"] = tags[0][0] if tags else None
-                defaults["required_skill_level"] = entry.get("required_skill_level", 0)
-            if "required_badge" in entry:
-                defaults["required_badge"] = None
-            if entry.get("required_badge") is not None:
-                matches = self._source_reference_matches(Badge, name=entry["required_badge"])
-                if len(matches) != 1:
-                    raise ContentPackError(
-                        f"quest {entry['name']!r} references unknown badge or ambiguous source "
-                        f"{entry['required_badge']!r}"
-                    )
-                defaults["required_badge"] = matches[0]
-            quest, created = self._upsert(QuestDefinition, entry=entry,
-                name=entry["name"], defaults=defaults,
-            )
-            if quest is None:
-                # Left unchanged by an unkeyed load; keep its links as well.
-                continue
-            from django.core.exceptions import ValidationError
-            try:
-                quest.clean()
-            except ValidationError as error:
-                raise ContentPackError("; ".join(error.messages)) from error
-            self.stats.bump("created" if created else "updated", "quest")
-
-            # Reconcile future links after freezing accepted promises above.
-            desired_reward_ids = []
-            for reward in entry.get("reward_items", []) or []:
-                item_slug = self._ns(reward["slug"])
-                try:
-                    item = ItemDefinition.objects.get(slug=item_slug)
-                except ItemDefinition.DoesNotExist:
-                    # Try without namespace (quest pack referencing core content)
-                    try:
-                        item = ItemDefinition.objects.get(slug=reward["slug"])
-                    except ItemDefinition.DoesNotExist as exc:
+            with self._source_row("quest", entry["name"]) as source:
+                from .workbench import preserved_loader_entry
+                if preserved_loader_entry("quests.questdefinition", {"name": entry["name"]}, pack_key=self.pack_key, entry=entry):
+                    self.stats.bump("skipped", "database_authored_quest")
+                    continue
+                defaults = {
+                    "description": entry.get("description", ""),
+                    "icon": entry.get("icon", "⚔️"),
+                    "sprite_key": entry.get("sprite_key", ""),
+                    "quest_type": entry["quest_type"],
+                    "target_value": int(entry["target_value"]),
+                    "duration_days": int(entry.get("duration_days", 7)),
+                    "trigger_filter": entry.get("trigger_filter", {}),
+                    "coin_reward": int(entry.get("coin_reward", 0)),
+                    "xp_reward": int(entry.get("xp_reward", 0)),
+                    "is_repeatable": bool(entry.get("is_repeatable", False)),
+                    "is_system": bool(entry.get("is_system", True)),
+                    "is_cooperative": bool(entry.get("is_cooperative", False)),
+                }
+                if "prerequisite_quest" in entry:
+                    reference = entry["prerequisite_quest"]
+                    matches = self._source_reference_matches(QuestDefinition, name=reference) if reference else []
+                    if reference and len(matches) != 1:
+                        if not matches and reference in self._deferred_quests:
+                            raise RetiredContentReference(f"Challenge source {reference!r} was deferred for a retired reference.")
+                        raise ContentPackError(f"Unknown or ambiguous global prerequisite_quest: {reference!r}.")
+                    defaults["prerequisite_quest"] = matches[0] if matches else None
+                if "required_skill" in entry or "required_skill_level" in entry:
+                    tags = self._resolved_quest_skill_tags({"name": entry["name"], "skill_tags": [entry["required_skill"]]}) if entry.get("required_skill") else []
+                    defaults["required_skill"] = tags[0][0] if tags else None
+                    defaults["required_skill_level"] = entry.get("required_skill_level", 0)
+                if "required_badge" in entry:
+                    defaults["required_badge"] = None
+                if entry.get("required_badge") is not None:
+                    matches = self._source_reference_matches(Badge, name=entry["required_badge"])
+                    if len(matches) != 1:
                         raise ContentPackError(
-                            f"quest {entry['name']!r} reward references "
-                            f"unknown item {reward['slug']!r}"
-                        ) from exc
-                desired_reward_ids.append(item.pk)
-                link, r_created = self._upsert_link(QuestRewardItem,
-                    quest_definition=quest, item=item,
-                    defaults={"quantity": int(reward.get("quantity", 1))},
+                            f"quest {entry['name']!r} references unknown badge or ambiguous source "
+                            f"{entry['required_badge']!r}"
+                        )
+                    defaults["required_badge"] = matches[0]
+                quest, created = self._upsert(QuestDefinition, entry=entry,
+                    name=entry["name"], defaults=defaults,
                 )
-                if link is not None:
-                    self.stats.bump("created" if r_created else "updated", "quest_reward")
+                if quest is None:
+                    # Left unchanged by an unkeyed load; keep its links as well.
+                    continue
+                from django.core.exceptions import ValidationError
+                try:
+                    quest.clean()
+                except ValidationError as error:
+                    raise ContentPackError("; ".join(error.messages)) from error
+                self.stats.bump("created" if created else "updated", "quest")
 
-            if self.pack_key:
-                removed, _ = QuestRewardItem.objects.filter(quest_definition=quest).exclude(item_id__in=desired_reward_ids).delete()
-                self.stats.bump("retired", "quest_reward", removed)
+                # Reconcile future links after freezing accepted promises above.
+                desired_reward_ids = []
+                for reward in entry.get("reward_items", []) or []:
+                    item_slug = self._ns(reward["slug"])
+                    try:
+                        item = ItemDefinition.objects.get(slug=item_slug)
+                    except ItemDefinition.DoesNotExist:
+                        # Try without namespace (quest pack referencing core content)
+                        try:
+                            item = ItemDefinition.objects.get(slug=reward["slug"])
+                        except ItemDefinition.DoesNotExist as exc:
+                            raise ContentPackError(
+                                f"quest {entry['name']!r} reward references "
+                                f"unknown item {reward['slug']!r}"
+                            ) from exc
+                    desired_reward_ids.append(item.pk)
+                    link, r_created = self._upsert_link(QuestRewardItem,
+                        quest_definition=quest, item=item,
+                        defaults={"quantity": int(reward.get("quantity", 1))},
+                    )
+                    if link is not None:
+                        self.stats.bump("created" if r_created else "updated", "quest_reward")
 
-            # Resolve once using the same identities checked by the active-promise guard.
-            if entry.get("skill_tags") is not None:
-                tags = self._resolved_quest_skill_tags(entry)
-                from apps.achievements.models import Skill
-                self._admit_reference(Skill, [skill.pk for skill, _ in tags],
-                    QuestSkillTag.objects.filter(quest_definition=quest).values_list("skill_id", flat=True))
-                QuestSkillTag.objects.filter(quest_definition=quest).delete()
-                for skill, weight in tags:
-                    _, created = QuestSkillTag.objects.get_or_create(
-                        quest_definition=quest, skill=skill, defaults={"xp_weight": weight})
-                    self.stats.bump("created" if created else "updated", "quest_skill_tag")
+                if self.pack_key:
+                    removed, _ = QuestRewardItem.objects.filter(quest_definition=quest).exclude(item_id__in=desired_reward_ids).delete()
+                    self.stats.bump("retired", "quest_reward", removed)
+
+                # Resolve once using the same identities checked by the active-promise guard.
+                if entry.get("skill_tags") is not None:
+                    tags = self._resolved_quest_skill_tags(entry)
+                    from apps.achievements.models import Skill
+                    self._admit_reference(Skill, [skill.pk for skill, _ in tags],
+                        QuestSkillTag.objects.filter(quest_definition=quest).values_list("skill_id", flat=True))
+                    QuestSkillTag.objects.filter(quest_definition=quest).delete()
+                    for skill, weight in tags:
+                        _, created = QuestSkillTag.objects.get_or_create(
+                            quest_definition=quest, skill=skill, defaults={"xp_weight": weight})
+                        self.stats.bump("created" if created else "updated", "quest_skill_tag")
+            if source["deferred"]:
+                self._deferred_quests.add(entry["name"])
 
     # ---- rewards -------------------------------------------------------
 

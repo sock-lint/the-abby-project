@@ -440,6 +440,10 @@ Private reads and replays recheck the current author under family/member locks.
 365-day horizons. It shares native work limits and the ten-per-minute quota;
 paired draft simulations share the five-per-minute quota. Reports preserve
 coverage/exclusions and never create real rewards or household state.
+Paired calculations run after releasing household and catalog locks. Each short
+snapshot/receipt phase rechecks current author authority under family/member
+locks, then catalog locks; permission, preview, revision or catalog changes
+during calculation reject the result instead of saving a stale evaluation.
 
 Direct taxonomy/badge writes validate complete merged candidates and preserve
 original source identities across matching bundled reloads. Another family's
@@ -480,6 +484,11 @@ prerequisites require both new endpoints and an unavailable dependent. This
 bootstrap exception never admits new activity, reward-tag or gate choices, and
 its temporary identity tracking clears after success, failure and dry runs. This workflow is separate from the exact one-time prelaunch RPG
 catalog cleanup described in the companion lifecycle runbook.
+Default bundled startup loads report and defer individual new retired-reference
+rows, rolling back their scalar fields and links while loading safe content.
+Existing saved references remain valid. Explicit `--pack` loads, keyed previews
+and publication stay strict; unknown references, invalid source and identity
+conflicts still fail rather than being classified as retirement deferrals.
 
 Skill identities include their category. Duplicate labels show their category in
 the native pickers; if literal names imitate those labels, escaped quoted name

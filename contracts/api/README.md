@@ -266,6 +266,8 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `parent-reward-approved.json`, `parent-reward-delivered.json` | Distinct real-world approval and handover receipts, preserving approval audit and recording explicit delivery without another reward/payment |
 | `auth-login-child.json` | `POST /api/auth/`, successful password login; flat user plus token |
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
+| `auth-login-staff-parent.json`, `auth-me-staff-parent.json` | Password login and verified staff-parent identity, including read-only `is_staff: true` |
+| `auth-login-ordinary-parent.json`, `auth-me-ordinary-parent.json` | Password login and verified ordinary-parent identity, including read-only `is_staff: false` |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
@@ -642,6 +644,16 @@ For retired-reference checks only, run Unity with `-executeMethod AbbyCamp.Edito
 the pinned editor and batch-mode commands.
 
 ## Update an intentional API change
+
+Authenticated current-user responses include the read-only boolean `is_staff`
+through `AuthenticatedUserSerializer`: password login, GET/PATCH `/auth/me/`,
+parent signup, and Google login exchange. Nested project/member identity shapes
+continue to use `UserSerializer`. This field lets React show staff-only global
+catalog controls; server `IsStaffParent` authorization remains authoritative.
+The real shared-auth producer covers staff, ordinary-parent and child identity,
+and the taxonomy retirement consumer opens the real Login/AuthProvider/Skills
+flow before exercising retire/restore. Self-profile PATCH and signup cannot
+change or grant staff status.
 
 Reversible taxonomy retirement uses `taxonomy-category-retired.json`,
 `taxonomy-category-restored.json`, `taxonomy-skills-active.json`,

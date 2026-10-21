@@ -56,7 +56,7 @@ def definitions_with_available_taxonomy(queryset):
 
 
 def admit_snapshot_choices(snapshot, *, required_skill_id=None):
-    """Only a newly materialized occurrence/retry calls this admission gate."""
+    """Validate an explicit retry; recurring accepted rules need no new choice."""
     from apps.achievements.models import Skill
     lock_filter_category(snapshot.get("filter", {}))
     ids = {row["skill_id"] for row in snapshot.get("skill_tags", [])}

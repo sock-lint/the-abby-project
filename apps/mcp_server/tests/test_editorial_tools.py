@@ -13,7 +13,7 @@ from apps.mcp_server.editorial_schemas import (
     CreateEditorialDraftIn, EditorialDraftIn, EditorialDraftPage, EditorialDraftResult,
     EditorialRevisionIn, ListEditorialDraftsIn, PublishEditorialDraftIn, SaveEditorialDraftIn,
 )
-from apps.mcp_server.errors import MCPValidationError
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.tools import editorial as tools
 from apps.rpg.content.editorial import editorial_catalog
 from apps.rpg.models import RPGEditorialDraft, RPGEditorialOverride
@@ -98,7 +98,7 @@ class EditorialPublicationTests(TestCase):
 
     def test_drafts_are_bound_to_actor_and_family(self):
         draft = self.preview(self.draft())
-        with override_user(self.other), self.assertRaises(MCPValidationError):
+        with override_user(self.other), self.assertRaises(MCPNotFoundError):
             tools.get_editorial_draft(EditorialDraftIn(draft_id=draft["id"]))
         self.publish(draft)
         with override_user(self.other):
@@ -144,7 +144,7 @@ class EditorialPublicationTests(TestCase):
     def test_stale_actor_permissions_are_rechecked_before_publication(self):
         draft = self.preview(self.draft())
         type(self.actor).objects.filter(pk=self.actor.pk).update(is_staff=False)
-        with self.assertRaises(MCPValidationError):
+        with self.assertRaises(MCPPermissionDenied):
             self.publish(draft)
         self.assertEqual(RPGEditorialOverride.objects.count(), 0)
 

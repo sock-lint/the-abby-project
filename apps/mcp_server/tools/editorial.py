@@ -3,6 +3,7 @@ import json
 
 from apps.rpg.content import editorial
 from apps.rpg.content.loader import ContentPackError
+from apps.rpg.content.errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 
 from ..context import get_current_user, require_staff_parent
 from ..editorial_schemas import (
@@ -10,13 +11,17 @@ from ..editorial_schemas import (
     EditorialDraftResult, EditorialRevisionIn, EditorialSectionIn, ListEditorialDraftsIn,
     PublishEditorialDraftIn, SaveEditorialDraftIn,
 )
-from ..errors import MCPValidationError, safe_tool
+from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
 from ..server import tool
 
 
 def _call(function, *args, **kwargs):
     try:
         return function(*args, **kwargs)
+    except ContentAuthorPermissionDenied as exc:
+        raise MCPPermissionDenied(str(exc)) from None
+    except ContentObjectNotFound as exc:
+        raise MCPNotFoundError(str(exc)) from None
     except ContentPackError as exc:
         raise MCPValidationError(str(exc)) from None
 

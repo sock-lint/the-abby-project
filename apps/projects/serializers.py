@@ -63,6 +63,14 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
+class AuthenticatedUserSerializer(UserSerializer):
+    """Current-account identity; staff status is read-only presentation data."""
+
+    class Meta(UserSerializer.Meta):
+        fields = [*UserSerializer.Meta.fields, "is_staff"]
+        read_only_fields = fields
+
+
 class MemberPasswordUpdateGuard:
     def validate_password(self, value):
         if self.instance is not None:

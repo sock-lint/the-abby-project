@@ -42,7 +42,7 @@ live in `tests/test_badge_availability_queries.py`.
 
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be
-removed. Incoming relationships, saved challenge reward/gate snapshots, retained
+removed. Incoming relationships, saved homework-template skill tags, challenge reward/gate snapshots, retained
 source dependencies and managed bundled/pack identities block deletion. REST
 returns HTTP 409 with `detail` and `code: taxonomy_in_use`; MCP reports the same
 code without private dependency names or counts. Another family's authored entry

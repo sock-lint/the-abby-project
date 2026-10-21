@@ -11,6 +11,7 @@ from apps.rpg.models import ContentPackEntry, ItemDefinition, RPGContentOverride
 from apps.rpg.services import ConsumableService
 
 from .loader import ContentPackError
+from .errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 from .validation import whole_number
 
 ITEM_FIELDS = {"name", "description", "icon", "sprite_key", "rarity", "coin_value", "metadata"}
@@ -56,19 +57,19 @@ def challenge_trigger_findings(rows):
 
 def require_actor(actor):
     if actor.role != "parent" or not actor.is_staff or not actor.is_active or actor.family_id is None:
-        raise ContentPackError("Content authoring requires an active staff parent with an explicit family.")
+        raise ContentAuthorPermissionDenied("Content authoring requires an active staff parent with an explicit family.")
 
 
 def editable_object(actor, section, object_id):
     model = MODELS[section]
     obj = model.objects.filter(pk=object_id).first()
     if obj is None or (section == "quests" and not obj.is_system):
-        raise ContentPackError("The selected global catalog object was not found.")
+        raise ContentObjectNotFound("The selected global catalog object was not found.")
     claim = ContentPackEntry.objects.filter(model_label=model._meta.label_lower, object_id=obj.pk).first()
     override = RPGContentOverride.objects.filter(model_label=model._meta.label_lower, object_id=obj.pk).first()
     if ((claim and claim.family_id != actor.family_id)
             or (override and override.family_id != actor.family_id)):
-        raise ContentPackError("This catalog entry is authored by another family and is read-only here.")
+        raise ContentAuthorPermissionDenied("This catalog entry is authored by another family and is read-only here.")
     return obj
 
 

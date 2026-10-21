@@ -24,11 +24,13 @@ from apps.rpg.content.authoring import (
     require_catalog_ownership, validate_catalog_object, validate_skill_prerequisites,
 )
 from apps.rpg.content.loader import ContentPackError
+from apps.rpg.content.errors import ContentAuthorPermissionDenied
 from apps.rpg.content.taxonomy_deletion import IN_USE_DETAIL, TaxonomyInUse, delete_taxonomy
 
 from ..context import get_current_user, resolve_target_user, require_staff_parent
 from ..errors import (
     MCPNotFoundError,
+    MCPPermissionDenied,
     MCPValidationError,
     safe_tool,
 )
@@ -194,6 +196,8 @@ def _direct_authoring(function):
                         validate_skill_prerequisites(current)
                     record_direct_override(fresh_actor, current, before or natural_lookup(current))
                 return result
+        except ContentAuthorPermissionDenied as error:
+            raise MCPPermissionDenied(str(error)) from error
         except ContentPackError as error:
             raise MCPValidationError(str(error)) from error
         except IntegrityError as error:

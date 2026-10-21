@@ -17,6 +17,7 @@ from apps.families.models import Family
 from apps.rpg.models import RPGEditorialDraft, RPGEditorialOverride
 
 from .loader import ContentPackError
+from .errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 from .publication import _digest
 from .workbench_validation import require_actor
 
@@ -69,10 +70,10 @@ def _lock():
 def _actor(actor):
     family = Family.objects.select_for_update(no_key=True).filter(pk=actor.family_id).first()
     if family is None:
-        raise ContentPackError("The author family is no longer available.")
+        raise ContentAuthorPermissionDenied("The author family is no longer available.")
     fresh = get_user_model().objects.select_for_update(no_key=True).filter(pk=actor.pk).first()
     if fresh is None or fresh.family_id != actor.family_id:
-        raise ContentPackError("The author is no longer available in this family.")
+        raise ContentAuthorPermissionDenied("The author is no longer available in this family.")
     require_actor(fresh)
     return fresh
 
@@ -81,7 +82,7 @@ def _draft(actor, draft_id, revision=None):
     fresh = _actor(actor)
     row = RPGEditorialDraft.objects.select_for_update().filter(pk=draft_id, actor=fresh, family_id=fresh.family_id).first()
     if row is None:
-        raise ContentPackError("Editorial draft not found for this author and family.")
+        raise ContentObjectNotFound("Editorial draft not found for this author and family.")
     if revision is not None and (type(revision) is not int or row.revision != revision):
         raise ContentPackError("Editorial draft revision changed; reload before continuing.")
     return row

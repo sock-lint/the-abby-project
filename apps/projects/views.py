@@ -32,7 +32,7 @@ from .serializers import (
     ProjectListSerializer,
     ProjectMilestoneSerializer, ProjectResourceSerializer, ProjectStepSerializer,
     ProjectTemplateSerializer, SavingsGoalSerializer,
-    UserSerializer,
+    AuthenticatedUserSerializer,
 )
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,7 @@ class AuthView(APIView):
                         invalidate_google_flows(fresh.pk)
                         Token.objects.filter(user=fresh).delete()
                         token = Token.objects.create(user=fresh)
-                        data = UserSerializer(fresh).data
+                        data = AuthenticatedUserSerializer(fresh).data
                         data["token"] = token.key
                         return Response(data)
             return Response(
@@ -145,7 +145,7 @@ class MeView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data)
+        return Response(AuthenticatedUserSerializer(request.user).data)
 
     def patch(self, request):
         user = request.user
@@ -174,7 +174,7 @@ class MeView(APIView):
                 )
             user.lorebook_flags = {**(user.lorebook_flags or {}), **flags}
             user.save(update_fields=["lorebook_flags"])
-        return Response(UserSerializer(user).data)
+        return Response(AuthenticatedUserSerializer(user).data)
 
 
 def _locked_member_write(method):

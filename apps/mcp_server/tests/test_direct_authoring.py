@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 from apps.achievements.models import Badge, Skill, SkillCategory, SkillPrerequisite, Subject
 from apps.chores.models import Chore
 from apps.mcp_server.context import override_user
-from apps.mcp_server.errors import MCPNotFoundError, MCPValidationError
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.schemas import (
     AddSkillPrerequisiteIn, CreateBadgeIn, CreateChoreIn, CreateQuestDefinitionIn, CreateSkillIn,
     UpdateBadgeIn, UpdateCategoryIn, UpdateChoreIn, UpdateRewardIn, UpdateSkillIn, UpdateSubjectIn,
@@ -125,7 +125,7 @@ class DirectAuthoringTests(TestCase):
 
     def test_foreign_owned_catalog_entry_cannot_be_overwritten_directly(self):
         ContentPackEntry.objects.create(pack="other-owned-pack", family=self.foreign_family, kind="skillcategory", key="other-category", model_label="achievements.skillcategory", object_id=self.a.pk)
-        with override_user(self.parent), self.assertRaises(MCPValidationError):
+        with override_user(self.parent), self.assertRaises(MCPPermissionDenied):
             achievements.update_category(UpdateCategoryIn(category_id=self.a.pk, color="#abcdef"))
         self.a.refresh_from_db()
         self.assertEqual(self.a.color, "#112233")
@@ -134,7 +134,7 @@ class DirectAuthoringTests(TestCase):
         for change in ({"is_active": False}, {"is_staff": False}, {"role": "child"}, {"family_id": self.foreign_family.pk}):
             with self.subTest(change=change):
                 User.objects.filter(pk=self.parent.pk).update(**change)
-                with override_user(self.parent), self.assertRaises(MCPValidationError):
+                with override_user(self.parent), self.assertRaises(MCPPermissionDenied):
                     achievements.update_category(UpdateCategoryIn(category_id=self.a.pk, color="#abcdef"))
                 User.objects.filter(pk=self.parent.pk).update(is_active=True, is_staff=True, role="parent", family_id=self.child.family_id)
         self.a.refresh_from_db()
@@ -312,7 +312,7 @@ class DirectAuthoringConcurrencyTests(TransactionTestCase):
                     try:
                         operation()
                         return "saved"
-                    except MCPValidationError:
+                    except (MCPPermissionDenied, MCPValidationError):
                         return "rejected"
             finally:
                 connection.close()
@@ -367,7 +367,7 @@ class DirectAuthoringConcurrencyTests(TransactionTestCase):
                                 if not release_first.wait(timeout=10):
                                     raise AssertionError("The second author did not reach the catalog fence")
                         return "saved"
-                    except MCPValidationError:
+                    except (MCPPermissionDenied, MCPValidationError):
                         return "rejected"
             finally:
                 connection.close()

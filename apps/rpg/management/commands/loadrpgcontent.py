@@ -89,7 +89,9 @@ class Command(BaseCommand):
                                       (" [dry-run]" if dry_run else ""))
                     # Keep preceding packs visible while checking dependencies.
                     # One outer rollback covers every pack in a dry run/failure.
-                    ContentPack(pack_path, namespace=pack_namespace).load(stdout=self.stdout, dry_run=False)
+                    ContentPack(pack_path, namespace=pack_namespace,
+                        defer_retired_references=not options["pack"] and not namespace,
+                    ).load(stdout=self.stdout, dry_run=False)
                 if not dry_run and not namespace:
                     self._grant_starter_covers()
                 if dry_run:

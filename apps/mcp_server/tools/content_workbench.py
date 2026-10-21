@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 
 from apps.rpg.content import workbench
+from apps.rpg.content.errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 from apps.rpg.content.loader import ContentPackError
 from apps.rpg.content.workbench_validation import (
     CREATE_ITEM_TYPES, ITEM_BEHAVIOR_FIELDS, ITEM_FIELDS, QUEST_FIELDS, supported_challenge_triggers,
@@ -50,7 +51,9 @@ def _authorized_actor():
 def _call(function, *args, **kwargs):
     try:
         return to_plain(function(*args, **kwargs))
-    except workbench.WorkbenchNotFound as error:
+    except ContentAuthorPermissionDenied as error:
+        raise MCPPermissionDenied(str(error)) from error
+    except (workbench.WorkbenchNotFound, ContentObjectNotFound) as error:
         raise MCPNotFoundError(str(error)) from error
     except workbench.WorkbenchConflict as error:
         raise MCPValidationError(str(error), code="content_workbench_conflict") from error
@@ -164,7 +167,11 @@ def simulate_content_draft(params: SimulateContentDraftIn) -> ContentDraftCompar
     """
     with _authorized_actor() as actor:
         _simulation_quota(actor, WorkbenchSimulationThrottle)
-        return _call(workbench.simulate_draft, actor, params.draft_id, params.revision, params.preview_id, params.config)
+    # Let the native service take fresh authority around snapshot capture and
+    # result validation separately. Holding it through computation would also
+    # hold the nested catalog locks until both simulations finish.
+    return _call(workbench.simulate_draft, actor, params.draft_id, params.revision,
+                 params.preview_id, params.config, authorize=_authorized_actor)
 
 
 @tool()

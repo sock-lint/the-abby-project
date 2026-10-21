@@ -10,6 +10,10 @@ from django.db.models import Q
 from .models import Badge, Skill, SkillCategory, Subject
 
 
+class RetiredTaxonomyReference(ValidationError):
+    """A new reference selects an existing but unavailable taxonomy identity."""
+
+
 def available_categories(queryset=None):
     return (SkillCategory.objects.all() if queryset is None else queryset).filter(is_retired=False)
 
@@ -128,4 +132,4 @@ def validate_new_taxonomy_references(model, ids, *, retained_ids=(), lock=True):
         raise ValidationError("The taxonomy changed. Refresh and choose again.")
     queryset = {SkillCategory: available_categories, Subject: available_subjects, Skill: available_skills}.get(model)
     if queryset is not None and queryset().filter(pk__in=admitted).count() != len(admitted):
-        raise ValidationError("Retired taxonomy entries cannot be selected for new work. Restore the entry or choose an available one.")
+        raise RetiredTaxonomyReference("Retired taxonomy entries cannot be selected for new work. Restore the entry or choose an available one.")

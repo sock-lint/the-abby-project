@@ -20,6 +20,7 @@ from apps.families.models import Family
 from apps.rpg.models import ContentPackEntry, RPGContentOverride
 
 from .loader import ContentPackError
+from .errors import ContentAuthorPermissionDenied
 from .publication import _catalog_lock
 from .validation import validate_badge_criteria
 
@@ -35,12 +36,12 @@ def direct_catalog_write(actor):
     with transaction.atomic():
         family = Family.objects.select_for_update(no_key=True).filter(pk=actor.family_id).first()
         if family is None:
-            raise ContentPackError("Direct catalog authoring requires a current active staff parent and family.")
+            raise ContentAuthorPermissionDenied("Direct catalog authoring requires a current active staff parent and family.")
         fresh = get_user_model().objects.select_for_update(no_key=True).filter(
             pk=actor.pk, family_id=actor.family_id, is_active=True, is_staff=True, role="parent",
         ).first()
         if fresh is None or fresh.family_id is None:
-            raise ContentPackError("Direct catalog authoring requires a current active staff parent and family.")
+            raise ContentAuthorPermissionDenied("Direct catalog authoring requires a current active staff parent and family.")
         _catalog_lock()
         yield fresh
 
@@ -50,7 +51,7 @@ def require_catalog_ownership(actor, obj):
     identity = {"model_label": obj._meta.label_lower, "object_id": obj.pk}
     if (ContentPackEntry.objects.filter(**identity).exclude(family_id=actor.family_id).exists()
             or RPGContentOverride.objects.filter(**identity).exclude(family_id=actor.family_id).exists()):
-        raise ContentPackError("This catalog entry is authored by another family and is read-only here.")
+        raise ContentAuthorPermissionDenied("This catalog entry is authored by another family and is read-only here.")
 
 
 def natural_lookup(obj):

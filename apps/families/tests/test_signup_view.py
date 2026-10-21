@@ -29,6 +29,7 @@ class SignupViewTests(TestCase):
         body = response.json()
         self.assertIn("token", body)
         self.assertEqual(body["user"]["username"], "mike")
+        self.assertIs(body["user"]["is_staff"], False)
         self.assertEqual(body["family"]["name"], "The Sageb Family")
         # Family + parent + token wired correctly.
         family = Family.objects.get(slug="the-sageb-family")
@@ -84,8 +85,11 @@ class SignupViewTests(TestCase):
                 "password": "ApbBy1!Strong",
                 "family_name": "A",
                 "role": "child",  # should be ignored
+                "is_staff": True,  # must never grant global authoring
             },
             format="json",
         )
         self.assertEqual(response.status_code, 201)
         self.assertEqual(User.objects.get(username="mike").role, "parent")
+        self.assertFalse(User.objects.get(username="mike").is_staff)
+        self.assertIs(response.json()["user"]["is_staff"], False)

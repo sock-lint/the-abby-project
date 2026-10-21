@@ -8,11 +8,20 @@ import management from '../../../contracts/api/fixtures/taxonomy-skills-retired-
 import retired from '../../../contracts/api/fixtures/taxonomy-category-retired.json';
 import restored from '../../../contracts/api/fixtures/taxonomy-category-restored.json';
 import history from '../../../contracts/api/fixtures/taxonomy-tree-retired-history.json';
+import staffLogin from '../../../contracts/api/fixtures/auth-login-staff-parent.json';
+import staffMe from '../../../contracts/api/fixtures/auth-me-staff-parent.json';
+import parentMe from '../../../contracts/api/fixtures/auth-me-ordinary-parent.json';
+import childMe from '../../../contracts/api/fixtures/auth-me-child.json';
 import { getAllSkills, getSkillTree } from './index';
 import { server } from '../test/server';
 import SkillTagEditor from '../components/SkillTagEditor';
 import ManagePanel from '../pages/achievements/ManagePanel';
 import WayfinderSkillDetail from '../pages/achievements/WayfinderSkillDetail';
+import Achievements from '../pages/Achievements';
+import Login from '../pages/Login';
+import { useAuth } from '../hooks/useApi';
+import { renderWithProviders } from '../test/render';
+import { spyHandler } from '../test/spy';
 
 describe('taxonomy retirement through the React client', () => {
   it('separates new skill choices from retained management identities and keeps saved XP readable', async () => {
@@ -66,5 +75,73 @@ describe('taxonomy retirement through the React client', () => {
     await waitFor(() => expect(patches).toEqual([{ is_retired: false }, { is_retired: true }]));
     expect(await screen.findByRole('button', { name: 'Restore category Retained practice' })).toBeInTheDocument();
     expect(deletes).not.toHaveBeenCalled();
+  });
+});
+
+
+function AuthenticatedSkills() {
+  const { user, loading, login } = useAuth();
+  if (loading) return null;
+  return user ? <Achievements /> : <Login onLogin={login} />;
+}
+
+function renderAuthenticatedSkills(identity, { passwordLogin = false } = {}) {
+  if (passwordLogin) localStorage.clear();
+  let current = restored;
+  const login = spyHandler('post', /\/api\/auth\/$/, staffLogin);
+  const mutation = spyHandler('patch', /\/api\/categories\/951\/$/, ({ body }) => {
+    current = body.is_retired ? retired : restored;
+    return current;
+  });
+  server.use(
+    http.get('*/api/auth/me/', () => HttpResponse.json(identity)),
+    http.get('*/api/auth/google/config/', () => HttpResponse.json({ configured: false })),
+    http.get('*/api/categories/', () => HttpResponse.json([current])),
+    http.get('*/api/subjects/', () => HttpResponse.json([])),
+    http.get('*/api/skills/', () => HttpResponse.json([])),
+    http.get('*/api/badges/', () => HttpResponse.json([])),
+    login.handler,
+    mutation.handler,
+  );
+  return { ...renderWithProviders(<AuthenticatedSkills />), login, mutation };
+}
+
+describe('authenticated taxonomy retirement capability', () => {
+  it.each(['verified identity', 'password login'])('lets staff retire and restore from the real %s response', async (source) => {
+    const passwordLogin = source === 'password login';
+    const { user, login, mutation } = renderAuthenticatedSkills(staffMe, { passwordLogin });
+    if (passwordLogin) {
+      await user.type(await screen.findByRole('textbox', { name: 'Username' }), staffLogin.username);
+      await user.type(screen.getByLabelText('Password', { exact: true }), 'synthetic-password');
+      await user.click(screen.getByRole('button', { name: 'Sign in', exact: true }));
+      await waitFor(() => expect(login.calls).toHaveLength(1));
+      expect(login.calls[0].body).toEqual({ action: 'login', username: staffLogin.username, password: 'synthetic-password' });
+    }
+    await user.click(await screen.findByRole('tab', { name: 'Manage' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Show retired taxonomy' }));
+    await user.click(await screen.findByRole('button', { name: 'Retire category Retained practice' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Retire', exact: true }));
+    const restore = await screen.findByRole('button', { name: 'Restore category Retained practice' });
+    await waitFor(() => expect(restore).toBeEnabled());
+    await user.click(restore);
+    await waitFor(() => expect(mutation.calls).toHaveLength(2));
+    expect(mutation.calls.map((call) => call.body)).toEqual([{ is_retired: true }, { is_retired: false }]);
+    for (const call of mutation.calls) expect(call.url).toMatch(/\/api\/categories\/951\/$/);
+    expect(await screen.findByRole('button', { name: 'Retire category Retained practice' })).toBeInTheDocument();
+  });
+
+  it('keeps retirement unavailable to the real ordinary-parent identity', async () => {
+    const { user, mutation } = renderAuthenticatedSkills(parentMe);
+    await user.click(await screen.findByRole('tab', { name: 'Manage' }));
+    expect(await screen.findByRole('button', { name: 'Edit category Retained practice' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^(Retire|Restore) category/ })).not.toBeInTheDocument();
+    expect(mutation.calls).toHaveLength(0);
+  });
+
+  it('keeps management unavailable to the real child identity', async () => {
+    const { mutation } = renderAuthenticatedSkills(childMe);
+    expect(await screen.findByRole('heading', { name: 'Skills' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Manage' })).not.toBeInTheDocument();
+    expect(mutation.calls).toHaveLength(0);
   });
 });

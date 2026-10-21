@@ -145,6 +145,7 @@ React exposes this assignment under Family challenges and retains server errors.
 - Explicit parent-created goals can count all valid matching saved records. Movement goal progress includes every valid session after the separate three-session XP/drop cap. Reads and pins never award or consume inventory.
 - Planning/creation quota counters keep their existing active-Django-timezone day (default America/Phoenix). Parent goal windows and daily bonuses remain family-local; this fix does not move the source reward gates to a new clock.
 - New parent goals measure counts, minutes or decimal distance and can repeat weekly. Weekly boundaries are Monday through Sunday in the family timezone; late approval retains the activity's original period. Paid occurrences never rearm following a correction or deletion.
+- A saved recurring rule (including an accepted future schedule version) retains its taxonomy choices when opening later windows. Retiring a reward skill or its ancestors does not cancel that standing rule. Historical JSON references to deleted skills remain in the snapshot; completion still pays its saved Coins and records only XP actually awarded to surviving skills. Initial parent/catalog acceptance and newly selected future-setup references still require current availability. Explicit retries retain their separate current-offer admission checks.
 - Homework challenge work days use the submission's saved v1 timing snapshot, even after a household timezone or deadline edit. Legacy/malformed snapshots fall back to the configured Django timezone, since the original household zone is unknown; existing challenge facts retain their saved dates. Weekly backfill uses the goal's saved timezone and resolves the same frozen work day from a bounded source scan. Approval timestamps remain separate for catalog cutoffs and approval-day daily bonuses; weekly chores keep their saved period-start date.
 - Contributions and totals use the existing three-decimal precision with explicit `ROUND_HALF_UP` before persistence/completion, keeping processing, weekly backfill and unpaid corrections consistent across databases.
 - Catalog goals use their actual trigger filters; themes and XP reward tags do not restrict qualifying activities. Reward-only definitions (`badge_earned`/`perfect_day`) are omitted from new automatic enrollment, while saved legacy instances remain readable. Default unfiltered goals count effort events; expedition returns need an explicit trigger filter. Newly offered/evaluated goals get a fresh full-duration window, with enrollment/cutover, definition creation, actual badge unlock and active legacy deadline as lower cutoffs. The earliest eligible pending fact can anchor the initial window so saved work/retries count; processed history is never replayed into a new catalog goal. Nonrepeatable goals keep one window, repeatable goals keep successive frozen-duration windows from their saved anchor, and no existing dates reset on return, pinning or completion.
@@ -181,6 +182,12 @@ unpaid attempts become `status: closed`, `closed_reason: reward_already_awarded`
 with no completion/award timestamp or invented receipt. Earlier snapshots,
 progress, contributions and paid history remain saved. Grandfathered duplicate
 promises without an explicit retry retain their existing policy.
+
+A retry continues the accepted item's frozen IDs and quantities within that one
+lifetime reward. Art withdrawal suppresses new catalog enrollment without
+rewriting this accepted retry entitlement; it never substitutes replacement
+items or Coins. Taxonomy retirement still uses the explicit retry's separate
+current-choice admission, while an existing successor remains replayable.
 
 Recurring parent goals expose `goal_definition_id` and `schedule` with a
 revision and the next saved-timezone Monday's setup. Parent-only

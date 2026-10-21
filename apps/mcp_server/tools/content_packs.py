@@ -372,14 +372,14 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     stable_ids = natural_key == "name"
 
     def identity(entry):
-        if stable_ids and "id" in entry:
-            value = entry["id"]
-            if not isinstance(value, str) or not value or len(value) > 150:
-                raise MCPValidationError("Entry id must be nonempty text of at most 150 characters.")
-            return "id", value
         value = entry.get(natural_key)
         if not isinstance(value, str) or not value.strip():
             raise MCPValidationError(f"Every entry requires a nonempty {natural_key}.")
+        if stable_ids and "id" in entry:
+            stable_id = entry["id"]
+            if not isinstance(stable_id, str) or not stable_id or len(stable_id) > 150:
+                raise MCPValidationError("Entry id must be nonempty text of at most 150 characters.")
+            return "id", stable_id
         return natural_key, value
 
     # Last-write-wins dedup by identity. Preserve order: existing rows

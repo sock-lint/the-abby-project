@@ -334,12 +334,11 @@ def _occurrence(goal, at):
         if existing is not None:
             return existing
         snapshot = _snapshot(goal)
-    from .reference_locks import admit_snapshot_choices
-    try:
-        admit_snapshot_choices(snapshot, required_skill_id=(
-            goal.catalog_definition.required_skill_id if goal.is_catalog and goal.catalog_definition_id else None))
-    except ValueError:
-        return None
+    # These references belong to an accepted standing rule or schedule version,
+    # not a fresh taxonomy choice. Creation/enrollment and future setup edits
+    # admit new references under their write locks. Rechecking here would cancel
+    # recurring rewards after retirement (or a historical JSON skill deletion).
+    # Payout retains saved IDs and skips missing skills without inventing XP.
     occurrence, _ = ChallengeOccurrence.objects.get_or_create(
         goal=goal, starts_at=start, defaults={"ends_at": end, "snapshot": snapshot or (lambda: _snapshot(goal))},
     )

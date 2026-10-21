@@ -155,12 +155,13 @@ class TaxonomyConsumerAdmissionTests(TestCase):
         with self.assertRaisesRegex(MovementTypeError, "[Rr]etired"):
             MovementTypeService.create_type(self.child, name="New retired movement", primary_skill_id=self.skill.pk)
 
-    def test_retirement_preserves_existing_occurrence_and_stops_new_weekly_promise(self):
+    def test_retirement_preserves_existing_occurrence_and_accepted_weekly_rule(self):
         original = create_goal(self.parent, self.child, self.goal_data(period="this_week"))
         self.retire(SkillCategory)
         self.assertEqual(_occurrence(original.goal, original.starts_at).pk, original.pk)
-        self.assertIsNone(_occurrence(original.goal, original.starts_at + timedelta(days=8)))
-        self.assertEqual(original.goal.occurrences.count(), 1)
+        following = _occurrence(original.goal, original.starts_at + timedelta(days=8))
+        self.assertEqual(following.snapshot, original.snapshot)
+        self.assertEqual(original.goal.occurrences.count(), 2)
 
     def test_new_retry_rejects_retirement_but_existing_retry_is_idempotent(self):
         definition = QuestDefinition.objects.create(name="Retryable choice", quest_type="collection", target_value=2,

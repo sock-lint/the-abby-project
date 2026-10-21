@@ -11,6 +11,7 @@ from django.db.models.deletion import ProtectedError, RestrictedError
 from rest_framework.exceptions import APIException, NotFound, PermissionDenied
 
 from apps.achievements.models import Badge, SkillCategory
+from apps.homework.models import HomeworkTemplate
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, ChallengeSchedule, QuestDefinition
 from apps.rpg.models import ContentPackEntry, RPGContentOverride
 
@@ -207,7 +208,7 @@ def _has_saved_promise(obj):
     # SQLite lacks JSON array containment; iteration is bounded in memory and
     # intentionally has no page limit that could hide a distant saved promise.
     for model, path in ((ChallengeGoal, "skill_tags"), (ChallengeOccurrence, "snapshot__skill_tags"),
-                        (ChallengeSchedule, "snapshot__skill_tags")):
+                        (ChallengeSchedule, "snapshot__skill_tags"), (HomeworkTemplate, "skill_tags")):
         for tags in model.objects.values_list(path, flat=True).iterator(chunk_size=256):
             if _tagged(tags, obj.pk):
                 return True

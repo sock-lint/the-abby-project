@@ -950,12 +950,34 @@ class SharedApiResponseFixtureTests(APITestCase):
             login = self.client.post("/api/auth/", {
                 "action": "login", "username": self.child.username, "password": "synthetic-password",
             }, format="json")
+        self.assertIs(login.json()["is_staff"], False)
         body = self.assert_response_fixture(login, "auth-login-child.json")
         self.assertEqual(body["token"], Token.objects.get(user=self.child).key)
         self.assertFalse(Token.objects.filter(key=self.auth_token.key).exists())
         self.client.credentials(HTTP_AUTHORIZATION=f"Token {body['token']}")
         identity = self.assert_response_fixture(self.client.get("/api/auth/me/"), "auth-me-child.json")
         self.assertEqual({key: value for key, value in body.items() if key != "token"}, identity)
+
+    def test_parent_login_and_verified_staff_identity(self):
+        parent = self.child.family.parents.get(pk=6)
+        for is_staff, label in ((False, "ordinary-parent"), (True, "staff-parent")):
+            with self.subTest(is_staff=is_staff):
+                parent.is_staff = is_staff
+                parent.save(update_fields=["is_staff"])
+                self.client.credentials()
+                with patch("rest_framework.authtoken.models.Token.generate_key", return_value=SYNTHETIC_TOKEN):
+                    login = self.client.post("/api/auth/", {
+                        "action": "login", "username": parent.username, "password": "synthetic-password",
+                    }, format="json")
+                self.assertEqual(login.status_code, 200)
+                self.assertIs(login.json()["is_staff"], is_staff)
+                body = self.assert_response_fixture(login, f"auth-login-{label}.json")
+                self.client.credentials(HTTP_AUTHORIZATION=f"Token {body['token']}")
+                identity = self.assert_response_fixture(
+                    self.client.get("/api/auth/me/"), f"auth-me-{label}.json",
+                )
+                self.assertIs(identity["is_staff"], is_staff)
+                self.assertEqual({key: value for key, value in body.items() if key != "token"}, identity)
 
     def test_paginated_habits_preserve_scope_and_safety_fields(self):
         first = self.assert_response_fixture(self.client.get("/api/habits/"), "habits-page-1.json")
