@@ -53,6 +53,15 @@
       "default_theme": "hyrule"
     }
   },
+  "maker_signature": {
+    "id": 702,
+    "username": "project-ai-fixture-child",
+    "display_name": "project-ai-fixture-child",
+    "avatar": null,
+    "active_frame": null,
+    "active_title": null,
+    "active_trophy_badge": null
+  },
   "bonus_amount": "0.00",
   "payment_kind": "required",
   "hourly_rate_override": null,

@@ -1,5 +1,18 @@
 # Shared API response fixtures
 
+`project-earned-identity.json`, `pulse-earned-identity.json` and
+`dashboard-earned-identity.json` expose the same saved cosmetic identity through
+project detail's read-only `maker_signature`, the current account's pulse
+`identity`, and dashboard `rpg.identity`. The project maker is its assignee;
+unassigned projects and missing saved characters return null. The existing
+project access rules and an additional same-family check protect attribution.
+Identity contains only the user ID, username, display label, photo URL, equipped
+frame/title and selected trophy badge. Compact cosmetics add their catalog slug
+for deterministic presentation while retaining existing metadata and approved
+image IDs. The identity projection does not equip items or grant rewards. The producer is
+`config.tests.test_project_ai_api_contract_fixtures`; the React transport
+consumer is `frontend/src/api/projectAIContractFixtures.test.js`.
+
 `challenges-untimed.json` is a real authenticated challenge response for an
 untimed one-time Reading Companion. Its saved `ends_at` is null and it remains
 active after ninety elapsed days. Null means no deadline; absent timing in

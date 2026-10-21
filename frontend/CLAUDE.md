@@ -219,6 +219,17 @@ availability without presenting unreachable unlocks. See the
 [asset boundary](../content/rpg/react-three-fiber-assets.md) and
 [shared contract checks](../contracts/api/README.md) before extending offers.
 
+**Earned identity:** navigation wears the current account's frame, title and
+featured badge from the existing account-bound pulse. Today also carries the
+saved look, with dashboard `rpg.identity` as its initial source. Successful
+Profile equip/unequip/trophy writes refresh the pulse; failed writes do not
+change navigation. Project-detail `maker_signature` represents the assigned
+child, with the same family access checks as the project, and is read-only.
+Shared `components/identity` portraits draw distinct vector ornaments inside
+their layout footprint, with a protected photo opening and an initial fallback.
+Titles keep live text and their own catalog icon. The frame collection previews
+these same portraits. This presentation adds no ownership or reward mutations.
+
 **Rarity feedback:** badges use the server's `coin_bonus` as a base bonus, never
 as evidence of a historical payout. Challenge reward previews and future
 receipts carry `item_rarity` and exact catalog identity; shared `RewardItem`
