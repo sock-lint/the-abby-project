@@ -106,6 +106,61 @@ class LegacyTemplateSkillIdTests(TestCase):
         self.assertEqual(self.template.title, "Renamed saved template")
         self.assertEqual(self.template.skill_tags, [{"skill_id": str(self.skill.pk), "xp_amount": 23}])
 
+    def assert_template_get_put_preserves_tags(self, template_id, tags):
+        client = APIClient()
+        client.force_authenticate(self.parent)
+        path = f"/api/homework-templates/{template_id}/"
+        response = client.get(path)
+        self.assertEqual(response.status_code, 200, response.data)
+        payload = response.data
+        self.assertEqual(payload["skill_tags"], tags)
+        payload["title"] = "Renamed duplicate template"
+        response = client.put(path, payload, format="json")
+        self.assertEqual(response.status_code, 200, response.data)
+        template = HomeworkTemplate.objects.get(pk=template_id)
+        self.assertEqual(template.title, "Renamed duplicate template")
+        self.assertEqual(template.skill_tags, tags)
+
+    def test_duplicate_integer_tags_rest_post_and_full_get_put_preserve_each_saved_tag(self):
+        tags = [{"skill_id": self.skill.pk, "xp_amount": 23}, {"skill_id": self.skill.pk, "xp_amount": 41}]
+        client = APIClient()
+        client.force_authenticate(self.parent)
+        response = client.post("/api/homework-templates/", {
+            "title": "Duplicate REST template", "subject": "other", "skill_tags": tags,
+        }, format="json")
+        self.assertEqual(response.status_code, 201, response.data)
+        self.assert_template_get_put_preserves_tags(response.data["id"], tags)
+
+    def test_mcp_created_duplicate_integer_tags_full_get_put_preserves_each_saved_tag(self):
+        from apps.mcp_server.context import override_user
+        from apps.mcp_server.schemas import CreateHomeworkTemplateIn, HomeworkSkillTagDraft
+        from apps.mcp_server.tools.homework import create_homework_template
+
+        tags = [{"skill_id": self.skill.pk, "xp_amount": 23}, {"skill_id": self.skill.pk, "xp_amount": 41}]
+        with override_user(self.parent):
+            response = create_homework_template(CreateHomeworkTemplateIn(
+                title="Duplicate MCP template", skill_tags=[HomeworkSkillTagDraft(**tag) for tag in tags],
+            ))
+        self.assertEqual(response["skill_tags"], tags)
+        self.assert_template_get_put_preserves_tags(response["id"], tags)
+
+    def test_saved_integer_and_string_duplicate_tags_round_trip_without_rewriting_json(self):
+        tags = [{"skill_id": str(self.skill.pk), "xp_amount": 23}, {"skill_id": self.skill.pk, "xp_amount": 41}]
+        self.template.skill_tags = tags
+        self.template.save(update_fields=["skill_tags"])
+        Skill.objects.filter(pk=self.skill.pk).update(is_retired=True)
+        self.assert_template_get_put_preserves_tags(self.template.pk, tags)
+
+    def test_duplicate_saved_ids_remain_a_clean_clone_error_without_writes(self):
+        for duplicate in (self.skill.pk, str(self.skill.pk)):
+            with self.subTest(duplicate=duplicate):
+                self.template.skill_tags = [{"skill_id": self.skill.pk, "xp_amount": 23},
+                                            {"skill_id": duplicate, "xp_amount": 41}]
+                with patch("apps.homework.services.notify") as notify, self.assertRaises(HomeworkError):
+                    HomeworkService.create_from_template(self.template, self.child, self.due)
+                notify.assert_not_called()
+                self.assert_no_assignment()
+
     def test_convert_saved_string_to_integer_retains_same_retired_reference(self):
         Skill.objects.filter(pk=self.skill.pk).update(is_retired=True)
         client = APIClient()

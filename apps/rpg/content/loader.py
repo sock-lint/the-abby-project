@@ -52,6 +52,18 @@ class RetiredContentReference(ContentPackError):
 
 
 @dataclass
+class StartupDeferrals:
+    """Retired source identities shared only by one default bundled load."""
+
+    skills: set[tuple[str, str]] = field(default_factory=set)
+    quests: set[str] = field(default_factory=set)
+
+    def clear(self):
+        self.skills.clear()
+        self.quests.clear()
+
+
+@dataclass
 class LoadStats:
     created: dict[str, int] = field(default_factory=dict)
     updated: dict[str, int] = field(default_factory=dict)
@@ -80,7 +92,7 @@ class ContentPack:
     """
 
     def __init__(self, path: Path | str, namespace: str = "", *, pack_key=None, family=None, parsed_content=None,
-                 defer_retired_references=False):
+                 defer_retired_references=False, startup_deferrals=None):
         self.path = Path(path)
         if not self.path.is_dir():
             raise ContentPackError(f"Pack directory not found: {self.path}")
@@ -92,10 +104,12 @@ class ContentPack:
         # Only the default bundled startup command opts into selective deferral.
         # Reviewed/keyed publications and explicit/manual loads remain strict.
         self.defer_retired_references = defer_retired_references and not pack_key
+        self._shared_startup_deferrals = self.defer_retired_references and startup_deferrals is not None
+        self._startup_deferrals = startup_deferrals if self._shared_startup_deferrals else StartupDeferrals()
         self.seen_entries = set()
         self._created_taxonomy: dict[type, set[int]] = {}
-        self._deferred_skill_references: set[tuple[str, str]] = set()
-        self._deferred_quests: set[str] = set()
+        self._deferred_skill_references = self._startup_deferrals.skills
+        self._deferred_quests = self._startup_deferrals.quests
         # Unkeyed (deploy-time) loads report entries they leave unchanged
         # here instead of failing: they run before gunicorn starts.
         self.warnings: list[str] = []
@@ -118,8 +132,8 @@ class ContentPack:
         # overwrite an override that committed during that wait.
         from .publication import _catalog_lock
         self._created_taxonomy.clear()
-        self._deferred_skill_references.clear()
-        self._deferred_quests.clear()
+        if not self._shared_startup_deferrals:
+            self._startup_deferrals.clear()
         _catalog_lock()
         parsed = self.parsed_content if self.parsed_content is not None else self._parse_all()
         from .validation import validate_content
@@ -173,8 +187,8 @@ class ContentPack:
             # A reused loader must not treat rows from an earlier load (or
             # rolled-back IDs reused later) as part of this source bootstrap.
             self._created_taxonomy.clear()
-            self._deferred_skill_references.clear()
-            self._deferred_quests.clear()
+            if not self._shared_startup_deferrals:
+                self._startup_deferrals.clear()
 
         for line in self.stats.as_lines():
             write(line)
@@ -241,7 +255,7 @@ class ContentPack:
                 continue
             categories = self._source_reference_matches(SkillCategory, name=category)
             if len(categories) > 1:
-                return []
+                raise ContentPackError(f"unknown or ambiguous skill category source {category!r}.")
             if categories:
                 for skill in self._source_reference_matches(Skill, category=categories[0], name=name):
                     matches[skill.pk] = skill
@@ -637,6 +651,7 @@ class ContentPack:
                 if created:
                     self._created_taxonomy.setdefault(Skill, set()).add(obj.pk)
                 skill_by_key[cat_name, entry["name"]] = obj
+                self._deferred_skill_references.discard((cat_name, entry["name"]))
                 self.stats.bump("created" if created else "updated", "skill")
                 from .authoring import preserves_skill_prerequisites
                 if preserves_skill_prerequisites(obj):
@@ -747,24 +762,42 @@ class ContentPack:
             name = prerequisite["skill"] if isinstance(prerequisite, dict) else prerequisite
             targets = (self._qualified_skill_matches(name) if "::" in name else
                        self._source_reference_matches(Skill, category=category, name=name))
+            if len(targets) > 1:
+                raise ContentPackError(f"skill {entry['name']!r} references ambiguous prereq {name!r}.")
+            if self._deferred_skill_reference(name, category=entry["category"]):
+                raise RetiredContentReference(f"Prerequisite source {name!r} was deferred for a retired reference.")
             if len(targets) == 1:
                 target = targets[0]
                 bootstrap = (previous is None and target.pk in self._created_taxonomy.get(Skill, ())
                              and not available_for_new_choices(candidate))
                 self._admit_reference(Skill, [target.pk], retained | ({target.pk} if bootstrap else set()))
-            elif not targets:
-                # A forward, newly authored archived target has no DB identity
-                # yet. It can bootstrap only with a new archived dependent.
-                sources = [row for row in entries if
-                           (f"{row['category']}::{row['name']}" == name if "::" in name else
-                            row["category"] == entry["category"] and row["name"] == name)]
-                if len(sources) == 1 and sources[0]["category"] in categories:
-                    source = sources[0]
-                    parent = categories[source["category"]]
-                    subject_key = (source["category"], source.get("subject"))
-                    subject = subjects.get(subject_key)
+            sources = [row for row in entries if
+                       (f"{row['category']}::{row['name']}" == name if "::" in name else
+                        row["category"] == entry["category"] and row["name"] == name)]
+            if not sources and targets:
+                # A durable rename can be addressed by its current name while
+                # YAML still uses the original source name. Resolve the same
+                # numeric identity, never infer ownership from a display word.
+                sources = [row for row in entries if row["category"] in categories and any(
+                    match.pk == targets[0].pk for match in self._source_reference_matches(
+                        Skill, category=categories[row["category"]], name=row["name"],
+                    ))]
+            if len(sources) > 1:
+                raise ContentPackError(f"skill {entry['name']!r} references ambiguous prereq source {name!r}.")
+            if sources and sources[0]["category"] in categories:
+                source = sources[0]
+                parent = categories[source["category"]]
+                subject_key = (source["category"], source.get("subject"))
+                subject = subjects.get(subject_key)
+                if subject_key in subjects and subject is None:
+                    # Resolving a deferred subject as None would look like a
+                    # safe removal on an existing target, while the real row
+                    # loader must retain that target's complete saved rules.
+                    raise RetiredContentReference(f"Prerequisite source {name!r} has a deferred subject.")
+                if not targets:
+                    # A forward archived target has no DB identity yet. Its
+                    # exception remains limited to new same-load ancestry.
                     if ((parent.is_retired and parent.pk not in self._created_taxonomy.get(SkillCategory, ()))
-                            or (subject_key in subjects and subject is None)
                             or (subject and not available_for_new_choices(subject)
                                 and subject.pk not in self._created_taxonomy.get(Subject, ()))):
                         raise RetiredContentReference(f"Prerequisite source {name!r} has a retired parent.")
@@ -772,14 +805,13 @@ class ContentPack:
                                    is_retired=source.get("is_retired", False))
                     if not available_for_new_choices(target) and (previous or available_for_new_choices(candidate)):
                         raise RetiredContentReference(f"Prerequisite source {name!r} is retired for new work.")
-                    # A new forward target may itself be deferred for a new
-                    # retired prerequisite. Validate that source chain before
-                    # any dependent's scalar fields or identity are written.
-                    self._admit_startup_prerequisites(source, parent,
-                        {"subject": subject, "is_retired": source.get("is_retired", False)},
-                        entries, categories, subjects, checking)
-                if self._deferred_skill_reference(name, category=entry["category"]):
-                    raise RetiredContentReference(f"Prerequisite source {name!r} was deferred for a retired reference.")
+                # An existing identity's source row can also be deferred. Check
+                # it before changing any dependent, regardless of YAML order.
+                source_defaults = {"subject": subject} if source.get("subject") else {}
+                if "is_retired" in source:
+                    source_defaults["is_retired"] = source["is_retired"]
+                self._admit_startup_prerequisites(source, parent, source_defaults,
+                    entries, categories, subjects, checking)
 
     # ---- badges --------------------------------------------------------
 
@@ -1218,6 +1250,8 @@ class ContentPack:
                         self.stats.bump("created" if created else "updated", "quest_skill_tag")
             if source["deferred"]:
                 self._deferred_quests.add(entry["name"])
+            else:
+                self._deferred_quests.discard(entry["name"])
 
     # ---- rewards -------------------------------------------------------
 

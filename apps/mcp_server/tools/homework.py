@@ -1,9 +1,11 @@
 """Homework-related MCP tools."""
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 from django.db import transaction
+from django.http import Http404
 
 from apps.homework.models import (
     HomeworkAssignment,
@@ -11,6 +13,7 @@ from apps.homework.models import (
     HomeworkSubmission,
     HomeworkTemplate,
 )
+from apps.homework.serializers import HomeworkTemplateSerializer
 from apps.homework.services import HomeworkError, HomeworkService
 
 from ..context import (
@@ -318,7 +321,6 @@ def plan_homework(params: PlanHomeworkIn) -> dict[str, Any]:
 
 
 def _template_to_dict(template: HomeworkTemplate) -> dict[str, Any]:
-    from apps.homework.serializers import HomeworkTemplateSerializer
     from ..shapes import to_plain
 
     return to_plain(HomeworkTemplateSerializer(template).data)
@@ -353,14 +355,9 @@ def get_homework_template(params: GetHomeworkTemplateIn) -> dict[str, Any]:
 def create_homework_template(params: CreateHomeworkTemplateIn) -> dict[str, Any]:
     """Create a reusable homework template (parent-only)."""
     parent = require_parent()
-    template = HomeworkTemplate.objects.create(
-        title=params.title,
-        description=params.description,
-        subject=params.subject,
-        effort_level=params.effort_level,
-        created_by=parent,
-        skill_tags=[t.model_dump() for t in params.skill_tags],
-    )
+    serializer = HomeworkTemplateSerializer(data=params.model_dump(), context={"request": SimpleNamespace(user=parent)})
+    serializer.is_valid(raise_exception=True)
+    template = serializer.save(created_by=parent)
     return _template_to_dict(template)
 
 
@@ -378,11 +375,15 @@ def update_homework_template(params: UpdateHomeworkTemplateIn) -> dict[str, Any]
     data = params.model_dump(
         exclude={"template_id", "skill_tags"}, exclude_unset=True,
     )
-    for field, value in data.items():
-        setattr(template, field, value)
     if params.skill_tags is not None:
-        template.skill_tags = [t.model_dump() for t in params.skill_tags]
-    template.save()
+        data["skill_tags"] = [tag.model_dump() for tag in params.skill_tags]
+    serializer = HomeworkTemplateSerializer(template, data=data, partial=True,
+                                            context={"request": SimpleNamespace(user=parent)})
+    serializer.is_valid(raise_exception=True)
+    try:
+        template = serializer.save()
+    except Http404 as error:
+        raise MCPNotFoundError(f"Template {params.template_id} not found.") from error
     return _template_to_dict(template)
 
 

@@ -209,7 +209,9 @@ class HomeworkTemplateSerializer(serializers.ModelSerializer):
                  not (isinstance(row.get("skill_id"), str) and row["skill_id"] in legacy_strings)) for row in tags):
             raise serializers.ValidationError({"skill_tags": "Choose existing skills."})
         try:
-            normalized = _saved_template_skill_tags(tags)
+            # Templates retain their JSON rows, including repeated references.
+            # Clone validation separately requires unique assignment FK tags.
+            normalized = [_saved_template_skill_tags([row])[0] for row in tags]
         except HomeworkError as error:
             raise serializers.ValidationError({"skill_tags": "Choose existing skills."}) from error
         admit_references(Skill, [row["skill_id"] for row in normalized],

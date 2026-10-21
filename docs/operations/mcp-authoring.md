@@ -486,7 +486,12 @@ its temporary identity tracking clears after success, failure and dry runs. This
 catalog cleanup described in the companion lifecycle runbook.
 Default bundled startup loads report and defer individual new retired-reference
 rows, rolling back their scalar fields and links while loading safe content.
-Existing saved references remain valid. Explicit `--pack` loads, keyed previews
+Later bundled packs recognize those deferred skill and quest identities within
+the same atomic startup batch. The temporary markers clear on success, failure
+and dry runs, including when a command instance is reused. A dependent skill's
+source prerequisites are checked before any scalar or link changes, including
+existing targets and forward references, so deferred rules leave its full saved
+row intact. Existing saved references remain valid. Explicit `--pack` loads, keyed previews
 and publication stay strict; unknown references, invalid source and identity
 conflicts still fail rather than being classified as retirement deferrals.
 
