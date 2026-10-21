@@ -91,8 +91,8 @@ class StartupLoaderSafetyTests(TestCase):
         self.assertIn("ambiguous_droptable", output)
 
     def test_duplicate_quest_reward_rows_are_reported_and_left_unchanged(self):
-        quest = QuestDefinition.objects.get(name="Dragon Slayer", created_by=None)
-        row = quest.reward_items.get(item__slug="dragon-egg")
+        quest = QuestDefinition.objects.get(name="Ghost Trail", created_by=None)
+        row = quest.reward_items.get(item__slug="meshtint-ghost-egg")
         duplicate = QuestRewardItem.objects.create(quest_definition=quest, item=row.item, quantity=7)
         rows = QuestRewardItem.objects.filter(quest_definition=quest, item=row.item).order_by("pk")
         expected = list(rows.values())

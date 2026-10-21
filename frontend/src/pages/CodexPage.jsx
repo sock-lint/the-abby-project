@@ -4,7 +4,7 @@ import CodexSection from './manage/CodexSection';
 
 /**
  * /codex — the parent-facing RPG content catalog (items, creatures, mounts,
- * adventures, sprites).
+ * adventures).
  *
  * Titled "Content Catalog" rather than "Codex": the Bestiary hub already
  * ships a kid-facing "Codex" tab for species, so a bare "Codex" heading named
@@ -16,7 +16,7 @@ export default function CodexPage() {
     <PageShell rhythm="loose">
       <PageHeader
         title="Content Catalog"
-        kicker="Manage items, pets, challenges, and artwork"
+        kicker="Browse items, pets, and challenges"
       />
       <CodexSection />
     </PageShell>

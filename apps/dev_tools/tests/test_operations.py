@@ -14,6 +14,9 @@ written."
 """
 from __future__ import annotations
 
+from io import StringIO
+
+from django.core.management import call_command
 from django.test import TestCase, override_settings
 
 from config.tests.factories import make_family
@@ -301,8 +304,8 @@ class SeedCompanionGrowthTests(TestCase):
         from apps.pets.models import PetSpecies
 
         PetSpecies.objects.create(
-            slug="companion", name="Companion", icon="🐾",
-            sprite_key="companion",
+            slug="chick", name="Chick", icon="🐤",
+            sprite_key="cute-chick",
         )
 
     def test_appends_ticks_to_queue(self):
@@ -328,13 +331,68 @@ class SeedCompanionGrowthTests(TestCase):
         self.assertTrue(events[-1]["evolved"])
         self.assertEqual(events[-1]["new_growth"], 100)
 
-    def test_missing_companion_species_raises(self):
+    def test_missing_current_species_raises(self):
         from apps.dev_tools.operations import OperationError, seed_companion_growth
         from apps.pets.models import PetSpecies
 
-        PetSpecies.objects.filter(slug="companion").delete()
+        PetSpecies.objects.filter(slug="chick").delete()
         with self.assertRaises(OperationError):
             seed_companion_growth(self.child)
+
+
+@override_settings(DEV_TOOLS_ENABLED=True, DEBUG=False)
+class SeedCurrentCompanionGrowthTests(TestCase):
+    def test_default_catalog_can_seed_growth_without_retired_species(self):
+        from apps.dev_tools.operations import seed_companion_growth
+        from apps.pets.models import PetSpecies, UserPet
+        from apps.rewards.models import CoinLedger
+        from apps.rpg.models import CharacterProfile
+
+        call_command("loadrpgcontent", stdout=StringIO())
+        child = make_family(children=[{"username": "current-growth-child"}]).children[0]
+
+        result = seed_companion_growth(child, ticks=3)
+
+        self.assertEqual(result["events_seeded"], 3)
+        self.assertFalse(PetSpecies.objects.filter(slug="companion").exists())
+        events = CharacterProfile.objects.get(user=child).pending_companion_growth
+        self.assertEqual([event["species_slug"] for event in events], ["chick"] * 3)
+        self.assertEqual([event["potion_slug"] for event in events], ["base"] * 3)
+        self.assertEqual([event["species_sprite_key"] for event in events], ["cute-chick"] * 3)
+        self.assertEqual([event["lifecycle_stage"] for event in events], ["baby"] * 3)
+        self.assertFalse(UserPet.objects.filter(user=child).exists())
+        self.assertFalse(CoinLedger.objects.filter(user=child).exists())
+
+    def test_owned_chick_previews_stages_without_changing_progress_or_another_family(self):
+        from apps.dev_tools.operations import seed_companion_growth
+        from apps.pets.models import PetSpecies, PotionType, UserMount, UserPet
+        from apps.rewards.models import CoinLedger
+        from apps.rpg.models import CharacterProfile
+
+        call_command("loadrpgcontent", stdout=StringIO())
+        child = make_family(children=[{"username": "owned-growth-child"}]).children[0]
+        other = make_family("Other family", children=[{"username": "other-growth-child"}]).children[0]
+        chick = PetSpecies.objects.get(slug="chick")
+        base = PotionType.objects.get(slug="base")
+        # The other family's pet comes first, so a missing user filter would
+        # use its growth/identity and make this preview visibly wrong.
+        UserPet.objects.create(user=other, species=chick, potion=base, growth_points=90)
+        pet = UserPet.objects.create(user=child, species=chick, potion=base, growth_points=35)
+        pet_before = UserPet.objects.values().get(pk=pet.pk)
+        CoinLedger.objects.create(user=child, amount=12, reason="adjustment")
+        before_coins = list(CoinLedger.objects.values_list("pk", "amount"))
+
+        seed_companion_growth(child, ticks=3)
+        seed_companion_growth(child, ticks=2, force_evolve=True)
+
+        events = CharacterProfile.objects.get(user=child).pending_companion_growth
+        self.assertEqual([event["new_growth"] for event in events], [40, 45, 50, 40, 100])
+        self.assertEqual([event["lifecycle_stage"] for event in events], ["baby", "baby", "middle", "baby", "grown"])
+        self.assertEqual([event["pet_id"] for event in events], [pet.pk] * 5)
+        self.assertEqual(UserPet.objects.values().get(pk=pet.pk), pet_before)
+        self.assertFalse(UserMount.objects.filter(user=child).exists())
+        self.assertEqual(list(CoinLedger.objects.values_list("pk", "amount")), before_coins)
+        self.assertEqual(CharacterProfile.objects.get(user=other).pending_companion_growth, [])
 
 
 @override_settings(DEV_TOOLS_ENABLED=True, DEBUG=False)

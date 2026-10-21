@@ -611,7 +611,8 @@ def grant_hatch_ingredients(
 def seed_companion_growth(
     user, *, ticks: int = 3, force_evolve: bool = False,
 ) -> dict[str, Any]:
-    """Append ``ticks`` synthesized growth events to ``pending_companion_growth``."""
+    """Append Chick growth previews without changing companion progression."""
+    from apps.pets.lifecycle import GROWN_GROWTH, MIDDLE_GROWTH
     from apps.pets.models import PetSpecies, UserPet
     from apps.rpg.models import CharacterProfile
 
@@ -620,32 +621,32 @@ def seed_companion_growth(
 
     profile, _ = CharacterProfile.objects.get_or_create(user=user)
 
-    # Prefer a real companion pet the user already has; fall back to
-    # constructing a plausible entry from the seeded companion species.
+    # Use the current Chick family, rather than the retired legacy Companion.
+    # Prefer this user's owned pet; a preview needs no granted ownership.
     pet = (
         UserPet.objects
-        .filter(user=user, species__slug="companion", evolved_to_mount=False)
+        .filter(user=user, species__slug="chick", species__sprite_key="cute-chick", evolved_to_mount=False)
         .select_related("species", "potion")
         .first()
     )
     species = pet.species if pet else (
-        PetSpecies.objects.filter(slug="companion").first()
+        PetSpecies.objects.filter(slug="chick", sprite_key="cute-chick").first()
     )
     if species is None:
         raise OperationError(
-            "No companion-species seed found — run `loadrpgcontent` first."
+            "No current Chick species found — run `loadrpgcontent` first."
         )
 
     queue = list(profile.pending_companion_growth or [])
     has_evolve_event = False
     for idx in range(ticks):
         new_growth = (
-            min(100, (pet.growth_points if pet else 0) + 5 * (idx + 1))
+            min(GROWN_GROWTH, (pet.growth_points if pet else 0) + 5 * (idx + 1))
         )
         is_last = idx == ticks - 1
         evolved = bool(force_evolve and is_last)
         if evolved:
-            new_growth = 100
+            new_growth = GROWN_GROWTH
             has_evolve_event = True
         entry = {
             "pet_id": pet.pk if pet else None,
@@ -656,7 +657,11 @@ def seed_companion_growth(
             "species_name": species.name,
             "species_slug": species.slug,
             "sprite_key": species.sprite_key,
-            "potion_slug": (pet.potion.slug if pet else None),
+            "species_sprite_key": species.sprite_key,
+            "species_icon": species.icon,
+            "potion_slug": (pet.potion.slug if pet else "base"),
+            "potion_name": (pet.potion.name if pet else "Base"),
+            "lifecycle_stage": "grown" if evolved else "middle" if new_growth >= MIDDLE_GROWTH else "baby",
             "source": "dev_tools",
         }
         queue.append(entry)
