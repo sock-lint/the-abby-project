@@ -48,7 +48,8 @@ class ElementalCatalogImageIdentityTests(SimpleTestCase):
     def test_elemental_challenge_art_never_attaches_to_a_parent_goal_or_wrong_type(self):
         from apps.rpg.catalog_icons import challenge_catalog_icon
 
-        for name in ("Ember Nest", "Frost Nest", "Ember Trail", "Frost Trail"):
+        for name in ("Ember Nest", "Frost Nest", "Ember Trail", "Frost Trail",
+                     "Ember Grove", "Frost Grove", "Ember Summit", "Frost Summit"):
             definition = SimpleNamespace(name=name, is_system=True, quest_type="collection")
             self.assertEqual(challenge_catalog_icon(definition), f"challenge-{name.lower().replace(' ', '-')}")
             definition.is_system = False

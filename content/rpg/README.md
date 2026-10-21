@@ -53,7 +53,8 @@ compatibility alone cannot enable another pair. Prepared Ember/Frost Grove
 offers promise Mushroom egg/potion bundles after 10 accomplishments within
 180 days; Ember/Frost Summit promises Dragon bundles after 50 within 365 days.
 The four Grove/Summit offers remain hidden until their exact new art pairs are
-verified and adopted. New-offer acquisition hints use the same whole-offer
+approved for acquisition after private review and canonical publication.
+New-offer acquisition hints use the same whole-offer
 availability check; accepted snapshots remain fulfillable. Reading counts its
 saved ten-minute daily achievement; other qualifying work follows the ordinary
 source limits. See [next elemental batch](../../docs/operations/elemental-dragon-mushroom.md).

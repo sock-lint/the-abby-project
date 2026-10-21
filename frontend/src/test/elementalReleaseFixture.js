@@ -45,7 +45,12 @@ export function elementalReleaseFixture(expansion = false) {
             action, portrait_asset_id: portraitId, portrait_variant_id: 'icon' });
           return variant(idVariant, action, ['idle', 'idle-02', 'idle-happy'].includes(motion) || /^(jump|walk|run|fly)-/.test(motion), stage === 'grown' ? 1.5 : 0.75);
         })));
-        if (species === 'meshtint-dragon' && stage === 'middle') assets.at(-1).default_variant = 'source-fly-idle';
+        if (species === 'meshtint-dragon' && stage === 'middle') {
+          assets.at(-1).default_variant = 'source-fly-idle';
+          // Two logical bindings intentionally share the single native take.
+          const idle = stages.find((binding) => binding.asset_id === id && binding.motion === 'idle');
+          stages.splice(stages.indexOf(idle), 0, { ...idle, motion: 'fly-idle' });
+        }
       }
       if (species === 'chick') {
         for (const [from, to] of [['baby', 'middle'], ['middle', 'grown']]) {

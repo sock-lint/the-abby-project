@@ -1,8 +1,8 @@
-# Fire and Ice Dragon and Mushroom preparation
+# Fire and Ice Dragon and Mushroom private review
 
 The owner selected Dragon and Mushroom as the next elemental batch. This change
-prepares application behavior while the private asset session builds a review
-candidate. It does not approve artwork or enable another receiving pair.
+integrates the verified private candidate for in-app artwork review. It does
+not approve artwork, canonically publish it, or enable another receiving pair.
 
 The shipped baseline is PR #307, squash
 `2fbff5ab6edb2be43b12284795e0b02399325185`. Preserve its nine release pins,
@@ -26,8 +26,12 @@ incubation; eggs retain their natural appearance.
 
 `shared/catalog/elemental-expansion.json` names the proposed additive release,
 `abby-elemental-dragon-mushroom` 1.0.0, and the app-owned challenge metadata.
-Its manifest digest is deliberately null. A lock entry or matching folder alone
-cannot activate an unreviewed release. The existing positive
+The descriptor and tenth runtime pin bind the verified review manifest
+`bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05`.
+This pin enables private presentation review; the release has no canonical
+version index yet. Keep this PR draft: a production build cannot fetch this
+new pin from the canonical release store until separate publication completes.
+The existing positive
 `shared/catalog/asset-support.json` stays unchanged: 15 Base pairs and only the
 four Chick/Wolf Fire/Ice pairs remain available.
 
@@ -66,16 +70,21 @@ Keep licensed sources, runtime payloads, previews and editable masters private.
 2. Verify `appearance_bindings` v1 for every exact species, potion, stage,
    logical motion, native variant/action and portrait. Dragon Middle's native
    `source-fly-idle` must remain the declared logical idle, with its actual
-   source action and loop/root-travel metadata. No invented transition is
-   needed; existing Chick/Bird transition behavior remains unchanged.
+   source action and loop/root-travel metadata. Logical `idle` and `fly-idle`
+   share that native take; motion controls select unique logical motion IDs and
+   playback resolves exact logical identity before action aliases. No invented
+   transition is needed; existing Chick/Bird transition behavior remains unchanged.
 3. Reuse contracts 1.4.0, avatar-runtime 1.3.0 and release-tools 1.6.0 with their
    recorded artifact integrity pins. A runtime release is not a new code
    package publication.
 4. After successful review, adopt the exact digest in the expansion descriptor,
    add its immutable release lock pin, and install/verify the private payloads.
-   Add the reviewed challenge image references/hashes to the backend image
-   bindings and the exact receiving pairs/source to the positive asset policy.
-   Do not fabricate a digest or use a candidate namespace as canonical delivery.
+   The four reviewed challenge image references/hashes live in
+   `shared/catalog/elemental-expansion-bindings.json`; global potion images
+   remain in the existing release. Acquisition activation is a separate change
+   to the exact receiving pairs/source in the positive asset policy after owner
+   artwork acceptance and canonical publication. Do not use a candidate
+   namespace as canonical delivery.
 5. Exercise all 12 forms and all actual native takes through Live and Hatchery,
    portraits/icons, incubation/start/hatch, saved identity, destination idle,
    missing-file behavior, Base/Fire/Ice material isolation and reduced motion.
@@ -85,6 +94,38 @@ Keep licensed sources, runtime payloads, previews and editable masters private.
    approvals and scoped routes. Keep this preparation PR draft until its
    remaining adoption and acceptance work is explicit. Never publish sources
    or authoring archives.
+
+## Verified candidate receipt
+
+The immutable private review index is under the candidate family/version/manifest
+and delivery inventory `8be0a6c33ed4208d49625d88a3bc39e0bdc8ede496ae31d972dadc465c7b0ba4`.
+Its SHA-256 is
+`428dfa8f4a2ac427f8a218e68f95edee416b0267b6132eb1c79afca4b96a3de5`
+(4,426 bytes). All six declared artifact hashes/sizes and all 735 inventoried
+workspace files were verified before use. The offline verifier passes. The
+separate authoring archive has 180 verified members plus its inventory.
+
+The runtime contains 194 files / 149,483,154 bytes: 178 native GLBs and 16
+transparent 256px PNGs (12 portraits plus four challenge images). There are
+180 logical motion rows and no authored cross-stage transitions. Independent
+comparison confirms all 89 selected Base source GLBs and 23,586 non-image
+bufferViews are unchanged. All three reviewed code tarballs and their npm
+integrity pins match the installed application vendor artifacts exactly.
+
+The exact preparation head was
+`6327879cb4c356d9ad2b69263db172f28b5b4182`; its base and current remote main
+at intake were the baseline above. Candidate source snapshots match those Git
+objects. Asset Lab captures and its dirty local source snapshot are separate
+evidence and do not establish current app acceptance. Record the actual tested
+integration head and checks in PR #312. Private files, complete inventories,
+source-drift evidence and in-app captures remain outside Git in the owning
+chat's private review workspace.
+
+The standard importer/verifier installs ten pinned families with 1,886 runtime
+files / 790,683,776 bytes for private app checks, retaining all nine prior pins.
+The positive acquisition policy remains byte-identical to the approved baseline.
+No publication, acquisition activation, merge, deployment or physical-phone
+acceptance is implied by these receipts.
 
 Synthetic resolver fixtures test routing and explicit absence, not artwork,
 native take fidelity, performance, phone acceptance or production delivery.

@@ -52,7 +52,8 @@ export function elementalMotions(release, selection, resolveUrl) {
     const clip = resolved.variant.animations.clips.find((entry) => entry.name === resolved.variant.animations.actions[binding.action]);
     const url = resolveUrl(resolved.variant.file);
     if (!clip || !url) return [];
-    return [{ id: binding.variant_id, variantId: binding.variant_id, motion: binding.motion, action: binding.action,
+    // Logical idle aliases may share a native take; controls select the binding.
+    return [{ id: binding.motion, variantId: binding.variant_id, motion: binding.motion, action: binding.action,
       label: resolved.variant.label, clip: clip.name, loop: clip.loop, nativeLoop: clip.loop,
       rootMotion: clip.root_motion, duration: clip.duration, bounds: clip.bounds, url }];
   });

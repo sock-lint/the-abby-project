@@ -3,7 +3,8 @@ import Button from '../Button';
 import { SelectField } from '../form';
 
 export default function CompanionMotionControls({ motions, disabled, onPlay }) {
-  const [selected, setSelected] = useState(motions.find((motion) => motion.action === 'idle')?.id || motions[0].id);
+  const [selected, setSelected] = useState(motions.find((motion) => motion.motion === 'idle' || motion.id === 'idle')?.id
+    || motions.find((motion) => motion.action === 'idle')?.id || motions[0].id);
   const motion = motions.find((entry) => entry.id === selected) || motions[0];
   return <details className="companion-motion-library">
     <summary>More motions</summary>

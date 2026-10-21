@@ -15,7 +15,8 @@ The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledg
 
 Dragon/Mushroom Fire/Ice preparation adds authored compatibility and dormant
 Grove/Summit challenges without changing this positive artwork policy. Their
-exact new release has no adopted manifest digest or lock pin. Base stage names
+verified private candidate is pinned for presentation review; owner acceptance,
+canonical publication and positive-policy activation remain separate. Base stage names
 and existing egg identities stay unchanged; elemental Dragon labels are
 Dragonling → Dragon → Elder Dragon. See
 [the preparation/adoption runbook](../../docs/operations/elemental-dragon-mushroom.md).

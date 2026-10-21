@@ -447,15 +447,19 @@ is verified; application rollout uses the ordinary MAIN deployment gates.
 Read [Fire and Ice companions](../docs/operations/fire-ice-companions.md) for
 verification, remaining acceptance and rollback. With private art installed,
 `ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js` exercises
-all 178 native takes plus Live/Hatchery stages and Bird transitions. Public CI
+all four families: 358 logical stage bindings / 356 native takes, plus
+Live/Hatchery stages and the four Bird transition payloads. Public CI
 without private art explicitly skips those browser acceptance scopes.
 
-Dragon/Mushroom preparation uses the separate proposed
+Dragon/Mushroom private review uses the separately pinned
 `abby-elemental-dragon-mushroom` 1.0.0 descriptor in
-`shared/catalog/elemental-expansion.json`. Its null manifest digest prevents
-default runtime loading until verified adoption; no lock pin or payload is
-fabricated. The elemental adapters select an exact family by species/sprite,
+`shared/catalog/elemental-expansion.json` and the verified manifest
+`bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05`.
+Canonical publication and owner in-app acceptance remain pending, so keep its
+PR draft and the positive acquisition policy unchanged. The elemental adapters
+select an exact family by species/sprite,
 retain native motion identities (including Dragon Middle's `source-fly-idle`),
+use unique logical motion IDs for aliased menu choices,
 and preserve labelled unavailable presentation when its exact art is absent.
 Hatchery hints require server-confirmed compatible variants. The private art
 and physical-phone acceptance work is recorded separately in

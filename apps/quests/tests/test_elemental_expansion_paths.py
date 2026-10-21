@@ -82,7 +82,7 @@ class ElementalExpansionPathTests(TestCase):
                 self.assertFalse(definition.is_repeatable)
                 self.assertIsNone(definition.required_badge_id)
                 self.assertEqual((definition.coin_reward, definition.xp_reward), (0, 0))
-                self.assertIsNone(challenge_catalog_icon(definition))
+                self.assertEqual(challenge_catalog_icon(definition), f"challenge-{name.lower().replace(' ', '-')}")
                 self.assertEqual(set(definition.trigger_filter["allowed_triggers"]), TRIGGERS)
                 self.assertEqual({row.item.slug: row.quantity for row in definition.reward_items.select_related("item")},
                                  {f"{species_slug}-egg": 1, f"{potion}-potion": 1})

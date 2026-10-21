@@ -22,6 +22,17 @@ RETIRED_POLICY = {
     "potion_slugs": ["base"],
     "disabled_item_types": ["cosmetic_pet_accessory"],
 }
+# Test-only acceptance exercises the prepared path without enabling acquisition
+# in the checked-in policy while the new artwork is under owner review.
+SYNTHETIC_APPROVED_EXPANSION_POLICY = {
+    "schema_version": 1,
+    "pets": [
+        {"species_slug": slug, "sprite_key": slug, "potion_slugs": ["base", "fire", "ice"]}
+        for slug in ("meshtint-dragon", "meshtint-mushroom")
+    ],
+    "potion_slugs": ["base", "fire", "ice"],
+    "disabled_item_types": ["cosmetic_pet_accessory"],
+}
 NOW = datetime(2026, 10, 20, 18, tzinfo=dt_timezone.utc)
 
 
@@ -95,6 +106,22 @@ class ElementalIncubationTests(TestCase):
 
     def test_ice_wolf_waits_then_claims_exact_variant(self):
         self.assert_pair_waits_and_hatches("meshtint-wolf", "ice")
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
+    def test_synthetic_approved_fire_dragon_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-dragon", "fire")
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
+    def test_synthetic_approved_ice_dragon_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-dragon", "ice")
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
+    def test_synthetic_approved_fire_mushroom_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-mushroom", "fire")
+
+    @override_settings(RPG_ASSET_SUPPORT_POLICY=SYNTHETIC_APPROVED_EXPANSION_POLICY)
+    def test_synthetic_approved_ice_mushroom_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-mushroom", "ice")
 
     @override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY)
     def test_retired_policy_denies_all_four_pairs_without_consumption(self):
