@@ -105,7 +105,7 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-21.1",
-    "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
+    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
     "source_commit": "unavailable"
@@ -251,7 +251,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
+    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
     "engine_version": "2026-10-21.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -4189,12 +4189,12 @@
       "longest_novelty_gap_p50": 20,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "mount": 1,
-        "badge": 1,
-        "pet": 1,
-        "quest": 1,
         "cosmetic": 1,
-        "middle": 1
+        "quest": 1,
+        "pet": 1,
+        "mount": 1,
+        "middle": 1,
+        "badge": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 85,
@@ -10963,7 +10963,7 @@
       "system_challenges": 1,
       "nonrepeatable_challenges": 1
     },
-    "rules_fingerprint": "1fca486bffd19c6a33b42f5a0d5102d42f0cdeaf186ce634a921e3bec6cabc7f",
+    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
     "engine_version": "2026-10-21.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -15351,12 +15351,12 @@
       "longest_novelty_gap_p50": 20,
       "eligible_challenges": 1,
       "finite_breakdown": {
-        "mount": 1,
-        "badge": 1,
-        "pet": 1,
-        "quest": 1,
         "cosmetic": 1,
-        "middle": 1
+        "quest": 1,
+        "pet": 1,
+        "mount": 1,
+        "middle": 1,
+        "badge": 1
       },
       "level_p50": 6,
       "inventory_units_p50": 88,
