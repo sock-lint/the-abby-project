@@ -43,19 +43,29 @@ QUOTA = "apps.mcp_server.tools.progression_experiments._comparison_quota"
 BOTH_GRANTS = ("mcp:author", "mcp:read")
 
 
-def _paused(path):
-    """Patch ``path`` so its first call waits until the test releases it."""
+def _paused(path, *, after=False):
+    """Patch ``path`` so its first call waits until the test releases it.
+
+    ``after`` pauses once the real call has returned, to isolate later guards.
+    """
     module_path, name = path.rsplit(".", 1)
     original = getattr(import_module(module_path), name)
     entered, release, calls = Event(), Event(), []
 
+    def wait():
+        entered.set()
+        if not release.wait(timeout=30):
+            raise AssertionError("The test never released the paused computation.")
+
     def wrapper(*args, **kwargs):
         calls.append(path)
-        if len(calls) == 1:
-            entered.set()
-            if not release.wait(timeout=30):
-                raise AssertionError("The test never released the paused computation.")
-        return original(*args, **kwargs)
+        first = len(calls) == 1
+        if first and not after:
+            wait()
+        result = original(*args, **kwargs)
+        if first and after:
+            wait()
+        return result
 
     return patch(path, side_effect=wrapper), entered, release, calls
 
@@ -376,6 +386,67 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
                 release.set()
             with self.assertRaises(MCPPermissionDenied):
                 future.result(timeout=60)
+
+    def test_create_replay_snapshots_the_catalog_outside_household_locks(self):
+        create = {**self.recipe, "request_id": uuid4()}
+        created = self.invoke("create_progression_experiment", create)
+        self.invoke("compare_progression_experiment", self.body(experiment_id=created["id"], revision=created["revision"]))
+        patcher, entered, release, catalogs = _paused(CATALOG)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "create_progression_experiment", create)
+            try:
+                self.assertTrue(entered.wait(timeout=30), "The create replay never checked catalog freshness.")
+                family_free = self.family_lock_is_free()
+            finally:
+                release.set()
+            replay = future.result(timeout=60)
+        self.assertTrue(family_free, "The create replay rebuilt the catalog while holding the family row.")
+        self.assertEqual(len(catalogs), 1)
+        self.assertEqual(replay["id"], created["id"])
+        self.assertEqual(len(replay["comparisons"]), 1)
+        self.assertEqual(ProgressionExperiment.objects.count(), 2)
+
+    def _read_then_change(self, name, params, change):
+        """Pause after the private report is fully read, change state, then release."""
+        patcher, entered, release, _ = _paused(REPORT, after=True)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, name, params)
+            try:
+                self.assertTrue(entered.wait(timeout=30), "The report was never read.")
+                change()
+            finally:
+                release.set()
+            return future
+
+    def test_comparison_read_final_guard_rejects_authority_revoked_after_the_report_was_read(self):
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        future = self._read_then_change("get_progression_comparison", {
+            "experiment_id": self.experiment_id, "comparison_id": comparison["id"],
+        }, self.revoke_with_timeout)
+        with self.assertRaises(MCPPermissionDenied):
+            future.result(timeout=60)
+
+    def test_comparison_read_final_guard_rejects_a_report_deleted_after_it_was_read(self):
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        future = self._read_then_change("get_progression_comparison", {
+            "experiment_id": self.experiment_id, "comparison_id": comparison["id"],
+        }, lambda: ProgressionComparison.objects.all().delete())
+        with self.assertRaises(MCPNotFoundError):
+            future.result(timeout=60)
+
+    def test_comparison_final_guard_rejects_authority_revoked_after_the_report_was_read(self):
+        future = self._read_then_change("compare_progression_experiment", self.body(), self.revoke_with_timeout)
+        with self.assertRaises(MCPPermissionDenied):
+            future.result(timeout=60)
+        self.assertEqual(ProgressionComparison.objects.count(), 1)
+        self.assertEqual(self.receipts("compare_progression_experiment").count(), 1)
+
+    def test_comparison_final_guard_rejects_a_result_deleted_after_the_report_was_read(self):
+        future = self._read_then_change("compare_progression_experiment", self.body(),
+                                        lambda: ProgressionComparison.objects.all().delete())
+        with self.assertRaises(MCPNotFoundError):
+            future.result(timeout=60)
+        self.assertEqual(self.receipts("compare_progression_experiment").count(), 1)
 
     def test_receipt_checks_lock_saved_reports_without_loading_them(self):
         from apps.mcp_server.experiment_retries import _saved_result

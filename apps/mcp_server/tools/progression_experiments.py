@@ -16,6 +16,7 @@ from ..experiment_schemas import (
     ProgressionExperimentOut, ProgressionExperimentWriteIn, ProgressionObservationsIn,
     ProgressionObservationsOut, RecordProgressionDecisionIn, SaveProgressionExperimentIn,
 )
+from ..models import MCPExperimentMutationReceipt
 from ..retries import authorized_household
 from ..server import tool
 from ..shapes import to_plain
@@ -77,7 +78,11 @@ def _mutate(params, operation, create):
     from ..experiment_retries import experiment_mutation_once
 
     actor = _actor()
-    with _freshness_snapshot(actor, getattr(params, "experiment_id", None)):
+    # A create carries no experiment ID; its replay reports the saved one.
+    experiment_id = getattr(params, "experiment_id", None) or MCPExperimentMutationReceipt.objects.filter(
+        actor=actor, operation=operation, request_id=params.request_id,
+    ).values_list("experiment_id", flat=True).first()
+    with _freshness_snapshot(actor, experiment_id):
         return experiment_mutation_once(
             actor=actor, operation=operation, request_id=params.request_id,
             payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
