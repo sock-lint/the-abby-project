@@ -40,7 +40,7 @@ def build_pulse(user) -> dict[str, Any]:
     from apps.rewards.services import CoinService
     from apps.rpg.models import DropLog
     from apps.rpg.serializers import DropLogSerializer
-    from apps.timecards.services import ClockService, TimeEntryService
+    from apps.timecards.services import ClockService
 
     is_child = user.role == "child"
 
@@ -82,7 +82,7 @@ def build_pulse(user) -> dict[str, Any]:
         # Cheap header-pip refresh. The pips used to read the full dashboard
         # once at shell mount and then go stale for the whole session — a kid
         # could finish three chores and watch the coin count sit still.
-        "header": _header(user, ClockService, CoinService, TimeEntryService),
+        "header": _header(user, ClockService, CoinService, CharacterProfile),
     }
 
 
@@ -100,7 +100,7 @@ def _newly_unlocked(user) -> list[str]:
     return newly_unlocked_entries(user)
 
 
-def _header(user, clock_service, coin_service, time_entry_service) -> dict[str, Any]:
+def _header(user, clock_service, coin_service, character_profile_model) -> dict[str, Any]:
     """The handful of numbers the sticky header shows, without the dashboard."""
     from django.utils import timezone
 
@@ -118,5 +118,9 @@ def _header(user, clock_service, coin_service, time_entry_service) -> dict[str, 
     return {
         "active_timer": active_timer,
         "coin_balance": coin_service.get_balance(user),
-        "streak_days": time_entry_service.current_streak(user),
+        # Match the Today tile's RPG activity streak, including non-timer
+        # activity. The separate work-time streak is not a header status.
+        "streak_days": character_profile_model.objects.filter(user=user).values_list(
+            "login_streak", flat=True,
+        ).first() or 0,
     }

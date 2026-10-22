@@ -1,5 +1,12 @@
 # Shared API response fixtures
 
+`pulse-activity-streak.json` is a real authenticated heartbeat response for a
+child with a four-day RPG activity streak and no completed work timers. Its
+`header.streak_days` uses the saved `CharacterProfile.login_streak`, matching
+the Today streak tile; it does not use the separate work-time streak. The
+existing shared Django fixture producer and React consumer verify this response,
+including the header refresh. Reading the heartbeat awards no streak progress.
+
 `challenges-untimed.json` is a real authenticated challenge response for an
 untimed one-time Reading Companion. Its saved `ends_at` is null and it remains
 active after ninety elapsed days. Null means no deadline; absent timing in
