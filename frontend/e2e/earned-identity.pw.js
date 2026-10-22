@@ -145,24 +145,45 @@ async function fitsViewport(page, locator) {
   expect(contentWidth.scroll, `Content overflows its ${contentWidth.client}px container`).toBeLessThanOrEqual(contentWidth.client + 1);
 }
 
+async function showsFullText(locator) {
+  await expect(locator).toBeVisible();
+  expect(await locator.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const text = range.getBoundingClientRect();
+    for (let ancestor = element; ancestor; ancestor = ancestor.parentElement) {
+      const style = getComputedStyle(ancestor);
+      const bounds = ancestor.getBoundingClientRect();
+      if (/(hidden|clip|auto|scroll)/.test(style.overflowX) && (text.left < bounds.left - 1 || text.right > bounds.right + 1)) return false;
+      if (/(hidden|clip|auto|scroll)/.test(style.overflowY) && (text.top < bounds.top - 1 || text.bottom > bounds.bottom + 1)) return false;
+    }
+    return element.scrollWidth <= element.clientWidth + 1 && text.left >= 0 && text.right <= window.innerWidth;
+  })).toBe(true);
+}
+
 for (const width of [320, 375, 1280]) {
-  test(`saved identity appears in navigation, Today and project signatures at ${width}px`, async ({ page }) => {
+  test(`saved identity stays in navigation and project signatures while Today leads with tasks at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 850 });
     const state = await fixture(page, { longNames: true, failedAvatar: true });
     await page.goto(origin);
-    const today = page.getByRole('region', { name: 'Your look', exact: true });
-    await expect(today).toContainText('Alexandria Verylongfamilyname');
-    await expect(today).toContainText('Extraordinarily Thoughtful Maker of Wonderful Things');
-    await expect(today).toContainText('First Project');
-    await expect(today.locator('[data-portrait-frame="laurel"]')).toBeVisible();
-    await expect(today.locator('.profile-portrait__initial')).toHaveText('A');
-    await expect(today.locator('.profile-portrait__image img')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'No urgent tasks right now', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
     const trigger = profileTrigger(page);
     await expect(trigger.locator('[data-portrait-frame="laurel"]')).toBeVisible();
-    await expect(trigger).toContainText('Extraordinarily Thoughtful Maker of Wonderful Things');
-    await expect(trigger.getByRole('img', { name: 'Featured badge: First Project', exact: true })).toBeVisible();
+    await expect(trigger.locator('.profile-portrait__initial')).toHaveText('A');
+    await expect(trigger.locator('.profile-portrait__image img')).toHaveCount(0);
+    await showsFullText(trigger.getByText('Extraordinarily Thoughtful Maker of Wonderful Things', { exact: true }));
+    if (width < 1024) {
+      await expect(trigger).not.toContainText('Alexandria Verylongfamilyname');
+      await expect(trigger).not.toContainText('Synthetic Family');
+      await expect(trigger.getByRole('img', { name: 'Featured badge: First Project', exact: true })).toHaveCount(0);
+    } else {
+      await expect(trigger).toContainText('Alexandria Verylongfamilyname');
+      await expect(trigger).toContainText('Synthetic Family');
+      await expect(trigger.getByRole('img', { name: 'Featured badge: First Project', exact: true })).toBeVisible();
+    }
     if (captureDirectory) await page.screenshot({ path: join(captureDirectory, `today-${width}.png`) });
-    await fitsViewport(page, today);
     await fitsViewport(page, trigger);
     const target = await trigger.boundingBox();
     expect(target.width).toBeGreaterThanOrEqual(44);
@@ -171,6 +192,10 @@ for (const width of [320, 375, 1280]) {
     await page.keyboard.press('ArrowDown');
     const menu = page.getByRole('menu', { name: 'Profile', exact: true });
     await expect(menu).toBeVisible();
+    await expect(menu).toContainText('Alexandria Verylongfamilyname');
+    await expect(menu).toContainText('Synthetic Family');
+    await expect(menu.getByText('First Project', { exact: true })).toBeVisible();
+    await showsFullText(menu.getByText('Extraordinarily Thoughtful Maker of Wonderful Things', { exact: true }));
     await expect(menu).toHaveCSS('transform', 'none');
     for (const item of await menu.getByRole('menuitem').all()) expect((await item.boundingBox()).height).toBeGreaterThanOrEqual(44);
     await expect(menu.getByRole('menuitem', { name: /Profile/ })).toBeFocused();
@@ -194,8 +219,13 @@ test('a parent sees the assigned maker identity rather than their own selection'
   await page.setViewportSize({ width: 375, height: 850 });
   const state = await fixture(page, { parent: true });
   await page.goto(`${origin}/quests/ventures/77`);
-  await expect(profileTrigger(page)).toContainText('Sam Parent');
+  await expect(profileTrigger(page)).not.toContainText('Sam Parent');
   await expect(profileTrigger(page).locator('[data-portrait-frame="laurel"]')).toBeVisible();
+  await profileTrigger(page).click();
+  const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+  await expect(menu.getByText('Sam Parent', { exact: true })).toBeVisible();
+  await expect(menu.getByText('First Project', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
   const signature = page.getByRole('region', { name: 'Project maker', exact: true });
   await expect(signature).toContainText('Made by Alex Maker');
   await expect(signature.locator('[data-portrait-frame="steampunk"]')).toBeVisible();
@@ -203,7 +233,7 @@ test('a parent sees the assigned maker identity rather than their own selection'
   expect(state.mutations).toEqual([]);
 });
 
-test('a confirmed Profile frame selection refreshes navigation and Today immediately', async ({ page }) => {
+test('a confirmed Profile frame selection refreshes navigation immediately and stays selected on Today', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 850 });
   const state = await fixture(page);
   await page.goto(`${origin}/sigil`);
@@ -217,51 +247,61 @@ test('a confirmed Profile frame selection refreshes navigation and Today immedia
   await expect(trigger.locator('[data-portrait-frame="laurel"]')).toBeVisible();
   state.releaseSave();
   await expect(trigger.locator('[data-portrait-frame="steampunk"]')).toBeVisible();
+  await expect(trigger.getByText('Master Crafter', { exact: true })).toBeVisible();
   expect(state.pulseReads()).toBeGreaterThan(before);
   expect(state.mutations).toEqual([{ path: '/api/character/equip/', method: 'POST', body: { item_id: 110 } }]);
   await trigger.click();
+  await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText('First Project', { exact: true })).toBeVisible();
   await page.getByRole('menuitem', { name: /Profile/ }).press('Escape');
   await page.getByRole('link', { name: 'Today', exact: true }).filter({ visible: true }).click();
-  await expect(page.getByRole('region', { name: 'Your look', exact: true }).locator('[data-portrait-frame="steampunk"]')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
+  await expect(trigger.locator('[data-portrait-frame="steampunk"]')).toBeVisible();
+  await expect(trigger.getByText('Master Crafter', { exact: true })).toBeVisible();
   expect(state.mutations).toHaveLength(1);
 });
 
-test('all authored frame silhouettes render at navigation and Today sizes with a dark-theme fallback', async ({ page }) => {
+test('all authored frame silhouettes render at navigation and Profile sizes with a dark-theme fallback', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 850 });
   const state = await fixture(page);
-  await page.goto(origin);
-  const today = page.getByRole('region', { name: 'Your look', exact: true });
-  await expect(today).toBeVisible();
-  const shapes = new Set();
+  const shapes = new Map([32, 40, 96].map((size) => [size, new Set()]));
   const portraits = [];
   for (const frame of frames) {
     const family = frame.slug.slice('frame-'.length);
     state.frame(family);
-    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-    const portrait = today.locator(`[data-portrait-frame="${family}"]`);
-    await expect(portrait).toBeVisible();
-    await expect(profileTrigger(page).locator(`[data-portrait-frame="${family}"]`)).toBeVisible();
-    const overlay = portrait.locator('[data-portrait-overlay]');
-    if (await overlay.count()) {
-      await expect(overlay).toBeVisible();
-      await expect.poll(() => overlay.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
-      shapes.add(await overlay.getAttribute('src'));
-    } else {
-      await expect(portrait.locator('svg')).toBeVisible();
-      shapes.add(await portrait.locator('svg > g').evaluate((element) => element.innerHTML));
+    await page.goto(`${origin}/sigil`);
+    const profile = page.getByRole('img', { name: `Your profile picture with ${frame.name}`, exact: true });
+    const mobile = profileTrigger(page).locator(`[data-portrait-frame="${family}"]`);
+    const examples = [[40, mobile], [96, profile]];
+    const captured = { name: frame.name };
+    for (const [size, portrait] of examples) {
+      await expect(portrait).toBeVisible();
+      await expect(portrait).toHaveCSS('width', `${size}px`);
+      shapes.get(size).add(await renderedFrame(portrait));
+      if (captureDirectory) captured[size] = await portrait.evaluate((element) => element.outerHTML);
     }
-    if (captureDirectory) portraits.push({ name: frame.name,
-      smallHtml: await profileTrigger(page).locator(`[data-portrait-frame="${family}"]`).evaluate((element) => element.outerHTML),
-      bigHtml: await portrait.evaluate((element) => element.outerHTML) });
+    await page.setViewportSize({ width: 1280, height: 850 });
+    const desktop = profileTrigger(page).locator(`[data-portrait-frame="${family}"]`);
+    await expect(desktop).toBeVisible();
+    await expect(desktop).toHaveCSS('width', '32px');
+    shapes.get(32).add(await renderedFrame(desktop));
+    if (captureDirectory) {
+      captured[32] = await desktop.evaluate((element) => element.outerHTML);
+      portraits.push(captured);
+    }
+    await page.setViewportSize({ width: 375, height: 850 });
   }
-  expect(shapes.size).toBe(frames.length);
+  for (const [size, silhouettes] of shapes) expect(silhouettes.size, `Distinct frames at ${size}px`).toBe(frames.length);
   await page.evaluate(async () => (await import('/src/themes.js')).applyTheme('vigil'));
-  await expect(today.locator('[data-portrait-frame="far-horizons"]')).toBeVisible();
-  await fitsViewport(page, today);
-  if (captureDirectory) await page.screenshot({ path: join(captureDirectory, 'today-dark-375.png') });
+  const profile = page.getByRole('img', { name: 'Your profile picture with Far Horizons Frame', exact: true });
+  await expect(profile).toBeVisible();
+  await expect(profile.locator('.profile-portrait__initial')).toHaveText('A');
+  await fitsViewport(page, profile);
+  await fitsViewport(page, profileTrigger(page));
+  if (captureDirectory) await page.screenshot({ path: join(captureDirectory, 'profile-dark-375.png') });
   expect(state.mutations).toEqual([]);
   if (captureDirectory) {
-    // Copy the actual 40px navigation and 64px Today compositions without
+    // Copy the actual 32px/40px navigation and 96px Profile compositions without
     // resizing a private PNG into a different, unreviewed geometry tier.
     await page.setViewportSize({ width: 1280, height: 850 });
     await page.evaluate((examples) => {
@@ -269,8 +309,8 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
       gallery.id = 'identity-visual-audit';
       Object.assign(gallery.style, { position: 'absolute', top: '0', left: '0', zIndex: '10000', width: '100%',
         background: 'var(--color-ink-page)', color: 'var(--color-ink-primary)', display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', padding: '24px' });
-      examples.forEach(({ name, smallHtml, bigHtml }, index) => {
+        gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', padding: '24px' });
+      examples.forEach(({ name, ...sizes }, index) => {
         const card = document.createElement('div');
         card.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:10px;border:1px solid var(--color-ink-page-shadow);border-radius:12px';
         const label = document.createElement('p');
@@ -278,10 +318,16 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
         label.style.cssText = 'font:600 13px var(--font-body);text-align:center';
         const previews = document.createElement('div');
         previews.style.cssText = 'display:flex;align-items:center;gap:14px';
-        for (const [size, html] of [[40, smallHtml], [64, bigHtml]]) {
+        for (const size of [32, 40, 96]) {
+          const html = sizes[size];
           const holder = document.createElement('div');
+          holder.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px';
           const originalId = html.match(/<mask id="([^"]+)"/)?.[1];
           holder.innerHTML = originalId ? html.replaceAll(originalId, `audit-${index}-${size}`) : html;
+          const sizeLabel = document.createElement('span');
+          sizeLabel.textContent = `${size}px`;
+          sizeLabel.style.cssText = 'font:600 11px var(--font-body)';
+          holder.append(sizeLabel);
           previews.append(holder);
         }
         card.append(label, previews);
@@ -295,3 +341,14 @@ test('all authored frame silhouettes render at navigation and Today sizes with a
     }
   }
 });
+
+async function renderedFrame(portrait) {
+  const overlay = portrait.locator('[data-portrait-overlay]');
+  if (await overlay.count()) {
+    await expect(overlay).toBeVisible();
+    await expect.poll(() => overlay.evaluate((image) => image.complete && image.naturalWidth > 0)).toBe(true);
+    return overlay.getAttribute('src');
+  }
+  await expect(portrait.locator('svg')).toBeVisible();
+  return portrait.locator('svg > g').evaluate((element) => element.innerHTML);
+}
