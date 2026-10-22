@@ -68,6 +68,70 @@ test.beforeEach(async ({ page }) => {
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
 
+for (const width of [320, 390]) {
+  for (const theme of ['hyrule', 'vigil']) {
+    test(`the notification count remains legible in Today's ${width}px ${theme} header`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+        id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme,
+        family: { id: 1, name: 'Synthetic family' },
+      } }));
+      await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+        unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [],
+        companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+        identity: { id: 2, active_frame: null, active_title: { name: 'Chore Hero', metadata: { text: 'Chore Hero' } }, active_trophy_badge: null },
+        header: { active_timer: null, coin_balance: 729, streak_days: 5 },
+      } }));
+      await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+      const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+      const bell = header.getByRole('button', { name: 'Notifications (42 unread)', exact: true });
+      const badge = bell.getByText('9+', { exact: true });
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveAttribute('aria-hidden', 'true');
+      await page.evaluate(() => document.fonts.ready);
+      // Wait out the existing entrance animation before measuring the badge.
+      await expect.poll(() => badge.evaluate((node) => getComputedStyle(node).transform))
+        .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+      const metrics = await badge.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        const clippedByAncestor = (axis) => {
+          for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+            const ancestorStyle = getComputedStyle(ancestor);
+            if (!/(hidden|clip|auto|scroll)/.test(ancestorStyle[axis === 'x' ? 'overflowX' : 'overflowY'])) continue;
+            const bounds = ancestor.getBoundingClientRect();
+            if (axis === 'x' && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) return true;
+            if (axis === 'y' && (box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1)) return true;
+          }
+          return false;
+        };
+        return {
+          width: box.width, height: box.height, fontSize: parseFloat(style.fontSize), fontWeight: Number(style.fontWeight),
+          textFits: text.left >= box.left && text.right <= box.right && text.top >= box.top && text.bottom <= box.bottom,
+          clipped: clippedByAncestor('x') || clippedByAncestor('y'),
+          withinViewport: box.left >= 0 && box.right <= window.innerWidth && box.top >= 0,
+        };
+      });
+      await page.screenshot({ path: testInfo.outputPath('notification-header.png') });
+      expect(metrics.width).toBeGreaterThanOrEqual(20);
+      expect(metrics.height).toBeGreaterThanOrEqual(20);
+      expect(metrics.fontSize).toBeGreaterThanOrEqual(12);
+      expect(metrics.fontWeight).toBeGreaterThanOrEqual(700);
+      expect(metrics.textFits).toBe(true);
+      expect(metrics.clipped).toBe(false);
+      expect(metrics.withinViewport).toBe(true);
+      const target = await bell.boundingBox();
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+      expect(target.x + target.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  }
+}
+
 for (const { width, title, busy } of [
   { width: 305, title: 'Chore Hero' },
   { width: 320, title: 'Chore Hero' },
