@@ -239,6 +239,26 @@ class BundledProgressionContentTests(TestCase):
         self.assertEqual(dict(Badge.objects.filter(name__startswith="Collector's Reading:").values_list("name", "pk")), badges)
         self.assertEqual(DropTable.objects.count(), original_drop_count)
         self.assertFalse(DropTable.objects.filter(item_id__in=items.values()).exists())
+        companion = QuestDefinition.objects.get(pk=definitions["Reading Companion"])
+        voyager = QuestDefinition.objects.get(pk=definitions["Reading Voyager"])
+        routine = QuestDefinition.objects.get(pk=definitions["Reading Routine"])
+        self.assertIsNone(companion.duration_days)
+        self.assertEqual((voyager.duration_days, voyager.prerequisite_quest_id, voyager.required_skill_level),
+                         (84, companion.pk, 1))
+        self.assertEqual((voyager.required_skill.category.name, voyager.required_skill.name),
+                         ("Language Arts", "Reading Comprehension"))
+        for definition, target, duration, xp, rewards in (
+            (companion, 3, None, 20, [("base-potion", 1), ("chick-egg", 1), ("food-birdseed", 2)]),
+            (routine, 5, 7, 20, [("food-birdseed", 2)]),
+            (voyager, 20, 84, 50, [("title-bookworm", 1)]),
+        ):
+            with self.subTest(definition=definition.name):
+                self.assertEqual((definition.target_value, definition.duration_days, definition.coin_reward,
+                                  definition.xp_reward), (target, duration, 0, xp))
+                self.assertEqual(list(definition.reward_items.order_by("item__slug")
+                                      .values_list("item__slug", "quantity")), rewards)
+                self.assertEqual(list(definition.skill_tags.values_list("skill_id", "xp_weight")),
+                                 [(voyager.required_skill_id, 1)])
         first = QuestDefinition.objects.get(name="Collector's Reading: Fresh Pages")
         self.assertEqual(first.required_badge_id, Badge.objects.get(name="Full Ark").pk)
 
