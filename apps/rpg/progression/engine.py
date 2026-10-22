@@ -313,6 +313,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 DropService.process_drops,
                 ConsumableService.use,
                 StreakService.record_activity,
+                StreakService.bonus_for_streak,
                 HabitService.log_tap,
                 goals._award,
                 QuestService._award_quest_rewards,
