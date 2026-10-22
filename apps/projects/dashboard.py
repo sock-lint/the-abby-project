@@ -286,6 +286,7 @@ def _rpg_block(user, today, *, request=None) -> dict[str, Any]:
     from apps.habits.models import Habit, HabitLog
     from apps.rpg.models import CharacterProfile
     from apps.rpg.identity import IDENTITY_RELATED_FIELDS, earned_identity
+    from apps.rpg.services import StreakService
 
     rpg_profile, _ = CharacterProfile.objects.select_related(*IDENTITY_RELATED_FIELDS).get_or_create(user=user)
     habits = list(
@@ -313,6 +314,7 @@ def _rpg_block(user, today, *, request=None) -> dict[str, Any]:
         "identity": earned_identity(user, rpg_profile, request=request),
         "level": rpg_profile.level,
         "login_streak": rpg_profile.login_streak,
+        "streak_bonus": StreakService.bonus_status(rpg_profile),
         "longest_login_streak": rpg_profile.longest_login_streak,
         "perfect_days_count": rpg_profile.perfect_days_count,
         "last_active_date": rpg_profile.last_active_date,

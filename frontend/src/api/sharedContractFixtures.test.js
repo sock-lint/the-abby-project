@@ -105,7 +105,10 @@ describe('shared Django response fixtures through the React API client', () => {
 
     const pulse = await getPulse();
     expect(pulse).toEqual(activityStreakPulse);
-    expect(pulse.header).toMatchObject({ active_timer: null, streak_days: 4 });
+    expect(pulse.header).toMatchObject({
+      active_timer: null, streak_days: 4,
+      streak_bonus: { active_today: true, check_in_multiplier: 1.4, check_in_coins: 7, drop_bonus: 0.2, intensity: 0.2 },
+    });
   });
 
   it('keeps a missing endpoint as a JSON 404 without retrying the read', async () => {

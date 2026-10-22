@@ -9,6 +9,9 @@ test.setTimeout(45_000);
 
 let devServer;
 let origin;
+const inactiveStreakBonus = { active_today: false, check_in_multiplier: 1, check_in_coins: 0, drop_bonus: 0, intensity: 0 };
+const kindledStreakBonus = { active_today: true, check_in_multiplier: 1.5, check_in_coins: 7, drop_bonus: 0.25, intensity: 0.25 };
+const blazingStreakBonus = { active_today: true, check_in_multiplier: 3, check_in_coins: 15, drop_bonus: 0.5, intensity: 1 };
 test.beforeAll(async () => {
   devServer = spawn(process.execPath, [fileURLToPath(new URL('../node_modules/vite/bin/vite.js', import.meta.url)), '--host', '127.0.0.1', '--port', '0'], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
@@ -45,8 +48,8 @@ test.beforeEach(async ({ page }) => {
     const payloads = {
       '/api/auth/me/': { id: 2, username: 'fixture', display_name: 'Fixture', role: parent ? 'parent' : 'child', theme: 'hyrule', family: { id: 1, name: 'Synthetic family' } },
       '/api/clock/': { active: null },
-      '/api/dashboard/': { next_actions: [{ kind: 'project', id: 3, title: 'Synthetic next task', subtitle: 'A local fixture', icon: 'Play', tone: 'moss', action_url: '/clock' }], active_projects: [], recent_badges: [], savings_goals: [], chores_today: [], this_week: { hours_worked: 0, earnings: 0 }, rpg: { login_streak: 0, longest_login_streak: 0 }, coin_balance: 0 },
-      '/api/pulse/': { notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [], header: { active_timer: null, coin_balance: 0, streak_days: 0 } },
+      '/api/dashboard/': { next_actions: [{ kind: 'project', id: 3, title: 'Synthetic next task', subtitle: 'A local fixture', icon: 'Play', tone: 'moss', action_url: '/clock' }], active_projects: [], recent_badges: [], savings_goals: [], chores_today: [], this_week: { hours_worked: 0, earnings: 0 }, rpg: { login_streak: 0, longest_login_streak: 0, streak_bonus: inactiveStreakBonus }, coin_balance: 0 },
+      '/api/pulse/': { notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [], header: { active_timer: null, coin_balance: 0, streak_days: 0, streak_bonus: inactiveStreakBonus } },
       '/api/balance/': { balance: 0, breakdown: {}, recent_transactions: [] },
       '/api/coins/': { balance: 0, recent: [] },
       '/api/coins/exchange/rate/': { coins_per_dollar: 10 },
@@ -68,29 +71,35 @@ test.beforeEach(async ({ page }) => {
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
 
-for (const { width, title, busy } of [
+for (const { width, title, busy, zoom = 1 } of [
   { width: 305, title: 'Chore Hero' },
   { width: 320, title: 'Chore Hero' },
   { width: 390, title: 'Chore Hero' },
+  { width: 305, title: 'Extraordinary Chore Champion', busy: true },
   { width: 320, title: 'Extraordinary Chore Champion', busy: true },
+  { width: 390, title: 'Extraordinary Chore Champion', busy: true },
+  { width: 640, title: 'Extraordinary Chore Champion', busy: true, zoom: 2 },
   // Real catalog titles, including the longest seeded word, at common phone
   // widths with and without a running timer and large counts.
   ...[305, 320, 360, 390].flatMap((width) => ['Perfectionist', 'Legendary Forgemaster'].flatMap((title) => [
     { width, title }, { width, title, busy: true },
   ])),
 ]) {
-  test(`Today keeps the full saved title "${title}" in its phone header at ${width}px${busy ? ' with a running timer' : ''}`, async ({ page }, testInfo) => {
+  test(`Today keeps the full saved title "${title}" in its phone header at ${width}px${busy ? ' with a running timer' : ''}${zoom > 1 ? ' at 200% zoom' : ''}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
-      notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
       identity: {
         id: 2, active_frame: { name: 'Synthetic frame', slug: 'frame-steampunk' },
         active_title: { name: title, metadata: { text: title }, icon: '🏆' },
         active_trophy_badge: { name: 'First Dollar', icon: '💰' },
       },
-      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5 },
+      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5, streak_bonus: busy ? blazingStreakBonus : kindledStreakBonus },
     } }));
     await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    // Browser-style enlargement leaves a 320px layout viewport inside the
+    // 640px window while doubling visible text and controls.
+    if (zoom > 1) await page.evaluate((scale) => { document.documentElement.style.zoom = scale; }, zoom);
     const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
     const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
     const savedTitle = profile.getByText(title, { exact: true });
@@ -133,7 +142,7 @@ for (const { width, title, busy } of [
       }
       return splits;
     })).toEqual([]);
-    const lines = await savedTitle.evaluate((node) => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight));
+    const lines = await savedTitle.evaluate((node, scale) => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight) / scale, zoom);
     expect(lines).toBeLessThanOrEqual(busy ? 5.1 : 2.1);
     await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
     await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
@@ -147,20 +156,77 @@ for (const { width, title, busy } of [
     const status = header.getByRole('group', { name: 'Status shortcuts' });
     const statusBox = await status.boundingBox();
     expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
-    for (const button of [profile, header.getByRole('button', { name: /notification/i })]) {
+    const notifications = header.getByRole('button', { name: 'Notifications (42 unread)', exact: true });
+    const badge = notifications.getByText('9+', { exact: true });
+    await expect(badge).toBeVisible();
+    const badgeBox = await badge.boundingBox();
+    expect(badgeBox.height).toBeGreaterThanOrEqual(20 * zoom);
+    expect(badgeBox.width).toBeGreaterThanOrEqual(20 * zoom);
+    await expect(badge).toHaveCSS('font-size', '12px');
+    await expect(badge).toHaveCSS('font-variant-numeric', 'tabular-nums');
+    expect(badgeBox.x).toBeGreaterThanOrEqual(0);
+    expect(badgeBox.y).toBeGreaterThanOrEqual(0);
+    expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(width);
+    expect(await badge.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+    for (const button of [profile, notifications]) {
       const box = await button.boundingBox();
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
+    await page.screenshot({ path: testInfo.outputPath('today-header.png'), fullPage: true });
     for (const pip of await status.getByRole('button').all()) {
       await pip.focus();
       const box = await pip.boundingBox();
-      expect(box.x).toBeGreaterThanOrEqual(statusBox.x - 1);
-      expect(box.x + box.width).toBeLessThanOrEqual(statusBox.x + statusBox.width + 1);
+      const scroll = await status.locator('.overflow-x-auto').evaluate((node) => ({ left: node.scrollLeft, content: node.scrollWidth, visible: node.clientWidth }));
+      const geometry = `${await pip.getAttribute('aria-label')}: ${JSON.stringify({ box, rail: statusBox, scroll })}`;
+      expect(box.x, geometry).toBeGreaterThanOrEqual(statusBox.x - 1);
+      expect(box.x + box.width, geometry).toBeLessThanOrEqual(statusBox.x + statusBox.width + 1);
     }
-    await page.screenshot({ path: testInfo.outputPath('today-header.png'), fullPage: true });
     await profile.click();
     await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText('First Dollar', { exact: true })).toBeVisible();
+  });
+}
+
+for (const { days, state, bonus, description } of [
+  { days: 5, state: 'dormant', bonus: inactiveStreakBonus, description: 'Streak bonus is inactive. Complete an activity to start today’s check-in.' },
+  { days: 5, state: 'kindled', bonus: kindledStreakBonus, description: 'Daily check-in: 7 Coins at 1.5×. Streak drop chance: +25 percentage points.' },
+  { days: 10, state: 'strong', bonus: { active_today: true, check_in_multiplier: 2, check_in_coins: 10, drop_bonus: 0.5, intensity: 0.5 }, description: 'Daily check-in: 10 Coins at 2×. Streak drop chance: +50 percentage points.' },
+  { days: 20, state: 'blazing', bonus: blazingStreakBonus, description: 'Daily check-in: 15 Coins at 3×. Streak drop chance: +50 percentage points.' },
+]) {
+  test(`the phone header shows the server-confirmed ${state} streak bonus without motion`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 320, height: 844 });
+    if (state === 'strong') await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme: 'vigil', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: { id: 2, active_title: { name: 'Chore Hero', metadata: { text: 'Chore Hero' }, icon: '🏆' } },
+      header: { active_timer: null, coin_balance: 729, streak_days: days, streak_bonus: bonus },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const streak = page.getByRole('button', { name: `${days}-day streak`, exact: true });
+    await expect(streak).toHaveAccessibleDescription(description);
+    const flame = streak.locator('[data-header-streak-flame]');
+    await expect(flame).toBeVisible();
+    await expect(flame).toHaveAttribute('data-state', state);
+    const fire = flame.locator('.header-streak-flame__fire');
+    if (state === 'dormant') {
+      await expect(fire).toHaveCount(0);
+    } else {
+      await expect(fire).toHaveCSS('animation-name', 'none');
+      const body = fire.locator('path').first();
+      await expect(body).toBeVisible();
+      // Check the painted silhouette, so a state attribute without a visibly
+      // stronger fire cannot satisfy the bonus progression requirement.
+      expect((await body.boundingBox()).height).toBeGreaterThanOrEqual({ kindled: 14, strong: 18, blazing: 19 }[state]);
+      await expect(fire.locator('circle')).toHaveCount({ kindled: 0, strong: 1, blazing: 2 }[state]);
+    }
+    const header = page.locator('header').filter({ has: streak });
+    await header.screenshot({ path: testInfo.outputPath(`streak-${state}.png`) });
+    expect(await header.evaluate((node) => node.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await streak.click();
+    await expect(page).toHaveURL(/\/sigil$/);
   });
 }
 

@@ -98,6 +98,22 @@ npm run test:pwa -- e2e/design-gallery.pw.js e2e/design-foundations.pw.js
 Use these focused checks during composition; the full frontend coverage,
 web/native builds and required hosted checks still validate the integrated PR.
 
+### Header status
+
+`layout/HeaderStatusPips` presents the server's `streak_bonus` from the latest
+pulse header, falling back to the dashboard only before a heartbeat arrives.
+`HeaderStreakFlame` uses its normalized intensity for a 24px ember, small flame,
+strong flame or blaze. Shape, fullness and sparks change along with color;
+reduced motion freezes its gentle breathing. Saved streak days never determine
+whether today's bonus is active. The button's description identifies the daily
+check-in Coin amount/rate and additive drop chance, keeping these separate from
+other rewards. Missing metadata shows a dormant flame and unavailable bonus.
+
+`NotificationBell` keeps a 44px target and a 20px minimum count badge with 12px
+bold tabular numerals. The badge caps at `9+`; the button's accessible name keeps
+the exact unread count. Its semantic ember/page color pair and page-colored ring
+remain readable across covers.
+
 ### Token-first styling
 
 - Color, font, and font-size values come from CSS custom properties declared in [`../index.css`](../index.css)'s `@theme` block.

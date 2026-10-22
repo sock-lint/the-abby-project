@@ -282,6 +282,19 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `BASE_DROP_RATES` — dict of `TriggerType` → base drop probability (clock_out 0.40, chore_complete 0.30, homework_complete 0.35, homework_created 0.15, milestone_complete 0.80, project_complete 1.00, badge_earned 1.00, quest_complete 1.00, perfect_day 1.00, habit_log 0.15, savings_goal_complete 0.80, journal_entry 0.20, creation_logged 0.25). `journal_entry` was bumped from 0.10 → 0.20 in the 2026-05 progression-UX pass — the DB unique constraint on `(user, occurred_on) where kind=journal` already throttles journals to one per local day, so a higher rate is fairness-rebalancing against `habit_log` (which can fire 4+ taps/day at 0.15) rather than a farm risk. Clock-out separately has one drop opportunity per family-local day after 10 cumulative completed non-homework minutes; zero-minute closes cannot enter the game loop. Three other triggers are daily-capped at the service layer: `homework_created` (first-of-day only via `HomeworkDailyCounter`), `journal_entry` (one per local day, DB-enforced via partial unique constraint on `ChronicleEntry`), and `creation_logged` (first 2 per local day via `CreationDailyCounter`). The two counter-backed gates share the `config.base_models.DailyCounterModel` abstract + `config.services.bump_daily_counter` helper. All three close streak/drop/quest farming at source — counter rows survive both soft-delete and hard-delete, so collusion-style resets (create → delete → create) don't re-arm.
 - `STREAK_DROP_BONUS_PER_DAY = 0.05` and `STREAK_DROP_BONUS_CAP = 0.50` — streak adds up to +50% to base drop rate.
 
+`StreakService.bonus_for_streak` is the pure shared calculation for check-in
+Coins and the additive streak drop rate. Award paths retain their original
+unrounded math and whole-Coin truncation. `bonus_status` projects those rates
+without granting rewards, advancing streaks or consuming freezes. Dashboard
+`rpg.streak_bonus` and pulse `header.streak_bonus` expose the same projection:
+active only after activity on the current server reward date (America/Phoenix),
+with a 0–1 flame intensity normalized to the configured check-in multiplier
+cap. Saved counts can outlast a missed day; inactive projections report zero
+Coins/drop bonus/intensity and a 1× rate while preserving those counts. The
+reported check-in Coins are the total daily amount at that rate, not another
+award or an independent reward receipt. The projection does not claim a
+multiplier for all Coins or XP.
+
 ## Key entry points
 - `services.py` — `GameLoopService.on_task_completed` (single entry point), `StreakService`, `DropService`, `ConsumableService`, `CosmeticService`, `_BOOSTABLE_COIN_REASONS`, `_STACK_SAFE_EFFECTS`, boost-multiplier helpers.
 - `signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.

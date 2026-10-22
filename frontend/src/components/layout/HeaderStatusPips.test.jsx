@@ -29,6 +29,62 @@ function renderPips(user, handlers = []) {
 }
 
 describe('HeaderStatusPips', () => {
+  it.each([
+    [1, 1.1, 5, 0.05, 0.05, 'kindled'],
+    [5, 1.5, 7, 0.25, 0.25, 'kindled'],
+    [10, 2, 10, 0.5, 0.5, 'strong'],
+    [20, 3, 15, 0.5, 1, 'blazing'],
+    [40, 3, 15, 0.5, 1, 'blazing'],
+  ])('shows the confirmed daily bonus for a %i-day streak', async (days, multiplier, coins, dropBonus, intensity, state) => {
+    renderPips(buildUser(), [http.get('*/api/dashboard/', () => HttpResponse.json({
+      ...emptyDash,
+      rpg: { login_streak: days, streak_bonus: {
+        active_today: true, check_in_multiplier: multiplier, check_in_coins: coins,
+        drop_bonus: dropBonus, intensity,
+      } },
+    }))]);
+    const streak = await screen.findByRole('button', { name: `${days}-day streak` });
+    expect(streak).toHaveAccessibleDescription(`Daily check-in: ${coins} Coins at ${multiplier}×. Streak drop chance: +${Math.round(dropBonus * 100)} percentage points.`);
+    expect(streak.querySelector('[data-header-streak-flame]')).toHaveAttribute('data-state', state);
+  });
+
+  it('refreshes the bonus from the heartbeat and extinguishes it without resetting the saved streak', async () => {
+    server.use(http.get('*/api/dashboard/', () => HttpResponse.json({
+      ...emptyDash,
+      rpg: { login_streak: 20, streak_bonus: {
+        active_today: true, check_in_multiplier: 3, check_in_coins: 15, drop_bonus: 0.5, intensity: 1,
+      } },
+    })));
+    const { beat } = renderWithProviders(<HeaderStatusPips user={buildUser()} />, { withAuth: false });
+    const streak = await screen.findByRole('button', { name: '20-day streak' });
+    expect(streak.querySelector('[data-header-streak-flame]')).toHaveAttribute('data-state', 'blazing');
+
+    beat({ header: { streak_days: 20, streak_bonus: {
+      active_today: false, check_in_multiplier: 1, check_in_coins: 0, drop_bonus: 0, intensity: 0,
+    } } });
+    expect(streak).toHaveTextContent('20');
+    expect(streak).toHaveAccessibleDescription('Streak bonus is inactive. Complete an activity to start today’s check-in.');
+    expect(streak.querySelector('[data-header-streak-flame]')).toHaveAttribute('data-state', 'dormant');
+
+    // A rolling-deploy response without bonus metadata must not inherit an old
+    // active bonus or infer a new reward from the saved count.
+    beat({ header: { streak_days: 20 } });
+    expect(streak).toHaveAccessibleDescription('Streak bonus is unavailable.');
+    expect(streak.querySelector('[data-header-streak-flame]')).toHaveAttribute('data-state', 'dormant');
+  });
+
+  it('presents server bonus values without recalculating the reward from the saved streak', async () => {
+    renderPips(buildUser(), [http.get('*/api/dashboard/', () => HttpResponse.json({
+      ...emptyDash,
+      rpg: { login_streak: 40, streak_bonus: {
+        active_today: true, check_in_multiplier: 1.5, check_in_coins: 7, drop_bonus: 0.25, intensity: 0.25,
+      } },
+    }))]);
+    const streak = await screen.findByRole('button', { name: '40-day streak' });
+    expect(streak).toHaveAccessibleDescription('Daily check-in: 7 Coins at 1.5×. Streak drop chance: +25 percentage points.');
+    expect(streak.querySelector('[data-header-streak-flame]')).toHaveAttribute('data-state', 'kindled');
+  });
+
   it('shows streak and coins pips for a child', async () => {
     renderPips(buildUser(), [
       http.get('*/api/dashboard/', () => HttpResponse.json(emptyDash)),

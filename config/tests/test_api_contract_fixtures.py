@@ -178,6 +178,14 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual(response.json()["header"]["streak_days"], 4)
         body = self.assert_response_fixture(response, "pulse-activity-streak.json")
         self.assertIsNone(body["header"]["active_timer"])
+        self.assertEqual(body["header"]["streak_bonus"], {
+            "active_today": True,
+            "check_in_multiplier": 1.4,
+            "check_in_coins": 7,
+            "drop_bonus": 0.2,
+            "intensity": 0.2,
+        })
+        self.assertEqual(dashboard.json()["rpg"]["streak_bonus"], body["header"]["streak_bonus"])
 
     def seed_companion_care(self):
         """Synthetic ownership and typed food inputs; production services stay real."""
