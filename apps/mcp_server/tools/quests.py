@@ -130,14 +130,16 @@ def get_quest(params: GetQuestIn) -> dict[str, Any]:
 @tool()
 @safe_tool
 def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
-    """Browse every authored QuestDefinition. Parent-only.
+    """Browse available authored QuestDefinition choices. Parent-only.
 
     This is the "catalog" the LLM inspects to pick a definition id for
     ``assign_quest``. Filter with ``quest_type`` to narrow to boss or
-    collection quests.
+    collection quests. Retired taxonomy is hidden from new choices; saved
+    quests and the global management catalog retain their original identities.
     """
     actor = require_parent()
-    qs = definitions_visible_to(actor).prefetch_related(
+    from apps.quests.reference_locks import definitions_with_available_taxonomy
+    qs = definitions_with_available_taxonomy(definitions_visible_to(actor)).prefetch_related(
         "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
     )
     if params.quest_type:
