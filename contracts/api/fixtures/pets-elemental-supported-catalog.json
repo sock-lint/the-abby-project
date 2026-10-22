@@ -15,7 +15,8 @@
           "slug": "base",
           "name": "Base",
           "color_hex": "#8B7355",
-          "rarity": "common"
+          "rarity": "common",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,
@@ -46,21 +47,24 @@
           "slug": "base",
           "name": "Base",
           "color_hex": "#8B7355",
-          "rarity": "common"
+          "rarity": "common",
+          "acquisition_challenges": []
         },
         {
           "id": 41,
           "slug": "fire",
           "name": "Fire",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         },
         {
           "id": 42,
           "slug": "ice",
           "name": "Ice",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,
@@ -91,21 +95,24 @@
           "slug": "base",
           "name": "Base",
           "color_hex": "#8B7355",
-          "rarity": "common"
+          "rarity": "common",
+          "acquisition_challenges": []
         },
         {
           "id": 41,
           "slug": "fire",
           "name": "Fire",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         },
         {
           "id": 42,
           "slug": "ice",
           "name": "Ice",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,
@@ -136,21 +143,24 @@
           "slug": "base",
           "name": "Base",
           "color_hex": "#8B7355",
-          "rarity": "common"
+          "rarity": "common",
+          "acquisition_challenges": []
         },
         {
           "id": 41,
           "slug": "fire",
           "name": "Fire",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         },
         {
           "id": 42,
           "slug": "ice",
           "name": "Ice",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,
@@ -181,21 +191,24 @@
           "slug": "base",
           "name": "Base",
           "color_hex": "#8B7355",
-          "rarity": "common"
+          "rarity": "common",
+          "acquisition_challenges": []
         },
         {
           "id": 41,
           "slug": "fire",
           "name": "Fire",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         },
         {
           "id": 42,
           "slug": "ice",
           "name": "Ice",
           "color_hex": "#8B7355",
-          "rarity": "uncommon"
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,

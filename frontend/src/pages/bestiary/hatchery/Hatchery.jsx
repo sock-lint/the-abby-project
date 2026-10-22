@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getIncubation, getInventory, getPetCodex, getStable, hatchIncubation, startIncubation } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
@@ -19,14 +19,14 @@ import PedestalImage from '../../../pedestal/PedestalImage';
 import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
-import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
+import CatalogIcon from '../../../components/rpg/CatalogIcon';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import EggCollection from './EggCollection';
 import usePetMutationGuard from '../party/usePetMutationGuard';
 import IncubationCard from './IncubationCard';
 import useIncubationRefresh from './useIncubationRefresh';
 import { formatExpeditionRemaining } from '../party/party.constants';
-import elementalExpansion from '../../../../../shared/catalog/elemental-expansion.json';
+import HatcheryDiscovery from './HatcheryDiscovery';
 
 export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const {
@@ -50,6 +50,8 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const [hatchPotion, setHatchPotion] = useState('');
   const [hatchSuccess, setHatchSuccess] = useState(null);
   const [hatchCeremony, setHatchCeremony] = useState(null);
+  const [browseSelection, setBrowseSelection] = useState({});
+  const recipeId = useId();
   const startRequest = useRef(null);
   const beginMutation = usePetMutationGuard();
   const incubation = incubationData?.incubation;
@@ -84,16 +86,15 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     const item = eggs.find((entry) => String(entry.item.id) === value)?.item;
     const species = (catalogData?.species || []).find((entry) => entry.slug === item?.pet_species_slug);
     if (!(species?.available_potions || []).some((potion) => potion.slug === selectedPotion?.slug && isCatalogAvailable(potion))) setHatchPotion('');
+    if (species) setBrowseSelection({ speciesSlug: species.slug, potionSlug: selectedPotion?.slug || 'base' });
   };
-  const expansionFamily = elementalExpansion.families.find((family) => family.species_slug === selectedCatalogSpecies?.slug
-    && family.sprite_key === selectedEggSpecies?.sprite_key);
-  const elementalChallengeHint = selectedCatalogSpecies?.slug === 'chick'
-    ? 'Ember Nest and Frost Nest each reward a Chick egg and their matching potion after 5 qualifying accomplishments.'
-    : selectedCatalogSpecies?.slug === 'meshtint-wolf'
-      ? 'Ember Trail and Frost Trail each reward a Wolf egg and their matching potion after 20 qualifying accomplishments.'
-      : expansionFamily ? `${expansionFamily.challenges.map(({ name }) => name).join(' and ')} each reward a ${selectedEggSpecies.name} egg and their matching potion after ${expansionFamily.challenges[0].target_count} qualifying accomplishments.` : null;
-  const elementalOffers = !!elementalChallengeHint
-    && ['fire', 'ice'].every((slug) => compatibleVariants.some((potion) => potion.slug === slug));
+  const selectPotion = (value) => {
+    setHatchPotion(value);
+    const item = compatiblePotions.find((entry) => String(entry.item.id) === value)?.item;
+    if (selectedCatalogSpecies && item) setBrowseSelection({
+      speciesSlug: selectedCatalogSpecies.slug, potionSlug: item.metadata?.variant,
+    });
+  };
 
   // A failed satchel fetch used to render "No eggs or potions in your Satchel
   // yet — drops fall from clocked work…", which reads as "you own nothing"
@@ -191,10 +192,21 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         snapshotKey={incubation} working={working} refreshing={refreshingIncubation} blocked={!!incubationError}
         onHatch={handleHatch} onRefresh={reloadIncubation} />}
 
+      {eggs.length > 0 && <a href={'#' + recipeId}
+        className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep">
+        Choose ingredients for incubation
+      </a>}
+      <HatcheryDiscovery catalog={catalogData} stable={stableData} incubation={incubation}
+        loading={loadingCatalog} refreshing={refreshingCatalog} catalogError={catalogError}
+        stableError={stableError} incubationError={incubationError}
+        selection={browseSelection} onSelect={setBrowseSelection} />
+
       {suppliesLoaded ? <>
+      <div id={recipeId} className="scroll-mt-24">
       <EggCollection eggs={allEggs.map((entry) => ({ ...entry, available: isCatalogAvailable(entry.item) }))}
         potionCount={potions.reduce((total, entry) => total + entry.quantity, 0)}
         selectedId={hatchEgg} onSelect={selectEgg} working={working || !!incubation} />
+      </div>
 
       <ParchmentCard flourish>
         <ChapterRubric index={0} name="Incubate a new pet" icon="✨" />
@@ -211,10 +223,12 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <figure className="min-w-0">
-              {selectedEggItem?.slug ? <FamilyStagePreview key={selectedEggItem.id} item={selectedEggItem} potion={selectedPotion} /> : <PedestalPreview />}
+              {selectedEggItem?.slug ? <div className="flex h-48 items-center justify-center">
+                <CatalogIcon assetId={selectedEggItem.catalog_icon} icon={selectedEggItem.icon || '🥚'} alt={selectedEggItem.name} size={160} />
+              </div> : <PedestalPreview />}
               <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
                 <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
-                Family artwork preview
+                Your selected egg
               </figcaption>
             </figure>
             <div className="min-w-0">
@@ -238,7 +252,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
                 label="Potion"
                 value={selectedPotionItem ? hatchPotion : ''}
                 disabled={working || !!incubation || !selectedEggItem || !catalogReady || compatiblePotions.length === 0}
-                onChange={(e) => setHatchPotion(e.target.value)}
+                onChange={(e) => selectPotion(e.target.value)}
               >
                 <option value="">Select a potion…</option>
                 {compatiblePotions.map((e) => (
@@ -278,11 +292,6 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
           </p>}
           <p className="text-caption text-ink-secondary">Hatches into a baby {selectedEggSpecies.name}.</p>
           <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" />
-          {elementalOffers && <div className="rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 space-y-1">
-            <h4 className="text-body font-semibold text-ink-primary">Earn Fire and Ice appearances</h4>
-            <p className="text-caption text-ink-secondary">{elementalChallengeHint} Progress comes from saved accomplishments, with no daily streak required.</p>
-            <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep" to="/quests?tab=trials">View challenge rewards</Link>
-          </div>}
         </section>}
 
       </ParchmentCard>

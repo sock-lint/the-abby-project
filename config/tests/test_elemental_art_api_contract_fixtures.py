@@ -147,6 +147,11 @@ class ElementalArtApiResponseFixtureTests(APITestCase):
             "chick": 61, "meshtint-wolf": 62, "meshtint-bat": 63, "meshtint-mushroom": 64, "meshtint-dragon": 65,
         })
         self.assertEqual(body["totals"], {"species": 5, "discovered_species": 0, "mounts_possible": 13, "mounts_owned": 0})
+        # No reward definitions were authored in this codex scenario; the new
+        # field must be an empty list rather than an invented acquisition path.
+        for species in body["species"]:
+            for potion in species["available_potions"]:
+                self.assertEqual(potion["acquisition_challenges"], [])
         self.assertEqual(list(UserInventory.objects.order_by("pk").values()), before)
         self.assertFalse(ChallengeGoal.objects.exists())
         self.assertFalse(CoinLedger.objects.exists())
