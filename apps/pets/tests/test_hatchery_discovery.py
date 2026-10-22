@@ -137,9 +137,38 @@ class HatcheryDiscoveryTests(TestCase):
             "progress": "3", "target": "8", "ends_at": occurrence.ends_at.isoformat(), "retry_available": False,
         })
         self.assertEqual(saved["path"], f"/quests?tab=trials&goal=goal%3A{occurrence.pk}")
+        # The accepted goal keeps its enrollment-time reward and retries copy
+        # that promise, so the edited pair is not a guaranteed reward for them.
         current = self.paths(species="meshtint-bee", potion="base")[0]
+        self.assertFalse(current["offer_available"])
+        self.assertIsNone(current["attempt"])
+        self.client.force_authenticate(self.sibling)
+        fresh = self.paths(species="meshtint-bee", potion="base")[0]
+        self.assertTrue(fresh["offer_available"], "A child who never accepted it still sees today's offer.")
+
+    def test_edited_offer_stays_guaranteed_when_a_new_window_can_still_pay_it(self):
+        repeatable = self.definition(name="Repeatable discovery", is_repeatable=True)
+        quest = Quest.objects.create(
+            definition=repeatable, current_progress=10, status="completed",
+            end_date=self.now - timedelta(days=1), reward_items_snapshot=snapshot_reward_items(repeatable),
+        )
+        QuestParticipant.objects.create(quest=quest, user=self.child)
+        repeatable.reward_items.filter(item=self.ingredients["fire"]).update(item=self.ingredients["ice"])
+        # A completed legacy run of a repeatable offer does not block a new
+        # automatic window, which would freeze today's edited reward.
+        current = self.paths(potion="ice")[0]
         self.assertTrue(current["offer_available"])
         self.assertIsNone(current["attempt"])
+
+    def test_edited_offer_is_not_guaranteed_after_any_attempt_at_a_saved_one_time_reward(self):
+        definition = self.definition()
+        self.accepted(definition, expired=True, progress=1)
+        definition.reward_items.filter(item=self.ingredients["fire"]).update(item=self.ingredients["ice"])
+        saved = self.paths()[0]
+        self.assertFalse(saved["offer_available"])
+        self.assertTrue(saved["attempt"]["retry_available"])
+        current = self.paths(potion="ice")[0]
+        self.assertFalse(current["offer_available"], "A retry copies the saved Fire promise, never today's Ice pair.")
 
     def test_expired_saved_attempt_and_latest_retry_use_native_status_without_writes(self):
         definition = self.definition()
@@ -375,8 +404,9 @@ class HatcheryDiscoveryTests(TestCase):
         self.assertEqual(row["attempt"]["id"], f"legacy:{quest.pk}")
         self.assertEqual(row["attempt"]["progress"], "4")
         self.assertEqual(row["path"], f"/quests?tab=trials&goal=legacy%3A{quest.pk}")
+        # An active one-time legacy window blocks a new automatic enrollment.
         current = self.paths(potion="ice")[0]
-        self.assertTrue(current["offer_available"])
+        self.assertFalse(current["offer_available"])
         self.assertIsNone(current["attempt"])
         QuestDefinition.objects.filter(pk=definition.pk).update(is_system=False, created_by=self.parent)
         self.assertEqual(self.paths(), [])

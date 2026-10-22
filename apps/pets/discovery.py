@@ -14,7 +14,7 @@ from django.utils import timezone
 from apps.achievements.models import SkillProgress, UserBadge
 from apps.quests.controls import control_context, identity, retry_state
 from apps.quests.goals import FACT_TRIGGERS, number
-from apps.quests.milestone_eligibility import milestone_eligibility
+from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
 from apps.quests.models import ChallengeOccurrence, ChallengePin, Quest, QuestDefinition, QuestRewardItem
 from apps.quests.queries import active_system_definitions
 from apps.rpg.catalog_support import available_pet_pairs, egg_species, item_is_available, potion_type_for_item
@@ -142,6 +142,8 @@ def acquisition_challenges(user):
         occurrence.goal = controls["goals"][occurrence.goal_id]
     item_ids = {row.get("item_id") for occurrence in occurrences
                 for row in _snapshot_items(occurrence.snapshot) if isinstance(row, dict) and _item_id(row.get("item_id"))}
+    item_ids.update(row.get("item_id") for goal in goals for row in _snapshot_items({"items": goal.reward_items})
+                    if isinstance(row, dict) and _item_id(row.get("item_id")))
     catalog = ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
         item_ids,
     )
@@ -204,6 +206,28 @@ def acquisition_challenges(user):
             and milestone_eligibility(user, definition, new_enrollment=False,
                                      facts=facts, active_definitions=current)["unlocked"]
         )
+    # Automatic enrollment never opens a second goal for an accepted identity:
+    # that goal keeps its enrollment-time reward and retries copy the saved
+    # promise. Nonrepeatable legacy windows that are active or completed, and
+    # any legacy window of a milestone-gated offer, likewise block enrollment
+    # (goals._catalog_goals). After a reward edit, today's different pair is
+    # therefore not a guaranteed reward for a child who already accepted it.
+    accepted_goal_pairs = defaultdict(set)
+    for goal in goals:
+        accepted_goal_pairs[identity(goal, controls)].update(_saved_pairs({"items": goal.reward_items}, catalog, pairs))
+
+    def reachable(pair, definition_id):
+        # ``get`` avoids the empty rows the result loop adds to these defaultdicts.
+        if candidates.get((pair, definition_id)) or legacy_candidates.get((pair, definition_id)):
+            return True
+        if definition_id in accepted_goal_pairs:
+            return pair in accepted_goal_pairs[definition_id]
+        definition = current[definition_id]
+        legacy_statuses = controls["legacy"].get(definition_id, [])
+        if legacy_statuses and has_milestone_gate(definition):
+            return False
+        return definition.is_repeatable or not {"active", "completed"}.intersection(legacy_statuses)
+
     keys = set(candidates) | set(legacy_candidates)
     keys.update((pair, pk) for pk, offered_pairs in current_pairs.items() for pair in offered_pairs)
     visible = _visible_history_ids(user, now) if occurrences else set()
@@ -238,7 +262,8 @@ def acquisition_challenges(user):
                 path += "&" + urlencode({"goal": attempt["id"]})
         result[pair].append({
             "definition_id": definition_id, "name": definition.name,
-            "offer_available": available.get(definition_id, False) and pair in current_pairs.get(definition_id, set()),
+            "offer_available": (available.get(definition_id, False) and pair in current_pairs.get(definition_id, set())
+                                and reachable(pair, definition_id)),
             "target": str(definition.target_value), "duration_days": definition.duration_days,
             "attempt": attempt, "path": path,
         })
