@@ -185,6 +185,10 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Modeled first hatch/evolution, automatic challenge, legendary badge, streak
+  and approved exchange boundaries retain their once-only scoped badge checks.
+  Chronicle rows and milestone-badge rewards remain excluded; those checks can
+  recognize only criteria already supported by the forecast.
   Reports and metadata record `pet_incubation_policy`, including the installed
   elapsed duration and one unfinished slot. Ingredients are reserved during
   active care; readiness advances over inactive days, and the next active
