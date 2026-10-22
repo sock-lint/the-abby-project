@@ -207,7 +207,9 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = HabitWriteSerializer(habit, data=request.data, partial=True)
+        serializer = HabitWriteSerializer(
+            habit, data=request.data, partial=True, context=self.get_serializer_context(),
+        )
         serializer.is_valid(raise_exception=True)
         tags = serializer.validated_data.pop("skill_tags", None)
         habit = serializer.save()
