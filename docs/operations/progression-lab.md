@@ -242,6 +242,11 @@ weekly payment settlement, birthdays, grades, consumable use/boosts,
 Perfect Day and legacy/co-op campaigns remain outside the model. Unmodeled badge criteria
 are listed individually. The workbench does not verify production deployment
 or artwork delivery and does not inspect existing children's progress.
+Chronicle first-ever events and milestone recognition, including Turning Point
+and Life Chronicler, are outside the forecast. Their badge criteria appear in
+`excluded_badge_criteria`; their rewards and dependent unlocks are not assumed.
+Modeled journal-entry and journal-streak badges remain separate from this
+excluded recognition.
 Live Perfect Day awards one Uncommon-or-better draw per new daily receipt.
 Its Common tier is excluded before selection, with remaining supported tiers
 renormalized. The Lab binds that live rarity rule but adds no Perfect Day

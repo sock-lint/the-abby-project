@@ -125,7 +125,10 @@ def handle_project_status_change(sender, instance, created, **kwargs):
         if instance.assigned_to:
             safe_game_loop_call(
                 instance.assigned_to, TriggerType.PROJECT_COMPLETE,
-                {"project_id": instance.pk},
+                {
+                    "project_id": instance.pk,
+                    "payment_kind": "bounty" if is_bounty else "required",
+                },
             )
 
 

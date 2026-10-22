@@ -108,6 +108,11 @@ after its own Uncommon-or-better draw. Each newly earned counter badge has its
 separate ordinary badge drop, preserving one draw per accomplishment. Pending,
 ineligible and already receipted days never evaluate or backfill those awards.
 
+New accomplishment payouts also call `chronicle.recognition.safe_record_firsts`
+for Yearbook recognition, without replaying activity or rewards. Recognition
+has its own savepoint, so a failed first-event write leaves the payout intact.
+Normal activity can record both a source first and a newly reached streak first.
+
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
