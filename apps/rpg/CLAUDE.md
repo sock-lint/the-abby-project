@@ -353,3 +353,13 @@ are outside the list. No old species is migrated into a different new family.
 Default-loader dry runs and later bundled-load failures roll back the marker,
 settlement and cleanup together. See the adoption runbook for the exact scope;
 this implementation does not establish a production release.
+
+
+The native saved progression notebook also supports MCP through
+`apps/mcp_server/tools/progression_experiments.py`. Optional
+`include_observations=False` detail projections omit both household checkpoint
+payloads and their database query; native web callers keep the existing default.
+Comparisons/decisions remain design evidence rather than permission to publish.
+Quest rerolls exclude already enrolled modern identities and completed one-time
+legacy aliases before choosing a random candidate. When no eligible candidate
+exists, inventory remains unchanged; repeatable alternatives retain native rules.
