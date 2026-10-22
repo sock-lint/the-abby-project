@@ -88,9 +88,11 @@ export default function JournalShell() {
                        pl-[max(1rem,env(safe-area-inset-left))]
                        pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
           >
-            {/* The title wraps in the remaining room; status shortcuts keep
-                their own scroll rail when a timer or large count needs it. */}
-            <div className="lg:hidden flex-1 min-w-28">
+            {/* The title column is at least as wide as its longest word, so
+                titles wrap only between words; the status shortcuts keep their
+                own scroll rail and give up room first. The cap keeps the bell
+                and one shortcut beside the profile for any authored title. */}
+            <div className="lg:hidden flex-1 max-w-[calc(100%-6.5rem)]">
               <AvatarMenu user={user} compact />
             </div>
             <div className="min-w-0 max-w-[45%] lg:max-w-none lg:flex-1 flex justify-end lg:justify-center">

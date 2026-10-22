@@ -73,8 +73,13 @@ for (const { width, title, busy } of [
   { width: 320, title: 'Chore Hero' },
   { width: 390, title: 'Chore Hero' },
   { width: 320, title: 'Extraordinary Chore Champion', busy: true },
+  // Real catalog titles, including the longest seeded word, at common phone
+  // widths with and without a running timer and large counts.
+  ...[305, 320, 360, 390].flatMap((width) => ['Perfectionist', 'Legendary Forgemaster'].flatMap((title) => [
+    { width, title }, { width, title, busy: true },
+  ])),
 ]) {
-  test(`Today keeps the full saved title in its phone header at ${width}px${busy ? ' with a running timer' : ''}`, async ({ page }, testInfo) => {
+  test(`Today keeps the full saved title "${title}" in its phone header at ${width}px${busy ? ' with a running timer' : ''}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
       notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
@@ -104,6 +109,30 @@ for (const { width, title, busy } of [
       }
       return node.scrollWidth <= node.clientWidth + 1 && text.left >= 0 && text.right <= window.innerWidth;
     })).toBe(true);
+    // Wrapping may move whole words to a new line but must not split one.
+    expect(await savedTitle.evaluate((node) => {
+      const splits = [];
+      let previous = null;
+      let spaced = false;
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+        for (let index = 0; index < current.data.length; index += 1) {
+          const character = current.data[index];
+          if (/\s/.test(character)) {
+            spaced = true;
+            continue;
+          }
+          const range = document.createRange();
+          range.setStart(current, index);
+          range.setEnd(current, index + 1);
+          const { top } = range.getBoundingClientRect();
+          if (previous && !spaced && top > previous.top + 2) splits.push(`${previous.character}|${character}`);
+          previous = { character, top };
+          spaced = false;
+        }
+      }
+      return splits;
+    })).toEqual([]);
     const lines = await savedTitle.evaluate((node) => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight));
     expect(lines).toBeLessThanOrEqual(busy ? 5.1 : 2.1);
     await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
@@ -134,6 +163,28 @@ for (const { width, title, busy } of [
     await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText('First Dollar', { exact: true })).toBeVisible();
   });
 }
+
+test('an unbroken authored title longer than the phone header column still fits beside the status shortcuts', async ({ page }) => {
+  const title = 'Supercalifragilisticexpialidociousness';
+  await page.setViewportSize({ width: 305, height: 844 });
+  await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+    notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+    identity: { id: 2, active_frame: null, active_title: { name: title, metadata: { text: title } }, active_trophy_badge: null },
+    header: { active_timer: { project_title: 'Synthetic next task', elapsed_minutes: 165 }, coin_balance: 999999, streak_days: 365 },
+  } }));
+  await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+  const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+  const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+  await expect(profile.getByText(title, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const profileBox = await profile.boundingBox();
+  const status = header.getByRole('group', { name: 'Status shortcuts' });
+  const statusBox = await status.boundingBox();
+  expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
+  expect(statusBox.width).toBeGreaterThanOrEqual(44);
+  const bell = await header.getByRole('button', { name: /notification/i }).boundingBox();
+  expect(bell.x + bell.width).toBeLessThanOrEqual(305);
+});
 
 for (const role of ['child', 'parent']) {
   test(`the phone profile fallback stays readable without an earned title for a ${role}`, async ({ page }) => {

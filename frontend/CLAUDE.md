@@ -227,7 +227,9 @@ availability without presenting unreachable unlocks. See the
 
 **Earned identity:** navigation uses the current account's saved look from the
 existing account-bound pulse. The phone header shows its portrait and full,
-wrapping title (or “Profile”); account names and the featured badge remain in
+wrapping title (or “Profile”). Its title column is at least as wide as the
+title's longest word, up to a cap that keeps the bell and a status shortcut
+beside it, so titles wrap between words; account names and the featured badge remain in
 the profile menu and desktop sidebar. Today leads with task guidance below its
 heading. Successful Profile equip/unequip/trophy writes refresh the pulse;
 failed writes do not change navigation. Project-detail `maker_signature` represents the assigned

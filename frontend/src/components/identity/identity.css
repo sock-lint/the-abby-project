@@ -134,4 +134,8 @@
 
 .character-title--compact .character-title__text {
   white-space: normal;
+  /* Unlike `anywhere`, this keeps whole words in the min-content width that
+     sizes the phone header's title column; only a word longer than the whole
+     column still breaks. */
+  overflow-wrap: break-word;
 }

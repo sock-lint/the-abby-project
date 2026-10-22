@@ -113,8 +113,8 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         aria-label="Open profile menu"
-        className={`flex items-center gap-2 min-w-11 min-h-11 max-w-full rounded-2xl transition-colors
-                    ${compact ? '' : 'w-full px-2 py-1'}
+        className={`flex items-center gap-2 min-h-11 max-w-full rounded-2xl transition-colors
+                    ${compact ? 'min-w-28' : 'min-w-11 w-full px-2 py-1'}
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
       >
