@@ -32,6 +32,8 @@ const POTION_FILTERS = {
 const ELEMENTAL_PORTRAIT_KEYS = new Set([
   'cute-chick', 'cute-chick-fledgling', 'cute-chick-mount',
   'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
+  'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount',
+  'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
 ]);
 
 // Gentle-nudge dimming applied to pet sprites whose happiness has slipped.
@@ -53,7 +55,8 @@ const DIM_FILTERS = {
  * Use case: mount sprites named ``{species}-mount`` fall back to the
  * base species sprite for species we haven't drawn evolved forms of yet.
  *
- * Prepared Chick/Wolf Fire/Ice appearances use their exact stage portraits.
+ * Registered Fire/Ice appearances require their exact stage portraits,
+ * including families awaiting artwork adoption.
  * ``potionSlug`` retains legacy hue filters for other species/appearances.
  */
 export default function RpgSprite({

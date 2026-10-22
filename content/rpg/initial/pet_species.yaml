@@ -33,7 +33,8 @@ species:
     egg_rarity: common
     egg_coin_value: 3
 
-  # Prepared roster: exact Base-only identities, no legacy crosswalk.
+  # Prepared roster: exact identities, no legacy crosswalk. Authored Fire/Ice
+  # compatibility for Dragon and Mushroom stays dormant until exact art adoption.
   # Acquisition rarity belongs to the family, independently of Base artwork
   # or growth. Five Common, five Uncommon, three Rare, one Epic, one Legendary
   # families (including Chick) provide a collection progression.
@@ -78,7 +79,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-mushroom
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: common
     egg_coin_value: 3
 
@@ -114,7 +115,7 @@ species:
     icon: "🐾"
     sprite_key: meshtint-dragon
     description: A companion with baby, middle and grown forms
-    available_potions: [base]
+    available_potions: [base, fire, ice]
     egg_rarity: legendary
     egg_coin_value: 3
 

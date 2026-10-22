@@ -71,8 +71,10 @@ class AccomplishmentAcquisitionSourceTests(TestCase):
         response = self.client.get("/api/inventory/")
         self.assertEqual(response.status_code, 200)
         items = {row["item"]["id"]: row["item"] for row in response.data}
-        for element, names in (("fire", ["Ember Nest", "Ember Trail"]),
-                               ("ice", ["Frost Nest", "Frost Trail"])):
+        for element, names in (
+            ("fire", ["Ember Grove", "Ember Nest", "Ember Summit", "Ember Trail"]),
+            ("ice", ["Frost Grove", "Frost Nest", "Frost Summit", "Frost Trail"]),
+        ):
             with self.subTest(element=element):
                 potion = potions[element]
                 self.assertTrue(DropTable.objects.filter(item=potion, weight__gt=0).exists())

@@ -11,6 +11,7 @@ from pathlib import Path
 BINDINGS_PATH = Path(__file__).resolve().parents[2] / "shared/catalog/icon-bindings.json"
 ARTWORK_BINDINGS_PATH = BINDINGS_PATH.with_name("artwork-bindings.json")
 ELEMENTAL_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-bindings.json")
+ELEMENTAL_EXPANSION_BINDINGS_PATH = BINDINGS_PATH.with_name("elemental-expansion-bindings.json")
 
 
 @lru_cache(maxsize=1)
@@ -26,6 +27,11 @@ def artwork_bindings():
 @lru_cache(maxsize=1)
 def elemental_bindings():
     return json.loads(ELEMENTAL_BINDINGS_PATH.read_text(encoding="utf-8"))
+
+
+@lru_cache(maxsize=1)
+def elemental_expansion_bindings():
+    return json.loads(ELEMENTAL_EXPANSION_BINDINGS_PATH.read_text(encoding="utf-8"))
 
 
 def badge_catalog_icon(badge):
@@ -88,6 +94,8 @@ def challenge_catalog_icon(definition):
     if definition is None or not definition.is_system:
         return None
     entry = elemental_bindings()["challenges"].get(definition.name)
+    if entry is None:
+        entry = elemental_expansion_bindings()["challenges"].get(definition.name)
     if entry and definition.quest_type == entry["quest_type"]:
         return entry["asset_id"]
     entry = bindings()["challenges"].get(definition.name)

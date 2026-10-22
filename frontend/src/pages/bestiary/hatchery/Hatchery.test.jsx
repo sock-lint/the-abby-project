@@ -29,6 +29,37 @@ function renderHatchery() {
 }
 
 describe('Hatchery', () => {
+  it.each([
+    ['meshtint-mushroom', 'Mushroom', 'Ember Grove and Frost Grove', 10],
+    ['meshtint-dragon', 'Dragon', 'Ember Summit and Frost Summit', 50],
+  ])('shows %s guaranteed challenge hints only after the server makes both appearances available', async (slug, name, challenges, count) => {
+    const egg = { id: 11, slug: `${slug}-egg`, name: `${name} Egg`, item_type: 'egg', pet_species_slug: slug, pet_species_name: name, metadata: { species: slug } };
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
+      http.get('*/api/inventory/', () => HttpResponse.json([{ id: 1, quantity: 1, item: egg }])),
+      http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{ slug, available_potions: ['base', 'fire', 'ice'].map((potion) => ({ slug: potion, name: potion })) }] })),
+    );
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
+    expect(screen.getByRole('heading', { name: 'Earn Fire and Ice appearances' })).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`${challenges} each reward a ${name} egg and their matching potion after ${count} qualifying accomplishments`))).toBeInTheDocument();
+    const hint = screen.getByRole('heading', { name: 'Earn Fire and Ice appearances' }).parentElement;
+    expect(within(hint).getByRole('link', { name: 'View challenge rewards' })).toHaveAttribute('href', '/quests?tab=trials');
+  });
+
+  it('keeps Dragon acquisition hints dormant while the server offers only Base', async () => {
+    const slug = 'meshtint-dragon';
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
+      http.get('*/api/inventory/', () => HttpResponse.json([{ id: 1, quantity: 1, item: { id: 11, slug: `${slug}-egg`, name: 'Dragon Egg', item_type: 'egg', pet_species_slug: slug, metadata: { species: slug } } }])),
+    );
+    const user = userEvent.setup();
+    renderHatchery();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
+    expect(screen.queryByRole('heading', { name: 'Earn Fire and Ice appearances' })).toBeNull();
+  });
+
   it('shows the selected egg acquisition rarity and keeps it separate from growth', async () => {
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [], total_possible: 15 })),

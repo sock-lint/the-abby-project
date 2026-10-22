@@ -80,16 +80,18 @@ def sources_for_request(request):
         quest_definition__in=definitions_with_available_taxonomy(active_system_definitions()).filter(is_cooperative=False),
     ).select_related(
         "quest_definition", "quest_definition__prerequisite_quest", "quest_definition__required_skill", "quest_definition__required_badge",
-    ).prefetch_related(
-        "quest_definition__reward_items__item__pet_species__available_potions",
-        "quest_definition__reward_items__item__potion_type",
-    ).order_by("quest_definition__name", "pk")
-    milestone_cache = {}
-    availability_cache = {}
+    ).prefetch_related(Prefetch(
+        "quest_definition__reward_items",
+        queryset=QuestRewardItem.objects.select_related("item__pet_species", "item__potion_type")
+        .prefetch_related("item__pet_species__available_potions"),
+    )).order_by("quest_definition__name", "pk")
+    milestone_cache, availability_cache = {}, {}
     for reward in rewards:
         definition = reward.quest_definition
         if definition.pk in accepted_definitions or definition.pk in completed_definitions or (definition.required_badge_id and definition.required_badge_id not in earned):
             continue
+        # New offers need their complete supported hatch pair. Saved automatic
+        # and legacy promises above keep their original hints after retirement.
         if definition.pk not in availability_cache:
             availability_cache[definition.pk] = definition_is_available(definition)
         if not availability_cache[definition.pk]:

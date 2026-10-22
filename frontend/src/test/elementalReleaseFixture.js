@@ -14,7 +14,7 @@ const BIRD_ACTIONS = { 'bite-attack': 'attack', 'cast-spell': 'cast', 'idle-02':
   'run-forward-in-place': 'run', 'run-forward-w-root': 'run_root_motion', 'walk-forward-in-place': 'walk', 'walk-forward-w-root': 'walk_root_motion',
   'fly-forward-in-place': 'fly', 'fly-forward-w-root': 'fly_root_motion', 'projectile-attack': 'projectile_attack' };
 
-export function elementalReleaseFixture() {
+export function elementalReleaseFixture(expansion = false) {
   let index = 0;
   const files = [], assets = [], stages = [], transitions = [], relationships = [];
   const file = (image = false) => {
@@ -28,7 +28,11 @@ export function elementalReleaseFixture() {
     bounds: { min: [-0.5, 0, -0.5], max: [0.5, height, 0.5] },
     animations: { root_node: null, actions: { [action]: `Clip-${index}` },
       clips: [{ name: `Clip-${index}`, duration: 1, loop, root_motion: 'source', bounds: null }] } });
-  for (const [species, motions] of Object.entries({ chick: BIRD_MOTIONS, 'meshtint-wolf': WOLF_MOTIONS })) {
+  const expansionMotions = { baby: ['idle', 'cast-spell', 'turn-left', 'turn-right'],
+    middle: ['idle', 'fly-forward-in-place', 'turn-left', 'turn-right'], grown: ['idle', 'cast-spell', 'turn-left', 'turn-right'] };
+  for (const [species, motions] of Object.entries(expansion
+    ? { 'meshtint-dragon': expansionMotions, 'meshtint-mushroom': { ...expansionMotions, middle: ['idle', 'walk-forward-in-place', 'turn-left', 'turn-right'] } }
+    : { chick: BIRD_MOTIONS, 'meshtint-wolf': WOLF_MOTIONS })) {
     for (const potion of ['fire', 'ice']) {
       for (const [stage, names] of Object.entries(motions)) {
         const id = `${species}-${potion}-${stage}`, portraitId = `${id}-portrait`;
@@ -36,11 +40,17 @@ export function elementalReleaseFixture() {
           variants: [{ id: 'icon', label: 'Synthetic icon', file: file(true), bounds: null, rig_adapter_id: null, animations: null }] });
         assets.push(model(id, names.map((motion) => {
           const action = species === 'chick' ? BIRD_ACTIONS[motion] || motion : motion;
-          const idVariant = `source-${motion}`;
+          const idVariant = `source-${species === 'meshtint-dragon' && stage === 'middle' && motion === 'idle' ? 'fly-idle' : motion}`;
           stages.push({ species_slug: species, potion_slug: potion, lifecycle_stage: stage, motion, asset_id: id, variant_id: idVariant,
             action, portrait_asset_id: portraitId, portrait_variant_id: 'icon' });
           return variant(idVariant, action, ['idle', 'idle-02', 'idle-happy'].includes(motion) || /^(jump|walk|run|fly)-/.test(motion), stage === 'grown' ? 1.5 : 0.75);
         })));
+        if (species === 'meshtint-dragon' && stage === 'middle') {
+          assets.at(-1).default_variant = 'source-fly-idle';
+          // Two logical bindings intentionally share the single native take.
+          const idle = stages.find((binding) => binding.asset_id === id && binding.motion === 'idle');
+          stages.splice(stages.indexOf(idle), 0, { ...idle, motion: 'fly-idle' });
+        }
       }
       if (species === 'chick') {
         for (const [from, to] of [['baby', 'middle'], ['middle', 'grown']]) {
@@ -53,17 +63,18 @@ export function elementalReleaseFixture() {
       }
     }
   }
-  for (const id of ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail']) {
+  for (const id of expansion ? ['challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit']
+    : ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail']) {
     assets.push({ id, label: `Synthetic ${id}`, kind: 'image', capabilities: ['image'], default_variant: 'icon',
       variants: [{ id: 'icon', label: 'Synthetic icon', file: file(true), bounds: null, rig_adapter_id: null, animations: null }] });
   }
-  return { schema_version: 1, kind: 'asset-pack', family_id: 'abby-elemental-companions', release_version: '1.0.0', label: 'Synthetic elemental pack',
+  return { schema_version: 1, kind: 'asset-pack', family_id: expansion ? 'abby-elemental-dragon-mushroom' : 'abby-elemental-companions', release_version: '1.0.0', label: 'Synthetic elemental pack',
     files, assets, relationships, appearance_bindings: { schema_version: 1, stages, transitions } };
 }
 
-export function stagedElementalFixture() {
-  return { release: elementalReleaseFixture(), manifestUrl: '/synthetic-elemental/manifest.json',
-    manifestSha256: 'fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048', resolveUrl: (path) => `/synthetic-elemental/${path}` };
+export function stagedElementalFixture(expansion = false) {
+  return { release: elementalReleaseFixture(expansion), manifestUrl: '/synthetic-elemental/manifest.json',
+    manifestSha256: expansion ? 'f'.repeat(64) : 'fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048', resolveUrl: (path) => `/synthetic-elemental/${path}` };
 }
 
 export function syntheticElemental(species = 'chick', potion = 'fire', stage = 'baby') {

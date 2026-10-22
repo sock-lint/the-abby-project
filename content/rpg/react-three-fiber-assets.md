@@ -83,11 +83,14 @@ Saved ownership is independent of model filenames and availability.
 is the positive registry for new offers and acquisition. Its production pet
 allowlist contains retained `chick` / `cute-chick` and the 14 exact namespaced
 identities in `shared/catalog/companion-roster.json`, with Base for all fifteen.
-The approved Fire/Ice release prepares four additional pairs for exact `chick`
-and `meshtint-wolf` identities; the other thirteen families remain Base only.
-The owner accepted their actual app previews. The exact canonical release
-was published and independently verified on October 20, 2026. PR #307 uses
-the normal MAIN rollout gates;
+The two Fire/Ice releases prepare eight additional pairs for exact `chick`,
+`meshtint-wolf`, `meshtint-dragon` and `meshtint-mushroom` identities; the other
+eleven families remain Base only. The Dragon/Mushroom owner acceptance and
+separate publication/activation rollout are recorded in
+[its runbook](../../docs/operations/elemental-dragon-mushroom.md).
+The owner accepted the actual app previews for both batches. Chick/Wolf was
+canonically published and verified on October 20, 2026; Dragon/Mushroom on
+October 21. Application rollout uses the normal MAIN gates;
 see [Fire and Ice companions](../../docs/operations/fire-ice-companions.md).
 Exact egg slug, typed species FK and canonical metadata must agree. Native take
 order does not set gameplay thresholds; explicit server rules select stages.
