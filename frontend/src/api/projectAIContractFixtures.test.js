@@ -8,13 +8,36 @@ import homeworkAssignment from '../../../contracts/api/fixtures/homework-with-pl
 import homeworkClockDenied from '../../../contracts/api/fixtures/homework-plan-clock-denied.json';
 import projectWork from '../../../contracts/api/fixtures/project-work-detail.json';
 import projectList from '../../../contracts/api/fixtures/projects-with-homework-plan.json';
+import projectIdentity from '../../../contracts/api/fixtures/project-earned-identity.json';
+import pulseIdentity from '../../../contracts/api/fixtures/pulse-earned-identity.json';
+import dashboardIdentity from '../../../contracts/api/fixtures/dashboard-earned-identity.json';
 import { server } from '../test/server';
 import {
   applyProjectPlan, clockIn, createProject, draftExistingProjectPlan, draftProjectPlan,
-  getHomeworkDetail, getProject, getProjects,
+  getDashboard, getHomeworkDetail, getProject, getProjects, getPulse,
 } from './index';
 
 describe('reviewable project plans through the shared React API client', () => {
+  it('preserves the same saved maker cosmetics through project, pulse and Today reads', async () => {
+    server.use(
+      http.get('*/api/projects/:projectId/', () => HttpResponse.json(projectIdentity)),
+      http.get('*/api/pulse/', () => HttpResponse.json(pulseIdentity)),
+      http.get('*/api/dashboard/', () => HttpResponse.json(dashboardIdentity)),
+    );
+    const project = await getProject(projectIdentity.id);
+    const pulse = await getPulse();
+    const dashboard = await getDashboard();
+    expect(project.maker_signature).toEqual(pulse.identity);
+    expect(dashboard.rpg.identity).toEqual(pulse.identity);
+    expect(pulse.identity).toMatchObject({
+      id: 702, username: 'project-ai-fixture-child', avatar: 'http://testserver/media/avatars/synthetic-maker.png',
+      active_frame: { slug: 'frame-laurel', metadata: { style: 'laurel', color: '#22c55e' } },
+      active_title: { slug: 'title-master-crafter', metadata: { title_text: 'Master Crafter' } },
+      active_trophy_badge: { name: 'Fixture maker', description: 'Built a thoughtful synthetic project.' },
+    });
+    expect(project.created_by.id).not.toBe(project.maker_signature.id);
+  });
+
   it('drafts a new project from its description and creates it with reviewed plan content', async () => {
     const requests = [];
     server.use(

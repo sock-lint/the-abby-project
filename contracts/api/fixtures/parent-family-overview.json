@@ -94,6 +94,15 @@
     ]
   },
   "rpg": {
+    "identity": {
+      "id": 6,
+      "username": "overview-fixture-parent",
+      "display_name": "overview-fixture-parent",
+      "avatar": null,
+      "active_frame": null,
+      "active_title": null,
+      "active_trophy_badge": null
+    },
     "level": 0,
     "login_streak": 0,
     "longest_login_streak": 0,

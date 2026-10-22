@@ -9,6 +9,7 @@ import { buildUser } from '../test/factories.js';
 import { setToken } from '../api/client.js';
 import { spyHandler } from '../test/spy.js';
 import { AVATAR_DEFAULTS } from '../avatar/preferences';
+import { PulseContext } from '../providers/pulseContext';
 
 vi.mock('../components/avatar/AvatarPreview', () => ({ default: ({ configuration }) => <div role="img" aria-label="Your Archer avatar">{configuration?.accessories?.left_hand}</div> }));
 
@@ -50,8 +51,8 @@ function stubRoutes({
   );
 }
 
-function renderPage() {
-  return renderWithProviders(<Character />);
+function renderPage(refreshIdentity = () => {}) {
+  return renderWithProviders(<PulseContext.Provider value={{ pulse: null, refresh: refreshIdentity }}><Character /></PulseContext.Provider>);
 }
 
 describe('Character (/sigil)', () => {
@@ -188,6 +189,7 @@ describe('Character (/sigil)', () => {
 
   it('equips an owned cosmetic', async () => {
     const user = userEvent.setup();
+    const refreshIdentity = vi.fn();
     const equipSpy = vi.fn(() => HttpResponse.json({ ok: true }));
     stubRoutes({
       profile: {
@@ -205,10 +207,11 @@ describe('Character (/sigil)', () => {
       },
     });
     server.use(http.post('*/api/character/equip/', equipSpy));
-    renderPage();
+    renderPage(refreshIdentity);
     await waitFor(() => expect(screen.getByText(/gold frame/i)).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Gold Frame.*click to equip/i }));
     await waitFor(() => expect(equipSpy).toHaveBeenCalled());
+    await waitFor(() => expect(refreshIdentity).toHaveBeenCalledTimes(1));
   });
 
   it('summarizes the saved color theme and links to the single Settings picker', async () => {
@@ -233,13 +236,14 @@ describe('Character (/sigil)', () => {
   it('shows the account profile picture alongside the separate character controls', async () => {
     stubRoutes({ profile: { display_name: 'Abby' }, user: buildUser({ avatar: '/media/avatars/abby.png' }) });
     renderPage();
-    expect(await screen.findByRole('img', { name: 'Your profile picture' })).toHaveAttribute('src', '/media/avatars/abby.png');
+    expect(await screen.findByAltText('Your profile picture')).toHaveAttribute('src', '/media/avatars/abby.png');
     expect(screen.getByRole('button', { name: 'Change picture' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Your avatar' })).toBeInTheDocument();
   });
 
   it('surfaces an error when equip fails', async () => {
     const user = userEvent.setup();
+    const refreshIdentity = vi.fn();
     stubRoutes({
       profile: {
         display_name: 'Abby', username: 'abby', level: 1,
@@ -262,7 +266,7 @@ describe('Character (/sigil)', () => {
         HttpResponse.json({ error: 'not owned' }, { status: 400 }),
       ),
     );
-    renderPage();
+    renderPage(refreshIdentity);
     // Default chapter is Frames; switch to Titles so the Adept cosmetic
     // becomes visible (and equip-clickable).
     await waitFor(() =>
@@ -272,6 +276,7 @@ describe('Character (/sigil)', () => {
     await waitFor(() => expect(screen.getByText('Adept')).toBeInTheDocument());
     await user.click(screen.getByRole('button', { name: /Adept.*click to equip/i }));
     await waitFor(() => expect(screen.getByText(/not owned/i)).toBeInTheDocument());
+    expect(refreshIdentity).not.toHaveBeenCalled();
   });
 
   it('opens the trophy picker when the hero slot is clicked', async () => {

@@ -18,14 +18,16 @@ describe('SigilFrontispiece', () => {
       profilePicture="/media/avatars/abby.png"
       onOpenTrophyPicker={() => {}}
     />);
-    const picture = screen.getByRole('img', { name: 'Your profile picture' });
+    const portrait = screen.getByRole('img', { name: 'Your profile picture' });
+    const picture = portrait.querySelector('img');
     expect(picture).toHaveAttribute('src', '/media/avatars/abby.png');
-    expect(picture.parentElement).toHaveStyle({ boxShadow: '0 0 0 3px var(--color-ink-page-aged), 0 0 0 4px #866329, 0 0 0 6px var(--color-ink-page-shadow)' });
+    expect(portrait).toHaveAttribute('data-portrait-frame', 'custom');
+    expect(portrait).toHaveStyle({ '--portrait-accent': '#866329' });
   });
 
   it('keeps the initial as the fallback when no picture is saved', () => {
     renderWithProviders(<SigilFrontispiece profile={{ display_name: 'Abby' }} onOpenTrophyPicker={() => {}} />);
-    expect(screen.queryByRole('img', { name: 'Your profile picture' })).toBeNull();
+    expect(screen.getByRole('img', { name: 'Your profile picture' }).querySelector('img')).toBeNull();
     expect(screen.getAllByText('A').length).toBeGreaterThan(0);
   });
 

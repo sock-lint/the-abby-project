@@ -133,9 +133,11 @@ describe('AvatarMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('supports the compact prop (left-align anchor classes)', () => {
+  it('opens the compact profile menu from a portrait-sized trigger', async () => {
     const { container } = renderMenu({ compact: true });
-    expect(container.querySelector('.w-9')).toBeTruthy();
+    expect(container.querySelector('[data-portrait-frame]')).toHaveStyle({ '--portrait-size': '40px' });
+    await userEvent.setup().click(screen.getByRole('button', { name: /profile menu/i }));
+    expect(screen.getByRole('menu')).toHaveClass('left-0');
   });
 
   it('supports align=top anchor classes', async () => {
