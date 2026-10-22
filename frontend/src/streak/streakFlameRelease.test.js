@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import activeLock from '../../assets.lock.json';
+import evaluationLock from '../../assets.evaluation.lock.json';
 import {
   STREAK_FLAME_FAMILY, STREAK_FLAME_PIN, STREAK_FLAME_PAYLOAD, STREAK_FLAME_DIGESTS,
   stagedStreakFlameRelease, resolveStreakFlame,
@@ -30,6 +32,16 @@ function fixture() {
 }
 
 describe('Private streak flame release', () => {
+  it('keeps the exact unpublished candidate in evaluation without activating staged artwork', () => {
+    expect(evaluationLock.schema_version).toBe(1);
+    expect(evaluationLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([STREAK_FLAME_PIN]);
+    expect(activeLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([]);
+    const f = fixture();
+    // Supply a complete synthetic install while leaving the resolver's real
+    // active-lock default in place. An evaluation pin alone must not enable it.
+    expect(stagedStreakFlameRelease(f.available, f.raw(), undefined, f.urls)).toBeNull();
+  });
+
   it('preserves all four complete SVG documents and release identities in isolated image URLs', () => {
     const f = fixture(), staged = f.staged();
     expect(staged).not.toBeNull();
@@ -44,7 +56,7 @@ describe('Private streak flame release', () => {
     }
   });
 
-  it('does not activate an evaluation candidate, absent install or unknown stage', () => {
+  it('rejects absent files and unknown stages without substituting the dormant artwork', () => {
     const f = fixture();
     expect(stagedStreakFlameRelease(f.available, f.raw(), { releases: [] }, f.urls)).toBeNull();
     expect(stagedStreakFlameRelease({}, f.raw(), f.lock, f.urls)).toBeNull();
@@ -52,8 +64,6 @@ describe('Private streak flame release', () => {
     expect(stagedStreakFlameRelease(f.available, f.raw(), f.lock, {})).toBeNull();
     for (const stage of [null, 'unknown', 'constructor', 'blazing', '']) expect(resolveStreakFlame(stage, f.staged())).toBeNull();
     for (const stage of Object.keys(STREAK_FLAME_DIGESTS)) expect(resolveStreakFlame(stage, null)).toBeNull();
-    // The active lock intentionally contains no unpublished flame release.
-    expect(resolveStreakFlame('dormant-ember')).toBeNull();
   });
 
   it('requires one exact active pin and a matching manifest family and version', () => {
