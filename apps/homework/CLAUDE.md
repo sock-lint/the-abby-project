@@ -42,6 +42,13 @@ submission, withdrawal and family/assignee permissions use the existing guards.
 - `/api/homework-templates/` (CRUD + `create-assignment`).
 - `/api/homework/dashboard/`.
 
+`POST /api/homework-templates/{id}/create-assignment/` accepts an
+`assigned_to_id` in the parent's family and an ISO `due_date`. The REST action
+validates and converts the date before saving the assignment, tags or
+notification, then returns the normal assignment response with HTTP 201.
+The original `create_assignment/` URL remains a compatibility alias; both
+routes retain author-only template access and the same child/family checks.
+
 `/api/homework-submissions/?status=reviewed&user_id=<child>` returns normal
 paginated approved/rejected history for a child in the requesting household.
 Children can read only their own history; inaccessible or malformed child IDs

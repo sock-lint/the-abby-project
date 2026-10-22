@@ -41,7 +41,6 @@ import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
-import TodayIdentity from '../components/dashboard/TodayIdentity';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -145,8 +144,6 @@ export default function ChildDashboard({ data, reload }) {
         title="Today"
         kicker={`${weekday} · ${dateStr}`}
       />
-
-      <TodayIdentity identity={rpg?.identity} />
 
       {actionError && (
         // Audit M8: surface fast-action errors. Auto-dismissable so a
