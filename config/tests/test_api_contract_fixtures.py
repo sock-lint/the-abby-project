@@ -157,6 +157,28 @@ class SharedApiResponseFixtureTests(APITestCase):
             self.client.get("/api/clock/"), "clock-idle.json",
         ))
 
+    def test_pulse_header_preserves_the_dashboard_activity_streak(self):
+        from django.utils import timezone
+
+        from apps.rpg.services import StreakService
+
+        today = timezone.localdate(FIXED_NOW)
+        for days_ago in range(3, -1, -1):
+            StreakService.record_activity(
+                self.child, activity_date=today - timedelta(days=days_ago),
+            )
+        CharacterProfile.objects.filter(user=self.sibling).update(login_streak=9)
+        CharacterProfile.objects.filter(user=self.outsider).update(login_streak=12)
+        self.assertFalse(TimeEntry.objects.filter(user=self.child).exists())
+        dashboard = self.client.get("/api/dashboard/")
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(dashboard.json()["rpg"]["login_streak"], 4)
+        response = self.client.get("/api/pulse/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["header"]["streak_days"], 4)
+        body = self.assert_response_fixture(response, "pulse-activity-streak.json")
+        self.assertIsNone(body["header"]["active_timer"])
+
     def seed_companion_care(self):
         """Synthetic ownership and typed food inputs; production services stay real."""
         fox = PetSpecies.objects.create(

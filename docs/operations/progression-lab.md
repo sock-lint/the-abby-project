@@ -228,6 +228,10 @@ movement. Activity skill tags and automatic companion-care choices are
 reported assumptions. Expedition rewards are rolled at launch and claimed
 at the next active visit after their return.
 
+The model counts only the first two creations per day toward matching catalog
+collection challenges. Creations deal no boss damage and cannot unlock a boss
+completion reward.
+
 Daily journal captures include the shared flat 2-Coin writing acknowledgment
 alongside eligible writing XP and the existing game-loop rewards. The model
 uses the live amount and reward order; edits, retries and imported earlier

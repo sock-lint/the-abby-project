@@ -757,7 +757,9 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
         "status": "expired" if quest.is_expired else quest.status,
         "starts_at": quest.start_date.isoformat(), "ends_at": quest.end_date.isoformat(),
         "completed_at": None,
-        "what_counts": _what_counts({"filter": definition.trigger_filter}),
+        # Bosses list only triggers that deal damage, matching qualifying_triggers.
+        "what_counts": _what_counts({"filter": definition.trigger_filter,
+            "metric": "damage" if definition.quest_type == "boss" else "count"}),
         "rewards": {"coins": definition.coin_reward, "xp": definition.xp_reward, "items": items},
         "action": None, "pinned": pin_id == key, "repeat_weekly": False, "legacy": True,
         "rage_shield": quest.rage_shield, "participants": [

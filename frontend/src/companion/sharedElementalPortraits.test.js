@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { resolveElementalCatalogIcon, resolveElementalPortrait } from './sharedElementalPortraits';
+import { stagedElementalFixture } from '../test/elementalReleaseFixture';
 
 const appearances = [
   ['cute-chick', 'chick', 'baby'],
@@ -20,11 +21,27 @@ function fixture() {
   const files = ids.map((_, index) => ({ path: `objects/${index.toString(16).padStart(64, '0')}.png`, media_type: 'image/png' }));
   const assets = ids.map((id, index) => ({ id, kind: 'image', label: id,
     variants: [{ id: 'icon', file: files[index].path, animations: null }] }));
-  return { release: { assets, files, appearance_bindings: { schema_version: 1, stages: bindings } },
+  return { release: { family_id: 'abby-elemental-companions', assets, files, appearance_bindings: { schema_version: 1, stages: bindings } },
     resolveUrl: (path) => `/synthetic/elemental/${path}` };
 }
 
 describe('exact elemental portrait and catalog bindings', () => {
+  it('uses the expansion family for Dragon and Mushroom portraits, keeping original potion images separate', () => {
+    const staged = stagedElementalFixture(true);
+    for (const species of ['meshtint-dragon', 'meshtint-mushroom']) for (const potion of ['fire', 'ice']) {
+      for (const [suffix, stage] of [['', 'baby'], ['-middle', 'middle'], ['-mount', 'grown']]) {
+        const image = resolveElementalPortrait(`${species}${suffix}`, potion, staged);
+        expect(image).toMatchObject({ frames: 1 });
+        expect(resolveElementalCatalogIcon(`${species}-${potion}-${stage}-portrait`, staged)).toEqual(image);
+        expect(resolveElementalPortrait(`${species}${suffix}`, potion, null)).toBeNull();
+        expect(resolveElementalPortrait(`${species}${suffix}`, potion, stagedElementalFixture())).toBeNull();
+      }
+    }
+    expect(resolveElementalCatalogIcon('challenge-ember-grove', staged)).toMatchObject({ frames: 1 });
+    expect(resolveElementalCatalogIcon('challenge-frost-summit', staged)).toMatchObject({ frames: 1 });
+    expect(resolveElementalCatalogIcon('item-fire-potion', staged)).toBeNull();
+    expect(resolveElementalPortrait('cute-chick', 'fire', staged)).toBeNull();
+  });
   it.each(['fire', 'ice'])('resolves all six %s stage portraits from appearance bindings using the declared icon', (potion) => {
     const staged = fixture();
     for (const [key, species, stage] of appearances) {

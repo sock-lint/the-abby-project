@@ -219,6 +219,34 @@
         "middle": "Poison Bomb",
         "grown": "Snow Bomb"
       }
+    },
+    {
+      "species_slug": "meshtint-mushroom",
+      "sprite_key": "meshtint-mushroom",
+      "potion_slugs": [
+        "fire",
+        "ice"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Mushroom",
+        "middle": "Fungi",
+        "grown": "Toadstool"
+      }
+    },
+    {
+      "species_slug": "meshtint-dragon",
+      "sprite_key": "meshtint-dragon",
+      "potion_slugs": [
+        "fire",
+        "ice"
+      ],
+      "names": {
+        "egg": "Egg",
+        "baby": "Dragonling",
+        "middle": "Dragon",
+        "grown": "Elder Dragon"
+      }
     }
   ]
 }

@@ -11,8 +11,10 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.homework.models import HomeworkAssignment
+from apps.achievements.models import Badge, UserBadge
 from apps.projects.models import MaterialItem, Project, ProjectMilestone, ProjectStep
 from apps.timecards.models import TimeEntry
+from apps.rpg.models import CharacterProfile, ItemDefinition, UserInventory
 from config.tests import test_api_contract_fixtures as shared_fixtures
 from config.tests.factories import make_family
 
@@ -112,6 +114,43 @@ class ProjectAIPlanApiResponseFixtureTests(APITestCase):
             [(row.name, row.description, str(row.estimated_cost)) for row in saved_materials],
             [(row["name"], row["description"], row["estimated_cost"]) for row in plan["materials"]],
         )
+
+    def test_saved_earned_identity_is_shared_by_project_pulse_and_today(self):
+        frame = ItemDefinition.objects.create(
+            id=901, slug="frame-laurel", name="Laurel Frame", icon="🌿", item_type="cosmetic_frame",
+            rarity="rare", metadata={"style": "laurel", "color": "#22c55e"},
+        )
+        title = ItemDefinition.objects.create(
+            id=902, slug="title-master-crafter", name="Master Crafter", icon="🔨", item_type="cosmetic_title",
+            rarity="epic", metadata={"title_text": "Master Crafter"},
+        )
+        badge = Badge.objects.create(
+            id=903, name="Fixture maker", description="Built a thoughtful synthetic project.",
+            icon="🔧", criteria_type="first_project", rarity="rare",
+        )
+        UserInventory.objects.bulk_create([
+            UserInventory(user=self.child, item=frame), UserInventory(user=self.child, item=title),
+        ])
+        UserBadge.objects.create(user=self.child, badge=badge)
+        CharacterProfile.objects.filter(user=self.child).update(
+            active_frame=frame, active_title=title, active_trophy_badge=badge,
+        )
+        self.child.avatar = "avatars/synthetic-maker.png"
+        self.child.save(update_fields=["avatar"])
+        self.client.force_authenticate(self.child)
+        saved_profiles = list(CharacterProfile.objects.order_by("pk").values())
+        saved_inventory = list(UserInventory.objects.order_by("pk").values())
+        project = self.assert_response_fixture(
+            self.client.get(f"/api/projects/{self.project.pk}/"), "project-earned-identity.json",
+        )
+        pulse = self.assert_response_fixture(self.client.get("/api/pulse/"), "pulse-earned-identity.json")
+        dashboard = self.assert_response_fixture(self.client.get("/api/dashboard/"), "dashboard-earned-identity.json")
+        self.assertEqual(project["maker_signature"], pulse["identity"])
+        self.assertEqual(dashboard["rpg"]["identity"], pulse["identity"])
+        self.assertEqual(pulse["identity"]["id"], self.child.pk)
+        self.assertEqual(pulse["identity"]["active_frame"]["slug"], "frame-laurel")
+        self.assertEqual(list(CharacterProfile.objects.order_by("pk").values()), saved_profiles)
+        self.assertEqual(list(UserInventory.objects.order_by("pk").values()), saved_inventory)
 
     def test_new_project_plan_is_a_draft_until_reviewed_project_creation(self):
         before = self.state()

@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useMemo, useRef } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import '../three/console';
 import { Group } from 'three';
 import { createPedestalPlayback } from './pedestalPlayback';
 import { pedestalPlaybackIdentity } from './pedestal.constants';

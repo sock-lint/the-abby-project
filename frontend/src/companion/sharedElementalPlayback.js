@@ -82,7 +82,9 @@ export function createSharedElementalPlayback(appearance, {
     get playing() { return Boolean(active && active !== idle); },
     async play(action) {
       if (disposed) return false;
-      const motion = appearance.interactions?.[action] || appearance.motions.find((entry) => entry.id === action || entry.motion === action || entry.action === action);
+      const motion = appearance.interactions?.[action]
+        || appearance.motions.find((entry) => entry.id === action || entry.motion === action)
+        || appearance.motions.find((entry) => entry.action === action);
       if (!motion) return false;
       const { token, signal } = begin();
       try {

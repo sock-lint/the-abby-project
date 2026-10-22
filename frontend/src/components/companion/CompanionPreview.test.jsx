@@ -14,7 +14,8 @@ vi.mock('../../companion/appearance', async () => {
     models: { chick: { file: 'chick.glb', interaction_clips: { play: { file: 'hop.glb', clip: 'Hop' }, left: { file: 'turn.glb', clip: 'Left' }, right: { file: 'turn.glb', clip: 'Right' } } }, bird: { file: 'bird.glb', interaction_clips: { play: { file: 'fly.glb', clip: 'Fly' } } } },
   };
   const urls = { './licensed/chick.glb': '/test-chick.glb', './licensed/bird.glb': '/test-bird.glb', './licensed/hop.glb': '/test-hop.glb', './licensed/fly.glb': '/test-fly.glb', './licensed/turn.glb': '/test-turn.glb' };
-  return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls, undefined, undefined, stagedElementalFixture()) };
+  return { ...actual, resolveAppearance: (creature, kind) => actual.resolveAppearance(creature, kind, manifest, urls, undefined, undefined,
+    stagedElementalFixture(['meshtint-dragon', 'meshtint-mushroom'].includes(creature?.species?.slug))) };
 });
 vi.mock('../../companion/modelLoader', () => ({ resetModels: vi.fn() }));
 vi.mock('../../companion/CompanionScene', () => ({ default: (props) => {
@@ -27,6 +28,14 @@ const pet = { id: 1, species: { name: 'Chick', slug: 'chick', sprite_key: 'cute-
 beforeEach(() => { scene.props = null; scene.crash = false; vi.unstubAllEnvs(); });
 
 describe('Optional companion preview', () => {
+  it('announces the native take label when a Dragon logical control has a different ID', async () => {
+    render(<CompanionPreview variant="primary" creature={syntheticElemental('meshtint-dragon', 'fire', 'middle')} />);
+    await screen.findByTestId('optional-scene');
+    act(() => scene.props.onReady());
+    act(() => scene.props.onPlaybackState({ status: 'playing', motion: 'fly-idle', variantId: 'source-fly-idle', stage: 'middle' }));
+    expect(screen.getByRole('status', { name: 'Companion playback' })).toHaveTextContent('Playing Synthetic source-fly-idle.');
+  });
+
   it.each([['fire', 'baby', 'middle'], ['ice', 'middle', 'grown'], ['fire', 'baby', 'grown']])('queues exact %s Chick %s → %s transitions from saved lifecycle stages', async (potion, from, to) => {
     const start = syntheticElemental('chick', potion, from);
     const fetchSpy = vi.spyOn(globalThis, 'fetch');

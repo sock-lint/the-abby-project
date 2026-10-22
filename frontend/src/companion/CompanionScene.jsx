@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber';
+import '../three/console';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Group } from 'three';
 import { createCreaturePlayback } from './creaturePlayback';

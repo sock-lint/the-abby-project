@@ -46,11 +46,13 @@ replacement Coins. Ordinary XP/coin payouts and progress remain unchanged.
 System discovery bundles containing an egg and a Fire/Ice potion are indivisible
 new offers: `availability.definition_is_available` requires approved exact-pair
 art and authored compatibility before automatic enrollment, catalog reads or
-legacy starts. The art policy enables Ember Nest, Frost
-Nest, Ember Trail and Frost Trail for exact Chick/Wolf Fire/Ice pairs. The
+legacy starts. The art policy enables Ember/Frost Nest, Trail, Grove and Summit for exact
+Chick/Wolf/Mushroom/Dragon Fire/Ice pairs. The
 pinned canonical release is verified; application rollout uses ordinary MAIN
-merge/deployment gates. Each is one-time, 180 days, zero authored Coins/XP, with
-targets 5 (Chick) or 20 (Wolf Pup); approved chores/homework, completed projects
+merge/deployment gates. Dragon/Mushroom publication/readback remains a separate
+rollout prerequisite. Each is one-time with zero authored Coins/XP: Nest targets
+5 actions, Trail 20 and Grove 10 within 180 days; Summit 50 within 365 days.
+Approved chores/homework, completed projects
 or milestones, eligible creations and earned daily reading receipts count.
 Saved elemental promises survive retirement. Bundle egg salvage checks every
 promised grown potion variant, Base included: owning a grown Base pet never
@@ -419,7 +421,7 @@ Celery names are retained: `expire_quests_task` (00:10 local) and `apply_boss_ra
 - **Historical daily challenges**: `DailyChallenge` retains its unique `(user, date)` row, five challenge types, target/progress and original reward promise. The old clock-hour rule floors each session separately, and the legacy `claim_reward` marker zeros both reward fields after paying once. New daily bonuses use accumulated minutes instead. A paid new bonus bridges subsequent legacy get/claim calls to an already-paid row, preventing a second payout. The bounded settlement task pays genuinely completed old bonuses once, preserving their original amount and zeroing the legacy marker; schema migrations and reads never settle them. Legacy services and serializer shapes remain compatibility surfaces, while the new UI reads automatic bonus receipts from the challenge list.
 
 ## Tunables (constants in `apps/quests/services.py`)
-- `TRIGGER_DAMAGE` — per-`TriggerType` boss damage table; clock_out multiplied by hours. QUEST_COMPLETE and PERFECT_DAY are intentionally absent (they're rewards, not damage sources).
+- `TRIGGER_DAMAGE` — per-`TriggerType` boss damage table; clock_out multiplied by hours. Only explicitly listed positive values count as legacy boss activity. Creations are intentionally absent (no boss damage), as are QUEST_COMPLETE and PERFECT_DAY (they're rewards, not damage sources). An excluded trigger leaves boss progress, participant activity timestamps and completion rewards untouched; matching collection quests still count one step.
 - `RAGE_SHIELD_CLIMB_STEP = 15`, `RAGE_SHIELD_DECAY_STEP = 25`, `RAGE_SHIELD_CAP = 100` — asymmetric boss-quest rage tuning. Idle days climb +15 (saturates in ~7 idle days); active days decay -25. Decay outpaces climb on purpose so a child returning from a multi-day absence claws back faster than they fell behind — preserves the gentle-nudge doctrine. `RAGE_SHIELD_STEP` is kept as a back-compat alias pointing at the climb step.
 
 ## Key entry points

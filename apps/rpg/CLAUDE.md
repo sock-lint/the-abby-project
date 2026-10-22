@@ -7,11 +7,11 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Chick and exact namespaced Wolf
-accept Base, Fire and Ice; the other thirteen prepared families accept Base
-only. Fire/Ice potions remain excluded from random pools and their four
-one-time challenges guarantee exact egg/potion bundles. The exact canonical
-asset release is verified; application rollout uses ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and exact namespaced Wolf, Dragon and Mushroom accept Base, Fire and Ice;
+the other eleven prepared families accept Base only (23 exact pairs). Fire/Ice
+potions remain excluded from random pools. Eight one-time challenges guarantee
+exact egg/potion bundles. The Dragon/Mushroom artwork is owner-accepted; its
+rollout requires canonical publication/readback and ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
 The shipped roster contains fifteen families. The owner's unused-content
@@ -295,8 +295,8 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus Chick.
-The Fire/Ice policy adds only exact Chick/Wolf elemental pairs;
-the other thirteen families remain Base only. The content loader rejects
+The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom elemental pairs;
+the other eleven families remain Base only. The content loader rejects
 existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward

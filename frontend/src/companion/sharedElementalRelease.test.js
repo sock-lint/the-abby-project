@@ -6,10 +6,61 @@ import { elementalMotions, ELEMENTAL_FAMILY, ELEMENTAL_MANIFEST_SHA256, elementa
 import { stagedElementalFixture, syntheticElemental } from '../test/elementalReleaseFixture';
 import { stagedBirdFixture, syntheticBird } from '../test/birdReleaseFixture';
 import { rosterFixture, rosterPet } from '../test/rosterReleaseFixture';
+import expansion from '../../../shared/catalog/elemental-expansion.json';
 
 const combinations = ['chick', 'meshtint-wolf'].flatMap((species) => ['fire', 'ice'].flatMap((potion) => ['baby', 'middle', 'grown'].map((stage) => [species, potion, stage])));
 
 describe('Exact elemental appearance bindings', () => {
+  it.each(['fire', 'ice'])('gives Dragon middle %s logical idle aliases distinct controls without inventing native variants', (potion) => {
+    const staged = stagedElementalFixture(true);
+    expect(validateAssetPackManifest(staged.release)).toBe(staged.release);
+    const appearance = resolveElementalAppearance(syntheticElemental('meshtint-dragon', potion, 'middle'), 'pet', staged);
+    const idle = appearance.motions.find((entry) => entry.motion === 'idle');
+    const flying = appearance.motions.find((entry) => entry.motion === 'fly-idle');
+    expect(idle.id).toBe('idle');
+    expect(flying.id).toBe('fly-idle');
+    expect(new Set(appearance.motions.map((entry) => entry.id)).size).toBe(appearance.motions.length);
+    expect(idle.variantId).toBe('source-fly-idle');
+    expect(flying.variantId).toBe(idle.variantId);
+    expect(flying.url).toBe(idle.url);
+    expect(flying.clip).toBe(idle.clip);
+    expect(staged.release.assets.find((entry) => entry.id === appearance.assetId).variants.some((variant) => variant.id === 'source-idle')).toBe(false);
+  });
+
+  it('resolves Dragon and Mushroom exact stage bindings only from their own staged release', () => {
+    const staged = stagedElementalFixture(true);
+    expect(validateAssetPackManifest(staged.release)).toBe(staged.release);
+    for (const species of ['meshtint-dragon', 'meshtint-mushroom']) {
+      for (const potion of ['fire', 'ice']) for (const stage of ['baby', 'middle', 'grown']) {
+        const creature = syntheticElemental(species, potion, stage);
+        const appearance = resolveElementalAppearance(creature, 'pet', staged);
+        expect(appearance.selection.family_id).toBe('abby-elemental-dragon-mushroom');
+        expect(appearance.key).toBe(`${species}-${potion}-${stage}`);
+        expect(appearance.defaultVariantId).toBe(species === 'meshtint-dragon' && stage === 'middle' ? 'source-fly-idle' : 'source-idle');
+        expect(appearance.defaultAction).toBe('idle');
+        const egg = { item_type: 'egg', slug: `${species}-egg`, pet_species_slug: species, metadata: { species } };
+        expect(resolveElementalPreviewAppearance(egg, stage, { slug: potion }, staged).key).toBe(appearance.key);
+        expect(resolveElementalAppearance(creature, 'pet', null)).toBeNull();
+        expect(resolveElementalAppearance(creature, 'pet', stagedElementalFixture())).toBeNull();
+      }
+    }
+    expect(resolveElementalAppearance(syntheticElemental(), 'pet', staged)).toBeNull();
+  });
+
+  it('accepts only the adopted expansion digest with its complete immutable directory', () => {
+    const { release } = stagedElementalFixture(true), sha = expansion.release.manifest_sha256;
+    expect(sha).toMatch(/^[a-f0-9]{64}$/);
+    const pin = { family_id: release.family_id, release_version: '1.0.0', manifest_sha256: sha,
+      directory: `${release.family_id}/1.0.0/${sha}` };
+    const prefix = `../avatar/shared/${pin.directory}/`;
+    const manifests = { [`${prefix}manifest.json`]: release };
+    const urls = Object.fromEntries(release.files.map(({ path }) => [`${prefix}${path}`, `/synthetic/${path}`]));
+    const indexes = { [`${prefix}manifest.json`]: '/synthetic/manifest.json' };
+    expect(stagedElementalRelease(manifests, urls, { releases: [pin] }, indexes, release.family_id).release).toBe(release);
+    expect(stagedElementalRelease(manifests, urls, { releases: [{ ...pin, manifest_sha256: 'a'.repeat(64) }] }, indexes, release.family_id)).toBeNull();
+    expect(stagedElementalRelease(manifests, urls, { releases: [{ ...pin, directory: `${release.family_id}/1.0.0/${'a'.repeat(64)}` }] }, indexes, release.family_id)).toBeNull();
+  });
+
   it('keeps every native motion binding distinct from the selected potion across all twelve appearances', () => {
     const staged = stagedElementalFixture();
     expect(validateAssetPackManifest(staged.release)).toBe(staged.release);
@@ -22,7 +73,7 @@ describe('Exact elemental appearance bindings', () => {
       for (const motion of appearance.motions) {
         const resolved = resolveCompanionAppearance(staged.release, { ...appearance.selection, motion: motion.motion });
         expect(motion.variantId).toBe(resolved.variant.id);
-        expect(motion.id).toBe(`source-${motion.motion}`);
+        expect(motion.id).toBe(motion.motion);
         expect(motion.action).toBe(resolved.action);
         expect(motion.clip).toBe(resolved.variant.animations.actions[resolved.action]);
         expect(motion.url).toBe(staged.resolveUrl(resolved.variant.file));
@@ -107,12 +158,12 @@ describe('Exact elemental appearance bindings', () => {
     expect(stagedElementalRelease(available, urls, { releases: [pin] }, indexes)).toBeNull();
   });
 
-  it('fails closed for missing exact bindings or missing model URLs without a Base substitution', () => {
-    const staged = stagedElementalFixture();
-    staged.release.appearance_bindings.stages = staged.release.appearance_bindings.stages.filter((entry) => !(entry.species_slug === 'chick' && entry.potion_slug === 'fire' && entry.lifecycle_stage === 'baby'));
-    expect(resolveElementalAppearance(syntheticElemental(), 'pet', staged)).toBeNull();
-    const absent = { ...stagedElementalFixture(), resolveUrl: () => null };
-    expect(resolveElementalAppearance(syntheticElemental(), 'pet', absent)).toBeNull();
+  it.each([['chick', false], ['meshtint-dragon', true], ['meshtint-mushroom', true]])('fails closed for %s missing exact bindings or model URLs without a Base substitution', (species, expansion) => {
+    const staged = stagedElementalFixture(expansion);
+    staged.release.appearance_bindings.stages = staged.release.appearance_bindings.stages.filter((entry) => !(entry.species_slug === species && entry.potion_slug === 'fire' && entry.lifecycle_stage === 'baby'));
+    expect(resolveElementalAppearance(syntheticElemental(species), 'pet', staged)).toBeNull();
+    const absent = { ...stagedElementalFixture(expansion), resolveUrl: () => null };
+    expect(resolveElementalAppearance(syntheticElemental(species), 'pet', absent)).toBeNull();
     expect(elementalMotions(staged.release, { family_id: ELEMENTAL_FAMILY, species_slug: 'unknown', potion_slug: 'fire', lifecycle_stage: 'baby' }, () => '/test')).toEqual([]);
   });
 });

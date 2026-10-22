@@ -9,6 +9,7 @@ import Button from '../../components/Button';
 import ErrorAlert from '../../components/ErrorAlert';
 import IlluminatedVersal from '../../components/atlas/IlluminatedVersal';
 import ArtworkImage from '../../components/rpg/ArtworkImage';
+import IdentitySignature from '../../components/identity/IdentitySignature';
 import { tierForProgress } from '../../components/atlas/mastery.constants';
 import { formatDate } from '../../utils/format';
 
@@ -132,6 +133,10 @@ export default function ProjectHeader({
                 : project.status === 'completed' && <p>Completion date unavailable</p>}
               {project.status === 'in_review' && <p>Awaiting completion approval</p>}
             </div>}
+            {!isHomeworkPlan && project.maker_signature && <section aria-label="Project maker" className="mt-4">
+              <IdentitySignature identity={project.maker_signature}
+                prefix={project.status === 'completed' || (project.status === 'archived' && project.completed_at) ? 'Made by' : 'Project by'} portraitSize="sm" />
+            </section>}
           </div>
         </div>
         {!isHomeworkPlan && <div className="flex gap-2 flex-wrap">
