@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "family_id": "abby-elemental-dragon-mushroom",
+  "release_version": "1.0.0",
+  "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+  "challenges": {
+    "Ember Grove": {
+      "asset_id": "challenge-ember-grove",
+      "variant_id": "icon",
+      "sha256": "f6cfa9be0752e4449d9c594ca8d4f31e3e89e97e3158df245888de61b6afc76b",
+      "quest_type": "collection"
+    },
+    "Frost Grove": {
+      "asset_id": "challenge-frost-grove",
+      "variant_id": "icon",
+      "sha256": "1ca0495edd7a152fb71f9cbaa3f56438e45e9033d8e8b79a5a7fcf4cbcb99277",
+      "quest_type": "collection"
+    },
+    "Ember Summit": {
+      "asset_id": "challenge-ember-summit",
+      "variant_id": "icon",
+      "sha256": "734956266d29dbf6e4b09d31ed0d4db054ca983960422c1c2a4d40c2da703139",
+      "quest_type": "collection"
+    },
+    "Frost Summit": {
+      "asset_id": "challenge-frost-summit",
+      "variant_id": "icon",
+      "sha256": "82f976c4f3bdb1b665dfd08568eb9aea6b6ed32b1d3cfef9ed296887c7dfbb5f",
+      "quest_type": "collection"
+    }
+  }
+}

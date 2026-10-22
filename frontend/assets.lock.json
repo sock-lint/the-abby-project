@@ -19,6 +19,12 @@
       "release_version": "1.0.0"
     },
     {
+      "directory": "abby-portrait-frame-kit/1.1.0/9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
+      "family_id": "abby-portrait-frame-kit",
+      "manifest_sha256": "9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
+      "release_version": "1.1.0"
+    },
+    {
       "directory": "meshtint-pedestal-card-ui/1.0.1/abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
       "family_id": "meshtint-pedestal-card-ui",
       "manifest_sha256": "abc05d8f7919fc30e19e3c77f2f7f470463666c184c2bdcab70e3778c15f378d",
@@ -55,10 +61,10 @@
       "release_version": "1.0.0"
     },
     {
-      "directory": "abby-portrait-frame-kit/1.1.0/9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
-      "family_id": "abby-portrait-frame-kit",
-      "manifest_sha256": "9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91",
-      "release_version": "1.1.0"
+      "directory": "abby-elemental-dragon-mushroom/1.0.0/bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+      "family_id": "abby-elemental-dragon-mushroom",
+      "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

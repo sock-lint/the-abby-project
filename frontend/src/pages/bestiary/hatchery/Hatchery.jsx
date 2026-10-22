@@ -26,6 +26,7 @@ import usePetMutationGuard from '../party/usePetMutationGuard';
 import IncubationCard from './IncubationCard';
 import useIncubationRefresh from './useIncubationRefresh';
 import { formatExpeditionRemaining } from '../party/party.constants';
+import elementalExpansion from '../../../../../shared/catalog/elemental-expansion.json';
 
 export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const {
@@ -84,7 +85,14 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
     const species = (catalogData?.species || []).find((entry) => entry.slug === item?.pet_species_slug);
     if (!(species?.available_potions || []).some((potion) => potion.slug === selectedPotion?.slug && isCatalogAvailable(potion))) setHatchPotion('');
   };
-  const elementalOffers = ['chick', 'meshtint-wolf'].includes(selectedCatalogSpecies?.slug)
+  const expansionFamily = elementalExpansion.families.find((family) => family.species_slug === selectedCatalogSpecies?.slug
+    && family.sprite_key === selectedEggSpecies?.sprite_key);
+  const elementalChallengeHint = selectedCatalogSpecies?.slug === 'chick'
+    ? 'Ember Nest and Frost Nest each reward a Chick egg and their matching potion after 5 qualifying accomplishments.'
+    : selectedCatalogSpecies?.slug === 'meshtint-wolf'
+      ? 'Ember Trail and Frost Trail each reward a Wolf egg and their matching potion after 20 qualifying accomplishments.'
+      : expansionFamily ? `${expansionFamily.challenges.map(({ name }) => name).join(' and ')} each reward a ${selectedEggSpecies.name} egg and their matching potion after ${expansionFamily.challenges[0].target_count} qualifying accomplishments.` : null;
+  const elementalOffers = !!elementalChallengeHint
     && ['fire', 'ice'].every((slug) => compatibleVariants.some((potion) => potion.slug === slug));
 
   // A failed satchel fetch used to render "No eggs or potions in your Satchel
@@ -272,9 +280,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
           <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" />
           {elementalOffers && <div className="rounded-xl border border-ink-page-shadow bg-ink-page-aged p-3 space-y-1">
             <h4 className="text-body font-semibold text-ink-primary">Earn Fire and Ice appearances</h4>
-            <p className="text-caption text-ink-secondary">{selectedCatalogSpecies.slug === 'chick'
-              ? 'Ember Nest and Frost Nest each reward a Chick egg and their matching potion after 5 qualifying accomplishments.'
-              : 'Ember Trail and Frost Trail each reward a Wolf egg and their matching potion after 20 qualifying accomplishments.'} Progress comes from saved accomplishments, with no daily streak required.</p>
+            <p className="text-caption text-ink-secondary">{elementalChallengeHint} Progress comes from saved accomplishments, with no daily streak required.</p>
             <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep" to="/quests?tab=trials">View challenge rewards</Link>
           </div>}
         </section>}

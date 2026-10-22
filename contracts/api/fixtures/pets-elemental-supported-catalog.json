@@ -77,6 +77,96 @@
       ]
     },
     {
+      "id": 65,
+      "slug": "meshtint-dragon",
+      "name": "Dragon",
+      "icon": "S",
+      "sprite_key": "meshtint-dragon",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": null,
+      "grown_catalog_icon": null,
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 64,
+      "slug": "meshtint-mushroom",
+      "name": "Mushroom",
+      "icon": "S",
+      "sprite_key": "meshtint-mushroom",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common"
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon"
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "mushroom-baby-portrait",
+      "grown_catalog_icon": "mushroom-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
       "id": 62,
       "slug": "meshtint-wolf",
       "name": "Wolf",
@@ -155,9 +245,9 @@
     }
   ],
   "totals": {
-    "species": 3,
+    "species": 5,
     "discovered_species": 0,
-    "mounts_possible": 7,
+    "mounts_possible": 13,
     "mounts_owned": 0
   }
 }

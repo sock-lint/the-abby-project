@@ -6,7 +6,7 @@ import RpgSprite from '../src/components/rpg/RpgSprite';
 import CatalogIcon from '../src/components/rpg/CatalogIcon';
 import { petSpriteKeys } from '../src/components/rpg/petSpriteKeys';
 import { resolveAppearance } from '../src/companion/appearance';
-import { stagedElementalRelease } from '../src/companion/sharedElementalRelease';
+import { elementalFamilyId, stagedElementalRelease } from '../src/companion/sharedElementalRelease';
 import { companionFormName } from '../src/companion/lifecycle';
 import Button from '../src/components/Button';
 import { SelectField } from '../src/components/form';
@@ -15,11 +15,15 @@ import '../src/index.css';
 const families = [
   { slug: 'chick', sprite_key: 'cute-chick', name: 'Chick', egg: 'chick-egg' },
   { slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf', name: 'Wolf', egg: 'meshtint-wolf-egg' },
+  { slug: 'meshtint-dragon', sprite_key: 'meshtint-dragon', name: 'Dragon', egg: 'meshtint-dragon-egg' },
+  { slug: 'meshtint-mushroom', sprite_key: 'meshtint-mushroom', name: 'Mushroom', egg: 'meshtint-mushroom-egg' },
 ];
 const stages = ['baby', 'middle', 'grown'];
-const potionFor = (slug) => ({ id: slug === 'fire' ? 902 : 903, slug, name: slug === 'fire' ? 'Fire' : 'Ice', rarity: 'rare' });
+const potionFor = (slug) => ({ id: slug === 'base' ? 901 : slug === 'fire' ? 902 : 903, slug,
+  name: slug === 'base' ? 'Base' : slug === 'fire' ? 'Fire' : 'Ice', rarity: slug === 'base' ? 'common' : 'rare' });
 const storageKey = 'abby_synthetic_elemental_fixture';
-const uiImages = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail'];
+const uiImages = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
+  'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit'];
 function loadFixture() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
@@ -53,6 +57,15 @@ function Portraits() {
   </section>;
 }
 
+function Coexistence({ family, stage }) {
+  return <section className="space-y-3" aria-label="Base, Fire and Ice coexistence">
+    <h2 className="text-lede font-bold">Independent appearances in the same page</h2>
+    {['base', 'fire', 'ice'].map((potion) => <div key={potion} data-testid={`coexist-${potion}`}>
+      <CompanionPreview variant="primary" creature={creature(family, potion, stage)} />
+    </div>)}
+  </section>;
+}
+
 export default function Fixture() {
   const [saved, setSaved] = useState(loadFixture), [mode, setMode] = useState('live');
   const [visible, setVisible] = useState(true), [unknown, setUnknown] = useState(false), [version, setVersion] = useState(0);
@@ -61,7 +74,7 @@ export default function Fixture() {
     ...(unknown ? { species: { slug: 'unsupported-elemental', sprite_key: 'unavailable-elemental', name: 'Saved companion', icon: '🐾' } } : {}) };
   const item = { id: 904, slug: family.egg, name: `${family.name} Egg`, item_type: 'egg',
     pet_species_slug: family.slug, pet_species_name: family.name, metadata: { species: family.slug }, catalog_available: true };
-  const staged = stagedElementalRelease(), appearance = resolveAppearance(pet);
+  const staged = stagedElementalRelease(undefined, undefined, undefined, undefined, elementalFamilyId(family.slug)), appearance = resolveAppearance(pet);
   useEffect(() => localStorage.setItem(storageKey, JSON.stringify(saved)), [saved]);
   return <main className="max-w-3xl mx-auto p-4 space-y-4">
     <h1 className="text-lede font-bold">Private elemental companion acceptance</h1>
@@ -74,6 +87,7 @@ export default function Fixture() {
     </SelectField>
     <SelectField label="Fixture surface" value={mode} onChange={(event) => { setMode(event.target.value); setUnknown(false); }}>
       <option value="live">Owned companion</option><option value="hatchery">Hatchery preview</option><option value="portraits">Portraits and catalog</option>
+      <option value="coexistence">Base, Fire and Ice together</option>
     </SelectField>
     <div className="flex flex-wrap gap-2">
       {stages.map((stage) => <Button key={stage} onClick={() => { setSaved({ ...saved, stage }); setUnknown(false); }}>Set {stage}</Button>)}
@@ -83,12 +97,14 @@ export default function Fixture() {
     </div>
     <output aria-label="Fixture diagnostics" data-elemental-installed={!!staged} data-selected-species={saved.species}
       data-selected-potion={saved.potion} data-selected-stage={saved.stage} data-appearance-id={appearance?.assetId}
+      data-egg-item-slug={item.slug} data-release-family={staged?.release.family_id}
       data-populated-woodland={!!appearance?.woodland}>
       {saved.species} · {saved.potion} · {saved.stage} · {staged ? 'Exact private release installed' : 'Private release unavailable'}
       {' · '}{appearance?.woodland ? 'Populated Woodland installed' : 'Populated Woodland unavailable'}
     </output>
     {visible && (mode === 'portraits' ? <Portraits /> : mode === 'hatchery'
       ? <FamilyStagePreview key={`${family.slug}:${potion.slug}`} item={item} potion={potion} />
+      : mode === 'coexistence' ? <Coexistence family={family} stage={saved.stage} />
       : <CompanionPreview variant="primary" creature={pet}><Button>Existing care control</Button></CompanionPreview>)}
   </main>;
 }

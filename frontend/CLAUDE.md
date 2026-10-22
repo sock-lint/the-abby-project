@@ -445,18 +445,35 @@ assets to exercise the actual current renderer; absent payloads explicitly skip.
 
 
 Fire/Ice Chick and Wolf presentation uses the separately pinned
-`abby-elemental-companions` candidate and `sharedElementalRelease` /
+`abby-elemental-companions` canonical release and `sharedElementalRelease` /
 `sharedElementalPlayback`, shared by Live and Hatchery previews. Exact
 `appearance_bindings` v1 keeps potion identity separate from native `source-*`
 take IDs. Each take owns its rig/materials/mixer; four Chick transition payloads
 preload the confirmed destination, while reduced motion skips directly to it.
 `sharedElementalPortraits` selects the declared `icon` variant at every size;
 missing art never substitutes Base or a CSS recolor. Only exact elemental
-Chick/Wolf identities receive those model/portrait bindings. The application
-registry enables only these four elemental pairs. The pinned canonical release
+Chick/Wolf identities receive those model/portrait bindings. The application registry also enables the four exact owner-accepted
+Dragon/Mushroom elemental pairs through their separate pinned release. The pinned canonical release
 is verified; application rollout uses the ordinary MAIN deployment gates.
 Read [Fire and Ice companions](../docs/operations/fire-ice-companions.md) for
 verification, remaining acceptance and rollback. With private art installed,
 `ABBY_ELEMENTAL_FULL_MOTIONS=1 npx playwright test e2e/elemental.pw.js` exercises
-all 178 native takes plus Live/Hatchery stages and Bird transitions. Public CI
+all four families: 358 logical stage bindings / 356 native takes, plus
+Live/Hatchery stages and the four Bird transition payloads. Public CI
 without private art explicitly skips those browser acceptance scopes.
+
+Dragon/Mushroom rollout uses the separately pinned
+`abby-elemental-dragon-mushroom` 1.0.0 descriptor in
+`shared/catalog/elemental-expansion.json` and the verified manifest
+`bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05`.
+The owner accepted all twelve actual app previews. This branch prepares their
+positive-policy activation. Canonical index/manifest/payload readback and the
+fresh standard import pass; keep the PR draft until fresh current-base validation
+and independent review finish. The elemental adapters
+select an exact family by species/sprite,
+retain native motion identities (including Dragon Middle's `source-fly-idle`),
+use unique logical motion IDs for aliased menu choices,
+and preserve labelled unavailable presentation when its exact art is absent.
+Hatchery hints require server-confirmed compatible variants. The private art
+and physical-phone acceptance work is recorded separately in
+[the preparation runbook](../docs/operations/elemental-dragon-mushroom.md).
