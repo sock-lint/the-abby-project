@@ -143,6 +143,18 @@ only future duplicate enrollment/repeat windows stop. Use the shared query helpe
 for new offers and equivalent definition identities for legacy completion guards.
 The reconciliation migration never replays activity or pays rewards.
 
+Runtime maintenance uses `reconciliation.py` and dedicated native/MCP
+preview/get/publish receipts, with explicit source/canonical IDs. It retains
+creator provenance and accepted history; a sole alias catalog goal can change
+only its definition FK to continue its existing repeat cadence. Conflicting
+rules/rewards and unsupported ownership, alias or dependency states fail
+closed. A one-time cooperative difference needs explicit publication
+acknowledgment; repeating personal-to-cooperative conversions are refused.
+The reconciliation admission mutex precedes sorted family/member locks, then
+catalog/definition admission; never acquire another account lock after the
+catalog fence. New acceptance rechecks its definition under a shared row lock
+after taxonomy admission. See the [maintenance workflow](../../docs/operations/automatic-challenges.md#review-unresolved-duplicate-pairs).
+
 `QuestDefinition.is_cooperative` marks catalog offers that require parent
 assignment to at least two same-family children. They use the existing shared
 `Quest`/`QuestParticipant` engine, never new individual automatic enrollment or
