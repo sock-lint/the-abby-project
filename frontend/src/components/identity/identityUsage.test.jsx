@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { http, HttpResponse } from 'msw';
 import AvatarMenu from '../AvatarMenu';
 import ChildDashboard from '../../pages/ChildDashboard';
 import ProjectHeader from '../../pages/project/ProjectHeader';
-import TodayIdentity from '../dashboard/TodayIdentity';
-import { AuthProvider } from '../../hooks/useApi';
+import { AuthProvider, useAuth } from '../../hooks/useApi';
 import { PulseContext } from '../../providers/pulseContext';
 import { server } from '../../test/server';
 import { buildProject, buildUser } from '../../test/factories';
@@ -20,8 +19,15 @@ const appearance = {
 
 function navigation(identity = appearance) {
   return render(<MemoryRouter><PulseContext.Provider value={{ pulse: { identity } }}>
-    <AvatarMenu user={buildUser({ display_name: 'Abby' })} compact />
+    <AvatarMenu user={buildUser({ display_name: 'Abby' })} />
   </PulseContext.Provider></MemoryRouter>);
+}
+
+function AuthenticatedToday() {
+  const { user } = useAuth();
+  return user ? <ChildDashboard data={{
+    rpg: { identity: appearance }, next_actions: [], active_projects: [],
+  }} reload={() => {}} /> : null;
 }
 
 describe('Earned identity in everyday use', () => {
@@ -40,16 +46,14 @@ describe('Earned identity in everyday use', () => {
     expect(container.querySelector('[data-portrait-frame="steampunk"]')).toBeNull();
   });
 
-  it('shows the current child’s earned look on Today without changing task actions', async () => {
+  it('leads Today with task guidance without repeating the saved look card', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ display_name: 'Abby' }))));
-    render(<MemoryRouter><AuthProvider><ChildDashboard data={{
-      rpg: { identity: appearance }, next_actions: [], active_projects: [],
-    }} reload={() => {}} /></AuthProvider></MemoryRouter>);
-    const look = await screen.findByRole('region', { name: 'Your look' });
-    await waitFor(() => expect(within(look).getByText('Master Crafter')).toBeInTheDocument());
-    expect(within(look).getByText('First Project')).toBeInTheDocument();
-    expect(within(look).getByRole('link')).toHaveAttribute('href', '/sigil');
-    expect(screen.getByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+    render(<MemoryRouter><AuthProvider><AuthenticatedToday /></AuthProvider></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'No urgent tasks right now' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your look' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Master Crafter')).not.toBeInTheDocument();
+    expect(screen.queryByText('First Project')).not.toBeInTheDocument();
   });
 
   it('signs a completed project with its maker’s identity, including in the parent view', () => {
@@ -71,15 +75,15 @@ describe('Earned identity in everyday use', () => {
     expect(screen.queryByRole('region', { name: 'Project maker' })).not.toBeInTheDocument();
   });
 
-  it('uses the latest confirmed selections on Today rather than an older dashboard look', async () => {
+  it('does not restore the saved look card when Today receives confirmed identity updates', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ display_name: 'Abby' }))));
-    render(<MemoryRouter><AuthProvider><PulseContext.Provider value={{ pulse: { identity: {
-      ...appearance, active_frame: null, active_title: null, active_trophy_badge: null,
-    } } }}><TodayIdentity identity={appearance} /></PulseContext.Provider></AuthProvider></MemoryRouter>);
-    const look = await screen.findByRole('region', { name: 'Your look' });
-    expect(within(look).getByText('Abby')).toBeInTheDocument();
-    expect(within(look).queryByText('Master Crafter')).not.toBeInTheDocument();
-    expect(within(look).queryByText('First Project')).not.toBeInTheDocument();
+    render(<MemoryRouter><AuthProvider><PulseContext.Provider value={{ pulse: { identity: appearance } }}>
+      <AuthenticatedToday />
+    </PulseContext.Provider></AuthProvider></MemoryRouter>);
+    expect(await screen.findByRole('heading', { name: 'Today', level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your look' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Master Crafter')).not.toBeInTheDocument();
+    expect(screen.queryByText('First Project')).not.toBeInTheDocument();
   });
 
   it('does not label unfinished work as made', () => {

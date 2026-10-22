@@ -84,18 +84,18 @@ export default function JournalShell() {
             ~47px on the sensor-housing side. */}
         <div data-journal-sticky-header="true" className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
-            className="flex items-center gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
+            className="flex items-center gap-2 lg:gap-3 pt-3 lg:pt-4 pb-3 lg:pb-4
                        pl-[max(1rem,env(safe-area-inset-left))]
                        pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
           >
-            {/* min-w-0 + a width cap (NOT shrink-0) so AvatarMenu's own
-                truncate can fire — a long display name plus the family line
-                used to squeeze the status pips, and the coin count, off the
-                right edge at 360px. */}
-            <div className="lg:hidden min-w-0 max-w-[34vw]">
+            {/* The title column is at least as wide as its longest word, so
+                titles wrap only between words; the status shortcuts keep their
+                own scroll rail and give up room first. The cap keeps the bell
+                and one shortcut beside the profile for any authored title. */}
+            <div className="lg:hidden flex-1 max-w-[calc(100%-6.5rem)]">
               <AvatarMenu user={user} compact />
             </div>
-            <div className="flex-1 min-w-0 flex justify-end lg:justify-center">
+            <div className="min-w-0 max-w-[45%] lg:max-w-none lg:flex-1 flex justify-end lg:justify-center">
               <HeaderStatusPips user={user} />
             </div>
             <div className="shrink-0 rounded-2xl bg-ink-page-aged/80">
