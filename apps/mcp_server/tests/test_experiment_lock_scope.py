@@ -250,7 +250,9 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
         self.assertIn("automatic_sources", result)
 
     def test_authority_revoked_during_observation_read_returns_no_aggregate(self):
-        patcher, entered, release, _ = _paused(OBSERVATION_READ)
+        # Pause after the aggregate's own authority check has passed, so only the
+        # final recheck can keep the private aggregate from being returned.
+        patcher, entered, release, _ = _paused(OBSERVATION_READ, after=True)
         with patcher, ThreadPoolExecutor(max_workers=1) as executor:
             future = self.submit(executor, "get_progression_observations", {}, scopes=("mcp:read",))
             try:
