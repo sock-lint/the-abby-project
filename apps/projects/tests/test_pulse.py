@@ -7,15 +7,23 @@ to run every 30 seconds forever, and it never leaks another household's rows.
 """
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone as datetime_timezone
+from unittest.mock import patch
+
 from django.db import connection
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
+from django.utils import timezone
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
 from apps.notifications.models import Notification
-from apps.projects.models import SavingsGoal
+from apps.projects.models import Project, SavingsGoal
 from apps.projects.pulse import build_pulse
+from apps.rpg.models import CharacterProfile
+from apps.rpg.services import StreakService
+from apps.timecards.models import TimeEntry
 from config.tests.factories import make_family
 
 # The pulse runs on a 30s loop for every signed-in family member, so a
@@ -148,3 +156,94 @@ class PulseViewTests(TestCase):
         titles = [n["title"] for n in response.data["notifications"]]
         self.assertNotIn("Not yours", titles)
         self.assertEqual(response.data["unread_count"], 0)
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class PulseActivityStreakTests(TestCase):
+    def setUp(self):
+        self.clock = patch(
+            "django.utils.timezone.now",
+            return_value=datetime(2026, 10, 21, 19, tzinfo=datetime_timezone.utc),
+        )
+        self.clock.start()
+        self.addCleanup(self.clock.stop)
+        self.today = timezone.localdate()
+        household = make_family(
+            "Activity Streak House",
+            parents=[{"username": "activity-parent"}],
+            children=[{"username": "activity-child"}],
+        )
+        self.parent = household.parents[0]
+        self.child = household.children[0]
+        self.client = APIClient()
+        token = Token.objects.create(user=self.child)
+        self.client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+
+    def record_four_activity_days(self, *, ending_days_ago=0):
+        for days_ago in range(ending_days_ago + 3, ending_days_ago - 1, -1):
+            StreakService.record_activity(
+                self.child, activity_date=self.today - timedelta(days=days_ago),
+            )
+
+    def create_two_work_days(self):
+        project = Project.objects.create(
+            title="Work timer history", created_by=self.parent, assigned_to=self.child,
+            status="in_progress",
+        )
+        for days_ago in range(2):
+            clock_out = timezone.now() - timedelta(days=days_ago)
+            TimeEntry.objects.create(
+                user=self.child, project=project,
+                clock_in=clock_out - timedelta(minutes=10), clock_out=clock_out,
+                status="completed",
+            )
+
+    def assert_streak_matches_dashboard(self, expected):
+        dashboard = self.client.get(reverse("dashboard"))
+        pulse = self.client.get(reverse("pulse"))
+        self.assertEqual(dashboard.status_code, 200)
+        self.assertEqual(pulse.status_code, 200)
+        self.assertEqual(dashboard.data["rpg"]["login_streak"], expected)
+        self.assertEqual(pulse.data["header"]["streak_days"], expected)
+        return dashboard.data
+
+    def test_header_matches_four_day_activity_streak_without_work_timers(self):
+        self.record_four_activity_days()
+        self.assertFalse(TimeEntry.objects.filter(user=self.child).exists())
+        self.assert_streak_matches_dashboard(4)
+
+    def test_header_uses_activity_streak_when_work_timer_streak_disagrees(self):
+        self.record_four_activity_days()
+        self.create_two_work_days()
+        dashboard = self.assert_streak_matches_dashboard(4)
+        # The separate work-time report retains its existing meaning.
+        self.assertEqual(dashboard["streak_days"], 2)
+
+    def test_zero_activity_streak_is_not_replaced_with_work_timer_history(self):
+        self.create_two_work_days()
+        self.assert_streak_matches_dashboard(0)
+
+    def test_header_reflects_a_reset_activity_streak(self):
+        self.record_four_activity_days(ending_days_ago=3)
+        self.create_two_work_days()
+        result = StreakService.record_activity(self.child, activity_date=self.today)
+        self.assertTrue(result["streak_broken"])
+        self.assert_streak_matches_dashboard(1)
+
+    def test_header_does_not_use_another_family_members_activity_streak(self):
+        self.record_four_activity_days()
+        other = make_family(
+            "Other Activity House", children=[{"username": "other-activity-child"}],
+        ).children[0]
+        CharacterProfile.objects.filter(user=self.parent).update(login_streak=8)
+        CharacterProfile.objects.filter(user=other).update(login_streak=12)
+        response = self.client.get(reverse("pulse"), {"user_id": other.pk})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["header"]["streak_days"], 4)
+
+    def test_missing_profile_returns_zero_without_creating_streak_state(self):
+        CharacterProfile.objects.filter(user=self.child).delete()
+        response = self.client.get(reverse("pulse"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["header"]["streak_days"], 0)
+        self.assertFalse(CharacterProfile.objects.filter(user=self.child).exists())

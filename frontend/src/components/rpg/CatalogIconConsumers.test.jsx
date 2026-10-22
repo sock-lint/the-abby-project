@@ -129,10 +129,21 @@ describe('Catalog image consumer bindings', () => {
 
   it('keeps cosmetic ownership and equip handling with the catalog preview', async () => {
     const onEquip = vi.fn();
-    const { user } = renderWithProviders(<CosmeticSigil entry={{ item, owned: true, equipped: false }} slot="active_frame" onEquip={onEquip} />);
-    expectIcons(item.catalog_icon);
+    const title = { id: 80, name: 'Master Crafter', item_type: 'cosmetic_title', rarity: 'rare', catalog_icon: 'title-master-crafter' };
+    const { user } = renderWithProviders(<CosmeticSigil entry={{ item: title, owned: true, equipped: false }} slot="active_title" onEquip={onEquip} />);
+    expectIcons(title.catalog_icon);
     await user.click(screen.getByRole('button'));
-    expect(onEquip).toHaveBeenCalledWith(item.id);
+    expect(onEquip).toHaveBeenCalledWith(title.id);
+  });
+
+  it('previews the worn frame and retains its owned equip action', async () => {
+    const frame = { id: 81, slug: 'frame-laurel', name: 'Laurel Wreath Frame', item_type: 'cosmetic_frame', rarity: 'legendary' };
+    const onEquip = vi.fn();
+    const { user, container } = renderWithProviders(<CosmeticSigil entry={{ item: frame, owned: true, equipped: false }}
+      slot="active_frame" previewName="Abby" onEquip={onEquip} />);
+    expect(container.querySelector('[data-portrait-frame="laurel"]')).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: /Laurel Wreath Frame.*click to equip/ }));
+    expect(onEquip).toHaveBeenCalledWith(frame.id);
   });
 
   it('keeps earlier cosmetic removal alongside its catalog image', async () => {

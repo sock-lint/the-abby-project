@@ -30,6 +30,7 @@ import { preparedAvatarDefinition } from '../avatar/configuration';
 import SavedCosmetics from './character/SavedCosmetics';
 import ProfilePictureEditor from './character/ProfilePictureEditor';
 import { isCatalogAvailable } from '../utils/catalogAvailability';
+import { usePulse } from '../providers/pulseContext';
 import {
   COSMETIC_CHAPTERS,
   mergeSlotCosmetics,
@@ -44,6 +45,7 @@ const ACTIVE_CHAPTER_KEY = 'atlas:sigil-frontispiece:active-chapter';
  */
 export default function Character() {
   const { user } = useAuth();
+  const { refresh: refreshIdentity } = usePulse();
   const {
     data: profile, loading: loadingProfile, error: profileError,
     reload: reloadProfile, setData: setProfileData,
@@ -183,6 +185,7 @@ export default function Character() {
         key: Date.now(),
       });
       refresh();
+      refreshIdentity();
     } catch (e) {
       // Rollback to whatever was equipped (or null) before the click.
       setProfileData({ ...profile, [slot]: previous });
@@ -199,6 +202,7 @@ export default function Character() {
       await unequipCosmetic(slot);
       setEquipToast({ msg: 'Cosmetic unequipped', key: Date.now() });
       refresh();
+      refreshIdentity();
     } catch (e) {
       setProfileData({ ...profile, [slot]: previous });
       setError(e.message);
@@ -211,6 +215,7 @@ export default function Character() {
     try {
       await setTrophyBadge(badgeId);
       reloadProfile();
+      refreshIdentity();
       setPickerOpen(false);
     } catch (e) { setError(e.message); }
     finally { setWorking(null); }
@@ -297,6 +302,8 @@ export default function Character() {
       <CosmeticChapter
         key={activeChapter.slot}
         chapter={activeChapter}
+        previewName={user?.display_name || user?.username}
+        previewAvatar={user?.avatar}
         owned={(cosmetics?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
         catalog={(catalog?.[activeChapter.slot] || []).filter(isCatalogAvailable)}
         activeId={profile[activeChapter.slot]?.id || null}

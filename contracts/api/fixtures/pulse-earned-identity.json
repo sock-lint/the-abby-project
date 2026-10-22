@@ -1,0 +1,62 @@
+{
+  "parent_attention": null,
+  "unread_count": 0,
+  "notifications": [],
+  "recent_drops": [],
+  "active_quest": null,
+  "challenge_receipts": [],
+  "companion_growth": {
+    "events": []
+  },
+  "identity": {
+    "id": 702,
+    "username": "project-ai-fixture-child",
+    "display_name": "project-ai-fixture-child",
+    "avatar": "http://testserver/media/avatars/synthetic-maker.png",
+    "active_frame": {
+      "id": 901,
+      "catalog_icon": null,
+      "name": "Laurel Frame",
+      "icon": "🌿",
+      "sprite_key": "",
+      "rarity": "rare",
+      "metadata": {
+        "style": "laurel",
+        "color": "#22c55e"
+      },
+      "slug": "frame-laurel"
+    },
+    "active_title": {
+      "id": 902,
+      "catalog_icon": "item-title-master-crafter",
+      "name": "Master Crafter",
+      "icon": "🔨",
+      "sprite_key": "",
+      "rarity": "epic",
+      "metadata": {
+        "title_text": "Master Crafter"
+      },
+      "slug": "title-master-crafter"
+    },
+    "active_trophy_badge": {
+      "id": 903,
+      "name": "Fixture maker",
+      "icon": "🔧",
+      "catalog_icon": null,
+      "rarity": "rare",
+      "description": "Built a thoughtful synthetic project."
+    }
+  },
+  "expeditions_ready": [],
+  "savings_goals": [],
+  "newly_unlocked_lorebook": [
+    "ventures",
+    "badges",
+    "cosmetics"
+  ],
+  "header": {
+    "active_timer": null,
+    "coin_balance": 0,
+    "streak_days": 0
+  }
+}

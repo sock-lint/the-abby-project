@@ -3,7 +3,7 @@ import Button from '../Button';
 import CatalogIcon from '../rpg/CatalogIcon';
 import RpgSprite from '../rpg/RpgSprite';
 import CompanionMotionControls from './CompanionMotionControls';
-import { COMPANION_STAGES, eggSpecies } from '../../companion/lifecycle';
+import { COMPANION_STAGES, companionFormName, eggSpecies } from '../../companion/lifecycle';
 import { rosterEggFamily, resolveRosterPreviewAppearance } from '../../companion/sharedRosterRelease';
 import { resolveSharedBirdPreviewAppearance } from '../../companion/sharedBirdRelease';
 import { resolveElementalPreviewAppearance } from '../../companion/sharedElementalRelease';
@@ -24,7 +24,8 @@ export default function FamilyStagePreview({ item, potion }) {
   const [stage, setStage] = useState('egg');
   if (!family && !retained) return <div className="flex h-48 items-center justify-center"><RpgSprite icon="🥚" size={96} alt={item?.name || 'Egg'} /></div>;
   const element = potion?.slug && potion.slug !== 'base' ? potion.name || potion.slug : null;
-  const form = family?.stages[stage]?.name || { baby: 'Chick', middle: 'Fledgling', grown: 'Bird' }[stage];
+  const form = companionFormName(eggSpecies(item), potion || { slug: 'base' }, stage)
+    || family?.stages[stage]?.name || { baby: 'Chick', middle: 'Fledgling', grown: 'Bird' }[stage];
   const name = stage === 'egg' ? item.name || 'Egg' : `${element ? `${element} ` : ''}${form}`;
   return <section className="space-y-3" aria-label="Family artwork preview">
     <div className="flex flex-wrap gap-2" role="group" aria-label="Preview growth stage">

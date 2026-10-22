@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import activityStreakPulse from '../../../../contracts/api/fixtures/pulse-activity-streak.json';
 import HeaderStatusPips from './HeaderStatusPips';
+import VitalPipStrip from '../dashboard/VitalPipStrip';
 import { server } from '../../test/server';
 import { buildUser, buildParent } from '../../test/factories';
+import { renderWithProviders } from '../../test/render';
 
 const emptyDash = {
   active_timer: null,
@@ -32,6 +35,45 @@ describe('HeaderStatusPips', () => {
     ]);
     await waitFor(() => expect(screen.getByLabelText(/3-day streak/i)).toBeInTheDocument());
     expect(screen.getByLabelText(/12 coins/i)).toBeInTheDocument();
+  });
+
+  it('keeps the header and Today tile on the same activity streak after a heartbeat', async () => {
+    const dashboard = {
+      ...emptyDash,
+      // The child has an activity streak without a work-timer streak.
+      streak_days: 0,
+      rpg: { ...emptyDash.rpg, login_streak: 4 },
+    };
+    server.use(http.get('*/api/dashboard/', () => HttpResponse.json(dashboard)));
+    const { beat } = renderWithProviders(
+      <>
+        <HeaderStatusPips user={buildUser()} />
+        <VitalPipStrip loginStreak={dashboard.rpg.login_streak} />
+      </>,
+      { withAuth: false },
+    );
+    await waitFor(() => expect(screen.getAllByRole('button', { name: '4-day streak' })).toHaveLength(2));
+
+    // This raw response is also produced by the authenticated Django endpoint.
+    beat(activityStreakPulse);
+    const header = within(screen.getByRole('group', { name: 'Status shortcuts' }));
+    expect(header.getByRole('button', { name: '4-day streak' })).toHaveTextContent('4');
+    expect(screen.getAllByRole('button', { name: '4-day streak' })).toHaveLength(2);
+    expect(header.getByRole('button', { name: `${activityStreakPulse.header.coin_balance} coins` })).toBeInTheDocument();
+  });
+
+  it('refreshes the activity streak and accepts a real zero instead of the dashboard fallback', async () => {
+    const dashboard = { ...emptyDash, rpg: { ...emptyDash.rpg, login_streak: 4 } };
+    server.use(http.get('*/api/dashboard/', () => HttpResponse.json(dashboard)));
+    const { beat } = renderWithProviders(<HeaderStatusPips user={buildUser()} />, { withAuth: false });
+    await screen.findByRole('button', { name: '4-day streak' });
+
+    beat({ ...activityStreakPulse, header: { ...activityStreakPulse.header, streak_days: 5 } });
+    expect(screen.getByRole('button', { name: '5-day streak' })).toHaveTextContent('5');
+
+    beat({ ...activityStreakPulse, header: { ...activityStreakPulse.header, streak_days: 0 } });
+    expect(screen.getByRole('button', { name: '0-day streak' })).toHaveTextContent('0');
+    expect(screen.queryByRole('button', { name: '4-day streak' })).not.toBeInTheDocument();
   });
 
   it('shows approvals and week-earnings pips for a parent', async () => {

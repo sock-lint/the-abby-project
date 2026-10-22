@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import apiNotFound from '../../../contracts/api/fixtures/api-not-found.json';
 import idleClock from '../../../contracts/api/fixtures/clock-idle.json';
 import activeClock from '../../../contracts/api/fixtures/clock-active.json';
+import activityStreakPulse from '../../../contracts/api/fixtures/pulse-activity-streak.json';
 import loginResponse from '../../../contracts/api/fixtures/auth-login-child.json';
 import meResponse from '../../../contracts/api/fixtures/auth-me-child.json';
 import firstPage from '../../../contracts/api/fixtures/habits-page-1.json';
@@ -92,13 +93,21 @@ import { normalizeList } from '../utils/api';
 import { api, getToken, setToken } from './client';
 import {
   activateMount, activatePet, claimExpedition, closeTimecard, feedPet, getGreenlightOverview, getHabits, getInventory, getTimecard,
-  getClockStatus, getMe, getNotifications, getStable, getIncubation, startIncubation, hatchIncubation, listExpeditions, logHabitTap, login,
+  getClockStatus, getMe, getNotifications, getPulse, getStable, getIncubation, startIncubation, hatchIncubation, listExpeditions, logHabitTap, login,
   previewGreenlightCsv, reconcileGreenlightCsv, recordGreenlightPayout, saveGreenlightSnapshot, startExpedition,
 } from './index';
 
 // These are the raw response files checked against Django views and loaded
 // directly by Unity. Do not replace them with a second client-specific factory.
 describe('shared Django response fixtures through the React API client', () => {
+  it('preserves the activity streak in the header heartbeat without requiring work-timer activity', async () => {
+    server.use(http.get('*/api/pulse/', () => HttpResponse.json(activityStreakPulse)));
+
+    const pulse = await getPulse();
+    expect(pulse).toEqual(activityStreakPulse);
+    expect(pulse.header).toMatchObject({ active_timer: null, streak_days: 4 });
+  });
+
   it('keeps a missing endpoint as a JSON 404 without retrying the read', async () => {
     let requests = 0;
     server.use(http.get('*/api/missing-endpoint/', () => {

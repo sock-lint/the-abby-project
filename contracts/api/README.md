@@ -1,5 +1,12 @@
 # Shared API response fixtures
 
+`pulse-activity-streak.json` is a real authenticated heartbeat response for a
+child with a four-day RPG activity streak and no completed work timers. Its
+`header.streak_days` uses the saved `CharacterProfile.login_streak`, matching
+the Today streak tile; it does not use the separate work-time streak. The
+existing shared Django fixture producer and React consumer verify this response,
+including the header refresh. Reading the heartbeat awards no streak progress.
+
 `challenges-untimed.json` is a real authenticated challenge response for an
 untimed one-time Reading Companion. Its saved `ends_at` is null and it remains
 active after ninety elapsed days. Null means no deadline; absent timing in
@@ -1179,6 +1186,19 @@ sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`.
 Previously saved loot and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
 
+`project-earned-identity.json`, `pulse-earned-identity.json` and
+`dashboard-earned-identity.json` expose the same saved cosmetic identity through
+project detail's read-only `maker_signature`, the current account's pulse
+`identity`, and dashboard `rpg.identity`. The project maker is its assignee;
+unassigned projects and missing saved characters return null. The existing
+project access rules and an additional same-family check protect attribution.
+Identity contains only the user ID, username, display label, photo URL, equipped
+frame/title and selected trophy badge. Compact cosmetics add their catalog slug
+for deterministic presentation while retaining existing metadata and approved
+image IDs. The identity projection does not equip items or grant rewards. The producer is
+`config.tests.test_project_ai_api_contract_fixtures`; the React transport
+consumer is `frontend/src/api/projectAIContractFixtures.test.js`.
+
 Google sign-in/linking uses `google-auth-config.json` (public configuration),
 `google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
 (proof-verified login with the existing shared DRF token and UserSerializer),
@@ -1208,11 +1228,11 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes the four exact system
+`catalog-icons-elemental-challenges.json` exposes all eight exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
-`pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick
-and Wolf while a deliberately broadly authored Bat remains Base only. The producer is
+`pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
+Wolf, Dragon and Mushroom while a deliberately broadly authored Bat remains Base only. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
 API responses, award nothing and do not establish publication or deployment.

@@ -297,6 +297,7 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
     materials = MaterialItemSerializer(many=True, read_only=True)
     steps = ProjectStepSerializer(many=True, read_only=True)
     resources = serializers.SerializerMethodField()
+    maker_signature = serializers.SerializerMethodField()
 
     assigned_to_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), source="assigned_to",
@@ -340,7 +341,7 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
         fields = [
             "id", "title", "description", "cover_photo", "instructables_url",
             "difficulty", "category", "category_id", "status",
-            "assigned_to", "assigned_to_id", "created_by",
+            "assigned_to", "assigned_to_id", "created_by", "maker_signature",
             "bonus_amount", "payment_kind", "hourly_rate_override", "materials_budget",
             "due_date", "started_at", "completed_at", "xp_reward",
             "parent_notes", "created_at", "updated_at",
@@ -349,6 +350,15 @@ class ProjectDetailSerializer(HomeworkPlanFieldsMixin, serializers.ModelSerializ
             "is_homework_plan", "homework_assignment_id",
         ]
         read_only_fields = ["created_by", "started_at", "completed_at", "xp_reward"]
+
+    def get_maker_signature(self, obj):
+        from apps.rpg.identity import earned_identity
+
+        maker = obj.assigned_to
+        request = self.context.get("request")
+        if maker is None or request is None or maker.family_id != request.user.family_id:
+            return None
+        return earned_identity(maker, getattr(maker, "character_profile", None), request=request)
 
     def get_resources(self, obj):
         """Return only project-level resources (step is null).

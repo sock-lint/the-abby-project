@@ -26,12 +26,13 @@ NOTIFICATION_SLICE = 20
 looks at the newest handful, and the bell renders at most 20."""
 
 
-def build_pulse(user) -> dict[str, Any]:
+def build_pulse(user, *, request=None) -> dict[str, Any]:
     """Return every background signal the shell polls for, in one payload."""
     from apps.notifications.serializers import NotificationSerializer
     from apps.pets.expeditions import ExpeditionService
     from apps.pets.serializers import MountExpeditionSerializer
     from apps.rpg.models import CharacterProfile
+    from apps.rpg.identity import IDENTITY_RELATED_FIELDS, earned_identity
     from apps.projects.models import SavingsGoal
     from apps.projects.savings_service import SavingsGoalService
     from apps.projects.serializers import SavingsGoalSerializer
@@ -40,7 +41,7 @@ def build_pulse(user) -> dict[str, Any]:
     from apps.rewards.services import CoinService
     from apps.rpg.models import DropLog
     from apps.rpg.serializers import DropLogSerializer
-    from apps.timecards.services import ClockService, TimeEntryService
+    from apps.timecards.services import ClockService
 
     is_child = user.role == "child"
 
@@ -68,6 +69,8 @@ def build_pulse(user) -> dict[str, Any]:
 
     from .parent_attention import parent_attention
 
+    profile = CharacterProfile.objects.select_related(*IDENTITY_RELATED_FIELDS).filter(user=user).first()
+
     return {
         "parent_attention": parent_attention(user),
         "unread_count": unread_count,
@@ -75,22 +78,22 @@ def build_pulse(user) -> dict[str, Any]:
         "recent_drops": DropLogSerializer(drops, many=True).data,
         "active_quest": QuestSerializer(active_quest).data if active_quest else None,
         "challenge_receipts": receipts,
-        "companion_growth": {"events": _companion_growth(CharacterProfile, user)},
+        "companion_growth": {"events": _companion_growth(profile)},
+        "identity": earned_identity(user, profile, request=request),
         "expeditions_ready": MountExpeditionSerializer(expeditions_ready, many=True).data,
         "savings_goals": SavingsGoalSerializer(savings_goals, many=True).data,
         "newly_unlocked_lorebook": _newly_unlocked(user) if is_child else [],
         # Cheap header-pip refresh. The pips used to read the full dashboard
         # once at shell mount and then go stale for the whole session — a kid
         # could finish three chores and watch the coin count sit still.
-        "header": _header(user, ClockService, CoinService, TimeEntryService),
+        "header": _header(user, ClockService, CoinService, CharacterProfile),
     }
 
 
-def _companion_growth(character_profile_model, user) -> list[dict[str, Any]]:
+def _companion_growth(profile) -> list[dict[str, Any]]:
     """The queue CompanionGrowthRecentView serves — passive growth ticks the
     user hasn't seen yet. Read-only here; the toast hook still POSTs to
     ``/pets/companion-growth/seen/`` once it has rendered them."""
-    profile = character_profile_model.objects.filter(user=user).first()
     return list(profile.pending_companion_growth or []) if profile else []
 
 
@@ -100,7 +103,7 @@ def _newly_unlocked(user) -> list[str]:
     return newly_unlocked_entries(user)
 
 
-def _header(user, clock_service, coin_service, time_entry_service) -> dict[str, Any]:
+def _header(user, clock_service, coin_service, character_profile_model) -> dict[str, Any]:
     """The handful of numbers the sticky header shows, without the dashboard."""
     from django.utils import timezone
 
@@ -118,5 +121,9 @@ def _header(user, clock_service, coin_service, time_entry_service) -> dict[str, 
     return {
         "active_timer": active_timer,
         "coin_balance": coin_service.get_balance(user),
-        "streak_days": time_entry_service.current_streak(user),
+        # Match the Today tile's RPG activity streak, including non-timer
+        # activity. The separate work-time streak is not a header status.
+        "streak_days": character_profile_model.objects.filter(user=user).values_list(
+            "login_streak", flat=True,
+        ).first() or 0,
     }

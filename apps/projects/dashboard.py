@@ -17,7 +17,7 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 
-def build_dashboard(user) -> dict[str, Any]:
+def build_dashboard(user, *, request=None) -> dict[str, Any]:
     """Top-level dispatcher — assembles the per-role payload.
 
     Returns the dict the view sends back as JSON. Field ordering is
@@ -33,7 +33,7 @@ def build_dashboard(user) -> dict[str, Any]:
         payload["since_last_visit"] = _since_last_visit(user, last_seen)
     elif user.role == "parent":
         payload.update(_parent_extras(user, today))
-    payload["rpg"] = _rpg_block(user, today)
+    payload["rpg"] = _rpg_block(user, today, request=request)
     payload["next_actions"] = _next_actions(user)
     _stamp_last_seen(user)
     return payload
@@ -282,11 +282,12 @@ def _stamp_last_seen(user) -> None:
 # RPG block — character profile + per-day habit summary (shared by both roles)
 # ---------------------------------------------------------------------------
 
-def _rpg_block(user, today) -> dict[str, Any]:
+def _rpg_block(user, today, *, request=None) -> dict[str, Any]:
     from apps.habits.models import Habit, HabitLog
     from apps.rpg.models import CharacterProfile
+    from apps.rpg.identity import IDENTITY_RELATED_FIELDS, earned_identity
 
-    rpg_profile, _ = CharacterProfile.objects.get_or_create(user=user)
+    rpg_profile, _ = CharacterProfile.objects.select_related(*IDENTITY_RELATED_FIELDS).get_or_create(user=user)
     habits = list(
         Habit.objects.filter(user=user, is_active=True),
     )
@@ -309,6 +310,7 @@ def _rpg_block(user, today) -> dict[str, Any]:
         tap_counts = {row["habit_id"]: row["count"] for row in rows}
 
     return {
+        "identity": earned_identity(user, rpg_profile, request=request),
         "level": rpg_profile.level,
         "login_streak": rpg_profile.login_streak,
         "longest_login_streak": rpg_profile.longest_login_streak,

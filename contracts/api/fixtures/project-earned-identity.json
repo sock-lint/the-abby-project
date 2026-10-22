@@ -1,0 +1,149 @@
+{
+  "id": 401,
+  "title": "Build a bird feeder",
+  "description": "Make a simple feeder together.",
+  "cover_photo": null,
+  "instructables_url": null,
+  "difficulty": 2,
+  "category": null,
+  "status": "draft",
+  "assigned_to": {
+    "id": 702,
+    "username": "project-ai-fixture-child",
+    "display_name": "",
+    "role": "child",
+    "hourly_rate": "8.00",
+    "avatar": "http://testserver/media/avatars/synthetic-maker.png",
+    "theme": "summer",
+    "lorebook_flags": {},
+    "google_linked": false,
+    "date_of_birth": null,
+    "grade_entry_year": null,
+    "age_years": null,
+    "current_grade": null,
+    "school_year_label": null,
+    "family": {
+      "id": 71,
+      "name": "Project AI Fixture Family",
+      "slug": "project-ai-fixture-family",
+      "timezone": "America/Phoenix",
+      "default_theme": "hyrule"
+    }
+  },
+  "created_by": {
+    "id": 701,
+    "username": "project-ai-fixture-parent",
+    "display_name": "",
+    "role": "parent",
+    "hourly_rate": "8.00",
+    "avatar": null,
+    "theme": "summer",
+    "lorebook_flags": {},
+    "google_linked": false,
+    "date_of_birth": null,
+    "grade_entry_year": null,
+    "age_years": null,
+    "current_grade": null,
+    "school_year_label": null,
+    "family": {
+      "id": 71,
+      "name": "Project AI Fixture Family",
+      "slug": "project-ai-fixture-family",
+      "timezone": "America/Phoenix",
+      "default_theme": "hyrule"
+    }
+  },
+  "maker_signature": {
+    "id": 702,
+    "username": "project-ai-fixture-child",
+    "display_name": "project-ai-fixture-child",
+    "avatar": "http://testserver/media/avatars/synthetic-maker.png",
+    "active_frame": {
+      "id": 901,
+      "catalog_icon": null,
+      "name": "Laurel Frame",
+      "icon": "🌿",
+      "sprite_key": "",
+      "rarity": "rare",
+      "metadata": {
+        "style": "laurel",
+        "color": "#22c55e"
+      },
+      "slug": "frame-laurel"
+    },
+    "active_title": {
+      "id": 902,
+      "catalog_icon": "item-title-master-crafter",
+      "name": "Master Crafter",
+      "icon": "🔨",
+      "sprite_key": "",
+      "rarity": "epic",
+      "metadata": {
+        "title_text": "Master Crafter"
+      },
+      "slug": "title-master-crafter"
+    },
+    "active_trophy_badge": {
+      "id": 903,
+      "name": "Fixture maker",
+      "icon": "🔧",
+      "catalog_icon": null,
+      "rarity": "rare",
+      "description": "Built a thoughtful synthetic project."
+    }
+  },
+  "bonus_amount": "0.00",
+  "payment_kind": "required",
+  "hourly_rate_override": null,
+  "materials_budget": "0.00",
+  "due_date": null,
+  "started_at": null,
+  "completed_at": null,
+  "xp_reward": 100,
+  "parent_notes": "Private fixture note excluded from the AI prompt.",
+  "created_at": "2026-10-10T12:00:00-07:00",
+  "updated_at": "2026-10-10T12:00:00-07:00",
+  "milestones": [
+    {
+      "id": 501,
+      "project": 401,
+      "title": "Choose a design",
+      "description": "",
+      "order": 0,
+      "is_completed": false,
+      "completed_at": null,
+      "bonus_amount": null
+    }
+  ],
+  "materials": [
+    {
+      "id": 701,
+      "project": 401,
+      "name": "Ruler",
+      "description": "",
+      "estimated_cost": "2.50",
+      "actual_cost": null,
+      "is_purchased": false,
+      "purchased_at": null,
+      "receipt_photo": null,
+      "reimbursed": false,
+      "is_ready": false
+    }
+  ],
+  "steps": [
+    {
+      "id": 601,
+      "project": 401,
+      "milestone": 501,
+      "title": "Sketch the shape",
+      "description": "Keep the existing sketch.",
+      "order": 0,
+      "is_completed": false,
+      "completed_at": null,
+      "resources": []
+    }
+  ],
+  "resources": [],
+  "is_homework_plan": false,
+  "homework_assignment_id": null
+}

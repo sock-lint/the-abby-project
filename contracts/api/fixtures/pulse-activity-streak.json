@@ -1,0 +1,30 @@
+{
+  "parent_attention": null,
+  "unread_count": 0,
+  "notifications": [],
+  "recent_drops": [],
+  "active_quest": null,
+  "challenge_receipts": [],
+  "companion_growth": {
+    "events": []
+  },
+  "identity": {
+    "id": 7,
+    "username": "fixture-child",
+    "display_name": "Fixture Child",
+    "avatar": null,
+    "active_frame": null,
+    "active_title": null,
+    "active_trophy_badge": null
+  },
+  "expeditions_ready": [],
+  "savings_goals": [],
+  "newly_unlocked_lorebook": [
+    "streaks"
+  ],
+  "header": {
+    "active_timer": null,
+    "coin_balance": 0,
+    "streak_days": 4
+  }
+}

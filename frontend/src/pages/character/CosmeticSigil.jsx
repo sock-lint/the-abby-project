@@ -5,6 +5,7 @@ import { RARITY_TEXT_COLORS } from '../../constants/colors';
 import { RARITY_HALO } from '../../components/atlas/mastery.constants';
 import { applyTheme } from '../../themes';
 import { cosmeticLockHint } from './character.constants';
+import ProfilePortrait from '../../components/identity/ProfilePortrait';
 
 /**
  * CosmeticSigil — a single cosmetic tile inside a CosmeticChapter.
@@ -32,6 +33,8 @@ export default function CosmeticSigil({
   entry,
   slot,
   currentThemeName,
+  previewName = 'A',
+  previewAvatar,
   onEquip,
   onUnequip,
   busy = false,
@@ -102,13 +105,13 @@ export default function CosmeticSigil({
         }`}
       >
         <div className={owned ? '' : 'grayscale opacity-45'}>
-          <CatalogIcon
+          {slot === 'active_frame' ? <ProfilePortrait name={previewName} avatar={previewAvatar} frame={item} size="md" /> : <CatalogIcon
             assetId={item.catalog_icon}
             spriteKey={item.sprite_key}
             icon={item.icon}
             size={32}
             alt={item.name}
-          />
+          />}
         </div>
       </div>
 
