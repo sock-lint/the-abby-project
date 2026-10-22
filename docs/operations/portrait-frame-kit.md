@@ -1,9 +1,9 @@
 # Portrait frame kit integration
 
-The application adds private family `abby-portrait-frame-kit` **1.1.0** as the
-tenth release in `frontend/assets.lock.json`. Its exact manifest SHA-256 is
+The application adds private family `abby-portrait-frame-kit` **1.1.0** to
+`frontend/assets.lock.json`. Its exact manifest SHA-256 is
 `9c2e4e3c67edc2fa639bd8d92ff27d5929c356b220ccd4868dd2a3550c25bb91`.
-The previous nine family pins remain intact. This family supplies portrait
+The existing family pins remain intact. This family supplies portrait
 overlays for existing equipped cosmetics; it creates no inventory, ownership,
 reward, title, badge, or avatar-selection entitlement.
 
@@ -54,8 +54,11 @@ ABBY_ASSETS_S3_PREFIX=releases npm --prefix frontend run assets:import
 npm --prefix frontend run assets:verify
 ```
 
-The integration's standard read-only import verified **10 pinned releases /
-1,758 files**, plus all seven retained supplemental portraits. The synthetic
+The integration's refreshed standard read-only import verified **11 pinned
+releases / 1,952 files**, plus all seven retained supplemental portraits. This
+preserves the upstream `abby-elemental-dragon-mushroom` **1.0.0** pin at manifest
+SHA-256 `bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05`
+alongside every other existing family. The synthetic
 licensed-art and asset-configuration suites passed **65** and **11** tests,
 respectively; no family-count exception or importer change was needed.
 
@@ -145,10 +148,12 @@ production settings and performs no deployment.
 
 ## Rollback
 
-The application baseline before this family's adoption is commit
-`f828410bf6c3483f8663ec4cc64b42e5c9485d7b`, with the previous nine-family
-lock and the same vendor packages. The workshop's null previous pin does not
-identify an application rollback target.
+The initial application baseline before this family's adoption is commit
+`f828410bf6c3483f8663ec4cc64b42e5c9485d7b`. The integration is refreshed onto
+main commit `879e363acfc67548a18745090f9063f091fd6747`, retaining its existing
+family pins and the same vendor packages. Preserve that application work when
+preparing a rollback. The workshop's null previous pin does not identify an
+application rollback target.
 
 Prepare a reviewed revert of this family's pin and image adoption while
 preserving later unrelated work, then reimport and verify the retained lock and
