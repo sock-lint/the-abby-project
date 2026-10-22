@@ -191,7 +191,7 @@ export default function NotificationBell() {
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             aria-hidden="true"
-            className="absolute -top-0.5 -right-0.5 min-w-5 h-5 px-1 bg-ember-deep rounded-full text-caption leading-none text-ink-page flex items-center justify-center font-bold tabular-nums ring-2 ring-ink-page-aged"
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-ember-deep rounded-full text-micro text-ink-page flex items-center justify-center font-bold"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.span>

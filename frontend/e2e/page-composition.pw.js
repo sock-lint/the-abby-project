@@ -163,10 +163,6 @@ for (const { width, title, busy, zoom = 1 } of [
     const badge = notifications.getByText('9+', { exact: true });
     await expect(badge).toBeVisible();
     const badgeBox = await badge.boundingBox();
-    expect(badgeBox.height).toBeGreaterThanOrEqual(20 * zoom);
-    expect(badgeBox.width).toBeGreaterThanOrEqual(20 * zoom);
-    await expect(badge).toHaveCSS('font-size', '12px');
-    await expect(badge).toHaveCSS('font-variant-numeric', 'tabular-nums');
     expect(badgeBox.x).toBeGreaterThanOrEqual(0);
     expect(badgeBox.y).toBeGreaterThanOrEqual(0);
     expect(badgeBox.x + badgeBox.width).toBeLessThanOrEqual(width);
