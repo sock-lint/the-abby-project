@@ -4,8 +4,11 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
+import { captureFlameEvidence, imageDocumentMetadata, privateFlames } from './streak-flame-helpers.js';
 
 test.setTimeout(45_000);
+// Private SVG image documents must not leak into public failure traces.
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
 
 let devServer;
 let origin;
@@ -173,7 +176,7 @@ for (const { width, title, busy, zoom = 1 } of [
       expect(box.height).toBeGreaterThanOrEqual(44);
       expect(box.x + box.width).toBeLessThanOrEqual(width);
     }
-    await page.screenshot({ path: testInfo.outputPath('today-header.png'), fullPage: true });
+    await captureFlameEvidence(page, testInfo, 'today-header.png', { fullPage: true });
     for (const pip of await status.getByRole('button').all()) {
       await pip.focus();
       const box = await pip.boundingBox();
@@ -188,14 +191,17 @@ for (const { width, title, busy, zoom = 1 } of [
 }
 
 for (const { days, state, bonus, description } of [
-  { days: 5, state: 'dormant', bonus: inactiveStreakBonus, description: 'Streak bonus is inactive. Complete an activity to start today’s check-in.' },
-  { days: 5, state: 'kindled', bonus: kindledStreakBonus, description: 'Daily check-in: 7 Coins at 1.5×. Streak drop chance: +25 percentage points.' },
-  { days: 10, state: 'strong', bonus: { active_today: true, check_in_multiplier: 2, check_in_coins: 10, drop_bonus: 0.5, intensity: 0.5 }, description: 'Daily check-in: 10 Coins at 2×. Streak drop chance: +50 percentage points.' },
-  { days: 20, state: 'blazing', bonus: blazingStreakBonus, description: 'Daily check-in: 15 Coins at 3×. Streak drop chance: +50 percentage points.' },
+  { days: 5, state: 'dormant-ember', bonus: inactiveStreakBonus, description: 'Streak bonus is inactive. Complete an activity to start today’s check-in.' },
+  { days: 5, state: 'small-flame', bonus: kindledStreakBonus, description: 'Daily check-in: 7 Coins at 1.5×. Streak drop chance: +25 percentage points.' },
+  { days: 9, state: 'small-flame', bonus: { active_today: true, check_in_multiplier: 1.9, check_in_coins: 9, drop_bonus: 0.45, intensity: 0.45 }, description: 'Daily check-in: 9 Coins at 1.9×. Streak drop chance: +45 percentage points.' },
+  { days: 10, state: 'strong-flame', bonus: { active_today: true, check_in_multiplier: 2, check_in_coins: 10, drop_bonus: 0.5, intensity: 0.5 }, description: 'Daily check-in: 10 Coins at 2×. Streak drop chance: +50 percentage points.' },
+  { days: 19, state: 'strong-flame', bonus: { active_today: true, check_in_multiplier: 2.9, check_in_coins: 14, drop_bonus: 0.5, intensity: 0.95 }, description: 'Daily check-in: 14 Coins at 2.9×. Streak drop chance: +50 percentage points.' },
+  { days: 20, state: 'maximum-blaze', bonus: blazingStreakBonus, description: 'Daily check-in: 15 Coins at 3×. Streak drop chance: +50 percentage points.' },
+  { days: 20, state: 'unknown', description: 'Streak bonus is unavailable.' },
 ]) {
-  test(`the phone header shows the server-confirmed ${state} streak bonus without motion`, async ({ page }, testInfo) => {
+  test(`the phone header shows the server-confirmed ${days}-day ${state} streak bonus without motion`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 320, height: 844 });
-    if (state === 'strong') await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+    if (state === 'strong-flame') await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
       id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme: 'vigil', family: { id: 1, name: 'Synthetic family' },
     } }));
     await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
@@ -209,20 +215,27 @@ for (const { days, state, bonus, description } of [
     const flame = streak.locator('[data-header-streak-flame]');
     await expect(flame).toBeVisible();
     await expect(flame).toHaveAttribute('data-state', state);
-    const fire = flame.locator('.header-streak-flame__fire');
-    if (state === 'dormant') {
-      await expect(fire).toHaveCount(0);
+    await expect(streak).toHaveAttribute('title', description);
+    if (privateFlames && state !== 'unknown') {
+      await expect(flame).toHaveAttribute('data-artwork-status', 'ready');
+      const image = flame.locator('img');
+      await expect(image).toBeVisible();
+      expect(await imageDocumentMetadata(image)).toMatchObject({
+        width: '24', height: '24', viewBox: '0 0 24 24', naturalWidth: 24, naturalHeight: 24,
+        sha256: privateFlames.stages[state].sha256, idCount: 1, uniqueIdCount: 1, activeElements: 0,
+      });
     } else {
-      await expect(fire).toHaveCSS('animation-name', 'none');
-      const body = fire.locator('path').first();
-      await expect(body).toBeVisible();
-      // Check the painted silhouette, so a state attribute without a visibly
-      // stronger fire cannot satisfy the bonus progression requirement.
-      expect((await body.boundingBox()).height).toBeGreaterThanOrEqual({ kindled: 14, strong: 18, blazing: 19 }[state]);
-      await expect(fire.locator('circle')).toHaveCount({ kindled: 0, strong: 1, blazing: 2 }[state]);
+      await expect(flame).toHaveAttribute('data-artwork-status', 'unavailable');
+      await expect(flame.locator('img')).toHaveCount(0);
+      await expect(flame.locator('.lucide-circle-question-mark')).toBeVisible();
+      testInfo.annotations.push({ type: 'private-artwork', description: state === 'unknown'
+        ? 'Unknown bonus explicitly uses the neutral placeholder.'
+        : 'Exact private family is not installed; artwork acceptance is skipped, not replaced with an ember.' });
     }
+    await expect(flame).toHaveCSS('animation-name', 'none');
+    await expect(flame).toHaveCSS('transform', 'none');
     const header = page.locator('header').filter({ has: streak });
-    await header.screenshot({ path: testInfo.outputPath(`streak-${state}.png`) });
+    await captureFlameEvidence(header, testInfo, `streak-${state}.png`);
     expect(await header.evaluate((node) => node.getBoundingClientRect().right <= window.innerWidth)).toBe(true);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await streak.click();

@@ -254,7 +254,9 @@ class PulseActivityStreakTests(TestCase):
         for days, multiplier, coins, drop_bonus, intensity in (
             (1, 1.1, 5, 0.05, 0.05),
             (5, 1.5, 7, 0.25, 0.25),
+            (9, 1.9, 9, 0.45, 0.45),
             (10, 2.0, 10, 0.5, 0.5),
+            (19, 2.9, 14, 0.5, 0.95),
             (20, 3.0, 15, 0.5, 1.0),
             (40, 3.0, 15, 0.5, 1.0),
         ):

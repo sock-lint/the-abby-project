@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Clock, DollarSign, Stamp } from 'lucide-react';
 import { CoinIcon } from '../icons/JournalIcons';
 import HeaderStreakFlame from './HeaderStreakFlame';
+import { streakBonusStage } from '../../streak/bonusPresentation';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
@@ -94,6 +95,7 @@ export default function HeaderStatusPips({ user }) {
   // Once a heartbeat arrives, its bonus is authoritative, including false,
   // zero, or missing during a rolling deploy. Never revive a stale mount bonus.
   const streakBonus = pulse?.header ? pulse.header.streak_bonus : dashboard?.rpg?.streak_bonus;
+  const streakStage = streakBonusStage(streakBonus);
   const weekEarnings = dashboard?.this_week?.earnings ?? 0;
 
   const pips = useMemo(() => {
@@ -141,11 +143,11 @@ export default function HeaderStatusPips({ user }) {
     } else {
       out.push({
         key: 'streak',
-        icon: <HeaderStreakFlame active={streakBonus?.active_today === true} intensity={streakBonus?.intensity} />,
+        icon: <HeaderStreakFlame stage={streakStage} />,
         label: String(streak),
-        tone: streakBonus?.active_today ? 'ember' : 'ink',
+        tone: streakStage !== 'unknown' && streakBonus.active_today ? 'ember' : 'ink',
         ariaLabel: `${streak}-day streak`,
-        description: !streakBonus ? 'Streak bonus is unavailable.'
+        description: streakStage === 'unknown' ? 'Streak bonus is unavailable.'
           : streakBonus.active_today
             ? `Daily check-in: ${streakBonus.check_in_coins} Coins at ${streakBonus.check_in_multiplier}×. Streak drop chance: +${Math.round(streakBonus.drop_bonus * 100)} percentage points.`
             : 'Streak bonus is inactive. Complete an activity to start today’s check-in.',
@@ -161,7 +163,7 @@ export default function HeaderStatusPips({ user }) {
       });
     }
     return out;
-  }, [activeTimer, isParent, pending, attentionReady, attentionIncomplete, streak, streakBonus, coins, weekEarnings, navigate]);
+  }, [activeTimer, isParent, pending, attentionReady, attentionIncomplete, streak, streakBonus, streakStage, coins, weekEarnings, navigate]);
 
   // A larger count can change scrollWidth without resizing the rail itself.
   // Refresh the cues after each new set of labels as well as on scroll/resize.

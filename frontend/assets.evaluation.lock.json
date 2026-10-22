@@ -5,6 +5,12 @@
       "family_id": "abby-bird-accessory-pilot",
       "manifest_sha256": "432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-streak-flames/1.0.0/e2fb733534ab379e432cbf22dd37d000a264ffab39709179a3dbac2a22609a64",
+      "family_id": "abby-streak-flames",
+      "manifest_sha256": "e2fb733534ab379e432cbf22dd37d000a264ffab39709179a3dbac2a22609a64",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1
