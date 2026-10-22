@@ -25,6 +25,7 @@ Micro-behaviors distinct from chores — no parent approval, no dollar rewards, 
 
 ## Gotchas
 - **Proposal ownership**: child create requests omit `user`; the write serializer treats it as read-only and the view saves the authenticated child as owner and creator. Parent create requests still require an explicit `user`.
+- **Parent targets**: habit creation, reassignment and approval resolve `user` only within the authenticated actor's family. Existing same-family child, self and co-parent targets remain supported; starter habits still cannot be reassigned. Manual write serializers must receive request context; absent actor/family context admits no target. Foreign and missing target IDs return the same validation error before habit, tag or notification writes.
 - **Optimistic taps**: the frontend mutates `strength` + `taps_today` immediately on click and rolls back if `logHabitTap` rejects.
 - **Decay scaling**: high-frequency habits (`max_taps_per_day=4`) decay at `step=2` per missed day so they drift roughly twice as fast as daily habits.
 - **No coins**: unlike chores and projects, habits intentionally award zero coins — they are behavior-building, not economic.

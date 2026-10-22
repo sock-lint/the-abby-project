@@ -93,10 +93,22 @@ class HabitWriteSerializer(serializers.ModelSerializer):
     def get_fields(self):
         fields = super().get_fields()
         request = self.context.get("request")
-        if request is not None and getattr(request.user, "role", None) == "child":
+        actor = getattr(request, "user", None)
+        if getattr(actor, "role", None) == "child":
             # perform_create assigns the signed-in child before saving.
             # Do not require or validate client-supplied proposal ownership.
             fields["user"] = serializers.PrimaryKeyRelatedField(read_only=True)
+        else:
+            # Queryset/object permissions protect the current habit, not a
+            # replacement owner supplied on create, update or approval.
+            family_id = getattr(actor, "family_id", None)
+            users = fields["user"].queryset
+            fields["user"].queryset = (
+                users.filter(family_id=family_id)
+                if getattr(actor, "is_authenticated", False) and family_id is not None
+                else users.none()
+            )
+            fields["user"].error_messages["does_not_exist"] = "Choose a user in your family."
         return fields
 
     def validate(self, attrs):
