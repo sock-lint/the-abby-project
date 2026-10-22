@@ -114,7 +114,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
         aria-controls={open ? menuId : undefined}
         aria-label="Open profile menu"
         className={`flex items-center gap-2 min-w-11 min-h-11 max-w-full rounded-2xl transition-colors
-                    ${compact ? 'pr-2' : 'w-full px-2 py-1'}
+                    ${compact ? '' : 'w-full px-2 py-1'}
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
       >
@@ -122,13 +122,21 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
           frame={identity?.active_frame} size={compact ? 'sm' : 'xs'} imageAlt=""
           className={showRing && compact && !identity?.active_frame ? 'rounded-full ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''} />
         <span className="text-body font-body min-w-0 flex-1 text-left">
-          <span className="block text-ink-primary truncate leading-tight">
+          {!compact && <span className="block text-ink-primary truncate leading-tight">
             {user?.display_name || user?.username}
-          </span>
-          {identity?.active_title
-            ? <span className="flex min-w-0 items-center gap-1"><CharacterTitle title={identity.active_title} className={compact ? 'character-title--compact' : 'text-caption'} /><FeaturedBadge badge={identity.active_trophy_badge} compact /></span>
-            : <span className="flex items-center gap-1 text-caption"><span className="font-script text-ink-whisper capitalize leading-tight">{user?.role}</span><FeaturedBadge badge={identity?.active_trophy_badge} compact /></span>}
-          {user?.family?.name && (
+          </span>}
+          {identity?.active_title ? (
+            <span className="flex min-w-0 items-center gap-1">
+              <CharacterTitle title={identity.active_title} className={compact ? 'character-title--compact' : 'text-caption'} />
+              {!compact && <FeaturedBadge badge={identity.active_trophy_badge} compact />}
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-caption">
+              <span className="font-script text-ink-whisper capitalize leading-tight">{compact ? 'Profile' : user?.role}</span>
+              {!compact && <FeaturedBadge badge={identity?.active_trophy_badge} compact />}
+            </span>
+          )}
+          {!compact && user?.family?.name && (
             <span className="block font-script text-ink-whisper text-tiny leading-tight truncate">
               {user.family.name}
             </span>

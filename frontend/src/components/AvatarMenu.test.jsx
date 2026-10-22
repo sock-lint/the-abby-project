@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import AvatarMenu from './AvatarMenu.jsx';
+import { PulseContext } from '../providers/pulseContext';
 
 function renderMenu(props = {}) {
   return render(
@@ -16,6 +17,37 @@ function renderMenu(props = {}) {
 }
 
 describe('AvatarMenu', () => {
+  it('gives the compact header to the saved title and keeps account details inside the menu', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><PulseContext.Provider value={{ pulse: { identity: {
+      id: 7, active_title: { name: 'Chore Hero', icon: '🧹' },
+      active_trophy_badge: { name: 'First Dollar', icon: '🏅' },
+    } } }}>
+      <AvatarMenu compact user={{ id: 7, username: 'test3', display_name: 'Test child', role: 'child', family: { name: 'Default Family' } }} />
+    </PulseContext.Provider></MemoryRouter>);
+    const trigger = screen.getByRole('button', { name: 'Open profile menu' });
+    expect(within(trigger).getByText('Chore Hero')).toBeInTheDocument();
+    expect(within(trigger).queryByLabelText('Featured badge: First Dollar')).not.toBeInTheDocument();
+    expect(within(trigger).queryByText('Test child')).not.toBeInTheDocument();
+    expect(within(trigger).queryByText('Default Family')).not.toBeInTheDocument();
+    expect(within(trigger).queryByText('child')).not.toBeInTheDocument();
+
+    await user.click(trigger);
+    const menu = screen.getByRole('menu', { name: 'Profile' });
+    expect(within(menu).getByText('Test child')).toBeInTheDocument();
+    expect(within(menu).getByText('Default Family')).toBeInTheDocument();
+    expect(within(menu).getByText('Chore Hero')).toBeInTheDocument();
+    expect(within(menu).getByText('First Dollar')).toBeInTheDocument();
+  });
+
+  it('labels a compact profile without a saved title', () => {
+    renderMenu({ compact: true });
+    const trigger = screen.getByRole('button', { name: 'Open profile menu' });
+    expect(within(trigger).getByText('Profile')).toBeInTheDocument();
+    expect(within(trigger).queryByText('Abby')).not.toBeInTheDocument();
+    expect(within(trigger).queryByText('child')).not.toBeInTheDocument();
+  });
+
   it('shows the initial from display_name', () => {
     renderMenu();
     // "Abby" → "A" initial; there are two "A"s rendered (trigger + menu).

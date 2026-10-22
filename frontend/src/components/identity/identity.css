@@ -119,8 +119,7 @@
   overflow-wrap: anywhere;
 }
 
-/* Phone navigation has a fixed share of the header. The full title and its
- * own icon remain visible in the profile menu, Today and project signature. */
+/* Phone navigation gives the title its available space and wraps long labels. */
 .character-title--compact {
   flex: 1;
   width: auto;
@@ -134,7 +133,5 @@
 }
 
 .character-title--compact .character-title__text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
