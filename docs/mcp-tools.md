@@ -1,6 +1,6 @@
 # MCP tool inventory
 
-> **Total: 264 tools across 36 modules.** Checked against registered tool metadata and `tool_policy.py` on October 20, 2026.
+> **Total: 274 tools across 37 modules.** Checked against registered tool metadata and `tool_policy.py` on October 21, 2026.
 
 Update this inventory and the [README](../README.md#mcp-server) when tools change.
 Each name requires an explicit permission policy before registration. See the
@@ -18,7 +18,7 @@ old connections are never upgraded.
 | Scope | Permission |
 | --- | --- |
 | `mcp:catalog` | Global content and anonymous reward analysis; the consent default. No household records. |
-| `mcp:author` | Draft and inspect family-owned content packs and asset briefs; save reviewed publication plans. |
+| `mcp:author` | Draft and inspect family-owned content packs, asset briefs and private progression experiments; save reviewed publication plans. |
 | `mcp:publish` | Publish reviewed packs and change global catalog content/prepared artwork. |
 | `mcp:read` | Read permitted household records, progress and actual reward evidence. |
 | `mcp:write` | Execute permitted household workflows and author family projects/challenges. |
@@ -70,6 +70,13 @@ can change after deletion, reassignment or status edits. It is not a frozen
 database snapshot. Reading shelf pagination separately uses ascending IDs with
 `after`, `next_after` and `has_more`.
 
+`list_challenges` keeps its default mixed recent view and adds `pages.modern`
+and `pages.legacy`. Continue a source with `source="modern"` or `source="legacy"`
+and its `next_cursor`; a continuation cannot use `source="all"`. Each page uses
+the original start-time ordering and rechecks current account/family ownership.
+Recent receipt summaries remain bounded. Use `get_challenge` for an exact saved
+`goal:<id>` or `legacy:<id>` without enrolling or advancing it.
+
 ## Required retry UUIDs
 
 | Tool | Required UUID field |
@@ -80,6 +87,11 @@ database snapshot. Reading shelf pagination separately uses ascending IDs with
 | `log_movement_session` | `client_request_id` |
 | `create_reading_book` | `client_request_id` |
 | `log_reading_session` | `client_request_id` |
+| `create_progression_experiment` | `request_id` |
+| `save_progression_experiment` | `request_id` |
+| `compare_progression_experiment` | `request_id` |
+| `record_progression_decision` | `request_id` |
+| `capture_progression_observation` | `request_id` |
 
 Preserve the UUID and exact details after an uncertain response. The first four
 use atomic MCP receipts and replay their original response after current
@@ -89,6 +101,13 @@ Changed details conflict; retries cannot repeat awards, debits or reservations.
 Required transport confirmations still apply. Existing payout, incubation,
 template, challenge, publication and proposal identities retain their own
 contracts; see the [workflow guide](operations/mcp-authoring.md).
+
+Saved experiment mutations use UUID-result receipts and reread current saved
+notebook state; comparisons replay their specific saved evidence. Changed details
+conflict, deleted results remain tombstones, and retries do not rerun comparisons
+or consume another comparison quota. Author-only notebook results explicitly
+redact household checkpoints. Capturing a checkpoint needs both `mcp:author` and
+`mcp:read`; observation reads need `mcp:read`. See the workflow guide for limits.
 
 ## Reading workflow
 
@@ -107,7 +126,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `achievements` | 19 |
 | `asset_proposals` | 7 |
 | `catalog` | 2 |
-| `challenges` | 6 |
+| `challenges` | 7 |
 | `chores` | 9 |
 | `chronicle` | 10 |
 | `content_packs` | 13 |
@@ -127,6 +146,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `payments` | 4 |
 | `pets` | 9 |
 | `portfolio` | 6 |
+| `progression_experiments` | 9 |
 | `projects` | 28 |
 | `quests` | 9 |
 | `reading` | 4 |
@@ -193,8 +213,9 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | Tool | Scope | Read only | Confirmation | Description |
 | --- | --- | --- | --- | --- |
 | `create_challenge_goal` | `mcp:write` | No | Required | Create the reviewed same-family parent goal once, using a stable UUID. |
+| `get_challenge` | `mcp:read` | Yes | — | Read one exact saved modern or legacy challenge, including older attempts, without materializing progress. |
 | `get_voyager_feedback` | `mcp:read` | Yes | — | Read the same bounded current-family Voyager feedback aggregate as the web report (staff-parent-only); no selectors, private identities or state changes. |
-| `list_challenges` | `mcp:read` | Yes | — | Read saved modern goals, legacy history and actual reward receipts. |
+| `list_challenges` | `mcp:read` | Yes | — | Read saved challenge history and reward evidence; follow signed per-source pages to older attempts. |
 | `pin_challenge` | `mcp:write` | No | — | Pin a saved challenge for self or a parent's same-family child. Awards nothing. |
 | `preview_challenge_goal` | `mcp:read` | Yes | — | Validate a parent goal without creating records or computing an award. |
 | `unpin_challenge` | `mcp:write` | No | — | Clear a matching saved pin; progress, periods and reward promises stay intact. |
@@ -446,6 +467,21 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `list_project_photos` | `mcp:read` | Yes | — | List ProjectPhoto rows attached to a project (read-only). |
 
 
+## progression_experiments
+
+| Tool | Scope | Read only | Confirmation | Description |
+| --- | --- | --- | --- | --- |
+| `capture_progression_observation` | `mcp:author` + `mcp:read` | No | — | Save an immutable own-family accounting checkpoint, with author and read grants. |
+| `compare_progression_experiment` | `mcp:author` | No | — | Save immutable server-generated paired evidence for one saved revision. |
+| `create_progression_experiment` | `mcp:author` | No | — | Save a private hypothesis and bounded anonymous control/candidate recipe. |
+| `get_progression_comparison` | `mcp:author` | Yes | — | Read one saved paired report and its current freshness without simulating. |
+| `get_progression_experiment` | `mcp:author` | Yes | — | Read saved assumptions, comparison summaries and append-only decisions. |
+| `get_progression_observations` | `mcp:read` | Yes | — | Read bounded recent-child accounting aggregates for the current family. |
+| `list_progression_experiments` | `mcp:author` | Yes | — | List this staff parent's private saved hypotheses, in bounded UUID order. |
+| `record_progression_decision` | `mcp:author` | No | — | Append a rationale, next action and review date against current saved evidence. |
+| `save_progression_experiment` | `mcp:author` | No | Required | Revise saved assumptions with the current revision and a stable request_id. |
+
+
 ## projects
 
 | Tool | Scope | Read only | Confirmation | Description |
@@ -490,7 +526,7 @@ by awarded daily Reading Adventure receipts rather than individual log counts.
 | `create_quest_definition` | `mcp:write` | No | — | Create a custom QuestDefinition (parent-only). |
 | `delete_quest_definition` | `mcp:write` | No | Required | Permanently remove a parent-authored QuestDefinition (parent-only). |
 | `get_quest` | `mcp:read` | Yes | — | Get a quest instance with its progress + participants. |
-| `list_quest_catalog` | `mcp:read` | Yes | — | Browse every authored QuestDefinition. Parent-only. |
+| `list_quest_catalog` | `mcp:read` | Yes | — | Browse available authored QuestDefinition choices. Parent-only. |
 | `list_quests` | `mcp:read` | Yes | — | List quests visible to the current user. |
 | `set_quest_definition_skill_tags` | `mcp:write` | No | Required | Replace the skill tags on a QuestDefinition (parent-only). |
 

@@ -40,10 +40,39 @@ class ToolPermissionTests(TransactionTestCase):
         async def names(scopes):
             with override_user(self.parent, scopes=frozenset(scopes)):
                 return {tool.name for tool in await mcp.list_tools()}
-        for scope, expected in ((READ_SCOPE, READ_TOOLS), (WRITE_SCOPE, WRITE_TOOLS), (CATALOG_SCOPE, CATALOG_TOOLS), (AUTHOR_SCOPE, AUTHOR_TOOLS), (PUBLISH_SCOPE, PUBLISH_TOOLS)):
+        for scope, expected in ((READ_SCOPE, READ_TOOLS), (WRITE_SCOPE, WRITE_TOOLS), (CATALOG_SCOPE, CATALOG_TOOLS), (AUTHOR_SCOPE, AUTHOR_TOOLS - {"capture_progression_observation"}), (PUBLISH_SCOPE, PUBLISH_TOOLS)):
             with self.subTest(scope=scope):
                 self.assertEqual(async_to_sync(names)({scope}), expected)
         self.assertEqual(async_to_sync(names)(set()), set())
+
+    def test_saved_household_checkpoint_requires_both_independent_grants(self):
+        from uuid import uuid4
+        from apps.mcp_server.server import mcp_capabilities
+
+        async def inspect(scopes):
+            import json
+            with override_user(self.parent, scopes=frozenset(scopes)):
+                names = {entry.name for entry in await mcp.list_tools()}
+                capabilities = json.loads(mcp_capabilities())["workflows"]
+                result = await mcp.call_tool("capture_progression_observation", {"params": {
+                    "request_id": str(uuid4()), "experiment_id": str(uuid4()), "revision": 1,
+                }})
+                return names, capabilities, result
+
+        for scopes in ({AUTHOR_SCOPE}, {READ_SCOPE}, {CATALOG_SCOPE}):
+            with self.subTest(scopes=scopes):
+                names, capabilities, result = async_to_sync(inspect)(scopes)
+                self.assertNotIn("capture_progression_observation", names)
+                self.assertFalse(capabilities["progression_checkpoints"]["available"])
+                self.assertTrue(result.isError)
+                self.assertEqual(result.structuredContent["error"]["code"], "permission_denied")
+        names, capabilities, result = async_to_sync(inspect)({AUTHOR_SCOPE, READ_SCOPE})
+        self.assertIn("capture_progression_observation", names)
+        self.assertTrue(capabilities["progression_checkpoints"]["available"])
+        # Correct grants admit the lookup, while the missing private notebook
+        # still fails closed rather than creating any result.
+        self.assertTrue(result.isError)
+        self.assertEqual(result.structuredContent["error"]["code"], "not_found")
 
     def test_every_registered_tool_has_exact_reviewed_annotations(self):
         registered = mcp._tool_manager.list_tools()

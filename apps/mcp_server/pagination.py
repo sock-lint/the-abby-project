@@ -1,4 +1,4 @@
-"""Signed, caller-bound pagination for immutable creation-time history."""
+"""Signed, caller-bound pagination for saved datetime history."""
 from typing import Any
 
 from django.core import signing
@@ -15,18 +15,25 @@ CURSOR_MAX_AGE = 86400
 
 def paginate_created_history(
     queryset, *, actor, tool: str, filters: dict[str, Any], limit: int, cursor: str | None,
+    order_field: str = "created_at",
 ) -> tuple[list, dict[str, Any]]:
-    """Page an already-authorized queryset in descending (created_at, pk) order.
+    """Page an authorized queryset in descending (trusted datetime field, pk) order.
 
     The signed maximum PK excludes later inserts, including backdated rows.
     Every page reuses the caller's current authorization filters; a cursor is
     never authority to read rows. ``total`` counts the currently matching rows
     within that initial PK boundary, before applying the page position.
+    The order field is selected by server code, never from client arguments.
     """
+    if order_field not in {"created_at", "starts_at", "start_date"}:
+        raise ValueError("Unsupported history ordering.")
     binding = {
         "tool": tool, "actor_id": actor.pk, "role": actor.role,
         "family_id": actor.family_id, "filters": filters,
     }
+    if order_field != "created_at":
+        # Keep existing creation-history cursor bindings valid for their TTL.
+        binding["order_field"] = order_field
     before = None
     if cursor is not None:
         try:
@@ -49,8 +56,8 @@ def paginate_created_history(
     snapshot = queryset.filter(pk__lte=maximum_id)
     total = snapshot.count()
     if before is not None:
-        snapshot = snapshot.filter(Q(created_at__lt=before) | Q(created_at=before, pk__lt=before_id))
-    rows = list(snapshot.order_by("-created_at", "-pk")[:limit + 1])
+        snapshot = snapshot.filter(Q(**{f"{order_field}__lt": before}) | Q(**{order_field: before, "pk__lt": before_id}))
+    rows = list(snapshot.order_by(f"-{order_field}", "-pk")[:limit + 1])
     has_more = len(rows) > limit
     rows = rows[:limit]
     next_cursor = None
@@ -58,6 +65,6 @@ def paginate_created_history(
         last = rows[-1]
         next_cursor = signing.dumps({
             "binding": binding, "maximum_id": maximum_id,
-            "before_time": last.created_at.isoformat(), "before_id": last.pk,
+            "before_time": getattr(last, order_field).isoformat(), "before_id": last.pk,
         }, salt=CURSOR_SALT, compress=True)
     return rows, {"total": total, "has_more": has_more, "next_cursor": next_cursor}
