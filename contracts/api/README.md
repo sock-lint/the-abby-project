@@ -54,7 +54,10 @@ The producer `config.tests.test_hatchery_discovery_api_contract_fixtures` verifi
 available, active, expired/retryable and completed examples, current versus frozen
 targets, and the ordinary parent-catalog and authentication boundaries. Attempts
 are scoped to the requesting account; another child's or household's saved state
-cannot supply discovery status. Repeated codex reads create no enrollment, goal,
+cannot supply discovery status. A retained alias does not make a private canonical
+definition visible. A missing creator is insufficient visibility evidence;
+creatorless withdrawn metadata must belong to the user's directly accepted
+definition. Repeated codex reads create no enrollment, goal,
 pin, contribution, inventory, ownership or reward. The existing Base-only and
 elemental codex fixtures add empty acquisition lists without acquiring challenges.
 React consumes these same raw bodies through

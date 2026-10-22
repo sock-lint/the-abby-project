@@ -262,6 +262,7 @@ class HatcheryDiscoveryTests(TestCase):
 
     def test_retired_alias_uses_canonical_outer_metadata_and_frozen_attempt_name(self):
         canonical = self.definition(name="Canonical withdrawn offer")
+        self.accepted(canonical)
         alias = self.definition(name="Historical alias")
         occurrence = self.accepted(alias)
         QuestDefinition.objects.filter(pk=alias.pk).update(superseded_by=canonical)
@@ -282,6 +283,28 @@ class HatcheryDiscoveryTests(TestCase):
         alias = self.definition(name="Old global public alias")
         self.accepted(alias)
         QuestDefinition.objects.filter(pk=alias.pk).update(superseded_by=canonical)
+        self.assertEqual(self.paths(), [])
+
+    def test_alias_cannot_reveal_an_orphan_private_canonical_definition(self):
+        canonical = self.definition(name="Orphan household private title")
+        QuestDefinition.objects.filter(pk=canonical.pk).update(is_system=False, created_by=None)
+        alias = self.definition(name="Public alias does not grant private access")
+        self.accepted(alias)
+        QuestDefinition.objects.filter(pk=alias.pk).update(superseded_by=canonical)
+        self.assertEqual(self.paths(), [])
+
+    def test_accepted_alias_keeps_same_family_canonical_visibility(self):
+        canonical = self.definition(name="Our household canonical title")
+        QuestDefinition.objects.filter(pk=canonical.pk).update(is_system=False, created_by=self.parent)
+        alias = self.definition(name="Accepted public alias")
+        occurrence = self.accepted(alias)
+        QuestDefinition.objects.filter(pk=alias.pk).update(superseded_by=canonical)
+        row = self.paths()[0]
+        self.assertEqual(row["definition_id"], canonical.pk)
+        self.assertEqual(row["name"], canonical.name)
+        self.assertFalse(row["offer_available"])
+        self.assertEqual(row["attempt"]["id"], f"goal:{occurrence.pk}")
+        self.client.force_authenticate(self.sibling)
         self.assertEqual(self.paths(), [])
 
     def test_each_frozen_pair_keeps_its_own_attempt_when_newer_snapshot_differs(self):

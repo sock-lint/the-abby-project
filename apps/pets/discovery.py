@@ -177,8 +177,13 @@ def acquisition_challenges(user):
     known = dict(current)
     canonical_ids = {identity(goal, controls) for goal in goals}
     canonical_ids.update(quest.definition.superseded_by_id or quest.definition_id for quest in legacy)
+    accepted_ids = {goal.catalog_definition_id for goal in goals}
+    accepted_ids.update(quest.definition_id for quest in legacy)
+    # A missing creator preserves a directly accepted promise; it cannot make
+    # a different orphan-private definition visible through an alias.
     known.update(QuestDefinition.objects.filter(
-        Q(is_system=True) | Q(created_by__isnull=True) | Q(created_by__family_id=user.family_id),
+        Q(is_system=True) | Q(created_by__family_id=user.family_id)
+        | Q(created_by__isnull=True, pk__in=accepted_ids),
     ).in_bulk(canonical_ids - known.keys()))
     completed = set(controls["paid"])
     completed.update(identity(row.goal, controls) for row in occurrences if row.status == "completed")
