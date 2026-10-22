@@ -1,9 +1,10 @@
 """Private saved design evidence, separate from publishing or live rewards."""
+from contextlib import nullcontext
 import math
 from types import SimpleNamespace
 
 from apps.rpg.experiment_views import ComparisonThrottle
-from apps.rpg.models import ProgressionExperiment
+from apps.rpg.models import ProgressionComparison, ProgressionExperiment
 from apps.rpg.progression import experiments
 from apps.rpg.progression.observations import economy_observations
 
@@ -59,14 +60,29 @@ def _serialize(actor, experiment, result_kind, result_id):
     return _detail(actor, experiment.pk)
 
 
+def _freshness_snapshot(actor, experiment_id):
+    """Build today's catalog binding before household locks when a reply needs it.
+
+    Experiments without saved comparisons never read freshness; an unknown
+    experiment falls back to computing it on demand inside the native service.
+    """
+    if experiment_id is None or not ProgressionComparison.objects.filter(
+        experiment_id=experiment_id, experiment__actor=actor, experiment__family_id=actor.family_id,
+    ).exists():
+        return nullcontext()
+    return experiments.request_catalog_binding()
+
+
 def _mutate(params, operation, create):
     from ..experiment_retries import experiment_mutation_once
 
-    return experiment_mutation_once(
-        actor=_actor(), operation=operation, request_id=params.request_id,
-        payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
-        create=create, serialize=_serialize,
-    )
+    actor = _actor()
+    with _freshness_snapshot(actor, getattr(params, "experiment_id", None)):
+        return experiment_mutation_once(
+            actor=actor, operation=operation, request_id=params.request_id,
+            payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
+            create=create, serialize=_serialize,
+        )
 
 
 def _evidence(params, operation, *, precheck, prepare, persist):
@@ -126,7 +142,7 @@ def get_progression_experiment(params: ProgressionExperimentIn) -> ProgressionEx
     remains readable when today's catalog is unavailable.
     """
     actor = _actor()
-    with authorized_household(actor, actor) as (fresh_actor, _):
+    with _freshness_snapshot(actor, params.experiment_id), authorized_household(actor, actor) as (fresh_actor, _):
         return _detail(fresh_actor, params.experiment_id)
 
 
@@ -202,7 +218,18 @@ def get_progression_comparison(params: ProgressionComparisonIn) -> ProgressionCo
     """Read one saved paired report and its current freshness without simulating."""
     actor = _actor()
     with authorized_household(actor, actor) as (fresh_actor, _):
-        return _call(experiments.get_comparison, fresh_actor, params.experiment_id, params.comparison_id)
+        pass
+    # Reports are multi-MB and freshness rebuilds the catalog, so the read runs
+    # without household locks; authority and the saved report are rechecked
+    # under them before the private report is returned.
+    result = _call(experiments.get_comparison, fresh_actor, params.experiment_id, params.comparison_id)
+    with authorized_household(actor, actor) as (fresh_actor, _):
+        if not ProgressionComparison.objects.filter(
+            pk=params.comparison_id, experiment_id=params.experiment_id,
+            experiment__actor=fresh_actor, experiment__family_id=fresh_actor.family_id,
+        ).exists():
+            raise MCPNotFoundError("Comparison not found.")
+        return result
 
 
 @tool()

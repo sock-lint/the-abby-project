@@ -32,9 +32,10 @@ def _saved_result(actor, experiment_id, result_kind, result_id):
         found = str(result_id) == str(experiment.pk)
     else:
         model = _RESULT_MODELS.get(result_kind)
+        # Lock and prove the exact row without loading multi-MB report JSON.
         found = model is not None and model.objects.select_for_update(no_key=True).filter(
             pk=result_id, experiment=experiment,
-        ).first() is not None
+        ).values_list("pk", flat=True).first() is not None
     if not found:
         raise MCPNotFoundError("The original saved result was deleted; this request UUID cannot be reused.")
     return experiment

@@ -3,6 +3,8 @@
 Only this module writes notebook rows. Domain award writers are never called.
 The paired reports share one detached catalog; client reports are not evidence.
 """
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 from datetime import date
 import json
@@ -148,13 +150,35 @@ def _binding(catalog, *, incubation_policy=None):
             "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable"}
 
 
+_REQUEST_BINDING = ContextVar("progression_request_binding", default=None)
+
+
 def _current_binding():
+    preset = _REQUEST_BINDING.get()
+    if preset is not None:
+        return preset[0]
     try:
         return _binding(load_catalog())
     except ValueError:
         # Historical evidence remains readable if today's catalog is invalid.
         # Unknown freshness can never authorize a new decision.
         return None
+
+
+@contextmanager
+def request_catalog_binding():
+    """Snapshot today's global catalog binding once, before callers take household locks.
+
+    The snapshot takes a substantial fraction of a second and holds no
+    household data. Within the block every freshness check and report reuses
+    it, so lock holders never rebuild the catalog. Callers without the block,
+    including the native REST views, keep computing it on demand.
+    """
+    token = _REQUEST_BINDING.set((_current_binding(),))
+    try:
+        yield
+    finally:
+        _REQUEST_BINDING.reset(token)
 
 
 def _stale(experiment, comparison, binding=None):

@@ -18,6 +18,7 @@ from uuid import uuid4
 from django.core.cache import cache
 from django.db import DatabaseError, close_old_connections, connection, connections, transaction
 from django.test import TransactionTestCase
+from django.test.utils import CaptureQueriesContext
 
 from apps.accounts.models import User
 from apps.families.models import Family
@@ -37,6 +38,7 @@ AGGREGATE = "apps.rpg.progression.observations.economy_observations"
 REPORT = "apps.rpg.progression.experiments.get_comparison"
 NATIVE_DETAIL = "apps.rpg.progression.experiments._detail"
 OBSERVATION_READ = "apps.mcp_server.tools.progression_experiments.economy_observations"
+CATALOG = "apps.rpg.progression.experiments.load_catalog"
 QUOTA = "apps.mcp_server.tools.progression_experiments._comparison_quota"
 BOTH_GRANTS = ("mcp:author", "mcp:read")
 
@@ -127,7 +129,10 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
         deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT count(*) FROM pg_locks WHERE NOT granted")
+                cursor.execute(
+                    "SELECT count(*) FROM pg_locks lock JOIN pg_stat_activity activity ON activity.pid = lock.pid "
+                    "WHERE NOT lock.granted AND activity.datname = current_database()"
+                )
                 if cursor.fetchone()[0]:
                     return True
             time.sleep(0.05)
@@ -317,6 +322,71 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
                 release.set()
             detail = future.result(timeout=60)
         self.assertEqual(len(detail["observations"]), 1)
+
+    def test_notebook_tools_snapshot_the_catalog_outside_household_locks(self):
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        tools = {
+            "get_progression_experiment": {"experiment_id": self.experiment_id},
+            "get_progression_comparison": {"experiment_id": self.experiment_id, "comparison_id": comparison["id"]},
+            "record_progression_decision": {
+                **self.body(), "comparison_id": comparison["id"], "outcome": "keep_testing",
+                "rationale": "Synthetic design note.", "next_action": "Review the paired report.", "review_on": "2099-01-01",
+            },
+            "save_progression_experiment": {**self.body(), **self.recipe, "candidate_daily_coins": 90},
+        }
+        for name, params in tools.items():
+            with self.subTest(tool=name):
+                patcher, entered, release, catalogs = _paused(CATALOG)
+                with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+                    future = self.submit(executor, name, params)
+                    try:
+                        self.assertTrue(entered.wait(timeout=30), f"{name} never checked catalog freshness.")
+                        family_free = self.family_lock_is_free()
+                    finally:
+                        release.set()
+                    future.result(timeout=60)
+                self.assertTrue(family_free, f"{name} rebuilt the catalog while holding the family row.")
+                self.assertEqual(len(catalogs), 1, f"{name} should snapshot the catalog once per request.")
+
+    def test_comparison_read_tool_reads_the_report_outside_household_locks(self):
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        params = {"experiment_id": self.experiment_id, "comparison_id": comparison["id"]}
+        patcher, entered, release, _ = _paused(REPORT)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "get_progression_comparison", params)
+            try:
+                self.assertTrue(entered.wait(timeout=30))
+                family_free = self.family_lock_is_free()
+            finally:
+                release.set()
+            report = future.result(timeout=60)
+        self.assertTrue(family_free, "The family row stayed locked while the saved report was read.")
+        self.assertEqual(report, comparison)
+
+    def test_authority_revoked_during_comparison_read_returns_no_report(self):
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        params = {"experiment_id": self.experiment_id, "comparison_id": comparison["id"]}
+        patcher, entered, release, _ = _paused(REPORT)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "get_progression_comparison", params)
+            try:
+                self.assertTrue(entered.wait(timeout=30))
+                self.revoke_with_timeout()
+            finally:
+                release.set()
+            with self.assertRaises(MCPPermissionDenied):
+                future.result(timeout=60)
+
+    def test_receipt_checks_lock_saved_reports_without_loading_them(self):
+        from apps.mcp_server.experiment_retries import _saved_result
+
+        comparison = self.invoke("compare_progression_experiment", self.body())
+        with transaction.atomic(), CaptureQueriesContext(connection) as queries:
+            _saved_result(User.objects.get(pk=self.actor.pk), self.experiment_id, "comparison", comparison["id"])
+        report_reads = [query["sql"] for query in queries.captured_queries if "rpg_progressioncomparison" in query["sql"]]
+        self.assertEqual(len(report_reads), 1)
+        self.assertNotIn('"control"', report_reads[0], "The existence check loaded the multi-MB report.")
+        self.assertIn("FOR NO KEY UPDATE", report_reads[0])
 
     def test_identical_comparison_retry_waits_and_replays_without_more_work_or_quota(self):
         body = self.body()

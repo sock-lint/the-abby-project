@@ -243,9 +243,12 @@ authority, revision and limits. Its large report is read after that commit, and
 authority and the saved result are rechecked under the locks before returning
 it. A PostgreSQL advisory lock scoped to the actor/operation/UUID makes an
 identical concurrent retry wait and then replay, without another simulation,
-quota, comparison or checkpoint. `get_progression_observations` likewise checks
-authority, computes its bounded aggregate without household locks and rechecks
-authority before returning it.
+quota, comparison or checkpoint. `get_progression_observations` and
+`get_progression_comparison` likewise check authority, read their aggregate or
+saved report without household locks and recheck it before returning. Tools whose
+replies report comparison freshness take one `request_catalog_binding()` snapshot
+of the global catalog before locking, so lock holders never rebuild it; receipt
+existence checks lock result rows by identity without loading report JSON.
 
 Migrate `0005_mcpexperimentmutationreceipt` before serving these tools. The
 separate UUID-result receipt stores only request digests and exact saved result
