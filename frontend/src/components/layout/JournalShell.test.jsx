@@ -13,22 +13,45 @@ import MockPulse from '../../test/pulse.jsx';
 import { emptyPulse } from '../../test/pulseFixtures.js';
 import ChronicleHub from '../../pages/chronicle';
 
-function renderShell({ route = '/', element }) {
+function renderShell({ route = '/', element, pulse = null }) {
   return render(
     <MemoryRouter initialEntries={[route]}>
       <AuthProvider>
-        <Routes>
-          <Route element={<JournalShell />}>
-            <Route path={route} element={element || <div>home</div>} />
-            {route !== '/' && <Route path="/" element={<div>home</div>} />}
-          </Route>
-        </Routes>
+        <MockPulse pulse={pulse}>
+          <Routes>
+            <Route element={<JournalShell />}>
+              <Route path={route} element={element || <div>home</div>} />
+              {route !== '/' && <Route path="/" element={<div>home</div>} />}
+            </Route>
+          </Routes>
+        </MockPulse>
       </AuthProvider>
     </MemoryRouter>,
   );
 }
 
 describe('JournalShell', () => {
+  it('uses named title and badge icons in the header while the profile menu keeps their full chips', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ id: 7, display_name: 'Abby' }))));
+    const user = userEvent.setup();
+    const { container } = renderShell({ pulse: emptyPulse({
+      identity: { id: 7, active_title: { name: 'Chore Hero', icon: '🏆' },
+        active_trophy_badge: { name: 'First Dollar', icon: '💰' } },
+      header: { active_timer: null, coin_balance: 729, streak_days: 5, level: 3 },
+    }) });
+    const header = within(container.querySelector('header'));
+    expect(await header.findByRole('img', { name: 'Title: Chore Hero' })).toHaveAttribute('title', 'Chore Hero');
+    expect(header.getByRole('img', { name: 'Featured badge: First Dollar' })).toHaveAttribute('title', 'First Dollar');
+    expect(header.queryByText('Chore Hero')).not.toBeInTheDocument();
+    expect(header.queryByText('First Dollar')).not.toBeInTheDocument();
+    expect(header.getByRole('button', { name: 'Open profile menu' })).toHaveAccessibleDescription('Abby, Level 3');
+    await user.click(header.getByRole('button', { name: 'Open profile menu' }));
+    const menu = within(screen.getByRole('menu', { name: 'Profile' }));
+    expect(menu.getByText('Chore Hero')).toBeInTheDocument();
+    expect(menu.getByText('First Dollar')).toBeInTheDocument();
+    expect(menu.getByLabelText('Level 3')).toHaveTextContent('Lv. 3');
+  });
+
   it('keeps floating clock actions clear of the avatar editor and restores them when leaving', async () => {
     server.use(
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),

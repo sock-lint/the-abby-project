@@ -187,8 +187,7 @@
   font-size: var(--text-2xl);
 }
 
-/* The full account name remains in the menu and accessible button description;
-   only this secondary header label shortens, never the title or badge chips. */
+/* The full account name remains in the menu and accessible button description. */
 .identity-summary--compact .identity-summary__name {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -248,16 +247,32 @@
   overflow-wrap: anywhere;
 }
 
-.identity-header__chips {
-  grid-column: 1 / -1;
+.identity-chips--compact {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 0.3rem;
 }
 
-/* The summary and status buttons keep the first row; full labels wrap below. */
+.identity-chips--compact > * {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* Phone headers reserve their single row for the portrait, saved icons and
+   status controls. Full account-name text remains in the profile menu. */
+.identity-header__account .identity-summary__copy {
+  display: none;
+}
+
 .identity-header__status {
   min-width: 0;
-  max-width: min(43vw, 12rem);
 }
 
-@media (min-width: 1024px) {
-  .identity-header__status { max-width: none; }
+@media (min-width: 640px) {
+  .identity-header__account .identity-summary__copy {
+    display: block;
+    max-width: 8rem;
+  }
 }

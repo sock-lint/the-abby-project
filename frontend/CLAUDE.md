@@ -230,8 +230,11 @@ existing account-bound pulse. The header, account menu, sidebar and Profile
 share `IdentitySummary`, `IdentityPortrait` and `IdentityChips`: the equipped
 frame surrounds the picture, a confirmed level docks beneath it, and soft chips
 show the full title and featured badge with their existing catalog artwork.
-The header puts chips on a separate wrapping row so their labels and icons
-remain visible beside status shortcuts and the bell. `pulse.header.level`
+The header uses only the title and badge icons beside the portrait on the existing row,
+with accessible title/badge names and hover labels. Phone headers omit the
+account-name text; the profile-menu trigger retains its full accessible
+description, and the menu and Profile keep full name/title/badge labels.
+`pulse.header.level`
 comes from the signed-in account; zero is valid and missing levels stay hidden.
 Only a pulse identity matching the current user may supply navigation's saved
 look or level. Today leads with task guidance below its

@@ -155,11 +155,42 @@ async function levelBelowPortrait(scope) {
 
 async function savedArtwork(scope) {
   const titleIcon = scope.locator('.character-title__icon');
-  const badgeChip = scope.getByText('First Project', { exact: true }).locator('..');
+  const badgeIcon = scope.locator('.featured-badge-chip__icon');
   return {
     title: await titleIcon.evaluate((element) => element.querySelector('img')?.getAttribute('src') || element.textContent),
-    badge: await badgeChip.evaluate((element) => element.querySelector('img')?.getAttribute('src') || element.textContent),
+    badge: await badgeIcon.evaluate((element) => element.querySelector('img')?.getAttribute('src') || element.textContent),
   };
+}
+
+async function headerIcons(page, { title = 'Extraordinarily Thoughtful Maker of Wonderful Things', badge = 'First Project' } = {}) {
+  const header = navigationIdentity(page);
+  const titleIcon = header.getByRole('img', { name: `Title: ${title}`, exact: true });
+  const badgeIcon = header.getByRole('img', { name: `Featured badge: ${badge}`, exact: true });
+  await expect(titleIcon).toBeVisible();
+  await expect(titleIcon).toHaveAttribute('title', title);
+  await expect(badgeIcon).toBeVisible();
+  await expect(badgeIcon).toHaveAttribute('title', badge);
+  await expect(header.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(header.getByText(badge, { exact: true })).toHaveCount(0);
+  const row = header.locator('header');
+  const bell = await row.getByRole('button', { name: 'Notifications', exact: true }).boundingBox();
+  const portrait = await profileTrigger(page).boundingBox();
+  const status = await row.getByRole('group', { name: 'Status shortcuts', exact: true }).boundingBox();
+  const bounds = await row.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { height: element.getBoundingClientRect().height,
+      padding: parseFloat(style.paddingTop) + parseFloat(style.paddingBottom),
+      border: parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth) };
+  });
+  const controlHeights = [portrait.height, bell.height, status.height];
+  for (const icon of [titleIcon, badgeIcon]) {
+    const box = await icon.boundingBox();
+    controlHeights.push(box.height);
+    expect(Math.abs(box.y + box.height / 2 - (bell.y + bell.height / 2))).toBeLessThanOrEqual(2);
+  }
+  expect(bounds.height).toBeLessThanOrEqual(Math.max(...controlHeights) + bounds.padding + bounds.border + 2);
+  await fitsViewport(page, row);
+  return [titleIcon, badgeIcon];
 }
 
 async function fitsViewport(page, locator) {
@@ -200,11 +231,28 @@ for (const width of [320, 375, 1280]) {
     await expect(trigger.locator('.profile-portrait__initial')).toHaveText('A');
     await expect(trigger.locator('.profile-portrait__image img')).toHaveCount(0);
     const navigation = navigationIdentity(page);
-    await showsFullText(navigation.getByText('Extraordinarily Thoughtful Maker of Wonderful Things', { exact: true }));
-    await showsFullText(navigation.getByText('First Project', { exact: true }));
+    const icons = await headerIcons(page);
+    const headerRow = navigation.locator('header');
+    expect((await headerRow.boundingBox()).height).toBeLessThanOrEqual(width < 1024 ? 96 : 112);
+    const bellBox = await headerRow.getByRole('button', { name: 'Notifications', exact: true }).boundingBox();
+    for (const icon of icons) {
+      const box = await icon.boundingBox();
+      expect(Math.abs(box.y + box.height / 2 - (bellBox.y + bellBox.height / 2))).toBeLessThanOrEqual(2);
+    }
+    if (width === 320) {
+      const status = headerRow.getByRole('group', { name: 'Status shortcuts', exact: true });
+      const statusBox = await status.boundingBox();
+      for (const shortcut of await status.getByRole('button').all()) {
+        const box = await shortcut.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(statusBox.x - 1);
+        expect(box.x + box.width, 'Both normal streak and coin shortcuts should be readable without scrolling at320px.').toBeLessThanOrEqual(statusBox.x + statusBox.width + 1);
+      }
+    }
     const artwork = await savedArtwork(navigation);
     await levelBelowPortrait(trigger);
     await expect(trigger).toContainText('Alexandria Verylongfamilyname');
+    await expect(trigger).toHaveAccessibleDescription('Alexandria Verylongfamilyname The Enthusiastic Maker, Level 3');
+    if (width < 640) await expect(trigger.getByText('Alexandria Verylongfamilyname The Enthusiastic Maker', { exact: true })).toBeHidden();
     await expect(trigger).not.toContainText('Synthetic Family');
     if (width >= 1024) {
       const sidebar = page.locator('aside').getByRole('button', { name: 'Open profile menu', exact: true });
@@ -265,9 +313,7 @@ test('saved identity remains readable with enlarged text and reduced motion on l
   await page.addStyleTag({ content: ':root { font-size: 24px; }' });
   for (const theme of ['hyrule', 'vigil']) {
     await page.evaluate(async (name) => (await import('/src/themes.js')).applyTheme(name), theme);
-    const header = navigationIdentity(page);
-    await showsFullText(header.getByText('Extraordinarily Thoughtful Maker of Wonderful Things', { exact: true }));
-    await showsFullText(header.getByText('First Project', { exact: true }));
+    await headerIcons(page);
     await levelBelowPortrait(profileTrigger(page));
     await profileTrigger(page).click();
     const menu = page.getByRole('menu', { name: 'Profile', exact: true });
@@ -295,9 +341,12 @@ test('the installed Chore Hero and First Dollar artwork matches in the header, m
     frameFamily: 'steampunk',
   });
   await page.goto(`${origin}/sigil`);
-  async function loadedArtwork(scope) {
-    await showsFullText(scope.getByText('Chore Hero', { exact: true }));
-    await showsFullText(scope.getByText('First Dollar', { exact: true }));
+  async function loadedArtwork(scope, compactHeader = false) {
+    if (compactHeader) await headerIcons(page, { title: 'Chore Hero', badge: 'First Dollar' });
+    else {
+      await showsFullText(scope.getByText('Chore Hero', { exact: true }));
+      await showsFullText(scope.getByText('First Dollar', { exact: true }));
+    }
     const images = [scope.locator('.character-title__icon img'), scope.locator('[data-artwork-image="badge-first-dollar"]')];
     const sources = [];
     for (const image of images) {
@@ -310,7 +359,7 @@ test('the installed Chore Hero and First Dollar artwork matches in the header, m
     return sources;
   }
   const header = navigationIdentity(page);
-  const artwork = await loadedArtwork(header);
+  const artwork = await loadedArtwork(header, true);
   await expect(profileTrigger(page).locator('[data-portrait-overlay="item-frame-steampunk"]')).toBeVisible();
   await renderedFrame(profileTrigger(page).locator('[data-portrait-frame="steampunk"]'));
   const profile = page.locator('[data-identity-summary]').filter({ has: page.getByRole('heading', { name: 'Alex Maker', exact: true }) });
@@ -320,6 +369,7 @@ test('the installed Chore Hero and First Dollar artwork matches in the header, m
   await levelBelowPortrait(profile);
   if (captureDirectory) {
     await header.screenshot({ path: join(captureDirectory, 'requested-header-375.png') });
+    await header.locator('header').screenshot({ path: join(captureDirectory, 'requested-header-strip-375.png') });
     await page.screenshot({ path: join(captureDirectory, 'requested-profile-375.png') });
   }
   await profileTrigger(page).click();
@@ -364,7 +414,7 @@ test('a confirmed Profile frame selection refreshes navigation immediately and s
   await expect(trigger.locator('[data-portrait-frame="laurel"]')).toBeVisible();
   state.releaseSave();
   await expect(trigger.locator('[data-portrait-frame="steampunk"]')).toBeVisible();
-  await expect(navigationIdentity(page).getByText('Master Crafter', { exact: true })).toBeVisible();
+  await expect(navigationIdentity(page).getByRole('img', { name: 'Title: Master Crafter', exact: true })).toBeVisible();
   expect(state.pulseReads()).toBeGreaterThan(before);
   expect(state.mutations).toEqual([{ path: '/api/character/equip/', method: 'POST', body: { item_id: 110 } }]);
   await trigger.click();
@@ -374,7 +424,7 @@ test('a confirmed Profile frame selection refreshes navigation immediately and s
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
   await expect(trigger.locator('[data-portrait-frame="steampunk"]')).toBeVisible();
-  await expect(navigationIdentity(page).getByText('Master Crafter', { exact: true })).toBeVisible();
+  await expect(navigationIdentity(page).getByRole('img', { name: 'Title: Master Crafter', exact: true })).toBeVisible();
   expect(state.mutations).toHaveLength(1);
 });
 

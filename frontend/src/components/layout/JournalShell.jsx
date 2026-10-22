@@ -89,12 +89,13 @@ export default function JournalShell() {
             ~47px on the sensor-housing side. */}
         <div data-journal-sticky-header="true" className="sticky top-0 z-30 bg-ink-page/95 backdrop-blur-sm border-b border-ink-page-shadow/50 pt-[env(safe-area-inset-top)]">
           <header
-            className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 gap-y-3 lg:gap-x-3 pt-3 lg:pt-4 pb-3 lg:pb-4
+            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 lg:gap-x-3 pt-3 lg:pt-4 pb-3 lg:pb-4
                        pl-[max(1rem,env(safe-area-inset-left))]
                        pr-[max(1rem,env(safe-area-inset-right))] lg:px-6"
           >
-            <div className="min-w-0">
+            <div className="identity-header__account flex min-w-0 items-center gap-2">
               <AvatarMenu user={user} compact showRecognition={false} />
+              <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge} compact />
             </div>
             <div className="identity-header__status flex justify-end">
               <HeaderStatusPips user={user} />
@@ -102,8 +103,6 @@ export default function JournalShell() {
             <div className="shrink-0 rounded-2xl bg-ink-page-aged/80">
               <NotificationBell />
             </div>
-            <IdentityChips title={identity?.active_title} badge={identity?.active_trophy_badge}
-              className="identity-header__chips" />
           </header>
 
           <HeaderProgressBand />
