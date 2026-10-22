@@ -20,11 +20,13 @@
   "expeditions_ready": [],
   "savings_goals": [],
   "newly_unlocked_lorebook": [
+    "skills",
     "streaks"
   ],
   "header": {
     "active_timer": null,
     "coin_balance": 0,
-    "streak_days": 4
+    "streak_days": 4,
+    "level": 3
   }
 }

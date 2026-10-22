@@ -3,6 +3,23 @@ import { renderWithProviders, screen, userEvent, within } from '../../test/rende
 import SigilFrontispiece from './SigilFrontispiece';
 
 describe('SigilFrontispiece', () => {
+  it('groups the saved title, featured badge and portrait level in the profile identity', () => {
+    renderWithProviders(<SigilFrontispiece
+      profile={{ display_name: 'Abby', level: 3,
+        active_title: { name: 'Chore Hero', icon: '🧹' },
+        active_trophy_badge: { id: 7, name: 'First Dollar', icon: '💰', rarity: 'common' },
+      }}
+      onOpenTrophyPicker={() => {}}
+    />);
+    const title = screen.getByText('Chore Hero');
+    const badgeLabels = screen.getAllByText('First Dollar');
+    expect(title).toBeInTheDocument();
+    expect(badgeLabels).toHaveLength(2);
+    expect(screen.getByLabelText('Level 3')).toHaveTextContent('Lv. 3');
+    expect(screen.getByRole('heading', { name: 'Abby', level: 1 })).toBeInTheDocument();
+    expect(screen.getByText('🧹')).toBeInTheDocument();
+  });
+
   it('recognizes a server-confirmed terminal level without an empty next-level promise', () => {
     renderWithProviders(<SigilFrontispiece
       profile={{ display_name: 'Abby', level: 6, total_xp: 2500, xp_in_level: 0, xp_needed_for_level: 0 }}

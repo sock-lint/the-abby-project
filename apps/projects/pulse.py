@@ -86,7 +86,12 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
         # Cheap header-pip refresh. The pips used to read the full dashboard
         # once at shell mount and then go stale for the whole session — a kid
         # could finish three chores and watch the coin count sit still.
-        "header": _header(user, ClockService, CoinService, CharacterProfile),
+        "header": {
+            **_header(user, ClockService, CoinService, CharacterProfile),
+            # Reuse the current account's loaded profile; identity itself
+            # remains appearance-only and missing state grants no level.
+            "level": profile.level if profile is not None else None,
+        },
     }
 
 

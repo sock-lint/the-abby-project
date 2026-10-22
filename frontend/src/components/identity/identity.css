@@ -90,7 +90,7 @@
   min-width: 0;
   padding: 0.2em 0.65em;
   border: 1px solid color-mix(in srgb, var(--color-sheikah-teal-deep) 25%, transparent);
-  border-radius: 0.65em 0.65em 0.65em 0.2em;
+  border-radius: 0.65em;
   background: color-mix(in srgb, var(--color-sheikah-teal-deep) 8%, var(--color-ink-page));
   color: var(--color-sheikah-teal-deep);
   font-family: var(--font-body);
@@ -119,23 +119,145 @@
   overflow-wrap: anywhere;
 }
 
-/* Phone navigation gives the title its available space and wraps long labels. */
-.character-title--compact {
+.identity-portrait {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+.identity-portrait--leveled {
+  padding-bottom: 1rem;
+  min-width: 3.25rem;
+  justify-content: center;
+}
+
+.identity-portrait__level {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2em;
+  width: max-content;
+  padding: 0.2em 0.4em;
+  border: 1px solid color-mix(in srgb, var(--color-sheikah-teal-deep) 25%, transparent);
+  border-radius: 0.65em;
+  background: var(--color-ink-page-aged);
+  color: var(--color-sheikah-teal-deep);
+  font-family: var(--font-body);
+  font-size: var(--text-tiny);
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.identity-summary {
+  display: block;
+  min-width: 0;
+  width: 100%;
+}
+
+.identity-summary__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.identity-summary__copy {
+  display: block;
+  min-width: 0;
   flex: 1;
-  width: auto;
-  padding: 0;
-  border: 0;
-  background: transparent;
 }
 
-.character-title--compact .character-title__icon {
-  display: none;
+.identity-summary__name {
+  display: block;
+  color: var(--color-ink-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
 
-.character-title--compact .character-title__text {
-  white-space: normal;
-  /* Unlike `anywhere`, this keeps whole words in the min-content width that
-     sizes the phone header's title column; only a word longer than the whole
-     column still breaks. */
-  overflow-wrap: break-word;
+.identity-summary h1.identity-summary__name {
+  font-size: var(--text-2xl);
+}
+
+/* The full account name remains in the menu and accessible button description;
+   only this secondary header label shortens, never the title or badge chips. */
+.identity-summary--compact .identity-summary__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-summary__details {
+  display: block;
+  margin-top: 0.2em;
+  color: var(--color-ink-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-tiny);
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.identity-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.identity-summary > .identity-chips {
+  margin-top: 0.6rem;
+}
+
+.featured-badge-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0.2em 0.65em;
+  border: 1px solid color-mix(in srgb, var(--color-gold-leaf) 40%, transparent);
+  border-radius: 0.65em;
+  background: color-mix(in srgb, var(--color-gold-leaf) 10%, var(--color-ink-page));
+  color: var(--color-ink-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-caption);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.featured-badge-chip__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.featured-badge-chip__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.identity-header__chips {
+  grid-column: 1 / -1;
+}
+
+/* The summary and status buttons keep the first row; full labels wrap below. */
+.identity-header__status {
+  min-width: 0;
+  max-width: min(43vw, 12rem);
+}
+
+@media (min-width: 1024px) {
+  .identity-header__status { max-width: none; }
 }

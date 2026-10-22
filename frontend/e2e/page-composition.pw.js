@@ -88,12 +88,13 @@ for (const { width, title, busy } of [
         active_title: { name: title, metadata: { text: title }, icon: '🏆' },
         active_trophy_badge: { name: 'First Dollar', icon: '💰' },
       },
-      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5 },
+      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5, level: 3 },
     } }));
     await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
     const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const identity = page.locator('[data-journal-sticky-header]');
     const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
-    const savedTitle = profile.getByText(title, { exact: true });
+    const savedTitle = identity.getByText(title, { exact: true });
     await expect(savedTitle).toBeVisible();
     // A text node can be visible while its ellipsis clips most of the title.
     // Check the rendered text box and every clipping ancestor in the browser.
@@ -135,10 +136,11 @@ for (const { width, title, busy } of [
     })).toEqual([]);
     const lines = await savedTitle.evaluate((node) => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight));
     expect(lines).toBeLessThanOrEqual(busy ? 5.1 : 2.1);
-    await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('Fixture', { exact: true })).toBeVisible();
     await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
     await expect(profile.getByText('child', { exact: true })).toHaveCount(0);
-    await expect(profile.getByRole('img', { name: 'Featured badge: First Dollar' })).toHaveCount(0);
+    await expect(identity.getByText('First Dollar', { exact: true })).toBeVisible();
+    await expect(profile.getByLabel('Level 3', { exact: true })).toHaveText('Lv. 3');
     await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Synthetic next task', exact: true }).first()).toBeVisible();
@@ -175,7 +177,7 @@ test('an unbroken authored title longer than the phone header column still fits 
   await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
   const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
   const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
-  await expect(profile.getByText(title, { exact: true })).toBeVisible();
+  await expect(page.locator('[data-journal-sticky-header]').getByText(title, { exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const profileBox = await profile.boundingBox();
   const status = header.getByRole('group', { name: 'Status shortcuts' });
@@ -195,15 +197,14 @@ for (const role of ['child', 'parent']) {
     await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-clock`);
     const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
     const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
-    await expect(profile.getByText('Profile', { exact: true })).toBeVisible();
-    await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('Fixture', { exact: true })).toBeVisible();
     await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
     await expect(profile.getByText(role, { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await profile.click();
     const menu = page.getByRole('menu', { name: 'Profile', exact: true });
     await expect(menu.getByText('Fixture', { exact: true })).toBeVisible();
-    await expect(menu.getByText('Synthetic family', { exact: true })).toBeVisible();
+    await expect(menu.getByText('Synthetic family')).toBeVisible();
     await expect(menu.getByRole('menuitem', { name: /Settings/ })).toBeVisible();
     if (role === 'parent') await expect(menu.getByRole('menuitem', { name: /Manage/ })).toBeVisible();
   });
