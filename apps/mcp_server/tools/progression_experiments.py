@@ -271,4 +271,10 @@ def get_progression_observations(params: ProgressionObservationsIn) -> Progressi
     require_scope("mcp:read")
     actor = _actor()
     with authorized_household(actor, actor) as (fresh_actor, _):
-        return _call(economy_observations, fresh_actor)
+        pass
+    # The bounded aggregate scans household ledgers for seconds, so it runs
+    # without household locks; it is already not a repeatable-read snapshot.
+    # Current authority is rechecked before the private aggregate is returned.
+    result = _call(economy_observations, fresh_actor)
+    with authorized_household(actor, actor):
+        return result

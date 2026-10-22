@@ -22,8 +22,10 @@ from django.test import TransactionTestCase
 from apps.accounts.models import User
 from apps.families.models import Family
 from apps.mcp_server.context import override_user
-from apps.mcp_server.errors import MCPPermissionDenied, MCPValidationError
+from apps.mcp_server.errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError
 from apps.mcp_server.models import MCPExperimentMutationReceipt
+# Import before any patch so the tools module never binds a patched function.
+from apps.mcp_server.tools import progression_experiments
 from apps.reading.services import authorized_reading
 from apps.rpg.models import ProgressionComparison, ProgressionExperiment, ProgressionObservation
 from apps.rpg.progression import experiments
@@ -33,6 +35,8 @@ from config.tests.factories import make_family
 SIMULATION = "apps.rpg.progression.experiments.simulate_progression"
 AGGREGATE = "apps.rpg.progression.observations.economy_observations"
 REPORT = "apps.rpg.progression.experiments.get_comparison"
+NATIVE_DETAIL = "apps.rpg.progression.experiments._detail"
+OBSERVATION_READ = "apps.mcp_server.tools.progression_experiments.economy_observations"
 QUOTA = "apps.mcp_server.tools.progression_experiments._comparison_quota"
 BOTH_GRANTS = ("mcp:author", "mcp:read")
 
@@ -85,8 +89,6 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
         return {"experiment_id": self.experiment_id, "revision": self.revision, "request_id": uuid4(), **changes}
 
     def invoke(self, name, params, *, scopes=("mcp:author",)):
-        from apps.mcp_server.tools import progression_experiments
-
         handler = getattr(progression_experiments, name)
         inputs = get_type_hints(handler)["params"]
         with override_user(User.objects.get(pk=self.actor.pk), scopes=frozenset(scopes)):
@@ -133,6 +135,17 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
 
     def receipts(self, operation):
         return MCPExperimentMutationReceipt.objects.filter(operation=operation)
+
+    def revoke_with_timeout(self):
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("SET LOCAL lock_timeout = '1s'")
+            User.objects.filter(pk=self.actor.pk).update(is_staff=False)
+
+    def held_request_locks(self):
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND pid = pg_backend_pid()")
+            return cursor.fetchone()[0]
 
     def test_comparison_simulation_leaves_unrelated_family_activity_unblocked(self):
         patcher, entered, release, _ = _paused(SIMULATION)
@@ -205,6 +218,105 @@ class ExperimentEvidenceLockScopeTests(TransactionTestCase):
             replay = self.invoke("compare_progression_experiment", body)
         self.assertEqual(replay["id"], str(ProgressionComparison.objects.get().pk))
         self.assertEqual((simulations, quota_calls), ([], []))
+
+    def test_observation_read_aggregate_leaves_unrelated_family_activity_unblocked(self):
+        patcher, entered, release, _ = _paused(OBSERVATION_READ)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "get_progression_observations", {}, scopes=("mcp:read",))
+            try:
+                self.assertTrue(entered.wait(timeout=30), "The read never reached its aggregate.")
+                family_free = self.family_lock_is_free()
+                reading_free = self.child_reading_is_free()
+            finally:
+                release.set()
+            result = future.result(timeout=60)
+        self.assertTrue(family_free, "The family row stayed locked through the observation aggregate.")
+        self.assertTrue(reading_free, "A child's reading page waited for the observation aggregate.")
+        self.assertIn("automatic_sources", result)
+
+    def test_authority_revoked_during_observation_read_returns_no_aggregate(self):
+        patcher, entered, release, _ = _paused(OBSERVATION_READ)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "get_progression_observations", {}, scopes=("mcp:read",))
+            try:
+                self.assertTrue(entered.wait(timeout=30))
+                self.revoke_with_timeout()
+            finally:
+                release.set()
+            with self.assertRaises(MCPPermissionDenied):
+                future.result(timeout=60)
+
+    def test_replayed_report_is_read_outside_household_locks(self):
+        body = self.body()
+        first = self.invoke("compare_progression_experiment", body)
+        patcher, entered, release, _ = _paused(REPORT)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "compare_progression_experiment", body)
+            try:
+                self.assertTrue(entered.wait(timeout=30), "The replay never read its saved report.")
+                family_free = self.family_lock_is_free()
+            finally:
+                release.set()
+            replay = future.result(timeout=60)
+        self.assertTrue(family_free, "The family row stayed locked while the replayed report was read.")
+        self.assertEqual(replay, first)
+        self.assertEqual(ProgressionComparison.objects.count(), 1)
+
+    def test_result_deleted_while_reading_the_response_returns_nothing_and_keeps_the_tombstone(self):
+        body = self.body()
+        patcher, entered, release, _ = _paused(REPORT)
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = self.submit(executor, "compare_progression_experiment", body)
+            try:
+                self.assertTrue(entered.wait(timeout=30))
+                ProgressionComparison.objects.all().delete()
+            finally:
+                release.set()
+            with self.assertRaises(MCPNotFoundError):
+                future.result(timeout=60)
+        self.assertEqual(self.receipts("compare_progression_experiment").count(), 1)
+        simulations_patch, simulations = _counted(SIMULATION)
+        with simulations_patch, self.assertRaises(MCPNotFoundError):
+            self.invoke("compare_progression_experiment", body)
+        self.assertEqual(simulations, [], "A deleted result's request UUID must not recompute it.")
+        self.assertFalse(ProgressionComparison.objects.exists())
+
+    def test_response_failure_after_commit_replays_without_more_work_and_releases_the_request_lock(self):
+        body = self.body()
+        with patch(REPORT, side_effect=RuntimeError("Synthetic response failure")), self.assertRaises(RuntimeError):
+            self.invoke("compare_progression_experiment", body)
+        self.assertEqual(self.held_request_locks(), 0, "A failed response left its request lock on a reused connection.")
+        self.assertEqual(ProgressionComparison.objects.count(), 1)
+        self.assertEqual(self.receipts("compare_progression_experiment").count(), 1)
+        simulations_patch, simulations = _counted(SIMULATION)
+        quota_patch, quota_calls = _counted(QUOTA)
+        with simulations_patch, quota_patch:
+            replay = self.invoke("compare_progression_experiment", body)
+        self.assertEqual(replay["id"], str(ProgressionComparison.objects.get().pk))
+        self.assertEqual((simulations, quota_calls), ([], []))
+        self.assertEqual(self.held_request_locks(), 0)
+
+    def test_native_checkpoint_detail_stays_inside_its_save_locks(self):
+        patcher, entered, release, _ = _paused(NATIVE_DETAIL)
+
+        def capture():
+            close_old_connections()
+            try:
+                return experiments.capture_observation(User.objects.get(pk=self.actor.pk), self.experiment_id,
+                                                       self.revision)
+            finally:
+                connections.close_all()
+
+        with patcher, ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(capture)
+            try:
+                self.assertTrue(entered.wait(timeout=30), "Native capture never built its detail.")
+                with self.assertRaises(DatabaseError, msg="Revocation interleaved with the native checkpoint detail."):
+                    self.revoke_with_timeout()
+            finally:
+                release.set()
+            detail = future.result(timeout=60)
+        self.assertEqual(len(detail["observations"]), 1)
 
     def test_identical_comparison_retry_waits_and_replays_without_more_work_or_quota(self):
         body = self.body()

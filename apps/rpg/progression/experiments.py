@@ -374,8 +374,10 @@ def record_decision(actor, experiment_id, data, *, include_observations=True):
 
 def capture_observation(actor, experiment_id, revision, *, include_observations=True):
     checkpoint = prepare_observation(actor, experiment_id, revision)
-    experiment, _ = record_observation(actor, experiment_id, revision, checkpoint)
-    return _detail(experiment, include_observations=include_observations)
+    # Keep the detail inside the save's actor/experiment locks, as before.
+    with transaction.atomic():
+        experiment, _ = record_observation(actor, experiment_id, revision, checkpoint)
+        return _detail(experiment, include_observations=include_observations)
 
 
 def prepare_observation(actor, experiment_id, revision):
