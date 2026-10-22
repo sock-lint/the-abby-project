@@ -164,14 +164,19 @@ async function savedArtwork(scope) {
 
 async function headerIcons(page, { title = 'Extraordinarily Thoughtful Maker of Wonderful Things', badge = 'First Project' } = {}) {
   const header = navigationIdentity(page);
-  const titleIcon = header.getByRole('img', { name: `Title: ${title}`, exact: true });
-  const badgeIcon = header.getByRole('img', { name: `Featured badge: ${badge}`, exact: true });
+  const titleIcon = header.locator('[data-identity-icon="title"]');
+  const badgeIcon = header.locator('[data-identity-icon="badge"]');
   await expect(titleIcon).toBeVisible();
+  await expect(titleIcon).toHaveAttribute('role', 'img');
+  await expect(titleIcon).toHaveAccessibleName(`Title: ${title}`);
   await expect(titleIcon).toHaveAttribute('title', title);
   await expect(badgeIcon).toBeVisible();
+  await expect(badgeIcon).toHaveAttribute('role', 'img');
+  await expect(badgeIcon).toHaveAccessibleName(`Featured badge: ${badge}`);
   await expect(badgeIcon).toHaveAttribute('title', badge);
-  await expect(header.getByText(title, { exact: true })).toHaveCount(0);
-  await expect(header.getByText(badge, { exact: true })).toHaveCount(0);
+  const iconRow = titleIcon.locator('..');
+  await expect(iconRow.getByText(title, { exact: true })).toHaveCount(0);
+  await expect(iconRow.getByText(badge, { exact: true })).toHaveCount(0);
   const row = header.locator('header');
   const bell = await row.getByRole('button', { name: 'Notifications', exact: true }).boundingBox();
   const portrait = await profileTrigger(page).boundingBox();
@@ -321,6 +326,7 @@ test('saved identity remains readable with enlarged text and reduced motion on l
     await showsFullText(menu.getByText('First Project', { exact: true }));
     await fitsViewport(page, menu);
     await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
     const profile = page.locator('[data-identity-summary]').filter({ has: page.getByRole('heading', { name: 'Alexandria Verylongfamilyname The Enthusiastic Maker', exact: true }) });
     await showsFullText(profile.getByText('Extraordinarily Thoughtful Maker of Wonderful Things', { exact: true }));
     await showsFullText(profile.getByText('First Project', { exact: true }));
@@ -374,6 +380,8 @@ test('the installed Chore Hero and First Dollar artwork matches in the header, m
   }
   await profileTrigger(page).click();
   const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+  await expect(menu.getByText('Alex Maker', { exact: true })).toBeVisible();
+  await expect(menu.getByText('Child · Synthetic Family', { exact: true })).toBeVisible();
   expect(await loadedArtwork(menu)).toEqual(artwork);
   await expect(menu.locator('[data-portrait-overlay="item-frame-steampunk"]')).toBeVisible();
   await renderedFrame(menu.locator('[data-portrait-frame="steampunk"]'));
@@ -391,6 +399,7 @@ test('a parent sees the assigned maker identity rather than their own selection'
   await profileTrigger(page).click();
   const menu = page.getByRole('menu', { name: 'Profile', exact: true });
   await expect(menu.getByText('Sam Parent', { exact: true })).toBeVisible();
+  await expect(menu.getByText('Parent · Synthetic Family', { exact: true })).toBeVisible();
   await expect(menu.getByText('First Project', { exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
   const signature = page.getByRole('region', { name: 'Project maker', exact: true });

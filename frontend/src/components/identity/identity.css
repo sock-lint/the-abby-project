@@ -262,7 +262,7 @@
 
 /* Phone headers reserve their single row for the portrait, saved icons and
    status controls. Full account-name text remains in the profile menu. */
-.identity-header__account .identity-summary__copy {
+.identity-header__account .identity-summary--compact .identity-summary__copy {
   display: none;
 }
 
@@ -271,7 +271,7 @@
 }
 
 @media (min-width: 640px) {
-  .identity-header__account .identity-summary__copy {
+  .identity-header__account .identity-summary--compact .identity-summary__copy {
     display: block;
     max-width: 8rem;
   }
