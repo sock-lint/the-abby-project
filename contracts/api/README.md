@@ -1208,11 +1208,11 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes the four exact system
+`catalog-icons-elemental-challenges.json` exposes all eight exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
-`pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick
-and Wolf while a deliberately broadly authored Bat remains Base only. The producer is
+`pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
+Wolf, Dragon and Mushroom while a deliberately broadly authored Bat remains Base only. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
 API responses, award nothing and do not establish publication or deployment.

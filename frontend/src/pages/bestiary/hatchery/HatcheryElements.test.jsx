@@ -9,6 +9,12 @@ import { spyHandler } from '../../../test/spy';
 import { openDropdown, selectDropdown } from '../../../test/selectDropdown';
 
 vi.mock('../../../pedestal/PedestalPreview', () => ({ default: () => null }));
+// These scenarios exercise unavailable model art, independently of installed
+// private releases. Installed-art rendering has its own preview/browser checks.
+vi.mock('../../../companion/sharedElementalRelease', async () => ({
+  ...await vi.importActual('../../../companion/sharedElementalRelease'),
+  resolveElementalPreviewAppearance: vi.fn(() => null),
+}));
 
 const base = { id: 1, slug: 'base', name: 'Base', rarity: 'common' };
 const fire = { id: 2, slug: 'fire', name: 'Fire', rarity: 'common' };
@@ -17,6 +23,8 @@ const species = [
   { slug: 'chick', name: 'Chick', sprite_key: 'cute-chick', available_potions: [base, fire, ice] },
   { slug: 'meshtint-wolf', name: 'Wolf', sprite_key: 'meshtint-wolf', available_potions: [base, fire, ice] },
   { slug: 'meshtint-bat', name: 'Bat', sprite_key: 'meshtint-bat', available_potions: [base] },
+  { slug: 'meshtint-mushroom', name: 'Mushroom', sprite_key: 'meshtint-mushroom', available_potions: [base, fire, ice] },
+  { slug: 'meshtint-dragon', name: 'Dragon', sprite_key: 'meshtint-dragon', available_potions: [base, fire, ice] },
 ];
 const eggs = species.map((entry, index) => ({ quantity: 1, item: {
   id: 10 + index, slug: `${entry.slug}-egg`, name: `${entry.name} Egg`,
@@ -39,7 +47,7 @@ function page(extraHandlers = []) {
 }
 
 describe('Elemental Hatchery choices', () => {
-  it.each([[0, fire], [0, ice], [1, fire], [1, ice]])('starts the selected egg %i with its exact $slug potion without showing Base art as its result', async (index, potion) => {
+  it.each([[0, fire], [0, ice], [1, fire], [1, ice], [3, fire], [3, ice], [4, fire], [4, ice]])('starts the selected egg %i with its exact $slug potion without showing Base art as its result', async (index, potion) => {
     const egg = eggs[index].item;
     const item = potions.find((entry) => entry.item.metadata.variant === potion.slug).item;
     const start = spyHandler('post', /\/api\/pets\/incubations\/$/, { incubation: { id: 7, egg, potion: item, remaining_seconds: 86400, status: 'incubating', is_ready: false } });
@@ -48,7 +56,7 @@ describe('Elemental Hatchery choices', () => {
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(item.id));
     expect(screen.getByText(/Selected appearance:/)).toHaveTextContent(potion.name);
-    expect(screen.getByText(/each reward a .* egg and their matching potion/)).toHaveTextContent(index === 0 ? '5 qualifying accomplishments' : '20 qualifying accomplishments');
+    expect(screen.getByText(/each reward a .* egg and their matching potion/)).toHaveTextContent(`${({ 0: 5, 1: 20, 3: 10, 4: 50 })[index]} qualifying accomplishments`);
     await user.click(screen.getByRole('button', { name: 'Baby' }));
     expect(screen.getByText(`${potion.name} artwork is not available yet. You can still inspect the growth stages and choose your ingredients.`)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();

@@ -5,20 +5,20 @@ export function dropdownListbox(control) {
   });
 }
 
-export async function chooseDropdown(control, selection) {
+export async function chooseDropdown(control, selection, { timeout = 6_000 } = {}) {
   // Small setContent fixtures intentionally retain native HTML selects.
   if (await control.evaluate(element => element.tagName === 'SELECT')) {
-    await control.selectOption(selection, { timeout: 6_000 });
+    await control.selectOption(selection, { timeout });
     return;
   }
-  await control.click({ timeout: 6_000 });
+  await control.click({ timeout });
   // Follow the control's own popup ID: it may portal outside its form.
   const id = await control.getAttribute('aria-controls');
   const listbox = control.page().locator(`[id=${JSON.stringify(id)}]`);
   const option = typeof selection === 'object' && 'label' in selection
     ? listbox.getByRole('option', { name: selection.label, exact: true })
     : listbox.locator(`[role="option"][data-value=${JSON.stringify(String(selection))}]`);
-  await option.click({ timeout: 6_000 });
+  await option.click({ timeout });
 }
 
 // Enumerate rendered choices while keeping focus and popup state predictable.

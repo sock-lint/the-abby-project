@@ -55,10 +55,17 @@ paths through supported eggs plus a Base potion.
 
 Ember/Frost Nest and Ember/Frost Trail author guaranteed Chick/Wolf egg plus
 Fire/Ice potion bundles (5/20 qualifying actions, once, within 180 days).
-These four offers remain hidden under the Base-only production art policy;
-authored compatibility alone cannot enable them. Each exact approved art pair
-enables only its matching offer. Reading counts its saved ten-minute daily
-achievement; other qualifying work follows the ordinary source limits.
+These four offers use the approved Chick/Wolf Fire/Ice policy; authored
+compatibility alone cannot enable another pair. Prepared Ember/Frost Grove
+offers promise Mushroom egg/potion bundles after 10 accomplishments within
+180 days; Ember/Frost Summit promises Dragon bundles after 50 within 365 days.
+The owner accepted all twelve new app appearances. This branch activates the
+four Grove/Summit receiving pairs. Exact canonical publication/readback is
+verified; merge/deployment uses the ordinary MAIN gates.
+New-offer acquisition hints use the same whole-offer
+availability check; accepted snapshots remain fulfillable. Reading counts its
+saved ten-minute daily achievement; other qualifying work follows the ordinary
+source limits. See [next elemental batch](../../docs/operations/elemental-dragon-mushroom.md).
 
 | File                  | What it authors                                             |
 | --------------------- | ----------------------------------------------------------- |
