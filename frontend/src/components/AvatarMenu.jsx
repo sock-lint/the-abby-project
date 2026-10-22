@@ -3,6 +3,11 @@ import { NavLink } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, History, Settings, SlidersHorizontal } from 'lucide-react';
 import { DragonIcon } from './icons/JournalIcons';
+import { usePulse } from '../providers/pulseContext';
+import ProfilePortrait from './identity/ProfilePortrait';
+import CharacterTitle from './identity/CharacterTitle';
+import FeaturedBadge from './identity/FeaturedBadge';
+import { identityForUser } from './identity/identity';
 
 /**
  * AvatarMenu — the user's avatar circle doubling as a "my profile" dropdown.
@@ -22,6 +27,8 @@ import { DragonIcon } from './icons/JournalIcons';
  * names the Bestiary hub's species tab.
  */
 export default function AvatarMenu({ user, compact = false, align = 'bottom' }) {
+  const { pulse } = usePulse();
+  const identity = identityForUser(pulse?.identity, user);
   const [open, setOpen] = useState(false);
   const [showRing] = useState(() => {
     const count = Number(localStorage.getItem('avatar_hint_count') || '0');
@@ -80,8 +87,6 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
     };
   }, [open]);
 
-  const initial = (user?.display_name || user?.username || '?')[0].toUpperCase();
-  const circleSize = compact ? 'w-9 h-9 text-body' : 'w-8 h-8 text-body';
   // Anchor: desktop sidebar footer (full-width trigger) → right-align so the
   // menu hugs the rail. Mobile header (trigger pinned top-left) → left-align
   // so the menu doesn't run off-screen.
@@ -113,30 +118,16 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
       >
-        <span
-          className={`${circleSize} rounded-full bg-sheikah-teal/20 border
-                      border-sheikah-teal/40 flex items-center justify-center
-                      text-sheikah-teal-deep font-rune shrink-0 overflow-hidden transition-colors
-                      ${open ? 'bg-sheikah-teal/35 border-sheikah-teal-deep' : ''}
-                      ${showRing && compact ? 'ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''}`}
-        >
-          {user?.avatar ? (
-            <img
-              src={user.avatar}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            initial
-          )}
-        </span>
-        <span className="text-body font-body min-w-0 text-left">
+        <ProfilePortrait name={user?.display_name || user?.username} avatar={user?.avatar}
+          frame={identity?.active_frame} size={compact ? 'sm' : 'xs'} imageAlt=""
+          className={showRing && compact && !identity?.active_frame ? 'rounded-full ring-2 ring-gold-leaf/60 ring-offset-1 ring-offset-ink-page' : ''} />
+        <span className="text-body font-body min-w-0 flex-1 text-left">
           <span className="block text-ink-primary truncate leading-tight">
             {user?.display_name || user?.username}
           </span>
-          <span className="block font-script text-ink-whisper text-caption capitalize leading-tight">
-            {user?.role}
-          </span>
+          {identity?.active_title
+            ? <span className="flex min-w-0 items-center gap-1"><CharacterTitle title={identity.active_title} className={compact ? 'character-title--compact' : 'text-caption'} /><FeaturedBadge badge={identity.active_trophy_badge} compact /></span>
+            : <span className="flex items-center gap-1 text-caption"><span className="font-script text-ink-whisper capitalize leading-tight">{user?.role}</span><FeaturedBadge badge={identity?.active_trophy_badge} compact /></span>}
           {user?.family?.name && (
             <span className="block font-script text-ink-whisper text-tiny leading-tight truncate">
               {user.family.name}
@@ -173,6 +164,8 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom' }) 
               <div className="font-script text-sheikah-teal-deep text-caption capitalize leading-tight mt-0.5">
                 {user?.role || 'family member'}
               </div>
+              <CharacterTitle title={identity?.active_title} className="mt-1" />
+              <FeaturedBadge badge={identity?.active_trophy_badge} className="mt-1" />
               {user?.family?.name && (
                 <div className="font-script text-ink-whisper text-tiny leading-tight mt-0.5 truncate">
                   {user.family.name}

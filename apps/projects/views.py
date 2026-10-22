@@ -370,7 +370,7 @@ class DashboardView(APIView):
 
     def get(self, request):
         from apps.projects.dashboard import build_dashboard
-        return Response(build_dashboard(request.user))
+        return Response(build_dashboard(request.user, request=request))
 
 
 class PulseView(APIView):
@@ -385,7 +385,7 @@ class PulseView(APIView):
 
     def get(self, request):
         from apps.projects.pulse import build_pulse
-        return Response(build_pulse(request.user))
+        return Response(build_pulse(request.user, request=request))
 
 
 class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
@@ -424,6 +424,13 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
                     distinct=True,
                 ),
             ).select_related("assigned_to", "category")
+        else:
+            from apps.rpg.identity import IDENTITY_RELATED_FIELDS
+
+            qs = qs.select_related(
+                "assigned_to", "assigned_to__character_profile",
+                *(f"assigned_to__character_profile__{field}" for field in IDENTITY_RELATED_FIELDS),
+            )
         return qs
 
     def get_serializer_class(self):
@@ -513,7 +520,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
         if project.started_at is None:
             project.started_at = timezone.now()
         project.save()
-        return Response(ProjectDetailSerializer(project).data)
+        return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
@@ -526,7 +533,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             )
         project.status = "in_review"
         project.save()
-        return Response(ProjectDetailSerializer(project).data)
+        return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])
     def approve(self, request, pk=None):
@@ -535,7 +542,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             return Response({"error": "Approve the homework submission instead."}, status=status.HTTP_400_BAD_REQUEST)
         project.status = "completed"
         project.save()
-        return Response(ProjectDetailSerializer(project).data)
+        return Response(self.get_serializer(project).data)
 
     @action(detail=True, methods=["post"], url_path="request-changes", permission_classes=[IsParent])
     def request_changes(self, request, pk=None):
@@ -548,7 +555,7 @@ class ProjectViewSet(RoleFilteredQuerySetMixin, viewsets.ModelViewSet):
             project.started_at = timezone.now()
         project.parent_notes = request.data.get("notes", "")
         project.save()
-        return Response(ProjectDetailSerializer(project).data)
+        return Response(self.get_serializer(project).data)
 
 
 class ProjectMilestoneViewSet(

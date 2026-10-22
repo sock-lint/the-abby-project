@@ -26,12 +26,13 @@ NOTIFICATION_SLICE = 20
 looks at the newest handful, and the bell renders at most 20."""
 
 
-def build_pulse(user) -> dict[str, Any]:
+def build_pulse(user, *, request=None) -> dict[str, Any]:
     """Return every background signal the shell polls for, in one payload."""
     from apps.notifications.serializers import NotificationSerializer
     from apps.pets.expeditions import ExpeditionService
     from apps.pets.serializers import MountExpeditionSerializer
     from apps.rpg.models import CharacterProfile
+    from apps.rpg.identity import IDENTITY_RELATED_FIELDS, earned_identity
     from apps.projects.models import SavingsGoal
     from apps.projects.savings_service import SavingsGoalService
     from apps.projects.serializers import SavingsGoalSerializer
@@ -68,6 +69,8 @@ def build_pulse(user) -> dict[str, Any]:
 
     from .parent_attention import parent_attention
 
+    profile = CharacterProfile.objects.select_related(*IDENTITY_RELATED_FIELDS).filter(user=user).first()
+
     return {
         "parent_attention": parent_attention(user),
         "unread_count": unread_count,
@@ -75,7 +78,8 @@ def build_pulse(user) -> dict[str, Any]:
         "recent_drops": DropLogSerializer(drops, many=True).data,
         "active_quest": QuestSerializer(active_quest).data if active_quest else None,
         "challenge_receipts": receipts,
-        "companion_growth": {"events": _companion_growth(CharacterProfile, user)},
+        "companion_growth": {"events": _companion_growth(profile)},
+        "identity": earned_identity(user, profile, request=request),
         "expeditions_ready": MountExpeditionSerializer(expeditions_ready, many=True).data,
         "savings_goals": SavingsGoalSerializer(savings_goals, many=True).data,
         "newly_unlocked_lorebook": _newly_unlocked(user) if is_child else [],
@@ -86,11 +90,10 @@ def build_pulse(user) -> dict[str, Any]:
     }
 
 
-def _companion_growth(character_profile_model, user) -> list[dict[str, Any]]:
+def _companion_growth(profile) -> list[dict[str, Any]]:
     """The queue CompanionGrowthRecentView serves — passive growth ticks the
     user hasn't seen yet. Read-only here; the toast hook still POSTs to
     ``/pets/companion-growth/seen/`` once it has rendered them."""
-    profile = character_profile_model.objects.filter(user=user).first()
     return list(profile.pending_companion_growth or []) if profile else []
 
 

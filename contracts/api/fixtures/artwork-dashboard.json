@@ -30,6 +30,22 @@
   "pending_timecards": 0,
   "since_last_visit": null,
   "rpg": {
+    "identity": {
+      "id": 7,
+      "username": "artwork-fixture-child",
+      "display_name": "Artwork Child",
+      "avatar": null,
+      "active_frame": null,
+      "active_title": null,
+      "active_trophy_badge": {
+        "id": 501,
+        "name": "10-Hour Club",
+        "icon": "TEN",
+        "catalog_icon": "badge-10-hour-club",
+        "rarity": "common",
+        "description": "Synthetic ten-hour badge"
+      }
+    },
     "level": 0,
     "login_streak": 0,
     "longest_login_streak": 0,

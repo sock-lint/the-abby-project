@@ -25,9 +25,10 @@ describe('server-confirmed RPG progression and purchased promises', () => {
     server.use(http.get('*/api/character/', () => HttpResponse.json(maximum)));
     const profile = await getCharacterProfile();
     expect(profile).toMatchObject({ level: 6, total_xp: 2500, xp_needed_for_level: 0 });
-    const { container } = renderWithProviders(<SigilFrontispiece profile={profile} onOpenTrophyPicker={() => {}} />);
+    renderWithProviders(<SigilFrontispiece profile={profile} onOpenTrophyPicker={() => {}} />);
     expect(screen.getByText('Highest level')).toBeInTheDocument();
-    expect(container.querySelector('[data-versal]')).toHaveAttribute('data-progress', '100');
+    expect(screen.getByText('level 6')).toBeInTheDocument();
+    expect(screen.queryByText(/toward the next level/)).not.toBeInTheDocument();
   });
 
   it('retains the paid item, fulfillment kind and price through request, history and approval', async () => {

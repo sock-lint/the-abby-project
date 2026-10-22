@@ -126,6 +126,7 @@ Everything that floats above page chrome lives at `z-50`. That means a toast emi
 - `components/layout/` — page chrome (JournalShell, ChapterNav, QuickActionsFab)
 - `components/modal/` — modal building blocks (ModalBackdrop, SealCloseButton, SealPulseRing)
 - `components/dashboard/` — Today-page composites (HeroPrimaryCard, ApprovalQueueList)
+- `components/identity/` — shared saved-look presentation: bounded `ProfilePortrait` with six pinned private PNG frames and distinct vector fallbacks, live `CharacterTitle`, `FeaturedBadge`, and the Today/project `IdentitySignature`. Callers supply server-confirmed selections; these components neither acquire nor equip items. The image kit uses 32/40/64/96px canvases, density-specific artwork and a circular photo underlay; unknown saved frames keep a plain custom ring, and broken pictures keep their initial. See [portrait-frame-kit integration](../../../docs/operations/portrait-frame-kit.md).
 - `components/cards/` — promoted page-card components (added when a `*Card` from `pages/` is reused twice)
 - `components/icons/` — `JournalIcons` exports rounded Meadow SVGs with current-color outlines and soft cover-token fills; names and `size`/`className` props remain compatible. Share these chapter icons across navigation and `CoinIcon` across progression currency; money keeps its dollar icon.
 

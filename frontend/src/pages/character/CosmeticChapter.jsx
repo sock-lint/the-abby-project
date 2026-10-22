@@ -20,6 +20,8 @@ export default function CosmeticChapter({
   catalog,
   activeId,
   currentThemeName,
+  previewName,
+  previewAvatar,
   onEquip,
   onUnequip,
   busy = null,
@@ -97,6 +99,8 @@ export default function CosmeticChapter({
                 entry={entry}
                 slot={chapter.slot}
                 currentThemeName={currentThemeName}
+                previewName={previewName}
+                previewAvatar={previewAvatar}
                 busy={busy === entry.item.id || busy === chapter.slot}
                 onEquip={onEquip}
                 onUnequip={onUnequip}

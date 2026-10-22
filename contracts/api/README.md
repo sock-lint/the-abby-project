@@ -1186,6 +1186,19 @@ sprite/emoji fallback. Newly rolled expedition loot adds exact `catalog_icon`.
 Previously saved loot and frozen receipts are retained verbatim. See the
 [adoption runbook](../../docs/operations/companion-lifecycle.md).
 
+`project-earned-identity.json`, `pulse-earned-identity.json` and
+`dashboard-earned-identity.json` expose the same saved cosmetic identity through
+project detail's read-only `maker_signature`, the current account's pulse
+`identity`, and dashboard `rpg.identity`. The project maker is its assignee;
+unassigned projects and missing saved characters return null. The existing
+project access rules and an additional same-family check protect attribution.
+Identity contains only the user ID, username, display label, photo URL, equipped
+frame/title and selected trophy badge. Compact cosmetics add their catalog slug
+for deterministic presentation while retaining existing metadata and approved
+image IDs. The identity projection does not equip items or grant rewards. The producer is
+`config.tests.test_project_ai_api_contract_fixtures`; the React transport
+consumer is `frontend/src/api/projectAIContractFixtures.test.js`.
+
 Google sign-in/linking uses `google-auth-config.json` (public configuration),
 `google-auth-init.json` (S256-bound authorization start), `google-auth-login.json`
 (proof-verified login with the existing shared DRF token and UserSerializer),
