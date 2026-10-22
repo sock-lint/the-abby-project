@@ -273,6 +273,13 @@ def save_experiment(actor, experiment_id, revision, data, *, include_observation
 
 
 def compare_experiment(actor, experiment_id, revision):
+    evidence = prepare_comparison(actor, experiment_id, revision)
+    experiment, comparison = record_comparison(actor, experiment_id, revision, evidence)
+    return _comparison_json(experiment, comparison, full=True, binding=evidence["binding"])
+
+
+def prepare_comparison(actor, experiment_id, revision):
+    """Simulate paired evidence without taking locks; ``record_comparison`` commits it."""
     actor = _actor(actor)
     experiment = _experiment(actor, experiment_id)
     _revision(experiment, revision)
@@ -298,6 +305,11 @@ def compare_experiment(actor, experiment_id, revision):
         evidence.update(control=control, candidate=candidate)
     if len(json.dumps(evidence).encode()) > MAX_EVIDENCE_BYTES:
         raise ValueError("Comparison evidence exceeds the 4 MiB storage limit. Simplify the routine or reduce the horizon.")
+    return evidence
+
+
+def record_comparison(actor, experiment_id, revision, evidence):
+    """Recheck current authority, revision and limits under locks, then save prepared evidence."""
     with transaction.atomic():
         actor = _actor(actor, lock=True)
         experiment = _experiment(actor, experiment_id, lock=True)
@@ -305,10 +317,11 @@ def compare_experiment(actor, experiment_id, revision):
         if experiment.comparisons.count() >= MAX_COMPARISONS:
             raise ValueError("This experiment has reached its 20-comparison limit.")
         comparison = ProgressionComparison.objects.create(
-            experiment=experiment, experiment_revision=revision, inputs=inputs,
-            control=control, candidate=candidate, evaluation=evaluation, binding=binding,
+            experiment=experiment, experiment_revision=revision, inputs=evidence["inputs"],
+            control=evidence["control"], candidate=evidence["candidate"],
+            evaluation=evidence["evaluation"], binding=evidence["binding"],
         )
-    return _comparison_json(experiment, comparison, full=True, binding=binding)
+    return experiment, comparison
 
 
 def get_comparison(actor, experiment_id, comparison_id):
@@ -360,6 +373,13 @@ def record_decision(actor, experiment_id, data, *, include_observations=True):
 
 
 def capture_observation(actor, experiment_id, revision, *, include_observations=True):
+    checkpoint = prepare_observation(actor, experiment_id, revision)
+    experiment, _ = record_observation(actor, experiment_id, revision, checkpoint)
+    return _detail(experiment, include_observations=include_observations)
+
+
+def prepare_observation(actor, experiment_id, revision):
+    """Aggregate the household checkpoint without taking locks; ``record_observation`` commits it."""
     from .observations import economy_observations
 
     actor = _actor(actor)
@@ -371,11 +391,19 @@ def capture_observation(actor, experiment_id, revision, *, include_observations=
     binding = {"source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
                "rules_fingerprint": rules_fingerprint(), "feedback_fingerprint": feedback_fingerprint(),
                "policy": "installed_uncapped", "scope": "own_family_recent_children"}
+    return {"payload": payload, "binding": binding}
+
+
+def record_observation(actor, experiment_id, revision, checkpoint):
+    """Recheck current authority, revision and limits under locks, then save a prepared checkpoint."""
     with transaction.atomic():
         actor = _actor(actor, lock=True)
         experiment = _experiment(actor, experiment_id, lock=True)
         _revision(experiment, revision)
         if experiment.observations.count() >= MAX_OBSERVATIONS:
             raise ValueError("This experiment has reached its 20-observation checkpoint limit.")
-        ProgressionObservation.objects.create(experiment=experiment, experiment_revision=revision, payload=payload, binding=binding)
-        return _detail(experiment, include_observations=include_observations)
+        observation = ProgressionObservation.objects.create(
+            experiment=experiment, experiment_revision=revision,
+            payload=checkpoint["payload"], binding=checkpoint["binding"],
+        )
+    return experiment, observation

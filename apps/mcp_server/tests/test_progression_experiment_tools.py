@@ -181,6 +181,10 @@ class ProgressionExperimentToolTests(TestCase):
         body = {"experiment_id": experiment["id"], "revision": 1, "request_id": uuid4()}
         first = self.invoke("compare_progression_experiment", body)
         with patch("apps.rpg.progression.experiments.compare_experiment", side_effect=AssertionError("Comparison replayed")), patch(
+            "apps.rpg.progression.experiments.prepare_comparison", side_effect=AssertionError("Comparison replayed"),
+        ), patch(
+            "apps.rpg.progression.experiments.record_comparison", side_effect=AssertionError("Comparison saved again"),
+        ), patch(
             "apps.mcp_server.tools.progression_experiments._comparison_quota", side_effect=AssertionError("Replay consumed quota"),
         ):
             self.assertEqual(self.invoke("compare_progression_experiment", body), first)

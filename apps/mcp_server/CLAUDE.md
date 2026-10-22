@@ -236,6 +236,14 @@ Capturing a checkpoint requires both author and read grants in discovery and
 invocation. Household aggregates require `mcp:read`; no target selectors or
 private journal/ledger prose are accepted. Staff-parent and current actor/family
 checks apply under family/member locks to reads, mutations and replays.
+Comparison simulations and checkpoint aggregates run outside those locks so
+unrelated same-family activity is not stalled: `experiment_evidence_once`
+holds them only for the receipt check and the final save, which rechecks current
+authority, revision and limits. Its large report is read after that commit, and
+authority and the saved result are rechecked under the locks before returning
+it. A PostgreSQL advisory lock scoped to the actor/operation/UUID makes an
+identical concurrent retry wait and then replay, without another simulation,
+quota, comparison or checkpoint.
 
 Migrate `0005_mcpexperimentmutationreceipt` before serving these tools. The
 separate UUID-result receipt stores only request digests and exact saved result

@@ -28,8 +28,12 @@ def _actor():
 
 
 def _call(function, *args, **kwargs):
+    return to_plain(_native(function, *args, **kwargs))
+
+
+def _native(function, *args, **kwargs):
     try:
-        return to_plain(function(*args, **kwargs))
+        return function(*args, **kwargs)
     except experiments.ExperimentNotFound as error:
         raise MCPNotFoundError(str(error)) from error
     except experiments.ExperimentConflict as error:
@@ -62,6 +66,16 @@ def _mutate(params, operation, create):
         actor=_actor(), operation=operation, request_id=params.request_id,
         payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
         create=create, serialize=_serialize,
+    )
+
+
+def _evidence(params, operation, *, precheck, prepare, persist):
+    from ..experiment_retries import experiment_evidence_once
+
+    return experiment_evidence_once(
+        actor=_actor(), operation=operation, request_id=params.request_id,
+        payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
+        precheck=precheck, prepare=prepare, persist=persist, serialize=_serialize,
     )
 
 
@@ -163,17 +177,23 @@ def compare_progression_experiment(params: ProgressionExperimentMutationIn) -> P
     comparison budget applies across REST and MCP. Reuse request_id for a retry;
     an existing comparison is read without rerunning or spending another quota.
     """
-    def create(actor):
+    def precheck(actor):
         # Validate ownership/revision before spending the expensive-work quota.
-        current = _call(experiments.get_experiment, actor, params.experiment_id, include_observations=False)
-        if current["revision"] != params.revision:
+        if _saved_for_write(actor, params.experiment_id).revision != params.revision:
             raise MCPValidationError("Experiment changed. Reload it before continuing.",
                                      code="progression_experiment_conflict")
         _comparison_quota(actor)
-        result = _call(experiments.compare_experiment, actor, params.experiment_id, params.revision)
-        return _saved(actor, params.experiment_id), "comparison", result["id"]
 
-    return _mutate(params, "compare_progression_experiment", create)
+    def prepare(actor):
+        # Simulations run without household locks; saving rechecks the revision.
+        return _native(experiments.prepare_comparison, actor, params.experiment_id, params.revision)
+
+    def persist(actor, evidence):
+        experiment, comparison = _native(experiments.record_comparison, actor, params.experiment_id,
+                                         params.revision, evidence)
+        return experiment, "comparison", comparison.pk
+
+    return _evidence(params, "compare_progression_experiment", precheck=precheck, prepare=prepare, persist=persist)
 
 
 @tool()
@@ -226,14 +246,17 @@ def capture_progression_observation(params: ProgressionExperimentMutationIn) -> 
     """
     require_scope("mcp:read")
 
-    def create(actor):
-        experiment = _saved_for_write(actor, params.experiment_id)
-        previous = set(experiment.observations.values_list("pk", flat=True))
-        _call(experiments.capture_observation, actor, experiment.pk, params.revision, include_observations=True)
-        observation = experiment.observations.exclude(pk__in=previous).get()
+    def prepare(actor):
+        # The household aggregate runs without household locks; saving rechecks it.
+        return _native(experiments.prepare_observation, actor, params.experiment_id, params.revision)
+
+    def persist(actor, checkpoint):
+        experiment, observation = _native(experiments.record_observation, actor, params.experiment_id,
+                                          params.revision, checkpoint)
         return experiment, "observation", observation.pk
 
-    return _mutate(params, "capture_progression_observation", create)
+    return _evidence(params, "capture_progression_observation",
+                     precheck=lambda actor: None, prepare=prepare, persist=persist)
 
 
 @tool()
