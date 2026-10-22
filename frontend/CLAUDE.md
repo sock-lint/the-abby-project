@@ -69,6 +69,12 @@ and `npx cap sync`. Real iPhone/Android installs, keyboard/safe-area behavior,
 capture/save recovery and graphics/performance measurements remain required;
 generated projects and desktop viewport checks do not satisfy those gates.
 
+The lazy avatar, companion and pedestal scenes import `src/three/console.js`.
+Stable R3F 9 still constructs Three's deprecated `Clock` before `onCreated`;
+`Timer` is not compatible with that clock API. The shared Three console hook
+filters only its exact deprecation warning and preserves other diagnostics.
+Remove the filter when the installed stable renderer migrates away from Clock.
+
 ## Source layout
 ```
 frontend/src/
