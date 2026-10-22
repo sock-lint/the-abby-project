@@ -170,6 +170,35 @@ class HatcheryDiscoveryTests(TestCase):
         current = self.paths(potion="ice")[0]
         self.assertFalse(current["offer_available"], "A retry copies the saved Fire promise, never today's Ice pair.")
 
+    def test_expired_legacy_pair_cannot_override_a_later_automatic_promise(self):
+        from apps.quests.goals import list_goals
+        from apps.quests.services import QuestService
+
+        definition = self.definition()
+        old = Quest.objects.create(
+            definition=definition, status="expired", start_date=self.now - timedelta(days=190),
+            end_date=self.now - timedelta(days=10), reward_items_snapshot=snapshot_reward_items(definition),
+        )
+        QuestParticipant.objects.create(quest=old, user=self.child)
+        definition.reward_items.filter(item=self.ingredients["fire"]).update(item=self.ingredients["ice"])
+        list_goals(self.child)
+        goal = ChallengeGoal.objects.get(user=self.child, catalog_definition=definition)
+        self.assertEqual({row["item_id"] for row in goal.occurrences.get().snapshot["items"]},
+                         {self.eggs["chick"].pk, self.ingredients["ice"].pk})
+        definition.reward_items.filter(item=self.ingredients["ice"]).update(item=self.ingredients["fire"])
+        row = self.paths()[0]
+        # Native enrollment and legacy starts both refuse a second promise.
+        goals = list(ChallengeGoal.objects.filter(user=self.child).values_list("pk", flat=True))
+        list_goals(self.child)
+        self.assertEqual(list(ChallengeGoal.objects.filter(user=self.child).values_list("pk", flat=True)), goals)
+        with self.assertRaisesMessage(ValueError, "This challenge progresses automatically"):
+            QuestService.start_quest(self.child, definition.pk)
+        self.assertEqual((row["attempt"]["id"], row["attempt"]["retry_available"]), (f"legacy:{old.pk}", False))
+        self.assertFalse(row["offer_available"],
+                         "An expired legacy Fire attempt cannot pay while the accepted goal retains Ice.")
+        ice = self.paths(potion="ice")[0]
+        self.assertTrue(ice["attempt"]["id"].startswith("goal:"))
+
     def test_expired_saved_attempt_and_latest_retry_use_native_status_without_writes(self):
         definition = self.definition()
         previous = self.accepted(definition, expired=True, progress=4)

@@ -210,23 +210,34 @@ def acquisition_challenges(user):
     # that goal keeps its enrollment-time reward and retries copy the saved
     # promise. Nonrepeatable legacy windows that are active or completed, and
     # any legacy window of a milestone-gated offer, likewise block enrollment
-    # (goals._catalog_goals). After a reward edit, today's different pair is
-    # therefore not a guaranteed reward for a child who already accepted it.
-    accepted_goal_pairs = defaultdict(set)
+    # (goals._catalog_goals). Once enrollment is blocked, only a saved promise
+    # that can still pay makes today's pair reachable, so a child is never told
+    # that an edited or older pair is a guaranteed reward they cannot earn.
+    accepted_goals = defaultdict(list)
     for goal in goals:
-        accepted_goal_pairs[identity(goal, controls)].update(_saved_pairs({"items": goal.reward_items}, catalog, pairs))
+        accepted_goals[identity(goal, controls)].append(goal)
+
+    def can_still_pay(occurrence):
+        return _status(occurrence, now) in {"active", "upcoming"} or retry_state(occurrence, controls)["allowed"]
 
     def reachable(pair, definition_id):
-        # ``get`` avoids the empty rows the result loop adds to these defaultdicts.
-        if candidates.get((pair, definition_id)) or legacy_candidates.get((pair, definition_id)):
-            return True
-        if definition_id in accepted_goal_pairs:
-            return pair in accepted_goal_pairs[definition_id]
         definition = current[definition_id]
+        accepted = accepted_goals.get(definition_id, [])
         legacy_statuses = controls["legacy"].get(definition_id, [])
-        if legacy_statuses and has_milestone_gate(definition):
-            return False
-        return definition.is_repeatable or not {"active", "completed"}.intersection(legacy_statuses)
+        if not (accepted or (legacy_statuses and has_milestone_gate(definition))
+                or (not definition.is_repeatable and {"active", "completed"}.intersection(legacy_statuses))):
+            return True  # A new automatic window would freeze today's reward.
+        # ``get`` avoids the empty rows the result loop adds to these defaultdicts.
+        if any(can_still_pay(row) for row in candidates.get((pair, definition_id), ())):
+            return True
+        if any(quest.status == "active" and not quest.is_expired
+               for quest in legacy_candidates.get((pair, definition_id), ())):
+            return True
+        # The goal's own reward opens repeat windows and froze its live attempt,
+        # including an attempt whose saved snapshot is not presentable.
+        return any(pair in _saved_pairs({"items": goal.reward_items}, catalog, pairs) and (
+            definition.is_repeatable or any(can_still_pay(row) for row in goal.control_occurrences))
+            for goal in accepted)
 
     keys = set(candidates) | set(legacy_candidates)
     keys.update((pair, pk) for pk, offered_pairs in current_pairs.items() for pair in offered_pairs)
