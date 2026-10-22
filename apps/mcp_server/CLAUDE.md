@@ -245,10 +245,13 @@ it. A PostgreSQL advisory lock scoped to the actor/operation/UUID makes an
 identical concurrent retry wait and then replay, without another simulation,
 quota, comparison or checkpoint. `get_progression_observations` and
 `get_progression_comparison` likewise check authority, read their aggregate or
-saved report without household locks and recheck it before returning. Tools whose
-replies report comparison freshness take one `request_catalog_binding()` snapshot
-of the global catalog before locking, so lock holders never rebuild it; receipt
-existence checks lock result rows by identity without loading report JSON.
+saved report without household locks and recheck it before returning. The
+get, create, save and decision tools take one `request_catalog_binding()` snapshot
+of the global catalog before locking when the experiment already has comparisons,
+so lock holders normally reuse it (a comparison saved between that check and the
+lock falls back to building freshness under the lock); compare, capture and the
+comparison read compute freshness with no household lock held. Receipt existence
+checks and decisions lock or read result rows without loading report JSON.
 
 Migrate `0005_mcpexperimentmutationreceipt` before serving these tools. The
 separate UUID-result receipt stores only request digests and exact saved result

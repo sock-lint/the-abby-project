@@ -365,7 +365,8 @@ def record_decision(actor, experiment_id, data, *, include_observations=True):
         comparison_id = uuid.UUID(str(data["comparison_id"]))
     except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError("Choose a saved comparison.") from exc
-    comparison = experiment.comparisons.filter(pk=comparison_id).first()
+    # The decision needs only the revision, binding and evaluation, not the report.
+    comparison = experiment.comparisons.defer("control", "candidate", "inputs").filter(pk=comparison_id).first()
     if comparison is None:
         raise ExperimentNotFound("Comparison not found.")
     binding = _current_binding()

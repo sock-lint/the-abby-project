@@ -217,6 +217,17 @@ class ProgressionExperimentToolTests(TestCase):
         self.assertEqual(ProgressionComparison.objects.count(), 0)
         self.assertEqual(MCPExperimentMutationReceipt.objects.filter(operation="compare_progression_experiment").count(), 0)
 
+    def test_decision_reads_saved_reports_without_loading_their_json(self):
+        experiment = self.create()
+        comparison = self.compare(experiment)
+        with CaptureQueriesContext(connection) as queries:
+            self.invoke("record_progression_decision", self.decision(experiment, comparison))
+        report_reads = [query["sql"] for query in queries.captured_queries
+                        if "rpg_progressioncomparison" in query["sql"] and query["sql"].lstrip().upper().startswith("SELECT")]
+        self.assertTrue(report_reads)
+        self.assertFalse([sql for sql in report_reads if '"control"' in sql],
+                         "Recording a decision loaded the multi-MB saved report.")
+
     def test_decision_retries_append_once_and_changed_details_conflict(self):
         experiment = self.create()
         comparison = self.compare(experiment)
