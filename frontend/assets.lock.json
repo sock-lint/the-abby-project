@@ -53,6 +53,12 @@
       "family_id": "abby-elemental-companions",
       "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-elemental-dragon-mushroom/1.0.0/bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+      "family_id": "abby-elemental-dragon-mushroom",
+      "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

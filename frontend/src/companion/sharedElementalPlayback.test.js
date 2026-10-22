@@ -7,7 +7,7 @@ import { resolveElementalAppearance } from './sharedElementalRelease';
 import { stagedElementalFixture, syntheticElemental } from '../test/elementalReleaseFixture';
 
 function harness(species = 'chick', potion = 'fire', stage = 'baby') {
-  const staged = stagedElementalFixture();
+  const staged = stagedElementalFixture(['meshtint-dragon', 'meshtint-mushroom'].includes(species));
   const appearance = resolveElementalAppearance(syntheticElemental(species, potion, stage), 'pet', staged);
   const instances = [];
   const makeInstance = (resolved) => {
@@ -32,9 +32,25 @@ function harness(species = 'chick', potion = 'fire', stage = 'baby') {
     start(overrides = {}) { return createSharedElementalPlayback(appearance, { load, loadTransition, loadPack, onReady, onError, onPlaybackState, invalidate, ...overrides }); } };
 }
 function finish(playback) { for (let frame = 0; frame < 25; frame += 1) playback.update(0.05); }
-const combinations = ['chick', 'meshtint-wolf'].flatMap((species) => ['fire', 'ice'].flatMap((potion) => ['baby', 'middle', 'grown'].map((stage) => [species, potion, stage])));
+const combinations = ['chick', 'meshtint-wolf', 'meshtint-dragon', 'meshtint-mushroom'].flatMap((species) => ['fire', 'ice'].flatMap((potion) => ['baby', 'middle', 'grown'].map((stage) => [species, potion, stage])));
 
 describe('Elemental native playback ownership', () => {
+  it.each(['fire', 'ice'])('plays the %s Dragon fly-idle alias and returns to the existing logical idle', async (potion) => {
+    const h = harness('meshtint-dragon', potion, 'middle'), playback = h.start();
+    await playback.ready;
+    const idle = playback.root.children[0];
+    expect(await playback.play('fly-idle')).toBe(true);
+    expect(h.load).toHaveBeenLastCalledWith(h.staged.release, expect.objectContaining({ motion: 'fly-idle' }), expect.any(Object));
+    expect(h.instances.at(-1).variantId).toBe('source-fly-idle');
+    expect(h.onPlaybackState).toHaveBeenLastCalledWith(expect.objectContaining({ motion: 'fly-idle', variantId: 'source-fly-idle' }));
+    expect(await playback.play('idle')).toBe(true);
+    expect(playback.root.children[0]).toBe(idle);
+    expect(h.load).toHaveBeenCalledTimes(2);
+    expect(h.onPlaybackState).toHaveBeenLastCalledWith(expect.objectContaining({ status: 'idle', motion: 'idle', variantId: 'source-fly-idle' }));
+    playback.dispose();
+    h.instances.forEach((instance) => expect(instance.dispose).toHaveBeenCalledOnce());
+  });
+
   it.each(combinations)('plays each native %s %s %s take with its declared action, loop and root policy', async (species, potion, stage) => {
     const h = harness(species, potion, stage), playback = h.start();
     await playback.ready;
@@ -91,13 +107,13 @@ describe('Elemental native playback ownership', () => {
     h.instances.forEach((instance) => expect(instance.dispose).toHaveBeenCalledOnce());
   });
 
-  it('never invents a Wolf transition and supports local semantic interaction aliases', async () => {
-    const h = harness('meshtint-wolf', 'ice', 'grown'), playback = h.start();
+  it.each(['meshtint-wolf', 'meshtint-dragon', 'meshtint-mushroom'])('never invents a %s transition and supports local semantic interaction aliases', async (species) => {
+    const h = harness(species, 'ice', species === 'meshtint-wolf' ? 'grown' : 'middle'), playback = h.start();
     await playback.ready;
     expect(await playback.evolve('middle', 'grown')).toBe(false);
     expect(h.loadTransition).not.toHaveBeenCalled();
     expect(await playback.play('play')).toBe(true);
-    expect(h.load).toHaveBeenLastCalledWith(h.staged.release, expect.objectContaining({ motion: 'walk-forward-in-place', potion_slug: 'ice' }), expect.objectContaining({ signal: expect.any(AbortSignal), resolveUrl: h.appearance.resolveUrl }));
+    expect(h.load).toHaveBeenLastCalledWith(h.staged.release, expect.objectContaining({ motion: species === 'meshtint-dragon' ? 'fly-forward-in-place' : 'walk-forward-in-place', potion_slug: 'ice' }), expect.objectContaining({ signal: expect.any(AbortSignal), resolveUrl: h.appearance.resolveUrl }));
     expect(await playback.play('idle')).toBe(true);
     playback.dispose();
   });
@@ -115,7 +131,7 @@ describe('Elemental native playback ownership', () => {
       return instance;
     } });
     await playback.ready;
-    const slow = playback.play('source-bite-attack');
+    const slow = playback.play('bite-attack');
     await vi.waitFor(() => expect(finishLoad).toBeTypeOf('function'));
     expect(await playback.evolve('middle', 'grown')).toBe(true);
     expect(pending[0].signal.aborted).toBe(true);
@@ -123,7 +139,7 @@ describe('Elemental native playback ownership', () => {
     expect(await slow).toBe(false);
     expect(pending[0].instance.dispose).toHaveBeenCalledOnce();
     const transitionController = h.instances.at(-1).createAnimationController.mock.results[0].value;
-    await playback.play('source-fly-forward-in-place');
+    await playback.play('fly-forward-in-place');
     const chosen = playback.root.children[0];
     transitionController.mixer.dispatchEvent({ type: 'finished', action: transitionController.action, direction: 1 });
     expect(playback.root.children[0]).toBe(chosen);
@@ -179,11 +195,11 @@ describe('Elemental native playback ownership', () => {
     await Promise.all([left.ready, right.ready]);
     expect(left.root.children[0]).not.toBe(right.root.children[0]);
     expect(fire.instances[0].variant).not.toBe(ice.instances[0].variant);
-    await left.play('source-jump-forward-in-place');
+    await left.play('jump-forward-in-place');
     expect(right.playing).toBe(false);
     left.dispose();
     expect(ice.instances[0].dispose).not.toHaveBeenCalled();
-    expect(await right.play('source-turn-left')).toBe(true);
+    expect(await right.play('turn-left')).toBe(true);
     right.dispose();
   });
 });

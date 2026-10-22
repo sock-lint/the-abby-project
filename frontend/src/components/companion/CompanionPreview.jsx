@@ -173,7 +173,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         data-playback-status={playback?.status || 'loading'} data-variant-id={playback?.variantId} data-stage={playback?.stage || stage}>
         {playback?.status === 'idle' ? 'Your companion is resting.'
           : playback?.status === 'evolving' ? 'Your companion is growing into their next stage.'
-            : playback?.status === 'playing' ? `Playing ${appearance.motions.find((motion) => motion.id === playback.variantId)?.label || 'companion motion'}.`
+            : playback?.status === 'playing' ? `Playing ${appearance.motions.find((motion) => motion.variantId === playback.variantId || motion.id === playback.variantId)?.label || 'companion motion'}.`
               : 'Loading companion motion…'}
       </p>}
       <PetEvolutionGuide creature={creature} kind={kind} />

@@ -24,6 +24,8 @@ describe('pet portrait state', () => {
     for (const [species, keys] of [
       [{ slug: 'chick', sprite_key: 'cute-chick' }, ['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount']],
       [{ slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf' }, ['meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount']],
+      [{ slug: 'meshtint-dragon', sprite_key: 'meshtint-dragon' }, ['meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount']],
+      [{ slug: 'meshtint-mushroom', sprite_key: 'meshtint-mushroom' }, ['meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount']],
     ]) {
       const pet = { id: 1, species, potion: { slug }, lifecycle_stage: 'baby', growth_points: 100 };
       expect(petSpriteKeys(pet)).toEqual({ spriteKey: keys[0], fallbackSpriteKey: null });

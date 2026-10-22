@@ -23,13 +23,16 @@ TOMORROW = NOW + timedelta(days=1)
 
 
 class SharedAllowanceSetup:
+    species_identity = ("chick", "Chick", "cute-chick")
+
     def setUp(self):
         household = make_family(
             "Elemental expeditions",
             children=[{"username": "element-child"}, {"username": "element-sibling"}],
         )
         self.user, self.sibling = household.children
-        self.species = PetSpecies.objects.create(slug="chick", name="Chick", sprite_key="cute-chick")
+        slug, name, sprite_key = self.species_identity
+        self.species = PetSpecies.objects.create(slug=slug, name=name, sprite_key=sprite_key)
         self.other_species = PetSpecies.objects.create(slug="meshtint-wolf", name="Wolf")
         self.base, self.fire, self.ice = [
             PotionType.objects.create(slug=slug, name=slug.title()) for slug in ("base", "fire", "ice")
@@ -208,3 +211,23 @@ class SharedExpeditionConcurrencyTests(SharedAllowanceSetup, TransactionTestCase
         self.assertIsInstance(second_result, ExpeditionError)
         self.assertEqual(loot.call_count, 1)
         self.assertEqual(MountExpedition.objects.count(), 1)
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class DragonSharedExpeditionAllowanceTests(SharedExpeditionAllowanceTests):
+    species_identity = ("meshtint-dragon", "Dragon", "meshtint-dragon")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class MushroomSharedExpeditionAllowanceTests(SharedExpeditionAllowanceTests):
+    species_identity = ("meshtint-mushroom", "Mushroom", "meshtint-mushroom")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class DragonSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
+    species_identity = ("meshtint-dragon", "Dragon", "meshtint-dragon")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class MushroomSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
+    species_identity = ("meshtint-mushroom", "Mushroom", "meshtint-mushroom")

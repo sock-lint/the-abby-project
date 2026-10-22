@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "policy_id": "owned-r3f-elemental-companions-2026-10-20",
+  "policy_id": "owned-r3f-elemental-dragon-mushroom-2026-10-21",
   "pets": [
     {
       "species_slug": "chick",
@@ -55,9 +55,12 @@
       "species_slug": "meshtint-mushroom",
       "sprite_key": "meshtint-mushroom",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-dragon-mushroom", "ice": "abby-elemental-dragon-mushroom"}
     },
     {
       "species_slug": "meshtint-potted-plant",
@@ -90,9 +93,12 @@
       "species_slug": "meshtint-dragon",
       "sprite_key": "meshtint-dragon",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
-      "source": "meshtint-companion-roster"
+      "source": "meshtint-companion-roster",
+      "potion_sources": {"fire": "abby-elemental-dragon-mushroom", "ice": "abby-elemental-dragon-mushroom"}
     },
     {
       "species_slug": "meshtint-snake",
@@ -194,6 +200,16 @@
       "manifest_sha256": "fe271f2ef6909dec7cb6fb44dc70635bd7efbb9bf01a1f74052065fcce675048",
       "appearance_bindings_version": 1,
       "prepared_species": ["chick", "meshtint-wolf"],
+      "prepared_potion_variants": ["fire", "ice"]
+    },
+    {
+      "id": "abby-elemental-dragon-mushroom",
+      "publisher": "Meshtint Studio",
+      "pack": "Fire and Ice Dragonling / Dragon / Elder Dragon and Mushroom / Fungi / Toadstool derivatives",
+      "release_version": "1.0.0",
+      "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
+      "appearance_bindings_version": 1,
+      "prepared_species": ["meshtint-dragon", "meshtint-mushroom"],
       "prepared_potion_variants": ["fire", "ice"]
     }
   ],
