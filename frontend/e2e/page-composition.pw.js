@@ -68,6 +68,211 @@ test.beforeEach(async ({ page }) => {
 
 const hubPages = { skills: 'Skills', inventory: 'Inventory', rewards: 'Rewards', portfolio: 'Gallery', yearbook: 'Timeline' };
 
+for (const width of [320, 390]) {
+  for (const theme of ['hyrule', 'vigil']) {
+    test(`the notification count remains legible in Today's ${width}px ${theme} header`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+        id: 2, username: 'fixture', display_name: 'Fixture', role: 'child', theme,
+        family: { id: 1, name: 'Synthetic family' },
+      } }));
+      await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+        unread_count: 42, notifications: [], recent_drops: [], challenge_receipts: [],
+        companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+        identity: { id: 2, active_frame: null, active_title: { name: 'Chore Hero', metadata: { text: 'Chore Hero' } }, active_trophy_badge: null },
+        header: { active_timer: null, coin_balance: 729, streak_days: 5 },
+      } }));
+      await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+      const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+      const bell = header.getByRole('button', { name: 'Notifications (42 unread)', exact: true });
+      const badge = bell.getByText('9+', { exact: true });
+      await expect(badge).toBeVisible();
+      await expect(badge).toHaveAttribute('aria-hidden', 'true');
+      await page.evaluate(() => document.fonts.ready);
+      // Wait out the existing entrance animation before measuring the badge.
+      await expect.poll(() => badge.evaluate((node) => getComputedStyle(node).transform))
+        .toMatch(/^(none|matrix\(1, 0, 0, 1, 0, 0\))$/);
+      const metrics = await badge.evaluate((node) => {
+        const style = getComputedStyle(node);
+        const box = node.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const text = range.getBoundingClientRect();
+        const clippedByAncestor = (axis) => {
+          for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+            const ancestorStyle = getComputedStyle(ancestor);
+            if (!/(hidden|clip|auto|scroll)/.test(ancestorStyle[axis === 'x' ? 'overflowX' : 'overflowY'])) continue;
+            const bounds = ancestor.getBoundingClientRect();
+            if (axis === 'x' && (box.left < bounds.left - 1 || box.right > bounds.right + 1)) return true;
+            if (axis === 'y' && (box.top < bounds.top - 1 || box.bottom > bounds.bottom + 1)) return true;
+          }
+          return false;
+        };
+        return {
+          width: box.width, height: box.height, fontSize: parseFloat(style.fontSize), fontWeight: Number(style.fontWeight),
+          textFits: text.left >= box.left && text.right <= box.right && text.top >= box.top && text.bottom <= box.bottom,
+          clipped: clippedByAncestor('x') || clippedByAncestor('y'),
+          withinViewport: box.left >= 0 && box.right <= window.innerWidth && box.top >= 0,
+        };
+      });
+      await page.screenshot({ path: testInfo.outputPath('notification-header.png') });
+      expect(metrics.width).toBeGreaterThanOrEqual(20);
+      expect(metrics.height).toBeGreaterThanOrEqual(20);
+      expect(metrics.fontSize).toBeGreaterThanOrEqual(12);
+      expect(metrics.fontWeight).toBeGreaterThanOrEqual(700);
+      expect(metrics.textFits).toBe(true);
+      expect(metrics.clipped).toBe(false);
+      expect(metrics.withinViewport).toBe(true);
+      const target = await bell.boundingBox();
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+      expect(target.x + target.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    });
+  }
+}
+
+for (const { width, title, busy } of [
+  { width: 305, title: 'Chore Hero' },
+  { width: 320, title: 'Chore Hero' },
+  { width: 390, title: 'Chore Hero' },
+  { width: 320, title: 'Extraordinary Chore Champion', busy: true },
+  // Real catalog titles, including the longest seeded word, at common phone
+  // widths with and without a running timer and large counts.
+  ...[305, 320, 360, 390].flatMap((width) => ['Perfectionist', 'Legendary Forgemaster'].flatMap((title) => [
+    { width, title }, { width, title, busy: true },
+  ])),
+]) {
+  test(`Today keeps the full saved title "${title}" in its phone header at ${width}px${busy ? ' with a running timer' : ''}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: {
+        id: 2, active_frame: { name: 'Synthetic frame', slug: 'frame-steampunk' },
+        active_title: { name: title, metadata: { text: title }, icon: '🏆' },
+        active_trophy_badge: { name: 'First Dollar', icon: '💰' },
+      },
+      header: { active_timer: busy ? { project_title: 'Synthetic next task', elapsed_minutes: 165 } : null, coin_balance: busy ? 999999 : 729, streak_days: busy ? 365 : 5 },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    const savedTitle = profile.getByText(title, { exact: true });
+    await expect(savedTitle).toBeVisible();
+    // A text node can be visible while its ellipsis clips most of the title.
+    // Check the rendered text box and every clipping ancestor in the browser.
+    expect(await savedTitle.evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const text = range.getBoundingClientRect();
+      for (let ancestor = node; ancestor; ancestor = ancestor.parentElement) {
+        const style = getComputedStyle(ancestor);
+        const box = ancestor.getBoundingClientRect();
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowX) && (text.left < box.left - 1 || text.right > box.right + 1)) return false;
+        if (/(hidden|clip|auto|scroll)/.test(style.overflowY) && (text.top < box.top - 1 || text.bottom > box.bottom + 1)) return false;
+      }
+      return node.scrollWidth <= node.clientWidth + 1 && text.left >= 0 && text.right <= window.innerWidth;
+    })).toBe(true);
+    // Wrapping may move whole words to a new line but must not split one.
+    expect(await savedTitle.evaluate((node) => {
+      const splits = [];
+      let previous = null;
+      let spaced = false;
+      const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      for (let current = walker.nextNode(); current; current = walker.nextNode()) {
+        for (let index = 0; index < current.data.length; index += 1) {
+          const character = current.data[index];
+          if (/\s/.test(character)) {
+            spaced = true;
+            continue;
+          }
+          const range = document.createRange();
+          range.setStart(current, index);
+          range.setEnd(current, index + 1);
+          const { top } = range.getBoundingClientRect();
+          if (previous && !spaced && top > previous.top + 2) splits.push(`${previous.character}|${character}`);
+          previous = { character, top };
+          spaced = false;
+        }
+      }
+      return splits;
+    })).toEqual([]);
+    const lines = await savedTitle.evaluate((node) => node.getBoundingClientRect().height / parseFloat(getComputedStyle(node).lineHeight));
+    expect(lines).toBeLessThanOrEqual(busy ? 5.1 : 2.1);
+    await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('child', { exact: true })).toHaveCount(0);
+    await expect(profile.getByRole('img', { name: 'Featured badge: First Dollar' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Your look', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Synthetic next task', exact: true }).first()).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    const profileBox = await profile.boundingBox();
+    const status = header.getByRole('group', { name: 'Status shortcuts' });
+    const statusBox = await status.boundingBox();
+    expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
+    for (const button of [profile, header.getByRole('button', { name: /notification/i })]) {
+      const box = await button.boundingBox();
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+    for (const pip of await status.getByRole('button').all()) {
+      await pip.focus();
+      const box = await pip.boundingBox();
+      expect(box.x).toBeGreaterThanOrEqual(statusBox.x - 1);
+      expect(box.x + box.width).toBeLessThanOrEqual(statusBox.x + statusBox.width + 1);
+    }
+    await page.screenshot({ path: testInfo.outputPath('today-header.png'), fullPage: true });
+    await profile.click();
+    await expect(page.getByRole('menu', { name: 'Profile', exact: true }).getByText('First Dollar', { exact: true })).toBeVisible();
+  });
+}
+
+test('an unbroken authored title longer than the phone header column still fits beside the status shortcuts', async ({ page }) => {
+  const title = 'Supercalifragilisticexpialidociousness';
+  await page.setViewportSize({ width: 305, height: 844 });
+  await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+    notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+    identity: { id: 2, active_frame: null, active_title: { name: title, metadata: { text: title } }, active_trophy_badge: null },
+    header: { active_timer: { project_title: 'Synthetic next task', elapsed_minutes: 165 }, coin_balance: 999999, streak_days: 365 },
+  } }));
+  await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+  const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+  const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+  await expect(profile.getByText(title, { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const profileBox = await profile.boundingBox();
+  const status = header.getByRole('group', { name: 'Status shortcuts' });
+  const statusBox = await status.boundingBox();
+  expect(profileBox.x + profileBox.width).toBeLessThanOrEqual(statusBox.x);
+  expect(statusBox.width).toBeGreaterThanOrEqual(44);
+  const bell = await header.getByRole('button', { name: /notification/i }).boundingBox();
+  expect(bell.x + bell.width).toBeLessThanOrEqual(305);
+});
+
+for (const role of ['child', 'parent']) {
+  test(`the phone profile fallback stays readable without an earned title for a ${role}`, async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'fixture', display_name: 'Fixture', role, theme: 'hyrule', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-clock`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    await expect(profile.getByText('Profile', { exact: true })).toBeVisible();
+    await expect(profile.getByText('Fixture', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
+    await expect(profile.getByText(role, { exact: true })).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await profile.click();
+    const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+    await expect(menu.getByText('Fixture', { exact: true })).toBeVisible();
+    await expect(menu.getByText('Synthetic family', { exact: true })).toBeVisible();
+    await expect(menu.getByRole('menuitem', { name: /Settings/ })).toBeVisible();
+    if (role === 'parent') await expect(menu.getByRole('menuitem', { name: /Manage/ })).toBeVisible();
+  });
+}
+
 for (const [width, height, theme] of [[320, 568, 'hyrule'], [390, 844, 'vigil']]) {
   test(`materials can be ready without a purchase at ${width}px on ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height });

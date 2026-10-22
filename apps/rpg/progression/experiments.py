@@ -3,6 +3,8 @@
 Only this module writes notebook rows. Domain award writers are never called.
 The paired reports share one detached catalog; client reports are not evidence.
 """
+from contextlib import contextmanager
+from contextvars import ContextVar
 from copy import deepcopy
 from datetime import date
 import json
@@ -148,13 +150,35 @@ def _binding(catalog, *, incubation_policy=None):
             "source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable"}
 
 
+_REQUEST_BINDING = ContextVar("progression_request_binding", default=None)
+
+
 def _current_binding():
+    preset = _REQUEST_BINDING.get()
+    if preset is not None:
+        return preset[0]
     try:
         return _binding(load_catalog())
     except ValueError:
         # Historical evidence remains readable if today's catalog is invalid.
         # Unknown freshness can never authorize a new decision.
         return None
+
+
+@contextmanager
+def request_catalog_binding():
+    """Snapshot today's global catalog binding once, before callers take household locks.
+
+    The snapshot takes a substantial fraction of a second and holds no
+    household data. Within the block every freshness check and report reuses
+    it, so lock holders never rebuild the catalog. Callers without the block,
+    including the native REST views, keep computing it on demand.
+    """
+    token = _REQUEST_BINDING.set((_current_binding(),))
+    try:
+        yield
+    finally:
+        _REQUEST_BINDING.reset(token)
 
 
 def _stale(experiment, comparison, binding=None):
@@ -221,7 +245,7 @@ def _comparison_json(experiment, comparison, *, full=False, binding=None):
     return result
 
 
-def _detail(experiment):
+def _detail(experiment, *, include_observations=True):
     comparisons = list(experiment.comparisons.defer("control", "candidate", "inputs").order_by("-created_at", "-id"))
     binding = _current_binding() if comparisons else None
     return {**_summary(experiment), **_snapshot(experiment),
@@ -230,7 +254,7 @@ def _detail(experiment):
             "observations": [{"id": str(row.pk), "created_at": row.created_at.isoformat(),
                               "experiment_revision": row.experiment_revision, "status": row.payload["status"],
                               "payload": row.payload, "binding": row.binding}
-                             for row in experiment.observations.order_by("-created_at", "-id")]}
+                             for row in experiment.observations.order_by("-created_at", "-id")] if include_observations else []}
 
 
 def list_experiments(actor):
@@ -243,20 +267,21 @@ def list_experiments(actor):
 
 
 @transaction.atomic
-def create_experiment(actor, data):
+def create_experiment(actor, data, *, include_observations=True):
     values = _inputs(data)
     actor = _actor(actor, lock=True)
     if ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).count() >= MAX_EXPERIMENTS:
         raise ValueError("This notebook has reached its 20-experiment limit.")
-    return _detail(ProgressionExperiment.objects.create(actor=actor, family_id=actor.family_id, **values))
+    return _detail(ProgressionExperiment.objects.create(actor=actor, family_id=actor.family_id, **values),
+                   include_observations=include_observations)
 
 
-def get_experiment(actor, experiment_id):
-    return _detail(_experiment(_actor(actor), experiment_id))
+def get_experiment(actor, experiment_id, *, include_observations=True):
+    return _detail(_experiment(_actor(actor), experiment_id), include_observations=include_observations)
 
 
 @transaction.atomic
-def save_experiment(actor, experiment_id, revision, data):
+def save_experiment(actor, experiment_id, revision, data, *, include_observations=True):
     actor = _actor(actor, lock=True)
     experiment = _experiment(actor, experiment_id, lock=True)
     _revision(experiment, revision)
@@ -268,10 +293,17 @@ def save_experiment(actor, experiment_id, revision, data):
         setattr(experiment, key, value)
     experiment.revision += 1
     experiment.save(update_fields=[*values, "revision", "updated_at"])
-    return _detail(experiment)
+    return _detail(experiment, include_observations=include_observations)
 
 
 def compare_experiment(actor, experiment_id, revision):
+    evidence = prepare_comparison(actor, experiment_id, revision)
+    experiment, comparison = record_comparison(actor, experiment_id, revision, evidence)
+    return _comparison_json(experiment, comparison, full=True, binding=evidence["binding"])
+
+
+def prepare_comparison(actor, experiment_id, revision):
+    """Simulate paired evidence without taking locks; ``record_comparison`` commits it."""
     actor = _actor(actor)
     experiment = _experiment(actor, experiment_id)
     _revision(experiment, revision)
@@ -297,6 +329,11 @@ def compare_experiment(actor, experiment_id, revision):
         evidence.update(control=control, candidate=candidate)
     if len(json.dumps(evidence).encode()) > MAX_EVIDENCE_BYTES:
         raise ValueError("Comparison evidence exceeds the 4 MiB storage limit. Simplify the routine or reduce the horizon.")
+    return evidence
+
+
+def record_comparison(actor, experiment_id, revision, evidence):
+    """Recheck current authority, revision and limits under locks, then save prepared evidence."""
     with transaction.atomic():
         actor = _actor(actor, lock=True)
         experiment = _experiment(actor, experiment_id, lock=True)
@@ -304,10 +341,11 @@ def compare_experiment(actor, experiment_id, revision):
         if experiment.comparisons.count() >= MAX_COMPARISONS:
             raise ValueError("This experiment has reached its 20-comparison limit.")
         comparison = ProgressionComparison.objects.create(
-            experiment=experiment, experiment_revision=revision, inputs=inputs,
-            control=control, candidate=candidate, evaluation=evaluation, binding=binding,
+            experiment=experiment, experiment_revision=revision, inputs=evidence["inputs"],
+            control=evidence["control"], candidate=evidence["candidate"],
+            evaluation=evidence["evaluation"], binding=evidence["binding"],
         )
-    return _comparison_json(experiment, comparison, full=True, binding=binding)
+    return experiment, comparison
 
 
 def get_comparison(actor, experiment_id, comparison_id):
@@ -319,7 +357,7 @@ def get_comparison(actor, experiment_id, comparison_id):
 
 
 @transaction.atomic
-def record_decision(actor, experiment_id, data):
+def record_decision(actor, experiment_id, data, *, include_observations=True):
     actor = _actor(actor, lock=True)
     experiment = _experiment(actor, experiment_id, lock=True)
     _revision(experiment, data["revision"])
@@ -327,7 +365,8 @@ def record_decision(actor, experiment_id, data):
         comparison_id = uuid.UUID(str(data["comparison_id"]))
     except (TypeError, ValueError, AttributeError) as exc:
         raise ValueError("Choose a saved comparison.") from exc
-    comparison = experiment.comparisons.filter(pk=comparison_id).first()
+    # The decision needs only the revision, binding and evaluation, not the report.
+    comparison = experiment.comparisons.defer("control", "candidate", "inputs").filter(pk=comparison_id).first()
     if comparison is None:
         raise ExperimentNotFound("Comparison not found.")
     binding = _current_binding()
@@ -355,10 +394,19 @@ def record_decision(actor, experiment_id, data):
         raise ValueError("This experiment has reached its 100-decision limit.")
     ProgressionDecision.objects.create(experiment=experiment, comparison=comparison, outcome=outcome,
                                      rationale=rationale, next_action=next_action, review_on=review_on)
-    return _detail(experiment)
+    return _detail(experiment, include_observations=include_observations)
 
 
-def capture_observation(actor, experiment_id, revision):
+def capture_observation(actor, experiment_id, revision, *, include_observations=True):
+    checkpoint = prepare_observation(actor, experiment_id, revision)
+    # Keep the detail inside the save's actor/experiment locks, as before.
+    with transaction.atomic():
+        experiment, _ = record_observation(actor, experiment_id, revision, checkpoint)
+        return _detail(experiment, include_observations=include_observations)
+
+
+def prepare_observation(actor, experiment_id, revision):
+    """Aggregate the household checkpoint without taking locks; ``record_observation`` commits it."""
     from .observations import economy_observations
 
     actor = _actor(actor)
@@ -370,11 +418,19 @@ def capture_observation(actor, experiment_id, revision):
     binding = {"source_commit": getattr(settings, "SOURCE_COMMIT", "") or "unavailable",
                "rules_fingerprint": rules_fingerprint(), "feedback_fingerprint": feedback_fingerprint(),
                "policy": "installed_uncapped", "scope": "own_family_recent_children"}
+    return {"payload": payload, "binding": binding}
+
+
+def record_observation(actor, experiment_id, revision, checkpoint):
+    """Recheck current authority, revision and limits under locks, then save a prepared checkpoint."""
     with transaction.atomic():
         actor = _actor(actor, lock=True)
         experiment = _experiment(actor, experiment_id, lock=True)
         _revision(experiment, revision)
         if experiment.observations.count() >= MAX_OBSERVATIONS:
             raise ValueError("This experiment has reached its 20-observation checkpoint limit.")
-        ProgressionObservation.objects.create(experiment=experiment, experiment_revision=revision, payload=payload, binding=binding)
-        return _detail(experiment)
+        observation = ProgressionObservation.objects.create(
+            experiment=experiment, experiment_revision=revision,
+            payload=checkpoint["payload"], binding=checkpoint["binding"],
+        )
+    return experiment, observation

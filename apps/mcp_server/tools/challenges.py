@@ -10,6 +10,7 @@ from apps.quests.daily_bonus import get_daily_bonus_payload
 from apps.quests.goal_serializers import GoalWriteSerializer
 from apps.quests.goals import (
     _legacy_payload,
+    _pin_id,
     create_goal,
     family_zone,
     occurrence_payload,
@@ -18,16 +19,22 @@ from apps.quests.goals import (
 from apps.quests.models import ChallengeActivity, ChallengeOccurrence, ChallengePin, Quest
 
 from ..challenge_schemas import (
+    ChallengeDetailResult,
+    ChallengeListResult,
     CreateChallengeGoalIn,
+    GetChallengeIn,
     GetVoyagerFeedbackIn,
     ListChallengesIn,
     PinChallengeIn,
     PreviewChallengeGoalIn,
 )
 from ..context import get_current_user, require_parent, require_staff_parent, resolve_child_in_family, resolve_target_user
-from ..errors import MCPPermissionDenied, MCPValidationError, safe_tool
+from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..pagination import paginate_created_history
+from ..retries import authorized_household
 from ..server import tool
 from ..shapes import to_plain
+from .rpg_management import _target as _household_target
 
 
 def _validated_goal(params):
@@ -55,7 +62,6 @@ def get_voyager_feedback(params: GetVoyagerFeedbackIn) -> dict[str, Any]:
     starts, repairs, publishes, expires or rewards a challenge.
     """
     from apps.quests.voyager_feedback import voyager_feedback
-    from ..retries import authorized_household
 
     actor = require_staff_parent()
     try:
@@ -65,36 +71,35 @@ def get_voyager_feedback(params: GetVoyagerFeedbackIn) -> dict[str, Any]:
         raise MCPPermissionDenied(str(exc.detail)) from None
 
 
-@tool()
-@safe_tool
-def list_challenges(params: ListChallengesIn) -> dict[str, Any]:
-    """Read saved modern goals, legacy history and actual reward receipts.
-
-    This audit never enrolls goals, advances periods, repairs facts, changes a
-    pin or awards a reward. A child may read self; parents may select a child
-    in their family. No private journal text or source contexts are returned.
-    """
-    target = resolve_target_user(get_current_user(), params.user_id)
+def _saved_challenge_page(actor, target, params):
     controls = control_context(target)
     pin = ChallengePin.objects.filter(user=target).first()
-    pin_id = None
-    if pin:
-        pin_id = (f"goal:{pin.occurrence_id}" if pin.occurrence_id else
-                  f"legacy:{pin.legacy_quest_id}" if pin.legacy_quest_id else None)
+    pin_id = _pin_id(pin) if pin else None
     occurrences = ChallengeOccurrence.objects.filter(
         goal__user=target, goal__family_id=target.family_id,
-    ).select_related("goal", "goal__catalog_definition").order_by("-starts_at", "-pk")
-    selected = list(occurrences[:params.limit])
-    results = [occurrence_payload(row, pin_id, controls=controls) for row in selected]
-    if params.include_legacy:
+    ).select_related("goal", "goal__catalog_definition")
+    pages, results = {}, []
+    if params.source in {"all", "modern"}:
+        selected, pages["modern"] = paginate_created_history(
+            occurrences, actor=actor, tool="list_challenges", filters={"user_id": target.pk, "source": "modern"},
+            limit=params.limit, cursor=params.cursor, order_field="starts_at",
+        )
+        results.extend(occurrence_payload(row, pin_id, controls=controls) for row in selected)
+    if params.include_legacy and params.source in {"all", "legacy"}:
         legacy = Quest.objects.filter(participants__user=target).select_related("definition").distinct()
-        results.extend(_legacy_payload(row, pin_id) for row in legacy.order_by("-start_date", "-pk")[:params.limit])
+        selected, pages["legacy"] = paginate_created_history(
+            legacy, actor=actor, tool="list_challenges", filters={"user_id": target.pk, "source": "legacy"},
+            limit=params.limit, cursor=params.cursor, order_field="start_date",
+        )
+        results.extend(_legacy_payload(row, pin_id) for row in selected)
     receipts = occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at", "-pk")[:params.limit]
     activities = ChallengeActivity.objects.filter(
         user=target, voided=False, context__has_key="_receipt",
     ).order_by("-created_at", "-pk").values_list("context", flat=True)[:params.limit]
     return to_plain({
         "user_id": target.pk,
+        "source": params.source,
+        "pages": pages,
         "results": results,
         "pin": pin_id,
         "daily_bonus": get_daily_bonus_payload(target),
@@ -102,6 +107,54 @@ def list_challenges(params: ListChallengesIn) -> dict[str, Any]:
         "challenge_receipts": [context["_receipt"] for context in activities],
         "saved_state_only": True,
     })
+
+
+@tool()
+@safe_tool
+def list_challenges(params: ListChallengesIn) -> ChallengeListResult:
+    """Read saved challenges and receipts; follow per-source pages for older rows.
+
+    The default source=all returns recent modern and legacy rows as before.
+    Each pages entry has its own signed next_cursor; continue using that cursor
+    with source=modern or source=legacy. Recent receipts remain bounded summaries.
+    Every page rechecks the same actor, family and target. This audit never
+    enrolls, advances periods, repairs facts, changes pins, opens details or
+    awards anything, and exposes no private journal text or source contexts.
+    """
+    actor = get_current_user()
+    target = resolve_target_user(actor, params.user_id)
+    with authorized_household(actor, target, allow_inactive_target=True) as (fresh_actor, fresh_target):
+        return _saved_challenge_page(fresh_actor, fresh_target, params)
+
+
+@tool()
+@safe_tool
+def get_challenge(params: GetChallengeIn) -> ChallengeDetailResult:
+    """Read one exact saved challenge, including attempts beyond recent history.
+
+    Parents explicitly choose their same-family child; children read themselves.
+    Returns frozen modern promises, actual saved receipts and current retry or
+    schedule controls. It never enrolls, advances a period, repairs a fact, opens
+    details, changes a pin or awards anything. Missing and foreign IDs match.
+    """
+    actor, target = _household_target(params.user_id, allow_inactive_target=True)
+    kind, object_id = params.challenge_id.split(":", 1)
+    with authorized_household(actor, target, allow_inactive_target=True) as (_actor, child):
+        pin = ChallengePin.objects.filter(user=child).first()
+        pin_id = _pin_id(pin) if pin else None
+        if kind == "goal":
+            row = ChallengeOccurrence.objects.filter(
+                pk=int(object_id), goal__user=child, goal__family_id=child.family_id,
+            ).select_related("goal", "goal__catalog_definition").first()
+            if row is None:
+                raise MCPNotFoundError("Challenge not found.")
+            payload = occurrence_payload(row, pin_id, controls=control_context(child))
+        else:
+            row = Quest.objects.filter(pk=int(object_id), participants__user=child).select_related("definition").first()
+            if row is None:
+                raise MCPNotFoundError("Challenge not found.")
+            payload = _legacy_payload(row, pin_id)
+        return to_plain({"user_id": child.pk, **payload, "saved_state_only": True})
 
 
 @tool()

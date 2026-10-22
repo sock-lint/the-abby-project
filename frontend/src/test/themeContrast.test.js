@@ -38,6 +38,9 @@ function tintedSurface(tone, base, opacity) {
 describe('theme contrast (WCAG AA)', () => {
   for (const [themeKey, theme] of Object.entries(themes)) {
     describe(`${themeKey} (${theme.name})`, () => {
+      it('keeps the small notification count readable on its ember badge', () => {
+        expect(contrastRatio(theme.page, theme.tones.emberDeep)).toBeGreaterThanOrEqual(AA_NORMAL);
+      });
       it('keeps nested-card supporting copy readable over every owning surface', () => {
         for (const surface of SURFACES) {
           const background = tintedSurface(theme.pageShadow, theme[surface], 0.8);

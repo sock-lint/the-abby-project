@@ -101,6 +101,8 @@ def catalog_row(section, row):
             "pet_species_id", "potion_type_id", "food_species_id",
         )}, "effect_summary": effect_summary(row), **_item_availability(row)}
     if section == "quests":
+        from apps.rpg.content.workbench_validation import challenge_trigger_status
+        tracking = challenge_trigger_status(row.quest_type, row.trigger_filter)
         return {**common, **{key: getattr(row, key) for key in (
             "name", "description", "icon", "sprite_key", "quest_type", "target_value", "duration_days", "trigger_filter",
             "coin_reward", "xp_reward", "is_repeatable", "is_system", "is_cooperative",
@@ -112,7 +114,9 @@ def catalog_row(section, row):
                 "required_skill": row.required_skill_id,
                 "required_skill_name": row.required_skill.name if row.required_skill_id else None,
                 "required_skill_level": row.required_skill_level,
-                "available_for_new_user": definition_is_available(row) and _quest_available(row),
+                "automatic_tracking_available": tracking["available"],
+                "unsupported_triggers": tracking["unsupported"],
+                "available_for_new_user": tracking["available"] and definition_is_available(row) and _quest_available(row),
                 "skill_tags": [{"skill_id": tag.skill_id, "skill_name": tag.skill.name, "xp_weight": tag.xp_weight}
                                for tag in row.skill_tags.all()],
                 "reward_items": [{"item_id": reward.item_id, "slug": reward.item.slug, "name": reward.item.name,
