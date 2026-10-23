@@ -17,7 +17,8 @@ from django.test import override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
-from apps.achievements.models import Skill, SkillCategory, SkillProgress
+from apps.achievements.models import Skill, SkillCategory, SkillProgress, XP_THRESHOLDS
+from apps.achievements.services import SkillService
 from apps.habits.models import Habit, HabitLog, HabitSkillTag
 from apps.notifications.models import Notification, NotificationType
 from apps.pets.models import PetIncubation, MountExpedition, PetSpecies, PotionType, UserMount, UserPet
@@ -169,13 +170,16 @@ class SharedApiResponseFixtureTests(APITestCase):
             )
         CharacterProfile.objects.filter(user=self.sibling).update(login_streak=9)
         CharacterProfile.objects.filter(user=self.outsider).update(login_streak=12)
+        SkillService.award_xp(self.child, self.skill, XP_THRESHOLDS[3])
         self.assertFalse(TimeEntry.objects.filter(user=self.child).exists())
         dashboard = self.client.get("/api/dashboard/")
         self.assertEqual(dashboard.status_code, 200)
         self.assertEqual(dashboard.json()["rpg"]["login_streak"], 4)
+        self.assertEqual(dashboard.json()["rpg"]["level"], 3)
         response = self.client.get("/api/pulse/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["header"]["streak_days"], 4)
+        self.assertEqual(response.json()["header"]["level"], 3)
         body = self.assert_response_fixture(response, "pulse-activity-streak.json")
         self.assertIsNone(body["header"]["active_timer"])
         self.assertEqual(body["header"]["streak_bonus"], {

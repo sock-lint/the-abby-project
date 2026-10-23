@@ -18,6 +18,8 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
+from apps.achievements.models import Skill, SkillCategory, SkillProgress, XP_THRESHOLDS
+from apps.achievements.services import SkillService
 from apps.notifications.models import Notification
 from apps.projects.models import Project, SavingsGoal
 from apps.projects.pulse import build_pulse
@@ -401,4 +403,59 @@ class PulseActivityStreakTests(TestCase):
             "active_today": False, "check_in_multiplier": 1.0,
             "check_in_coins": 0, "drop_bonus": 0.0, "intensity": 0.0,
         })
+
+
+@override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
+class PulseHeaderLevelTests(TestCase):
+    def setUp(self):
+        household = make_family(
+            "Header Level House",
+            parents=[{"username": "level-parent"}],
+            children=[{"username": "level-child"}],
+        )
+        self.parent = household.parents[0]
+        self.child = household.children[0]
+        self.outsider = make_family(
+            "Other Header Level House", children=[{"username": "other-level-child"}],
+        ).children[0]
+        category = SkillCategory.objects.create(name="Header level skills")
+        self.skill = Skill.objects.create(name="Header level reading", category=category)
+        self.client = APIClient()
+        self.client.force_authenticate(self.child)
+
+    def test_header_matches_profile_level_and_refreshes_after_earned_xp(self):
+        for level in (0, 3):
+            with self.subTest(level=level):
+                if level:
+                    SkillService.award_xp(self.child, self.skill, XP_THRESHOLDS[level])
+                character = self.client.get(reverse("character"))
+                self.assertEqual(character.status_code, 200)
+                self.assertEqual(character.data["level"], level)
+                saved_profiles = list(CharacterProfile.objects.order_by("pk").values())
+                saved_progress = list(SkillProgress.objects.order_by("pk").values())
+                response = self.client.get(reverse("pulse"))
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["header"]["level"], character.data["level"])
+                self.assertNotIn("level", response.data["identity"])
+                self.assertEqual(list(CharacterProfile.objects.order_by("pk").values()), saved_profiles)
+                self.assertEqual(list(SkillProgress.objects.order_by("pk").values()), saved_progress)
+
+    def test_header_level_is_the_requesting_account_even_with_user_id(self):
+        for user, level in ((self.child, 3), (self.parent, 1), (self.outsider, 6)):
+            SkillService.award_xp(user, self.skill, XP_THRESHOLDS[level])
+        for user, requested_user, level in (
+            (self.child, self.outsider, 3), (self.parent, self.child, 1),
+        ):
+            with self.subTest(user=user.username):
+                self.client.force_authenticate(user)
+                response = self.client.get(reverse("pulse"), {"user_id": requested_user.pk})
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["header"]["level"], level)
+
+    def test_missing_profile_returns_null_level_without_creating_progression(self):
+        CharacterProfile.objects.filter(user=self.child).delete()
+        response = self.client.get(reverse("pulse"))
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNone(response.data["header"]["level"])
+        self.assertIsNone(response.data["identity"])
         self.assertFalse(CharacterProfile.objects.filter(user=self.child).exists())

@@ -64,6 +64,7 @@
       "check_in_coins": 0,
       "drop_bonus": 0.0,
       "intensity": 0.0
-    }
+    },
+    "level": 0
   }
 }

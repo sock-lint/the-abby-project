@@ -82,8 +82,8 @@ def _send_birthday_notification(user, coin_amount: int) -> None:
 
 
 
-@shared_task(name="apps.chronicle.tasks.chronicle_chapter_transition")
-def chronicle_chapter_transition() -> dict:
+@shared_task(name="apps.chronicle.tasks.chronicle_chapter_transition", bind=True, max_retries=3)
+def chronicle_chapter_transition(self, *, transition_date: str | None = None) -> dict:
     """Fires daily at 00:25 local. No-op except on Aug 1 or Jun 1.
 
     - Aug 1: for each child with DOB, record_chapter_start(user, current_chapter_year).
@@ -91,14 +91,18 @@ def chronicle_chapter_transition() -> dict:
       that just closed. If that chapter corresponds to grade 12, mark the recap's
       metadata.is_graduation=True and also emit a standalone MILESTONE entry
       with event_slug='graduated_high_school'.
+
+    A new graduation recognition failure leaves later children unaffected and
+    retries at most three times, retaining the original transition date.
     """
     from apps.families.queries import children_across_families
 
-    today = date.today()
+    today = date.fromisoformat(transition_date) if transition_date is not None else date.today()
     if (today.month, today.day) not in ((8, 1), (6, 1)):
         return {"noop": True}
 
     results = {"starts": 0, "ends": 0, "recaps": 0, "graduations": 0}
+    graduation_error = None
 
     for _family, user in children_across_families(
         active_only=False, date_of_birth__isnull=False,
@@ -119,17 +123,33 @@ def chronicle_chapter_transition() -> dict:
                 if grade_of_closing_chapter == 12:
                     recap.metadata["is_graduation"] = True
                     recap.save(update_fields=["metadata"])
-                    ChronicleEntry.objects.get_or_create(
-                        user=user,
-                        kind=ChronicleEntry.Kind.MILESTONE,
-                        event_slug="graduated_high_school",
-                        defaults={
-                            "chapter_year": closing_chapter_year,
-                            "occurred_on": today,
-                            "title": "🎓 Graduated high school",
-                            "icon_slug": "graduation-cap",
-                        },
-                    )
+                    from apps.achievements.services import BadgeService, _lock_award_user
+                    try:
+                        with transaction.atomic():
+                            _lock_award_user(user)
+                            _milestone, created = ChronicleEntry.objects.get_or_create(
+                                user=user,
+                                kind=ChronicleEntry.Kind.MILESTONE,
+                                event_slug="graduated_high_school",
+                                defaults={
+                                    "chapter_year": closing_chapter_year,
+                                    "occurred_on": today,
+                                    "title": "🎓 Graduated high school",
+                                    "icon_slug": "graduation-cap",
+                                },
+                            )
+                            if created:
+                                BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
+                    except Exception as exc:
+                        if graduation_error is None:
+                            graduation_error = exc
+                        logger.exception("Graduation recognition failed for user %s", user.pk)
+                        continue
                     results["graduations"] += 1
 
+    if graduation_error is not None:
+        raise self.retry(
+            exc=graduation_error, kwargs={"transition_date": today.isoformat()},
+            countdown=300, max_retries=3,
+        )
     return results

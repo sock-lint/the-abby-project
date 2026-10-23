@@ -33,6 +33,7 @@ describe('reviewable project plans through the shared React API client', () => {
     expect(pulse.header.streak_bonus).toEqual({
       active_today: false, check_in_multiplier: 1, check_in_coins: 0, drop_bonus: 0, intensity: 0,
     });
+    expect(pulse.header.level).toBe(0);
     expect(pulse.identity).toMatchObject({
       id: 702, username: 'project-ai-fixture-child', avatar: 'http://testserver/media/avatars/synthetic-maker.png',
       active_frame: { slug: 'frame-laurel', metadata: { style: 'laurel', color: '#22c55e' } },

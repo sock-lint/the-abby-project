@@ -20,6 +20,7 @@
   "expeditions_ready": [],
   "savings_goals": [],
   "newly_unlocked_lorebook": [
+    "skills",
     "streaks"
   ],
   "header": {
@@ -32,6 +33,7 @@
       "check_in_coins": 7,
       "drop_bonus": 0.2,
       "intensity": 0.2
-    }
+    },
+    "level": 3
   }
 }

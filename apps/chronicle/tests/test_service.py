@@ -3,6 +3,7 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 
 from apps.chronicle.models import ChronicleEntry
 from apps.chronicle.services import ChronicleService
@@ -23,8 +24,9 @@ class RecordFirstTests(TestCase):
         self.assertIsNotNone(entry)
         self.assertEqual(entry.kind, ChronicleEntry.Kind.FIRST_EVER)
         self.assertEqual(entry.event_slug, "first_bounty_payout")
-        self.assertEqual(entry.occurred_on, date.today())
-        self.assertEqual(entry.chapter_year, date.today().year if date.today().month >= 8 else date.today().year - 1)
+        today = timezone.localdate()
+        self.assertEqual(entry.occurred_on, today)
+        self.assertEqual(entry.chapter_year, today.year if today.month >= 8 else today.year - 1)
 
     def test_duplicate_slug_returns_none(self):
         ChronicleService.record_first(self.user, event_slug="first_project_completed", title="x")

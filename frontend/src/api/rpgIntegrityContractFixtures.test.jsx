@@ -17,7 +17,7 @@ describe('server-confirmed RPG progression and purchased promises', () => {
     const profile = await getCharacterProfile();
     expect(profile).toMatchObject({ level: 2, total_xp: 375, xp_in_level: 75, xp_needed_for_level: 300 });
     renderWithProviders(<SigilFrontispiece profile={profile} onOpenTrophyPicker={() => {}} />);
-    expect(screen.getByText('level 2')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Level 2', exact: true })).toHaveTextContent('Lv. 2');
     expect(screen.getByText('25% toward the next level')).toBeInTheDocument();
   });
 
@@ -27,7 +27,7 @@ describe('server-confirmed RPG progression and purchased promises', () => {
     expect(profile).toMatchObject({ level: 6, total_xp: 2500, xp_needed_for_level: 0 });
     renderWithProviders(<SigilFrontispiece profile={profile} onOpenTrophyPicker={() => {}} />);
     expect(screen.getByText('Highest level')).toBeInTheDocument();
-    expect(screen.getByText('level 6')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Level 6', exact: true })).toHaveTextContent('Lv. 6');
     expect(screen.queryByText(/toward the next level/)).not.toBeInTheDocument();
   });
 

@@ -108,6 +108,11 @@ after its own Uncommon-or-better draw. Each newly earned counter badge has its
 separate ordinary badge drop, preserving one draw per accomplishment. Pending,
 ineligible and already receipted days never evaluate or backfill those awards.
 
+New accomplishment payouts also call `chronicle.recognition.safe_record_firsts`
+for Yearbook recognition, without replaying activity or rewards. Recognition
+has its own savepoint, so a failed first-event write leaves the payout intact.
+Normal activity can record both a source first and a newly reached streak first.
+
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
@@ -180,6 +185,10 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Modeled first hatch/evolution, automatic challenge, legendary badge, streak
+  and approved exchange boundaries retain their once-only scoped badge checks.
+  Chronicle rows and milestone-badge rewards remain excluded; those checks can
+  recognize only criteria already supported by the forecast.
   Reports and metadata record `pet_incubation_policy`, including the installed
   elapsed duration and one unfinished slot. Ingredients are reserved during
   active care; readiness advances over inactive days, and the next active

@@ -154,6 +154,9 @@ class ProjectAIPlanApiResponseFixtureTests(APITestCase):
             "active_today": False, "check_in_multiplier": 1.0,
             "check_in_coins": 0, "drop_bonus": 0.0, "intensity": 0.0,
         })
+        self.assertEqual(pulse["header"]["level"], 0)
+        self.assertEqual(pulse["header"]["level"], dashboard["rpg"]["level"])
+        self.assertNotIn("level", pulse["identity"])
         self.assertEqual(list(CharacterProfile.objects.order_by("pk").values()), saved_profiles)
         self.assertEqual(list(UserInventory.objects.order_by("pk").values()), saved_inventory)
 
