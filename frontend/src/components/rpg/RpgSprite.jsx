@@ -34,6 +34,8 @@ const ELEMENTAL_PORTRAIT_KEYS = new Set([
   'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
   'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount',
   'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
+  'meshtint-bee', 'meshtint-bee-middle', 'meshtint-bee-mount',
+  'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount',
 ]);
 
 // Gentle-nudge dimming applied to pet sprites whose happiness has slipped.
@@ -69,6 +71,7 @@ export default function RpgSprite({
   potionSlug = null,
   dim = null,
   rendering = 'smooth',
+  elemental,
 }) {
   const { getSpriteMeta } = useSpriteCatalog();
   // Bind failures to the URL that failed. A late error from the previous
@@ -76,7 +79,7 @@ export default function RpgSprite({
   const [failedUrls, setFailedUrls] = useState(() => new Set());
   const exactElemental = ['fire', 'ice'].includes(potionSlug)
     && [spriteKey, fallbackSpriteKey].some((key) => ELEMENTAL_PORTRAIT_KEYS.has(key));
-  const candidates = exactElemental ? [resolveElementalPortrait(spriteKey, potionSlug)]
+  const candidates = exactElemental ? [resolveElementalPortrait(spriteKey, potionSlug, elemental)]
     : [spriteKey, fallbackSpriteKey].filter(Boolean).flatMap((key) => [
       resolveRosterPortrait(key, potionSlug, size > 96 ? 'native' : 'icon'),
       getLicensedRpgSprite(key, size > 96 ? 'native' : 'icon'), getSpriteMeta(key),

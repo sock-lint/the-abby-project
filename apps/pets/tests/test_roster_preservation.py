@@ -235,7 +235,7 @@ class RosterPreservationTests(APITestCase):
             self.assertFalse(DropTable.objects.filter(item_id__in=retired).exists())
             self.assertFalse(Reward.objects.filter(pk__in=[reward.pk for reward in self.saved_rewards], is_active=True).exists())
         stable = self.client.get("/api/pets/stable/").json()
-        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 23))
+        self.assertEqual((stable["total_pets"], stable["total_mounts"], stable["total_possible"]), (17, 17, 27))
         self.assertTrue(all(not pet["catalog_available"] for pet in stable["pets"]))
         self.assertEqual({pet["name"] for pet in stable["pets"]}, {f"Saved {slug}" for slug in LEGACY_SLUGS})
 
