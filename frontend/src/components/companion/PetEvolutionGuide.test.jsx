@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
 import PetEvolutionGuide from './PetEvolutionGuide';
+import { server } from '../../test/server';
+import { renderWithProviders } from '../../test/render';
+import { useAuth } from '../../hooks/useApi';
 
 const creature = { id: 1, species: { slug: 'chick', sprite_key: 'cute-chick' }, potion: { slug: 'base' }, evolution_stage: 'fledgling', growth_points: 65 };
 
@@ -41,5 +45,59 @@ describe('PetEvolutionGuide', () => {
     const steps = within(screen.getByRole('list', { name: 'Pet growth stages' })).getAllByRole('listitem');
     expect(steps[1]).toHaveAttribute('aria-current', 'step');
     expect(steps[3]).not.toHaveAttribute('aria-current');
+  });
+});
+
+describe('PetEvolutionGuide child surprise', () => {
+  const wolf = { slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf', name: 'Wolf' };
+  async function asAccount(account, ui) {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(account)));
+    // Render only once the account resolved, as the application does.
+    function Ready({ children }) { const { user } = useAuth(); return user ? children : null; }
+    renderWithProviders(<Ready>{ui}</Ready>);
+    return within(await screen.findByRole('list', { name: 'Pet growth stages' }));
+  }
+
+  it('keeps generic stages but withholds unreached form names from a child', async () => {
+    const guide = await asAccount({ id: 5, role: 'child', is_staff: false },
+      <PetEvolutionGuide creature={{ id: 3, species: wolf, potion: { slug: 'base' }, lifecycle_stage: 'baby', growth_points: 99 }} />);
+    expect(guide.getAllByRole('listitem')).toHaveLength(4);
+    expect(guide.getByText('Baby · Wolf Pup')).toBeInTheDocument();
+    expect(guide.getByText('Middle')).toBeInTheDocument();
+    expect(guide.getByText('Grown')).toBeInTheDocument();
+    expect(screen.queryByText(/Werewolf/)).toBeNull();
+    expect(screen.getByText('From 50 growth')).toBeInTheDocument();
+  });
+
+  it('reveals only the stages an owned appearance reached', async () => {
+    const guide = await asAccount({ id: 5, role: 'child' },
+      <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={[]} />);
+    expect(guide.getByText('Baby')).toBeInTheDocument();
+    expect(screen.queryByText(/Wolf Pup|Werewolf/)).toBeNull();
+  });
+
+  it('names a child the forms their owned appearance reached', async () => {
+    const guide = await asAccount({ id: 5, role: 'child' },
+      <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={['baby', 'middle']} />);
+    expect(guide.getByText('Baby · Wolf Pup')).toBeInTheDocument();
+    expect(guide.getByText('Middle · Wolf')).toBeInTheDocument();
+    expect(screen.queryByText(/Werewolf/)).toBeNull();
+  });
+
+  it.each([
+    [{ slug: 'meshtint-bee', sprite_key: 'meshtint-bee', name: 'Bee' }, /Bumble|Sting/, 'Grown · Sting'],
+    [{ slug: 'meshtint-bat', sprite_key: 'meshtint-bat', name: 'Bat' }, /Vampire Bat|Bat Lord/, 'Grown · Bat Lord'],
+  ])('withholds later $name forms from a child with only the Fire Baby', async (species, later, grown) => {
+    const guide = await asAccount({ id: 5, role: 'child' },
+      <PetEvolutionGuide species={species} potion={{ slug: 'fire' }} currentStage="egg" revealedStages={['baby']} />);
+    expect(guide.getByText('Middle')).toBeInTheDocument();
+    expect(screen.queryByText(later)).toBeNull();
+    expect(screen.queryByText(grown)).toBeNull();
+  });
+
+  it('keeps every form name for parents', async () => {
+    const guide = await asAccount({ id: 6, role: 'parent', is_staff: false },
+      <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={[]} />);
+    expect(guide.getByText('Grown · Werewolf')).toBeInTheDocument();
   });
 });

@@ -14,6 +14,15 @@ from apps.rpg.models import DropTable
 from apps.rpg.progression import describe_progression, normalize_config, simulate_progression
 from apps.rpg.progression.catalog import load_catalog
 from apps.rpg.progression.engine import DEFAULTS, Trial, percentile, rules_fingerprint
+from apps.rpg.services import StreakService
+
+
+def alternate_streak_bonus(streak):
+    return {"check_in_multiplier": 1.5, "check_in_coins": 7, "drop_bonus": 0.1, "intensity": 0.25}
+
+
+def alternate_streak_presentation(profile):
+    return {"active_today": False}
 
 
 def quiet_config(**changes):
@@ -78,7 +87,7 @@ class ProgressionEngineTests(TestCase):
                 "inventory": 0,
             },
         )
-        self.assertEqual(result["catalog"]["supported_pet_variants"], 23)
+        self.assertEqual(result["catalog"]["supported_pet_variants"], 27)
         self.assertEqual(len(result["rules_fingerprint"]), 64)
 
     def test_short_project_facts_cannot_bootstrap_drops_or_expeditions(self):
@@ -212,6 +221,16 @@ class ProgressionEngineTests(TestCase):
         before = rules_fingerprint()
         with patch.dict(XP_THRESHOLDS, {6: 2700}):
             self.assertNotEqual(before, rules_fingerprint())
+
+    def test_streak_bonus_formula_changes_invalidate_forecast_rules(self):
+        before = rules_fingerprint()
+        with patch.object(StreakService, "bonus_for_streak", alternate_streak_bonus):
+            self.assertNotEqual(before, rules_fingerprint())
+
+    def test_streak_header_presentation_does_not_invalidate_forecast_rules(self):
+        before = rules_fingerprint()
+        with patch.object(StreakService, "bonus_status", alternate_streak_presentation):
+            self.assertEqual(before, rules_fingerprint())
 
     def test_expired_oneoff_targets_are_reported_without_claiming_consumption(self):
         quest = QuestDefinition.objects.create(

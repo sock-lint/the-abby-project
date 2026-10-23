@@ -51,7 +51,7 @@ function OwnedPreview({ creature, kind, variant, ...props }) {
     }} {...props} />;
 }
 
-function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate, setAnimate, evolution, restartScene, kicker = 'Your companion', summary, onInteract, interactionLabel, reaction, onPresentationChange, children }) {
+function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate, setAnimate, evolution, restartScene, kicker = 'Your companion', summary, onInteract, interactionLabel, reaction, onPresentationChange, elemental, children }) {
   const primary = variant === 'primary';
   const headingId = useId();
   const [failed, setFailed] = useState(false);
@@ -66,7 +66,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  const appearance = useMemo(() => import.meta.env.VITE_COMPANION_3D === 'false' ? null : resolveAppearance(creature, kind), [creature, kind]);
+  const appearance = useMemo(() => import.meta.env.VITE_COMPANION_3D === 'false' ? null : resolveAppearance(creature, kind, undefined, undefined, undefined, undefined, elemental), [creature, kind, elemental]);
   const onReady = useCallback(() => setReady(true), []);
   const onUnavailable = useCallback(() => setFailed({ urls: [] }), []);
   const onPlaybackState = useCallback((state) => setPlayback(state), []);
@@ -132,7 +132,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
 
       <div className="companion-preview-stage" aria-busy={showScene && !ready}>
         {(!showScene || !ready) && <div className="companion-preview-portrait">
-          {creature ? <RpgSprite {...sprite} icon={creature.species?.icon} size={160} alt={primary ? `${name}, your companion` : label} potionSlug={creature.potion?.slug} dim={!mount && creature.happiness_level !== 'happy' ? creature.happiness_level : null} /> : <Heart size={48} aria-hidden="true" />}
+          {creature ? <RpgSprite {...sprite} elemental={elemental} icon={creature.species?.icon} size={160} alt={primary ? `${name}, your companion` : label} potionSlug={creature.potion?.slug} dim={!mount && creature.happiness_level !== 'happy' ? creature.happiness_level : null} /> : <Heart size={48} aria-hidden="true" />}
         </div>}
         {showScene && <div className="companion-preview-canvas" aria-hidden="true">
           <SceneBoundary onFailure={onAssetFailure}>

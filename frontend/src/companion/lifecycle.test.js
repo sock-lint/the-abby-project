@@ -51,7 +51,7 @@ describe('Companion family lifecycle', () => {
       .toEqual([null, 'Chick', 'Fledgling', 'Bird']);
     expect(companionLifecycle({ slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf' }, { slug }).map(({ form }) => form))
       .toEqual([null, 'Wolf Pup', 'Wolf', 'Werewolf']);
-    expect(companionLifecycle({ slug: 'meshtint-bat', sprite_key: 'meshtint-bat' }, { slug }).map(({ form }) => form))
+    expect(companionLifecycle({ slug: 'meshtint-shadow', sprite_key: 'meshtint-shadow' }, { slug }).map(({ form }) => form))
       .toEqual([null, null, null, null]);
   });
 

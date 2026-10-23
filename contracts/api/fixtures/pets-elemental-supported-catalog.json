@@ -17,6 +17,22 @@
           "color_hex": "#8B7355",
           "rarity": "common",
           "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
         }
       ],
       "discovered": false,
@@ -25,6 +41,54 @@
       "catalog_available": true,
       "catalog_icon": "bat-baby-portrait",
       "grown_catalog_icon": "bat-grown-portrait",
+      "lifecycle_stages": [
+        "egg",
+        "baby",
+        "middle",
+        "grown"
+      ]
+    },
+    {
+      "id": 66,
+      "slug": "meshtint-bee",
+      "name": "Bee",
+      "icon": "S",
+      "sprite_key": "meshtint-bee",
+      "description": "",
+      "rarity": "common",
+      "food_preference": "",
+      "available_potions": [
+        {
+          "id": 43,
+          "slug": "base",
+          "name": "Base",
+          "color_hex": "#8B7355",
+          "rarity": "common",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 41,
+          "slug": "fire",
+          "name": "Fire",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        },
+        {
+          "id": 42,
+          "slug": "ice",
+          "name": "Ice",
+          "color_hex": "#8B7355",
+          "rarity": "uncommon",
+          "acquisition_challenges": []
+        }
+      ],
+      "discovered": false,
+      "owned_pet_ids": [],
+      "owned_mount_potion_ids": [],
+      "catalog_available": true,
+      "catalog_icon": "bee-baby-portrait",
+      "grown_catalog_icon": "bee-grown-portrait",
       "lifecycle_stages": [
         "egg",
         "baby",
@@ -258,9 +322,9 @@
     }
   ],
   "totals": {
-    "species": 5,
+    "species": 6,
     "discovered_species": 0,
-    "mounts_possible": 13,
+    "mounts_possible": 18,
     "mounts_owned": 0
   }
 }

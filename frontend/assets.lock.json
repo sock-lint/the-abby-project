@@ -65,6 +65,18 @@
       "family_id": "abby-elemental-dragon-mushroom",
       "manifest_sha256": "bed65d84a4079dec2275f9dc4f3e3933c820cda378603eac790b263afa53ea05",
       "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-streak-flames/1.0.0/e2fb733534ab379e432cbf22dd37d000a264ffab39709179a3dbac2a22609a64",
+      "family_id": "abby-streak-flames",
+      "manifest_sha256": "e2fb733534ab379e432cbf22dd37d000a264ffab39709179a3dbac2a22609a64",
+      "release_version": "1.0.0"
+    },
+    {
+      "directory": "abby-elemental-bee-bat/1.0.0/7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+      "family_id": "abby-elemental-bee-bat",
+      "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+      "release_version": "1.0.0"
     }
   ],
   "schema_version": 1

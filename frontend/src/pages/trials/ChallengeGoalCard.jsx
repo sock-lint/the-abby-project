@@ -5,6 +5,7 @@ import Button from '../../components/Button';
 import BottomSheet from '../../components/BottomSheet';
 import AddToCalendar from '../../components/AddToCalendar';
 import CatalogIcon from '../../components/rpg/CatalogIcon';
+import { useChallengeSurprise } from '../../companion/previewAccess';
 import RewardItem from '../../components/rpg/RewardItem';
 import EarnedPetItemActions from '../../components/rpg/EarnedPetItemActions';
 import AchievementCard from '../../components/cards/AchievementCard';
@@ -74,12 +75,13 @@ function GoalBody({ goal, timezone, showWhatCounts = true, showPeriod = true, sh
 export default function ChallengeGoalCard({ goal, timezone, onSelect, onPin, onRetry, busy = false, isParent = false }) {
   const period = goalPeriod(goal, timezone);
   const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
+  const { hideArt } = useChallengeSurprise(goal);
   return (
     <AchievementCard as="article" variant="tall" aria-label={goal.name}>
         <div className="space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1 basis-40 flex flex-wrap items-start gap-3">
-              {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
+              {goal.catalog_icon && !hideArt && <CatalogIcon assetId={goal.catalog_icon} size={40} alt={goal.name} className="shrink-0" />}
               <div className="min-w-0 flex-1 basis-32 space-y-1">
                 <p className="font-body text-caption text-ink-secondary">{goal.origin === 'parent' ? isParent ? 'Parent goal' : 'From your parent' : goal.origin === 'legacy' || goal.legacy ? 'Saved challenge' : 'Bonus challenge'}</p>
                 <h4 className="font-body font-bold text-lede text-ink-primary break-words [overflow-wrap:anywhere]">{goal.name}</h4>
@@ -110,6 +112,7 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, b
   const navigate = useNavigate();
   const path = goalActionPath(goal.action);
   const rewardUnavailable = goal.retry?.reason === 'reward_unavailable';
+  const { hideArt, description } = useChallengeSurprise(goal);
   const close = () => {
     onClose();
     // Pinning can move/remount the opener while the sheet is open. Keep the
@@ -125,8 +128,8 @@ export function ChallengeGoalDetail({ goal, timezone, onClose, onPin, onRetry, b
   return (
     <BottomSheet title={goal.name} onClose={close}>
       <div className="space-y-4">
-        {goal.catalog_icon && <CatalogIcon assetId={goal.catalog_icon} size={64} alt={goal.name} />}
-        {goal.description && <p className="font-body text-body text-ink-secondary">{goal.description}</p>}
+        {goal.catalog_icon && !hideArt && <CatalogIcon assetId={goal.catalog_icon} size={64} alt={goal.name} />}
+        {description && <p className="font-body text-body text-ink-secondary">{description}</p>}
         <GoalBody goal={goal} timezone={timezone} showWhatCounts={false} showExactDeadline allowRewardActions={canAct} onRewardNavigate={onClose} />
         {goal.participants?.length > 1 && <section className="space-y-2">
           <h3 className="font-body font-bold text-body text-ink-primary">Shared progress</h3>
