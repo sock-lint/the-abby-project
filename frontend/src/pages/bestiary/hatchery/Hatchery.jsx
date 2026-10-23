@@ -20,6 +20,8 @@ import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 import CatalogIcon from '../../../components/rpg/CatalogIcon';
+import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
+import { ownedAppearanceStages, useSurpriseRestricted } from '../../../companion/previewAccess';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import EggCollection from './EggCollection';
 import usePetMutationGuard from '../party/usePetMutationGuard';
@@ -28,7 +30,8 @@ import useIncubationRefresh from './useIncubationRefresh';
 import { formatExpeditionRemaining } from '../party/party.constants';
 import HatcheryDiscovery from './HatcheryDiscovery';
 
-export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
+export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery = false } = {}) {
+  const restricted = useSurpriseRestricted();
   const {
     data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
   } = useApi(getStable, [refreshRevision]);
@@ -73,6 +76,11 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
   const compatiblePotions = potions.filter((entry) => compatibleVariants.some((potion) => potion.slug === entry.item.metadata?.variant));
   const selectedPotionItem = compatiblePotions.find((entry) => String(entry.item.id) === hatchPotion)?.item;
   const selectedPotion = compatibleVariants.find((potion) => potion.slug === selectedPotionItem?.metadata?.variant);
+  // Children preview only an exact appearance they hatched, up to its
+  // server-confirmed stage; unknown ownership reveals nothing.
+  const ownedStages = restricted ? ownedAppearanceStages(stableError ? null : stableData, selectedEggSpecies, selectedPotion) : null;
+  const babyName = !ownedStages || ownedStages.includes('baby')
+    ? companionFormName(selectedEggSpecies, selectedPotion, 'baby') : selectedEggSpecies?.name;
   const alreadyOwned = selectedEggSpecies?.slug && selectedPotion?.slug
     && [...(stableData?.pets || []), ...mounts].some((pet) =>
       pet.species?.slug === selectedEggSpecies.slug && pet.potion?.slug === selectedPotion.slug);
@@ -192,14 +200,15 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         snapshotKey={incubation} working={working} refreshing={refreshingIncubation} blocked={!!incubationError}
         onHatch={handleHatch} onRefresh={reloadIncubation} />}
 
-      {eggs.length > 0 && <a href={'#' + recipeId}
+      {/* The skip link passes over the staff-only discovery panel. */}
+      {showDiscovery && eggs.length > 0 && <a href={'#' + recipeId}
         className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep">
         Choose ingredients for incubation
       </a>}
-      <HatcheryDiscovery catalog={catalogData} stable={stableData} incubation={incubation}
+      {showDiscovery && <HatcheryDiscovery catalog={catalogData} stable={stableData} incubation={incubation}
         loading={loadingCatalog} refreshing={refreshingCatalog} catalogError={catalogError}
         stableError={stableError} incubationError={incubationError}
-        selection={browseSelection} onSelect={setBrowseSelection} />
+        selection={browseSelection} onSelect={setBrowseSelection} />}
 
       {suppliesLoaded ? <>
       <div id={recipeId} className="scroll-mt-24">
@@ -223,9 +232,13 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <figure className="min-w-0">
-              {selectedEggItem?.slug ? <div className="flex h-48 items-center justify-center">
+              {/* Staff preview the selected family in Explore companions. Parents
+                  preview it here; children only for appearances they hatched. */}
+              {selectedEggItem?.slug ? showDiscovery || ownedStages?.length === 0 ? <div className="flex h-48 items-center justify-center">
                 <CatalogIcon assetId={selectedEggItem.catalog_icon} icon={selectedEggItem.icon || '🥚'} alt={selectedEggItem.name} size={160} />
-              </div> : <PedestalPreview />}
+              </div> : <FamilyStagePreview key={`${selectedEggItem.id}:${selectedPotion?.slug || 'base'}`} item={selectedEggItem}
+                potion={selectedPotion} stages={ownedStages || undefined} />
+                : <PedestalPreview />}
               <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
                 <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
                 Your selected egg
@@ -265,7 +278,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
             {(loadingCatalog || refreshingCatalog) && <p role="status" className="mt-3 text-body text-ink-secondary">Checking compatible potions…</p>}
             {selectedEggItem && catalogReady && potions.length > 0 && compatiblePotions.length === 0 && <p className="mt-3 text-body text-ink-secondary">None of your potions can hatch this egg. Choose another egg or earn a compatible potion from challenges.</p>}
             {potions.length === 0 && <p className="mt-3 text-body text-ink-secondary">No potions for new hatching yet. You can still explore your eggs and their growth stages.</p>}
-            {selectedPotion && <p role="status" className="mt-3 text-body text-ink-primary">Selected appearance: {selectedPotion.name} {companionFormName(selectedEggSpecies, selectedPotion, 'baby')}. The same appearance continues through every growth stage.</p>}
+            {selectedPotion && <p role="status" className="mt-3 text-body text-ink-primary">Selected appearance: {selectedPotion.name} {babyName}. The same appearance continues through every growth stage.</p>}
             {alreadyOwned && <div className="mt-3 space-y-1 text-body text-ink-secondary">
               <p>You already have this companion. Extra eggs stay in your inventory.</p>
               <Link className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep" to="/bestiary?tab=companions">Care for companions</Link>
@@ -291,7 +304,7 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
             {selectedEggItem.rarity} companion · rarity stays the same as it grows
           </p>}
           <p className="text-caption text-ink-secondary">Hatches into a baby {selectedEggSpecies.name}.</p>
-          <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" />
+          <PetEvolutionGuide species={selectedEggSpecies} potion={selectedPotion} currentStage="egg" revealedStages={ownedStages || undefined} />
         </section>}
 
       </ParchmentCard>

@@ -176,6 +176,51 @@ class StreakService:
     """Manages daily login streaks and check-in bonuses."""
 
     @staticmethod
+    def bonus_for_streak(streak):
+        """Pure reward amounts shared by awarding and the header projection.
+
+        Keep the unrounded multiplier for the existing whole-Coin truncation
+        and the unrounded probability for the real drop roll. Presentation
+        rounds its wire values separately.
+        """
+        multiplier = min(
+            1 + streak * STREAK_MULTIPLIER_PER_DAY,
+            STREAK_MULTIPLIER_CAP,
+        )
+        return {
+            "check_in_multiplier": multiplier,
+            "check_in_coins": int(BASE_CHECK_IN_COINS * multiplier),
+            "drop_bonus": min(streak * STREAK_DROP_BONUS_PER_DAY, STREAK_DROP_BONUS_CAP),
+            "intensity": min(max((multiplier - 1) / (STREAK_MULTIPLIER_CAP - 1), 0), 1),
+        }
+
+    @staticmethod
+    def bonus_status(profile):
+        """Read-only bonus presentation for activity on the actual streak day.
+
+        Saved streak counts survive missed days until the next activity. A
+        stale count or armed freeze therefore cannot claim an applied bonus;
+        recording activity remains responsible for continuation and awards.
+        """
+        if not profile or profile.login_streak <= 0 or profile.last_active_date != timezone.localdate():
+            return {
+                "active_today": False,
+                "check_in_multiplier": 1.0,
+                "check_in_coins": 0,
+                "drop_bonus": 0.0,
+                "intensity": 0.0,
+            }
+
+        bonus = StreakService.bonus_for_streak(profile.login_streak)
+        return {
+            "active_today": True,
+            "check_in_multiplier": round(bonus["check_in_multiplier"], 2),
+            "check_in_coins": bonus["check_in_coins"],
+            "drop_bonus": round(bonus["drop_bonus"], 2),
+            "intensity": round(bonus["intensity"], 4),
+        }
+
+    @staticmethod
     @transaction.atomic
     def record_activity(user, activity_date=None):
         """Record daily activity, update streak, and return check-in info."""
@@ -237,11 +282,9 @@ class StreakService:
         profile.save(update_fields=save_fields)
 
         # Calculate bonus coins
-        multiplier = min(
-            1 + profile.login_streak * STREAK_MULTIPLIER_PER_DAY,
-            STREAK_MULTIPLIER_CAP,
-        )
-        bonus_coins = int(BASE_CHECK_IN_COINS * multiplier)
+        bonus = StreakService.bonus_for_streak(profile.login_streak)
+        multiplier = bonus["check_in_multiplier"]
+        bonus_coins = bonus["check_in_coins"]
 
         from apps.activity.services import ActivityLogService
         ActivityLogService.record(
@@ -708,10 +751,7 @@ def _step_drops(user, trigger_type, context, result):
     streak + quest progress without re-rolling drops."""
     streak_result = result.get("streak")
     streak = streak_result["streak"] if streak_result else 0
-    streak_bonus = min(
-        streak * STREAK_DROP_BONUS_PER_DAY,
-        STREAK_DROP_BONUS_CAP,
-    )
+    streak_bonus = StreakService.bonus_for_streak(streak)["drop_bonus"]
     if not context.get("drops_allowed", True):
         result["drops"] = []
         return

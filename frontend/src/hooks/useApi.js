@@ -336,3 +336,8 @@ export function useAuth() {
   }
   return ctx;
 }
+
+// For presentation that also renders in isolated fixtures without a provider.
+export function useOptionalAuth() {
+  return useContext(AuthContext);
+}

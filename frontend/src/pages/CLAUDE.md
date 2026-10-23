@@ -175,7 +175,7 @@ centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
-The Collection and Hatchery tabs advertise the 15 supported Base-potion families. Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
+The Collection tab and the staff-only Hatchery Explore companions section advertise the 15 supported Base-potion families; for children, Collection shows only owned appearances and reached forms (see the child surprise rule in `frontend/CLAUDE.md`). Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete stage path in companion previews and species details, naming a child only forms their exact appearance reached; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
 also render remaining unavailable/custom rows under Saved collection in their
 respective tabs, retaining feeding/evolution, activation, expedition
 launch/history/claim and recovery controls. The owner-approved prelaunch
@@ -549,7 +549,9 @@ response never becomes an empty-pin claim. Reflection follows work, then the
 since-last-visit recap, status shortcuts and collapsed Rewards & earnings.
 The automatic daily bonus uses the same challenge response inside that earnings
 disclosure; its closed summary acknowledges a confirmed award. Recent items,
-savings and badges follow. Saved accordion preferences remain honored.
+savings and badges follow. Recent items and badges share collapsed disclosures
+with counts, latest-earned summaries and horizontal card rails. Saved accordion
+preferences remain honored independently for each section.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 
