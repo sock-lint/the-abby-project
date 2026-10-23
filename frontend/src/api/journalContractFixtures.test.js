@@ -5,6 +5,7 @@ import replayedJournal from '../../../contracts/api/fixtures/journal-replayed.js
 import todayJournal from '../../../contracts/api/fixtures/journal-today.json';
 import editedJournal from '../../../contracts/api/fixtures/journal-edited.json';
 import alreadyReceivedJournal from '../../../contracts/api/fixtures/journal-coins-already-received.json';
+import renamedTaxonomyJournal from '../../../contracts/api/fixtures/journal-renamed-taxonomy.json';
 import history from '../../../contracts/api/fixtures/journal-summary-legacy.json';
 import parentPrivateHistory from '../../../contracts/api/fixtures/journal-summary-parent-private.json';
 import { server } from '../test/server';
@@ -18,6 +19,22 @@ const submission = {
 };
 
 describe('unified journal responses through the shared React API client', () => {
+  it('retains measured journal XP and exact skill IDs after supported taxonomy renames', async () => {
+    server.use(http.post('*/api/chronicle/journal/', () => (
+      HttpResponse.json(renamedTaxonomyJournal, { status: 201 })
+    )));
+    const saved = await writeJournal(submission);
+    expect(saved).toEqual(renamedTaxonomyJournal);
+    expect(saved.reward_receipt).toMatchObject({
+      status: 'awarded', xp_awarded: 15, coins_awarded: 2, coin_status: 'awarded',
+      skills: [
+        { skill_id: 32, name: 'Story Craft', xp: 10 },
+        { skill_id: 33, name: 'Word Power', xp: 5 },
+      ],
+    });
+    expect(saved.metadata.reward_receipt.skills).toEqual(saved.reward_receipt.skills);
+  });
+
   it('saves, replays and reads the same private journal with measured daily rewards', async () => {
     const requests = [];
     server.use(

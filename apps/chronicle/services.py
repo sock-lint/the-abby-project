@@ -179,19 +179,21 @@ def _autofill_journal_title(title: str, body: str, occurred_on: date) -> str:
 
 
 def _journal_xp_tags():
-    """Resolve the two hardcoded Language Arts skills by name.
+    """Resolve the two installed Language Arts skill identities.
 
-    Returns an empty list on a fresh DB that hasn't loaded the skill catalog
-    yet — ``AwardService.grant`` then no-ops on the XP branch, which is the
-    correct fallback (no XP awarded, but the rest of the flow continues).
+    Display edits and retirement retain their destinations. Missing or
+    ambiguous identities receive no invented XP; the journal still saves.
     """
-    from apps.achievements.models import Skill
+    from apps.achievements.models import Skill, SkillCategory
+    from apps.achievements.source_identity import resolve_source_identity
+
+    category = resolve_source_identity(SkillCategory, {"name": "Language Arts"})
+    if category is None:
+        return []
 
     tags = []
     for name, weight in JOURNAL_SKILL_WEIGHTS:
-        skill = Skill.objects.filter(
-            category__name="Language Arts", name=name,
-        ).first()
+        skill = resolve_source_identity(Skill, {"name": name, "category_id": category.pk})
         if skill is not None:
             tags.append(_JournalTag(skill=skill, xp_weight=weight))
     return tags

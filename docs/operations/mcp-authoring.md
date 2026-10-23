@@ -534,6 +534,16 @@ daily bonus fallback XP targets `Life Skills::Persistence`, and sample movement
 tags target Physical skills. An absent canonical skill never selects another
 category's namesake.
 
+Installed journal, Reading and daily-bonus XP routes use their original
+category/skill identities through the shared achievements source resolver.
+Exact version-1 MCP provenance retains those identities across renames and
+reparenting; source-less canonical rows still work. Retirement keeps installed
+routes, while ordinary unlock checks still apply. Missing or ambiguous identities
+fail closed. Journal retains its existing split across surviving destinations;
+explicit daily source tags take precedence over the Persistence fallback.
+Saved receipts are never rewritten or backfilled, and forecast fingerprints
+include the shared resolver and fixed-destination rules.
+
 Pack relationship edits distinguish omission from explicit clearing:
 `required_badge` omitted retains its value; null clears it. Skill `prereqs`
 omitted retains edges; an explicit list replaces the owned skill's edges,

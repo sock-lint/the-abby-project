@@ -12,6 +12,7 @@ from rest_framework.exceptions import APIException, NotFound, ValidationError
 
 from apps.achievements.models import Skill, SkillCategory
 from apps.achievements.services import AwardService
+from apps.achievements.source_identity import resolve_source_identity
 from apps.families.models import Family
 from apps.notifications.services import defer_push_until_commit
 from apps.quests.activity import household_timezone
@@ -211,21 +212,8 @@ class ReadingRewardService:
 
     @staticmethod
     def _source_identity(model, lookup):
-        """Match current or retained canonical identity without choosing a tie.
-
-        Direct catalog edits keep their original lookup while the same row may
-        be renamed or reparented. Only that explicit authoring provenance may
-        redirect the fixed reward; unrelated same-name skills are not fallbacks.
-        Retirement does not change this installed XP destination.
-        """
-        from apps.rpg.models import RPGContentOverride
-
-        retained = RPGContentOverride.objects.filter(
-            model_label=model._meta.label_lower, source_lookup=lookup,
-            values___authoring={"version": 1, "source": "mcp"},
-        ).values("object_id")
-        matches = list(model.objects.filter(Q(**lookup) | Q(pk__in=retained)).order_by("pk")[:2])
-        return matches[0] if len(matches) == 1 else None
+        """Keep Reading's original resolution seam on the shared identity rules."""
+        return resolve_source_identity(model, lookup)
 
     @classmethod
     def _reading_skill(cls):

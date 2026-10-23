@@ -39,6 +39,7 @@ import scheduledWeek from '../../../contracts/api/fixtures/challenges-scheduled-
 import milestoneLocked from '../../../contracts/api/fixtures/challenges-milestone-locked.json';
 import milestoneReady from '../../../contracts/api/fixtures/challenges-milestone-ready.json';
 import untimedGoals from '../../../contracts/api/fixtures/challenges-untimed.json';
+import renamedTaxonomyDaily from '../../../contracts/api/fixtures/challenges-renamed-taxonomy-daily.json';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
 import {
@@ -48,6 +49,17 @@ import {
 } from './index';
 
 describe('automatic challenge responses through the shared React API client', () => {
+  it('preserves the confirmed daily fallback XP after its taxonomy is renamed', async () => {
+    server.use(http.get('*/api/challenges/', () => HttpResponse.json(renamedTaxonomyDaily)));
+    const saved = await getChallenges();
+    expect(saved).toEqual(renamedTaxonomyDaily);
+    expect(saved.daily_bonus).toMatchObject({
+      completed: true, awarded: true, xp_reward: 20, xp_awarded: 20,
+      coin_reward: 10, coins_awarded: 10,
+    });
+    expect(saved.daily_bonus.receipt_id).toEqual(expect.stringMatching(/^daily:\d+$/));
+  });
+
   it('retains saved co-op IDs and contributions while masking a departed participant current profile', async () => {
     const requests = [];
     server.use(http.get('*/api/quests/history/', ({ request }) => {

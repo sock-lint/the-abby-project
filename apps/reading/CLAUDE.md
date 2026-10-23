@@ -102,6 +102,9 @@ display labels do not redirect the award. Retirement retains this existing XP
 destination, while normal skill unlock checks still apply. Missing or ambiguous
 source identities award no invented skill XP, and saved receipts are never
 rewritten after a taxonomy edit.
+The resolver is shared with journal and daily-bonus XP in
+`apps.achievements.source_identity`; the Reading service retains its compatibility
+wrapper. Saved progression forecasts fingerprint these resolver rules.
 
 Session responses include a nullable `reading_reward` on the original awarding
 session. Summary responses include today's `reading_adventure` progress and

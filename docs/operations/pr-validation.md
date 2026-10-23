@@ -98,6 +98,11 @@ reads and edits against the same measured XP/Coin receipt. Summary fixtures keep
 legacy daily notes in the same history with unavailable historical receipts;
 parent responses exclude private notes and journals. Old-client note saves and
 new journal saves share one daily Coin acknowledgment.
+Journal and challenge fixtures also exercise MCP taxonomy renames followed by
+real REST activity saves: journal retains the original 10/5 XP split and the
+untagged daily bonus retains 20 Persistence XP. Registered-SDK regressions in
+`apps.mcp_server.tests.test_fixed_reward_source_identity` cover source reloads,
+reparenting, retirement, ambiguity, unlock eligibility and receipt replay.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

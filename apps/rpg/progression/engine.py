@@ -22,10 +22,11 @@ from apps.quests import milestone_eligibility as milestone_rules
 
 from apps.achievements.models import XP_THRESHOLDS
 from apps.achievements import criteria as badge_criteria
+from apps.achievements import source_identity as fixed_xp_identity
 from apps.achievements.criteria import criteria_types_for_scopes
 from apps.achievements.services import BadgeService, SkillService
 from apps.chronicle import firsts as chronicle_firsts, recognition as chronicle_recognition
-from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL
+from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL, _journal_xp_tags
 from apps.creations.services import CreationService
 from apps.habits.services import HabitService
 from apps.movement.services import MovementSessionService
@@ -256,6 +257,7 @@ def rules_fingerprint(*, incubation_policy=None):
         "badge_criteria_registry": {str(key): f"{fn.__module__}.{fn.__qualname__}"
                                     for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
         "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
+        "fixed_xp_source_identity_source": inspect.getsource(fixed_xp_identity),
         "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
         "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
@@ -326,6 +328,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 growth_thresholds,
                 promised_potion_ids,
                 process_daily_bonus,
+                _journal_xp_tags,
                 ClockService.clock_out,
                 PetService.feed_pet,
                 PetService.start_incubation,
@@ -345,6 +348,8 @@ def rules_fingerprint(*, incubation_policy=None):
                 chronicle_recognition.safe_record_firsts,
                 _step_chronicle_firsts,
                 ReadingRewardService.credit_new_session,
+                ReadingRewardService._reading_skill,
+                ReadingRewardService._source_identity,
                 TimecardService.generate_weekly_timecard,
                 quote_print_coins,
                 normalize_economy,
