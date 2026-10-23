@@ -3,10 +3,39 @@ import family from '../../../contracts/api/fixtures/usage-family-observed.json';
 import deployment from '../../../contracts/api/fixtures/usage-deployment-observed.json';
 import empty from '../../../contracts/api/fixtures/usage-family-empty.json';
 import childChores from '../../../contracts/api/fixtures/usage-family-child-chores.json';
+import childLogin from '../../../contracts/api/fixtures/auth-login-child.json';
+import childMe from '../../../contracts/api/fixtures/auth-me-child.json';
+import parentLogin from '../../../contracts/api/fixtures/auth-login-ordinary-parent.json';
+import parentMe from '../../../contracts/api/fixtures/auth-me-ordinary-parent.json';
+import staffLogin from '../../../contracts/api/fixtures/auth-login-staff-parent.json';
+import staffMe from '../../../contracts/api/fixtures/auth-me-staff-parent.json';
+import liveParentLogin from '../../../contracts/api/fixtures/auth-login-live-parent.json';
+import liveParentMe from '../../../contracts/api/fixtures/auth-me-live-parent.json';
+import liveChildLogin from '../../../contracts/api/fixtures/auth-login-live-child.json';
+import liveChildMe from '../../../contracts/api/fixtures/auth-me-live-child.json';
 import { server } from '../test/server';
-import { getUsageDashboard, recordUsageVisit } from './index';
+import { getMe, getUsageDashboard, login, recordUsageVisit } from './index';
 
 describe('usage responses shared with Django', () => {
+  it.each([
+    ['ordinary child', childLogin, childMe, true],
+    ['ordinary parent', parentLogin, parentMe, true],
+    ['staff parent', staffLogin, staffMe, true],
+    ['observer parent', liveParentLogin, liveParentMe, false],
+    ['observer child', liveChildLogin, liveChildMe, false],
+  ])('preserves the server collection policy through %s login and verified identity', async (_label, loginFixture, meFixture, enabled) => {
+    server.use(
+      http.post('*/api/auth/', () => HttpResponse.json(loginFixture)),
+      http.get('*/api/auth/me/', () => HttpResponse.json(meFixture)),
+    );
+    const authenticated = await login(loginFixture.username, 'synthetic-password');
+    expect(authenticated).toEqual(loginFixture);
+    expect(authenticated.usage_collection_enabled).toBe(enabled);
+    const verified = await getMe();
+    expect(verified).toEqual(meFixture);
+    expect(verified.usage_collection_enabled).toBe(enabled);
+  });
+
   it.each([['family', family], ['deployment', deployment], ['family', childChores], ['family', empty]])('preserves the real %s aggregate report and bounded filter contract', async (scope, fixture) => {
     let requested;
     server.use(http.get('*/api/admin/usage/', ({ request }) => {

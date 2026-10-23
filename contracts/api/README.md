@@ -339,6 +339,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `auth-me-child.json` | `GET /api/auth/me/`, authenticated child identity |
 | `auth-login-staff-parent.json`, `auth-me-staff-parent.json` | Password login and verified staff-parent identity, including read-only `is_staff: true` |
 | `auth-login-ordinary-parent.json`, `auth-me-ordinary-parent.json` | Password login and verified ordinary-parent identity, including read-only `is_staff: false` |
+| `auth-login-live-parent.json`, `auth-me-live-parent.json`, `auth-login-live-child.json`, `auth-me-live-child.json` | Synthetic receipt-backed observer household identities with read-only `usage_collection_enabled: false` |
 | `habits-page-1.json` | `GET /api/habits/`, first 20 of 21 child-visible rituals |
 | `habits-page-2.json` | `GET /api/habits/?page=2`, final ritual and null `next` |
 | `habits-empty.json` | `GET /api/habits/`, no published rituals |
@@ -725,6 +726,16 @@ The real shared-auth producer covers staff, ordinary-parent and child identity,
 and the taxonomy retirement consumer opens the real Login/AuthProvider/Skills
 flow before exercising retire/restore. Self-profile PATCH and signup cannot
 change or grant staff status.
+
+These current-user responses also expose read-only `usage_collection_enabled`.
+It is `false` only for a household identified by a private `LiveTestFamily`
+ownership receipt, so its browser omits the optional usage visit POST during
+trusted read-only observation. Ordinary accounts receive `true`; matching
+names, family slugs, signup input and profile PATCH cannot create an exemption.
+The backend independently excludes receipt-backed families from telemetry.
+The synthetic observer parent/child login and identity fixtures preserve this
+contract without exposing receipt metadata. Nested `UserSerializer` responses
+retain their existing shape.
 
 Reversible taxonomy retirement uses `taxonomy-category-retired.json`,
 `taxonomy-category-restored.json`, `taxonomy-skills-active.json`,

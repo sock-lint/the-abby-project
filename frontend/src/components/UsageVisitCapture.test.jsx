@@ -23,7 +23,42 @@ function SwitchAccount() {
   }}>Switch account</button>;
 }
 
+function CollectionPolicySwitch() {
+  const { user, setUser } = useAuth();
+  return <button disabled={!user} onClick={() => setUser({ ...user, usage_collection_enabled: user.usage_collection_enabled === false })}>
+    {user?.usage_collection_enabled === false ? 'Enable measurement' : 'Pause measurement'}
+  </button>;
+}
+
 describe('Usage visit capture', () => {
+  it('sends no visit POST for a server-excluded observer identity, including navigation and visibility changes', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ usage_collection_enabled: false }))));
+    const spy = spyHandler('post', '*/api/usage/visit/', { recorded: true });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<><UsageVisitCapture /><CollectionPolicySwitch /><Link to="/quests">Open tasks</Link></>);
+    await screen.findByRole('button', { name: 'Enable measurement' });
+    await user.click(screen.getByRole('link', { name: 'Open tasks' }));
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    await act(async () => {});
+    expect(spy.calls).toHaveLength(0);
+  });
+
+  it('honors a current account collection-policy change without marking an excluded visit attempted', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-23T12:00:00Z'));
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildUser({ usage_collection_enabled: false }))));
+    const spy = spyHandler('post', '*/api/usage/visit/', { recorded: true });
+    server.use(spy.handler);
+    const { user } = renderWithProviders(<><UsageVisitCapture /><CollectionPolicySwitch /></>);
+    await user.click(await screen.findByRole('button', { name: 'Enable measurement' }));
+    await waitFor(() => expect(spy.calls).toHaveLength(1));
+    await user.click(screen.getByRole('button', { name: 'Pause measurement' }));
+    vi.setSystemTime(new Date('2026-10-24T12:00:00Z'));
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    await act(async () => {});
+    expect(spy.calls).toHaveLength(1);
+  });
+
   it('records only one body-free visit across StrictMode and private route navigation', async () => {
     const spy = spyHandler('post', '*/api/usage/visit/', { recorded: true });
     server.use(spy.handler);

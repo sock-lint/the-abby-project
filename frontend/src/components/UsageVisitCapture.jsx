@@ -12,9 +12,10 @@ export default function UsageVisitCapture() {
   const { user, token, key } = useUsageSession();
   const { pathname } = useLocation();
   const userId = user?.id;
+  const collectionEnabled = user?.usage_collection_enabled !== false;
   useEffect(() => {
     const capture = () => {
-      if (!userId || !token || token !== getToken() || document.visibilityState !== 'visible') return;
+      if (!collectionEnabled || !userId || !token || token !== getToken() || document.visibilityState !== 'visible') return;
       if (['/login', '/signup', '/__design'].includes(pathname)) return;
       const day = new Date().toISOString().slice(0, 10);
       if (attempts.get(key) === day) return;
@@ -26,6 +27,6 @@ export default function UsageVisitCapture() {
     capture();
     document.addEventListener('visibilitychange', capture);
     return () => document.removeEventListener('visibilitychange', capture);
-  }, [key, pathname, token, userId]);
+  }, [collectionEnabled, key, pathname, token, userId]);
   return null;
 }

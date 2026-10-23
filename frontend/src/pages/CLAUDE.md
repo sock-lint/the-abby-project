@@ -29,8 +29,12 @@ on visible foreground navigation or visibility resumption, at most once per
 credential/account UTC day in memory. Server uniqueness deduplicates across
 devices. StrictMode shares the attempted measurement; failed or uncertain POSTs
 are not replayed that day. No background timer, route, query, journal text,
-duration or session recording enters that request. Synthetic fixtures exercise
-the Django/React response contract; see
+duration or session recording enters that request.
+The read-only authenticated identity field `usage_collection_enabled: false`
+suppresses the visit request for server-designated observer accounts; the
+backend also excludes them independently. Missing fields preserve collection
+for older ordinary-account responses.
+Synthetic fixtures exercise the Django/React response contract; see
 [`Usage monitoring`](../../../docs/operations/usage-monitoring.md).
 
 ## Progression lab

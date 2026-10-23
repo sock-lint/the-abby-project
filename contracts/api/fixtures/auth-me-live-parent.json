@@ -1,0 +1,25 @@
+{
+  "id": 101,
+  "username": "fixture-observer-parent",
+  "display_name": "",
+  "role": "parent",
+  "hourly_rate": "8.00",
+  "avatar": null,
+  "theme": "summer",
+  "lorebook_flags": {},
+  "google_linked": false,
+  "date_of_birth": null,
+  "grade_entry_year": null,
+  "age_years": null,
+  "current_grade": null,
+  "school_year_label": null,
+  "family": {
+    "id": 3,
+    "name": "Synthetic Observer Fixture Family",
+    "slug": "synthetic-observer-fixture-family",
+    "timezone": "America/Phoenix",
+    "default_theme": "hyrule"
+  },
+  "is_staff": false,
+  "usage_collection_enabled": false
+}

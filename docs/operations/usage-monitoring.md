@@ -27,6 +27,11 @@ jobs, MCP calls and automatic
 approvals do not opt into these human action measurements. The provisioned
 `LiveTestFamily` ownership records exclude the observer's synthetic households;
 matching a household name is not sufficient to exclude a real family.
+Authenticated identity responses expose the read-only
+`usage_collection_enabled` policy. It is false for those provisioned households,
+so their browsers never send the visit POST and retain the trusted observer's
+login/logout-only mutation boundary. The server independently excludes them
+from collection even if a client ignores that policy.
 
 | Feature | Recorded action |
 | --- | --- |
