@@ -226,11 +226,18 @@ availability without presenting unreachable unlocks. See the
 [shared contract checks](../contracts/api/README.md) before extending offers.
 
 **Earned identity:** navigation uses the current account's saved look from the
-existing account-bound pulse. The phone header shows its portrait and full,
-wrapping title (or “Profile”). Its title column is at least as wide as the
-title's longest word, up to a cap that keeps the bell and a status shortcut
-beside it, so titles wrap between words; account names and the featured badge remain in
-the profile menu and desktop sidebar. Today leads with task guidance below its
+existing account-bound pulse. The header, account menu, sidebar and Profile
+share `IdentitySummary`, `IdentityPortrait` and `IdentityChips`: the equipped
+frame surrounds the picture, a confirmed level docks beneath it, and soft chips
+show the full title and featured badge with their existing catalog artwork.
+The header uses only the title and badge icons beside the portrait on the existing row,
+with accessible title/badge names and hover labels. Phone headers omit the
+account-name text; the profile-menu trigger retains its full accessible
+description, and the menu and Profile keep full name/title/badge labels.
+`pulse.header.level`
+comes from the signed-in account; zero is valid and missing levels stay hidden.
+Only a pulse identity matching the current user may supply navigation's saved
+look or level. Today leads with task guidance below its
 heading. Successful Profile equip/unequip/trophy writes refresh the pulse;
 failed writes do not change navigation. Project-detail `maker_signature` represents the assigned
 child, with the same family access checks as the project, and is read-only.

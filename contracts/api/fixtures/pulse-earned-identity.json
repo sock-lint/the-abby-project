@@ -57,6 +57,7 @@
   "header": {
     "active_timer": null,
     "coin_balance": 0,
-    "streak_days": 0
+    "streak_days": 0,
+    "level": 0
   }
 }

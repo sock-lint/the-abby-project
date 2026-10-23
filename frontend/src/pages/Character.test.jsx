@@ -151,7 +151,7 @@ describe('Character (/sigil)', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Abby' })).toBeInTheDocument(),
     );
-    expect(screen.getByText(/level 3/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Level 3')).toHaveTextContent('Lv. 3');
     expect(screen.getByRole('button', { name: /no trophy badge/i })).toBeInTheDocument();
   });
 
