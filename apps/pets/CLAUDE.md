@@ -153,15 +153,18 @@ the shared user-before-profile/inventory/progress order.
 Every mount read/activation response carries `expedition_available`,
 `expedition_available_at` and `expedition_available_in_seconds`. A mount is
 available only with no active/unclaimed expedition on any owned appearance of
-its species and no species expedition started that Django local day. Claimed
-and expired runs still use today's allowance.
-When that allowance is used, the timestamp names the next local midnight and
-the integer gives a rounded-up server-relative wait. Available mounts return
+its species, no species expedition started that family-local day, and fewer
+than two expedition starts across all of the child's species that day. Claimed
+and expired runs still use both daily allowances.
+When either daily allowance is used, the timestamp names the next family-local
+midnight, serialized in the current Django timezone, and the integer gives a
+rounded-up server-relative wait. Available mounts return
 null/zero; active trips return null/null because collecting the return requires
 an explicit claim first. These read-only fields match `ExpeditionService.start`
-and do not change its rules. Use the current Django timezone, independently of
-family or phone settings. Readiness, remaining seconds and availability share
-a server snapshot; serialized reads never claim a trip or award anything.
+and share its family-day bounds; the phone timezone does not change eligibility.
+Readiness, remaining seconds and availability share one cached server clock
+snapshot, including across midnight. Serialized reads never claim a trip or
+award anything.
 
 `DailyExpeditionCard` presents ready, away, returned and explored-today states
 on both Companions' grown Bird home and Grown pets. The card opens the existing
