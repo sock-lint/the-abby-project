@@ -467,6 +467,8 @@ export const simulateProgressionLab = (data, options) =>
 
 // Admin → OAuth Clients (staff-parent-only)
 export const listOAuthApplications = () => api.get('/admin/oauth/applications/');
+export const deleteOAuthApplication = (clientId) =>
+  api.delete(`/admin/oauth/applications/${clientId}/`);
 export const revokeOAuthApplication = (clientId) =>
   api.delete(`/admin/oauth/applications/${clientId}/tokens/`);
 export const listOAuthTokens = () => api.get('/admin/oauth/tokens/');

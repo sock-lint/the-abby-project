@@ -60,14 +60,14 @@ For contracts, set `SECRET_KEY` to a synthetic test-only value and
 
 ```powershell
 python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures config.tests.test_material_api_contract_fixtures config.tests.test_reading_api_contract_fixtures config.tests.test_template_api_contract_fixtures config.tests.test_lifecycle_api_contract_fixtures config.tests.test_google_auth_api_contract_fixtures config.tests.test_submission_timing_api_contract_fixtures config.tests.test_drive_export_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_hatchery_discovery_api_contract_fixtures config.tests.test_parent_api_contract_fixtures config.tests.test_printing_api_contract_fixtures config.tests.test_taxonomy_delete_api_contract_fixtures
-python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures config.tests.test_taxonomy_retirement_api_contract_fixtures config.tests.test_journal_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_progression_api_contract_fixtures config.tests.test_content_workbench_api_contract_fixtures config.tests.test_taxonomy_retirement_api_contract_fixtures config.tests.test_journal_api_contract_fixtures config.tests.test_oauth_api_contract_fixtures
 ```
 
 From `frontend/`, run the matching consumers:
 
 ```powershell
 npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContractFixtures.test.js src/api/rpgIntegrityContractFixtures.test.jsx src/api/catalogContractFixtures.test.js src/api/reportCardContractFixtures.test.js src/api/challengeContractFixtures.test.js src/api/voyagerFeedbackContractFixtures.test.js src/api/homeworkAIContractFixtures.test.js src/api/projectAIContractFixtures.test.js src/api/materialContractFixtures.test.js src/api/readingContractFixtures.test.js src/api/templateContractFixtures.test.js src/api/accountLifecycleContractFixtures.test.js src/api/googleAuthContracts.test.js src/api/submissionTimingContractFixtures.test.jsx src/api/googleDriveContracts.test.js src/api/parentContractFixtures.test.jsx src/api/printingContractFixtures.test.js src/api/taxonomyContractFixtures.test.jsx
-npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/taxonomyRetirementContractFixtures.test.jsx src/api/journalContractFixtures.test.js
+npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/taxonomyRetirementContractFixtures.test.jsx src/api/journalContractFixtures.test.js src/pages/Manage.oauth.test.jsx
 ```
 
 The catalog producer/consumer pair uses production asset support and checks
@@ -98,6 +98,15 @@ and the React Lab tests. Check consumed ingredients without early ownership,
 one unfinished slot, inactive-day readiness, next-active-visit claims, recorded
 policy/fingerprint changes and missing historical policy. These tests remain
 in memory or use disposable synthetic data; they never exercise household care.
+
+OAuth client management shares `contracts/api/fixtures/oauth-applications.json` between
+`config.tests.test_oauth_api_contract_fixtures` and `src/pages/Manage.oauth.test.jsx`.
+The producer authenticates a staff parent and keeps another family's active token
+private while preventing that registration's removal. The management-page checks
+cover removal confirmation, cancellation, refreshed rows and a stale-eligibility
+conflict. Run `config.tests.test_oauth_client_cleanup` for deletion permissions,
+access/refresh/code blockers, and `config.tests.test_oauth_cleanup_concurrency`
+for issuance races on disposable PostgreSQL.
 
 Fixtures do not replace permission, family-scoping or transaction tests. Add
 affected endpoint tests, React interactions and PostgreSQL concurrency checks
