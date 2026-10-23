@@ -58,6 +58,13 @@ keep their current prices: bundled startup seeding does not own or overwrite
 parent-authored shop rows. Parents can explicitly reprice those offers in the
 same form. Saved Lab experiments and their explicit offer prices remain intact.
 
+The parent reward form warns when an unlimited digital-item or combined offer
+charges fewer Coins than its selected Coin pouch pays. The message shows the
+price, payout and net gain per purchase; parents can still save their chosen
+offer. Finite stock, a price at or above the payout, other item types and an
+unknown pouch payout do not show this warning. The guide and warning never
+reprice an offer automatically.
+
 ## Progression Lab
 
 The installed-rule control models the smaller new expedition and random-pouch
