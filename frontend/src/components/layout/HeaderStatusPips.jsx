@@ -48,7 +48,7 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel, de
       aria-label={ariaLabel || label}
       aria-describedby={description ? descriptionId : undefined}
       title={description}
-      className={`inline-flex shrink-0 items-center gap-1.5 min-w-11 h-11 px-3 rounded-2xl border text-caption font-body font-bold tabular-nums transition-colors ${toneClasses} ${active || bumped ? 'ring-2 ring-inset ring-sheikah-teal/25' : ''}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 min-w-11 h-11 px-2 rounded-2xl border text-caption font-body font-bold tabular-nums transition-colors ${toneClasses} ${active || bumped ? 'ring-2 ring-inset ring-sheikah-teal/25' : ''}`}
     >
       <span className="shrink-0 flex items-center">{icon}</span>
       <span className="leading-none text-ink-primary">{label}</span>
