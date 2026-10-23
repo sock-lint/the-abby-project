@@ -24,7 +24,7 @@ from apps.notifications.models import Notification
 from apps.projects.models import Project, SavingsGoal
 from apps.projects.pulse import build_pulse
 from apps.rpg.models import CharacterProfile
-from apps.rpg.services import StreakService
+from apps.rpg.services import GameLoopService, StreakService
 from apps.timecards.models import TimeEntry
 from config.tests.factories import make_family
 
@@ -248,6 +248,161 @@ class PulseActivityStreakTests(TestCase):
         response = self.client.get(reverse("pulse"))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["header"]["streak_days"], 0)
+        self.assertFalse(CharacterProfile.objects.filter(user=self.child).exists())
+
+    def test_active_bonus_matches_real_check_in_at_growth_and_cap_boundaries(self):
+        from apps.rewards.services import CoinService
+
+        for days, multiplier, coins, drop_bonus, intensity in (
+            (1, 1.1, 5, 0.05, 0.05),
+            (5, 1.5, 7, 0.25, 0.25),
+            (9, 1.9, 9, 0.45, 0.45),
+            (10, 2.0, 10, 0.5, 0.5),
+            (19, 2.9, 14, 0.5, 0.95),
+            (20, 3.0, 15, 0.5, 1.0),
+            (40, 3.0, 15, 0.5, 1.0),
+        ):
+            with self.subTest(days=days):
+                CharacterProfile.objects.filter(user=self.child).update(
+                    login_streak=days - 1,
+                    last_active_date=self.today - timedelta(days=1),
+                )
+                before_coins = CoinService.get_balance(self.child)
+                event = GameLoopService.on_task_completed(self.child, "daily_check_in")
+                self.assertEqual(event["streak"]["streak"], days)
+                self.assertEqual(event["streak"]["check_in_bonus_coins"], coins)
+                self.assertEqual(CoinService.get_balance(self.child) - before_coins, coins)
+                expected = {
+                    "active_today": True,
+                    "check_in_multiplier": multiplier,
+                    "check_in_coins": coins,
+                    "drop_bonus": drop_bonus,
+                    "intensity": intensity,
+                }
+                header = self.client.get(reverse("pulse")).data["header"]
+                rpg = self.client.get(reverse("dashboard")).data["rpg"]
+                self.assertEqual(header["streak_bonus"], expected)
+                self.assertEqual(rpg["streak_bonus"], expected)
+
+    def test_inactive_streak_keeps_saved_days_without_claiming_a_bonus(self):
+        inactive = {
+            "active_today": False,
+            "check_in_multiplier": 1.0,
+            "check_in_coins": 0,
+            "drop_bonus": 0.0,
+            "intensity": 0.0,
+        }
+        for days_ago, freeze, days in (
+            (1, None, 20),
+            (4, None, 20),
+            (4, self.today + timedelta(days=1), 20),
+            (0, None, 0),
+            (None, None, 20),
+            (-1, None, 20),
+        ):
+            with self.subTest(days_ago=days_ago, freeze=freeze, days=days):
+                CharacterProfile.objects.filter(user=self.child).update(
+                    login_streak=days,
+                    last_active_date=None if days_ago is None else self.today - timedelta(days=days_ago),
+                    streak_freeze_expires_at=freeze,
+                )
+                header = self.client.get(reverse("pulse")).data["header"]
+                rpg = self.client.get(reverse("dashboard")).data["rpg"]
+                self.assertEqual(header["streak_days"], days)
+                self.assertEqual(rpg["login_streak"], days)
+                self.assertEqual(header["streak_bonus"], inactive)
+                self.assertEqual(rpg["streak_bonus"], inactive)
+
+    def test_projected_drop_bonus_matches_real_roll_threshold_and_cap(self):
+        from apps.rpg.models import DropTable, ItemDefinition, UserInventory
+
+        item = ItemDefinition.objects.create(
+            slug="header-bonus-food", name="Bonus test food", item_type="food", rarity="common",
+        )
+        DropTable.objects.create(trigger_type="chore_complete", item=item, weight=1, min_level=0)
+        for days, drop_bonus, hit, miss in (
+            (5, 0.25, 0.54, 0.56), (10, 0.5, 0.79, 0.81), (40, 0.5, 0.79, 0.81),
+        ):
+            with self.subTest(days=days):
+                CharacterProfile.objects.filter(user=self.child).update(
+                    login_streak=days, last_active_date=self.today,
+                )
+                bonus = self.client.get(reverse("pulse")).data["header"]["streak_bonus"]
+                self.assertEqual(bonus["drop_bonus"], drop_bonus)
+                before = UserInventory.objects.filter(user=self.child, item=item).values_list(
+                    "quantity", flat=True,
+                ).first() or 0
+                with patch("apps.rpg.services.random.random", return_value=hit):
+                    event = GameLoopService.on_task_completed(self.child, "chore_complete")
+                self.assertEqual([entry["item_id"] for entry in event["drops"]], [item.pk])
+                with patch("apps.rpg.services.random.random", return_value=miss):
+                    event = GameLoopService.on_task_completed(self.child, "chore_complete")
+                self.assertEqual(event["drops"], [])
+                self.assertEqual(UserInventory.objects.get(user=self.child, item=item).quantity, before + 1)
+
+    def test_bonus_reads_preserve_streak_rewards_and_activity(self):
+        from apps.activity.models import ActivityEvent
+        from apps.rewards.models import CoinLedger
+
+        for days_ago in (0, 1, 4):
+            with self.subTest(days_ago=days_ago):
+                CharacterProfile.objects.filter(user=self.child).update(
+                    login_streak=20,
+                    last_active_date=self.today - timedelta(days=days_ago),
+                    streak_freeze_expires_at=self.today + timedelta(days=1),
+                )
+                before = CharacterProfile.objects.filter(user=self.child).values().get()
+                before_coins = CoinLedger.objects.count()
+                before_activity = ActivityEvent.objects.count()
+                for endpoint in ("pulse", "dashboard"):
+                    response = self.client.get(reverse(endpoint))
+                    self.assertEqual(response.status_code, 200)
+                    block = response.data["header" if endpoint == "pulse" else "rpg"]
+                    self.assertIn("streak_bonus", block)
+                self.assertEqual(CharacterProfile.objects.filter(user=self.child).values().get(), before)
+                self.assertEqual(CoinLedger.objects.count(), before_coins)
+                self.assertEqual(ActivityEvent.objects.count(), before_activity)
+
+    def test_bonus_uses_the_server_streak_date_near_utc_midnight(self):
+        # UTC has advanced to October 22; the actual streak day in Phoenix
+        # remains October 21. Family and browser timezones cannot advance it.
+        CharacterProfile.objects.filter(user=self.child).update(
+            login_streak=5, last_active_date=self.today,
+        )
+        self.family = self.child.family
+        self.family.timezone = "Pacific/Auckland"
+        self.family.save(update_fields=["timezone"])
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 10, 22, 1, tzinfo=datetime_timezone.utc)):
+            for endpoint in ("pulse", "dashboard"):
+                response = self.client.get(reverse(endpoint))
+                block = response.data["header" if endpoint == "pulse" else "rpg"]
+                self.assertTrue(block["streak_bonus"]["active_today"])
+                self.assertEqual(block["streak_bonus"]["check_in_multiplier"], 1.5)
+
+    def test_bonus_is_self_scoped_even_when_another_user_is_requested(self):
+        CharacterProfile.objects.filter(user=self.child).update(
+            login_streak=5, last_active_date=self.today,
+        )
+        outsider = make_family(
+            "Other Bonus House", children=[{"username": "other-bonus-child"}],
+        ).children[0]
+        for other in (self.parent, outsider):
+            CharacterProfile.objects.filter(user=other).update(
+                login_streak=40, last_active_date=self.today,
+            )
+            for endpoint in ("pulse", "dashboard"):
+                response = self.client.get(reverse(endpoint), {"user_id": other.pk})
+                self.assertEqual(response.status_code, 200)
+                block = response.data["header" if endpoint == "pulse" else "rpg"]
+                self.assertEqual(block["streak_bonus"]["check_in_multiplier"], 1.5)
+
+    def test_missing_profile_has_no_bonus_and_pulse_does_not_create_one(self):
+        CharacterProfile.objects.filter(user=self.child).delete()
+        header = self.client.get(reverse("pulse")).data["header"]
+        self.assertEqual(header["streak_bonus"], {
+            "active_today": False, "check_in_multiplier": 1.0,
+            "check_in_coins": 0, "drop_bonus": 0.0, "intensity": 0.0,
+        })
         self.assertFalse(CharacterProfile.objects.filter(user=self.child).exists())
 
 

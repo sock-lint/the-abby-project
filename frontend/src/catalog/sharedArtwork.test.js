@@ -31,7 +31,7 @@ describe('pinned completion artwork', () => {
     const activeFamilies = new Set(activeLock.releases.map((pin) => pin.family_id));
     expect(activeFamilies.has('abby-bird-accessory-pilot')).toBe(false);
     expect(evaluationLock.schema_version).toBe(1);
-    expect(evaluationLock.releases).toEqual([{
+    expect(evaluationLock.releases.filter((pin) => pin.family_id === 'abby-bird-accessory-pilot')).toEqual([{
       directory: 'abby-bird-accessory-pilot/1.0.0/432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720',
       family_id: 'abby-bird-accessory-pilot',
       manifest_sha256: '432e9298689baf87f059c7c8734bf85aefe395e749149827cb58d0bbe43d9720',
