@@ -24,6 +24,22 @@ the departed member's current name with `Former participant`. The producer is
 `config.tests.test_participant_privacy_api_contract_fixtures`; the existing
 React challenge fixture consumer checks the same response.
 
+`oauth-applications.json` is a real authenticated staff-parent response from
+`GET /api/admin/oauth/applications/`, produced by
+`config.tests.test_oauth_api_contract_fixtures` and consumed by
+`frontend/src/pages/Manage.oauth.test.jsx`. Both registrations are server-wide;
+`can_delete` is true only when the registration has no user's unexpired access
+token, unrevoked refresh token or unexpired authorization code. The second
+registration remains protected by another family's token even though the
+requester's own token list is empty. The response contains no token values,
+client secrets or other users' identities.
+
+`DELETE /api/admin/oauth/applications/<client_id>/` removes an eligible
+registration and expired/revoked OAuth history. It rechecks current eligibility
+and returns 409 when a connection now protects the registration. Revoking all
+tokens uses the separate `/applications/<client_id>/tokens/` endpoint and keeps
+the registration. Both operations remain staff-parent-only.
+
 `pulse-activity-streak.json` is a real authenticated heartbeat response for a
 child with a four-day RPG activity streak, earned level 3 and no completed work timers. Its
 `header.streak_days` uses the saved `CharacterProfile.login_streak`, matching
