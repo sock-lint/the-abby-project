@@ -602,29 +602,10 @@ class GameLoopService:
 
     @staticmethod
     def _record_chronicle_firsts(user, trigger_type, context):
-        from apps.chronicle.firsts import slug_for
-        from apps.chronicle.services import ChronicleService
+        from apps.chronicle.recognition import record_firsts
 
-        mapped = slug_for(trigger_type, context or {})
-        if mapped is None:
-            return None
-        event_slug, title, icon_slug = mapped
-        entry = ChronicleService.record_first(
-            user,
-            event_slug=event_slug,
-            title=title,
-            icon_slug=icon_slug,
-        )
-        if entry:
-            from apps.notifications.models import Notification, NotificationType
-
-            Notification.objects.create(
-                user=user,
-                notification_type=NotificationType.CHRONICLE_FIRST_EVER,
-                title=title,
-                message=f"{title} — added to your Yearbook.",
-            )
-        return {"entry_id": entry.id if entry else None, "event_slug": event_slug}
+        recorded = record_firsts(user, trigger_type, context)
+        return recorded[0] if recorded else None
 
 
 @contextmanager
@@ -833,8 +814,13 @@ def _step_automatic_challenges(user, trigger_type, context, result):
 
 def _step_chronicle_firsts(user, trigger_type, context, result):
     """Step 6: record first-ever events to the chronicle if applicable."""
+    recognition_context = dict(context)
+    recognition_context.pop("streak", None)
+    streak_result = result["streak"]
+    if streak_result is not None:
+        recognition_context["streak"] = streak_result["streak"]
     result["chronicle"] = GameLoopService._record_chronicle_firsts(
-        user, trigger_type, context,
+        user, trigger_type, recognition_context,
     )
 
 

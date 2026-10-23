@@ -497,9 +497,18 @@ class BadgeService:
                 newly_earned.extend(cls._evaluate_badges_once(
                     user, created_by=created_by, scopes=pending.pop(0),
                 ))
-            return newly_earned
         finally:
             _badge_evaluations.reset(token)
+
+        # Finish the coalesced payout pass before optional recognition starts.
+        # Otherwise its Chronicle scope would queue here and a later failed
+        # milestone payout would escape recognition's savepoint.
+        from apps.chronicle.recognition import safe_record_firsts
+        from apps.rpg.constants import TriggerType
+        for badge in newly_earned:
+            if badge.rarity == Badge.Rarity.LEGENDARY:
+                safe_record_firsts(user, TriggerType.BADGE_EARNED, {"rarity": badge.rarity})
+        return newly_earned
 
     @classmethod
     def evaluate_inventory_badges(cls, user):
