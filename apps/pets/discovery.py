@@ -235,10 +235,12 @@ def acquisition_challenges(user):
             return True
         # The goal's own reward opens repeat windows and a first window that
         # has not been created yet, and froze its live attempt (including an
-        # attempt whose saved snapshot is not presentable).
+        # attempt whose saved snapshot is not presentable). A retained alias
+        # goal on a superseded definition never opens another window.
         return any(pair in _saved_pairs({"items": goal.reward_items}, catalog, pairs) and (
-            definition.is_repeatable
-            or (not goal.control_occurrences and (goal.ends_at is None or goal.ends_at > now))
+            (goal.catalog_definition_id == definition_id and (
+                definition.is_repeatable
+                or (not goal.control_occurrences and (goal.ends_at is None or goal.ends_at > now))))
             or any(can_still_pay(row) for row in goal.control_occurrences))
             for goal in accepted)
 

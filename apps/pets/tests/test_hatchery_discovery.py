@@ -217,6 +217,22 @@ class HatcheryDiscoveryTests(TestCase):
         definition.reward_items.filter(item=self.ingredients["fire"]).update(item=self.ingredients["ice"])
         self.assertFalse(self.paths(potion="ice")[0]["offer_available"])
 
+    def test_superseded_alias_goal_cannot_pay_through_windows_it_will_never_open(self):
+        canonical = self.definition(name="Canonical discovery", potion="ice")
+        self.accepted(canonical)  # Freezes Chick + Ice on the canonical goal.
+        canonical.reward_items.filter(item=self.ingredients["ice"]).update(item=self.ingredients["fire"])
+        alias = self.definition(name="Retained alias discovery", is_repeatable=True)
+        ChallengeGoal.objects.create(
+            user=self.child, family=self.child.family, is_catalog=True, catalog_definition=alias,
+            name=alias.name, description="", metric="count", target=alias.target_value, unit="actions",
+            trigger_filter=alias.trigger_filter, starts_at=self.now, ends_at=self.now + timedelta(days=180),
+            reward_items=[{"item_id": row.item_id, "quantity": row.quantity} for row in alias.reward_items.all()],
+        )
+        QuestDefinition.objects.filter(pk=alias.pk).update(superseded_by=canonical)
+        fire = next(row for row in self.paths() if row["definition_id"] == canonical.pk)
+        self.assertFalse(fire["offer_available"],
+                         "An alias goal opens no new windows, and the canonical goal froze Ice.")
+
     def test_expired_saved_attempt_and_latest_retry_use_native_status_without_writes(self):
         definition = self.definition()
         previous = self.accepted(definition, expired=True, progress=4)
