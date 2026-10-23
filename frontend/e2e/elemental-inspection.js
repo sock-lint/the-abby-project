@@ -31,7 +31,7 @@ export async function inspectElementalMaterialIsolation(evaluation) {
     Object.fromEntries(Object.entries(evaluation.urls).map(([file, url]) => [`../avatar/shared/${evaluation.pin.directory}/${file}`, url])),
     { schema_version: 1, releases: [evaluation.pin] },
     { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
-  ) : null;
+  ) : stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
   requireValue(!evaluation || candidate, 'Exact Bee/Bat evaluation binding is required.');
   const groups = [];
   for (const species of ['meshtint-dragon', 'meshtint-mushroom', ...(candidate ? ['meshtint-bee', 'meshtint-bat'] : [])]) {

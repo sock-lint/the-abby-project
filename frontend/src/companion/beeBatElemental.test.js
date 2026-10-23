@@ -25,7 +25,7 @@ function evaluationMaps() {
     indexes: { [`${prefix}manifest.json`]: staged.manifestUrl } };
 }
 
-describe('private Bee/Bat elemental presentation preparation', () => {
+describe('canonical Bee/Bat elemental presentation', () => {
   it('resolves all twelve exact appearances and every native binding only from the supplied release', () => {
     const staged = stagedBeeBatFixture();
     expect(validateAssetPackManifest(staged.release)).toBe(staged.release);
@@ -68,7 +68,7 @@ describe('private Bee/Bat elemental presentation preparation', () => {
     expect(resolveElementalCatalogIcon(id, stagedElementalFixture(true))).toBeNull();
   });
 
-  it('requires the verified evaluation pin, complete inventory and declared v1 bindings', () => {
+  it('requires the exact accepted pin, complete inventory and declared v1 bindings for explicit staging', () => {
     const { release, pin, manifests, urls, indexes } = evaluationMaps();
     const resolve = (available = manifests, files = urls, lock = { releases: [pin] }, manifestUrls = indexes) =>
       stagedElementalRelease(available, files, lock, manifestUrls, BEE_BAT_FAMILY);
@@ -80,27 +80,45 @@ describe('private Bee/Bat elemental presentation preparation', () => {
     expect(resolve({ [manifestKey]: { ...release, appearance_bindings: null } })).toBeNull();
     expect(resolve(manifests, urls, { releases: [pin] }, {})).toBeNull();
     expect(resolve(manifests, Object.fromEntries(Object.entries(urls).slice(1)))).toBeNull();
-    expect(resolve(manifests, urls, activeLock)).toBeNull();
+    expect(resolve(manifests, urls, { releases: activeLock.releases.filter(({ family_id }) => family_id !== BEE_BAT_FAMILY) })).toBeNull();
   });
 
-  it('keeps acquisition and default runtime delivery unavailable while preserving natural eggs and Base names', () => {
-    expect(activeLock.releases).toHaveLength(12);
-    expect(activeLock.releases.some(({ family_id }) => family_id === BEE_BAT_FAMILY)).toBe(false);
-    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(23);
+  it('loads all twelve appearances through the default active lock and fails explicitly without installed files or bindings', () => {
+    const { release, manifests, urls, indexes } = evaluationMaps();
+    const installed = stagedElementalRelease(manifests, urls, undefined, indexes, BEE_BAT_FAMILY);
+    expect(installed?.release).toBe(release);
+    for (const [species, potion, stage] of appearances) {
+      expect(resolveElementalAppearance(creature(species, potion, stage), 'pet', installed)?.key).toBe(`${species}-${potion}-${stage}`);
+      expect(resolveElementalPreviewAppearance(egg(species), stage, { slug: potion }, installed)?.key).toBe(`${species}-${potion}-${stage}`);
+    }
+    expect(stagedElementalRelease({}, {}, undefined, {}, BEE_BAT_FAMILY)).toBeNull();
+    expect(stagedElementalRelease(manifests, {}, undefined, indexes, BEE_BAT_FAMILY)).toBeNull();
+    const manifestKey = Object.keys(manifests)[0];
+    expect(stagedElementalRelease({ [manifestKey]: { ...release, appearance_bindings: null } }, urls, undefined, indexes, BEE_BAT_FAMILY)).toBeNull();
+    const absent = stagedElementalRelease({}, {}, undefined, {}, BEE_BAT_FAMILY);
+    expect(resolveElementalAppearance(creature('meshtint-bee', 'fire'), 'pet', absent)).toBeNull();
+    expect(resolveElementalPreviewAppearance(egg('meshtint-bat'), 'middle', { slug: 'ice' }, absent)).toBeNull();
+    expect(resolveElementalPortrait('meshtint-bee', 'fire', absent)).toBeNull();
+  });
+
+  it('pins the exact accepted canonical release alongside all twelve existing families', () => {
+    const { pin } = evaluationMaps();
+    expect(activeLock.releases).toHaveLength(13);
+    expect(activeLock.releases.find(({ family_id }) => family_id === BEE_BAT_FAMILY)).toEqual(pin);
+  });
+
+  it('activates only the four approved receiving pairs while preserving natural eggs and Base names', () => {
+    expect(support.pets.reduce((count, { potion_slugs }) => count + potion_slugs.length, 0)).toBe(27);
     for (const species of Object.keys(BEE_BAT_MOTIONS)) {
-      expect(support.pets.find(({ species_slug }) => species_slug === species).potion_slugs).toEqual(['base']);
-      for (const potion of ['fire', 'ice']) {
-        expect(resolveElementalAppearance(creature(species, potion))).toBeNull();
-        expect(resolveElementalPreviewAppearance(egg(species), 'baby', { slug: potion })).toBeNull();
-        expect(resolveElementalPortrait(species, potion)).toBeNull();
-      }
+      expect(support.pets.find(({ species_slug }) => species_slug === species)).toMatchObject({
+        potion_slugs: ['base', 'fire', 'ice'], potion_sources: { fire: BEE_BAT_FAMILY, ice: BEE_BAT_FAMILY },
+      });
       const names = species === 'meshtint-bee' ? [null, 'Bee', 'Bumble', 'Sting'] : [null, 'Bat', 'Vampire Bat', 'Bat Lord'];
       for (const potion of ['base', 'fire', 'ice']) {
         expect(companionLifecycle({ slug: species, sprite_key: species }, { slug: potion }).map(({ form }) => form)).toEqual(names);
       }
       expect(resolveElementalPreviewAppearance({ ...egg(species), slug: `${species}-fire-egg` }, 'baby', { slug: 'fire' }, stagedBeeBatFixture())).toBeNull();
     }
-    for (const id of BEE_BAT_REVIEW_ICONS) expect(resolveElementalCatalogIcon(id)).toBeNull();
   });
 
   it('rejects unsupported species, potion, stage, family, missing idle binding and missing portrait files', () => {
@@ -109,6 +127,7 @@ describe('private Bee/Bat elemental presentation preparation', () => {
     expect(resolveElementalAppearance(creature(species, 'base'), 'pet', staged)).toBeNull();
     expect(resolveElementalAppearance({ ...owned, lifecycle_stage: 'egg' }, 'pet', staged)).toBeNull();
     expect(resolveElementalAppearance(owned, 'pet', stagedElementalFixture(true))).toBeNull();
+    expect(resolveElementalAppearance(owned, 'pet', { ...staged, resolveUrl: () => null })).toBeNull();
     expect(resolveElementalPreviewAppearance({ ...egg(species), metadata: { species: 'meshtint-bat' } }, 'baby', { slug: 'fire' }, staged)).toBeNull();
     staged.release.appearance_bindings.stages = staged.release.appearance_bindings.stages.filter((binding) => !(binding.species_slug === species
       && binding.potion_slug === 'fire' && binding.lifecycle_stage === 'baby' && binding.motion === 'idle'));

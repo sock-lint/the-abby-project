@@ -1289,11 +1289,15 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all eight exact system
+`catalog-icons-elemental-challenges.json` exposes all twelve exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon and Mushroom while a deliberately broadly authored Bat remains Base only. The producer is
+Wolf, Dragon, Mushroom, Bee and Bat. Hive guarantees the natural Bee egg and
+selected global potion after five qualifying accomplishments; Cave guarantees
+the natural Bat egg and potion after ten. Both are one-time 180-day challenges,
+with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
+remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
 API responses, award nothing and do not establish publication or deployment.

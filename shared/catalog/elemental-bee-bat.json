@@ -10,6 +10,22 @@
       "species_slug": "meshtint-bee",
       "sprite_key": "meshtint-bee",
       "egg_item_slug": "meshtint-bee-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Hive",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-bee-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Hive",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-bee-ice-acquisition-icon"
+        }
+      ],
       "review_icons": [
         {
           "potion_slug": "fire",
@@ -25,6 +41,22 @@
       "species_slug": "meshtint-bat",
       "sprite_key": "meshtint-bat",
       "egg_item_slug": "meshtint-bat-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Cave",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-bat-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Cave",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-bat-ice-acquisition-icon"
+        }
+      ],
       "review_icons": [
         {
           "potion_slug": "fire",

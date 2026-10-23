@@ -231,3 +231,23 @@ class DragonSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
 @override_settings(RPG_ASSET_SUPPORT_POLICY=None)
 class MushroomSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
     species_identity = ("meshtint-mushroom", "Mushroom", "meshtint-mushroom")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class BeeSharedExpeditionAllowanceTests(SharedExpeditionAllowanceTests):
+    species_identity = ("meshtint-bee", "Bee", "meshtint-bee")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class BatSharedExpeditionAllowanceTests(SharedExpeditionAllowanceTests):
+    species_identity = ("meshtint-bat", "Bat", "meshtint-bat")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class BeeSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
+    species_identity = ("meshtint-bee", "Bee", "meshtint-bee")
+
+
+@override_settings(RPG_ASSET_SUPPORT_POLICY=None)
+class BatSharedExpeditionConcurrencyTests(SharedExpeditionConcurrencyTests):
+    species_identity = ("meshtint-bat", "Bat", "meshtint-bat")

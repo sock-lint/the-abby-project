@@ -314,7 +314,9 @@ attempt means unknown progress, not zero. Discovery must not call the materializ
 GET /api/challenges/ merely to browse. Owned and incubating states come from the
 existing stable/incubation responses; failed reads stay explicitly unknown.
 Accepted ready hatches remain usable while the discovery catalog loads or fails.
-Bee/Bat remain Base-only until a separately reviewed asset adoption activates them.
+The owner-accepted Bee/Bat adoption adds their four exact elemental pairs and
+one-time Hive/Cave guarantees through the server policy. Runtime delivery still
+requires canonical publication/readback and the ordinary MAIN release gates.
 
 ### Collection navigation (October 2026)
 
@@ -515,10 +517,16 @@ Hatchery hints require server-confirmed compatible variants. The private art
 and physical-phone acceptance work is recorded separately in
 [the preparation runbook](../docs/operations/elemental-dragon-mushroom.md).
 
-Bee/Bat Fire/Ice preparation uses `shared/catalog/elemental-bee-bat.json` and an
-external, explicitly supplied staged release for private component review. Its
-pin lives only in `assets.bee-bat.evaluation.lock.json`; all twelve production pins and
-the server's 23 supported pairs remain unchanged. Exact prepared portraits fail
-unavailable rather than CSS-tinting Base art. The e2e-only loopback review path
-and remaining owner acceptance/publication/activation gates are documented in
-[the Bee/Bat preparation runbook](../docs/operations/elemental-bee-bat.md).
+Bee/Bat Fire/Ice uses `shared/catalog/elemental-bee-bat.json` and the accepted
+`abby-elemental-bee-bat` 1.0.0 manifest
+`7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5`.
+Canonical publication/readback precedes adding its active pin alongside all
+twelve earlier pins. The server policy enables 27 exact pairs; Bee's one-time
+Hive guarantees require five qualifying accomplishments, Bat's Cave guarantees
+ten, each within 180 days with a natural egg and global potion. The immutable
+`review-...-acquisition-icon` handles remain distinct from quest identity.
+The evaluation lock and loopback path remain explicit historical review inputs;
+canonical acceptance exercises ordinary component defaults. Missing exact
+artwork stays unavailable. Publication evidence, source drift, validation,
+rollback and separate physical-phone acceptance are recorded in
+[the Bee/Bat runbook](../docs/operations/elemental-bee-bat.md).

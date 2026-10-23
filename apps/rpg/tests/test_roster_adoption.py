@@ -31,6 +31,30 @@ ROSTER = json.loads(Path("shared/catalog/companion-roster.json").read_text())
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
 class RosterLoadingTests(TestCase):
+    def test_bee_and_bat_elemental_compatibility_keeps_natural_identities_on_reload(self):
+        for slug in ("base", "fire", "ice"):
+            PotionType.objects.create(slug=slug, name=slug.title())
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            (path / "pet_species.yaml").write_text("species:\n" + "".join(
+                f"  - slug: meshtint-{family}\n    name: {family.title()}\n    sprite_key: meshtint-{family}\n"
+                "    available_potions: [base, fire, ice]\n"
+                for family in ("bee", "bat")
+            ))
+            pack = ContentPack(path)
+            pack.load(stdout=StringIO())
+            identities = dict(PetSpecies.objects.values_list("slug", "pk"))
+            pack.load(stdout=StringIO())
+        self.assertEqual(dict(PetSpecies.objects.values_list("slug", "pk")), identities)
+        self.assertEqual(len(identities), 2)
+        for species in PetSpecies.objects.all():
+            self.assertEqual(species.sprite_key, species.slug)
+            self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), {"base", "fire", "ice"})
+            egg = ItemDefinition.objects.get(slug=f"{species.slug}-egg")
+            self.assertEqual(egg.pet_species_id, species.pk)
+            self.assertEqual(egg.metadata, {"species": species.slug})
+        self.assertEqual(ItemDefinition.objects.filter(item_type="egg").count(), 2)
+
     def test_initial_load_authors_the_current_roster_with_exact_elemental_art_support(self):
         ContentPack("content/rpg/initial").load(stdout=StringIO())
         self.assertEqual(PetSpecies.objects.count(), 15)
@@ -39,7 +63,7 @@ class RosterLoadingTests(TestCase):
             species = PetSpecies.objects.get(slug=family["species_slug"])
             self.assertEqual(species.sprite_key, family["sprite_key"])
             compatible = {"base", "fire", "ice"} if species.slug in {
-                "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom",
+                "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
             } else {"base"}
             self.assertEqual(set(species.available_potions.values_list("slug", flat=True)), compatible)
             approved = compatible
