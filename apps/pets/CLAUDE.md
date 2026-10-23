@@ -6,20 +6,21 @@ Collectible pets + timed incubation + growth/evolution + offline expeditions. Ev
 
 New acquisition uses [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 through `apps/rpg/catalog_support.py`. The checked-in policy supports
-exact `chick` / `cute-chick`, `meshtint-wolf`, `meshtint-dragon` and
-`meshtint-mushroom` with global `base`, `fire` and `ice` potions. The other
-eleven prepared families retain only `base` (23 exact pairs). Dragon/Mushroom
-rollout requires canonical publication/readback and the ordinary MAIN gates. Registered eggs require exact slug, typed FK and canonical metadata
+exact `chick` / `cute-chick`, `meshtint-wolf`, `meshtint-dragon`,
+`meshtint-mushroom`, `meshtint-bee` and `meshtint-bat` with global `base`,
+`fire` and `ice` potions. The other nine prepared families retain only `base`
+(27 exact pairs). Bee/Bat rollout requires canonical publication/readback and
+the ordinary MAIN gates. Registered eggs require exact slug, typed FK and canonical metadata
 agreement. See [prepared roster adoption](../../docs/operations/companion-lifecycle.md#prepared-roster-adoption).
 The read-only server `evolution_stage` is Chick below 50 persisted growth, Fledgling from 50, and Bird after confirmed evolution at 100 or for its mount. Other identities return null for this legacy artwork alias, while all species expose the generic `lifecycle_stage` and ordered species `lifecycle_stages`. See [Bird adoption](../../docs/operations/bird-evolution.md).
 
-The owner accepted all twelve Dragon/Mushroom Fire/Ice app appearances. Their
-exact verified release is pinned, and this branch prepares positive-policy
-activation of the four pairs and guaranteed Grove/Summit challenges. Canonical
-publication/readback must finish before MAIN merges and deploys this activation. Base stage names
-and existing egg identities stay unchanged; elemental Dragon labels are
-Dragonling → Dragon → Elder Dragon. See
-[the preparation/adoption runbook](../../docs/operations/elemental-dragon-mushroom.md).
+The owner accepted all twelve Bee/Bat Fire/Ice app appearances and authorized
+their four pairs and guaranteed Hive/Cave challenges. This branch prepares
+activation; canonical publication/readback must finish before MAIN merges and
+deploys it. Existing egg identities stay unchanged. Bee → Bumble → Sting and
+Bat → Vampire Bat → Bat Lord names apply across Base/Fire/Ice; Base Dragon
+retains its names and elemental Dragon remains Dragonling → Dragon → Elder
+Dragon. See [the rollout runbook](../../docs/operations/elemental-bee-bat.md).
 Owning a portrait or authoring a YAML row does not enable another species,
 potion variant or 3D appearance. The owner retired unused original species
 rather than replacing their artwork. Default content loading attempts a
@@ -53,9 +54,9 @@ false, and `breeding_cooldown_seconds` is zero. They grant no capability.
 
 ## Models
 
-The Fire/Ice policy enables exact Chick/Wolf/Dragon/Mushroom compatibility and
-eight guaranteed challenges; the other eleven prepared families remain Base
-only. Dragon/Mushroom activation uses the ordinary MAIN gates after canonical
+The Fire/Ice policy enables exact Chick/Wolf/Dragon/Mushroom/Bee/Bat compatibility
+and twelve guaranteed challenges; the other nine prepared families remain Base
+only. Bee/Bat activation uses the ordinary MAIN gates after canonical
 publication/readback. Expedition starts now share one allowance per
 account/species across potion appearances, including any unclaimed trip.
 Accepted trips retain their frozen rewards. See
@@ -65,7 +66,7 @@ Accepted trips retain their frozen rewards. See
 - `PetSpecies.rarity` is its acquisition tier, shared with the canonical egg.
   Owned pet/mount responses expose the higher of species rarity and a saved
   potion rarity, preserving legacy variants. Growth stages never change rarity.
-- `PetSpecies` (15 prepared families with 23 approved species/potion pairs: Base for every family plus Fire/Ice for Chick, Wolf, Dragon and Mushroom), `PotionType` (Base, Fire and Ice), `PetSpecies.available_potions` M2M declares compatible combinations.
+- `PetSpecies` (15 prepared families with 27 approved species/potion pairs: Base for every family plus Fire/Ice for Chick, Wolf, Dragon, Mushroom, Bee and Bat), `PotionType` (Base, Fire and Ice), `PetSpecies.available_potions` M2M declares compatible combinations.
 - `UserPet` (growth 0-100, `last_fed_at`, `evolved_to_mount`, `consumable_growth_today` + `consumable_growth_date`), `UserMount` (`last_bred_at`).
 - `MountExpedition` (offline adventure rows; `status`, `tier`, `started_at`, `ready_at`, `loot` JSON).
 

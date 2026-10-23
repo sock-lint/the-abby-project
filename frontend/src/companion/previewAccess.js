@@ -3,6 +3,7 @@ import { getStable } from '../api';
 import { useOptionalAuth } from '../hooks/useApi';
 import { companionStage } from './lifecycle';
 import expansion from '../../../shared/catalog/elemental-expansion.json';
+import beeBat from '../../../shared/catalog/elemental-bee-bat.json';
 
 const REACHED = { baby: ['baby'], middle: ['baby', 'middle'], grown: ['baby', 'middle', 'grown'] };
 
@@ -89,10 +90,8 @@ export function useSurpriseOwnership(needed = true) {
 const CHALLENGE_ART = new Map([
   ['challenge-ember-nest', ['chick', 'fire']], ['challenge-frost-nest', ['chick', 'ice']],
   ['challenge-ember-trail', ['meshtint-wolf', 'fire']], ['challenge-frost-trail', ['meshtint-wolf', 'ice']],
-  // Bee/Bat acquisition illustrations from the separately reviewed release.
-  ['review-bee-fire-acquisition-icon', ['meshtint-bee', 'fire']], ['review-bee-ice-acquisition-icon', ['meshtint-bee', 'ice']],
-  ['review-bat-fire-acquisition-icon', ['meshtint-bat', 'fire']], ['review-bat-ice-acquisition-icon', ['meshtint-bat', 'ice']],
-  ...expansion.families.flatMap(({ species_slug, challenges }) => challenges.map(({ catalog_icon, potion_slug }) => [catalog_icon, [species_slug, potion_slug]])),
+  ...[expansion, beeBat].flatMap(({ families }) => families.flatMap(({ species_slug, challenges }) =>
+    challenges.map(({ catalog_icon, potion_slug }) => [catalog_icon, [species_slug, potion_slug]]))),
 ]);
 const CHALLENGE_COPY = new Map([
   ['Shadow Trail', ['meshtint-shadow', 'base', 'grown']],

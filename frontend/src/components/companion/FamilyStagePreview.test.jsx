@@ -43,7 +43,7 @@ describe('Hatchery family stage previews', () => {
     for (const [index, stage] of ['baby', 'middle', 'grown'].entries()) {
       await user.click(screen.getByRole('button', { name: stage[0].toUpperCase() + stage.slice(1) }));
       expect(screen.getByRole('heading', { name: `${potion.name} ${forms[index]}` })).toBeInTheDocument();
-      expect(resolveElementalPreviewAppearance).toHaveBeenLastCalledWith(item, stage, potion);
+      expect(resolveElementalPreviewAppearance).toHaveBeenLastCalledWith(item, stage, potion, undefined);
       expect(screen.getByRole('button', { name: 'Show 3D preview' })).toBeEnabled();
       expect(screen.getByRole('img', { name: `${potion.name} ${forms[index]}` })).toHaveAttribute('src', expect.stringContaining(`/synthetic/${element}/`));
     }

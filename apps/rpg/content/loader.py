@@ -914,10 +914,10 @@ class ContentPack:
                 family = FAMILIES.get(slug)
                 if family is None:
                     raise ContentPackError(f"Unknown prepared companion identity {slug!r}")
-                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom"}
+                elemental_families = {"meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat"}
                 compatibility = (["base"], ["base", "fire", "ice"]) if slug in elemental_families else (["base"],)
                 if entry.get("available_potions") not in compatibility:
-                    raise ContentPackError(f"Prepared companion {slug!r} requires explicit global Base compatibility; only Wolf, Dragon and Mushroom may also author Fire and Ice")
+                    raise ContentPackError(f"Prepared companion {slug!r} requires explicit global Base compatibility; only Wolf, Dragon, Mushroom, Bee and Bat may also author Fire and Ice")
                 if entry["name"] != family["name"] or entry.get("sprite_key") != family["sprite_key"]:
                     raise ContentPackError(f"Prepared companion identity collision for {slug!r}")
                 existing = PetSpecies.objects.filter(slug=slug).first()
