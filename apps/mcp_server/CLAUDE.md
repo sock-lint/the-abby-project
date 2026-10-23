@@ -74,7 +74,7 @@ uses the native clear/autofill behavior. Saved legacy co-op participant IDs and
 contributions remain visible, while names outside the observer's current family
 use `Former participant`.
 
-Legacy Coin/reward, skill-progress/earned-badge and quest management also retain
+Legacy Coin/reward, skill-progress/earned-badge, habit and quest management also retain
 current authority through domain work and serialization. Scalar Coin and skill
 operations lock the actor and subject together. Quest reads and assignment,
 private-author management and entry-ID decisions acquire household members in
@@ -83,6 +83,13 @@ lookups and participant labels use that exact locked member set; later joins
 become eligible on the next request. Native parent permissions and historical
 fulfillment rules remain authoritative; a queued actor snapshot cannot preserve
 access after role or family changes.
+Habit reads and entry-ID writes use the exact locked member set; taps keep
+child-self ownership. Legacy daily reads and claims retain current actor/subject
+authority through their native result, including once-only settlement. Existing
+scope and confirmation classifications remain unchanged. Saved physical reward
+delivery permits an inactive same-family child, matching native REST, while
+requiring an active current parent and preserving the original spending and
+digital grant receipts.
 
 Pack file operations retain fresh author authority and a process-shared pack
 lock across read/merge/write, deletion and reviewed publication. Lock files live

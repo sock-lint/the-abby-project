@@ -5,6 +5,7 @@ from django.test import SimpleTestCase
 
 from apps.achievements import source_identity
 from apps.chronicle import services as chronicle_services
+from apps.chronicle import grade_services
 from apps.reading.services import ReadingRewardService
 from apps.rpg.progression import engine
 
@@ -32,3 +33,6 @@ class FixedXPRulesFingerprintTests(SimpleTestCase):
 
     def test_reading_identity_wrapper_changes_invalidate_saved_forecasts(self):
         self.assert_source_change_invalidates(ReadingRewardService._source_identity)
+
+    def test_grade_destination_changes_invalidate_saved_forecasts(self):
+        self.assert_source_change_invalidates(grade_services._grade_xp_tags)

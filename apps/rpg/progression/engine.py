@@ -26,6 +26,7 @@ from apps.achievements import source_identity as fixed_xp_identity
 from apps.achievements.criteria import criteria_types_for_scopes
 from apps.achievements.services import BadgeService, SkillService
 from apps.chronicle import firsts as chronicle_firsts, recognition as chronicle_recognition
+from apps.chronicle.grade_services import GRADE_XP_POOL, _grade_xp_tags
 from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL, _journal_xp_tags
 from apps.creations.services import CreationService
 from apps.habits.services import HabitService
@@ -295,6 +296,7 @@ def rules_fingerprint(*, incubation_policy=None):
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
         "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS, GRATITUDE_FIRST_OF_DAY_COINS],
+        "grade": GRADE_XP_POOL,
         "creations": [CreationService.BASELINE_XP, CreationService.DAILY_XP_LIMIT],
         "movement": [
             MovementSessionService.DAILY_REWARD_LIMIT,
@@ -329,6 +331,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 promised_potion_ids,
                 process_daily_bonus,
                 _journal_xp_tags,
+                _grade_xp_tags,
                 ClockService.clock_out,
                 PetService.feed_pet,
                 PetService.start_incubation,

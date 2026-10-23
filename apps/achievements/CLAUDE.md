@@ -40,7 +40,7 @@ live in `tests/test_badge_availability_queries.py`.
 
 ## Services
 
-`source_identity.py` resolves installed journal, Reading and daily-bonus XP
+`source_identity.py` resolves installed journal, grade, Reading and daily-bonus XP
 destinations by their exact current or retained original category/skill identity.
 Retained matches require exact version-1 MCP authoring provenance in
 `RPGContentOverride`. Distinct competing identities fail closed; source-less

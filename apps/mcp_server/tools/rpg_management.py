@@ -244,7 +244,7 @@ def deliver_reward_redemption(params: DeliverRewardRedemptionIn) -> HouseholdRed
     Repeating delivery of the same saved redemption changes nothing.
     """
     require_parent()
-    actor, target = _target(params.user_id)
-    with authorized_household(actor, target) as (parent, child):
+    actor, target = _target(params.user_id, allow_inactive_target=True)
+    with authorized_household(actor, target, allow_inactive_target=True) as (parent, child):
         redemption = _redemption(child, params.redemption_id)
         return redemption_to_dict(RewardService.deliver(redemption, parent))

@@ -534,7 +534,7 @@ daily bonus fallback XP targets `Life Skills::Persistence`, and sample movement
 tags target Physical skills. An absent canonical skill never selects another
 category's namesake.
 
-Installed journal, Reading and daily-bonus XP routes use their original
+Installed journal, grade, Reading and daily-bonus XP routes use their original
 category/skill identities through the shared achievements source resolver.
 Exact version-1 MCP provenance retains those identities across renames and
 reparenting; source-less canonical rows still work. Retirement keeps installed
@@ -582,6 +582,14 @@ reports, observations or catalog/rules bindings.
    a checkpoint against the notebook's revision and an operation UUID. Installed
    accounting is distinct from a hypothetical forecast and never validates an
    undeployed policy.
+
+Decision preparation captures a consistent global catalog and an internal,
+bounded source-version token before household locks. The final native write
+revalidates that token under the existing catalog fence and holds it through
+the append. An edit after preparation rejects the new decision; missing or
+oversized source evidence remains unavailable. Catalog projection and simulation
+stay outside household locks. Tokens exclude private quests and household data,
+are not client inputs or saved evidence, and do not replace immutable UUID replay.
 
 Notebook tools require `mcp:author`. Author-only results explicitly set
 `observations_redacted=true` and do not query checkpoint payloads. Household

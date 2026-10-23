@@ -103,6 +103,14 @@ real REST activity saves: journal retains the original 10/5 XP split and the
 untagged daily bonus retains 20 Persistence XP. Registered-SDK regressions in
 `apps.mcp_server.tests.test_fixed_reward_source_identity` cover source reloads,
 reparenting, retirement, ambiguity, unlock eligibility and receipt replay.
+The report-card and parent contract pairs additionally verify renamed grade XP
+and inactive-child physical handover. MCP regressions cover current habit/daily
+authority and saved experiment decisions. Run their PostgreSQL concurrency tests
+with main settings: `test_habit_daily_authority_concurrency`,
+`test_decision_catalog_freshness`, `test_experiment_lock_scope` and
+`test_experiment_retry_concurrency` under `apps.mcp_server.tests`. The decision
+checks cover a cross-family catalog edit between preparation and commit, source
+read/write fences, and continued unrelated-family activity during computation.
 
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,

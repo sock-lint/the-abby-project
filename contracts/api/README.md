@@ -9,6 +9,14 @@ React consumes the same bodies in `src/api/authoringArchiveContractFixtures.test
 Both run in the required fixture gate. Archive flags preserve all saved evidence
 and do not unpublish content or change rewards.
 
+`report-card-renamed-taxonomy.json` comes from a real child report-card save
+after MCP renames the installed Life Skills / Time Management category and
+skill. It retains the original skill ID and verified 10 XP receipt, including
+retry behavior. The existing report-card producer and React consumer cover it.
+`parent-reward-inactive-delivered.json` verifies native parent handover of an
+inactive same-family child's saved physical promise, with unchanged spending
+and an idempotent delivery receipt. It uses the existing parent contract pair.
+
 `quest-history-former-participant.json` comes from the authenticated legacy
 quest history endpoint after one saved participant moves families. It preserves
 participant IDs, contributions and a current same-family name, while replacing
