@@ -8,6 +8,7 @@ import { buildChallengeGoal } from '../../test/challenges';
 import { useAuth } from '../../hooks/useApi';
 import ChallengeGoalCard, { ChallengeGoalDetail } from './ChallengeGoalCard';
 import PinnedChallengeCard from '../../components/dashboard/PinnedChallengeCard';
+import BonusChallengeBrowser from './BonusChallengeBrowser';
 
 // The owner's child surprise rule on challenges: an elemental challenge's
 // illustration depicts its Baby companion, so a child sees it only once that
@@ -35,7 +36,7 @@ function mount(surface, { account = child, pets = [], mounts = [], goal = emberT
     http.get('*/api/auth/me/', () => HttpResponse.json(account)),
     http.get('*/api/pets/stable/', stable || (() => HttpResponse.json({ pets, mounts }))),
   );
-  const ui = surface === 'detail' ? <ChallengeGoalDetail goal={goal} onClose={() => {}} />
+  const ui = typeof surface !== 'string' ? surface : surface === 'detail' ? <ChallengeGoalDetail goal={goal} onClose={() => {}} />
     : surface === 'today' ? <PinnedChallengeCard goal={goal} /> : <ChallengeGoalCard goal={goal} onSelect={() => {}} />;
   return renderWithProviders(<Ready>{ui}</Ready>);
 }
@@ -131,5 +132,38 @@ describe('Challenge copy that names an unreached form', () => {
   it('does not rewrite a parent-authored goal that shares the name', async () => {
     mount('detail', { goal: { ...shadow, origin: 'parent' } });
     expect(await screen.findByText(/help it grow into Shadow/)).toBeInTheDocument();
+  });
+});
+
+describe('Shared ownership read and challenge search', () => {
+  it('reads the stable once for several companion cards mounted together', async () => {
+    let reads = 0;
+    const goals = ['challenge-ember-trail', 'challenge-frost-trail', 'challenge-ember-nest'].map((icon, index) =>
+      buildChallengeGoal({ id: `goal:${40 + index}`, name: `Card ${index}`, origin: 'catalog', catalog_icon: icon }));
+    mount(<>{goals.map((goal) => <ChallengeGoalCard key={goal.id} goal={goal} onSelect={() => {}} />)}</>, {
+      stable: async () => { reads += 1; await delay(30); return HttpResponse.json({ pets: [], mounts: [] }); },
+    });
+    expect(await screen.findByText('Card 2', { selector: 'h4' })).toBeInTheDocument();
+    await waitFor(() => expect(reads).toBe(1));
+    await delay(80);
+    expect(reads).toBe(1);
+  });
+
+  it('does not let a child search find a withheld form name', async () => {
+    const summit = buildChallengeGoal({ id: 'goal:50', name: 'Ember Summit', origin: 'catalog', catalog_icon: 'challenge-ember-summit',
+      description: 'Discover a Fire Dragonling: finish 50 approved chores. Earn one Dragon Spark Egg and one Fire potion.' });
+    const browser = <BonusChallengeBrowser goals={[summit]} renderCards={(rows) => rows.map((goal) => <p key={goal.id}>Result {goal.name}</p>)} />;
+    const view = mount(browser);
+    const { user } = view;
+    await user.type(await screen.findByRole('searchbox', { name: 'Search bonus challenges' }), 'Dragonling');
+    await delay(80);
+    expect(screen.queryByText('Result Ember Summit')).toBeNull();
+    await user.clear(screen.getByRole('searchbox', { name: 'Search bonus challenges' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Search bonus challenges' }), 'Dragon Spark Egg');
+    expect(await screen.findByText('Result Ember Summit')).toBeInTheDocument();
+    view.unmount();
+    const parent = mount(browser, { account: buildParent({ id: 45 }) });
+    await parent.user.type(await screen.findByRole('searchbox', { name: 'Search bonus challenges' }), 'Dragonling');
+    expect(await screen.findByText('Result Ember Summit')).toBeInTheDocument();
   });
 });

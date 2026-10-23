@@ -104,17 +104,32 @@ function reached(stable, [species, potion, stage]) {
   return ownedAppearanceStages(stable, { slug: species }, { slug: potion }).includes(stage);
 }
 
+function challengeRules(goal) {
+  return {
+    art: goal?.catalog_icon ? CHALLENGE_ART.get(goal.catalog_icon) : null,
+    copy: goal && goal.origin !== 'parent' ? CHALLENGE_COPY.get(goal.name) : null,
+  };
+}
+
+export function isSurpriseChallenge(goal) {
+  const { art, copy } = challengeRules(goal);
+  return !!(art || copy);
+}
+
 // For a child, hide an unowned appearance's challenge illustration and the
 // description clause that names an unreached form. Parents and staff, and
 // ordinary challenge artwork, are unchanged.
-export function useChallengeSurprise(goal) {
-  const art = goal?.catalog_icon ? CHALLENGE_ART.get(goal.catalog_icon) : null;
-  const copy = goal && goal.origin !== 'parent' ? CHALLENGE_COPY.get(goal.name) : null;
-  const { restricted, stable } = useSurpriseOwnership(!!(art || copy));
+export function challengeSurprise(goal, restricted, stable) {
+  const { art, copy } = challengeRules(goal);
   const hideArt = restricted && !!art && !reached(stable, [...art, 'baby']);
   const hideClause = restricted && !!copy && !reached(stable, copy);
   const description = hideClause && goal.description?.includes(': ')
     ? goal.description.slice(goal.description.indexOf(': ') + 2).replace(/^./, (letter) => letter.toUpperCase())
     : goal?.description;
   return { hideArt, description };
+}
+
+export function useChallengeSurprise(goal) {
+  const { restricted, stable } = useSurpriseOwnership(isSurpriseChallenge(goal));
+  return challengeSurprise(goal, restricted, stable);
 }

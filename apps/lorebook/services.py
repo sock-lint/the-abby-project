@@ -251,7 +251,11 @@ def _trained_state(user, slug: str) -> bool:
 # only once this child's own exact Base Chick reached them. Parents and staff
 # read the full reference. The authored examples use these two names.
 _SURPRISE_FORMS = {"Fledgling": "middle", "Bird": "grown"}
-_SURPRISE_WORD = re.compile(r"\b(Fledgling|Bird)\b( appearance)?")
+# "Early Bird" is a badge and title, not a form. An article or plural is
+# rewritten with the name so the generic phrase stays grammatical.
+_SURPRISE_WORD = re.compile(
+    r"(?<!Early )\b(?:(?P<article>[Aa]n?|[Tt]he) )?(?P<name>Fledgling|Bird)(?P<plural>s)?\b(?P<appearance> appearance)?"
+)
 _REACHED = {"baby": {"baby"}, "middle": {"baby", "middle"}, "grown": {"baby", "middle", "grown"}}
 
 
@@ -275,11 +279,16 @@ def _base_chick_stages(user) -> set[str]:
 def _withhold_forms(value, reached: set[str]):
     if isinstance(value, str):
         def replace(match):
-            stage = _SURPRISE_FORMS[match.group(1)]
+            stage = _SURPRISE_FORMS[match.group("name")]
             if stage in reached:
                 return match.group(0)
-            if match.group(2):
-                return f"{stage}{match.group(2)}"
+            article = f"{match.group('article')} " if match.group("article") else ""
+            if match.group("appearance"):
+                return f"{article}{stage} appearance"
+            if match.group("plural"):
+                return f"{article}{stage} forms"
+            if article:
+                return f"{article}{stage} form"
             return f"{stage} form" if value[:match.start()].endswith("→ ") else f"its {stage} form"
         return _SURPRISE_WORD.sub(replace, value)
     if isinstance(value, list):

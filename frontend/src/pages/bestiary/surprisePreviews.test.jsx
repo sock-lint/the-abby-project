@@ -125,6 +125,18 @@ describe('Child surprise previews', () => {
     expect(within(dialog).getByRole('img', { name: 'Fire grown form — not yet evolved' })).toBeInTheDocument();
   });
 
+  it('keeps codex-only grown ownership locked for a child when the stable read fails', async () => {
+    const failed = () => HttpResponse.json({ detail: 'Unavailable' }, { status: 503 });
+    const grown = pet('grown', potions[0], { evolved_to_mount: true });
+    const { user } = mount({ tab: 'codex', pets: [grown], mounts: [{ ...grown, id: 92 }], stable: failed });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your companions could not be loaded');
+    await user.click(await screen.findByRole('button', { name: /^Wolf —/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('img', { name: 'Base grown form — owned' })).toBeInTheDocument();
+    expect(baseArt()).toBeNull();
+    expect(within(dialog).queryByText(/Werewolf/)).toBeNull();
+  });
+
   it('keeps parents previewing owned eggs', async () => {
     const parent = buildParent({ id: 52, is_staff: false });
     const { user } = mount({ account: parent });
