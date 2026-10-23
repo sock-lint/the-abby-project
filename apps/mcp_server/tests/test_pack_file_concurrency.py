@@ -123,6 +123,18 @@ class PackFileConcurrencyTests(TransactionTestCase):
         self.assertFalse((self.path.parent.parent / "interrupted").exists())
         self.assertNotIn("error", self.invoke("write_pack_file", params))
 
+    def test_rejected_digest_does_not_create_a_new_pack(self):
+        for name, content in (("write_pack_file", {"yaml_content": "items: []\n"}),
+                              ("draft_pack_entries", {"entries": [{"slug": "new", "name": "New"}]})):
+            with self.subTest(tool=name):
+                pack = "rejected-" + name.replace("_", "-")
+                params = {"pack": pack, "filename": "items.yaml", "expected_digest": "a" * 64, **content}
+                failed = self.invoke(name, params)
+                self.assertEqual(failed["error"]["code"], "pack_source_conflict", failed)
+                self.assertFalse((self.path.parent.parent / pack).exists())
+                params["expected_digest"] = "missing"
+                self.assertNotIn("error", self.invoke(name, params))
+
     def test_manifest_failure_preserves_unknown_files_and_committed_ownership(self):
         from apps.mcp_server.tools import content_packs
         original = content_packs._write_manifest

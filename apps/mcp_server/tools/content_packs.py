@@ -210,6 +210,17 @@ def _owned_pack(pack: str, *, create=False) -> Path:
     return path
 
 
+def _prepare_pack_file(pack, filename, expected_digest):
+    path = _resolve_pack_file(pack, filename)
+    if path.parent.exists():
+        # Check ownership before reading any existing file for its digest.
+        _owned_pack(pack)
+    _check_digest(path, expected_digest)
+    # Failed preconditions must not create a pack or its ownership manifest.
+    _owned_pack(pack, create=True)
+    return path
+
+
 def _pack_summary(pack_dir: Path) -> dict[str, Any]:
     """Return a dict describing a pack directory's current state."""
     files_present = sorted(
@@ -322,9 +333,7 @@ def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
             f"Got {type(parsed).__name__}.",
         )
 
-    _owned_pack(params.pack, create=True)
-    path = _resolve_pack_file(params.pack, params.filename)
-    _check_digest(path, params.expected_digest)
+    path = _prepare_pack_file(params.pack, params.filename, params.expected_digest)
     path.parent.mkdir(parents=True, exist_ok=True)
     atomic_write_text(path, params.yaml_content)
     return {
@@ -397,9 +406,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
                 f"{params.filename}).",
             )
 
-    _owned_pack(params.pack, create=True)
-    path = _resolve_pack_file(params.pack, params.filename)
-    _check_digest(path, params.expected_digest)
+    path = _prepare_pack_file(params.pack, params.filename, params.expected_digest)
 
     existing: list[dict] = []
     if params.mode == "append" and path.exists():
