@@ -403,6 +403,7 @@ class PulseActivityStreakTests(TestCase):
             "active_today": False, "check_in_multiplier": 1.0,
             "check_in_coins": 0, "drop_bonus": 0.0, "intensity": 0.0,
         })
+        self.assertFalse(CharacterProfile.objects.filter(user=self.child).exists())
 
 
 @override_settings(PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"])
