@@ -69,7 +69,9 @@ No eligible children or ledger entries means insufficient evidence. More than
 100 eligible children or 100,000 ledger rows returns a capacity state with
 unavailable totals, rather than a partial or zero sample.
 
-These observations measure today's installed uncapped rules. They cannot
+These observations measure today's installed rules, including the
+[smaller new expedition and random-pouch payouts](coin-economy.md). Those
+rules have no shared per-child daily Coin cap. The observations cannot
 validate a 100-Coin policy that has not been deployed, estimate family costs,
 or establish content exhaustion/retention. They do not read journals, report
 child identities or aggregate other households. A saved decision and review

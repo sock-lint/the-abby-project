@@ -10,6 +10,7 @@ import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from
 import { downscaleImage } from '../../utils/image';
 import { normalizeList } from '../../utils/api';
 import { isCatalogAvailable } from '../../utils/catalogAvailability';
+import RewardPriceGuide from '../../components/rewards/RewardPriceGuide';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const FULFILLMENT_KINDS = [
@@ -84,7 +85,8 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <IconPicker label="Icon (emoji)" value={form.icon} onChange={(icon) => set({ icon })} placeholder="🎁" disabled={saving} />
-        <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
+        <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required disabled={saving} />
+        <RewardPriceGuide onApply={(cost_coins) => set({ cost_coins })} disabled={saving} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (

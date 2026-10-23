@@ -122,6 +122,16 @@ the existing factual Challenge engine, with no extra Coins or XP.
 ## Services (`apps/rpg/services.py`)
 - `StreakService`, `DropService`, `CosmeticService`, `ConsumableService`, `GameLoopService` (central orchestrator).
 - `InventoryItemService` — `open_coin_pouch(user, item)` converts a `coin_pouch` item to coins via `CoinService.award_coins`. Endpoint: `POST /api/inventory/<item_id>/open/`.
+
+New random pouch awards resolve through `coin_policy.resolve_random_pouch`
+after the weighted draw, before inventory grants or expedition snapshots.
+Seven separate `-v2` definitions pay 20% of the original denominations;
+`no_random_drop` keeps them out of the candidate pools so odds stay intact.
+Never use this resolver for owned inventory, explicit authored rewards or
+expedition claims. Those retain their original item identities and values.
+The Lab's installed control uses the same resolver against its detached
+snapshot; the separate commitment prototype remains hypothetical. See
+[Coin earning and shop pacing](../../docs/operations/coin-economy.md).
 - `sprite_authoring.py`: `register_sprite`, `register_sprite_batch`, `delete_sprite`, `get_catalog` — write to the abby-sprites Ceph bucket.
 - `storage.py::sprite_storage()` — lazy-helper for the dedicated sprites STORAGES key.
 - `constants.py`: shared `TriggerType` TextChoices.

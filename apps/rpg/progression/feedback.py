@@ -47,6 +47,7 @@ PROPOSAL = {
     ],
     "pouch_face_values": [5, 10, 15, 50, 100, 250, 500],
     "principles": [
+        "This hypothetical candidate retains its 10/25/50 expedition table and original pouch values. The installed control follows the current production rates and smaller versioned random pouches.",
         "Reserve new expedition direct Coins, full pouch value and maximum possible positive cosmetic salvage before launch. Establish any reduced direct amount before the child commits; never trim a claim.",
         "Reserve a random activity pouch's full face value before granting it. Only candidates whose full value fits the remaining allocation are eligible before the draw; never grant a partial pouch or reroll saved loot.",
         "Each child's new commitments reset daily without banking unused allowance. Redemptions may exceed 100 Coins on a later day because previously established rewards are paid in full.",

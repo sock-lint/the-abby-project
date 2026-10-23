@@ -36,6 +36,7 @@ from django.utils import timezone
 from apps.rpg.catalog_icons import item_catalog_icon
 
 from .catalog_support import available_random_items, item_is_available, random_item_is_available
+from .coin_policy import resolve_random_pouch
 
 from apps.rpg.constants import TriggerType
 from apps.rpg.models import CharacterProfile
@@ -425,7 +426,7 @@ class DropService:
         if not any(weights):
             return []
         selected = random.choices(items, weights=weights, k=1)[0]
-        item = selected.item
+        item = resolve_random_pouch(selected.item)
 
         # Check for salvage (cosmetics already owned)
         was_salvaged = False
@@ -1165,7 +1166,7 @@ class ConsumableService:
             weights = tier_balanced_weights(eligible, MYSTERY_TIER_WEIGHTS, authored_weights=weights)
             if not any(weights):
                 raise ValueError("Mystery box has no eligible items to grant")
-            granted = random.choices(eligible, weights=weights, k=1)[0]
+            granted = resolve_random_pouch(random.choices(eligible, weights=weights, k=1)[0])
             grant_item(profile.user, granted)
             return {
                 "granted_item_id": granted.pk,

@@ -18,8 +18,9 @@ def sources_for_request(request):
     from apps.quests.reference_locks import definitions_with_available_taxonomy
     from apps.quests.milestone_eligibility import has_milestone_gate, milestone_eligibility
     from apps.rewards.models import Reward
-    from .models import CharacterProfile, DropTable
+    from .models import CharacterProfile, DropTable, ItemDefinition
     from .catalog_support import random_item_is_available
+    from .coin_policy import RANDOM_POUCH_REPLACEMENTS, resolve_random_pouch
     from .rarity import drop_tier_weights
 
     user = request.user
@@ -112,6 +113,9 @@ def sources_for_request(request):
     for offer in offers:
         result[offer.item_definition_id].append({"kind": "shop", "name": offer.name, "path": "/rewards"})
     level = CharacterProfile.objects.filter(user=user).values_list("level", flat=True).first() or 0
+    replacements = {item.slug: item for item in ItemDefinition.objects.filter(
+        slug__in=RANDOM_POUCH_REPLACEMENTS.values(),
+    )}
     for entry in DropTable.objects.filter(
         min_level__lte=level, weight__gt=0,
     ).select_related("item__pet_species", "item__potion_type").order_by("trigger_type"):
@@ -122,7 +126,8 @@ def sources_for_request(request):
                 or not random_item_is_available(entry.item)):
             continue
         path = ACTION_PATHS.get(trigger, (None, "/quests?tab=trials"))[1]
-        result[entry.item_id].append({"kind": "drop", "name": label, "path": path})
+        item = resolve_random_pouch(entry.item, items_by_slug=replacements)
+        result[item.pk].append({"kind": "drop", "name": label, "path": path})
     # Keep previews compact; deterministic challenge paths take priority.
     request._rpg_acquisition_sources = {
         item_id: list({(source["kind"], source["name"]): source for source in sources}.values())[:4]

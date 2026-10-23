@@ -526,6 +526,7 @@ entries:
       - "All your appearances of the same species share one expedition per local day, lasting 2, 4, or 8 hours. Collect that species's returned trip before sending another appearance; the Pets screen shows when it can explore again."
       - "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw."
       - "Base loot is fixed when the trip starts. New trips choose available items; supported recorded loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
+      - "New short, standard and long expeditions pay about 3, 7 and 15 Coins plus their item finds. Earlier trips keep the rewards saved when they started."
     parent_knobs:
       settings: []
       powers_badges:
@@ -633,9 +634,11 @@ entries:
     mechanics:
       - "Coins are tracked in an append-only CoinLedger separate from real money."
       - "Coins can come from tracked time, project/milestone bonuses, badges, chores, challenges, daily check-ins, expeditions, exchanges, drops/salvage, birthdays, and parent adjustments."
+      - "New random Coin pouches have smaller payouts. Pouches you already own and pouches promised by an accepted challenge or expedition keep their full value; opening a pouch shows and pays its own saved denomination."
       - "Today and Memories → Journal save into the same journal. The first daily entry earns 2 Coins alongside eligible journal rewards; edits and retries do not pay again. Earlier daily-note payouts share this allowance, and older notes receive no retroactive reward."
       - "Reward redemption deducts Coins immediately as a held debit; rejection refunds them."
       - "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory on approval. Real-world rewards stay approved until a parent confirms handover; combined offers use both steps. Unavailable new offers are omitted while supported pending promises are preserved."
+      - "Parents can use the shop's optional saving-time guide to price rewards around active days. Its Coins-per-day estimate and exact prices are editable; a suggestion is not a guarantee of daily earnings. Existing requests keep their accepted price."
       - "Money-to-Coins exchange is parent-approved and snapshots the exchange rate at request time."
       - "Parents can enable a minutes-per-coin rate for each child's 3D prints. A reviewed time estimate sets a rounded-up fixed quote; coins are spent only when the child accepts it."
       - "Print quotes keep their original rate when settings change. Retries of the same request cost no extra coins; cancelling before any print starts refunds the paid amount once. Monthly print budgets still apply."

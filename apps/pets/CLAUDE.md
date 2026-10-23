@@ -73,6 +73,12 @@ Accepted trips retain their frozen rewards. See
 - `PetService` — `start_incubation`, `current_incubation`, `hatch_incubation`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
+New expeditions have 3 / 7 / 15 base Coins for 2 / 4 / 8 hours, with existing
+variation, item slots and claim-time Lucky Coin behavior. Newly rolled pouch
+items use the reduced versioned definitions before freezing loot. Existing
+trips keep their saved Coins and exact item IDs; claim never applies the new
+random-award resolver. See [Coin pacing](../../docs/operations/coin-economy.md).
+
 ### Growth transactions
 
 Incubation starts acquire the achievements user gate before inventory writes,

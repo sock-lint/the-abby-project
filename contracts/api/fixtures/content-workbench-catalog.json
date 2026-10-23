@@ -23,15 +23,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "rarity": "common",
-          "sprite_key": "",
-          "icon": "🍎",
-          "description": "",
-          "name": "Practice snack",
           "metadata": {
             "growth": 5
           },
-          "coin_value": 2
+          "description": "",
+          "coin_value": 2,
+          "name": "Practice snack",
+          "icon": "🍎",
+          "rarity": "common",
+          "sprite_key": ""
         },
         "has_database_override": false,
         "used_by": {
@@ -105,26 +105,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "duration_days": 7,
-          "is_repeatable": false,
-          "icon": "⚔️",
-          "coin_reward": 10,
-          "xp_reward": 15,
+          "required_skill_level": 1,
+          "is_cooperative": false,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "quest_type": "collection",
-          "sprite_key": "",
+          "coin_reward": 10,
+          "duration_days": 7,
+          "xp_reward": 15,
           "target_value": 2,
-          "required_skill_level": 1,
-          "name": "Practice challenge",
-          "is_cooperative": false,
+          "is_repeatable": false,
+          "sprite_key": "",
+          "quest_type": "collection",
           "description": "Complete two daily Reading Adventures.",
+          "name": "Practice challenge",
+          "icon": "⚔️",
           "required_badge": null,
-          "required_skill": 902,
           "prerequisite_quest": 908,
+          "required_skill": 902,
           "reward_items": [
             {
               "item_id": 903,
@@ -175,26 +175,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "duration_days": 7,
-          "is_repeatable": false,
-          "icon": "⚔️",
-          "coin_reward": 0,
-          "xp_reward": 0,
+          "required_skill_level": 0,
+          "is_cooperative": false,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "quest_type": "collection",
-          "sprite_key": "",
+          "coin_reward": 0,
+          "duration_days": 7,
+          "xp_reward": 0,
           "target_value": 1,
-          "required_skill_level": 0,
-          "name": "Starter practice",
-          "is_cooperative": false,
+          "is_repeatable": false,
+          "sprite_key": "",
+          "quest_type": "collection",
           "description": "Complete one approved chore.",
+          "name": "Starter practice",
+          "icon": "⚔️",
           "required_badge": null,
-          "required_skill": null,
           "prerequisite_quest": null,
+          "required_skill": null,
           "reward_items": [],
           "skill_tags": []
         },
@@ -635,6 +635,7 @@
     },
     "reward_commitment_assumptions": [
       "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+      "The installed control uses the current production expedition rates and smaller versioned random pouches. This separate prototype retains its 10/25/50 expedition table and original pouch face values.",
       "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
       "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
       "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",
@@ -746,6 +747,7 @@
         "New child with zero XP, Coins and owned companions/inventory",
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+        "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
@@ -863,8 +865,8 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "fe547adcdc2f1f5d2194013bf6272bd85f4f0a597137d21f19c7bc05b6287daa",
-    "engine_version": "2026-10-22.1",
+    "rules_fingerprint": "1f8ec30a1729396c3eb75aa1fc07f9f494e6497159875930ac505bcc5d15a8ec",
+    "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "work_budget": {
       "max_units": 10000,

@@ -107,6 +107,7 @@
         500
       ],
       "principles": [
+        "This hypothetical candidate retains its 10/25/50 expedition table and original pouch values. The installed control follows the current production rates and smaller versioned random pouches.",
         "Reserve new expedition direct Coins, full pouch value and maximum possible positive cosmetic salvage before launch. Establish any reduced direct amount before the child commits; never trim a claim.",
         "Reserve a random activity pouch's full face value before granting it. Only candidates whose full value fits the remaining allocation are eligible before the draw; never grant a partial pouch or reroll saved loot.",
         "Each child's new commitments reset daily without banking unused allowance. Redemptions may exceed 100 Coins on a later day because previously established rewards are paid in full.",
@@ -144,9 +145,9 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-22.1",
-    "rules_fingerprint": "fe547adcdc2f1f5d2194013bf6272bd85f4f0a597137d21f19c7bc05b6287daa",
-    "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
+    "engine_version": "2026-10-23.1",
+    "rules_fingerprint": "1f8ec30a1729396c3eb75aa1fc07f9f494e6497159875930ac505bcc5d15a8ec",
+    "feedback_fingerprint": "6e569e9c0cdac9fc5c586430baafe2657d0cc974c8c3d55988ed5b3cf21f5229",
     "catalog_fingerprint": "0067a147c82882479b5b8e700a0bd88566df47d6cf7bd520a6cb5d64f1b98a94",
     "source_commit": "unavailable"
   },
@@ -321,14 +322,15 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "fe547adcdc2f1f5d2194013bf6272bd85f4f0a597137d21f19c7bc05b6287daa",
-    "engine_version": "2026-10-22.1",
+    "rules_fingerprint": "1f8ec30a1729396c3eb75aa1fc07f9f494e6497159875930ac505bcc5d15a8ec",
+    "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
         "New child with zero XP, Coins and owned companions/inventory",
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+        "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
@@ -4711,9 +4713,9 @@
       "eligible_challenges": 2,
       "finite_breakdown": {
         "badge": 1,
-        "middle": 1,
-        "quest": 2,
         "pet": 1,
+        "quest": 2,
+        "middle": 1,
         "cosmetic": 1,
         "mount": 1
       },
@@ -6845,6 +6847,7 @@
       "removed_finite_targets": {},
       "assumptions": [
         "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+        "The installed control uses the current production expedition rates and smaller versioned random pouches. This separate prototype retains its 10/25/50 expedition table and original pouch face values.",
         "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
         "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
         "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",
@@ -7162,14 +7165,15 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "fe547adcdc2f1f5d2194013bf6272bd85f4f0a597137d21f19c7bc05b6287daa",
-    "engine_version": "2026-10-22.1",
+    "rules_fingerprint": "1f8ec30a1729396c3eb75aa1fc07f9f494e6497159875930ac505bcc5d15a8ec",
+    "engine_version": "2026-10-23.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
         "New child with zero XP, Coins and owned companions/inventory",
         "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
         "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+        "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
@@ -11552,9 +11556,9 @@
       "eligible_challenges": 2,
       "finite_breakdown": {
         "badge": 1,
-        "middle": 1,
-        "quest": 2,
         "pet": 1,
+        "quest": 2,
+        "middle": 1,
         "cosmetic": 1,
         "mount": 1
       },
@@ -13700,6 +13704,7 @@
       "removed_finite_targets": {},
       "assumptions": [
         "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+        "The installed control uses the current production expedition rates and smaller versioned random pouches. This separate prototype retains its 10/25/50 expedition table and original pouch face values.",
         "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
         "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
         "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",

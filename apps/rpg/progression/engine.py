@@ -63,6 +63,7 @@ from apps.rpg.services import (
     _step_chronicle_firsts,
 )
 from apps.rpg import inventory as inventory_rules
+from apps.rpg import coin_policy
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
 from .catalog import load_catalog
@@ -93,7 +94,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-22.1"
+ENGINE_VERSION = "2026-10-23.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -259,6 +260,9 @@ def rules_fingerprint(*, incubation_policy=None):
         "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
         "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
+        "random_pouch_policy_source": inspect.getsource(coin_policy),
+        "random_pouch_replacements": dict(coin_policy.RANDOM_POUCH_REPLACEMENTS),
+        "random_pouch_values": dict(coin_policy.RANDOM_POUCH_VALUES),
         "inventory_badge_hook": inspect.getsource(BadgeService.evaluate_inventory_badges),
         "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
         "seconds_per_day": SECONDS_PER_DAY,
@@ -365,6 +369,7 @@ def coverage(catalog):
             "New child with zero XP, Coins and owned companions/inventory",
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
+            "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
             "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
             "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
@@ -483,6 +488,7 @@ class Trial:
         self.economy = Economy(self.config["economy"]) if self.config["economy"]["enabled"] else None
         self.reward_budget = RewardBudget(self.config["reward_budget"])
         self.reward_commitment = RewardCommitment(self.config["reward_commitment"])
+        self._items_by_slug = {getattr(item, "slug", ""): item for item in catalog.items.values()}
         self.expedition_budget = ExpeditionBudget(self.config["expedition_budget"])
         self.challenge_gates = ChallengeGates(self.config["challenge_gates"], catalog)
         self.rng = random.Random(seed)
@@ -761,7 +767,7 @@ class Trial:
     def _obtainable_drop_items(self, trigger, *, installed=False):
         budgets = drop_tier_weights(trigger)
         return {
-            entry.item_id for entry in self.catalog.pools.get(trigger, [])
+            self._random_reward_item(entry.item).pk for entry in self.catalog.pools.get(trigger, [])
             if entry.min_level <= max(XP_THRESHOLDS) and entry.weight > 0
             and budgets.get(entry.item.rarity, 0) > 0
             and (installed or not self.reward_commitment.enabled or self.reward_commitment.allows(entry.item))
@@ -931,7 +937,7 @@ class Trial:
                     tier = self.config["expedition_tier"]
                     for level in XP_THRESHOLDS:
                         entries, weights = self._source_pool("expedition_returned", level, tier)
-                        renewable = {entry.item_id for entry, weight in zip(entries, weights)
+                        renewable = {self._random_reward_item(entry.item).pk for entry, weight in zip(entries, weights)
                                           if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0
                                           and (installed or not self.reward_commitment.enabled
                                                or self.reward_commitment.allows(entry.item, tier=tier))}
@@ -1091,6 +1097,16 @@ class Trial:
         self.record(source, items=quantity, target=item.display_name)
         self.evaluate_inventory_badges()
 
+    def _random_reward_item(self, item):
+        """Resolve new random grants against this detached catalog snapshot.
+
+        The separate commitment prototype retains its established original
+        face-value policy. Authored grants and claims never call this helper.
+        """
+        if self.reward_commitment.enabled:
+            return item
+        return coin_policy.resolve_random_pouch(item, items_by_slug=self._items_by_slug)
+
     def consume(self, pk, quantity, source):
         self.inventory[pk] -= quantity
         self.sink_totals[source]["items"] += quantity
@@ -1108,9 +1124,10 @@ class Trial:
         entries, weights = self.eligible_pool(trigger, record_filtered=True)
         if entries and sum(weights) > 0:
             entry = self.rng.choices(entries, weights=weights, k=1)[0]
+            item = self._random_reward_item(entry.item)
             if self.reward_commitment.enabled:
                 self.reward_commitment.reserve_item(entry.item, self.day)
-            self.grant_item(entry.item_id, 1, "drops", salvage_cosmetic=True)
+            self.grant_item(item.pk, 1, "drops", salvage_cosmetic=True)
             self.counters["drops"] += 1
         elif self.reward_commitment.enabled:
             self.reward_commitment.totals["activity_empty_drops"] += 1
@@ -1485,11 +1502,12 @@ class Trial:
                 if not entries or not any(weights):
                     break
                 entry = self.rng.choices(entries, weights=weights, k=1)[0]
+                item = self._random_reward_item(entry.item)
                 if self.reward_commitment.enabled:
                     self.reward_commitment.reserve_item(entry.item, self.day, expedition=True)
                     if entry.item.item_type in COSMETIC_TYPES:
                         salvage_reserve += item_liability(entry.item, expedition=True)
-                items.append(entry.item_id)
+                items.append(item.pk)
                 if entry.item.item_type in COSMETIC_TYPES:
                     owned.add(entry.item_id)
             self.expedition_budget.promise_items(self.day, permitted_slots, len(items))

@@ -34,19 +34,19 @@ logger = logging.getLogger(__name__)
 TIER_CONFIG = {
     "short": {
         "duration_minutes": 120,   # 2h
-        "base_coins": 15,
+        "base_coins": 3,
         "item_slots": 1,
         "rarity_weights": {"common": 70, "uncommon": 25, "rare": 5},
     },
     "standard": {
         "duration_minutes": 240,   # 4h
-        "base_coins": 35,
+        "base_coins": 7,
         "item_slots": 2,
         "rarity_weights": {"common": 50, "uncommon": 35, "rare": 13, "epic": 2},
     },
     "long": {
         "duration_minutes": 480,   # 8h
-        "base_coins": 75,
+        "base_coins": 15,
         "item_slots": 3,
         "rarity_weights": {"common": 35, "uncommon": 35, "rare": 22, "epic": 7, "legendary": 1},
     },
@@ -301,6 +301,7 @@ class ExpeditionService:
         from apps.rpg.models import CharacterProfile, DropTable
         from apps.rpg.catalog_support import random_item_is_available
         from apps.rpg.catalog_icons import item_catalog_icon
+        from apps.rpg.coin_policy import resolve_random_pouch
 
         config = TIER_CONFIG[tier]
 
@@ -352,7 +353,7 @@ class ExpeditionService:
                 if not any(biased_weights):
                     break
                 selected = random.choices(entries, weights=biased_weights, k=1)[0]
-                item = selected.item
+                item = resolve_random_pouch(selected.item)
                 if item.item_type in COSMETIC_TYPES:
                     owned.add(item.pk)
                 items.append({
