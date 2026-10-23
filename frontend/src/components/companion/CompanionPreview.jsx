@@ -8,7 +8,7 @@ import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import CompanionMotionControls from './CompanionMotionControls';
 import './companion.css';
 import { birdStage } from '../../companion/birdEvolution';
-import { elementalEvolutionStages } from '../../companion/sharedElementalRelease';
+import { elementalEvolutionStages, isElementalCompanion } from '../../companion/sharedElementalRelease';
 import PetEvolutionGuide from './PetEvolutionGuide';
 import { companionStage, companionStageLabel } from '../../companion/lifecycle';
 
@@ -76,6 +76,7 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
   const label = creatureLabel(creature, kind);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
+  const missingElementalArtwork = isElementalCompanion(creature?.species, creature?.potion) && !appearance;
   const reducedMotion = usePrefersReducedMotion();
   const evolutionMotionEnabled = animate && !reducedMotion;
   useEffect(() => {
@@ -144,8 +145,9 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
         {primary && creature && <button type="button" className="companion-stage-interaction" onClick={onInteract || (() => playTogether('hello'))} aria-label={interactionLabel || `Say hello to ${name}`}>
           {!failed && (!showScene || ready) && <span className="companion-interaction-hint">{interactionLabel || 'Tap to say hello'}</span>}
         </button>}
-        {(!primary || failed || (showScene && !ready)) && <p className="companion-preview-message" role="status" aria-live="polite">
+        {(!primary || failed || (showScene && !ready) || missingElementalArtwork) && <p className="companion-preview-message" role="status" aria-live="polite">
           {failed ? 'The 3D view could not load. Your companion and all controls are still available.'
+            : missingElementalArtwork ? 'Artwork for this appearance is not available yet. Your companion and all controls are still available.'
             : showScene && !ready ? 'Loading the woodland…'
               : greeting ? `Hello, ${label}! A little greeting, just for fun.`
                 : creature ? 'A little company while you grow.' : 'Hatch a pet, then set it active to see it here.'}

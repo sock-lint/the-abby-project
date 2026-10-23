@@ -1,0 +1,24 @@
+# Unregistered preparation: requires exact approved art support before explicit loading.
+species:
+- slug: meshtint-snake
+  name: Snakelet
+  icon: 🐾
+  sprite_key: meshtint-snake
+  description: A companion with baby, middle and grown forms
+  available_potions:
+  - base
+  - fire
+  - ice
+  egg_rarity: uncommon
+  egg_coin_value: 3
+- slug: meshtint-hermit-crab
+  name: Shell
+  icon: 🐾
+  sprite_key: meshtint-hermit-crab
+  description: A companion with baby, middle and grown forms
+  available_potions:
+  - base
+  - fire
+  - ice
+  egg_rarity: uncommon
+  egg_coin_value: 3
