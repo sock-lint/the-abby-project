@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { fireEvent, renderWithProviders, screen, waitFor, within } from '../test/render';
 import { server } from '../test/server';
 import { spyHandler } from '../test/spy';
-import { buildUser } from '../test/factories';
+import { buildParent, buildUser } from '../test/factories';
 import { SpriteCatalogContext } from '../providers/spriteCatalog.context';
 import ChildDashboard from '../pages/ChildDashboard';
 import Companions from '../pages/bestiary/party/Companions';
@@ -126,7 +126,8 @@ describe('server-confirmed creatures across React surfaces', () => {
     expect(screen.getByRole('img', { name: 'Base Fox' })).toHaveAttribute('src', '/sprites/owned-fox-mount.png');
   });
 
-  it.each([false, true])('Codex shows species and evolution art with the real ownership label (owned=%s)', async (owned) => {
+  it.each([false, true])('Codex shows a parent species and evolution art with the real ownership label (owned=%s)', async (owned) => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(buildParent())));
     server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({
       species: [{ ...SPECIES, discovered: true, owned_pet_ids: [51], owned_mount_potion_ids: owned ? [BASE.id] : [], available_potions: [BASE] }],
       potions: [BASE], totals: { species: 1, discovered_species: 1, mounts_possible: 1, mounts_owned: owned ? 1 : 0 },
@@ -139,6 +140,34 @@ describe('server-confirmed creatures across React surfaces', () => {
     const variant = within(detail).getByRole('img', { name: `Base Bird — ${owned ? 'owned' : 'not yet evolved'}` });
     expect(within(variant).getByRole('img', { name: 'cute-chick-mount' })).toHaveAttribute('src', BIRD_PORTRAIT);
     if (!owned) expect(variant).toHaveTextContent('locked');
+  });
+
+  it.each([false, true])('Codex shows a child only owned appearances (grown owned=%s)', async (owned) => {
+    const pet = chick({ evolution_stage: owned ? 'bird' : null, lifecycle_stage: owned ? 'grown' : 'baby', growth_points: owned ? 100 : 20, evolved_to_mount: owned });
+    server.use(
+      http.get('*/api/pets/stable/', () => HttpResponse.json(stable([pet], owned ? [{ ...pet, id: 52 }] : []))),
+      http.get('*/api/pets/codex/', () => HttpResponse.json({
+        species: [{ ...SPECIES, discovered: true, owned_pet_ids: [51], owned_mount_potion_ids: owned ? [BASE.id] : [], available_potions: [BASE] }],
+        potions: [BASE], totals: { species: 1, discovered_species: 1, mounts_possible: 1, mounts_owned: owned ? 1 : 0 },
+      })),
+    );
+    const { user } = renderSurface(<BestiaryCodex />);
+    const portrait = owned ? BIRD_PORTRAIT : CHICK_PORTRAIT;
+    // The portrait waits for the child's own stable before drawing any art.
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Chick' })).toHaveAttribute('src', portrait));
+    await user.click(screen.getByRole('button', { name: `Chick — ${owned ? 1 : 0} of 1 grown pets collected` }));
+    const detail = screen.getByRole('dialog', { name: 'Chick' });
+    expect(within(detail).getByRole('img', { name: 'Chick' })).toHaveAttribute('src', portrait);
+    if (owned) {
+      const variant = within(detail).getByRole('img', { name: 'Base Bird — owned' });
+      expect(within(variant).getByRole('img', { name: 'cute-chick-mount' })).toHaveAttribute('src', BIRD_PORTRAIT);
+    } else {
+      const variant = within(detail).getByRole('img', { name: 'Base grown form — not yet evolved' });
+      expect(within(variant).queryByRole('img')).toBeNull();
+      expect(variant).toHaveTextContent('locked');
+      expect(detail.querySelector(`img[src="${BIRD_PORTRAIT}"]`)).toBeNull();
+      expect(within(detail).queryByText(/Bird/)).toBeNull();
+    }
   });
 
   it('Manage browses the server catalog with Chick and Bird forms', async () => {

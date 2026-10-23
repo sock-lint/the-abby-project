@@ -4,6 +4,7 @@ import EmptyState from '../../components/EmptyState';
 import Button from '../../components/Button';
 import { SelectField, TextField } from '../../components/form';
 import { goalFinalDate, goalTargetSummary } from './goalDisplay';
+import { challengeSurprise, isSurpriseChallenge, useSurpriseOwnership } from '../../companion/previewAccess';
 
 const ACTIVITY_LABELS = {
   chore_complete: 'Approved chores', homework_complete: 'Approved homework', homework_created: 'Planned homework',
@@ -21,11 +22,14 @@ export default function BonusChallengeBrowser({ goals, renderCards, timezone = '
   const [activity, setActivity] = useState('all');
   const [deadline, setDeadline] = useState('');
   const [order, setOrder] = useState('deadline');
+  // Search the same description a child sees, so it cannot find a withheld form name.
+  const { restricted, stable } = useSurpriseOwnership(goals.some(isSurpriseChallenge));
+  const searchText = (goal) => `${goal.name} ${challengeSurprise(goal, restricted, stable).description || ''} ${goalTargetSummary(goal)}`;
   const available = Object.entries(ACTIVITY_LABELS).filter(([key]) => goals.some((goal) => triggers(goal).includes(key)));
   const filtered = Boolean(query || activity !== 'all' || deadline || order !== 'deadline');
   const clear = () => { setQuery(''); setActivity('all'); setDeadline(''); setOrder('deadline'); };
   const rows = goals.filter((goal) => (
-    (!query.trim() || `${goal.name} ${goal.description || ''} ${goalTargetSummary(goal)}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+    (!query.trim() || searchText(goal).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
     && (activity === 'all' || (activity === 'unknown' ? unknown(goal) : triggers(goal).includes(activity)))
     && (!deadline || (goalFinalDate(goal, timezone) && goalFinalDate(goal, timezone) <= deadline))
   )).sort((left, right) => (

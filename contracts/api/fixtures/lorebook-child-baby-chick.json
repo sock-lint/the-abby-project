@@ -1,0 +1,930 @@
+{
+  "entries": [
+    {
+      "slug": "duties",
+      "title": "Chores",
+      "icon": "🧹",
+      "audience_title": "Household tasks",
+      "chapter": "daily_life",
+      "summary": "Recurring chores with parent approval and clear rewards.",
+      "kid_voice": "Chores help everyone take care of the home, from washing dishes and\ndoing laundry to caring for pets. Submit a completed chore for a parent\nto review.\n",
+      "mechanics": [
+        "A child submits a completed chore; a parent approves or rejects it.",
+        "Approved chores can pay money, Coins, XP through skill tags, streak credit, drops, and challenge progress.",
+        "Base money and Coin rewards are fixed when the child submits, so later chore edits do not change that pending completion's promised amounts.",
+        "Daily and weekly chores use one active completion per day/week; rejected completions do not block a retry.",
+        "Alternating-week schedules support shared custody without pre-generating task instances.",
+        "Children can propose chores; a parent sets the rewards and publishes them before they can be completed."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "chore_completions"
+        ],
+        "content_sources": [
+          "Parents set each chore's reward_amount, coin_reward, xp_reward, recurrence, schedule, and skill tags."
+        ]
+      },
+      "economy": {
+        "money": true,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap the dish to wash it.",
+        "payoff": "+1 coin · +5 XP",
+        "target_icon": "🍽️",
+        "reward_icon": "🪙"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "rituals",
+      "title": "Habits",
+      "icon": "🌿",
+      "audience_title": "Everyday practice",
+      "chapter": "daily_life",
+      "summary": "Habits are quick taps for practice, not paid work.",
+      "kid_voice": "Habits help you practice something regularly. Log a positive action to\nbuild strength. You can also record a setback without losing money\nor coins.\n",
+      "mechanics": [
+        "Positive habit taps grant XP through habit skill tags, streak credit, drops, and challenge progress.",
+        "Habits never pay money or Coins directly.",
+        "Positive taps are capped per local day by max_taps_per_day; negative taps stay uncapped.",
+        "Habit strength moves toward zero overnight when a habit is not logged.",
+        "Children can propose habits; a parent sets XP and skill tags and publishes them before they can be logged."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "habit_max_strength",
+          "habit_count_at_strength",
+          "habit_taps_lifetime"
+        ],
+        "content_sources": [
+          "Parents can tune max taps per day, XP reward, and skill tags."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": false,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap to log your reading habit.",
+        "payoff": "+5 XP · habit strength increases",
+        "target_icon": "📖",
+        "reward_icon": "🌿"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "study",
+      "title": "Study & Reading",
+      "icon": "📚",
+      "audience_title": "School assignments and reading adventures",
+      "chapter": "daily_life",
+      "summary": "Earn skill XP through school assignments and daily reading.",
+      "kid_voice": "Add your school assignments, plan the steps, and submit proof photos\nof your finished work for a parent to review. Approved homework earns\nskill XP. It does not pay money or coins directly.\nYour bookshelf has a Reading Adventure too: log ten minutes today\nto earn reading skill XP, Coins, and one chance to find supplies.\n",
+      "mechanics": [
+        "Homework pays no money or Coins directly; separate check-in, challenge, or badge bonuses can still apply.",
+        "Approved submissions award XP through homework skill tags and can count for drops, streak credit, and challenge progress.",
+        "Submit homework with proof photos, a Google Drive or other shareable link, or both. Use a link your parent can open for review.",
+        "Timeliness labels are recorded on submission; early/on-time work can satisfy on_time challenge filters and badge criteria.",
+        "Homework submitted the day before its due date or on the due date is on time in your family's timezone. Two or more days before is early; after the due date is late.",
+        "The first homework assignment added per child per local day can count for built-in challenges, drops, and streak credit; create-delete-create cannot farm it.",
+        "A parent's assigned planning goal can count every valid matching assignment, including later assignments that day.",
+        "With a family Planning AI connection, children can request a breakdown when the due date is far enough out; parents can plan regardless of lead time.",
+        "A parent connects the family's Planning AI in Settings for homework and project drafts. Existing assignments can still be used without a connection.",
+        "Reading Adventure awards 15 base Reading Comprehension XP and 5 base Coins once per child per family-local day after ten cumulative newly logged minutes. Active XP and Lucky Coin boosts apply; actual XP depends on the unlocked skill.",
+        "Only new reading sessions dated today in the family's timezone count toward this reward. Pages, chapters, ratings, finishing books, optional reflections, edits, and older sessions do not earn extra rewards. Deleting a rewarded session never rearms the day.",
+        "The daily reading reward records streak activity and one drop opportunity at a 20% base rate plus normal streak and Drop Charm bonuses. Reading drops use the existing food and coin-pouch catalog. A separate first-activity check-in bonus can also apply.",
+        "Each earned daily Reading Adventure counts once toward challenges that explicitly ask for reading; individual extra logs, edits and deletions do not add more credit. Reading stays outside unfiltered challenges and the daily bonus. Saved legacy quests can also match it for 5 base boss damage or one collection step.",
+        "Reading Companion offers a Chick egg, Base potion and two Birdseed after 3 daily Adventures within 14 days. Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. Reading Voyager offers the Bookworm title after 20 within 45 days. These challenges add reading XP and items, with no authored Coin payout."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "HOMEWORK_LATE_CUTOFF_DAYS",
+            "label": "Late cutoff window",
+            "value": 3
+          },
+          {
+            "key": "HOMEWORK_SELF_PLAN_LEAD_DAYS",
+            "label": "Child self-plan lead days",
+            "value": 3
+          }
+        ],
+        "powers_badges": [
+          "homework_planned_ahead",
+          "homework_on_time_count"
+        ],
+        "content_sources": [
+          "Assignments and templates author subject, effort level, due date, and fixed XP skill tags.",
+          "Reading's service owns its ten-minute threshold and daily reward; book choices and reflections are not graded."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap to submit your math sheet.",
+        "payoff": "Parent approval → skill XP · timeliness logged",
+        "target_icon": "📝",
+        "reward_icon": "📚"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "journal",
+      "title": "Journal",
+      "icon": "🪶",
+      "audience_title": "Your daily journal",
+      "chapter": "daily_life",
+      "summary": "One daily journal, with writing XP and a small Coin reward.",
+      "kid_voice": "Write what mattered today: something you did, a worry, a funny moment,\nor anything you want to remember. Keep it private or choose to share\nit with your parents. A few words on Today go into this same journal.\n",
+      "mechanics": [
+        "Each child may write one journal entry per local day; the database enforces one-per-day.",
+        "Today and Memories → Journal open the same entry. A few words are enough; length and mood do not determine rewards.",
+        "The first saved entry can earn writing XP from a 15 XP pool split toward Creative Writing and Vocabulary, and counts for streaks, drops, and challenges. The save confirmation shows any verified XP award.",
+        "The first save each local day also earns 2 Coins. This shares the earlier daily-note allowance, stays flat with Lucky Coin, and does not pay again for edits, retries, or sharing changes.",
+        "Children can edit entry text on the day it was written. After midnight, the text is read-only, but its sharing setting can still be changed.",
+        "New journal entries default to Only me. Parents can read only entries marked Shared with parents.",
+        "Earlier daily notes appear privately in the same history with their original dates. They remain read-only and do not earn retroactive rewards. Writing is optional; skipping a note has no separate penalty."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "journal_entries_written",
+          "journal_streak_days"
+        ],
+        "content_sources": [
+          "The XP split is hardcoded to Creative Writing and Vocabulary."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "scribe",
+      "trial": {
+        "prompt": "Write what mattered today.",
+        "payoff": "Writing XP when eligible · 2 Coins on the first daily save",
+        "placeholder": "Today I…",
+        "min_length": 8
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "creations",
+      "title": "Creations",
+      "icon": "🎨",
+      "audience_title": "Things you made",
+      "chapter": "daily_life",
+      "summary": "Photos of things made, with a two-per-day XP gate.",
+      "kid_voice": "Save things you make with a photo. Add a caption or audio recording\nif you like, choose the creative skills you used, and submit a\ncreation for a parent to review for bonus XP.\n",
+      "mechanics": [
+        "The first 2 Creations per child per local day grant the 10 XP baseline pool, drop chance, streak credit, and built-in challenge progress.",
+        "The 3rd and later Creations still appear in Gallery and Timeline but do not grant baseline XP that day.",
+        "A parent's assigned creation goal can count every valid matching creation, including later creations that day.",
+        "The daily counter survives deletion, so create-delete-create cannot re-arm the XP window.",
+        "A child can submit a Creation for parent bonus; approval grants a separate bonus XP pool, defaulting to 15 XP.",
+        "Baseline XP goes to child-picked creative skills; parent bonus XP can use parent-authored bonus tags."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "creations_logged",
+          "creations_approved",
+          "creation_skill_breadth"
+        ],
+        "content_sources": [
+          "Creative skill choices come from the creative allow-list; bonus tags are stored per Creation."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": false,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap to log the doodle you just made.",
+        "payoff": "+10 XP · a new Gallery item",
+        "target_icon": "🖼️",
+        "reward_icon": "🎨"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "movement",
+      "title": "Movement",
+      "icon": "🏃",
+      "audience_title": "Physical activity",
+      "chapter": "daily_life",
+      "summary": "Log activity, earn physical skill XP, and track movement goals.",
+      "kid_voice": "Log a workout, practice, walk, or run with its time and intensity.\nAdd the distance when you measured it. Your first three sessions\neach day can earn skill XP, and saved sessions can count toward\nmatching challenges.\n",
+      "mechanics": [
+        "Movement is self-reported and does not need parent approval. It pays no money or Coins directly.",
+        "The first 3 sessions per child per family-local day can grant skill XP, a drop chance, and streak credit. Later sessions remain saved and can still advance matching activity, minutes, or distance goals.",
+        "The base XP pool is 5 per complete 10 minutes, multiplied by intensity: low 0.5×, medium 1×, high 1.5×, then rounded down to a whole number and split across the activity's skill tags. Under 10 minutes earns no movement XP.",
+        "Sessions must be at least 1 minute; saved duration and its XP calculation are capped at 240 minutes. Optional measured distance uses miles or kilometres and never replaces time.",
+        "Deleting a session does not reset the daily reward counter. Removing a session corrects unpaid goal progress without paying a completed goal again."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "movement_sessions_logged",
+          "movement_total_minutes",
+          "movement_type_breadth"
+        ],
+        "content_sources": [
+          "Activity types supply default intensity and skill tags; new activities can use primary and optional secondary Physical skills."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": false,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Watch a sample movement session add time toward a matching goal.",
+        "payoff": "Saved activity → matching goal progress",
+        "caption": "This example saves no activity. Real movement XP depends on time, intensity, skill tags, and the daily limit."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "ventures",
+      "title": "Projects",
+      "icon": "🛠️",
+      "audience_title": "Project work",
+      "chapter": "long_work",
+      "summary": "Projects, clock time, milestones, optional cash rewards, and materials.",
+      "kid_voice": "Projects help you plan and track things you want to build, repair,\ncook, code, or learn. Follow the steps, log your work time, and\ncomplete milestones along the way.\n",
+      "mechanics": [
+        "Clocking out distributes 10 XP per hour across project skill tags and awards Coins per tracked hour.",
+        "Projects can be required allowance work or optional projects with a cash reward; completion posts the matching payment ledger entry.",
+        "Milestones are parent-set checkpoints; completing one can pay milestone money and fixed skill XP.",
+        "Steps are instructional tasks only — checking them off never pays money, Coins, or XP by itself.",
+        "Materials can be marked ready when already owned, borrowed, or received for free. Purchased materials record actual cost separately; an estimate is not money spent.",
+        "Find 3D Prints under Rewards when a project needs a printed part. A print request has its own review and budget checks.",
+        "Quiet hours, max-entry length, auto-clock-out, and one-active-entry constraints protect time tracking."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "COINS_PER_HOUR",
+            "label": "Coins per tracked hour",
+            "value": 5
+          }
+        ],
+        "powers_badges": [
+          "hours_worked",
+          "first_clock_in",
+          "projects_completed",
+          "milestones_completed",
+          "bounty_completed",
+          "perfect_timecard"
+        ],
+        "content_sources": [
+          "Project and milestone skill tags author XP distribution.",
+          "Project payment_kind controls required allowance work vs optional cash rewards."
+        ]
+      },
+      "economy": {
+        "money": true,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Watch project progress update as you log work.",
+        "payoff": "+10 XP/hr distributed across the project's skill tags",
+        "caption": "Hours in. Milestones close. Coins arrive at clock-out."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "skills",
+      "title": "Skills",
+      "icon": "🌳",
+      "audience_title": "Your skill progress",
+      "chapter": "long_work",
+      "summary": "XP flows into a Category → Subject → Skill tree.",
+      "kid_voice": "Skills show what you are learning. Practice earns XP in the skills\nlinked to each activity. Gain levels and meet requirements to unlock\nmore skills.\n",
+      "mechanics": [
+        "Skill XP comes from tagged projects, milestones, homework, chores, habits, movement, challenges, journal entries, and creations.",
+        "Weighted tags split a pool proportionally; homework/milestone tags use fixed XP amounts.",
+        "Level thresholds are shared across skills and unlock richer mastery visuals.",
+        "Locked skills can require prerequisites before they count toward some mastery badges."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "skill_level_reached",
+          "skills_unlocked",
+          "skill_categories_breadth",
+          "subjects_completed",
+          "cross_category_unlock",
+          "category_mastery"
+        ],
+        "content_sources": [
+          "The skill tree is YAML-authored in content/rpg/initial/skill_tree.yaml."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": false,
+        "xp": true,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Watch Woodworking progress increase as XP is earned.",
+        "payoff": "Gain a level at the next XP threshold",
+        "caption": "Tagged practice fills the right skill. Levels are shared across the tree."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "badges",
+      "title": "Badges",
+      "icon": "🏅",
+      "audience_title": "Your achievements",
+      "chapter": "long_work",
+      "summary": "Milestone recognitions that can award XP and Coins.",
+      "kid_voice": "Badges recognize your achievements, from a first project to a lasting\nhabit. Select a badge to see what you need to do to earn it.\n",
+      "mechanics": [
+        "Badge criteria are evaluated across time, projects, skills, economy, homework, creations, RPG progress, and saved milestones.",
+        "Earning a badge can grant an XP bonus and rarity-scaled Coins.",
+        "Each newly earned badge also receives one completion drop from available loot. Already earned badges do not pay again.",
+        "Badge previews show base Coin bonuses: Common 5, Uncommon 15, Rare 35, Epic 75 and Legendary 150 when enabled. Lucky Coin can boost the actual award.",
+        "Some challenge-completion badges opt out of extra Coins when the challenge already paid its reward.",
+        "The badge catalog is view-only for children and parent-managed from the Skills admin surface.",
+        "Collection goals are shown only when their original requirement can still be reached with available items and your saved progress. Earned badges stay yours; requirements and payouts are not lowered."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "COINS_PER_BADGE_RARITY",
+            "label": "Rarity coin bonuses",
+            "value": "common 5 → legendary 150"
+          }
+        ],
+        "powers_badges": [
+          "badges_earned_count"
+        ],
+        "content_sources": [
+          "Badges are YAML-authored in content/rpg/initial/badges.yaml and pack files."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": false
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Watch a badge appear after its requirement is met.",
+        "payoff": "Badge + coins based on rarity",
+        "caption": "Earned badges stay in your collection."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "chronicle",
+      "title": "Memories",
+      "icon": "📜",
+      "audience_title": "Your memory timeline",
+      "chapter": "long_work",
+      "summary": "A timeline of birthdays, milestones, journal entries, and memories.",
+      "kid_voice": "Memories brings together your journal, photos, grades, and timeline.\nBrowse milestones, birthdays, and things you made, organized by year.\n",
+      "mechanics": [
+        "Timeline years start in August and continue after high school with age-based labels.",
+        "Birthday checks grant Coins based on age and can show a celebration modal.",
+        "Journal and Creation entries flow into the same timeline with their own privacy/visibility rules.",
+        "Parent-authored manual memories never replace child-authored journal pages."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "BIRTHDAY_COINS_PER_YEAR",
+            "label": "Birthday coin gift per age year",
+            "value": 100
+          }
+        ],
+        "powers_badges": [
+          "chronicle_milestones_logged",
+          "grade_reached",
+          "birthdays_logged"
+        ],
+        "content_sources": [
+          "Chronicle entries are written by service hooks and scheduled Celery tasks."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Browse the timeline from earlier years to today.",
+        "payoff": "New memories appear on the timeline.",
+        "caption": "Birthdays, year starts, firsts, milestones, recaps, journals, and creations."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "quests",
+      "title": "Challenges",
+      "icon": "⚔️",
+      "audience_title": "Goals that progress in the background",
+      "chapter": "rpg_layer",
+      "summary": "Time-limited goals that progress automatically, plus one small daily bonus.",
+      "kid_voice": "Challenges give you a goal to work toward through everyday activities.\nMatching saved work counts toward every relevant goal. Pin a favorite\nto see it on Today; work counts even when the goal is not pinned.\n",
+      "mechanics": [
+        "Every eligible goal progresses automatically; pinning only chooses the goal featured on Today.",
+        "Built-in challenges count the first homework assignment added and first two logged creations each day. Extra valid records can count toward a parent's assigned goal.",
+        "Movement goal progress counts every valid saved session; its separate first-three-session XP and drop limit stays in place.",
+        "Challenges have a defined period. Badges remain permanent recognition and are earned separately.",
+        "Bonus awards do not recursively complete new challenges; default goals count effort, and expedition returns require an explicit rule.",
+        "Parent-created goals can measure activity counts, minutes, or distance, including running a chosen distance this week.",
+        "Weekly goals use Monday through Sunday in the family timezone. Late-approved work counts in its original period.",
+        "The daily bonus pays automatically once per family-local day for approved work, a completed project or milestone, or ten cumulative project/movement minutes.",
+        "Approved work earns its daily bonus on the day it is approved; its weekly goal progress still belongs to the original work period.",
+        "Boss challenges use trigger damage; collection challenges count matching trigger events.",
+        "Trigger filters can restrict challenges to certain triggers, projects, chores, skill categories, or on-time homework.",
+        "Existing boss challenges retain their rage shield: it grows on idle days and decays when the child returns.",
+        "Completing a challenge can award Coins, XP through challenge skill tags, and item rewards.",
+        "Each completed challenge also receives one random completion drop in addition to its promised items. Several challenges finishing together each receive their own drop."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "quest_completed",
+          "boss_quests_completed",
+          "collection_quests_completed"
+        ],
+        "content_sources": [
+          "Challenge definitions and reward items are YAML-authored in content/rpg/initial/quests.yaml and packs."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": true,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": false
+      },
+      "trial_template": "choice",
+      "trial": {
+        "prompt": "Pin a goal to follow on Today.",
+        "payoff": "Favorite featured · all matching goals keep progressing",
+        "choices": [
+          {
+            "label": "Boss · Dragon",
+            "icon": "🐉",
+            "outcome": "HP ticks down with each matching chore, hour of work, and habit."
+          },
+          {
+            "label": "Collection · Pebbles",
+            "icon": "🪨",
+            "outcome": "Each matching saved activity adds one to the count, even without a pin."
+          }
+        ]
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "pets",
+      "title": "Pets",
+      "icon": "🐾",
+      "audience_title": "Hatching and caring for pets",
+      "chapter": "rpg_layer",
+      "summary": "Every pet family grows from egg through baby, middle, and grown.",
+      "kid_voice": "Every pet family starts with an egg in the Hatchery. Choose an egg and a\ncompatible potion to start incubation. Come back when it is ready and\nchoose Hatch pet. Then care for your baby through its middle\nand grown stages. For Chick, these forms are Chick, its middle form and its grown form.\nChoose an active pet to keep you company.\n",
+      "mechanics": [
+        "Every species follows Egg → Baby → Middle → Grown. Babies have 0–49 growth, middle pets have at least 50, and grown requires confirmed evolution at 100.",
+        "Starting incubation consumes one egg item and one compatible potion item. One egg can incubate at a time per account, including an egg waiting to be hatched.",
+        "Incubation keeps counting while you are away. When the Hatchery confirms your egg is ready, choose Hatch pet to welcome a unique species/potion baby at zero growth. Checking the timer never hatches it or grants rewards.",
+        "New hatching supports 15 prepared families with a Base potion. An unavailable species or potion pairing consumes neither ingredient.",
+        "Companion acquisition rarity belongs to the family, independently of potion appearance and growth stage. Families range from Common to Legendary.",
+        "Base Chick becomes its middle form at 50 saved growth and its grown form after confirmed evolution at 100. These are stages of the same pet; its middle form grants no extra pet, mount, or reward.",
+        "Care and growth use your own pet's confirmed family and stage; another species is never displayed as Chick or its grown form.",
+        "Feeding consumes food; preferred food grants more growth than neutral food.",
+        "Food gives at least 5/8/10/12/15 base growth from Common through Legendary, plus 10 for a preferred food. Valid authored growth can raise the base; Growth Tonic doubles the total. Check the food's effect before feeding.",
+        "Ghost, Wolf, Bomb, Shadow and Dragon Trails guarantee their named companion egg and one Base potion through eligible everyday activities; the challenge card shows the exact reward and progress.",
+        "At 100 growth the pet evolves into a mount while the original pet remains in your collection.",
+        "Happiness is a gentle visual nudge based on last feeding; it never removes rewards or progress.",
+        "Direct growth consumables are capped per pet per local day, while tonic-boosted feeding is limited by food items."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "pets_hatched",
+          "pet_species_owned",
+          "full_potion_shelf"
+        ],
+        "content_sources": [
+          "Pet species and potion types are YAML-authored with typed item references; the supported-art registry separately limits new acquisition. The prelaunch cleanup retires the explicitly listed unused first-party families, potion types and pet accessories."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": false,
+        "xp": false,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "sequence",
+      "trial": {
+        "prompt": "Hatch a pet, feed it, and help it grow into a mount.",
+        "payoff": "Egg → Baby → Middle → Grown (Chick → middle form → grown form after hatching)",
+        "steps": [
+          "Start incubating a Chick egg with a Base potion in the Hatchery.",
+          "When the egg is ready, choose Hatch pet to welcome Chick.",
+          "Feed preferred food to grow; at 50 growth Chick becomes its middle form.",
+          "At growth 100 confirmed evolution brings its grown form and a mount; the original stays in your collection."
+        ]
+      },
+      "unlocked": true,
+      "unlocked_reason": "first_pet",
+      "trained": true
+    },
+    {
+      "slug": "mounts",
+      "title": "Mounts",
+      "icon": "🐉",
+      "audience_title": "Pet evolution",
+      "chapter": "rpg_layer",
+      "summary": "Grown pets can be active companions and go on expeditions.",
+      "kid_voice": "A pet creates a matching mount when it reaches full growth. You can\nchoose your grown pet to keep you company or send it on an expedition.\n",
+      "mechanics": [
+        "A pet automatically creates a matching mount when it reaches 100 growth.",
+        "Only one mount can be active for a user at a time.",
+        "Mount sprites follow the species sprite key plus '-mount', with a base-species fallback.",
+        "All your appearances of the same species share one expedition per local day, lasting 2, 4, or 8 hours. Collect that species's returned trip before sending another appearance; the Pets screen shows when it can explore again.",
+        "Expedition item tiers use 70/25/5 Common/Uncommon/Rare for short trips, 50/35/13/2 through Epic for standard trips, and 35/35/22/7/1 through Legendary for long trips. Empty tiers redistribute across available tiers; these are chances per item draw.",
+        "Base loot is fixed when the trip starts. New trips choose available items; supported recorded loot stays claimable. A Lucky Coin active when you collect can double the expedition Coins. Returns give streak credit and can count toward challenges that explicitly include expeditions."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "mounts_evolved"
+        ],
+        "content_sources": [
+          "Mount behavior is service-driven. Base Chick evolves to the owned grown appearance; each prepared family uses its own grown form and expedition controls."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": true,
+        "quest_progress": true,
+        "streak_credit": true
+      },
+      "trial_template": "observe",
+      "trial": {
+        "prompt": "Watch a fully-grown pet rise into its mount form.",
+        "payoff": "A mount joins your collection.",
+        "caption": "A grown pet can go exploring; the original pet stays."
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "drops",
+      "title": "Drops",
+      "icon": "🎁",
+      "audience_title": "Items you can collect",
+      "chapter": "rpg_layer",
+      "summary": "Random items rolled from everyday progress.",
+      "kid_voice": "Some activities give you a chance to find an item, such as an egg,\na potion, pet food, a quest scroll, a coin pouch, or a cosmetic for\nyour profile. Find collected items in Inventory.\n",
+      "mechanics": [
+        "Drop chance depends on trigger type, with streaks and drop boosts adding to the odds.",
+        "Eligible drop-table rows are weighted and can require a minimum level.",
+        "A successful ordinary drop uses tier weights 60/25/10/4/1 from Common to Legendary. Major accomplishments use 40/30/20/8/2. Empty tiers redistribute across those available; item weights choose within a tier. Streak bonuses increase drop frequency, not the rarity mix.",
+        "Perfect Day completion drops exclude Common items and use the remaining accomplishment weights, so eligible loot is always Uncommon or better.",
+        "New drops, mystery boxes and lucky dips draw from available items, excluding unprepared pet species, potion variants and pet accessories. An empty mystery pool consumes nothing.",
+        "Unowned cosmetics are preferred over duplicates in the same tier without changing that tier's chance. Fully collected cosmetic tiers salvage duplicates to Coins; new drop receipts show the exact amount.",
+        "Some triggers are daily-capped at their source so drops cannot be farmed by delete/recreate loops."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [],
+        "content_sources": [
+          "Drop tables are YAML-authored in content/rpg/initial/drops.yaml and packs."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": true,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap the chest to roll a drop.",
+        "payoff": "Maybe an egg · maybe a potion · maybe a coin pouch",
+        "target_icon": "📦",
+        "reward_icon": "🎁"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "streaks",
+      "title": "Streaks",
+      "icon": "🔥",
+      "audience_title": "Daily activity streaks",
+      "chapter": "rpg_layer",
+      "summary": "Daily engagement that rewards return without punishing absence harshly.",
+      "kid_voice": "A streak counts consecutive days with a qualifying activity. Missing\na day can reset the streak, but you keep the coins, XP, and items\nyou already earned.\n",
+      "mechanics": [
+        "The first qualifying activity of a local day records activity and awards streak-scaled daily check-in Coins.",
+        "Missing a day can reset the visible streak and multiplier, but it never destroys earned Coins, XP, items, badges, pets, or memories.",
+        "A streak freeze consumable can protect one missed day when its expiry covers the first missed day.",
+        "Perfect Day is separate: a nightly task awards 15 bonus Coins and one Uncommon-or-better completion drop when a child was active and completed every scheduled daily chore, with at least one daily chore scheduled."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "streak_days",
+          "perfect_days_count",
+          "streak_freeze_used"
+        ],
+        "content_sources": [
+          "Game-loop triggers from work, chores, homework, habits, journal, creations, eligible movement sessions, and expedition returns feed the streak service."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": true,
+        "quest_progress": false,
+        "streak_credit": true
+      },
+      "trial_template": "tap_and_reward",
+      "trial": {
+        "prompt": "Tap to mark a day of activity.",
+        "payoff": "Longer streaks increase daily check-in coins",
+        "target_icon": "🔥",
+        "reward_icon": "🪙"
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "coins",
+      "title": "Coins",
+      "icon": "🪙",
+      "audience_title": "Earning and spending coins",
+      "chapter": "trade_coin",
+      "summary": "A non-money progression currency for rewards and boosts.",
+      "kid_voice": "Earn coins through activities and spend them in the Reward Shop.\nCoins are separate from your real money balance.\nIf your parent enables print exchanges, you can also use coins for a\n3D print. Review the fixed price before choosing to exchange your coins.\n",
+      "mechanics": [
+        "Coins are tracked in an append-only CoinLedger separate from real money.",
+        "Coins can come from tracked time, project/milestone bonuses, badges, chores, challenges, daily check-ins, expeditions, exchanges, drops/salvage, birthdays, and parent adjustments.",
+        "Today and Memories → Journal save into the same journal. The first daily entry earns 2 Coins alongside eligible journal rewards; edits and retries do not pay again. Earlier daily-note payouts share this allowance, and older notes receive no retroactive reward.",
+        "Reward redemption deducts Coins immediately as a held debit; rejection refunds them.",
+        "A parent chooses each shop reward's price, stock, and approval requirement. Available digital items reach Inventory on approval. Real-world rewards stay approved until a parent confirms handover; combined offers use both steps. Unavailable new offers are omitted while supported pending promises are preserved.",
+        "Money-to-Coins exchange is parent-approved and snapshots the exchange rate at request time.",
+        "Parents can enable a minutes-per-coin rate for each child's 3D prints. A reviewed time estimate sets a rounded-up fixed quote; coins are spent only when the child accepts it.",
+        "Print quotes keep their original rate when settings change. Retries of the same request cost no extra coins; cancelling before any print starts refunds the paid amount once. Monthly print budgets still apply."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "COINS_PER_HOUR",
+            "label": "Coins per tracked hour",
+            "value": 5
+          },
+          {
+            "key": "COINS_PER_DOLLAR",
+            "label": "Exchange rate",
+            "value": 10
+          },
+          {
+            "key": "COINS_PER_BADGE_RARITY",
+            "label": "Badge rarity coin bonuses",
+            "value": "common 5 → legendary 150"
+          }
+        ],
+        "powers_badges": [
+          "total_coins_earned",
+          "coins_spent_lifetime",
+          "reward_redeemed"
+        ],
+        "content_sources": [
+          "Rewards are parent-authored; exchange requests and redemptions are approval workflows."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "drag_to_target",
+      "trial": {
+        "prompt": "Drag a coin into the reward.",
+        "payoff": "Reward redeemed (mock)",
+        "source_icon": "🪙",
+        "target_icon": "🎁",
+        "source_count": 5
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "money",
+      "title": "Money",
+      "icon": "💵",
+      "audience_title": "Earnings and payments",
+      "chapter": "trade_coin",
+      "summary": "Money your parent owes you, tracked apart from Coins and card balances.",
+      "kid_voice": "Track what your parent owes you from work, projects, and chores.\nWhen your parent pays you outside Abby, they record the payment\nhere. A reported Greenlight card balance is shown separately.\n",
+      "mechanics": [
+        "Money lives in PaymentLedger, separate from CoinLedger.",
+        "Hourly work, project bonuses, optional project rewards, milestone bonuses, chore rewards, reimbursements, payouts, adjustments, and coin exchanges have distinct entry types.",
+        "Exchange approval debits money and credits Coins atomically; money is not held at request time.",
+        "Parents can record payouts and adjustments; timecards preserve weekly audit history.",
+        "Parents make Greenlight transfers outside Abby, then confirm them here. CSV preview records no payment; only selected reconciliation rows record or match confirmed transfers. Abby does not move money.",
+        "A reported card balance is a parent's dated observation, separate from earnings owed and approved money ready to pay. An approved zero-dollar timecard can be closed without a payout."
+      ],
+      "parent_knobs": {
+        "settings": [
+          {
+            "key": "COINS_PER_DOLLAR",
+            "label": "Money-to-Coins exchange rate",
+            "value": 10
+          }
+        ],
+        "powers_badges": [
+          "total_earned",
+          "savings_goal_completed"
+        ],
+        "content_sources": [
+          "Payment kinds and approval services write the ledger; the ledger itself is append-only."
+        ]
+      },
+      "economy": {
+        "money": true,
+        "coins": true,
+        "xp": false,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "drag_to_target",
+      "trial": {
+        "prompt": "Drag a dollar onto the savings goal.",
+        "payoff": "Goal climbs toward complete.",
+        "source_icon": "💵",
+        "target_icon": "🏦",
+        "source_count": 3
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    },
+    {
+      "slug": "cosmetics",
+      "title": "Cosmetics",
+      "icon": "👑",
+      "audience_title": "Personalize your profile",
+      "chapter": "self_expression",
+      "summary": "Customize your avatar, equip owned cosmetics, and display earned badges.",
+      "kid_voice": "Open Customize avatar from Profile to choose an available look and\ncompatible accessories, then save it. Choose an owned title or\nprofile frame, or display an earned badge as your trophy. Memory Meadow is\nthe starter cover; other covers can arrive as item drops. Settings\nshows the covers you own and the ones you can still collect.\n",
+      "mechanics": [
+        "Cosmetics are owned in inventory and equipped without being consumed.",
+        "Only one item per cosmetic slot can be active at a time.",
+        "Frames, Titles and Covers remain available. Pet accessories are unavailable for collection or equipment.",
+        "Customize avatar saves the available appearance and compatible accessories for your chosen avatar. These choices are free preferences, separate from earned cosmetics, Coins, XP, and pet accessories. Preview changes become saved appearance only after Save avatar succeeds.",
+        "Choose and equip owned journal covers in Settings → Appearance. Profile links to this same Color theme selector.",
+        "The trophy badge slot only accepts badges the user has earned.",
+        "Duplicate cosmetic drops salvage to Coins.",
+        "Available locked cosmetics can appear as goals, but are not clickable until owned. Unreachable collection badges are omitted unless already earned."
+      ],
+      "parent_knobs": {
+        "settings": [],
+        "powers_badges": [
+          "cosmetic_set_owned",
+          "cosmetic_full_set"
+        ],
+        "content_sources": [
+          "Cosmetic items are YAML-authored in item content packs. Prepared artwork is registered separately and referenced by its artwork key; the Content Catalog browses items, pets and challenges."
+        ]
+      },
+      "economy": {
+        "money": false,
+        "coins": true,
+        "xp": false,
+        "drops": false,
+        "quest_progress": false,
+        "streak_credit": false
+      },
+      "trial_template": "choice",
+      "trial": {
+        "prompt": "Choose a frame for your profile.",
+        "payoff": "Frame equipped · the look is yours.",
+        "choices": [
+          {
+            "label": "Bronze Frame",
+            "icon": "🟫",
+            "outcome": "A warm bronze border."
+          },
+          {
+            "label": "Silver Frame",
+            "icon": "⬜",
+            "outcome": "A bright silver border."
+          },
+          {
+            "label": "Gold Frame",
+            "icon": "🟨",
+            "outcome": "A golden border."
+          }
+        ]
+      },
+      "unlocked": false,
+      "unlocked_reason": "",
+      "trained": false
+    }
+  ],
+  "counts": {
+    "unlocked": 1,
+    "trained": 1,
+    "total": 18
+  }
+}

@@ -29,7 +29,7 @@ beforeEach(() => server.use(http.get('*/api/pets/codex/', () => HttpResponse.jso
 function renderHatchery() {
   return render(
     <MemoryRouter>
-      <Hatchery />
+      <Hatchery showDiscovery />
     </MemoryRouter>,
   );
 }
