@@ -180,6 +180,8 @@ test('all installed exact portraits and catalog images use exact 256px art in a 
   await chooseDropdown(page.getByRole('combobox', { name: 'Fixture surface' }), 'portraits');
   const gallery = page.getByRole('region', { name: 'Elemental portrait and catalog images' });
   await expect(gallery.locator('img')).toHaveCount(evaluationManifest ? 50 : 34);
+  // Inspect every row so browser-native lazy images load before decoding.
+  for (const image of await gallery.locator('img').all()) await image.scrollIntoViewIfNeeded();
   await expect.poll(() => gallery.locator('img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth === 256))).toBe(true);
   for (const binding of [...manifest.appearance_bindings.stages, ...expansionManifest.appearance_bindings.stages, ...(evaluationManifest?.appearance_bindings.stages || [])].filter(({ motion }) => motion === 'idle')) {
     const portrait = releaseFor(binding.species_slug).assets.find(({ id }) => id === binding.portrait_asset_id).variants.find(({ id }) => id === binding.portrait_variant_id);
