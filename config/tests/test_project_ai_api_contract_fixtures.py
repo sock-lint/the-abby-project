@@ -149,6 +149,11 @@ class ProjectAIPlanApiResponseFixtureTests(APITestCase):
         self.assertEqual(dashboard["rpg"]["identity"], pulse["identity"])
         self.assertEqual(pulse["identity"]["id"], self.child.pk)
         self.assertEqual(pulse["identity"]["active_frame"]["slug"], "frame-laurel")
+        self.assertEqual(dashboard["rpg"]["streak_bonus"], pulse["header"]["streak_bonus"])
+        self.assertEqual(pulse["header"]["streak_bonus"], {
+            "active_today": False, "check_in_multiplier": 1.0,
+            "check_in_coins": 0, "drop_bonus": 0.0, "intensity": 0.0,
+        })
         self.assertEqual(pulse["header"]["level"], 0)
         self.assertEqual(pulse["header"]["level"], dashboard["rpg"]["level"])
         self.assertNotIn("level", pulse["identity"])

@@ -120,6 +120,7 @@ class IncomingRPGAuthorityTests(TestCase):
 
                 # The same co-author already present before the next batch is
                 # a normal household author, and both assignment paths work.
+                get_user_model().objects.filter(pk=self.foreign_parent.pk).update(family=self.parent.family)
                 result = self.wire(name, params)
                 self.assertNotIn("error", result, result)
                 assigned = Quest.objects.get(pk=result["id"])

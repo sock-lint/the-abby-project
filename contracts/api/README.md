@@ -23,6 +23,24 @@ the Today streak tile; it does not use the separate work-time streak. The
 existing shared Django fixture producer and React consumer verify this response,
 including the header refresh. Reading the heartbeat awards no streak progress.
 
+The heartbeat's `header.streak_bonus` and dashboard's `rpg.streak_bonus` share
+the read-only bonus projection for the requesting account. `active_today` is
+true only for a positive saved activity streak whose `last_active_date` is
+the server's current reward date (`timezone.localdate()`, America/Phoenix).
+`check_in_multiplier` and total `check_in_coins` use the same calculation as
+the first daily activity award; `drop_bonus` is the additive drop probability,
+not a guaranteed drop. `intensity` is 0–1 progression from the base check-in
+rate to its configured cap. These values describe the active rate, not an
+additional award or a ledger receipt. No client should add them to balances.
+
+Before today's activity, including yesterday's streak, a missed day, an armed
+freeze or a missing profile, the projection is neutral: `active_today: false`,
+`check_in_multiplier: 1.0`, `check_in_coins: 0`, `drop_bonus: 0.0` and
+`intensity: 0.0`. Saved streak counts remain unchanged; the next real activity
+owns continuation, freeze consumption and any reset. The positive
+`pulse-activity-streak.json` example and inactive earned-identity fixtures are
+produced and consumed through the existing Django and React contract checks.
+
 The self-scoped `header.level` reads the current account's saved character
 level, matching Profile and dashboard progression without adding it to the
 shared appearance-only `identity`. Zero is a valid starting level; a missing
