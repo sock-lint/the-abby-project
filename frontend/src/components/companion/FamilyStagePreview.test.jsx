@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { screen } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { server } from '../../test/server';
+import { useAuth } from '../../hooks/useApi';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/render';
 import FamilyStagePreview from './FamilyStagePreview';
@@ -89,5 +93,44 @@ describe('Hatchery family stage previews', () => {
       expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
       expect(screen.getByRole('img', { name: `Ice ${form} artwork unavailable` })).toHaveTextContent('🐾');
     }
+  });
+});
+
+describe('Family stage preview allowances', () => {
+  const wolfEgg = () => ({ ...rosterEgg(), slug: 'meshtint-wolf-egg', pet_species_slug: 'meshtint-wolf', metadata: { species: 'meshtint-wolf' }, name: 'Wolf Egg' });
+
+  it('offers only allowed stages and clamps a selection the allowance no longer covers', async () => {
+    const user = userEvent.setup(), item = wolfEgg(), potion = { slug: 'base', name: 'Base' };
+    // One mounted preview whose allowance changes, as when ownership refreshes.
+    function Harness() {
+      const [stages, setStages] = useState(['baby', 'middle', 'grown']);
+      return <>
+        <button type="button" onClick={() => setStages(['baby'])}>Limit allowance</button>
+        <button type="button" onClick={() => setStages(['baby', 'middle', 'grown'])}>Restore allowance</button>
+        <FamilyStagePreview item={item} potion={potion} stages={stages} />
+      </>;
+    }
+    renderWithProviders(<Harness />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: 'Grown' }));
+    expect(screen.getByRole('heading', { name: 'Werewolf' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Limit allowance' }));
+    expect(screen.queryByRole('heading', { name: 'Werewolf' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Grown' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Middle' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { name: 'Wolf Egg' })).toBeInTheDocument();
+    // The same instance kept its choice; only the allowance hid it.
+    await user.click(screen.getByRole('button', { name: 'Restore allowance' }));
+    expect(screen.getByRole('button', { name: 'Grown' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('shows a child without an explicit allowance only the natural egg', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json({ id: 5, role: 'child', is_staff: false })));
+    // Render only once the account resolved, as the application does.
+    function Ready({ children }) { const { user } = useAuth(); return user ? children : null; }
+    renderWithProviders(<Ready><FamilyStagePreview item={wolfEgg()} potion={{ slug: 'base', name: 'Base' }} initialStage="grown" /></Ready>);
+    expect(await screen.findByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Baby' })).toBeNull();
+    expect(screen.queryByText(/Wolf Pup|Werewolf/)).toBeNull();
   });
 });

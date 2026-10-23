@@ -75,11 +75,12 @@ describe('Catalog image consumer bindings', () => {
     expect(screen.getAllByTestId('catalog-icon').map((node) => node.dataset.spriteKey)).toEqual(['money-purse', 'money-purse']);
   });
 
-  it('uses the flattened item identity in the Today recent-items grid', async () => {
+  it('uses the flattened item identity in the Today recent-items rail', async () => {
     server.use(http.get('*/api/drops/recent/', () => HttpResponse.json([
       { id: 50, item_name: item.name, item_sprite_key: item.sprite_key, item_catalog_icon: item.catalog_icon, item_rarity: 'common' },
     ])));
-    renderWithProviders(<ChildDashboard data={{ next_actions: [] }} />);
+    const { user } = renderWithProviders(<ChildDashboard data={{ next_actions: [] }} />);
+    await user.click(await screen.findByRole('button', { name: /recent items/i }));
     await screen.findByRole('button', { name: `${item.name} — open inventory` });
     expectIcons(item.catalog_icon);
   });

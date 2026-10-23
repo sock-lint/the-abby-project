@@ -23,6 +23,7 @@ export default function BestiaryFolio({
   rarityCounts,
   totalPotions,
   onSelect,
+  ownership,
 }) {
   const headingId = useId();
   const progressPct = total ? (earned / total) * 100 : 0;
@@ -82,6 +83,7 @@ export default function BestiaryFolio({
                 species={s}
                 totalPotions={totalPotions}
                 onSelect={onSelect}
+                ownership={ownership}
               />
             </motion.div>
           ))}
