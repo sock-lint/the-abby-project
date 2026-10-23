@@ -125,7 +125,7 @@ describe('Child surprise previews', () => {
     expect(within(dialog).getByRole('img', { name: 'Fire grown form — not yet evolved' })).toBeInTheDocument();
   });
 
-  it('keeps parents previewing owned eggs and Collection grown forms', async () => {
+  it('keeps parents previewing owned eggs', async () => {
     const parent = buildParent({ id: 52, is_staff: false });
     const { user } = mount({ account: parent });
     await choose(user, 'base');
@@ -133,6 +133,30 @@ describe('Child surprise previews', () => {
     expect(stageButtons()).toEqual(['Baby', 'Middle', 'Grown']);
     await user.click(screen.getByRole('button', { name: 'Grown' }));
     expect(screen.getByRole('heading', { name: 'Werewolf' })).toBeInTheDocument();
+  });
+
+  it('keeps parents viewing every Collection grown form and form name', async () => {
+    const { user } = mount({ account: buildParent({ id: 54, is_staff: false }), tab: 'codex', pets: [pet('baby', potions[1])] });
+    await user.click(await screen.findByRole('button', { name: /^Wolf —/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('img', { name: 'Ice Werewolf — not yet evolved' })).toBeInTheDocument();
+    expect(within(dialog).getByText('Grown · Werewolf')).toBeInTheDocument();
+  });
+
+  it('draws no Base stand-in or later names in a child Collection while ownership loads', async () => {
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const { user } = mount({ tab: 'codex', pets: [pet('baby', potions[1])],
+      stable: async () => { await pending; return HttpResponse.json({ pets: [pet('baby', potions[1])], mounts: [] }); } });
+    await user.click(await screen.findByRole('button', { name: /^Wolf —/ }));
+    const dialog = await screen.findByRole('dialog');
+    expect(baseArt()).toBeNull();
+    expect(within(dialog).queryByText(/· Wolf\b|Werewolf/)).toBeNull();
+    release();
+    // The owned Fire Pup still never unlocks the Base guide's later names.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(baseArt()).toBeNull();
+    expect(within(dialog).queryByText(/· Wolf\b|Werewolf/)).toBeNull();
   });
 
   it('keeps the complete explorer for staff', async () => {

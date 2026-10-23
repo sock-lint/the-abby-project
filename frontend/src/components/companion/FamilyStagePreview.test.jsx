@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../test/server';
@@ -100,15 +101,27 @@ describe('Family stage preview allowances', () => {
 
   it('offers only allowed stages and clamps a selection the allowance no longer covers', async () => {
     const user = userEvent.setup(), item = wolfEgg(), potion = { slug: 'base', name: 'Base' };
-    const view = renderWithProviders(<FamilyStagePreview item={item} potion={potion} stages={['baby', 'middle', 'grown']} />, { withAuth: false });
+    // One mounted preview whose allowance changes, as when ownership refreshes.
+    function Harness() {
+      const [stages, setStages] = useState(['baby', 'middle', 'grown']);
+      return <>
+        <button type="button" onClick={() => setStages(['baby'])}>Limit allowance</button>
+        <button type="button" onClick={() => setStages(['baby', 'middle', 'grown'])}>Restore allowance</button>
+        <FamilyStagePreview item={item} potion={potion} stages={stages} />
+      </>;
+    }
+    renderWithProviders(<Harness />, { withAuth: false });
     await user.click(screen.getByRole('button', { name: 'Grown' }));
     expect(screen.getByRole('heading', { name: 'Werewolf' })).toBeInTheDocument();
-    view.rerender(<FamilyStagePreview item={item} potion={potion} stages={['baby']} />);
+    await user.click(screen.getByRole('button', { name: 'Limit allowance' }));
     expect(screen.queryByRole('heading', { name: 'Werewolf' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Grown' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Middle' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('heading', { name: 'Wolf Egg' })).toBeInTheDocument();
+    // The same instance kept its choice; only the allowance hid it.
+    await user.click(screen.getByRole('button', { name: 'Restore allowance' }));
+    expect(screen.getByRole('button', { name: 'Grown' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('shows a child without an explicit allowance only the natural egg', async () => {

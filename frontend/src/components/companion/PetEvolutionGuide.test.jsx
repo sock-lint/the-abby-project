@@ -76,6 +76,14 @@ describe('PetEvolutionGuide child surprise', () => {
     expect(screen.queryByText(/Wolf Pup|Werewolf/)).toBeNull();
   });
 
+  it('names a child the forms their owned appearance reached', async () => {
+    const guide = await asAccount({ id: 5, role: 'child' },
+      <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={['baby', 'middle']} />);
+    expect(guide.getByText('Baby · Wolf Pup')).toBeInTheDocument();
+    expect(guide.getByText('Middle · Wolf')).toBeInTheDocument();
+    expect(screen.queryByText(/Werewolf/)).toBeNull();
+  });
+
   it('keeps every form name for parents', async () => {
     const guide = await asAccount({ id: 6, role: 'parent', is_staff: false },
       <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={[]} />);
