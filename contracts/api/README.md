@@ -329,6 +329,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy with 15 exact families and synthetic Base-only authored compatibility |
 | `pets-hatchery-discovery.json` | Same codex endpoint; exact guaranteed hatch pairs, an untimed Base offer and self-scoped active, expired/retryable and completed attempts, without read mutations |
+| `lorebook-child-baby-chick.json`, `lorebook-parent-reference.json` | `GET /api/lorebook/`; a child with a Baby Base Chick reads generic later Chick forms, while a parent reads the full reference |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with catalog availability flags and preserved growth |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
@@ -1160,6 +1161,17 @@ and a rejected nonrepeatable restart cannot repay the campaign. The React
 consumer preserves that ordinary habit response and the restart error through
 `logHabitTap` and `startQuest`.
 
+## Guide copy under the child surprise rule
+
+`config.tests.test_lorebook_api_contract_fixtures` produces
+`lorebook-child-baby-chick.json` for a non-staff child who owns only a Baby
+Base Chick, and `lorebook-parent-reference.json` for a parent. Django withholds
+Base Chick's unreached form names (Fledgling, Bird) from a child's copy,
+including practice steps and parent notes, using the child's server-confirmed
+stages of that exact appearance; parents and staff read the full reference.
+`frontend/src/api/lorebookContractFixtures.test.jsx` renders both bodies
+through the Guide and the Manage Guide route without altering their text.
+
 ## Reading books and reflections
 
 `config.tests.test_reading_api_contract_fixtures` produces shelf, session,
@@ -1305,11 +1317,15 @@ pin the rarity floor and preferred-food explanation alongside saved identity.
 `catalog-icons-elemental-inventory.json` exposes canonical Fire/Ice potion
 image IDs and hatch actions under the checked-in activation policy; spoofed
 ingredients retain null image IDs and no action.
-`catalog-icons-elemental-challenges.json` exposes all eight exact system
+`catalog-icons-elemental-challenges.json` exposes all twelve exact system
 challenge images and complete available egg/potion reward pairs under that
 same policy, with a same-name parent challenge remaining unbound.
 `pets-elemental-supported-catalog.json` advertises Base/Fire/Ice for exact Chick,
-Wolf, Dragon and Mushroom while a deliberately broadly authored Bat remains Base only. The producer is
+Wolf, Dragon, Mushroom, Bee and Bat. Hive guarantees the natural Bee egg and
+selected global potion after five qualifying accomplishments; Cave guarantees
+the natural Bat egg and potion after ten. Both are one-time 180-day challenges,
+with zero authored Coins/XP. Their exact `review-...-acquisition-icon` handles
+remain artwork identities independent of challenge names. The producer is
 `config.tests.test_elemental_art_api_contract_fixtures`; React consumption is in
 `frontend/src/api/catalogContractFixtures.test.js`. These fixtures are real raw
 API responses, award nothing and do not establish publication or deployment.

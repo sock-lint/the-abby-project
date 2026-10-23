@@ -46,14 +46,15 @@ describe('RpgSprite', () => {
   it.each(['fire', 'ice'])('uses exact %s stage images at every size, with dimming separate from appearance', (potionSlug) => {
     resolveElementalPortrait.mockImplementation((key, potion) => ({ url: `/elemental/${key}-${potion}.png`, frames: 1 }));
     const keys = ['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
-      'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount'];
+      'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
+      'meshtint-bee', 'meshtint-bee-middle', 'meshtint-bee-mount', 'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount'];
     const { rerender } = render(<RpgSprite spriteKey={keys[0]} potionSlug={potionSlug} alt="Elemental pet" />);
     for (const spriteKey of keys) {
       for (const size of [24, 32, 64, 96, 128, 256]) {
         rerender(<RpgSprite spriteKey={spriteKey} fallbackSpriteKey="cute-chick" potionSlug={potionSlug} size={size} dim="stale" alt="Elemental pet" />);
         expect(screen.getByRole('img', { name: 'Elemental pet' })).toHaveAttribute('src', `/elemental/${spriteKey}-${potionSlug}.png`);
         expect(screen.getByRole('img', { name: 'Elemental pet' })).toHaveStyle({ width: `${size}px`, filter: 'grayscale(0.5) opacity(0.7)' });
-        expect(resolveElementalPortrait).toHaveBeenLastCalledWith(spriteKey, potionSlug);
+        expect(resolveElementalPortrait).toHaveBeenLastCalledWith(spriteKey, potionSlug, undefined);
       }
     }
     expect(getLicensedRpgSprite).not.toHaveBeenCalled();
@@ -72,7 +73,8 @@ describe('RpgSprite', () => {
   });
 
   it.each(['cute-chick', 'cute-chick-fledgling', 'cute-chick-mount', 'meshtint-wolf', 'meshtint-wolf-middle', 'meshtint-wolf-mount',
-    'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount'])(
+    'meshtint-dragon', 'meshtint-dragon-middle', 'meshtint-dragon-mount', 'meshtint-mushroom', 'meshtint-mushroom-middle', 'meshtint-mushroom-mount',
+      'meshtint-bee', 'meshtint-bee-middle', 'meshtint-bee-mount', 'meshtint-bat', 'meshtint-bat-middle', 'meshtint-bat-mount'])(
     'keeps %s elemental artwork unavailable instead of recoloring its Base portrait', (spriteKey) => {
       useSyntheticLicensedPortraits();
       renderWithCatalog(<RpgSprite spriteKey={spriteKey} icon="🐾" alt="Fire companion" potionSlug="fire" dim="stale" />,

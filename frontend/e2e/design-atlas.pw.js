@@ -41,7 +41,8 @@ test.afterAll(async () => {
 
 test('Atlas specimens expose real names and local selection without account requests', async ({ page }) => {
   const accountRequests = [];
-  await page.route('**/api/**', route => {
+  // Match API paths, not Vite's /src/api/ client module.
+  await page.route(url => url.pathname === '/api' || url.pathname.startsWith('/api/'), route => {
     accountRequests.push(route.request().url());
     return route.abort();
   });

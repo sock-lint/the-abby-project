@@ -33,7 +33,7 @@ class ElementalIncubationTests(TestCase):
         call_command("loadrpgcontent", stdout=StringIO())
         cls.child = make_family("Elemental incubation", children=[{"username": "element-incubator"}]).children[0]
         cls.species = {slug: PetSpecies.objects.get(slug=slug) for slug in (
-            "chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom",
+            "chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat",
         )}
         cls.potions = {slug: PotionType.objects.get(slug=slug) for slug in ("base", "fire", "ice")}
 
@@ -116,6 +116,18 @@ class ElementalIncubationTests(TestCase):
 
     def test_shipped_ice_mushroom_waits_then_claims_after_policy_retirement(self):
         self.assert_pair_waits_and_hatches("meshtint-mushroom", "ice")
+
+    def test_shipped_fire_bee_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-bee", "fire")
+
+    def test_shipped_ice_bee_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-bee", "ice")
+
+    def test_shipped_fire_bat_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-bat", "fire")
+
+    def test_shipped_ice_bat_waits_then_claims_after_policy_retirement(self):
+        self.assert_pair_waits_and_hatches("meshtint-bat", "ice")
 
     @override_settings(RPG_ASSET_SUPPORT_POLICY=RETIRED_POLICY)
     def test_retired_policy_denies_all_elemental_pairs_without_consumption(self):

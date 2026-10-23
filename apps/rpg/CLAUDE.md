@@ -7,11 +7,13 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Chick and exact namespaced Wolf, Dragon and Mushroom accept Base, Fire and Ice;
-the other eleven prepared families accept Base only (23 exact pairs). Fire/Ice
-potions remain excluded from random pools. Eight one-time challenges guarantee
-exact egg/potion bundles. The Dragon/Mushroom artwork is owner-accepted; its
-rollout requires canonical publication/readback and ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and exact namespaced Wolf,
+Dragon, Mushroom, Bee and Bat accept Base, Fire and Ice; the other nine prepared
+families accept Base only (27 exact pairs). Fire/Ice potions remain excluded
+from random pools. Twelve one-time challenges guarantee exact egg/potion
+bundles. The Bee/Bat artwork is owner-accepted; this branch prepares its
+activation, held for canonical publication/readback and ordinary MAIN gates.
+Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
 The shipped roster contains fifteen families. The owner's unused-content
@@ -317,8 +319,8 @@ multiplier for all Coins or XP.
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus Chick.
-The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom elemental pairs;
-the other eleven families remain Base only. The content loader rejects
+The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom/Bee/Bat elemental
+pairs; the other nine families remain Base only. The content loader rejects
 existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward
@@ -341,6 +343,11 @@ challenge images require the exact system collection definition. These read-only
 image IDs do not enable acquisition. The exact Fire/Ice runtime is canonically
 published and verified, with application rollout through the ordinary MAIN gates;
 see `docs/operations/fire-ice-companions.md`.
+Bee/Bat challenge names bind their unchanged `review-...-acquisition-icon`
+art handles through `shared/catalog/elemental-bee-bat-bindings.json`. Hive
+requires 5 qualifying accomplishments and Cave 10 within 180 days; each exact
+natural egg/global potion bundle is one-time with zero authored Coins/XP.
+Their canonical release publication/readback remains a rollout gate.
 
 `retired_catalog.py` owns the exact owner-approved prelaunch retirement list.
 Default `loadrpgcontent` attempts it once before bundled upserts and records

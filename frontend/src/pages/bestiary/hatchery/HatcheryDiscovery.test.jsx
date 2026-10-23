@@ -39,7 +39,7 @@ function mount({ catalogSpecies = species, stable = { pets: [], mounts: [] }, in
     http.get('*/api/inventory/', () => HttpResponse.json(inventory)),
     http.get('*/api/pets/incubations/', () => HttpResponse.json({ incubation, duration_seconds: 86400, server_now: '2026-10-22T12:00:00Z' })),
   );
-  const view = render(<MemoryRouter><Hatchery /></MemoryRouter>);
+  const view = render(<MemoryRouter><Hatchery showDiscovery /></MemoryRouter>);
   return { ...view, mutations, stopObserving: () => server.events.removeListener('request:start', observe) };
 }
 
