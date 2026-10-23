@@ -1,5 +1,9 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useState } from 'react';
+import { http, HttpResponse } from 'msw';
+import { server } from '../../test/server';
+import { useAuth } from '../../hooks/useApi';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/render';
 import { stagedElementalFixture, syntheticElemental } from '../../test/elementalReleaseFixture';
@@ -58,5 +62,42 @@ describe('Explicit private elemental presentation', () => {
       expect(screen.getByRole('img', { name }).getAttribute('src')).toContain('/synthetic-elemental/');
       expect(screen.getByRole('img', { name }).style.filter).toBeFalsy();
     }
+  });
+});
+
+describe('Explicit elemental art under the child surprise allowance', () => {
+  const item = { id: 43, item_type: 'egg', slug: 'meshtint-mushroom-egg', pet_species_slug: 'meshtint-mushroom',
+    metadata: { species: 'meshtint-mushroom' }, name: 'Mushroom Egg' };
+  const potion = { slug: 'ice', name: 'Ice' };
+
+  it('clamps an explicitly staged elemental Grown selection when one mounted preview loses its allowance', async () => {
+    const user = userEvent.setup(), staged = stagedElementalFixture(true);
+    function Harness() {
+      const [stages, setStages] = useState(['baby', 'middle', 'grown']);
+      return <>
+        <button type="button" onClick={() => setStages(['baby'])}>Limit allowance</button>
+        <button type="button" onClick={() => setStages(['baby', 'middle', 'grown'])}>Restore allowance</button>
+        <FamilyStagePreview elemental={staged} item={item} potion={potion} stages={stages} />
+      </>;
+    }
+    renderWithProviders(<Harness />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: 'Grown' }));
+    expect(screen.getByRole('img', { name: 'Ice Toadstool' }).getAttribute('src')).toContain('/synthetic-elemental/');
+    await user.click(screen.getByRole('button', { name: 'Limit allowance' }));
+    expect(screen.queryByRole('img', { name: 'Ice Toadstool' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Grown' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: 'Restore allowance' }));
+    expect(screen.getByRole('button', { name: 'Grown' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('never lets an explicit art source grant a child a stage', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json({ id: 5, role: 'child', is_staff: false })));
+    function Ready({ children }) { const { user } = useAuth(); return user ? children : null; }
+    renderWithProviders(<Ready><FamilyStagePreview elemental={stagedElementalFixture(true)} item={item} potion={potion} initialStage="grown" /></Ready>);
+    expect(await screen.findByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Baby' })).toBeNull();
+    expect(screen.queryByText(/Toadstool|Fungi/)).toBeNull();
+    expect(scene.props).toBeNull();
   });
 });

@@ -84,6 +84,17 @@ describe('PetEvolutionGuide child surprise', () => {
     expect(screen.queryByText(/Werewolf/)).toBeNull();
   });
 
+  it.each([
+    [{ slug: 'meshtint-bee', sprite_key: 'meshtint-bee', name: 'Bee' }, /Bumble|Sting/, 'Grown · Sting'],
+    [{ slug: 'meshtint-bat', sprite_key: 'meshtint-bat', name: 'Bat' }, /Vampire Bat|Bat Lord/, 'Grown · Bat Lord'],
+  ])('withholds later $name forms from a child with only the Fire Baby', async (species, later, grown) => {
+    const guide = await asAccount({ id: 5, role: 'child' },
+      <PetEvolutionGuide species={species} potion={{ slug: 'fire' }} currentStage="egg" revealedStages={['baby']} />);
+    expect(guide.getByText('Middle')).toBeInTheDocument();
+    expect(screen.queryByText(later)).toBeNull();
+    expect(screen.queryByText(grown)).toBeNull();
+  });
+
   it('keeps every form name for parents', async () => {
     const guide = await asAccount({ id: 6, role: 'parent', is_staff: false },
       <PetEvolutionGuide species={wolf} potion={{ slug: 'base' }} currentStage="egg" revealedStages={[]} />);
