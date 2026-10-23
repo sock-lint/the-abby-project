@@ -12,7 +12,8 @@ export default function Fixture() {
   const location = useLocation();
   return <main className="max-w-6xl mx-auto p-4 space-y-4">
     <p className="text-caption text-ink-secondary">Local synthetic Hatchery review. No production accounts or reward writes.</p>
-    <Hatchery />
+    {/* This standalone fixture exercises the staff-only discovery presentation. */}
+    <Hatchery showDiscovery />
     <output aria-label="Fixture location" className="block text-caption text-ink-secondary break-words">{location.pathname}{location.search}</output>
     <p className="text-caption text-ink-secondary">Missing private artwork keeps its labelled fallback. These checks do not establish artwork approval or physical-phone acceptance.</p>
   </main>;

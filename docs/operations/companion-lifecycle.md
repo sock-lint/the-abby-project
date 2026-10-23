@@ -17,9 +17,33 @@ identify one ownership path; stages never create four separate species.
 Pets → **Hatchery** (`/bestiary?tab=hatchery`) lists every owned egg and its
 quantity, including remaining unavailable/custom eggs outside the exact
 prelaunch retirement list below.
-Available eggs can be selected and their family artwork and four-stage guide
-inspected even without a potion. Selecting or previewing an egg changes no
-inventory or progress. The hatch form explains an already owned species/potion
+Available eggs can be selected and their four-stage guide inspected even
+without a potion. Selecting or previewing an egg changes no inventory or
+progress.
+
+**Child surprise previews.** Companion artwork, 3D and form names stay a
+surprise for children until hatching. A non-staff child sees them only for an
+exact species and potion appearance they own, and only for stages it reached:
+Baby ownership shows Baby, Middle shows Baby and Middle, and confirmed
+evolution adds Grown. Growth points alone never unlock a form. Ownership comes
+from the self-scoped stable response; missing, failed or legacy potion data
+without a slug reveals nothing, and Base never stands in for an owned Fire or
+Ice appearance. Children keep the selected egg icon, ingredient controls,
+generic stage thresholds, incubation and hatching. Hatch, evolution, care and
+expedition reveals of owned companions are unchanged. Ordinary parents keep
+the owned-egg family preview, and staff keep the full Explore companions
+section.
+
+The same rule covers challenges and the Guide. Elemental challenge
+illustrations depict their Baby companion, so a child sees one only after
+hatching that exact species and potion; ordinary challenge artwork, rewards and
+progress are unchanged. Catalog descriptions that name a later or elemental
+form (Shadow Trail, Ember/Frost Summit) start with their requirement until the
+child reaches that form. The Guide's Pets and Mounts copy, practice steps and
+parent notes name Base Chick's Fledgling and Bird only after the child's own
+Base Chick reached them; other potions and legacy rows do not count. Django
+applies the Guide rule to the `/api/lorebook/` response, so every route that
+renders it, including Manage → Guide, receives the same child copy. The hatch form explains an already owned species/potion
 pair before submission, including pets that have already grown; the server
 validates ownership, availability and compatibility before accepting incubation.
 

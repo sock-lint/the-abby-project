@@ -1,6 +1,7 @@
 # Timed egg incubation
 
-Pets → Hatchery keeps the existing egg shelf and four-stage family previews.
+Pets → Hatchery keeps the existing egg shelf and four-stage family guide.
+Family previews follow the child surprise rule in `companion-lifecycle.md`.
 Choose an owned egg and compatible potion, review the wait, then choose
 **Start incubation**. The accepted start consumes one of each ingredient and
 saves the egg's identity and deadline. It creates no pet or reward yet.

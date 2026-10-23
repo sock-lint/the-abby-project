@@ -10,6 +10,7 @@ import { resolveElementalPreviewAppearance } from '../../companion/sharedElement
 import { petSpriteKeys } from '../rpg/petSpriteKeys';
 import usePrefersReducedMotion from '../../hooks/usePrefersReducedMotion';
 import PedestalPreview from '../../pedestal/PedestalPreview';
+import { useSurpriseRestricted } from '../../companion/previewAccess';
 
 class PreviewBoundary extends Component {
   state = { failed: false };
@@ -18,10 +19,17 @@ class PreviewBoundary extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export default function FamilyStagePreview({ item, potion, initialStage = 'egg', elemental }) {
+// ``stages`` lists the stage IDs this viewer may see. A child without an
+// explicit allowance sees only the natural egg.
+export default function FamilyStagePreview({ item, potion, initialStage = 'egg', stages, elemental }) {
+  const restricted = useSurpriseRestricted();
   const family = rosterEggFamily(item);
   const retained = item?.item_type === 'egg' && item.slug === 'chick-egg' && item.pet_species_slug === 'chick' && item.metadata?.species === 'chick';
-  const [stage, setStage] = useState(COMPANION_STAGES.some(({ id }) => id === initialStage) ? initialStage : 'egg');
+  const allowed = COMPANION_STAGES.filter(({ id }) => id === 'egg' || (stages ? stages.includes(id) : !restricted));
+  const [selectedStage, setStage] = useState(initialStage);
+  // Clamp on every render: a changed potion or allowance must never keep an
+  // earlier selection's unreached form on screen.
+  const stage = allowed.some(({ id }) => id === selectedStage) ? selectedStage : 'egg';
   if (!family && !retained) return <div className="flex h-48 items-center justify-center"><RpgSprite icon="🥚" size={96} alt={item?.name || 'Egg'} /></div>;
   const element = potion?.slug && potion.slug !== 'base' ? potion.name || potion.slug : null;
   const form = companionFormName(eggSpecies(item), potion || { slug: 'base' }, stage)
@@ -29,7 +37,7 @@ export default function FamilyStagePreview({ item, potion, initialStage = 'egg',
   const name = stage === 'egg' ? item.name || 'Egg' : `${element ? `${element} ` : ''}${form}`;
   return <section className="space-y-3" aria-label="Family artwork preview">
     <div className="flex flex-wrap gap-2" role="group" aria-label="Preview growth stage">
-      {COMPANION_STAGES.map(({ id, label }) => <Button key={id} size="sm" variant={stage === id ? 'secondary' : 'ghost'} aria-pressed={stage === id} onClick={() => setStage(id)}>{label}</Button>)}
+      {allowed.map(({ id, label }) => <Button key={id} size="sm" variant={stage === id ? 'secondary' : 'ghost'} aria-pressed={stage === id} onClick={() => setStage(id)}>{label}</Button>)}
     </div>
     <StagePreview key={`${item.id}:${stage}:${potion?.slug || 'base'}`} item={item} family={family} retained={retained} stage={stage} name={name} element={element} potion={potion} elemental={elemental} />
     {stage === 'egg' && element && <p className="text-caption text-ink-secondary">The egg keeps its natural appearance. The {element} appearance begins after hatching.</p>}

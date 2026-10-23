@@ -39,7 +39,7 @@ export default function BestiaryHub() {
           { id: 'companions', label: 'Companions', render: () => <Companions refreshRevision={refreshRevision} onChanged={onChanged} /> },
           { id: 'mounts',     label: 'Grown pets', render: () => <Mounts refreshRevision={refreshRevision} onChanged={onChanged} /> },
           { id: 'codex',      label: 'Collection', render: () => <BestiaryCodex refreshRevision={refreshRevision} /> },
-          { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery refreshRevision={refreshRevision} onChanged={onChanged} /> },
+          { id: 'hatchery',   label: 'Hatchery',   render: () => <Hatchery refreshRevision={refreshRevision} onChanged={onChanged} showDiscovery={user?.is_staff === true} /> },
         ]}
       />
       <div className="max-w-6xl mx-auto mt-4 text-right">

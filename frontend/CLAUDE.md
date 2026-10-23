@@ -297,13 +297,40 @@ read failures show retry controls and preserve loaded rows during refresh.
 
 ### Hatchery discovery
 
-Hatchery's Explore companions section browses the authenticated user's supported
-codex independently of inventory. Only server-returned available potion pairs
+Hatchery's Explore companions section is visible only to staff users and browses
+their supported codex independently of inventory. BestiaryHub enables this
+presentation only when the authenticated user's `is_staff` is `true`; Hatchery
+hides it by default. All users retain their owned eggs, compatible potion choices,
+incubation, and hatching controls. With the section, the recipe shows the egg
+icon, recipe selections focus the section's single preview, and a skip link
+passes over the section. Without it, parents see the selected owned egg's
+family preview with its chosen potion; children follow the surprise rule below.
+Only server-returned available potion pairs
 are offered. A typed, presentation-only natural egg projects exact registered
 family artwork; it never supplies inventory IDs to incubation. Recipe selections
 can focus that preview, while browsing never changes the recipe or makes a write.
 The single family preview is portrait-first and supports Egg/Baby/Middle/Grown;
 optional 3D keeps the existing exact bindings, motion controls and reduced motion.
+
+**Child surprise previews:** `companion/previewAccess.js` applies the owner's
+rule to non-staff children (`useSurpriseRestricted`). Companion art, 3D and form
+names appear only for an exact species/potion appearance in the child's stable,
+up to its server-confirmed stage (`ownedAppearanceStages`); growth counters,
+codex discovery, a null/blank legacy potion slug and missing or failed stable
+reads unlock nothing. `FamilyStagePreview` takes a `stages` allowance and clamps
+its selection every render; `PetEvolutionGuide` keeps generic stages and
+thresholds but withholds unreached form names (`revealedStages`, or a
+creature's own stages). Collection draws only an exact owned appearance
+(`SpeciesPortrait`) and locks unowned grown forms without loading their art.
+Challenge cards, detail sheets and Today's pinned card use
+`useChallengeSurprise`: an elemental challenge illustration (it depicts the
+Baby) appears only once that exact appearance hatched, and a catalog
+description clause naming a later or elemental form (Shadow Trail, Ember/Frost
+Summit) is dropped until reached. `useSurpriseOwnership` shares one stable read
+across surfaces that mount together and reveals nothing until it loads. Django
+applies the same rule to Guide copy (`apps/lorebook/services.py`), so the Guide,
+practice trials and the Manage Guide route all receive the child's text.
+See `docs/operations/companion-lifecycle.md`.
 
 Each codex potion's additive acquisition_challenges lists current guaranteed
 bundles separately from saved attempts. Automatic attempts freeze their name,
