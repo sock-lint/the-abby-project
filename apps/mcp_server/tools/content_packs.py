@@ -94,7 +94,12 @@ def _serialized_pack(function):
             try:
                 if hasattr(params, "pack"):
                     _validate_pack_name(params.pack)
-                    with pack_file_lock(_packs_root(), params.pack):
+                    root = _packs_root()
+                    if not root.exists() and function.__name__ not in {"write_pack_file", "draft_pack_entries"}:
+                        # A missing read must not create lock or pack directories.
+                        # Return at this observation, before a concurrent creator.
+                        raise MCPNotFoundError(f"Content pack {params.pack!r} not found.")
+                    with pack_file_lock(root, params.pack):
                         return function(params)
                 return function(params)
             finally:
