@@ -186,7 +186,9 @@ def _apply(draft, *, publication=None):
             # Earlier changes in this same draft may have just retained a
             # source identity that was not present during preflight.
             validate_source_identity(obj)
-            if QuestDefinition.objects.filter(name=obj.name, superseded_by__isnull=True).exclude(pk=obj.pk).exists():
+            # Private household titles do not reserve public catalog names.
+            if QuestDefinition.objects.filter(is_system=True, name=obj.name,
+                    superseded_by__isnull=True).exclude(pk=obj.pk).exists():
                 raise ContentPackError("Challenge name collides with existing content; choose a distinct name.")
         else:
             validate_item_runtime(obj)

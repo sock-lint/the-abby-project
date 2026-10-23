@@ -74,6 +74,16 @@ uses the native clear/autofill behavior. Saved legacy co-op participant IDs and
 contributions remain visible, while names outside the observer's current family
 use `Former participant`.
 
+Legacy Coin/reward, skill-progress/earned-badge and quest management also retain
+current authority through domain work and serialization. Scalar Coin and skill
+operations lock the actor and subject together. Quest reads and assignment,
+private-author management and entry-ID decisions acquire household members in
+primary-key order under the Family lock before native services run. Their
+lookups and participant labels use that exact locked member set; later joins
+become eligible on the next request. Native parent permissions and historical
+fulfillment rules remain authoritative; a queued actor snapshot cannot preserve
+access after role or family changes.
+
 Pack file operations retain fresh author authority and a process-shared pack
 lock across read/merge/write, deletion and reviewed publication. Lock files live
 outside deletable pack directories and must never be removed while in use.

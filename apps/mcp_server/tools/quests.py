@@ -21,6 +21,7 @@ from typing import Any
 from django.core.exceptions import ValidationError as DjangoValidationError
 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.achievements.models import Badge
 from apps.accounts.models import User
@@ -46,6 +47,7 @@ from ..schemas import (
     ListQuestsIn,
     SetQuestDefinitionSkillTagsIn,
 )
+from ..legacy_household import household_context, household_operation, locked_member_ids
 from ..server import tool
 from ..retries import mutation_once
 from ..shapes import to_plain
@@ -59,13 +61,24 @@ from ..shapes import to_plain
 def _quest_to_dict(quest: Quest) -> dict[str, Any]:
     from apps.quests.serializers import QuestSerializer
 
-    return to_plain(QuestSerializer(quest, context={"observer_family_id": get_current_user().family_id}).data)
+    payload = to_plain(QuestSerializer(quest, context={"observer_family_id": get_current_user().family_id}).data)
+    selected = locked_member_ids(required=False)
+    if selected is not None:
+        from apps.quests.participants import FORMER_PARTICIPANT
+        for participant in payload["participants"]:
+            if participant["user"] not in selected:
+                participant["user_name"] = FORMER_PARTICIPANT
+    return payload
 
 
 def _definition_to_dict(d: QuestDefinition) -> dict[str, Any]:
     from apps.quests.serializers import QuestDefinitionSerializer
 
     return to_plain(QuestDefinitionSerializer(d).data)
+
+
+def _visible_definitions(actor):
+    return definitions_visible_to(actor).filter(Q(is_system=True) | Q(created_by_id__in=locked_member_ids()))
 
 
 # ---------------------------------------------------------------------------
@@ -85,26 +98,33 @@ def list_quests(params: ListQuestsIn) -> dict[str, Any]:
     family's quests to every parent in the deployment.
     """
     user = get_current_user()
-    qs = Quest.objects.select_related("definition").prefetch_related(
-        "participants",
-    )
-    if user.role == "parent":
-        family_id = getattr(user, "family_id", None)
-        if family_id is None:
-            return {"quests": []}
-        qs = qs.filter(participants__user__family_id=family_id)
-        if params.user_id is not None:
-            qs = qs.filter(participants__user_id=params.user_id)
-    else:
-        qs = qs.filter(participants__user=user)
-    if not params.include_completed:
-        qs = qs.filter(status=Quest.Status.ACTIVE)
-    qs = qs.distinct().order_by("-start_date")[: params.limit]
-    return {"quests": [_quest_to_dict(q) for q in qs]}
+    target = resolve_target_user(user, params.user_id)
+    with household_context(
+        user, target, allow_inactive_target=True,
+        family_members=True,
+    ) as (user, target):
+        qs = Quest.objects.select_related("definition").prefetch_related(
+            "participants",
+        )
+        if user.role == "parent":
+            family_id = getattr(user, "family_id", None)
+            if family_id is None:
+                return {"quests": []}
+            qs = qs.filter(participants__user__family_id=family_id,
+                           participants__user_id__in=locked_member_ids())
+            if params.user_id is not None:
+                qs = qs.filter(participants__user_id=params.user_id)
+        else:
+            qs = qs.filter(participants__user=user)
+        if not params.include_completed:
+            qs = qs.filter(status=Quest.Status.ACTIVE)
+        qs = qs.distinct().order_by("-start_date")[: params.limit]
+        return {"quests": [_quest_to_dict(q) for q in qs]}
 
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def get_quest(params: GetQuestIn) -> dict[str, Any]:
     """Get a quest instance with its progress + participants.
 
@@ -117,7 +137,8 @@ def get_quest(params: GetQuestIn) -> dict[str, Any]:
         family_id = getattr(user, "family_id", None)
         if family_id is None:
             raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
-        qs = qs.filter(participants__user__family_id=family_id).distinct()
+        qs = qs.filter(participants__user__family_id=family_id,
+                       participants__user_id__in=locked_member_ids()).distinct()
     else:
         qs = qs.filter(participants__user=user).distinct()
     try:
@@ -129,6 +150,7 @@ def get_quest(params: GetQuestIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
     """Browse available authored QuestDefinition choices. Parent-only.
 
@@ -139,7 +161,8 @@ def list_quest_catalog(params: ListQuestCatalogIn) -> dict[str, Any]:
     """
     actor = require_parent()
     from apps.quests.reference_locks import definitions_with_available_taxonomy
-    qs = definitions_with_available_taxonomy(definitions_visible_to(actor)).prefetch_related(
+    visible = _visible_definitions(actor)
+    qs = definitions_with_available_taxonomy(visible).prefetch_related(
         "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type",
     )
     if params.quest_type:
@@ -217,7 +240,8 @@ def create_quest_definition(
             payload=params.model_dump(exclude={"request_id"}), result_model=Quest if child is not None else QuestDefinition,
             target_field="participants__user_id" if child is not None else "created_by_id", create=create, serialize=serialize,
         )
-    return serialize(create(parent, child or parent))
+    with household_context(parent, child or parent) as (fresh_parent, fresh_target):
+        return serialize(create(fresh_parent, fresh_target))
 
 
 @tool()
@@ -230,23 +254,25 @@ def assign_quest(params: AssignQuestIn) -> dict[str, Any]:
     """
     parent = require_parent()
     child = resolve_target_user(parent, params.user_id)
-    if getattr(child, "role", None) != "child":
-        raise MCPValidationError(
-            f"user_id {params.user_id} does not match any child.",
-        )
-    if not definitions_visible_to(parent).filter(pk=params.definition_id).exists():
-        raise MCPNotFoundError(
-            f"QuestDefinition {params.definition_id} not found.",
-        )
-    try:
-        quest = QuestService.start_quest(child, params.definition_id)
-    except ValueError as exc:
-        raise MCPValidationError(str(exc))
-    return _quest_to_dict(quest)
+    with household_context(parent, child, family_members=True) as (parent, child):
+        if getattr(child, "role", None) != "child":
+            raise MCPValidationError(
+                f"user_id {params.user_id} does not match any child.",
+            )
+        if not _visible_definitions(parent).filter(pk=params.definition_id).exists():
+            raise MCPNotFoundError(
+                f"QuestDefinition {params.definition_id} not found.",
+            )
+        try:
+            quest = QuestService.start_quest(child, params.definition_id)
+        except ValueError as exc:
+            raise MCPValidationError(str(exc))
+        return _quest_to_dict(quest)
 
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
     """Start ONE shared Quest with 2+ children as participants.
 
@@ -261,7 +287,7 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
     parent = require_parent()
     users = list(
         User.objects.filter(
-            pk__in=params.user_ids,
+            pk__in=set(params.user_ids) & locked_member_ids(),
             role="child",
             family=parent.family,
         )
@@ -272,7 +298,7 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
         raise MCPValidationError(
             f"user_ids don't match any child: {missing}",
         )
-    if not definitions_visible_to(parent).filter(pk=params.definition_id).exists():
+    if not _visible_definitions(parent).filter(pk=params.definition_id).exists():
         raise MCPNotFoundError(
             f"QuestDefinition {params.definition_id} not found.",
         )
@@ -285,6 +311,7 @@ def assign_co_op_quest(params: AssignCoOpQuestIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def delete_quest_definition(params: DeleteQuestDefinitionIn) -> dict[str, Any]:
     """Permanently remove a parent-authored QuestDefinition (parent-only).
 
@@ -309,6 +336,7 @@ def delete_quest_definition(params: DeleteQuestDefinitionIn) -> dict[str, Any]:
             pk=params.quest_definition_id,
             is_system=False,
             created_by__family_id=family_id,
+            created_by_id__in=locked_member_ids(),
         )
     except QuestDefinition.DoesNotExist:
         raise MCPNotFoundError(
@@ -322,6 +350,7 @@ def delete_quest_definition(params: DeleteQuestDefinitionIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def cancel_quest(params: CancelQuestIn) -> dict[str, Any]:
     """Mark an active quest as ``failed`` (parent-only).
 
@@ -337,7 +366,7 @@ def cancel_quest(params: CancelQuestIn) -> dict[str, Any]:
         raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
     try:
         quest = Quest.objects.filter(
-            participants__user__family_id=family_id,
+            participants__user__family_id=family_id, participants__user_id__in=locked_member_ids(),
         ).distinct().get(pk=params.quest_id)
     except Quest.DoesNotExist:
         raise MCPNotFoundError(f"Quest {params.quest_id} not found.")
@@ -352,6 +381,7 @@ def cancel_quest(params: CancelQuestIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def set_quest_definition_skill_tags(
     params: SetQuestDefinitionSkillTagsIn,
 ) -> dict[str, Any]:
@@ -379,6 +409,7 @@ def set_quest_definition_skill_tags(
             pk=params.quest_definition_id,
             is_system=False,
             created_by__family_id=family_id,
+            created_by_id__in=locked_member_ids(),
         )
     except QuestDefinition.DoesNotExist:
         raise MCPNotFoundError(

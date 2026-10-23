@@ -293,6 +293,12 @@ author's explicit family. Draft files are also family-owned. Unowned legacy
 draft directories require operator reconciliation rather than automatic
 adoption by the first caller.
 
+Public challenge drafts check name collisions within the public definition
+namespace. A private household challenge may share a public title and does not
+block an unrelated public edit selected by ID. Genuine public collisions,
+retained source identities and named badge dependencies still require explicit
+resolution.
+
 Reconciliation removes owned obsolete drop rules and retires removed shop
 offers. Quest reward links are reconciled to the new definition. Owned
 inventory, accepted quest/goal snapshots and pending shop promises remain

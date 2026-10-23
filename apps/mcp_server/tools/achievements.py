@@ -55,6 +55,7 @@ from ..schemas import (
     UpdateSkillIn,
     UpdateSubjectIn,
 )
+from ..legacy_household import household_context
 from ..server import tool
 from ..shapes import (
     badge_to_dict,
@@ -99,18 +100,19 @@ def get_skill_tree(params: GetSkillTreeIn) -> dict[str, Any]:
     """Full nested skill tree for a category with the target user's progress."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
+    with household_context(user, target, allow_inactive_target=True) as (user, target):
 
-    try:
-        category = SkillCategory.objects.get(pk=params.category_id)
-    except SkillCategory.DoesNotExist:
-        raise MCPNotFoundError(f"Category {params.category_id} not found.")
+        try:
+            category = SkillCategory.objects.get(pk=params.category_id)
+        except SkillCategory.DoesNotExist:
+            raise MCPNotFoundError(f"Category {params.category_id} not found.")
 
-    tree = SkillService.get_skill_tree(target, category)
-    return {
-        "category": skill_category_to_dict(category),
-        "user_id": target.id,
-        "subjects": tree,
-    }
+        tree = SkillService.get_skill_tree(target, category)
+        return {
+            "category": skill_category_to_dict(category),
+            "user_id": target.id,
+            "subjects": tree,
+        }
 
 
 @tool()
@@ -130,12 +132,13 @@ def list_earned_badges(params: ListEarnedBadgesIn) -> dict[str, Any]:
     """List badges the target user has earned, newest first."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
+    with household_context(user, target, allow_inactive_target=True) as (user, target):
 
-    earned = list(
-        UserBadge.objects.select_related("badge").filter(user=target)
-        .order_by("-earned_at")
-    )
-    return {"earned": [user_badge_to_dict(ub) for ub in earned]}
+        earned = list(
+            UserBadge.objects.select_related("badge").filter(user=target)
+            .order_by("-earned_at")
+        )
+        return {"earned": [user_badge_to_dict(ub) for ub in earned]}
 
 
 # ---------------------------------------------------------------------------

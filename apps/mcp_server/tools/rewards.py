@@ -23,6 +23,7 @@ from ..schemas import (
     RequestRedemptionIn,
     UpdateRewardIn,
 )
+from ..legacy_household import household_context, household_operation, locked_member_ids
 from ..server import tool
 from ..retries import mutation_once
 from ..shapes import (
@@ -35,6 +36,7 @@ from ..shapes import (
 
 @tool()
 @safe_tool
+@household_operation()
 def list_rewards(params: ListRewardsIn) -> dict[str, Any]:
     """List rewards in the shop along with the current user's coin balance.
 
@@ -64,17 +66,18 @@ def get_coin_balance(params: GetCoinBalanceIn) -> dict[str, Any]:
     """Return coin balance, per-reason breakdown, and recent ledger entries."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
+    with household_context(user, target, allow_inactive_target=True) as (user, target):
 
-    balance = CoinService.get_balance(target)
-    breakdown = CoinService.get_breakdown(target)
-    recent = list(
-        CoinLedger.objects.filter(user=target).order_by("-created_at")[:25]
-    )
-    return {
-        "balance": int(balance),
-        "breakdown": to_plain(breakdown),
-        "recent_ledger": [coin_ledger_entry_to_dict(e) for e in recent],
-    }
+        balance = CoinService.get_balance(target)
+        breakdown = CoinService.get_breakdown(target)
+        recent = list(
+            CoinLedger.objects.filter(user=target).order_by("-created_at")[:25]
+        )
+        return {
+            "balance": int(balance),
+            "breakdown": to_plain(breakdown),
+            "recent_ledger": [coin_ledger_entry_to_dict(e) for e in recent],
+        }
 
 
 @tool()
@@ -119,6 +122,7 @@ def _get_pending_redemption(redemption_id: int, parent) -> RewardRedemption:
         return RewardRedemption.objects.select_related("user", "reward").get(
             pk=redemption_id,
             user__family_id=family_id,
+            user_id__in=locked_member_ids(),
         )
     except RewardRedemption.DoesNotExist:
         raise MCPNotFoundError(f"Redemption {redemption_id} not found.")
@@ -126,6 +130,7 @@ def _get_pending_redemption(redemption_id: int, parent) -> RewardRedemption:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Approve a pending redemption (parent-only)."""
     parent = require_parent()
@@ -136,6 +141,7 @@ def approve_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation(family_members=True)
 def reject_redemption(params: DecideRedemptionIn) -> dict[str, Any]:
     """Reject a pending redemption and refund the held coins (parent-only)."""
     parent = require_parent()
@@ -174,6 +180,7 @@ def _validate_reward_publication(reward: Reward) -> None:
 
 @tool()
 @safe_tool
+@household_operation()
 def create_reward(params: CreateRewardIn) -> dict[str, Any]:
     """Create a new shop reward (parent-only). Images are not supported via MCP.
 
@@ -213,6 +220,7 @@ def create_reward(params: CreateRewardIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation()
 @transaction.atomic
 def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
     """Edit an existing reward (parent-only).
@@ -243,6 +251,7 @@ def update_reward(params: UpdateRewardIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@household_operation()
 def delete_reward(params: DeleteRewardIn) -> dict[str, Any]:
     """Delete a reward from the shop (parent-only).
 
@@ -279,27 +288,28 @@ def adjust_coins(params: AdjustCoinsIn) -> dict[str, Any]:
     """
     parent = require_parent()
     target = resolve_child_in_family(parent, params.user_id)
-    if params.amount == 0:
-        raise MCPValidationError("amount must not be 0.")
-    if params.amount > 0:
-        entry = CoinService.award_coins(
-            target,
-            params.amount,
-            CoinLedger.Reason.ADJUSTMENT,
-            description=params.description,
-            created_by=parent,
-        )
-    else:
-        entry = CoinService.spend_coins(
-            target,
-            abs(params.amount),
-            CoinLedger.Reason.ADJUSTMENT,
-            description=params.description,
-        )
-    new_balance = CoinService.get_balance(target)
-    return {
-        "user_id": target.id,
-        "entry_id": entry.id if entry else None,
-        "amount": params.amount,
-        "new_balance": int(new_balance),
-    }
+    with household_context(parent, target) as (parent, target):
+        if params.amount == 0:
+            raise MCPValidationError("amount must not be 0.")
+        if params.amount > 0:
+            entry = CoinService.award_coins(
+                target,
+                params.amount,
+                CoinLedger.Reason.ADJUSTMENT,
+                description=params.description,
+                created_by=parent,
+            )
+        else:
+            entry = CoinService.spend_coins(
+                target,
+                abs(params.amount),
+                CoinLedger.Reason.ADJUSTMENT,
+                description=params.description,
+            )
+        new_balance = CoinService.get_balance(target)
+        return {
+            "user_id": target.id,
+            "entry_id": entry.id if entry else None,
+            "amount": params.amount,
+            "new_balance": int(new_balance),
+        }
