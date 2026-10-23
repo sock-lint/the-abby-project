@@ -556,6 +556,8 @@ class QuestService:
         # co-op members who did not land the finishing hit.
         from apps.rpg.services import DropService
         DropService.award_accomplishment(user, TriggerType.QUEST_COMPLETE)
+        from apps.chronicle.recognition import safe_record_firsts
+        safe_record_firsts(user, TriggerType.QUEST_COMPLETE)
 
         notify(
             user,

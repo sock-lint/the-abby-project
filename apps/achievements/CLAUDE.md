@@ -74,6 +74,12 @@ YAML omission preserves the saved state; explicit false restores it.
 The `perfect_timecard` criterion recognizes approved and closed weeks. Closing
 an approved zero-dollar week preserves its eligibility for later badge evaluation.
 
+`chronicle_milestones_logged` counts the account's saved `FIRST_EVER` and
+`MILESTONE` entries, matching Turning Point and Life Chronicler. Other Chronicle
+kinds do not contribute. New firsts and graduation milestones evaluate the
+`chronicle` and `badges` scopes in their marker transaction; duplicate writers
+do not replay awards. See `apps/chronicle/tests/test_milestone_badges.py`.
+
 Every newly created `UserBadge` also receives one `badge_earned` drop through
 `DropService.award_accomplishment`, including badges with no XP or Coin bonus.
 The earned marker, payout, loot and salvage share the existing account-locked
