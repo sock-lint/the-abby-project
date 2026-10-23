@@ -55,7 +55,7 @@ function page(extraHandlers = []) {
     http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
     http.get('*/api/inventory/', () => HttpResponse.json([...eggs, ...potions])),
   );
-  return render(<MemoryRouter><Hatchery /></MemoryRouter>);
+  return render(<MemoryRouter><Hatchery showDiscovery /></MemoryRouter>);
 }
 
 describe('Elemental Hatchery choices', () => {

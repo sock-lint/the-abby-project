@@ -297,8 +297,11 @@ read failures show retry controls and preserve loaded rows during refresh.
 
 ### Hatchery discovery
 
-Hatchery's Explore companions section browses the authenticated user's supported
-codex independently of inventory. Only server-returned available potion pairs
+Hatchery's Explore companions section is visible only to staff users and browses
+their supported codex independently of inventory. BestiaryHub enables this
+presentation only when the authenticated user's `is_staff` is `true`; Hatchery
+hides it by default. All users retain their owned eggs, compatible potion choices,
+incubation, and hatching controls. Only server-returned available potion pairs
 are offered. A typed, presentation-only natural egg projects exact registered
 family artwork; it never supplies inventory IDs to incubation. Recipe selections
 can focus that preview, while browsing never changes the recipe or makes a write.

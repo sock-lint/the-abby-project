@@ -48,7 +48,8 @@ describe('Pet care journey', () => {
     const { user } = renderWithProviders(<><Hatchery /><Location /></>, { withAuth: false });
     const guide = await screen.findByRole('region', { name: 'Find hatching supplies' });
     expect(within(guide).getByText(/matching egg and potion bundle/)).toBeInTheDocument();
-    expect(screen.getByRole('combobox', { name: 'Explore a family' })).toHaveValue(species.slug);
+    expect(screen.queryByRole('region', { name: 'Explore companions' })).toBeNull();
+    expect(within(guide).queryByText(/Explore companions in the Hatchery/)).toBeNull();
     if (inventory.length) expect(screen.getByRole('button', { name: 'Select Bat Egg' })).toBeInTheDocument();
     await user.click(within(guide).getByRole('link', { name: 'View challenge rewards' }));
     expect(screen.getByRole('status', { name: 'Current page' })).toHaveTextContent('/quests?tab=trials');

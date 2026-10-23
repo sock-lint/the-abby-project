@@ -28,7 +28,7 @@ import useIncubationRefresh from './useIncubationRefresh';
 import { formatExpeditionRemaining } from '../party/party.constants';
 import HatcheryDiscovery from './HatcheryDiscovery';
 
-export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
+export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery = false } = {}) {
   const {
     data: stableData, loading: loadingStable, error: stableError, reload: reloadStable,
   } = useApi(getStable, [refreshRevision]);
@@ -196,10 +196,10 @@ export default function Hatchery({ refreshRevision = 0, onChanged } = {}) {
         className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep">
         Choose ingredients for incubation
       </a>}
-      <HatcheryDiscovery catalog={catalogData} stable={stableData} incubation={incubation}
+      {showDiscovery && <HatcheryDiscovery catalog={catalogData} stable={stableData} incubation={incubation}
         loading={loadingCatalog} refreshing={refreshingCatalog} catalogError={catalogError}
         stableError={stableError} incubationError={incubationError}
-        selection={browseSelection} onSelect={setBrowseSelection} />
+        selection={browseSelection} onSelect={setBrowseSelection} />}
 
       {suppliesLoaded ? <>
       <div id={recipeId} className="scroll-mt-24">
