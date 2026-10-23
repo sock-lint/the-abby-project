@@ -1,165 +1,140 @@
-"""Savings-goal completion service.
+"""Explicit savings writes settle once-paid, prospective money milestones.
 
-A savings goal is an aspirational balance tracker — the child's money
-stays fully liquid and ``current_amount`` is *computed* from
-``PaymentService.get_balance(user)`` rather than stored. This service
-answers the one question that can't be derived: "has the child crossed
-any goal's target?" and runs the completion pipeline when they have.
-
-Completion is one-shot: once ``is_completed`` flips to True, it stays
-True forever even if the child later spends below ``target_amount``.
-
-Completion pipeline (per newly-completed goal):
-    1. Mark the goal completed (``is_completed=True``, ``completed_at=now``).
-    2. Award coins scaled by target amount
-       (``target_amount * settings.COINS_PER_SAVINGS_GOAL_DOLLAR``).
-    3. Evaluate badges (the ``savings_goal_completed`` criterion already
-       exists in ``apps/achievements/criteria.py``).
-    4. Notify the child + all parents.
-
-Invoked from two places:
-    * ``PaymentService.record_entry`` — after a ledger row is written,
-      so a balance-increasing entry (chore reward, project bonus, etc.)
-      immediately triggers completion.
-    * ``SavingsGoalSerializer.to_representation`` — a lazy check on read,
-      so edits that lower a goal's target below the current balance also
-      auto-complete on next fetch.
+Money remains liquid. Reads only project saved state. A new goal recognizes
+growth above its starting balance and the child's durable shared high-water
+mark; deleting goals or spending money cannot reset that boundary. Accepted
+pre-cutover goals keep their exact frozen Coin promises.
 """
-from __future__ import annotations
-
-import logging
 from decimal import Decimal
-from typing import List
+import logging
 
-from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
+
+from apps.notifications.services import defer_push_until_commit
 
 logger = logging.getLogger(__name__)
 
 
 class SavingsGoalService:
-
     @classmethod
-    def check_and_complete(cls, user) -> List:
-        """Auto-complete any goals whose targets the user's balance crosses.
-
-        Returns the list of goals newly completed by this call.
-        """
-        from apps.payments.services import PaymentService
-        from .models import SavingsGoal
-
-        balance = PaymentService.get_balance(user) or Decimal("0")
-        if balance <= 0:
-            return []
-
-        pending = list(
-            SavingsGoal.objects.filter(user=user, is_completed=False)
-        )
-        newly_completed = []
-        for goal in pending:
-            if balance >= goal.target_amount:
-                cls._complete_one(goal)
-                newly_completed.append(goal)
-        return newly_completed
+    @transaction.atomic
+    def create_goal(cls, user, **data):
+        from .models import SavingsGoal, User
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
+        goal = SavingsGoal.objects.create(user=user, **data)
+        cls.check_and_complete(user)
+        goal.refresh_from_db()
+        return goal
 
     @classmethod
     @transaction.atomic
-    def _complete_one(cls, goal) -> None:
-        """Mark one goal completed and fire the reward pipeline.
-
-        Idempotent: refreshes from DB and exits early if the goal was
-        already completed by a concurrent call.
-        """
-        # Re-read inside the transaction so concurrent completions from
-        # overlapping ledger writes can't double-award.
-        fresh = goal.__class__.objects.select_for_update().get(pk=goal.pk)
-        if fresh.is_completed:
-            return
-
-        fresh.is_completed = True
-        fresh.completed_at = timezone.now()
-        fresh.save(update_fields=["is_completed", "completed_at"])
-
-        # Mirror the in-memory goal so the caller sees updated fields.
-        goal.is_completed = True
-        goal.completed_at = fresh.completed_at
-
-        cls._fire_completion_pipeline(fresh)
+    def update_goal(cls, goal, **data):
+        from .models import SavingsGoal, User
+        User.objects.select_for_update(no_key=True).get(pk=goal.user_id)
+        fresh = SavingsGoal.objects.select_for_update().get(pk=goal.pk, user_id=goal.user_id)
+        for field in ("title", "target_amount", "icon"):
+            if field in data:
+                setattr(fresh, field, data[field])
+        fresh.save()
+        cls.check_and_complete(fresh.user)
+        fresh.refresh_from_db()
+        return fresh
 
     @staticmethod
-    def _fire_completion_pipeline(goal) -> None:
-        """Award coins, evaluate badges, send notifications.
+    @transaction.atomic
+    def delete_goal(goal):
+        from .models import SavingsGoal, User
+        # Source-deletion signals also take the user gate. Keep the same lock
+        # order as completion, while retaining its independent high-water row.
+        User.objects.select_for_update(no_key=True).get(pk=goal.user_id)
+        fresh = SavingsGoal.objects.select_for_update().filter(pk=goal.pk, user_id=goal.user_id).first()
+        if fresh is not None:
+            fresh.delete()
 
-        Failures here are logged but never re-raised — the goal is
-        already marked completed and we don't want a badge/notification
-        failure to roll back that state.
+    @classmethod
+    @transaction.atomic
+    @defer_push_until_commit()
+    def check_and_complete(cls, user):
+        """Settle eligible goals on a write, holding user then milestone locks.
+
+        Required awards share this transaction with completion and the high-
+        water mark. PaymentService catches a failed settlement outside this
+        savepoint, retaining the money entry and leaving goals retryable.
         """
+        from apps.payments.services import PaymentService
+        from .models import SavingsGoal, SavingsRewardProgress, User
+
+        User.objects.select_for_update(no_key=True).get(pk=user.pk)
+        balance = max(Decimal("0"), PaymentService.get_balance(user))
+        pending = list(SavingsGoal.objects.select_for_update().filter(
+            user=user, is_completed=False, target_amount__lte=balance,
+        ).order_by("reward_policy_version", "target_amount", "pk"))
+        if not pending:
+            return []
+        progress, _ = SavingsRewardProgress.objects.select_for_update().get_or_create(
+            user=user, defaults={"recognized_balance": balance})
+        settlements = []
+        qualifying_new = None
+        for goal in pending:
+            legacy = goal.reward_policy_version == 1
+            if legacy and goal.legacy_coin_reward is None:
+                raise ValueError("The accepted savings reward snapshot is unavailable.")
+            floor = max(goal.reward_start_balance, progress.recognized_balance)
+            new_savings = max(Decimal("0"), goal.target_amount - floor)
+            coins = goal.legacy_coin_reward if legacy else int(new_savings * goal.reward_rate_snapshot)
+            settlements.append((goal, coins))
+            if not legacy and new_savings > 0:
+                qualifying_new = goal
+            progress.recognized_balance = max(progress.recognized_balance, goal.target_amount)
+
+        # One balance write can reach many ascending targets. Preserve each
+        # increment's frozen Coin rate, but recognize one new financial
+        # milestone rather than one reward event per disposable goal identity.
+        # Accepted legacy goals retain their individual promised events.
+        for goal, _ in settlements:
+            goal.reward_qualifies = goal.reward_policy_version == 1 or goal is qualifying_new
+            goal.is_completed = True
+            goal.completed_at = timezone.now()
+            goal.save(update_fields=["is_completed", "completed_at", "reward_qualifies"])
+        progress.save(update_fields=["recognized_balance"])
+        for goal, coins in settlements:
+            cls._fire_completion_pipeline(goal, coins)
+            cls._notify_completion(goal, coins)
+        return pending
+
+    @staticmethod
+    def _fire_completion_pipeline(goal, coins):
         from apps.achievements.services import BadgeService
-        from apps.notifications.models import NotificationType
-        from apps.notifications.services import (
-            get_display_name, notify, notify_parents,
-        )
         from apps.rewards.models import CoinLedger
         from apps.rewards.services import CoinService
-
-        user = goal.user
-
-        # 1. Coin bonus
-        try:
-            rate = getattr(settings, "COINS_PER_SAVINGS_GOAL_DOLLAR", 2)
-            coins = int(goal.target_amount * rate)
-            if coins > 0:
-                CoinService.award_coins(
-                    user,
-                    coins,
-                    CoinLedger.Reason.ADJUSTMENT,
-                    description=f"Savings goal: {goal.title}",
-                )
-        except Exception:
-            logger.exception(
-                "Savings goal %s: coin bonus failed", goal.pk,
-            )
-
-        # 2. Badge evaluation — audit H8: only the savings ladder + meta.
-        try:
-            BadgeService.evaluate_badges(user, scopes={"savings", "badges"})
-        except Exception:
-            logger.exception(
-                "Savings goal %s: badge evaluation failed", goal.pk,
-            )
-
-        # 2b. RPG trigger — lets the Hoard Builder quest + other
-        # savings_goal_complete-tied content count progress. The shared
-        # helper guarantees a GameLoop failure never blocks the completion
-        # pipeline.
         from apps.rpg.constants import TriggerType
-        from apps.rpg.services import safe_game_loop_call
-        safe_game_loop_call(
-            user, TriggerType.SAVINGS_GOAL_COMPLETE,
-            {"savings_goal_id": goal.pk},
-            log=logger,
-        )
+        from apps.rpg.services import GameLoopService
 
-        # 3. Notifications
+        if coins > 0:
+            CoinService.award_coins(goal.user, coins, CoinLedger.Reason.ADJUSTMENT,
+                description=f"Savings goal: {goal.title}")
+        if not goal.reward_qualifies:
+            return
+        BadgeService.evaluate_badges(goal.user, scopes={"savings", "badges"})
+        GameLoopService.on_task_completed(goal.user, TriggerType.SAVINGS_GOAL_COMPLETE,
+            {"savings_goal_id": goal.pk}, strict=True)
+
+    @staticmethod
+    def _notify_completion(goal, coins):
+        from apps.notifications.models import NotificationType
+        from apps.notifications.services import get_display_name, notify, notify_parents
+
         try:
-            coins_txt = (
-                f" +{coins} coins" if coins > 0 else ""
-            )
-            notify(
-                user,
-                title="Savings goal reached!",
-                message=f"You reached your goal: {goal.title}.{coins_txt}",
-                notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
-                link="/treasury?tab=hoards",
-            )
-            notify_parents(
-                title=f"{get_display_name(user)} completed a savings goal",
-                message=f"{goal.title} (${goal.target_amount})",
-                notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
-                about_user=user,
-            )
+            # Notification storage is optional and cannot break settlement.
+            with transaction.atomic():
+                coins_txt = f" +{coins} coins" if coins > 0 else ""
+                notify(goal.user, title="Savings goal reached!",
+                    message=f"You reached your goal: {goal.title}.{coins_txt}",
+                    notification_type=NotificationType.SAVINGS_GOAL_COMPLETED,
+                    link="/treasury?tab=hoards")
+                notify_parents(title=f"{get_display_name(goal.user)} completed a savings goal",
+                    message=f"{goal.title} (${goal.target_amount})",
+                    notification_type=NotificationType.SAVINGS_GOAL_COMPLETED, about_user=goal.user)
         except Exception:
-            logger.exception(
-                "Savings goal %s: notification failed", goal.pk,
-            )
+            logger.exception("Savings goal %s: notification failed", goal.pk)

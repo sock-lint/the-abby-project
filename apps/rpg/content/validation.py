@@ -150,7 +150,7 @@ def validate_content(parsed, *, strict=True):
                         if entry.get("quest_type") not in {"boss", "collection"}:
                             raise ValidationError("Unknown quest_type.")
                         filters = entry.get("trigger_filter", {})
-                        validate_trigger_filter(filters)
+                        validate_trigger_filter(filters, allow_catalog_policy=True)
                         for filter_key in ("project_id", "skill_category_id", "savings_goal_id"):
                             if filter_key in filters and (type(filters[filter_key]) is not int or filters[filter_key] < 1):
                                 raise ValidationError(f"trigger_filter.{filter_key} must be a positive integer.")

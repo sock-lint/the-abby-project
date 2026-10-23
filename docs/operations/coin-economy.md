@@ -1,10 +1,11 @@
 # Coin earning and shop pacing
 
 New expeditions use 3 / 7 / 15 base Coins for the existing 2 / 4 / 8 hour
-durations. The existing small random variation, item slots, species daily
-allowance and Lucky Coin claim-time multiplier still apply. This is an 80%
-reduction in the base payout. It is not a shared daily income cap: owning more
-species still provides more expedition opportunities.
+durations. Each child can start two trips per family-local day across all
+species, with the existing one-trip-per-species limit inside that allowance.
+Saved launch history counts even after claiming or expiry. The existing small
+random variation, item slots and Lucky Coin claim-time multiplier still apply.
+This is an 80% reduction in base payout, not an all-source daily Coin cap.
 
 New random Coin pouches pay one fifth of their previous denominations:
 
@@ -20,9 +21,9 @@ New random Coin pouches pay one fifth of their previous denominations:
 
 The smaller pouches have separate item identities. A random selection keeps
 its original probability and rarity, then grants the corresponding smaller
-pouch. This applies to activity and accomplishment drops, Mystery Boxes and
-new expedition loot. Their names and inventory explanations show the new
-value. Authored challenge and shop item rewards retain their exact item IDs.
+pouch. This applies to activity and accomplishment drops and new expedition loot.
+Owned Mystery Box and Lucky Dip effects retain their original outcome values.
+New pouch names and inventory explanations show their smaller value. Authored challenge and shop item rewards retain their exact item IDs.
 Custom pouches outside the bundled mapping retain their authored values.
 
 No balance is rescaled. Original pouch definitions and owned stacks retain
@@ -60,7 +61,11 @@ same form. Saved Lab experiments and their explicit offer prices remain intact.
 ## Progression Lab
 
 The installed-rule control models the smaller new expedition and random-pouch
-awards while retaining original pouches for authored rewards. Policy and catalog
+awards while retaining original pouches for authored rewards and existing consumables.
+It also mirrors the installed shared launch limit, future cosmetic salvage
+and distinct-active-day challenge accounting. Saved experiments retain their
+recorded policy and reports; changed rule fingerprints make older evidence
+explicitly historical. Policy and catalog
 fingerprints invalidate stale comparisons without rewriting historical reports.
 The separate [100-Coin commitment prototype](progression-reward-proposal.md)
 remains hypothetical. Its 75 / 25 allocations and 10 / 25 / 50 expedition table
@@ -68,3 +73,75 @@ are separate assumptions and do not describe the installed payout reduction.
 
 Validation uses synthetic inventories, accepted expeditions, challenges and
 shop requests. No production account, balance or offer is changed by tests.
+
+## New savings milestones
+
+New goals freeze their starting money balance and reward rate. The durable
+per-child savings high-water mark survives goal deletion, spending, payouts
+and exchanges. Completion rewards only the new target increment above both
+the starting balance and the previously recognized milestone. Overlapping
+new goals cannot reward the same saved dollars twice. A goal already covered
+by existing money can be visibly complete without Coins, drops, challenge
+credit or savings-badge progress.
+
+The additive migration freezes each existing goal's old Coin promise and
+marks existing goals as eligible under their established policy. It seeds
+high-water history without ledger writes, notifications or completion rewards.
+Existing accepted goals retain their fixed payouts. REST, pulse and MCP reads
+never settle goals; explicit goal changes and money ledger writes own
+completion. Client cards and completion toasts do not invent target-times-rate
+payouts. Actual Coin awards remain in the server's ledger and notifications.
+
+## Future challenge windows
+
+Explicit version-2 bundled offers use the following rewards. Their existing
+accepted windows keep their saved targets, progress, items and payout receipts.
+Only newly accepted or recurring windows use the new rules; parent-authored
+and unversioned custom offers retain their authored policies.
+
+| Challenge | Future requirement | Coins | Extra items |
+| --- | --- | ---: | --- |
+| First Week of Freshman Year | 5 habit activity days in 7 days | 20 | Existing authored collectible |
+| Seven Nights of Stories | 5 earned Reading Adventure days in 7 days | 20 | Existing authored items |
+| Weekly Reset | 5 habit activity days in 7 days | 10 | No Coin pouch |
+| Comeback Kid | 3 habit activity days in 7 days | 10 | 1 Streak Freeze |
+| Comeback Kid II | 5 habit/chore activity days in 7 days | 15 | 1 Streak Freeze |
+| Pantry Patroller | 5 approved chore activity days in 7 days | 10 | No Coin pouch |
+| Daily Rituals | 3 positive habit actions in its existing one-day window | 2 | No Coin pouch |
+
+A distinct activity day is computed from accepted source timestamps in the
+window's saved family timezone. Multiple actions on that day contribute once;
+voided activities stop contributing. A deadline alone is not an activity-day
+requirement for other challenges. Ambiguous duplicate system definitions retain
+current accepted windows but cannot create more future cycles. Reviewed
+canonical identity publication remains a separate existing workflow.
+
+## Other prospective awards
+
+New ordinary random cosmetic duplicates pay at most 10 Coins each, without
+changing catalog ownership or rarity odds. New expeditions freeze that amount
+in each cosmetic slot at launch; claims never recalculate it. Old trips without
+the new snapshot and owned consumables keep their existing effects and values.
+Guaranteed authored rewards and older inventory are not rewritten.
+
+Future annual birthday gifts use the fixed `BIRTHDAY_COIN_GIFT=200`, independent
+of age. Previously saved birthday receipts and Coin balances remain unchanged.
+Money exchange remains `COINS_PER_DOLLAR=10`, including each pending request's
+frozen quote. Accepted shop redemptions retain their original cost, fulfillment
+and refunds even when a parent updates the offer price for new requests.
+
+The owner-directed family shop price update is an explicit MCP operation,
+verified separately from deployment. It does not introduce a migration that
+reprices other families' parent-managed offers.
+
+## Catalog rollout holds
+
+Bundled loading keeps its existing provenance and ambiguity checks. An
+unreconciled duplicate, active legacy campaign, pack-owned row or database
+override can hold a source update. Such rows are not silently chosen or
+replaced with version-2 rules. Already saved occurrences, including future
+windows, remain accepted promises; the new guard stops creating additional
+ambiguous cycles. For duplicate identities, the separately reviewed canonical
+reconciliation workflow must publish its exact pair before a bundled reload
+or reviewed version-2 publication can update the canonical offer. Installing
+that workflow alone does not change saved catalog data.

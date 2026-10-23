@@ -585,12 +585,15 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
         pct = float(self._balance(obj) / obj.target_amount) * 100
         return min(100, round(pct))
 
-    def to_representation(self, instance):
-        # Lazy completion check: if the child's balance now covers an
-        # active goal (e.g. target was lowered, or a prior write missed
-        # the hook), auto-complete + run the reward pipeline on read.
-        if not instance.is_completed:
-            from .savings_service import SavingsGoalService
-            SavingsGoalService.check_and_complete(instance.user)
-            instance.refresh_from_db(fields=["is_completed", "completed_at"])
-        return super().to_representation(instance)
+    def validate_target_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Choose a positive savings target.")
+        return value
+
+    def create(self, validated_data):
+        from .savings_service import SavingsGoalService
+        return SavingsGoalService.create_goal(**validated_data)
+
+    def update(self, instance, validated_data):
+        from .savings_service import SavingsGoalService
+        return SavingsGoalService.update_goal(instance, **validated_data)

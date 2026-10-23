@@ -20,13 +20,13 @@ User = get_user_model()
 def chronicle_birthday_check() -> dict:
     """Fires daily. For each child whose DOB month/day == today:
     - idempotently create a BIRTHDAY entry
-    - on first creation, grant BIRTHDAY_COINS_PER_YEAR × age_years coins
+    - on first creation, grant the fixed BIRTHDAY_COIN_GIFT
     - fire a BIRTHDAY notification
     """
     from apps.families.queries import children_across_families
 
     today = date.today()
-    coins_per_year = getattr(settings, "BIRTHDAY_COINS_PER_YEAR", 100)
+    birthday_gift = getattr(settings, "BIRTHDAY_COIN_GIFT", 200)
 
     results = {"birthdays": 0, "gifts": 0}
     for _family, user in children_across_families(
@@ -47,7 +47,7 @@ def chronicle_birthday_check() -> dict:
             )
             results["birthdays"] += 1
             if created and user.age_years:
-                amount = coins_per_year * user.age_years
+                amount = birthday_gift
                 _award_birthday_coins(user, amount)
                 entry.metadata["gift_coins"] = amount
                 entry.save(update_fields=["metadata"])

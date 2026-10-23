@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.projects.models import SavingsGoal
+from apps.projects.savings_service import SavingsGoalService
 
 from ..context import get_current_user, resolve_target_user
 from ..errors import MCPNotFoundError, safe_tool
@@ -35,7 +36,7 @@ def list_savings_goals(params: ListSavingsGoalsIn) -> dict[str, Any]:
 def create_savings_goal(params: CreateSavingsGoalIn) -> dict[str, Any]:
     """Create a savings goal for the current user."""
     user = get_current_user()
-    goal = SavingsGoal.objects.create(
+    goal = SavingsGoalService.create_goal(
         user=user,
         title=params.title,
         target_amount=params.target_amount,
@@ -66,9 +67,7 @@ def update_savings_goal(params: UpdateSavingsGoalIn) -> dict[str, Any]:
     except SavingsGoal.DoesNotExist:
         raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
     data = params.model_dump(exclude={"goal_id"}, exclude_unset=True)
-    for field, value in data.items():
-        setattr(goal, field, value)
-    goal.save()
+    goal = SavingsGoalService.update_goal(goal, **data)
     return savings_goal_to_dict(goal)
 
 
@@ -93,5 +92,5 @@ def delete_savings_goal(params: DeleteSavingsGoalIn) -> dict[str, Any]:
     except SavingsGoal.DoesNotExist:
         raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
     goal_id = goal.pk
-    goal.delete()
+    SavingsGoalService.delete_goal(goal)
     return {"goal_id": goal_id, "deleted": True}

@@ -62,13 +62,13 @@ class NewRandomCoinPolicyTests(TestCase):
             result = DropService.award_accomplishment(self.user, "perfect_day")
         self.assertEqual(result[0]["item_id"], self.new.pk)
 
-    def test_mystery_box_replaces_selected_pouch_without_extra_candidates(self):
+    def test_owned_mystery_box_keeps_original_selected_pouch_without_extra_candidates(self):
         box = ItemDefinition.objects.create(name="Policy mystery", item_type="consumable",
             metadata={"effect": "mystery_box"})
         UserInventory.objects.create(user=self.user, item=box)
         with patch("apps.rpg.services.random.choices", side_effect=self.choose_old) as choices:
             result = ConsumableService.use(self.user, box.pk)
-        self.assertEqual(result["detail"]["granted_item_id"], self.new.pk)
+        self.assertEqual(result["detail"]["granted_item_id"], self.old.pk)
         self.assertNotIn(self.new.pk, {item.pk for item in choices.call_args.args[0]})
 
     def test_existing_pouch_still_opens_for_full_value_with_lucky_coin(self):

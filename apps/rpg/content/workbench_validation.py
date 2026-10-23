@@ -133,7 +133,7 @@ def _validate_values(section, values, *, new):
         if "allowed_triggers" in filters and (not isinstance(filters["allowed_triggers"], list)
                 or any(not isinstance(trigger, str) for trigger in filters["allowed_triggers"])):
             raise ContentPackError("trigger_filter.allowed_triggers must be a list of trigger strings.")
-        validate_trigger_filter(filters)
+        validate_trigger_filter(filters, allow_catalog_policy=True)
         if any(key in filters for key in ("project_id", "chore_ids", "savings_goal_id")):
             raise ContentPackError("Global catalog challenges cannot reference private family objects.")
         if "on_time" in filters and type(filters["on_time"]) is not bool:

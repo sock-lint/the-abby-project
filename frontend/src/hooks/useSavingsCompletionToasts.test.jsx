@@ -56,8 +56,8 @@ describe('useSavingsCompletionToasts', () => {
       id: 'savings-42',
       title: 'Bike',
       icon: '🧱',
-      coin_bonus: 150, // 75 × COINS_PER_DOLLAR (2)
     });
+    expect(result.current.toasts[0]).not.toHaveProperty('coin_bonus');
 
     // Seen-set persisted so a reload doesn't re-toast this goal.
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY))).toContain(42);

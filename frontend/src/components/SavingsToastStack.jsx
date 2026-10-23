@@ -25,7 +25,7 @@ function Toast({ toast, onDismiss }) {
           Savings goal reached!
         </div>
         <div className="text-caption text-current truncate">
-          {toast.title} · +{toast.coin_bonus} coins
+          {toast.title}
         </div>
       </div>
     </NotificationToast>

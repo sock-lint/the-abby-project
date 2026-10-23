@@ -8,6 +8,17 @@ excluded from raw random pools to keep the original odds and candidate count.
 from collections.abc import Mapping
 
 
+# Prospective random rewards only. Saved expedition loot and previously owned
+# consumables keep their established claim paths.
+EXPEDITION_DAILY_LIMIT = 2
+RANDOM_COSMETIC_SALVAGE_LIMIT = 10
+
+
+def random_cosmetic_salvage_coins(item):
+    """Value of a duplicate from a new ordinary draw or expedition promise."""
+    return min(max(0, int(item.coin_value)), RANDOM_COSMETIC_SALVAGE_LIMIT)
+
+
 RANDOM_POUCH_VALUES = {
     "pouch-small": (5, 1),
     "pouch-rupee": (10, 2),

@@ -27,7 +27,8 @@
             "rarity": "rare",
             "item_type": "cosmetic_frame",
             "sprite_key": "fixture-frame",
-            "catalog_icon": null
+            "catalog_icon": null,
+            "salvage_coins_snapshot": 10
           }
         ]
       }

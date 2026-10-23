@@ -12,7 +12,8 @@
       "item_type": "cosmetic_frame",
       "sprite_key": "fixture-frame",
       "catalog_icon": null,
-      "salvaged_to_coins": 20
+      "salvage_coins_snapshot": 10,
+      "salvaged_to_coins": 10
     }
   ],
   "freshly_claimed": true,

@@ -7,15 +7,17 @@ quests:
   # The badge lights up the /achievements page when the quest finishes;
   # the cosmetic reward_items show up in inventory to equip.
   - name: Seven Nights of Stories
-    description: "Wind down the right way. Read (or listen to) a bedtime story for five nights in a row. No screens in the last 30 minutes before bed."
+    description: "Earn a Reading Adventure on 5 different days in this seven-day window. Each day requires ten newly logged reading minutes; the days need not be consecutive."
     quest_type: collection
     target_value: 5
     duration_days: 7
-    coin_reward: 150
+    coin_reward: 20
     xp_reward: 50
     is_repeatable: false
     trigger_filter:
-      allowed_triggers: [habit_log]
+      allowed_triggers: [reading_logged]
+      distinct_active_days: true
+      reward_policy_version: 2
     reward_items:
       - slug: food-chamomile-tea
         quantity: 3

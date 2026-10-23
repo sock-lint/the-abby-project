@@ -36,14 +36,14 @@ class ExpeditionBudgetTests(SimpleTestCase):
                          {"daily_launches": 0, "daily_items": 0})
 
     def test_launch_allowance_is_shared_across_all_mounts_and_denials_do_not_roll_loot(self):
-        trial = with_mounts(Trial(scenario(launches=3, expeditions_per_day=15), empty_catalog(), 42), 15)
+        trial = with_mounts(Trial(scenario(launches=1, expeditions_per_day=15), empty_catalog(), 42), 15)
         trial.day = 1
         with patch.object(trial.rng, "random", wraps=trial.rng.random) as random:
             trial.launch_expeditions()
-        self.assertEqual(random.call_count, 3)  # Coin jitter only for the three new trips.
-        self.assertEqual(len(trial.pending_expeditions), 3)
+        self.assertEqual(random.call_count, 1)  # No draw for the denied second opportunity.
+        self.assertEqual(len(trial.pending_expeditions), 1)
         s = trial.report()["expedition_budget"]["summary"]
-        self.assertEqual((s["requested_trips"], s["eligible_trips"], s["launched_trips"], s["prevented_trips"]), (15, 15, 3, 12))
+        self.assertEqual((s["requested_trips"], s["eligible_trips"], s["launched_trips"], s["prevented_trips"]), (2, 2, 1, 1))
         self.assertEqual(s["launch_limited_days"], 1)
         self.assertEqual(s["launch_saturated_days"], 1)
 
@@ -51,10 +51,10 @@ class ExpeditionBudgetTests(SimpleTestCase):
         trial = with_mounts(Trial(scenario(items=3, expeditions_per_day=15), catalog_with(item(1)), 42), 15)
         trial.day = 1
         trial.launch_expeditions()
-        self.assertEqual([len(row["items"]) for row in trial.pending_expeditions], [3] + [0] * 14)
+        self.assertEqual([len(row["items"]) for row in trial.pending_expeditions], [3, 0])
         s = trial.report()["expedition_budget"]["summary"]
-        self.assertEqual((s["slots_requested"], s["slots_promised"], s["slots_withheld_by_budget"], s["slots_unfilled_by_pool"]), (45, 3, 42, 0))
-        self.assertEqual((s["launched_trips"], s["zero_item_trips"], s["zero_coin_trips"], s["empty_trips"]), (15, 14, 0, 0))
+        self.assertEqual((s["slots_requested"], s["slots_promised"], s["slots_withheld_by_budget"], s["slots_unfilled_by_pool"]), (6, 3, 3, 0))
+        self.assertEqual((s["launched_trips"], s["zero_item_trips"], s["zero_coin_trips"], s["empty_trips"]), (2, 1, 0, 0))
         self.assertEqual(s["pending_items"], 3)
 
     def test_pool_emptiness_does_not_spend_or_masquerade_as_an_item_quota(self):
@@ -62,7 +62,7 @@ class ExpeditionBudgetTests(SimpleTestCase):
         trial.day = 1
         trial.launch_expeditions()
         s = trial.report()["expedition_budget"]["summary"]
-        self.assertEqual((s["slots_requested"], s["slots_promised"], s["slots_withheld_by_budget"], s["slots_unfilled_by_pool"]), (9, 0, 0, 9))
+        self.assertEqual((s["slots_requested"], s["slots_promised"], s["slots_withheld_by_budget"], s["slots_unfilled_by_pool"]), (6, 0, 0, 6))
         self.assertEqual(s["item_saturated_days"], 0)
         self.assertEqual(s["item_limited_days"], 0)
 
@@ -159,14 +159,14 @@ class ExpeditionBudgetCatalogTests(TestCase):
             self.assertEqual(run_trial(config, catalog, 42), run_trial({**config, "expedition_budget": {
                 "daily_launches": None, "daily_items": None}}, catalog, 42))
 
-    def test_launch_counts_bound_return_challenge_reachability_at_one_two_or_three_per_day(self):
-        definition = QuestDefinition.objects.create(name="Exactly three returns", quest_type="collection",
-                                                    target_value=3, duration_days=1, is_system=True,
+    def test_launch_counts_bound_return_challenge_reachability_inside_installed_allowance(self):
+        definition = QuestDefinition.objects.create(name="Exactly two returns", quest_type="collection",
+                                                    target_value=2, duration_days=1, is_system=True,
                                                     trigger_filter={"allowed_triggers": ["expedition_returned"]})
         catalog = load_catalog()
         for cap in (0, 1, 2, 3):
             trial = Trial(scenario(launches=cap, chores_per_day=1, expeditions_per_day=15), catalog, 42)
-            self.assertEqual(definition.pk in {q.pk for q in trial.quests}, cap == 3)
+            self.assertEqual(definition.pk in {q.pk for q in trial.quests}, cap >= 2)
             self.assertEqual("expedition_returned" in trial._enabled_triggers(), cap > 0)
 
     def test_bounded_journeys_remain_detached_and_reconcile_all_promise_counters(self):

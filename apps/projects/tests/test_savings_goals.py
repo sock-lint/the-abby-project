@@ -118,7 +118,7 @@ class CheckAndCompleteTests(_Fixture):
         self.assertEqual(parent_notif.count(), 1)
 
     def test_idempotent_when_goal_already_completed(self):
-        goal = SavingsGoal.objects.create(
+        SavingsGoal.objects.create(
             user=self.child, title="X", target_amount=Decimal("25.00"),
             is_completed=True, completed_at=timezone.now(),
         )
@@ -207,14 +207,9 @@ class PaymentServiceHookTests(_Fixture):
         )
 
 
-class SerializerLazyCompletionTests(_Fixture):
-    def test_reading_a_goal_auto_completes_if_threshold_met(self):
-        """The ``to_representation`` path runs completion detection too.
-
-        Guards against the case where a parent lowers ``target_amount``
-        to something the child has already saved past — no ledger write
-        needed, but the goal should auto-complete on the next fetch.
-        """
+class SerializerReadOnlyTests(_Fixture):
+    def test_reading_a_goal_does_not_settle_an_eligible_target(self):
+        """Reads report saved state; explicit writes settle completion."""
         # Seed balance without firing the payments hook (see _add_balance).
         self._add_balance("40.00")
 
@@ -226,4 +221,5 @@ class SerializerLazyCompletionTests(_Fixture):
         SavingsGoalSerializer(goal).data
 
         goal.refresh_from_db()
-        self.assertTrue(goal.is_completed)
+        self.assertFalse(goal.is_completed)
+        self.assertFalse(CoinLedger.objects.filter(user=self.child).exists())

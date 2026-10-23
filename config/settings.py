@@ -258,8 +258,11 @@ COINS_PER_BADGE_RARITY = {
 }
 # How many Coins a child receives per $1.00 exchanged (money → coins).
 COINS_PER_DOLLAR = 10
-# Coins granted on a child's birthday, multiplied by age in years (tunable).
+# Legacy age factor retained for recorded policy compatibility only.
 BIRTHDAY_COINS_PER_YEAR = 100
+# Fixed gift for future birthdays. Retain the older factor for recorded policy
+# compatibility; existing birthday receipts and balances are never recalculated.
+BIRTHDAY_COIN_GIFT = 200
 
 # --- Homework timeliness ----------------------------------------------------
 # Homework pays no money and no coins — rewards are XP, drops, streaks, and

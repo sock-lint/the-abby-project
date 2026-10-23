@@ -454,6 +454,14 @@ class ProjectCollaborator(models.Model):
         return f"{self.user} on {self.project.title} ({self.pay_split_percent}%)"
 
 
+class SavingsRewardProgress(models.Model):
+    """A lifetime milestone boundary, independent of disposable goal rows."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="savings_reward_progress")
+    recognized_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+
+
 class SavingsGoal(CreatedAtModel):
     """A savings target set by the child.
 
@@ -474,6 +482,23 @@ class SavingsGoal(CreatedAtModel):
     icon = models.CharField(max_length=50, blank=True)
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    reward_policy_version = models.PositiveSmallIntegerField(default=2)
+    reward_start_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    reward_rate_snapshot = models.DecimalField(max_digits=10, decimal_places=4, default=2)
+    legacy_coin_reward = models.PositiveIntegerField(null=True, blank=True)
+    reward_qualifies = models.BooleanField(default=False)
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.reward_policy_version == 2:
+            from apps.payments.services import PaymentService
+            User.objects.select_for_update(no_key=True).get(pk=self.user_id)
+            balance = max(Decimal("0"), PaymentService.get_balance(self.user))
+            self.reward_start_balance = balance
+            self.reward_rate_snapshot = Decimal(str(getattr(settings, "COINS_PER_SAVINGS_GOAL_DOLLAR", 2)))
+            SavingsRewardProgress.objects.get_or_create(user_id=self.user_id,
+                defaults={"recognized_balance": balance})
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["-created_at"]

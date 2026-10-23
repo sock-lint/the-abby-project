@@ -773,7 +773,8 @@ describe('shared Django response fixtures through the React API client', () => {
     }]);
     if (!freshlyClaimed) expect(result.items).toEqual(claimedExpedition.items);
     if (result.items[0].salvaged_to_coins) {
-      expect(result.items[0].salvaged_to_coins).toBe(20);
+      expect(result.items[0].salvage_coins_snapshot).toBe(10);
+      expect(result.items[0].salvaged_to_coins).toBe(10);
       expect(result.coins_awarded).toBe(3);
     }
   });
