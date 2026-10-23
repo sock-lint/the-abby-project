@@ -17,35 +17,60 @@ function renderMenu(props = {}) {
 }
 
 describe('AvatarMenu', () => {
-  it('gives the compact header to the saved title and keeps account details inside the menu', async () => {
+  it('keeps the compact portrait and level together and repeats the saved identity in the menu', async () => {
     const user = userEvent.setup();
     render(<MemoryRouter><PulseContext.Provider value={{ pulse: { identity: {
       id: 7, active_title: { name: 'Chore Hero', icon: '🧹' },
       active_trophy_badge: { name: 'First Dollar', icon: '🏅' },
-    } } }}>
+    }, header: { level: 3 } } }}>
       <AvatarMenu compact user={{ id: 7, username: 'test3', display_name: 'Test child', role: 'child', family: { name: 'Default Family' } }} />
     </PulseContext.Provider></MemoryRouter>);
     const trigger = screen.getByRole('button', { name: 'Open profile menu' });
-    expect(within(trigger).getByText('Chore Hero')).toBeInTheDocument();
-    expect(within(trigger).queryByLabelText('Featured badge: First Dollar')).not.toBeInTheDocument();
-    expect(within(trigger).queryByText('Test child')).not.toBeInTheDocument();
+    expect(within(trigger).getByLabelText('Level 3')).toHaveTextContent('Lv. 3');
+    expect(within(trigger).getByText('Test child')).toBeInTheDocument();
     expect(within(trigger).queryByText('Default Family')).not.toBeInTheDocument();
     expect(within(trigger).queryByText('child')).not.toBeInTheDocument();
 
     await user.click(trigger);
     const menu = screen.getByRole('menu', { name: 'Profile' });
     expect(within(menu).getByText('Test child')).toBeInTheDocument();
-    expect(within(menu).getByText('Default Family')).toBeInTheDocument();
+    expect(menu).toHaveTextContent(/child · Default Family/i);
     expect(within(menu).getByText('Chore Hero')).toBeInTheDocument();
     expect(within(menu).getByText('First Dollar')).toBeInTheDocument();
+    expect(within(menu).getByLabelText('Level 3')).toHaveTextContent('Lv. 3');
+    expect(within(menu).getByText('🧹')).toBeInTheDocument();
+    expect(within(menu).getByText('🏅')).toBeInTheDocument();
+    expect(menu.querySelector('[data-portrait-frame]')).toBeInTheDocument();
   });
 
-  it('labels a compact profile without a saved title', () => {
+  it('keeps the account name visible without a saved title or level', () => {
     renderMenu({ compact: true });
     const trigger = screen.getByRole('button', { name: 'Open profile menu' });
-    expect(within(trigger).getByText('Profile')).toBeInTheDocument();
-    expect(within(trigger).queryByText('Abby')).not.toBeInTheDocument();
+    expect(within(trigger).getByText('Abby')).toBeInTheDocument();
+    expect(within(trigger).queryByLabelText(/^Level /)).not.toBeInTheDocument();
     expect(within(trigger).queryByText('child')).not.toBeInTheDocument();
+  });
+
+  it('shows a confirmed level zero instead of treating it as missing', () => {
+    render(<MemoryRouter><PulseContext.Provider value={{ pulse: {
+      identity: { id: 7 }, header: { level: 0 },
+    } }}>
+      <AvatarMenu compact user={{ id: 7, username: 'abby', display_name: 'Abby', role: 'child' }} />
+    </PulseContext.Provider></MemoryRouter>);
+    expect(within(screen.getByRole('button', { name: 'Open profile menu' })).getByLabelText('Level 0')).toHaveTextContent('Lv. 0');
+  });
+
+  it('does not attach a previous account’s saved look or level to this account', async () => {
+    render(<MemoryRouter><PulseContext.Provider value={{ pulse: {
+      identity: { id: 88, active_title: { name: 'Previous title' }, active_trophy_badge: { name: 'Previous badge' } },
+      header: { level: 6 },
+    } }}>
+      <AvatarMenu compact user={{ id: 7, username: 'abby', display_name: 'Abby', role: 'child' }} />
+    </PulseContext.Provider></MemoryRouter>);
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open profile menu' }));
+    expect(screen.queryByText('Previous title')).not.toBeInTheDocument();
+    expect(screen.queryByText('Previous badge')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Level /)).not.toBeInTheDocument();
   });
 
   it('shows the initial from display_name', () => {
@@ -59,9 +84,11 @@ describe('AvatarMenu', () => {
     expect(screen.getAllByText('X').length).toBeGreaterThan(0);
   });
 
-  it('falls back to ? when the user is null', () => {
+  it('keeps a readable member fallback when the user is null', () => {
     renderMenu({ user: null });
-    expect(screen.getAllByText('?').length).toBeGreaterThan(0);
+    const trigger = screen.getByRole('button', { name: 'Open profile menu' });
+    expect(within(trigger).getByText('Member')).toBeInTheDocument();
+    expect(within(trigger).queryByLabelText(/^Level /)).not.toBeInTheDocument();
   });
 
   it('opens the menu on button click and closes on escape', async () => {
@@ -179,12 +206,13 @@ describe('AvatarMenu', () => {
     expect(screen.getByRole('menu').className).toContain('bottom-full');
   });
 
-  it('falls back to "member" and "family member" in the header when user fields are missing', async () => {
+  it('keeps a readable menu identity when user fields are missing', async () => {
     const user = userEvent.setup();
     renderMenu({ user: {} });
     await user.click(screen.getByRole('button', { name: /profile menu/i }));
-    expect(screen.getByText('member')).toBeInTheDocument();
-    expect(screen.getByText('family member')).toBeInTheDocument();
+    const menu = screen.getByRole('menu', { name: 'Profile' });
+    expect(within(menu).getByText('Member')).toBeInTheDocument();
+    expect(within(menu).queryByLabelText(/^Level /)).not.toBeInTheDocument();
   });
 
   it('renders Manage / Activity / Content Catalog menu items for parents', async () => {
