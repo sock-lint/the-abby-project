@@ -15,7 +15,7 @@
   "potion_name": "Ice",
   "potion_slug": "ice",
   "loot": {
-    "coins": 15,
+    "coins": 3,
     "items": [
       {
         "item_id": 71,

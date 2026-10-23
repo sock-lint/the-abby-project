@@ -17,7 +17,7 @@
       "potion_name": "Fire",
       "potion_slug": "fire",
       "loot": {
-        "coins": 75,
+        "coins": 15,
         "items": [
           {
             "item_id": 71,
@@ -69,7 +69,7 @@
       "potion_name": "Ice",
       "potion_slug": "ice",
       "loot": {
-        "coins": 35,
+        "coins": 7,
         "items": [
           {
             "item_id": 71,
@@ -111,7 +111,7 @@
       "potion_name": "Ice",
       "potion_slug": "ice",
       "loot": {
-        "coins": 15,
+        "coins": 3,
         "items": [
           {
             "item_id": 71,
