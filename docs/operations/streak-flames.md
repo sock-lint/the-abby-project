@@ -5,29 +5,35 @@ The source artwork, runtime JSON, immutable release files and visual evidence
 remain outside Git. Repository code contains only the receiving adapter,
 release identity, digest bindings and synthetic test fixtures.
 
-## Candidate and activation hold
+## Published application pin
 
-| Field | Candidate |
+| Field | Release |
 | --- | --- |
 | Family | `abby-streak-flames` |
 | Version | `1.0.0` |
 | Manifest SHA-256 | `e2fb733534ab379e432cbf22dd37d000a264ffab39709179a3dbac2a22609a64` |
 | Runtime JSON SHA-256 | `dd285a472e0abcb80d0a87b70dcaf322602808f297bee73da76f4af952d3b435` |
 | Runtime JSON bytes | `5253` |
-| Status | Private candidate; publication and active application pin pending |
+| Status | Privately published and independently reader-verified; active application pin adopted |
 
-Only `frontend/assets.evaluation.lock.json` records this candidate. The active
-`frontend/assets.lock.json` does not adopt it. A private staged directory or an
-evaluation pin cannot activate the resolver. Missing, failed, malformed or
-unpublished artwork retains an explicit unavailable indicator; it never
-substitutes the dormant ember.
+Abby's existing read-only reader independently fetched the exact remote manifest
+and its one runtime object into a fresh import destination on October 22, 2026.
+The raw 789-byte manifest matched its pinned SHA-256 and file-library schema;
+the 5,253-byte runtime object matched its digest, entry identity and runtime path.
+All four embedded SVG documents also matched their original hashes.
 
-Publish the exact immutable release through the existing workshop's authorized
-private publisher before adding its pin to the active application lock. The
-application's read-only reader cannot publish it. The dedicated legacy avatar
-release helper does not cover this file-library family. Do not add an unavailable
-family to the production lock, change credentials or delivery settings, or claim
-that a local candidate has been delivered.
+Only this verified family moved from `frontend/assets.evaluation.lock.json` into
+`frontend/assets.lock.json`. The eleven existing application pins and the
+unrelated Crown evaluation candidate retain their exact identities and digests.
+The standard release-tools `pin` operation verifies the downloaded release before
+adoption; `npm run assets:import` installs the active lock through the ordinary
+verified asset pipeline. The application resolver reads only that active lock.
+
+A staged directory or evaluation pin cannot activate the resolver. Missing,
+failed or malformed artwork retains an explicit unavailable indicator; it never
+substitutes the dormant ember. Private publication and application pin adoption
+do not establish a production deployment; the PR still follows ordinary hosted
+checks, independent review and merge gates.
 
 ## Preparation and receiving contract
 
@@ -94,7 +100,7 @@ state. Saved streak counts, personal bests and client day thresholds do not
 select artwork. The server normalizes intensity against its actual check-in
 multiplier cap; reward calculations and endpoints remain authoritative.
 
-Before activation, verify the candidate's four exact original SVG hashes and
+For activation and later changes, verify the four exact original SVG hashes and
 inspect all stages at actual 20/24px on `#FFF8EE` and `#292538`, in grayscale,
 and with multiple instances. Check the shared baseline, spark clearance,
 reduced motion and actual application stage boundaries. Preserve screenshots
@@ -103,8 +109,9 @@ and the explicit unavailable state when private art is absent.
 
 Run the adapter and bonus mapping unit checks, the header/application browser
 checks, `npm run assets:verify`, `npm run test:licensed-art`, frontend lint and
-coverage, and both web/native builds. Restore the active lock and verified
-installed tree after isolated candidate checks. Record exact results and the
-publication hold separately from any production delivery claim. Rollback removes
-the new active pin and integration while retaining the private immutable
-candidate, original art and earlier release pins.
+coverage, and both web/native builds. Preserve the active pin and verified
+installed tree after application checks. Any isolated future candidate checks
+must restore that active installation afterward. Record exact results separately
+from any production delivery claim. Rollback removes the flame active pin and
+integration while retaining the private immutable release, original art and
+earlier release pins.

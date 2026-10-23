@@ -32,14 +32,18 @@ function fixture() {
 }
 
 describe('Private streak flame release', () => {
-  it('keeps the exact unpublished candidate in evaluation without activating staged artwork', () => {
-    expect(evaluationLock.schema_version).toBe(1);
-    expect(evaluationLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([STREAK_FLAME_PIN]);
-    expect(activeLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([]);
+  it('resolves the published flame through the active lock while excluding evaluation-only artwork', () => {
     const f = fixture();
-    // Supply a complete synthetic install while leaving the resolver's real
-    // active-lock default in place. An evaluation pin alone must not enable it.
-    expect(stagedStreakFlameRelease(f.available, f.raw(), undefined, f.urls)).toBeNull();
+    // Exercise the real active-lock default with a complete synthetic install.
+    // An evaluation lock or staged files without an active pin cannot enable it.
+    const staged = stagedStreakFlameRelease(f.available, f.raw(), undefined, f.urls);
+    expect(staged?.pin).toEqual(STREAK_FLAME_PIN);
+    expect(resolveStreakFlame('maximum-blaze', staged)?.stage).toBe('maximum-blaze');
+    expect(stagedStreakFlameRelease(f.available, f.raw(), evaluationLock, f.urls)).toBeNull();
+    expect(stagedStreakFlameRelease(f.available, f.raw(), { releases: [] }, f.urls)).toBeNull();
+    expect(activeLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([STREAK_FLAME_PIN]);
+    expect(evaluationLock.schema_version).toBe(1);
+    expect(evaluationLock.releases.filter((pin) => pin.family_id === STREAK_FLAME_FAMILY)).toEqual([]);
   });
 
   it('preserves all four complete SVG documents and release identities in isolated image URLs', () => {
