@@ -117,7 +117,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom', sh
         aria-label="Open profile menu"
         aria-description={`${name}${Number.isInteger(level) && level >= 0 ? `, Level ${level}` : ''}`}
         className={`flex items-center gap-2 min-h-11 max-w-full rounded-2xl transition-colors
-                    ${compact ? 'w-full py-1' : 'min-w-11 w-full px-2 py-1'}
+                    ${compact ? 'min-w-11 w-full py-1' : 'min-w-11 w-full px-2 py-1'}
                     hover:bg-sheikah-teal/10 focus-visible:outline-none
                     focus-visible:ring-2 focus-visible:ring-sheikah-teal-deep/50`}
       >
@@ -140,7 +140,7 @@ export default function AvatarMenu({ user, compact = false, align = 'bottom', sh
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: menuInitialY, scale: 0.98 }}
             transition={{ duration: 0.14, ease: 'easeOut' }}
-            className={`absolute ${menuPos} w-60 lg:w-full max-w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] bg-ink-page-aged border border-ink-page-shadow
+            className={`absolute ${menuPos} ${compact ? 'w-60' : 'w-60 lg:w-full'} max-w-[calc(100vw-2rem-env(safe-area-inset-left)-env(safe-area-inset-right))] bg-ink-page-aged border border-ink-page-shadow
                         rounded-2xl shadow-xl overflow-y-auto overflow-x-hidden overscroll-contain z-50
                         max-h-[calc(100dvh-10rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] lg:max-h-[calc(100dvh-6rem)]
                         shadow-[0_0_0_1px_var(--color-sheikah-teal-deep)_inset,0_8px_24px_rgba(0,0,0,0.18)]`}

@@ -227,6 +227,44 @@ test('an unbroken authored title stays accessible through its icon beside the st
   expect(bell.x + bell.width).toBeLessThanOrEqual(305);
 });
 
+for (const width of [320, 390]) {
+  test(`the phone profile trigger stays a full target when the pulse fails at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 });
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ status: 503, json: { detail: 'Unavailable' } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    const profile = header.getByRole('button', { name: 'Open profile menu', exact: true });
+    await expect(profile).toBeVisible();
+    const target = await profile.boundingBox();
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
+  });
+}
+
+for (const role of ['child', 'parent']) {
+  test(`the desktop header profile menu keeps its full width for a short ${role} name`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.route('**/api/auth/me/**', (route) => route.fulfill({ json: {
+      id: 2, username: 'abby', display_name: 'Abby', role, theme: 'hyrule', family: { id: 1, name: 'Synthetic family' },
+    } }));
+    await page.route('**/api/pulse/**', (route) => route.fulfill({ json: {
+      notifications: [], recent_drops: [], challenge_receipts: [], companion_growth: { events: [] }, expeditions_ready: [], savings_goals: [],
+      identity: { id: 2, active_frame: null, active_title: { name: 'Legendary Forgemaster', metadata: { text: 'Legendary Forgemaster' } }, active_trophy_badge: null },
+      header: { active_timer: null, coin_balance: 12, streak_days: 3, level: 4 },
+    } }));
+    await page.goto(`${origin}/e2e/page-composition-fixture.html?page=app-today`);
+    const header = page.locator('header').filter({ has: page.getByRole('group', { name: 'Status shortcuts' }) });
+    await header.getByRole('button', { name: 'Open profile menu', exact: true }).click();
+    const menu = page.getByRole('menu', { name: 'Profile', exact: true });
+    await expect(menu).toBeVisible();
+    const box = await menu.boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(239);
+    for (const item of await menu.getByRole('menuitem').all()) {
+      expect(await item.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    }
+  });
+}
+
 for (const role of ['child', 'parent']) {
   test(`the phone profile fallback stays readable without an earned title for a ${role}`, async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 640 });
@@ -241,6 +279,10 @@ for (const role of ['child', 'parent']) {
     await expect(profile.getByText('Synthetic family', { exact: true })).toHaveCount(0);
     await expect(profile.getByText(role, { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    // Without a confirmed level the portrait alone must still be a full target.
+    const target = await profile.boundingBox();
+    expect(target.width).toBeGreaterThanOrEqual(44);
+    expect(target.height).toBeGreaterThanOrEqual(44);
     await profile.click();
     const menu = page.getByRole('menu', { name: 'Profile', exact: true });
     await expect(menu.getByText('Fixture', { exact: true })).toBeVisible();
