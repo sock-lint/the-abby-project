@@ -1,7 +1,8 @@
-"""Mapping from GameLoopService trigger + context → chronicle first-ever slug.
+"""Mapping from GameLoopService trigger + context to Chronicle first-ever slugs.
 
 Called from GameLoopService._record_chronicle_firsts after quest progress.
-Returning None means "no first_ever worth emitting for this trigger+context"."""
+The legacy single-slug mapper preserves its source-first priority.
+"""
 from __future__ import annotations
 
 from typing import Optional
@@ -40,3 +41,17 @@ def slug_for(trigger_type: str, context: dict) -> Optional[tuple[str, str, str]]
         return (f"first_streak_{streak}", f"First {streak}-day streak", "streak-flame")
 
     return None
+
+
+def slugs_for(trigger_type: str, context: dict) -> list[tuple[str, str, str]]:
+    """Return source and streak firsts, retaining the legacy primary result."""
+    primary = slug_for(trigger_type, context)
+    mapped = [primary] if primary is not None else []
+    streak = (context or {}).get("streak")
+    if streak in (30, 60, 100):
+        streak_first = (
+            f"first_streak_{streak}", f"First {streak}-day streak", "streak-flame",
+        )
+        if streak_first not in mapped:
+            mapped.append(streak_first)
+    return mapped

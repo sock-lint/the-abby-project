@@ -118,6 +118,8 @@ def _award_perfect_day(child, today):
     from apps.rpg.constants import TriggerType
     from apps.rpg.services import DropService
     DropService.award_accomplishment(child, TriggerType.PERFECT_DAY)
+    from apps.chronicle.recognition import safe_record_firsts
+    safe_record_firsts(child, TriggerType.PERFECT_DAY)
     from apps.achievements.services import BadgeService
     BadgeService.evaluate_badges(child, scopes={"time", "badges"})
     notify(
