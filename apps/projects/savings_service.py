@@ -1,9 +1,9 @@
 """Explicit savings writes settle once-paid, prospective money milestones.
 
-Money remains liquid. Reads only project saved state. A new goal recognizes
-growth above its starting balance and the child's durable shared high-water
-mark; deleting goals or spending money cannot reset that boundary. Accepted
-pre-cutover goals keep their exact frozen Coin promises.
+Money remains liquid. Reads only project saved state. New targets freeze an
+admission floor above current money and previously completed milestones.
+Durable covered ranges prevent repeat rewards while reserving unpaid gaps
+to older unchanged goals. Accepted goals keep their frozen Coin promises.
 """
 from decimal import Decimal
 import logging
@@ -18,6 +18,47 @@ logger = logging.getLogger(__name__)
 
 class SavingsGoalTargetError(ValueError):
     """An accepted savings promise cannot keep its payout at a lower target."""
+
+
+def _claim_savings_range(covered, start, end):
+    """Return uncovered dollars and a canonical union in one linear pass.
+
+    Stored coverage uses integer cents, with touching bands merged. Reject
+    malformed coverage rather than treating it as unclaimed money.
+    """
+    left, right = int(start * 100), int(end * 100)
+    if right <= left:
+        return Decimal("0"), covered
+    if not isinstance(covered, list):
+        raise ValueError("The saved savings coverage is invalid.")
+    uncovered = right - left
+    merged = []
+    union_left, union_right = left, right
+    inserted = False
+    previous_end = None
+    for band in covered:
+        if (not isinstance(band, list) or len(band) != 2
+                or any(type(point) is not int for point in band)):
+            raise ValueError("The saved savings coverage is invalid.")
+        prior_left, prior_right = band
+        if (prior_left < 0 or prior_right <= prior_left
+                or (previous_end is not None and prior_left <= previous_end)):
+            raise ValueError("The saved savings coverage is invalid.")
+        previous_end = prior_right
+        uncovered -= max(0, min(right, prior_right) - max(left, prior_left))
+        if prior_right < union_left:
+            merged.append(band)
+        elif union_right < prior_left:
+            if not inserted:
+                merged.append([union_left, union_right])
+                inserted = True
+            merged.append(band)
+        else:
+            union_left = min(union_left, prior_left)
+            union_right = max(union_right, prior_right)
+    if not inserted:
+        merged.append([union_left, union_right])
+    return Decimal(uncovered) / 100, merged
 
 
 class SavingsGoalService:
@@ -35,7 +76,7 @@ class SavingsGoalService:
     @transaction.atomic
     def update_goal(cls, goal, **data):
         from apps.payments.services import PaymentService
-        from .models import SavingsGoal, User
+        from .models import SavingsGoal, SavingsRewardProgress, User
         User.objects.select_for_update(no_key=True).get(pk=goal.user_id)
         fresh = SavingsGoal.objects.select_for_update().get(pk=goal.pk, user_id=goal.user_id)
         if fresh.reward_policy_version == 1 and "target_amount" in data:
@@ -50,8 +91,9 @@ class SavingsGoalService:
             # A newly chosen target recognizes only future saving. Otherwise
             # pre-created distant goals could be lowered cent by cent to farm
             # milestone events against money that is already available.
-            fresh.reward_start_balance = max(
-                fresh.reward_start_balance, PaymentService.get_balance(fresh.user))
+            progress = SavingsRewardProgress.objects.select_for_update().get(user_id=fresh.user_id)
+            fresh.reward_start_balance = max(fresh.reward_start_balance,
+                PaymentService.get_balance(fresh.user), progress.recognized_balance)
         for field in ("title", "target_amount", "icon"):
             if field in data:
                 setattr(fresh, field, data[field])
@@ -92,7 +134,8 @@ class SavingsGoalService:
         if not pending:
             return []
         progress, _ = SavingsRewardProgress.objects.select_for_update().get_or_create(
-            user=user, defaults={"recognized_balance": balance})
+            user=user, defaults={"recognized_balance": balance,
+                "recognized_ranges": [[0, int(balance * 100)]] if balance > 0 else []})
         settlements = []
         qualifying_new = None
         for goal in pending:
@@ -101,12 +144,16 @@ class SavingsGoalService:
                 raise ValueError("The accepted savings reward snapshot is unavailable.")
             if legacy and goal.target_amount < goal.legacy_target_amount:
                 raise SavingsGoalTargetError("The goal is below its accepted savings target.")
-            floor = max(goal.reward_start_balance, progress.recognized_balance)
-            new_savings = max(Decimal("0"), goal.target_amount - floor)
+            start = Decimal("0") if legacy else goal.reward_start_balance
+            end = goal.legacy_target_amount if legacy else goal.target_amount
+            new_savings, progress.recognized_ranges = _claim_savings_range(progress.recognized_ranges, start, end)
             coins = goal.legacy_coin_reward if legacy else int(new_savings * goal.reward_rate_snapshot)
             settlements.append((goal, coins))
             if not legacy and new_savings > 0:
                 qualifying_new = goal
+            # Admission is separate from paid coverage: new identities cannot
+            # acquire earlier holes after spending, while unchanged old goals
+            # may still recognize those dollars using their frozen floor.
             progress.recognized_balance = max(progress.recognized_balance, goal.target_amount)
 
         # One balance write can reach many ascending targets. Preserve each
@@ -118,7 +165,7 @@ class SavingsGoalService:
             goal.is_completed = True
             goal.completed_at = timezone.now()
             goal.save(update_fields=["is_completed", "completed_at", "reward_qualifies"])
-        progress.save(update_fields=["recognized_balance"])
+        progress.save(update_fields=["recognized_balance", "recognized_ranges"])
         for goal, coins in settlements:
             cls._fire_completion_pipeline(goal, coins)
             cls._notify_completion(goal, coins)

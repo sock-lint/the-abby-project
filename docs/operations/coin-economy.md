@@ -83,16 +83,26 @@ shop requests. No production account, balance or offer is changed by tests.
 
 ## New savings milestones
 
-New goals freeze their starting money balance and reward rate. The durable
-per-child savings high-water mark survives goal deletion, spending, payouts
-and exchanges. Completion rewards only the new target increment above both
-the starting balance and the previously recognized milestone. Overlapping
-new goals cannot reward the same saved dollars twice. A goal already covered
+New goals freeze their reward rate and a starting floor above both current
+money and the highest previously completed target. The durable per-child
+admission high-water mark survives goal deletion, spending, payouts and
+exchanges. Separate ordered, merged ranges in integer cents record money
+already recognized or excluded at cutover. Completion subtracts that coverage
+from the goal's frozen starting-floor-to-target range and pays its frozen rate
+on the total uncovered dollars once. Overlapping new goals cannot reward the
+same saved dollars twice. A goal already covered
 by existing money can be visibly complete without Coins, drops, challenge
 credit or savings-badge progress.
 
-Changing a new goal's target starts its reward eligibility above the greater
-of its previous starting balance and the current money balance. Lowering old
+The admission maximum does not imply every lower dollar has been rewarded.
+For example, an older $100 goal started at $0 retains its unpaid $0–60 range
+when a later goal started at $60 rewards only $60–80. The older goal later
+recognizes that lower gap and $80–100; the paid $60–80 range is excluded.
+Already funded completions add no coverage. They may raise the admission
+maximum, preventing fresh identities from acquiring old gaps after spending.
+
+Changing a new goal's target starts its reward eligibility above the greatest
+of its previous starting floor, current money and the admission maximum. Lowering old
 targets after a deposit cannot split that existing money into extra milestone
 credits. Sending the same target or changing only its title or icon preserves
 the frozen baseline and any legitimate reward retry. Legacy goals retain their
@@ -116,6 +126,8 @@ its original Coin promise. Its target cannot be lowered below the frozen
 accepted amount; REST and MCP return a field validation error. A lower target
 requires a new prospective goal, so a large accepted payout cannot be claimed
 by changing its original requirement to an already funded smaller amount.
+Legacy completion reserves coverage only through its frozen accepted target;
+a raised target updates admission without erasing another old goal's unpaid gap.
 
 ## Future challenge windows
 

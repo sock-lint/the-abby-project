@@ -455,11 +455,14 @@ class ProjectCollaborator(models.Model):
 
 
 class SavingsRewardProgress(models.Model):
-    """A lifetime milestone boundary, independent of disposable goal rows."""
+    """Lifetime coverage and admission boundary, independent of goal rows."""
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
         related_name="savings_reward_progress")
     recognized_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Ordered, merged [start, end] pairs in integer cents. The maximum alone
+    # cannot represent unpaid lower gaps reserved to older unchanged goals.
+    recognized_ranges = models.JSONField(default=list)
 
 
 class SavingsGoal(CreatedAtModel):
@@ -495,10 +498,11 @@ class SavingsGoal(CreatedAtModel):
             from apps.payments.services import PaymentService
             User.objects.select_for_update(no_key=True).get(pk=self.user_id)
             balance = max(Decimal("0"), PaymentService.get_balance(self.user))
-            self.reward_start_balance = balance
+            progress, _ = SavingsRewardProgress.objects.select_for_update().get_or_create(user_id=self.user_id,
+                defaults={"recognized_balance": balance,
+                    "recognized_ranges": [[0, int(balance * 100)]] if balance > 0 else []})
+            self.reward_start_balance = max(balance, progress.recognized_balance)
             self.reward_rate_snapshot = Decimal(str(getattr(settings, "COINS_PER_SAVINGS_GOAL_DOLLAR", 2)))
-            SavingsRewardProgress.objects.get_or_create(user_id=self.user_id,
-                defaults={"recognized_balance": balance})
         super().save(*args, **kwargs)
 
     class Meta:

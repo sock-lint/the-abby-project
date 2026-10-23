@@ -29,8 +29,10 @@ def freeze_existing_savings(apps, schema_editor):
         amount=models.Max('target_amount')).values_list('user_id', 'amount'))
     owners = set(balances) | set(Goal.objects.using(alias).values_list('user_id', flat=True))
     for user_id in sorted(owners):
+        baseline = max(Decimal('0'), balances.get(user_id) or 0, completed.get(user_id) or 0)
         Progress.objects.using(alias).get_or_create(user_id=user_id, defaults={
-            'recognized_balance': max(Decimal('0'), balances.get(user_id) or 0, completed.get(user_id) or 0),
+            'recognized_balance': baseline,
+            'recognized_ranges': [[0, int(baseline * 100)]] if baseline > 0 else [],
         })
 
 
@@ -79,6 +81,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('recognized_balance', models.DecimalField(decimal_places=2, default=0, max_digits=14)),
+                ('recognized_ranges', models.JSONField(default=list)),
                 ('user', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='savings_reward_progress', to=settings.AUTH_USER_MODEL)),
             ],
         ),
