@@ -1,0 +1,13 @@
+{
+  "kind": "editorial",
+  "id": "00000000-0000-4000-8000-000000000002",
+  "is_archived": true,
+  "revision": 2,
+  "published_at": null,
+  "request_id": "10000000-0000-4000-8000-000000000002",
+  "replayed": false,
+  "operation": {
+    "is_archived": true,
+    "revision": 2
+  }
+}

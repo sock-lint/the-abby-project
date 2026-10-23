@@ -1,8 +1,13 @@
 from django.urls import path
 
-from . import experiment_views, progression_views, sprite_admin_views, views, workbench_views
+from . import archive_views, experiment_views, progression_views, sprite_admin_views, views, workbench_views
 
 urlpatterns = [
+    path("rpg/content-workbench/drafts/<uuid:object_id>/archive/", archive_views.AuthoringArchiveView.as_view(kind="content"), name="content-draft-archive"),
+    path("rpg/editorial/drafts/", archive_views.EditorialDraftListView.as_view(), name="editorial-draft-list"),
+    path("rpg/editorial/drafts/<uuid:draft_id>/", archive_views.EditorialDraftDetailView.as_view(), name="editorial-draft-detail"),
+    path("rpg/editorial/drafts/<uuid:object_id>/archive/", archive_views.AuthoringArchiveView.as_view(kind="editorial"), name="editorial-draft-archive"),
+    path("rpg/progression-lab/experiments/<uuid:object_id>/archive/", archive_views.AuthoringArchiveView.as_view(kind="experiment"), name="progression-experiment-archive"),
     path("rpg/content-workbench/", workbench_views.ContentWorkbenchView.as_view(), name="content-workbench"),
     path("rpg/content-workbench/drafts/", workbench_views.ContentDraftListView.as_view(), name="content-draft-list"),
     path("rpg/content-workbench/drafts/<uuid:draft_id>/", workbench_views.ContentDraftDetailView.as_view(), name="content-draft-detail"),

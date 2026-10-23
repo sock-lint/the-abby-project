@@ -70,6 +70,13 @@ npm run test:run -- src/api/sharedContractFixtures.test.js src/api/avatarContrac
 npm run test:run -- src/api/progressionLabContractFixtures.test.js src/api/contentWorkbenchContractFixtures.test.jsx src/api/taxonomyRetirementContractFixtures.test.jsx src/api/journalContractFixtures.test.js
 ```
 
+Archive and participant-privacy contracts additionally run
+`config.tests.test_authoring_archive_api_contract_fixtures` and
+`config.tests.test_participant_privacy_api_contract_fixtures`, with
+`src/api/authoringArchiveContractFixtures.test.js` and the existing challenge
+fixture consumer. These verify real archive/history/restore receipts, retry
+state, and retained legacy contributions without departed profile names.
+
 The catalog producer/consumer pair uses production asset support and checks
 available offers separately from retained saved ownership. Historical breeding fixtures are retained only for retired Unity reference; active contracts verify HTTP 410 and inert compatibility fields. For
 catalog changes, also run:

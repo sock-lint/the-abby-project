@@ -121,20 +121,13 @@ def _comparison_quota(actor):
 def list_progression_experiments(params: ListProgressionExperimentsIn) -> ProgressionExperimentListOut:
     """List this staff parent's private saved hypotheses, in bounded UUID order.
 
-    Follow next_after with after. The native notebook contains at most twenty
-    experiments; this returns summaries and never household observations.
+    Follow next_after with after. Active entries appear by default; use
+    include_archived for retained history. Summaries never contain observations.
     """
     actor = _actor()
     with authorized_household(actor, actor) as (fresh_actor, _):
-        result = _call(experiments.list_experiments, fresh_actor)
-        rows = sorted(result["experiments"], key=lambda row: row["id"])
-        total = len(rows)
-        if params.after is not None:
-            rows = [row for row in rows if row["id"] > str(params.after)]
-        more = len(rows) > params.limit
-        rows = rows[:params.limit]
-        return {**result, "experiments": rows, "total": total, "has_more": more,
-                "next_after": rows[-1]["id"] if more else None}
+        return _call(experiments.list_experiments, fresh_actor, include_archived=params.include_archived,
+                     after=params.after, limit=params.limit)
 
 
 @tool()
@@ -264,6 +257,9 @@ def _saved_for_write(actor, experiment_id):
     ).first()
     if experiment is None:
         raise MCPNotFoundError("Experiment not found.")
+    if experiment.is_archived:
+        raise MCPValidationError("This experiment is archived; restore it before making changes.",
+                                 code="progression_experiment_conflict")
     return experiment
 
 

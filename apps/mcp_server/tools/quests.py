@@ -59,7 +59,7 @@ from ..shapes import to_plain
 def _quest_to_dict(quest: Quest) -> dict[str, Any]:
     from apps.quests.serializers import QuestSerializer
 
-    return to_plain(QuestSerializer(quest).data)
+    return to_plain(QuestSerializer(quest, context={"observer_family_id": get_current_user().family_id}).data)
 
 
 def _definition_to_dict(d: QuestDefinition) -> dict[str, Any]:

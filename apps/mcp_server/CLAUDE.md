@@ -64,7 +64,25 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 274 tools across 37 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 277 tools across 38 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+
+Inventory, companion and Chronicle tools retain fresh actor/target authority
+under Family then sorted member locks through domain work and serialization.
+History reads can include inactive children; writes require active targets.
+Journal updates preserve omitted or null title/summary values; an explicit blank
+uses the native clear/autofill behavior. Saved legacy co-op participant IDs and
+contributions remain visible, while names outside the observer's current family
+use `Former participant`.
+
+Pack file operations retain fresh author authority and a process-shared pack
+lock across read/merge/write, deletion and reviewed publication. Lock files live
+outside deletable pack directories and must never be removed while in use.
+Writes replace files atomically. `read_pack_file` returns a byte-based
+`content_digest`; use it as optional `expected_digest` on replacement, append or
+file deletion to reject stale edits. `missing` requires a file not to exist.
+An omitted precondition preserves unconditional replacement; append still merges
+against the latest serialized file. Busy locks and source conflicts have distinct
+retryable codes.
 
 `list_homework` and `get_homework` share an active-assignment queryset scoped to
 the parent's family or the child's own assignments. Foreign and missing detail
@@ -267,3 +285,20 @@ receipt contract remains unchanged.
 saved-state-only serialization. Pagination never calls materializing `list_goals`.
 Catalog new-choice availability also uses native automatic-trigger support;
 retained unsupported definitions remain inspectable with explicit reasons.
+
+### Reversible authoring archives
+
+`authoring_archive.py` exposes three `set_*_archived` tools for content drafts,
+editorial drafts and progression experiments. Each requires `mcp:author`,
+confirmation, the current revision, a strict boolean and a stable request UUID.
+Native REST uses the same receipt service. Lists hide archives by default and
+accept `include_archived=true`; exact reads keep published/evaluation history
+and the existing household-checkpoint grant boundary. Archived work is read-only
+until restored; publication stays live. State transitions increment revision.
+Retry results separate current state from the original `operation` receipt,
+so replaying archive after restore cannot archive the record again.
+
+Active limits are twenty experiments and thirty unpublished drafts of each type.
+Restore checks active capacity. Each type has a separate hundred-record archive
+limit, with a conflict and no deletion at capacity. Apply RPG migration `0040`
+before serving the archive workflows. See the [full guide](../../docs/operations/mcp-authoring.md#reversible-authoring-archives).

@@ -1,5 +1,21 @@
 # Shared API response fixtures
 
+`authoring-{content,editorial,experiment}-{archived,history}.json` are real
+native archive receipts and bounded retained-history responses. The experiment
+restore and archive-replay fixtures distinguish the record's current restored
+state from the original archive operation, without reapplying that operation.
+The producer is `config.tests.test_authoring_archive_api_contract_fixtures`;
+React consumes the same bodies in `src/api/authoringArchiveContractFixtures.test.js`.
+Both run in the required fixture gate. Archive flags preserve all saved evidence
+and do not unpublish content or change rewards.
+
+`quest-history-former-participant.json` comes from the authenticated legacy
+quest history endpoint after one saved participant moves families. It preserves
+participant IDs, contributions and a current same-family name, while replacing
+the departed member's current name with `Former participant`. The producer is
+`config.tests.test_participant_privacy_api_contract_fixtures`; the existing
+React challenge fixture consumer checks the same response.
+
 `pulse-activity-streak.json` is a real authenticated heartbeat response for a
 child with a four-day RPG activity streak and no completed work timers. Its
 `header.streak_days` uses the saved `CharacterProfile.login_streak`, matching

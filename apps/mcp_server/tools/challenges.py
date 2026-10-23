@@ -91,7 +91,7 @@ def _saved_challenge_page(actor, target, params):
             legacy, actor=actor, tool="list_challenges", filters={"user_id": target.pk, "source": "legacy"},
             limit=params.limit, cursor=params.cursor, order_field="start_date",
         )
-        results.extend(_legacy_payload(row, pin_id) for row in selected)
+        results.extend(_legacy_payload(row, pin_id, observer_family_id=target.family_id) for row in selected)
     receipts = occurrences.filter(awarded_at__isnull=False).order_by("-awarded_at", "-pk")[:params.limit]
     activities = ChallengeActivity.objects.filter(
         user=target, voided=False, context__has_key="_receipt",
@@ -153,7 +153,7 @@ def get_challenge(params: GetChallengeIn) -> ChallengeDetailResult:
             row = Quest.objects.filter(pk=int(object_id), participants__user=child).select_related("definition").first()
             if row is None:
                 raise MCPNotFoundError("Challenge not found.")
-            payload = _legacy_payload(row, pin_id)
+            payload = _legacy_payload(row, pin_id, observer_family_id=child.family_id)
         return to_plain({"user_id": child.pk, **payload, "saved_state_only": True})
 
 

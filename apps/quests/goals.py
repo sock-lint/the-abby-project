@@ -733,11 +733,13 @@ def _pin_id(pin):
     return None
 
 
-def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None):
+def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None, observer_family_id=None):
     definition = quest.definition
     key = f"legacy:{quest.pk}"
     from .serializers import QuestRewardItemSerializer
     from .reward_items import accepted_reward_items
+    from .participants import participant_label, participant_visibility
+    participants, family_id = participant_visibility(quest.participants.all(), observer_family_id)
     items = QuestRewardItemSerializer(
         accepted_reward_items(quest, item_catalog=item_catalog), many=True,
         context={"reward_item_details_cache": item_details_cache},
@@ -763,8 +765,8 @@ def _legacy_payload(quest, pin_id, *, item_catalog=None, item_details_cache=None
         "rewards": {"coins": definition.coin_reward, "xp": definition.xp_reward, "items": items},
         "action": None, "pinned": pin_id == key, "repeat_weekly": False, "legacy": True,
         "rage_shield": quest.rage_shield, "participants": [
-            {"user": participant.user_id, "user_name": participant.user.display_label, "contribution": participant.contribution}
-            for participant in sorted(quest.participants.all(), key=lambda row: (-row.contribution, row.user_id, row.pk))
+            {"user": participant.user_id, "user_name": participant_label(participant, family_id), "contribution": participant.contribution}
+            for participant in sorted(participants, key=lambda row: (-row.contribution, row.user_id, row.pk))
         ],
         "reward_receipt": {"id": key, "status": "legacy", "coins_awarded": 0, "xp_awarded": 0, "awarded_at": None},
     }
@@ -848,7 +850,8 @@ def list_goals(user):
     item_details_cache = {}
     rows = [occurrence_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache, controls=controls)
             for row in unique.values()]
-    rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache)
+    rows += [_legacy_payload(row, pin_id, item_catalog=item_catalog, item_details_cache=item_details_cache,
+                             observer_family_id=user.family_id)
              for row in legacy_rows]
     receipts = ChallengeActivity.objects.filter(user=user, voided=False, context__has_key="_receipt").order_by("-created_at", "-pk")[:20]
     from .availability import definition_is_available

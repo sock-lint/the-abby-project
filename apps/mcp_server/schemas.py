@@ -1185,11 +1185,14 @@ class WritePackFileIn(_Base):
     pack: str = Field(min_length=1, max_length=40)
     filename: PackFilename
     yaml_content: str = Field(max_length=200_000)
+    expected_digest: str | None = Field(default=None, pattern=r"^(?:[a-f0-9]{64}|missing)$",
+        description="Last read content_digest, or missing for a new file. Omit for an unconditional replacement.")
 
 
 class DeletePackFileIn(_Base):
     pack: str = Field(min_length=1, max_length=40)
     filename: PackFilename
+    expected_digest: str | None = Field(default=None, pattern=r"^(?:[a-f0-9]{64}|missing)$")
 
 
 class DeleteContentPackIn(_Base):
@@ -1260,6 +1263,8 @@ class DraftPackEntriesIn(_Base):
         description="Ready-to-serialize entries matching the loader's schema.",
     )
     mode: Literal["append", "replace"] = "append"
+    expected_digest: str | None = Field(default=None, pattern=r"^(?:[a-f0-9]{64}|missing)$",
+        description="Optional last-read digest. Disjoint append operations otherwise merge against the latest saved file.")
 
 
 # ---------------------------------------------------------------------------
@@ -1682,8 +1687,8 @@ class WriteJournalIn(_Base):
 
 class UpdateJournalIn(_Base):
     entry_id: int
-    title: str = Field(default="", max_length=160)
-    summary: str = Field(default="", max_length=10_000)
+    title: Optional[str] = Field(default=None, max_length=160, description="Omit to preserve the saved title.")
+    summary: Optional[str] = Field(default=None, max_length=10_000, description="Omit to preserve the saved text; an empty string clears it.")
 
 
 class GetTodayJournalIn(_Base):

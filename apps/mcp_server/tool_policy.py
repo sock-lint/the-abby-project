@@ -417,6 +417,11 @@ class ToolPolicy:
         return frozenset({self.scope}) | self.additional_scopes
 
 
+_ARCHIVE_TOOLS = {"set_content_draft_archived", "set_editorial_draft_archived", "set_progression_experiment_archived"}
+AUTHOR_TOOLS = AUTHOR_TOOLS | _ARCHIVE_TOOLS
+DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | _ARCHIVE_TOOLS
+IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | _ARCHIVE_TOOLS
+
 def policy_for(name: str) -> ToolPolicy:
     if name in READ_TOOLS:
         scope = READ_SCOPE

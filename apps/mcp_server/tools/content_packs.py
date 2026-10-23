@@ -31,6 +31,8 @@ rollback semantics come through cleanly.
 """
 from __future__ import annotations
 
+from functools import wraps
+import hashlib
 import json
 import re
 from pathlib import Path
@@ -39,8 +41,10 @@ from typing import Any
 import yaml
 from django.conf import settings
 
-from ..context import require_parent, require_staff_parent
+from ..context import require_parent, require_staff_parent, reset_current_user, set_current_user
 from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
+from ..pack_files import atomic_write_text, pack_file_lock
+from ..retries import authorized_household
 from ..schemas import (
     DeleteContentPackIn,
     DeletePackFileIn,
@@ -80,6 +84,34 @@ _MAX_YAML_BYTES = 200_000
 _MANIFEST_FILENAME = ".manifest.json"
 
 
+def _serialized_pack(function):
+    """Recheck the author, then coordinate the entire file operation across workers."""
+    @wraps(function)
+    def wrapped(params):
+        actor = require_staff_parent()
+        with authorized_household(actor, actor) as (fresh_actor, _):
+            token = set_current_user(fresh_actor)
+            try:
+                if hasattr(params, "pack"):
+                    _validate_pack_name(params.pack)
+                    with pack_file_lock(_packs_root(), params.pack):
+                        return function(params)
+                return function(params)
+            finally:
+                reset_current_user(token)
+    return wrapped
+
+
+def _check_digest(path, expected):
+    actual = hashlib.sha256(path.read_bytes()).hexdigest() if path.exists() else "missing"
+    if expected is not None and expected != actual:
+        raise MCPValidationError(
+            "Pack source changed. Read the current file and review your edit again.",
+            code="pack_source_conflict", retryable=True,
+        )
+    return actual
+
+
 # ---------------------------------------------------------------------------
 # Path helpers
 # ---------------------------------------------------------------------------
@@ -109,6 +141,8 @@ def _resolve_pack_path(pack: str) -> Path:
     """Return the resolved, containment-checked path for a pack directory."""
     _validate_pack_name(pack)
     root = _packs_root().resolve()
+    if (root / pack).is_symlink():
+        raise MCPValidationError("Pack directories cannot be symlinks.")
     candidate = (root / pack).resolve()
     # Defence in depth — the regex already blocks traversal, but verify.
     try:
@@ -149,7 +183,7 @@ def _read_manifest(pack_dir: Path) -> dict[str, Any]:
 
 def _write_manifest(pack_dir: Path, data: dict[str, Any]) -> None:
     path = pack_dir / _MANIFEST_FILENAME
-    path.write_text(json.dumps(data, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_text(path, json.dumps(data, indent=2, sort_keys=True))
 
 
 def _owned_pack(pack: str, *, create=False) -> Path:
@@ -161,7 +195,16 @@ def _owned_pack(pack: str, *, create=False) -> Path:
             raise MCPNotFoundError(f"Content pack {pack!r} not found for this family; legacy unowned packs require a reviewed ownership migration.")
     elif create:
         path.mkdir(parents=True, exist_ok=False)
-        _write_manifest(path, {"family_id": actor.family_id, "created_by": actor.pk})
+        try:
+            _write_manifest(path, {"family_id": actor.family_id, "created_by": actor.pk})
+        except OSError:
+            # Only this call created the directory under the pack lock. Remove
+            # it only if still empty; preserve unknown work or saved ownership.
+            try:
+                path.rmdir()
+            except OSError:
+                pass
+            raise
     else:
         raise MCPNotFoundError(f"Content pack {pack!r} not found.")
     return path
@@ -193,6 +236,7 @@ def _pack_summary(pack_dir: Path) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_serialized_pack
 def list_content_packs(params: ListContentPacksIn) -> dict[str, Any]:
     """List all RPG content packs under ``content/rpg/packs/``.
 
@@ -206,13 +250,15 @@ def list_content_packs(params: ListContentPacksIn) -> dict[str, Any]:
     for child in sorted(root.iterdir()) if root.exists() else []:
         if not child.is_dir() or child.name.startswith("."):
             continue
-        if _read_manifest(child).get("family_id") == actor.family_id:
-            packs.append(_pack_summary(child))
+        with pack_file_lock(root, child.name):
+            if child.exists() and _read_manifest(child).get("family_id") == actor.family_id:
+                packs.append(_pack_summary(child))
     return {"packs": packs, "count": len(packs)}
 
 
 @tool()
 @safe_tool
+@_serialized_pack
 def get_content_pack(params: GetContentPackIn) -> dict[str, Any]:
     """Return a single pack's summary — files present + last-load metadata."""
     require_parent()
@@ -224,6 +270,7 @@ def get_content_pack(params: GetContentPackIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_serialized_pack
 def read_pack_file(params: ReadPackFileIn) -> dict[str, Any]:
     """Read the raw YAML content of a file inside a pack.
 
@@ -236,15 +283,18 @@ def read_pack_file(params: ReadPackFileIn) -> dict[str, Any]:
         raise MCPNotFoundError(
             f"{params.pack}/{params.filename} does not exist yet.",
         )
+    content = path.read_bytes()
     return {
         "pack": params.pack,
         "filename": params.filename,
-        "yaml_content": path.read_text(encoding="utf-8"),
+        "yaml_content": content.decode("utf-8"),
+        "content_digest": hashlib.sha256(content).hexdigest(),
     }
 
 
 @tool()
 @safe_tool
+@_serialized_pack
 def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
     """Write YAML content to ``<pack>/<filename>.yaml``.
 
@@ -274,12 +324,14 @@ def write_pack_file(params: WritePackFileIn) -> dict[str, Any]:
 
     _owned_pack(params.pack, create=True)
     path = _resolve_pack_file(params.pack, params.filename)
+    _check_digest(path, params.expected_digest)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(params.yaml_content, encoding="utf-8")
+    atomic_write_text(path, params.yaml_content)
     return {
         "pack": params.pack,
         "filename": params.filename,
         "bytes_written": len(params.yaml_content.encode("utf-8")),
+        "content_digest": hashlib.sha256(params.yaml_content.encode("utf-8")).hexdigest(),
     }
 
 
@@ -300,6 +352,7 @@ _PACK_FILE_SCHEMA: dict[str, tuple[str, str]] = {
 
 @tool()
 @safe_tool
+@_serialized_pack
 def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
     """Merge a batch of YAML entries into a pack file.
 
@@ -346,6 +399,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
 
     _owned_pack(params.pack, create=True)
     path = _resolve_pack_file(params.pack, params.filename)
+    _check_digest(path, params.expected_digest)
 
     existing: list[dict] = []
     if params.mode == "append" and path.exists():
@@ -426,7 +480,7 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
         )
 
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(yaml_content, encoding="utf-8")
+    atomic_write_text(path, yaml_content)
     return {
         "pack": params.pack,
         "filename": params.filename,
@@ -434,11 +488,13 @@ def draft_pack_entries(params: DraftPackEntriesIn) -> dict[str, Any]:
         "entry_count": len(merged),
         "entries_added_or_updated": len(params.entries),
         "bytes_written": len(yaml_content.encode("utf-8")),
+        "content_digest": hashlib.sha256(yaml_content.encode("utf-8")).hexdigest(),
     }
 
 
 @tool()
 @safe_tool
+@_serialized_pack
 def delete_pack_file(params: DeletePackFileIn) -> dict[str, Any]:
     """Delete one YAML file from a pack.
 
@@ -449,6 +505,7 @@ def delete_pack_file(params: DeletePackFileIn) -> dict[str, Any]:
     require_staff_parent()
     _owned_pack(params.pack)
     path = _resolve_pack_file(params.pack, params.filename)
+    _check_digest(path, params.expected_digest)
     if not path.exists():
         raise MCPNotFoundError(
             f"{params.pack}/{params.filename} does not exist.",
@@ -463,6 +520,7 @@ def delete_pack_file(params: DeletePackFileIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_serialized_pack
 def delete_content_pack(params: DeleteContentPackIn) -> dict[str, Any]:
     """Delete an entire pack directory.
 
@@ -513,6 +571,7 @@ def _publication_call(function, params, **kwargs):
 
 @tool()
 @safe_tool
+@_serialized_pack
 def preview_content_pack(params: PreviewContentPackIn) -> dict[str, Any]:
     """Review exact field changes, removals, retained definitions and family shop destination.
 
@@ -527,6 +586,7 @@ def preview_content_pack(params: PreviewContentPackIn) -> dict[str, Any]:
 
 @tool()
 @safe_tool
+@_serialized_pack
 def publish_content_pack(params: PublishContentPackIn) -> dict[str, Any]:
     """Atomically apply one reviewed revision and retain its durable audit receipt.
 

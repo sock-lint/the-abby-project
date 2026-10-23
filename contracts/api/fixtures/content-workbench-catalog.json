@@ -23,15 +23,15 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "description": "",
-          "rarity": "common",
-          "sprite_key": "",
-          "name": "Practice snack",
-          "icon": "🍎",
           "coin_value": 2,
+          "name": "Practice snack",
           "metadata": {
             "growth": 5
-          }
+          },
+          "sprite_key": "",
+          "rarity": "common",
+          "description": "",
+          "icon": "🍎"
         },
         "has_database_override": false,
         "used_by": {
@@ -82,6 +82,8 @@
         "required_skill": 902,
         "required_skill_name": "Persistence",
         "required_skill_level": 1,
+        "automatic_tracking_available": true,
+        "unsupported_triggers": [],
         "available_for_new_user": true,
         "skill_tags": [
           {
@@ -103,26 +105,26 @@
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 10,
-          "sprite_key": "",
           "name": "Practice challenge",
           "duration_days": 7,
+          "icon": "⚔️",
+          "coin_reward": 10,
+          "is_cooperative": false,
+          "target_value": 2,
+          "xp_reward": 15,
+          "is_repeatable": false,
           "trigger_filter": {
             "allowed_triggers": [
               "reading_logged"
             ]
           },
-          "quest_type": "collection",
-          "icon": "⚔️",
-          "xp_reward": 15,
           "required_skill_level": 1,
-          "target_value": 2,
-          "is_cooperative": false,
+          "sprite_key": "",
+          "quest_type": "collection",
           "description": "Complete two daily Reading Adventures.",
-          "is_repeatable": false,
-          "required_badge": null,
-          "required_skill": 902,
           "prerequisite_quest": 908,
+          "required_skill": 902,
+          "required_badge": null,
           "reward_items": [
             {
               "item_id": 903,
@@ -136,9 +138,7 @@
             }
           ]
         },
-        "has_database_override": false,
-        "automatic_tracking_available": true,
-        "unsupported_triggers": []
+        "has_database_override": false
       },
       {
         "id": 908,
@@ -167,38 +167,38 @@
         "required_skill": null,
         "required_skill_name": null,
         "required_skill_level": 0,
+        "automatic_tracking_available": true,
+        "unsupported_triggers": [],
         "available_for_new_user": true,
         "skill_tags": [],
         "reward_items": [],
         "editable": true,
         "edit_reason": "",
         "values": {
-          "coin_reward": 0,
-          "sprite_key": "",
           "name": "Starter practice",
           "duration_days": 7,
+          "icon": "⚔️",
+          "coin_reward": 0,
+          "is_cooperative": false,
+          "target_value": 1,
+          "xp_reward": 0,
+          "is_repeatable": false,
           "trigger_filter": {
             "allowed_triggers": [
               "chore_complete"
             ]
           },
-          "quest_type": "collection",
-          "icon": "⚔️",
-          "xp_reward": 0,
           "required_skill_level": 0,
-          "target_value": 1,
-          "is_cooperative": false,
+          "sprite_key": "",
+          "quest_type": "collection",
           "description": "Complete one approved chore.",
-          "is_repeatable": false,
-          "required_badge": null,
-          "required_skill": null,
           "prerequisite_quest": null,
+          "required_skill": null,
+          "required_badge": null,
           "reward_items": [],
           "skill_tags": []
         },
-        "has_database_override": false,
-        "automatic_tracking_available": true,
-        "unsupported_triggers": []
+        "has_database_override": false
       }
     ],
     "skills": [
@@ -862,7 +862,7 @@
         "message": "The loaded global catalog has no supported hatchable companion pairs."
       }
     ],
-    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
+    "rules_fingerprint": "d2612e3aee56026270a7195960008296fc636e366791821e73ca97f5b776cc5b",
     "engine_version": "2026-10-21.1",
     "source_commit": "unavailable",
     "work_budget": {

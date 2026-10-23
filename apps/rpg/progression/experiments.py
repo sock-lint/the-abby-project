@@ -17,6 +17,7 @@ from rest_framework.exceptions import PermissionDenied
 
 from apps.accounts.models import User
 from apps.quests.activity import household_timezone
+from apps.rpg.authoring_archive import MAX_ARCHIVED, ensure_active_capacity, list_authoring, locked_author
 from apps.rpg.models import ProgressionComparison, ProgressionDecision, ProgressionExperiment, ProgressionObservation
 from .catalog import load_catalog
 from .engine import ENGINE_VERSION, MAX_WORK_UNITS, estimate_work, normalize_config, pet_incubation_policy, rules_fingerprint, simulate_progression
@@ -44,9 +45,9 @@ class ExperimentUnavailable(Exception):
 
 
 def _actor(actor, *, lock=False):
-    queryset = User.objects
     if lock:
-        queryset = queryset.select_for_update()
+        return locked_author(actor)
+    queryset = User.objects
     current = queryset.filter(pk=actor.pk, family_id=actor.family_id, is_active=True, is_staff=True, role="parent").first()
     if current is None:
         raise PermissionDenied("Progression experiments are available to active staff parents.")
@@ -64,6 +65,8 @@ def _experiment(actor, experiment_id, *, lock=False):
 
 
 def _revision(experiment, revision):
+    if experiment.is_archived:
+        raise ExperimentConflict("This experiment is archived and read-only. Restore it before making changes.")
     if type(revision) is not int or experiment.revision != revision:
         raise ExperimentConflict("Experiment changed. Reload it before continuing.")
 
@@ -197,7 +200,7 @@ def _decision_json(decision):
 def _summary(experiment):
     decision = experiment.decisions.order_by("-created_at", "-id").first()
     return {"id": str(experiment.pk), "name": experiment.name, "hypothesis": experiment.hypothesis,
-            "revision": experiment.revision, "updated_at": experiment.updated_at.isoformat(),
+            "revision": experiment.revision, "is_archived": experiment.is_archived, "updated_at": experiment.updated_at.isoformat(),
             "latest_decision": _decision_json(decision) if decision else None}
 
 
@@ -257,21 +260,22 @@ def _detail(experiment, *, include_observations=True):
                              for row in experiment.observations.order_by("-created_at", "-id")] if include_observations else []}
 
 
-def list_experiments(actor):
-    actor = _actor(actor)
-    rows = ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).order_by("-updated_at", "-id")[:MAX_EXPERIMENTS]
-    return {"schema_version": 1, "limits": {"max_experiments": MAX_EXPERIMENTS, "max_comparisons": MAX_COMPARISONS,
+@transaction.atomic
+def list_experiments(actor, *, include_archived=False, after=None, limit=20):
+    page = list_authoring(actor, "experiment", include_archived=include_archived, after=after, limit=limit)
+    rows = ProgressionExperiment.objects.filter(pk__in=[row["id"] for row in page["rows"]]).order_by("pk")
+    return {"schema_version": 1, "limits": {"max_experiments": MAX_EXPERIMENTS, "max_archived_experiments": MAX_ARCHIVED, "max_comparisons": MAX_COMPARISONS,
             "max_observations": MAX_OBSERVATIONS,
             "max_comparison_work_units": MAX_COMPARISON_WORK_UNITS, "max_evidence_bytes": MAX_EVIDENCE_BYTES}, "feedback": feedback_metadata(),
-            "experiments": [_summary(row) for row in rows]}
+            "experiments": [_summary(row) for row in rows],
+            "total": page["total"], "has_more": page["has_more"], "next_after": page["next_after"]}
 
 
 @transaction.atomic
 def create_experiment(actor, data, *, include_observations=True):
     values = _inputs(data)
     actor = _actor(actor, lock=True)
-    if ProgressionExperiment.objects.filter(actor=actor, family_id=actor.family_id).count() >= MAX_EXPERIMENTS:
-        raise ValueError("This notebook has reached its 20-experiment limit.")
+    ensure_active_capacity("experiment", actor, limit=MAX_EXPERIMENTS)
     return _detail(ProgressionExperiment.objects.create(actor=actor, family_id=actor.family_id, **values),
                    include_observations=include_observations)
 

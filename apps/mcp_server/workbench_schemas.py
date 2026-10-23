@@ -18,6 +18,7 @@ class WorkbenchReferencesIn(_Base):
 
 
 class ListContentDraftsIn(_Base):
+    include_archived: StrictBool = False
     after: UUID | None = None
     published: StrictBool | None = None
     limit: StrictInt = Field(default=30, ge=1, le=100)
@@ -87,6 +88,7 @@ class WorkbenchResult(BaseModel):
 
 
 class DraftSummaryOut(WorkbenchResult):
+    is_archived: bool
     id: str
     name: str
     revision: int

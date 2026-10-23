@@ -10,7 +10,7 @@ from django.db.models import Count, Max, Q, RestrictedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
-from apps.achievements.models import Skill
+from apps.achievements.models import Skill, SkillCategory
 from apps.achievements.services import AwardService
 from apps.families.models import Family
 from apps.notifications.services import defer_push_until_commit
@@ -209,6 +209,31 @@ class ReadingRewardService:
     BASE_COINS = 5
     SKILL_NAME = "Reading Comprehension"
 
+    @staticmethod
+    def _source_identity(model, lookup):
+        """Match current or retained canonical identity without choosing a tie.
+
+        Direct catalog edits keep their original lookup while the same row may
+        be renamed or reparented. Only that explicit authoring provenance may
+        redirect the fixed reward; unrelated same-name skills are not fallbacks.
+        Retirement does not change this installed XP destination.
+        """
+        from apps.rpg.models import RPGContentOverride
+
+        retained = RPGContentOverride.objects.filter(
+            model_label=model._meta.label_lower, source_lookup=lookup,
+            values___authoring={"version": 1, "source": "mcp"},
+        ).values("object_id")
+        matches = list(model.objects.filter(Q(**lookup) | Q(pk__in=retained)).order_by("pk")[:2])
+        return matches[0] if len(matches) == 1 else None
+
+    @classmethod
+    def _reading_skill(cls):
+        category = cls._source_identity(SkillCategory, {"name": "Language Arts"})
+        if category is None:
+            return None
+        return cls._source_identity(Skill, {"name": cls.SKILL_NAME, "category_id": category.pk})
+
     @classmethod
     @transaction.atomic
     def credit_new_session(cls, user, session):
@@ -245,7 +270,7 @@ class ReadingRewardService:
             daily.save(update_fields=["minutes_credited", "updated_at"])
             return
 
-        skill = Skill.objects.filter(name=cls.SKILL_NAME, category__name="Language Arts").first()
+        skill = cls._reading_skill()
         tags = [SimpleNamespace(skill=skill, xp_weight=1)] if skill is not None else []
         # Observe only entries created by this direct reading award. Badge,
         # check-in and drop Coins have their own reasons and receipts.

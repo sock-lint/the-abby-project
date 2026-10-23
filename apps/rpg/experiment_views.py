@@ -33,12 +33,19 @@ OPTIONAL_EXPERIMENT_FIELDS = ("candidate_policy", "candidate_expedition_budget")
 
 
 class _ExperimentView(_ProgressionLabView):
+    allowed_query = set()
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        self.reject_query_targeting(request)
+        if set(request.query_params) - {"_abby_session", "_abby_retry"} - self.allowed_query:
+            raise ValidationError({"detail": "Progression Lab accepts no account or query selectors."})
 
     def handle_exception(self, exc):
-        if isinstance(exc, ExperimentConflict):
+        from .authoring_archive import AuthoringArchiveConflict
+        from .content.errors import ContentAuthorPermissionDenied
+        from rest_framework.exceptions import PermissionDenied
+        if isinstance(exc, ContentAuthorPermissionDenied):
+            exc = PermissionDenied("Authoring requires an active staff parent in the current family.")
+        elif isinstance(exc, (ExperimentConflict, AuthoringArchiveConflict)):
             exc = _Conflict({"detail": str(exc)})
         elif isinstance(exc, ExperimentNotFound):
             exc = NotFound({"detail": str(exc)})
@@ -50,8 +57,10 @@ class _ExperimentView(_ProgressionLabView):
 
 
 class ExperimentListView(_ExperimentView):
+    allowed_query = {"include_archived", "after", "limit"}
     def get(self, request):
-        return Response(list_experiments(request.user))
+        from .archive_views import list_options
+        return Response(list_experiments(request.user, **list_options(request)))
 
     def post(self, request):
         return Response(create_experiment(request.user, _body(request, EXPERIMENT_FIELDS, optional=OPTIONAL_EXPERIMENT_FIELDS)), status=201)

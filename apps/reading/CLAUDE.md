@@ -95,6 +95,14 @@ explicit current-week parent count goals can include saved awarded receipts
 even after their source session was deleted. Missing or locked reading
 skills award no invented XP; the saved receipt reports actual credit.
 
+The installed Reading XP destination resolves the exact current or retained
+source identity of Language Arts / Reading Comprehension. MCP renames and
+reparenting keep that original identity through `RPGContentOverride`; mutable
+display labels do not redirect the award. Retirement retains this existing XP
+destination, while normal skill unlock checks still apply. Missing or ambiguous
+source identities award no invented skill XP, and saved receipts are never
+rewritten after a taxonomy edit.
+
 Session responses include a nullable `reading_reward` on the original awarding
 session. Summary responses include today's `reading_adventure` progress and
 reward receipt. Reads create no progress, consume no opportunity and award

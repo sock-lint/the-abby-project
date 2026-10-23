@@ -2,6 +2,12 @@
 
 Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+Saved legacy participant IDs and contributions survive household moves. API,
+pulse and MCP projections pass the observer's family to participant serializers;
+current labels are visible only within that family. Departed members use
+`Former participant`, preserving history without exposing their new household's
+profile edits. A serializer without observer context masks mixed-family labels.
+
 Explicit `trigger_filter.skill_category_id` in private quest creation is rechecked
 by `reference_locks.lock_filter_category` inside the write transaction, after the
 definition INSERT has acquired its catalog-table write lock. PostgreSQL
