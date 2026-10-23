@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import Hatchery from './Hatchery';
@@ -25,7 +25,19 @@ const species = [
   { slug: 'meshtint-bat', name: 'Bat', sprite_key: 'meshtint-bat', available_potions: [base] },
   { slug: 'meshtint-mushroom', name: 'Mushroom', sprite_key: 'meshtint-mushroom', available_potions: [base, fire, ice] },
   { slug: 'meshtint-dragon', name: 'Dragon', sprite_key: 'meshtint-dragon', available_potions: [base, fire, ice] },
-];
+].map((family, familyIndex) => ({
+  ...family,
+  available_potions: family.available_potions.map((potion) => ({
+    ...potion,
+    acquisition_challenges: potion.slug === 'base' ? [] : [{
+      definition_id: 100 + familyIndex * 2 + (potion.slug === 'fire' ? 1 : 2),
+      name: (potion.slug === 'fire' ? 'Ember ' : 'Frost ')
+        + ({ chick: 'Nest', 'meshtint-wolf': 'Trail', 'meshtint-mushroom': 'Grove', 'meshtint-dragon': 'Summit' })[family.slug],
+      offer_available: true, target: String(({ chick: 5, 'meshtint-wolf': 20, 'meshtint-mushroom': 10, 'meshtint-dragon': 50 })[family.slug]),
+      duration_days: family.slug === 'meshtint-dragon' ? 365 : 180, attempt: null, path: '/quests?tab=trials',
+    }],
+  })),
+}));
 const eggs = species.map((entry, index) => ({ quantity: 1, item: {
   id: 10 + index, slug: `${entry.slug}-egg`, name: `${entry.name} Egg`,
   item_type: 'egg', catalog_available: true, pet_species_slug: entry.slug,
@@ -56,7 +68,9 @@ describe('Elemental Hatchery choices', () => {
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
     await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(item.id));
     expect(screen.getByText(/Selected appearance:/)).toHaveTextContent(potion.name);
-    expect(screen.getByText(/each reward a .* egg and their matching potion/)).toHaveTextContent(`${({ 0: 5, 1: 20, 3: 10, 4: 50 })[index]} qualifying accomplishments`);
+    const discovery = within(screen.getByRole('region', { name: 'Explore companions' }));
+    expect(discovery.getByText(/Challenge target:/)).toHaveTextContent(String(({ 0: 5, 1: 20, 3: 10, 4: 50 })[index]));
+    expect(discovery.getByRole('button', { name: potion.name + ' appearance' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByRole('button', { name: 'Baby' }));
     expect(screen.getByText(`${potion.name} artwork is not available yet. You can still inspect the growth stages and choose your ingredients.`)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();

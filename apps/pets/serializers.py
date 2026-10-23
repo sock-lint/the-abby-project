@@ -95,6 +95,16 @@ class PotionTypeMiniSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class CodexPotionSerializer(PotionTypeMiniSerializer):
+    acquisition_challenges = serializers.SerializerMethodField()
+
+    class Meta(PotionTypeMiniSerializer.Meta):
+        fields = [*PotionTypeMiniSerializer.Meta.fields, "acquisition_challenges"]
+
+    def get_acquisition_challenges(self, obj):
+        return self.context.get("acquisition_challenges", {}).get((self.context.get("species_id"), obj.pk), [])
+
+
 class PetSpeciesCatalogSerializer(CatalogPortraitFields, serializers.ModelSerializer):
     """Parent-only catalog view — includes compatible potion list."""
     available_potions = serializers.SerializerMethodField()
@@ -149,7 +159,9 @@ class PetCodexEntrySerializer(CatalogPortraitFields, serializers.ModelSerializer
         read_only_fields = fields
 
     def get_available_potions(self, obj):
-        return PotionTypeMiniSerializer(available_pet_variants(obj), many=True).data
+        return CodexPotionSerializer(available_pet_variants(obj), many=True, context={
+            "species_id": obj.pk, "acquisition_challenges": self.context.get("acquisition_challenges", {}),
+        }).data
 
     def get_catalog_available(self, obj):
         return pet_is_available(obj)

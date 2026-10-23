@@ -18,10 +18,10 @@ class PreviewBoundary extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export default function FamilyStagePreview({ item, potion }) {
+export default function FamilyStagePreview({ item, potion, initialStage = 'egg' }) {
   const family = rosterEggFamily(item);
   const retained = item?.item_type === 'egg' && item.slug === 'chick-egg' && item.pet_species_slug === 'chick' && item.metadata?.species === 'chick';
-  const [stage, setStage] = useState('egg');
+  const [stage, setStage] = useState(COMPANION_STAGES.some(({ id }) => id === initialStage) ? initialStage : 'egg');
   if (!family && !retained) return <div className="flex h-48 items-center justify-center"><RpgSprite icon="🥚" size={96} alt={item?.name || 'Egg'} /></div>;
   const element = potion?.slug && potion.slug !== 'base' ? potion.name || potion.slug : null;
   const form = companionFormName(eggSpecies(item), potion || { slug: 'base' }, stage)
