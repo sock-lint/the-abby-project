@@ -37,6 +37,40 @@ allowance for all three appearances. Saved elemental ownership does not enable
 new acquisition. Producer: `config.tests.test_catalog_api_contract_fixtures`;
 consumer: `frontend/src/api/catalogContractFixtures.test.js`.
 
+`pets-hatchery-discovery.json` is a child-authenticated `GET /api/pets/codex/`
+response with exact typed egg/potion reward bundles for all eight guaranteed
+Fire/Ice challenges and an untimed Base Reading Companion. Each species's
+`available_potions` preserves `id`, `slug`, `name`, `color_hex` and `rarity`, and
+adds `acquisition_challenges`. Each challenge contains integer `definition_id`,
+current-offer `name`, boolean `offer_available`, decimal-string `target`, nullable
+integer `duration_days`, a Trials `path`, and nullable `attempt`. A saved attempt
+contains string `id`, `name`, `status`, decimal-string `progress` and
+`target`, nullable ISO `ends_at`, and boolean `retry_available`. Current offer
+details and accepted automatic attempts' frozen names, targets and item promises
+remain separate after catalog edits. Legacy attempts retain their existing
+Trials name/target semantics; their saved reward item IDs identify the promised
+appearance. Pre-cutover legacy rows without a reward snapshot retain their
+definition links. Exact saved-attempt links respect the existing Trials history
+window; older inaccessible history links to the general Challenges view.
+`offer_available` describes current whole-bundle support and the user's
+requirements; an active matching attempt can keep it true without allowing a
+duplicate acceptance. A lifetime completion makes it false. When no challenge
+matches the pair, `acquisition_challenges` is an empty list. Parent species
+catalog potion rows retain their existing shape.
+
+The producer `config.tests.test_hatchery_discovery_api_contract_fixtures` verifies
+available, active, expired/retryable and completed examples, current versus frozen
+targets, and the ordinary parent-catalog and authentication boundaries. Attempts
+are scoped to the requesting account; another child's or household's saved state
+cannot supply discovery status. A retained alias does not make a private canonical
+definition visible. A missing creator is insufficient visibility evidence;
+creatorless withdrawn metadata must belong to the user's directly accepted
+definition. Repeated codex reads create no enrollment, goal,
+pin, contribution, inventory, ownership or reward. The existing Base-only and
+elemental codex fixtures add empty acquisition lists without acquiring challenges.
+React consumes these same raw bodies through
+`frontend/src/api/catalogContractFixtures.test.js`.
+
 `journal-created.json`, `journal-replayed.json`, `journal-today.json` and
 `journal-edited.json` bind the Today capture and Memories journal to the same
 saved entry and measured reward receipt. Journal receipts add whole-number
@@ -260,6 +294,7 @@ The login token and all identities are synthetic and exist only in the test DB.
 | `pet-feed-fledgling.json`, `pet-feed-bird.json` | Real feed receipts cross 50-growth Fledgling and confirmed 100-growth Bird thresholds |
 | `pets-stable-fledgling.json`, `pets-stable-bird.json` | Stable reload preserves exact Base Chick stage; Bird includes the confirmed mount |
 | `pets-supported-catalog.json` | `GET /api/pets/codex/`; production policy with 15 exact families and synthetic Base-only authored compatibility |
+| `pets-hatchery-discovery.json` | Same codex endpoint; exact guaranteed hatch pairs, an untimed Base offer and self-scoped active, expired/retryable and completed attempts, without read mutations |
 | `pets-preserved-collection.json` | `GET /api/pets/stable/`; supported Chick and earlier Cat ownership coexist, with catalog availability flags and preserved growth |
 | `cosmetics-supported-catalog.json` | `GET /api/cosmetics/catalog/`; available Frames/Titles/Covers slots, retained empty accessory slot |
 | `inventory-appearance.json` | `GET /api/inventory/`; owned frame links to Profile while owned color theme links to Settings → Appearance |
@@ -651,7 +686,7 @@ in PR API validation. Unity is retired and consumes neither parent-only endpoint
 From the repository root, with the normal backend test environment configured:
 
 ```sh
-python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_hatchery_discovery_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 ```
 
 For Docker-less checks, use a disposable SQLite `DATABASE_URL` such as
@@ -703,7 +738,7 @@ after configuring the test environment:
 ```powershell
 $env:UPDATE_API_CONTRACT_FIXTURES = '1'
 try {
-    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
+    python manage.py test --settings=config.settings_test config.tests.test_api_contract_fixtures config.tests.test_greenlight_api_contract_fixtures config.tests.test_avatar_api_contract_fixtures config.tests.test_rpg_integrity_api_contract_fixtures config.tests.test_catalog_api_contract_fixtures config.tests.test_catalog_icon_api_contract_fixtures config.tests.test_elemental_art_api_contract_fixtures config.tests.test_hatchery_discovery_api_contract_fixtures config.tests.test_report_card_api_contract_fixtures config.tests.test_challenge_api_contract_fixtures config.tests.test_homework_ai_api_contract_fixtures config.tests.test_project_ai_api_contract_fixtures
 } finally {
     Remove-Item Env:UPDATE_API_CONTRACT_FIXTURES
 }

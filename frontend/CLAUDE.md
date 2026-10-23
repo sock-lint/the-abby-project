@@ -295,6 +295,27 @@ read failures show retry controls and preserve loaded rows during refresh.
 - **Card placement rule:** page-specific `*Card` / `*Verse` / `*Sigil` components (AssignmentCard, CatalogCard, SkillVerse, RewardCard, CoinBalanceCard, ProjectOverridesCard, StepCard) live as sibling files in their owning `pages/<area>/` subfolder. Promote to the shared layer when a second page imports them; reusable `TomeShelf` and `TomeSpine` already live in `components/atlas/`. The now-deleted `components/Card.jsx` was a back-compat shim for `ParchmentCard`; all 17 call sites were migrated.
 - **Per-area shared constants** between a parent component and extracted sibling cards should live in `<area>/<name>.constants.js` — `react-refresh/only-export-components` forbids non-component exports from `.jsx`. Examples: [`pages/achievements/skillTree.constants.js`](src/pages/achievements/skillTree.constants.js) holds `XP_THRESHOLDS` (the level curve); [`components/atlas/mastery.constants.js`](src/components/atlas/mastery.constants.js) holds the atlas vocabulary — `PROGRESS_TIER` / `RARITY_HALO` / `CHAPTER_NUMERALS` / `RARITY_KEYS` / `RARITY_ORDER` maps + `tierForProgress` / `chapterMark` / `countIlluminated` / `isRecentlyEarned` helpers (see Atlas cohort below); [`pages/achievements/collections.constants.js`](src/pages/achievements/collections.constants.js) holds the Reliquary Codex taxonomy (`COLLECTIONS`, `collectionForCriterion`, `groupBadgesByCollection`, `unlockHint`, `ladderSiblings`) scoped to the Badges page.
 
+### Hatchery discovery
+
+Hatchery's Explore companions section browses the authenticated user's supported
+codex independently of inventory. Only server-returned available potion pairs
+are offered. A typed, presentation-only natural egg projects exact registered
+family artwork; it never supplies inventory IDs to incubation. Recipe selections
+can focus that preview, while browsing never changes the recipe or makes a write.
+The single family preview is portrait-first and supports Egg/Baby/Middle/Grown;
+optional 3D keeps the existing exact bindings, motion controls and reduced motion.
+
+Each codex potion's additive acquisition_challenges lists current guaranteed
+bundles separately from saved attempts. Automatic attempts freeze their name,
+target and reward items; historical legacy quests freeze reward items only and
+retain the existing Trials name/target behavior. Show the returned attempt's name,
+target and progress; follow its server path rather than inventing goal IDs. No saved
+attempt means unknown progress, not zero. Discovery must not call the materializing
+GET /api/challenges/ merely to browse. Owned and incubating states come from the
+existing stable/incubation responses; failed reads stay explicitly unknown.
+Accepted ready hatches remain usable while the discovery catalog loads or fails.
+Bee/Bat remain Base-only until a separately reviewed asset adoption activates them.
+
 ### Collection navigation (October 2026)
 
 `TomeShelf` and `TomeSpine` retain their existing APIs while rendering wrapping Meadow collection cards. All-`vessel` sets render compact wrapping filter pills at every width. One tablist provides a single tab stop, Left/Right wrapping and Home/End selection; mount and pointer changes do not scroll the page or move unrelated focus. Badges, Lorebook and other collections share this control. Skills uses its separate Wayfinder hierarchy. See `components/README.md` for the descriptor and accessibility contract; `/__design` demonstrates both patterns with local synthetic examples.

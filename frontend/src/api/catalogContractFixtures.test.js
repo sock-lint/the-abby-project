@@ -19,6 +19,7 @@ import imageGoals from '../../../contracts/api/fixtures/catalog-icons-goals.json
 import elementalInventory from '../../../contracts/api/fixtures/catalog-icons-elemental-inventory.json';
 import elementalChallenges from '../../../contracts/api/fixtures/catalog-icons-elemental-challenges.json';
 import elementalCatalog from '../../../contracts/api/fixtures/pets-elemental-supported-catalog.json';
+import hatcheryDiscovery from '../../../contracts/api/fixtures/pets-hatchery-discovery.json';
 import roster from '../../../shared/catalog/companion-roster.json';
 import rosterInventory from '../../../contracts/api/fixtures/inventory-roster-hatching.json';
 import rosterIncubation from '../../../contracts/api/fixtures/pet-incubation-roster-start.json';
@@ -28,6 +29,42 @@ import earnedBadges from '../../../contracts/api/fixtures/badges-earned-rarity-b
 import { getBadges, getEarnedBadges } from './index';
 
 describe('current owned-art API contracts', () => {
+  it('transports exact guaranteed acquisition paths without replacing accepted progress with current targets', async () => {
+    server.use(http.get('*/api/pets/codex/', () => HttpResponse.json(hatcheryDiscovery)));
+    const codex = await getPetCodex();
+    expect(codex).toEqual(hatcheryDiscovery);
+    const challenges = (species, potion) => codex.species.find((row) => row.slug === species)
+      .available_potions.find((row) => row.slug === potion).acquisition_challenges;
+    const elemental = codex.species.flatMap((species) => species.available_potions
+      .filter((potion) => ['fire', 'ice'].includes(potion.slug))
+      .flatMap((potion) => potion.acquisition_challenges));
+    expect(elemental.map((row) => row.name).sort()).toEqual([
+      'Ember Grove', 'Ember Nest', 'Ember Summit', 'Ember Trail',
+      'Frost Grove', 'Frost Nest', 'Frost Summit', 'Frost Trail',
+    ]);
+    expect(challenges('meshtint-mushroom', 'fire')).toEqual([{
+      definition_id: 95, name: 'Ember Grove', offer_available: true, target: '10', duration_days: 180,
+      attempt: {
+        id: 'goal:401', name: 'My saved Ember Grove', status: 'active',
+        progress: '3', target: '8', ends_at: '2027-03-29T19:00:00+00:00', retry_available: false,
+      },
+      path: '/quests?tab=trials&goal=goal%3A401',
+    }]);
+    expect(challenges('meshtint-mushroom', 'ice')[0]).toMatchObject({
+      attempt: { id: 'goal:402', status: 'expired', progress: '4', target: '10', retry_available: true },
+      path: '/quests?tab=trials&goal=goal%3A402',
+    });
+    expect(challenges('meshtint-dragon', 'fire')[0]).toMatchObject({
+      offer_available: false, attempt: { id: 'goal:403', status: 'completed', retry_available: false },
+    });
+    expect(challenges('chick', 'base')[0]).toMatchObject({
+      duration_days: null, attempt: { id: 'goal:406', ends_at: null, progress: '1', target: '2' },
+    });
+    expect(challenges('meshtint-dragon', 'base')).toEqual([]);
+    expect(challenges('meshtint-wolf', 'fire')[0]).toMatchObject({
+      attempt: null, path: '/quests?tab=trials',
+    });
+  });
   it('offers hatching for canonical Fire/Ice potions while same-name copies stay unavailable', async () => {
     server.use(http.get('*/api/inventory/', () => HttpResponse.json(elementalInventory)));
     const rows = await getInventory();
