@@ -195,13 +195,18 @@ def acquisition_challenges(user):
         "skill_levels": dict(SkillProgress.objects.filter(user=user, unlocked=True).values_list("skill_id", "level")),
         "badges": set(UserBadge.objects.filter(user=user).values_list("badge_id", flat=True)),
     }
+    # An accepted canonical goal keeps the repeat cycle saved at enrollment,
+    # even if the definition's repeatable flag changes later.
+    repeating = {goal.catalog_definition_id for goal in goals
+                 if identity(goal, controls) == goal.catalog_definition_id
+                 and (goal.repeat_days or goal.repeat_weekly)}
     available = {}
     for definition_id, pair_set in current_pairs.items():
         definition = current[definition_id]
         allowed = (definition.trigger_filter or {}).get("allowed_triggers")
         available[definition_id] = bool(
             pair_set and user.role == "child" and definition_id in controls["offered"]
-            and (definition.is_repeatable or definition_id not in completed)
+            and (definition.is_repeatable or definition_id in repeating or definition_id not in completed)
             and (not allowed or FACT_TRIGGERS.intersection(allowed))
             and milestone_eligibility(user, definition, new_enrollment=False,
                                      facts=facts, active_definitions=current)["unlocked"]
@@ -239,7 +244,7 @@ def acquisition_challenges(user):
         # goal on a superseded definition never opens another window.
         return any(pair in _saved_pairs({"items": goal.reward_items}, catalog, pairs) and (
             (goal.catalog_definition_id == definition_id and (
-                definition.is_repeatable
+                goal.repeat_days or goal.repeat_weekly
                 or (not goal.control_occurrences and (goal.ends_at is None or goal.ends_at > now))))
             or any(can_still_pay(row) for row in goal.control_occurrences))
             for goal in accepted)

@@ -233,6 +233,22 @@ class HatcheryDiscoveryTests(TestCase):
         self.assertFalse(fire["offer_available"],
                          "An alias goal opens no new windows, and the canonical goal froze Ice.")
 
+    def test_definition_made_repeatable_does_not_reopen_a_paid_one_time_goal(self):
+        definition = self.definition()
+        self.accepted(definition, status="completed", progress=10, awarded_at=self.now)
+        QuestDefinition.objects.filter(pk=definition.pk).update(is_repeatable=True)
+        # The goal saved repeat_days=0 at enrollment, so no new window opens.
+        self.assertFalse(self.paths()[0]["offer_available"])
+
+    def test_definition_made_one_time_keeps_a_repeating_goal_reachable(self):
+        definition = self.definition(is_repeatable=True)
+        occurrence = self.accepted(definition, status="completed", progress=10, awarded_at=self.now,
+                                   expired=True)
+        ChallengeGoal.objects.filter(pk=occurrence.goal_id).update(repeat_days=180)
+        QuestDefinition.objects.filter(pk=definition.pk).update(is_repeatable=False)
+        # The goal keeps its saved 180-day cycle and pays its reward again.
+        self.assertTrue(self.paths()[0]["offer_available"])
+
     def test_expired_saved_attempt_and_latest_retry_use_native_status_without_writes(self):
         definition = self.definition()
         previous = self.accepted(definition, expired=True, progress=4)
