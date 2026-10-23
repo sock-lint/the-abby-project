@@ -22,6 +22,8 @@ SOURCES = {
     "homework.homeworksubmission": ("homework", "user", {"submitted", "approved"}),
     "chores.chorecompletion": ("chores", "user", {"submitted", "approved"}),
     "projects.project": ("projects", "assigned_to", {"submitted", "approved"}),
+    "timecards.timeentry": ("projects", "user", {"completed"}),
+    "timecards.timecard": ("projects", "user", {"approved"}),
     "reading.readingsession": ("reading", "user", {"completed"}),
     "movement.movementsession": ("movement", "user", {"completed"}),
     "habits.habitlog": ("habits", "user", {"completed", "checked_in"}),
@@ -66,11 +68,13 @@ def record_action(actor, feature, action, *, source, source_id):
                 sources = filter_projects_accessible_to(current, sources)
             else:
                 sources = sources.filter(**{f"{spec[1]}__family_id": current.family_id})
-            record = sources.only("pk", "created_at").first()
+            timestamp_field = "clock_out" if source == "timecards.timeentry" else "created_at"
+            record = sources.only("pk", timestamp_field).first()
             if record is None:
                 return None
             now = timezone.now()
-            if action in {"completed", "requested"} and record.created_at < now - timedelta(days=RETENTION_DAYS):
+            source_time = getattr(record, timestamp_field)
+            if action in {"completed", "requested"} and (source_time is None or source_time < now - timedelta(days=RETENTION_DAYS)):
                 return None
             UsageCollectionState.objects.get_or_create(pk=1, defaults={"started_at": now})
             event, _ = UsageEvent.objects.get_or_create(

@@ -188,7 +188,7 @@ def build_usage_report(actor, *, scope="family", days=28, role="all", feature="a
             "history_complete": bool(state and observed_start <= start),
             "previous_history_complete": bool(state and observed_start <= previous_start),
             "notes": [
-                "Meaningful activity is an accepted human action; visits are separate. Completed activities are submitted homework, chores or projects and logged reading, movement or positive habits. Rewards and approvals are engagement but not additional completed activities.",
+                "Meaningful activity is an accepted human action; visits are separate. Completed activities are submitted work or logged project time, reading, movement or positive habits. Rewards and approvals are engagement but not additional completed activities.",
                 "Collection begins with this deployment; earlier activity is not reconstructed. Empty or partial history does not establish zero earlier usage. Live-check families, MCP and background automation are excluded.",
                 "Raw usage is retained for 90 UTC calendar days with daily cleanup. Account and family deletion also remove linked usage; historical totals can change after deletion.",
                 "Visits count accounts seen in the foreground once per UTC day, including multiple devices. Visits have no feature attribution; a feature filter does not change visit counts.",

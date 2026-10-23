@@ -20,6 +20,8 @@ from apps.projects.models import Project
 from apps.reading.models import ReadingBook, ReadingSession
 from apps.rewards.models import Reward
 from apps.rewards.services import CoinService, RewardService
+from apps.timecards.models import Timecard, TimeEntry
+from apps.timecards.services import ClockService, TimecardService
 from apps.usage.models import UsageEvent
 from config.tests.factories import make_family
 
@@ -62,6 +64,19 @@ class HumanUsageInstrumentationTests(TestCase):
 
     def movement_type(self):
         return MovementType.objects.create(name="Synthetic walk", slug="synthetic-walk")
+
+    def project(self, **extra):
+        return Project.objects.create(
+            title="Synthetic timed project", created_by=self.parent,
+            assigned_to=self.child, status="in_progress", **extra,
+        )
+
+    def timecard(self):
+        today = timezone.localdate()
+        week_start = today - timedelta(days=today.weekday())
+        return Timecard.objects.create(
+            user=self.child, week_start=week_start, week_end=week_start + timedelta(days=6),
+        )
 
     def event(self, feature, action):
         return UsageEvent.objects.get(feature=feature, action=action)
@@ -135,6 +150,68 @@ class HumanUsageInstrumentationTests(TestCase):
         self.assertEqual(UsageEvent.objects.count(), 2)
         self.assertEqual(self.event("projects", "submitted").actor_id, self.child.pk)
         self.assertEqual(self.event("projects", "approved").actor_id, self.parent.pk)
+
+    def test_project_timer_records_only_successful_positive_human_clock_out(self):
+        project = self.project()
+        # Keep quiet-hour admission deterministic without changing clock-out time.
+        with patch.object(ClockService, "QUIET_HOURS_START", 24), patch.object(ClockService, "QUIET_HOURS_END", 0):
+            response = self.post("/api/clock/", {"action": "in", "project_id": project.pk})
+        self.assertFalse(UsageEvent.objects.exists())
+        entry_id = response.data["id"]
+        TimeEntry.objects.filter(pk=entry_id).update(clock_in=timezone.now() - timedelta(minutes=20))
+        self.post("/api/clock/", {"action": "out", "notes": "Private synthetic work notes"}, expected=200)
+        self.post("/api/clock/", {"action": "out"}, expected=400)
+        self.assertEqual(self.client.get("/api/clock/").status_code, 200)
+        event = self.event("projects", "completed")
+        self.assertEqual(UsageEvent.objects.count(), 1)
+        self.assertEqual((event.actor_id, event.source, event.source_id), (self.child.pk, "timecards.timeentry", entry_id))
+        self.assertNotIn("Private synthetic work notes", str(list(UsageEvent.objects.values())))
+
+    def test_zero_minute_and_historical_homework_clock_outs_are_not_project_activity(self):
+        TimeEntry.objects.create(user=self.child, project=self.project(), clock_in=timezone.now())
+        self.post("/api/clock/", {"action": "out"}, expected=200)
+        TimeEntry.objects.create(
+            user=self.child, project=self.project(is_homework_plan=True),
+            clock_in=timezone.now() - timedelta(minutes=20),
+        )
+        self.post("/api/clock/", {"action": "out"}, expected=200)
+        self.assertEqual(TimeEntry.objects.filter(status="completed").count(), 2)
+        self.assertFalse(UsageEvent.objects.exists())
+
+    def test_automatic_and_shared_service_clock_outs_do_not_invent_human_activity(self):
+        project = self.project()
+        stale = TimeEntry.objects.create(
+            user=self.child, project=project, clock_in=timezone.now() - timedelta(hours=9),
+        )
+        self.assertEqual(ClockService.auto_clock_out(), 1)
+        stale.refresh_from_db()
+        self.assertTrue(stale.auto_clocked_out)
+        TimeEntry.objects.create(
+            user=self.child, project=project, clock_in=timezone.now() - timedelta(minutes=20),
+        )
+        ClockService.clock_out(self.child)
+        self.assertFalse(UsageEvent.objects.exists())
+
+    def test_timecard_human_review_records_actual_parent_once(self):
+        timecard = self.timecard()
+        self.post(f"/api/timecards/{timecard.pk}/approve/", expected=403)
+        self.client.force_authenticate(self.other_parent)
+        self.post(f"/api/timecards/{timecard.pk}/approve/", expected=404)
+        self.client.force_authenticate(self.parent)
+        self.post(f"/api/timecards/{timecard.pk}/approve/", {"notes": "Private synthetic review"}, expected=200)
+        self.client.force_authenticate(self.coparent)
+        self.post(f"/api/timecards/{timecard.pk}/approve/", expected=200)
+        event = self.event("projects", "approved")
+        self.assertEqual(UsageEvent.objects.count(), 1)
+        self.assertEqual((event.actor_id, event.source, event.source_id), (self.parent.pk, "timecards.timecard", timecard.pk))
+        self.assertNotIn("Private synthetic review", str(list(UsageEvent.objects.values())))
+
+    def test_timecard_api_retry_of_service_approval_creates_no_human_activity(self):
+        timecard = self.timecard()
+        TimecardService.approve_timecard(timecard, self.parent)
+        self.client.force_authenticate(self.parent)
+        self.post(f"/api/timecards/{timecard.pk}/approve/", expected=200)
+        self.assertFalse(UsageEvent.objects.exists())
 
     def test_reading_records_actual_parent_actor_and_skips_retry_and_corrections(self):
         self.client.force_authenticate(self.parent)

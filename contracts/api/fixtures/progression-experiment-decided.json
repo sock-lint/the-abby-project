@@ -186,7 +186,7 @@
       "freshness": "current",
       "binding": {
         "engine_version": "2026-10-22.1",
-        "rules_fingerprint": "7fb6fb8ddd249ab065c1abcb27f39281df4172cf8bfbebbf23f7c2a73767cf36",
+        "rules_fingerprint": "dd6e30ef188fcc4aa8437e40280c41ba536918c1c7afe2e8896601a8c8f02a39",
         "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
         "catalog_fingerprint": "4264698f1f92ec9761b902e332ef5971e4e1b45d60d79c59e6ebb7130a89cdae",
         "source_commit": "unavailable"

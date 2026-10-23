@@ -32,7 +32,7 @@ matching a household name is not sufficient to exclude a real family.
 | --- | --- |
 | Homework | Submission and explicit parent approval |
 | Chores | Completion submission and explicit parent approval |
-| Projects | Submission and explicit parent approval |
+| Projects | Submission, positive work-session clock-out, explicit project or timecard approval |
 | Reading | Newly saved reading session |
 | Movement | Newly saved movement session |
 | Habits | Positive or negative check-in |
