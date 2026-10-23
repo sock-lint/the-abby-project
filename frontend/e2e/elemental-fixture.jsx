@@ -12,18 +12,32 @@ import Button from '../src/components/Button';
 import { SelectField } from '../src/components/form';
 import '../src/index.css';
 
+const evaluationModule = '/__abby_elemental_evaluation__/module.js';
+const evaluation = (await import(/* @vite-ignore */ evaluationModule)).default;
+const evaluationStage = evaluation ? stagedElementalRelease(
+  { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.release },
+  Object.fromEntries(Object.entries(evaluation.urls).map(([file, url]) => [`../avatar/shared/${evaluation.pin.directory}/${file}`, url])),
+  { schema_version: 1, releases: [evaluation.pin] },
+  { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
+) : undefined;
+const stagedFor = (family) => ['meshtint-bee', 'meshtint-bat'].includes(family.slug) ? evaluationStage : undefined;
 const families = [
   { slug: 'chick', sprite_key: 'cute-chick', name: 'Chick', egg: 'chick-egg' },
   { slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf', name: 'Wolf', egg: 'meshtint-wolf-egg' },
   { slug: 'meshtint-dragon', sprite_key: 'meshtint-dragon', name: 'Dragon', egg: 'meshtint-dragon-egg' },
   { slug: 'meshtint-mushroom', sprite_key: 'meshtint-mushroom', name: 'Mushroom', egg: 'meshtint-mushroom-egg' },
+  ...(evaluation ? [
+    { slug: 'meshtint-bee', sprite_key: 'meshtint-bee', name: 'Bee', egg: 'meshtint-bee-egg' },
+    { slug: 'meshtint-bat', sprite_key: 'meshtint-bat', name: 'Bat', egg: 'meshtint-bat-egg' },
+  ] : []),
 ];
 const stages = ['baby', 'middle', 'grown'];
 const potionFor = (slug) => ({ id: slug === 'base' ? 901 : slug === 'fire' ? 902 : 903, slug,
   name: slug === 'base' ? 'Base' : slug === 'fire' ? 'Fire' : 'Ice', rarity: slug === 'base' ? 'common' : 'rare' });
 const storageKey = 'abby_synthetic_elemental_fixture';
 const uiImages = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
-  'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit'];
+  'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
+  ...(evaluation ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : [])];
 function loadFixture() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
@@ -45,12 +59,12 @@ function Portraits() {
         const pet = creature(family, potion, stage), id = `${family.slug}-${potion}-${stage}`;
         const label = `${pet.potion.name} ${companionFormName(pet.species, pet.potion, stage)}`;
         return <figure key={id} data-testid={id} className="min-w-0 text-center">
-          <RpgSprite {...petSpriteKeys(pet)} potionSlug={potion} size={128} alt={label} />
+          <RpgSprite elemental={stagedFor(family)} {...petSpriteKeys(pet)} potionSlug={potion} size={128} alt={label} />
           <figcaption className="text-caption">{label}</figcaption>
         </figure>;
       })))}
       {uiImages.map((id) => <figure key={id} data-testid={id} className="min-w-0 text-center">
-        <CatalogIcon assetId={id} icon="✨" size={64} alt={id} />
+        <CatalogIcon elemental={id.startsWith('review-') ? evaluationStage : undefined} assetId={id} icon="✨" size={64} alt={id} />
         <figcaption className="text-caption break-words">{id}</figcaption>
       </figure>)}
     </div>
@@ -61,7 +75,7 @@ function Coexistence({ family, stage }) {
   return <section className="space-y-3" aria-label="Base, Fire and Ice coexistence">
     <h2 className="text-lede font-bold">Independent appearances in the same page</h2>
     {['base', 'fire', 'ice'].map((potion) => <div key={potion} data-testid={`coexist-${potion}`}>
-      <CompanionPreview variant="primary" creature={creature(family, potion, stage)} />
+      <CompanionPreview elemental={potion === 'base' ? undefined : stagedFor(family)} variant="primary" creature={creature(family, potion, stage)} />
     </div>)}
   </section>;
 }
@@ -74,7 +88,8 @@ export default function Fixture() {
     ...(unknown ? { species: { slug: 'unsupported-elemental', sprite_key: 'unavailable-elemental', name: 'Saved companion', icon: '🐾' } } : {}) };
   const item = { id: 904, slug: family.egg, name: `${family.name} Egg`, item_type: 'egg',
     pet_species_slug: family.slug, pet_species_name: family.name, metadata: { species: family.slug }, catalog_available: true };
-  const staged = stagedElementalRelease(undefined, undefined, undefined, undefined, elementalFamilyId(family.slug)), appearance = resolveAppearance(pet);
+  const staged = stagedFor(family) || stagedElementalRelease(undefined, undefined, undefined, undefined, elementalFamilyId(family.slug));
+  const appearance = resolveAppearance(pet, 'pet', undefined, undefined, undefined, undefined, stagedFor(family));
   useEffect(() => localStorage.setItem(storageKey, JSON.stringify(saved)), [saved]);
   return <main className="max-w-3xl mx-auto p-4 space-y-4">
     <h1 className="text-lede font-bold">Private elemental companion acceptance</h1>
@@ -103,9 +118,9 @@ export default function Fixture() {
       {' · '}{appearance?.woodland ? 'Populated Woodland installed' : 'Populated Woodland unavailable'}
     </output>
     {visible && (mode === 'portraits' ? <Portraits /> : mode === 'hatchery'
-      ? <FamilyStagePreview key={`${family.slug}:${potion.slug}`} item={item} potion={potion} />
+      ? <FamilyStagePreview elemental={stagedFor(family)} key={`${family.slug}:${potion.slug}`} item={item} potion={potion} />
       : mode === 'coexistence' ? <Coexistence family={family} stage={saved.stage} />
-      : <CompanionPreview variant="primary" creature={pet}><Button>Existing care control</Button></CompanionPreview>)}
+      : <CompanionPreview elemental={stagedFor(family)} variant="primary" creature={pet}><Button>Existing care control</Button></CompanionPreview>)}
   </main>;
 }
 createRoot(document.getElementById('root')).render(<Fixture />);

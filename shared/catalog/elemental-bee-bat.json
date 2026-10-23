@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "release": {
+    "family_id": "abby-elemental-bee-bat",
+    "release_version": "1.0.0",
+    "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5"
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-bee",
+      "sprite_key": "meshtint-bee",
+      "egg_item_slug": "meshtint-bee-egg",
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-bee-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-bee-ice-acquisition-icon"
+        }
+      ]
+    },
+    {
+      "species_slug": "meshtint-bat",
+      "sprite_key": "meshtint-bat",
+      "egg_item_slug": "meshtint-bat-egg",
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-bat-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-bat-ice-acquisition-icon"
+        }
+      ]
+    }
+  ]
+}

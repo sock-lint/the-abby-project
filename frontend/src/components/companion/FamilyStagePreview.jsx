@@ -18,7 +18,7 @@ class PreviewBoundary extends Component {
   render() { return this.state.failed ? null : this.props.children; }
 }
 
-export default function FamilyStagePreview({ item, potion, initialStage = 'egg' }) {
+export default function FamilyStagePreview({ item, potion, initialStage = 'egg', elemental }) {
   const family = rosterEggFamily(item);
   const retained = item?.item_type === 'egg' && item.slug === 'chick-egg' && item.pet_species_slug === 'chick' && item.metadata?.species === 'chick';
   const [stage, setStage] = useState(COMPANION_STAGES.some(({ id }) => id === initialStage) ? initialStage : 'egg');
@@ -31,13 +31,13 @@ export default function FamilyStagePreview({ item, potion, initialStage = 'egg' 
     <div className="flex flex-wrap gap-2" role="group" aria-label="Preview growth stage">
       {COMPANION_STAGES.map(({ id, label }) => <Button key={id} size="sm" variant={stage === id ? 'secondary' : 'ghost'} aria-pressed={stage === id} onClick={() => setStage(id)}>{label}</Button>)}
     </div>
-    <StagePreview key={`${item.id}:${stage}:${potion?.slug || 'base'}`} item={item} family={family} retained={retained} stage={stage} name={name} element={element} potion={potion} />
+    <StagePreview key={`${item.id}:${stage}:${potion?.slug || 'base'}`} item={item} family={family} retained={retained} stage={stage} name={name} element={element} potion={potion} elemental={elemental} />
     {stage === 'egg' && element && <p className="text-caption text-ink-secondary">The egg keeps its natural appearance. The {element} appearance begins after hatching.</p>}
     <p className="text-caption text-ink-secondary">Artwork preview. Hatching and growth are saved through your pet care actions.</p>
   </section>;
 }
 
-function StagePreview({ item, family, retained, stage, name, element, potion }) {
+function StagePreview({ item, family, retained, stage, name, element, potion, elemental }) {
   const [enabled, setEnabled] = useState(false), [ready, setReady] = useState(false), [failed, setFailed] = useState(false);
   const [animate, setAnimate] = useState(true), [interaction, setInteraction] = useState(null), [attempt, setAttempt] = useState(0);
   const [playback, setPlayback] = useState(null);
@@ -45,8 +45,8 @@ function StagePreview({ item, family, retained, stage, name, element, potion }) 
   // A separate immutable release binds each elemental stage. Missing exact
   // art must never become a Base model or CSS-tinted preview.
   const elementalStage = !!element && stage !== 'egg';
-  const appearance = useMemo(() => elementalStage ? resolveElementalPreviewAppearance(item, stage, potion)
-    : retained ? resolveSharedBirdPreviewAppearance(item, stage) : resolveRosterPreviewAppearance(item, stage), [item, retained, stage, elementalStage, potion]);
+  const appearance = useMemo(() => elementalStage ? resolveElementalPreviewAppearance(item, stage, potion, elemental)
+    : retained ? resolveSharedBirdPreviewAppearance(item, stage) : resolveRosterPreviewAppearance(item, stage), [item, retained, stage, elementalStage, potion, elemental]);
   // A retry owns a fresh lazy wrapper so rejected chunk downloads can recover.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const Scene = useMemo(() => lazy(() => import('../../companion/CompanionScene')), [attempt]);
@@ -63,7 +63,7 @@ function StagePreview({ item, family, retained, stage, name, element, potion }) 
     <div className="relative h-80 overflow-hidden rounded-2xl border border-ink-page-shadow bg-ink-page-aged" role="group" aria-label={`${name} artwork preview`} aria-busy={!!(shown && appearance && !ready)}>
       {(!shown || !ready || !appearance) && <div className="absolute inset-0 flex items-center justify-center">
         {stage === 'egg' && family ? <CatalogIcon assetId={family.egg.portrait_asset_id} icon="🥚" alt={name} size={160} />
-          : <RpgSprite spriteKey={elementalStage ? elementalSpriteKey : spriteKey} potionSlug={elementalStage ? potion?.slug : undefined}
+          : <RpgSprite elemental={elemental} spriteKey={elementalStage ? elementalSpriteKey : spriteKey} potionSlug={elementalStage ? potion?.slug : undefined}
             icon={stage === 'egg' ? '🥚' : '🐾'} alt={elementalStage && !appearance ? `${name} artwork unavailable` : name} size={160} />}
       </div>}
       {shown && appearance && <div className="absolute inset-0" aria-hidden="true"><PreviewBoundary key={attempt} onFailure={onFailure}><Suspense fallback={null}>

@@ -514,3 +514,11 @@ and preserve labelled unavailable presentation when its exact art is absent.
 Hatchery hints require server-confirmed compatible variants. The private art
 and physical-phone acceptance work is recorded separately in
 [the preparation runbook](../docs/operations/elemental-dragon-mushroom.md).
+
+Bee/Bat Fire/Ice preparation uses `shared/catalog/elemental-bee-bat.json` and an
+external, explicitly supplied staged release for private component review. Its
+pin lives only in `assets.bee-bat.evaluation.lock.json`; all twelve production pins and
+the server's 23 supported pairs remain unchanged. Exact prepared portraits fail
+unavailable rather than CSS-tinting Base art. The e2e-only loopback review path
+and remaining owner acceptance/publication/activation gates are documented in
+[the Bee/Bat preparation runbook](../docs/operations/elemental-bee-bat.md).

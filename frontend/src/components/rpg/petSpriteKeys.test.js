@@ -38,6 +38,22 @@ describe('pet portrait state', () => {
     }
   });
 
+  it.each(['meshtint-bee', 'meshtint-bat'].flatMap((species) => ['fire', 'ice'].map((potion) => [species, potion])))(
+    'selects every confirmed %s %s portrait while rejecting mismatched identities and unsupported stages', (species, potion) => {
+      const pet = { id: 19, species: { slug: species, sprite_key: species }, potion: { slug: potion }, lifecycle_stage: 'baby', growth_points: 100 };
+      expect(petSpriteKeys(pet)).toEqual({ spriteKey: species, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: 'middle' })).toEqual({ spriteKey: `${species}-middle`, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: 'grown', evolved_to_mount: false })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, evolved_to_mount: true })).toEqual({ spriteKey: `${species}-mount`, fallbackSpriteKey: null });
+      expect(petSpriteKeys(pet, 'mount')).toEqual({ spriteKey: `${species}-mount`, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, lifecycle_stage: undefined })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, species: { ...pet.species, slug: 'wrong-species' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, species: { ...pet.species, sprite_key: 'fox' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, potion: { slug: 'base' } })).toEqual({ spriteKey: species, fallbackSpriteKey: null });
+      expect(petSpriteKeys({ ...pet, potion: { slug: 'unsupported' } })).toEqual({ spriteKey: null, fallbackSpriteKey: null });
+    },
+  );
+
   it('keeps a fully grown pet on its base portrait until the server confirms evolution', () => {
     expect(petSpriteKeys({ species: { sprite_key: 'cute-chick' }, growth_points: 100, evolved_to_mount: false }))
       .toEqual({ spriteKey: 'cute-chick', fallbackSpriteKey: null });

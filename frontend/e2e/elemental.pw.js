@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
+import { evaluationPin } from './elemental-evaluation-server.mjs';
 import { chooseDropdown as chooseSharedDropdown } from './dropdown-helpers.js';
 
 // Real SwiftShader scene changes measured up to 12.5s before click completion.
@@ -20,18 +21,21 @@ const manifest = installedManifest('abby-elemental-companions');
 const expansionManifest = installedManifest('abby-elemental-dragon-mushroom');
 const rosterManifest = installedManifest('meshtint-companion-roster');
 const roster = JSON.parse(readFileSync(new URL('../../shared/catalog/companion-roster.json', import.meta.url), 'utf8'));
-const expansionSpecies = ['meshtint-dragon', 'meshtint-mushroom'];
+const evaluationRoot = process.env.ABBY_ELEMENTAL_EVALUATION_ROOT;
+const evaluationManifest = evaluationRoot ? JSON.parse(readFileSync(`${evaluationRoot}/manifest.json`, 'utf8')) : null;
+const evaluationSpecies = evaluationManifest ? ['meshtint-bee', 'meshtint-bat'] : [];
+const expansionSpecies = ['meshtint-dragon', 'meshtint-mushroom', ...evaluationSpecies];
 const allSpecies = ['chick', 'meshtint-wolf', ...expansionSpecies];
-const releaseFor = (species) => expansionSpecies.includes(species) ? expansionManifest : manifest;
+const releaseFor = (species) => evaluationSpecies.includes(species) ? evaluationManifest : expansionSpecies.includes(species) ? expansionManifest : manifest;
 const stages = ['baby', 'middle', 'grown'];
 const fullMotions = process.env.ABBY_ELEMENTAL_FULL_MOTIONS === '1';
 let server, origin;
 test.use({ viewport: { width: 390, height: 844 }, reducedMotion: 'no-preference',
   launchOptions: { args: ['--enable-unsafe-swiftshader', '--use-angle=swiftshader'] } });
 test.beforeAll(async () => {
-  server = spawn(process.execPath, ['--input-type=module', '-e', "import { createServer } from 'vite'; const server = await createServer({ server: { host: '127.0.0.1', port: 0, hmr: false, watch: null } }); await server.listen(); server.printUrls();"], {
+  server = spawn(process.execPath, ['--input-type=module', '-e', "import { createServer } from 'vite'; import { elementalEvaluationPlugin } from './e2e/elemental-evaluation-server.mjs'; const server = await createServer({ plugins: [await elementalEvaluationPlugin()], server: { host: '127.0.0.1', port: 0, hmr: false, watch: null } }); await server.listen(); server.printUrls();"], {
     cwd: fileURLToPath(new URL('..', import.meta.url)),
-    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))),
+    env: { ...Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|SYSTEMROOT|WINDIR|TEMP|TMP|HOME|USERPROFILE)$/i.test(key))), ...(evaluationRoot ? { ABBY_ELEMENTAL_EVALUATION_ROOT: evaluationRoot } : {}) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   origin = await new Promise((resolve, reject) => {
@@ -116,6 +120,7 @@ for (const species of allSpecies) {
       const release = releaseFor(species);
       test.skip(!release, 'Exact private elemental payloads absent; asset acceptance remains pending.');
       const { errors, mutations } = await open(page, species, potion);
+      if (evaluationSpecies.includes(species)) await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-populated-woodland', 'true');
       let rendered = 0;
       for (const stage of stages) {
         if (expansionSpecies.includes(species)) await observePlayback(page);
@@ -124,6 +129,7 @@ for (const species of allSpecies) {
         if (expansionSpecies.includes(species)) expect(await page.evaluate(() => window.__elementalHistory.some(({ status }) => status === 'evolving'))).toBe(false);
         await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-appearance-id', `${species}-${potion}-${stage}`);
         await page.screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-live.png`), fullPage: true });
+        if (evaluationSpecies.includes(species)) await page.locator('.companion-preview').screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-owner-preview.png`) });
         await page.getByRole('button', { name: 'Reload saved companion', exact: true }).click();
         await resting(page, stage);
         await page.getByText('More motions', { exact: true }).click();
@@ -168,20 +174,21 @@ for (const species of allSpecies) {
   }
 }
 
-test('all twenty-four portraits and ten catalog images use exact 256px art in a narrow layout', async ({ page }, info) => {
+test('all installed exact portraits and catalog images use exact 256px art in a narrow layout', async ({ page }, info) => {
   test.skip(!manifest || !expansionManifest, 'Exact private elemental payloads absent; image acceptance remains pending.');
   const { errors, mutations } = await open(page);
   await chooseDropdown(page.getByRole('combobox', { name: 'Fixture surface' }), 'portraits');
   const gallery = page.getByRole('region', { name: 'Elemental portrait and catalog images' });
-  await expect(gallery.locator('img')).toHaveCount(34);
+  await expect(gallery.locator('img')).toHaveCount(evaluationManifest ? 50 : 34);
   await expect.poll(() => gallery.locator('img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth === 256))).toBe(true);
-  for (const binding of [...manifest.appearance_bindings.stages, ...expansionManifest.appearance_bindings.stages].filter(({ motion }) => motion === 'idle')) {
+  for (const binding of [...manifest.appearance_bindings.stages, ...expansionManifest.appearance_bindings.stages, ...(evaluationManifest?.appearance_bindings.stages || [])].filter(({ motion }) => motion === 'idle')) {
     const portrait = releaseFor(binding.species_slug).assets.find(({ id }) => id === binding.portrait_asset_id).variants.find(({ id }) => id === binding.portrait_variant_id);
     await expect(gallery.getByTestId(`${binding.species_slug}-${binding.potion_slug}-${binding.lifecycle_stage}`).locator('img')).toHaveAttribute('src', new RegExp(portrait.file));
   }
   for (const id of ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
-    'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit']) {
-    const asset = [...manifest.assets, ...expansionManifest.assets].find((entry) => entry.id === id);
+    'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
+    ...(evaluationManifest ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : [])]) {
+    const asset = [...manifest.assets, ...expansionManifest.assets, ...(evaluationManifest?.assets || [])].find((entry) => entry.id === id);
     const image = asset.variants.find(({ id: variantId }) => variantId === 'icon');
     await expect(gallery.getByTestId(id).locator('img')).toHaveAttribute('src', new RegExp(image.file));
   }
@@ -306,7 +313,7 @@ for (const species of expansionSpecies) {
         for (const potion of ['base', 'fire', 'ice']) {
           const card = coexistence.getByTestId(`coexist-${potion}`);
           const variantId = potion === 'base' ? baseFamily.stages[stage].default_variant_id
-            : stageBinding(expansionManifest, species, potion, stage).variant_id;
+            : stageBinding(releaseFor(species), species, potion, stage).variant_id;
           await resting(page, stage, 'Companion playback', card, variantId);
           const playButton = card.getByRole('button', { name: /^(Fly|Walk|Hop|Play) together$/, exact: true });
           if (reduced === 'reduce') await expect(playButton).toBeDisabled();
@@ -325,10 +332,14 @@ test('exact Base, Fire and Ice loader instances isolate materials, textures, mut
   test.setTimeout(180_000);
   test.skip(!expansionManifest || !rosterManifest, 'Exact private expansion and Base payloads absent; material isolation acceptance remains pending.');
   const { errors, mutations } = await open(page, 'meshtint-dragon', 'fire');
-  const result = await page.evaluate(async () => (await import('/e2e/elemental-inspection.js')).inspectElementalMaterialIsolation());
-  expect(result.instances).toBe(24);
+  const result = await page.evaluate(async () => {
+    const modulePath = '/__abby_elemental_evaluation__/module.js';
+    const evaluation = (await import(/* @vite-ignore */ modulePath)).default;
+    return (await import('/e2e/elemental-inspection.js')).inspectElementalMaterialIsolation(evaluation);
+  });
+  expect(result.instances).toBe(evaluationManifest ? 48 : 24);
   expect(result.independent).toBe(true);
-  expect(result.groups).toHaveLength(6);
+  expect(result.groups).toHaveLength(evaluationManifest ? 12 : 6);
   expect(result.groups.map(({ species, stage }) => `${species}/${stage}`).sort()).toEqual(
     expansionSpecies.flatMap((species) => stages.map((stage) => `${species}/${stage}`)).sort());
   for (const group of result.groups) {
@@ -345,4 +356,18 @@ test('exact Base, Fire and Ice loader instances isolate materials, textures, mut
   }
   await info.attach('material-isolation-proof', { body: JSON.stringify(result, null, 2), contentType: 'application/json' });
   expect(errors).toEqual([]); expect(mutations).toEqual([]);
+});
+
+
+test('private evaluation delivery is pinned, read-only and limited to its verified inventory', async ({ request }) => {
+  const response = await request.get(`${origin}/__abby_elemental_evaluation__/module.js`);
+  expect(response.ok()).toBe(true);
+  const source = await response.text();
+  if (evaluationManifest) {
+    expect(source).toContain(evaluationPin.manifest_sha256);
+    expect(source).not.toContain(evaluationRoot);
+  } else expect(source).toBe('export default null;');
+  expect((await request.post(`${origin}/__abby_elemental_evaluation__/module.js`)).status()).toBe(405);
+  expect((await request.get(`${origin}/__abby_elemental_evaluation__/objects/unknown.glb`)).status()).toBe(404);
+  expect((await request.get(`${origin}/__abby_elemental_evaluation__/..%2fpackage.json`)).status()).toBe(404);
 });
