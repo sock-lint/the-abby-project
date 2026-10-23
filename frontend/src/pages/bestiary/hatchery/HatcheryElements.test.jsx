@@ -48,14 +48,14 @@ const potions = [base, fire, ice].map((entry) => ({ quantity: 1, item: {
   item_type: 'potion', catalog_available: true, metadata: { variant: entry.slug },
 } }));
 
-function page(extraHandlers = []) {
+function page(extraHandlers = [], { showDiscovery = true } = {}) {
   server.use(
     ...extraHandlers,
     http.get('*/api/pets/codex/', () => HttpResponse.json({ species })),
     http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
     http.get('*/api/inventory/', () => HttpResponse.json([...eggs, ...potions])),
   );
-  return render(<MemoryRouter><Hatchery showDiscovery /></MemoryRouter>);
+  return render(<MemoryRouter><Hatchery showDiscovery={showDiscovery} /></MemoryRouter>);
 }
 
 describe('Elemental Hatchery choices', () => {
@@ -78,6 +78,33 @@ describe('Elemental Hatchery choices', () => {
     await user.click(screen.getByRole('button', { name: 'Start incubation' }));
     await waitFor(() => expect(start.calls).toHaveLength(1));
     expect(start.calls[0].body).toEqual({ egg_item_id: String(egg.id), potion_item_id: String(item.id), request_id: expect.any(String) });
+  });
+
+  it.each([[0, fire], [1, ice], [4, fire]])('keeps the selected owned egg %i preview with its exact $slug potion when discovery is hidden', async (index, potion) => {
+    page([], { showDiscovery: false });
+    const egg = eggs[index].item;
+    const item = potions.find((entry) => entry.item.metadata.variant === potion.slug).item;
+    const user = userEvent.setup();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), String(egg.id));
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Potion' }), String(item.id));
+    expect(screen.queryByRole('region', { name: 'Explore companions' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Choose ingredients for incubation' })).toBeNull();
+    const preview = within(screen.getByRole('region', { name: 'Family artwork preview' }));
+    expect(preview.getByRole('group', { name: 'Preview growth stage' })).toBeInTheDocument();
+    await user.click(preview.getByRole('button', { name: 'Baby' }));
+    expect(preview.getByText(`${potion.name} artwork is not available yet. You can still inspect the growth stages and choose your ingredients.`)).toBeInTheDocument();
+    expect(preview.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Start incubation' })).toBeEnabled();
+  });
+
+  it('shows one selected-family preview and the skip link when discovery is shown', async () => {
+    page();
+    const user = userEvent.setup();
+    await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '10');
+    expect(screen.getByRole('link', { name: 'Choose ingredients for incubation' })).toBeInTheDocument();
+    const previews = screen.getAllByRole('region', { name: 'Family artwork preview' });
+    expect(previews).toHaveLength(1);
+    expect(within(screen.getByRole('region', { name: 'Explore companions' })).getByRole('region', { name: 'Family artwork preview' })).toBe(previews[0]);
   });
 
   it('clears an incompatible potion after changing egg, and never offers its unsupported appearance', async () => {

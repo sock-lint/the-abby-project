@@ -20,6 +20,7 @@ import PetEvolutionGuide from '../../../components/companion/PetEvolutionGuide';
 import PetSuppliesGuide from '../../../components/companion/PetSuppliesGuide';
 import { companionFormName, eggSpecies } from '../../../companion/lifecycle';
 import CatalogIcon from '../../../components/rpg/CatalogIcon';
+import FamilyStagePreview from '../../../components/companion/FamilyStagePreview';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import EggCollection from './EggCollection';
 import usePetMutationGuard from '../party/usePetMutationGuard';
@@ -192,7 +193,8 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
         snapshotKey={incubation} working={working} refreshing={refreshingIncubation} blocked={!!incubationError}
         onHatch={handleHatch} onRefresh={reloadIncubation} />}
 
-      {eggs.length > 0 && <a href={'#' + recipeId}
+      {/* The skip link passes over the staff-only discovery panel. */}
+      {showDiscovery && eggs.length > 0 && <a href={'#' + recipeId}
         className="inline-flex min-h-11 items-center font-semibold text-body text-sheikah-teal-deep">
         Choose ingredients for incubation
       </a>}
@@ -223,9 +225,12 @@ export default function Hatchery({ refreshRevision = 0, onChanged, showDiscovery
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
             <figure className="min-w-0">
-              {selectedEggItem?.slug ? <div className="flex h-48 items-center justify-center">
+              {/* Staff preview the selected family in Explore companions; everyone
+                  else keeps the owned egg's artwork and growth stages here. */}
+              {selectedEggItem?.slug ? showDiscovery ? <div className="flex h-48 items-center justify-center">
                 <CatalogIcon assetId={selectedEggItem.catalog_icon} icon={selectedEggItem.icon || '🥚'} alt={selectedEggItem.name} size={160} />
-              </div> : <PedestalPreview />}
+              </div> : <FamilyStagePreview key={selectedEggItem.id} item={selectedEggItem} potion={selectedPotion} />
+                : <PedestalPreview />}
               <figcaption className="flex items-center justify-center gap-2 text-caption text-ink-secondary">
                 <span className="w-12 shrink-0"><PedestalImage assetId="card-front-egg-star" /></span>
                 Your selected egg

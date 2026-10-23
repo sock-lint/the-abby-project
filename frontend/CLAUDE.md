@@ -301,7 +301,10 @@ Hatchery's Explore companions section is visible only to staff users and browses
 their supported codex independently of inventory. BestiaryHub enables this
 presentation only when the authenticated user's `is_staff` is `true`; Hatchery
 hides it by default. All users retain their owned eggs, compatible potion choices,
-incubation, and hatching controls. Only server-returned available potion pairs
+incubation, and hatching controls. Without the section, the recipe shows the
+selected owned egg's family preview with its chosen potion; with it, the recipe
+shows the egg icon, recipe selections focus the section's single preview, and a
+skip link passes over the section. Only server-returned available potion pairs
 are offered. A typed, presentation-only natural egg projects exact registered
 family artwork; it never supplies inventory IDs to incubation. Recipe selections
 can focus that preview, while browsing never changes the recipe or makes a write.
