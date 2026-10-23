@@ -188,6 +188,9 @@ class SavingsRewardIntegrityTests(TestCase):
         self.assertEqual(self.savings_coins(), 0)
         self.assertEqual(PaymentService.get_balance(self.child), Decimal("50.00"))
         SavingsGoalService.update_goal(goal, title="Retried by explicit edit")
+        goal.refresh_from_db()
+        self.assertEqual(goal.reward_start_balance, Decimal("0.00"))
+        self.assertTrue(goal.reward_qualifies)
         self.assertEqual(self.savings_coins(), 100)
 
     def test_failed_settlement_discards_external_pushes_from_partial_game_rewards(self):
@@ -242,7 +245,8 @@ class SavingsRewardIntegrityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         goal.refresh_from_db()
         self.assertTrue(goal.is_completed)
-        self.assertEqual(self.savings_coins(), 100)
+        self.assertFalse(goal.reward_qualifies)
+        self.assertEqual(self.savings_coins(), 0)
 
     def test_mcp_explicit_update_settles_eligible_goal(self):
         goal = self.create("MCP update", "100.00")
@@ -250,6 +254,41 @@ class SavingsRewardIntegrityTests(TestCase):
         with override_user(self.family.parents[0]):
             result = update_savings_goal(UpdateSavingsGoalIn(goal_id=goal.pk, target_amount=Decimal("50.00")))
         self.assertTrue(result["is_completed"])
+        self.assertEqual(self.savings_coins(), 0)
+
+    def test_lowering_precreated_targets_cannot_split_existing_money_into_reward_events(self):
+        goals = [self.create(f"Future target {number}", "100.00") for number in range(3)]
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as game:
+            self.money("50.00")
+            for number, goal in enumerate(goals, start=1):
+                response = self.client.patch(f"/api/savings-goals/{goal.pk}/", {
+                    "target_amount": str(Decimal(number) / 100)})
+                self.assertEqual(response.status_code, 200)
+        self.assertEqual(SavingsGoal.objects.filter(user=self.child, is_completed=True).count(), 3)
+        self.assertFalse(SavingsGoal.objects.filter(user=self.child, reward_qualifies=True).exists())
+        game.assert_not_called()
+        self.assertEqual(self.savings_coins(), 0)
+        self.assertFalse(_savings_goal_completed(self.child, {"count": 1}))
+
+    def test_increasing_target_only_rewards_savings_after_the_explicit_change(self):
+        goal = self.create("Original fifty")
+        self.money("25.00")
+        response = self.client.patch(f"/api/savings-goals/{goal.pk}/", {"target_amount": "75.00"})
+        self.assertEqual(response.status_code, 200)
+        goal.refresh_from_db()
+        self.assertEqual(goal.reward_start_balance, Decimal("25.00"))
+        self.money("50.00")
+        self.assertEqual(self.savings_coins(), 100)
+
+    def test_same_target_and_metadata_edits_preserve_the_original_savings_baseline(self):
+        goal = self.create("Frozen baseline")
+        self.money("50.00", hooked=False)
+        response = self.client.patch(f"/api/savings-goals/{goal.pk}/", {
+            "target_amount": "50.00", "title": "Same target, renamed", "icon": "star"})
+        self.assertEqual(response.status_code, 200)
+        goal.refresh_from_db()
+        self.assertEqual(goal.reward_start_balance, Decimal("0.00"))
+        self.assertTrue(goal.is_completed and goal.reward_qualifies)
         self.assertEqual(self.savings_coins(), 100)
 
     def test_internal_reward_fields_cannot_be_supplied_by_clients(self):
@@ -281,6 +320,7 @@ class SavingsRewardIntegrityTests(TestCase):
         old.refresh_from_db()
         self.assertTrue(old.is_completed and old.reward_qualifies)
         self.assertEqual(old.legacy_coin_reward, 100)
+        self.assertEqual(old.reward_start_balance, Decimal("0.00"))
         SavingsGoalService.check_and_complete(self.child)
         self.assertEqual(self.savings_coins(), 100)
 

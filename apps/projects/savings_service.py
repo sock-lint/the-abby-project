@@ -30,9 +30,17 @@ class SavingsGoalService:
     @classmethod
     @transaction.atomic
     def update_goal(cls, goal, **data):
+        from apps.payments.services import PaymentService
         from .models import SavingsGoal, User
         User.objects.select_for_update(no_key=True).get(pk=goal.user_id)
         fresh = SavingsGoal.objects.select_for_update().get(pk=goal.pk, user_id=goal.user_id)
+        if (fresh.reward_policy_version == 2 and "target_amount" in data
+                and data["target_amount"] != fresh.target_amount):
+            # A newly chosen target recognizes only future saving. Otherwise
+            # pre-created distant goals could be lowered cent by cent to farm
+            # milestone events against money that is already available.
+            fresh.reward_start_balance = max(
+                fresh.reward_start_balance, PaymentService.get_balance(fresh.user))
         for field in ("title", "target_amount", "icon"):
             if field in data:
                 setattr(fresh, field, data[field])

@@ -84,6 +84,19 @@ new goals cannot reward the same saved dollars twice. A goal already covered
 by existing money can be visibly complete without Coins, drops, challenge
 credit or savings-badge progress.
 
+Changing a new goal's target starts its reward eligibility above the greater
+of its previous starting balance and the current money balance. Lowering old
+targets after a deposit cannot split that existing money into extra milestone
+credits. Sending the same target or changing only its title or icon preserves
+the frozen baseline and any legitimate reward retry. Legacy goals retain their
+accepted fixed rewards when edited.
+
+When one write reaches several new targets, their positive savings increments
+retain their individual frozen Coin rates. Only the highest target contributing
+new savings counts as a qualifying milestone for drops, challenges and savings
+badges; the other goals still complete visibly. Legacy completions retain each
+accepted reward event.
+
 The additive migration freezes each existing goal's old Coin promise and
 marks existing goals as eligible under their established policy. It seeds
 high-water history without ledger writes, notifications or completion rewards.

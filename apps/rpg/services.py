@@ -1225,8 +1225,8 @@ class ConsumableService:
             # Rolls a random eligible QuestDefinition and starts it. Eligibility
             # mirrors QuestService.start_quest's guards: not already active,
             # system quest (parent quests can be hand-picked), badge gate passed.
-            # Milestone reading definitions open automatically on fresh reading;
-            # picking one here cannot create a legacy countdown instead.
+            # Milestone reading and distinct-day definitions progress
+            # automatically; neither can start a legacy countdown here.
             from apps.achievements.models import UserBadge
             from apps.quests.models import ChallengeGoal, Quest
             from apps.quests.queries import active_system_definitions
@@ -1264,6 +1264,7 @@ class ConsumableService:
                     "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
                 )
                 if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                and (q.trigger_filter or {}).get("distinct_active_days") is not True
                 and definition_is_available(q)
                 and not has_milestone_gate(q)
             ]
