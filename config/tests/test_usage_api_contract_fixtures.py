@@ -60,10 +60,13 @@ class UsageApiResponseFixtureTests(APITestCase):
             self.assertEqual(decision.status_code, 200, decision.data)
         self.assertEqual(self.client.post("/api/usage/visit/", {}, format="json").status_code, 204)
 
+        # date_joined's default is bound before the clock patch, so pin it to
+        # the fixture clock; the real wall clock must not change the cohort.
+        joined = NOW - timedelta(hours=1)
         foreign = make_family(
             "Other synthetic household", family_id=82,
-            parents=[{"id": 23, "username": "other-usage-parent", "is_staff": True}],
-            children=[{"id": 24, "username": "other-usage-child"}],
+            parents=[{"id": 23, "username": "other-usage-parent", "is_staff": True, "date_joined": joined}],
+            children=[{"id": 24, "username": "other-usage-child", "date_joined": joined}],
         )
         other_chore = Chore.objects.create(
             family=foreign.family, created_by=foreign.parents[0], assigned_to=foreign.children[0],
