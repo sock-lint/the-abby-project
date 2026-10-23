@@ -226,7 +226,7 @@ class ChoreService:
 
     @staticmethod
     @transaction.atomic
-    def approve_completion(completion, parent, notes=""):
+    def approve_completion(completion, parent, notes="", *, usage_actor=None):
         """Parent approves. Posts to PaymentLedger + CoinLedger.
 
         ``notes`` is accepted for uniform signature with other approval
@@ -314,6 +314,12 @@ class ChoreService:
             {"chore_id": completion.chore_id, "completion_id": completion.pk},
         )
 
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "chores", "approved",
+                source="chores.chorecompletion", source_id=completion.pk,
+            )
         return completion
 
     @staticmethod

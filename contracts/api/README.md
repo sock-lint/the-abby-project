@@ -1,5 +1,18 @@
 # Shared API response fixtures
 
+`usage-family-observed.json`, `usage-deployment-observed.json`,
+`usage-family-child-chores.json` and `usage-family-empty.json` are real responses
+from the staff-only usage report. The producer makes synthetic chore submissions,
+an explicit parent approval and foreground visits through authenticated APIs.
+Household counts exclude another family's actions; deployment totals require a
+superuser. The filtered response covers child activity over seven days. The empty
+response distinguishes unavailable measurement history from observed zero counts
+and preserves null incomplete return cohorts. No report contains member names,
+source titles, notes or record identities. Producer:
+`config.tests.test_usage_api_contract_fixtures`; React consumer:
+`src/api/usageContractFixtures.test.js`. Both run in the required fixture check.
+See [usage definitions and retention](../../docs/operations/usage-monitoring.md).
+
 `pulse-activity-streak.json` is a real authenticated heartbeat response for a
 child with a four-day RPG activity streak, earned level 3 and no completed work timers. Its
 `header.streak_days` uses the saved `CharacterProfile.login_streak`, matching

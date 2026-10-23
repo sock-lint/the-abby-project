@@ -47,6 +47,9 @@ export const closeOwnFamily = (data, options) => api.post('/account/lifecycle/cl
 
 // Dashboard
 export const getDashboard = () => api.get('/dashboard/');
+// First-party usage: server-derived actors, bounded aggregate reports only.
+export const getUsageDashboard = (filters, options) => api.get(`/admin/usage/?${new URLSearchParams(filters)}`, options);
+export const recordUsageVisit = (options) => api.post('/usage/visit/', {}, options);
 // One heartbeat for every background poller — see PulseProvider.
 // A deploy's container swap answers a beat with 502/503/504; retry it once.
 export const getPulse = () => api.get('/pulse/', { retryGateway: true });

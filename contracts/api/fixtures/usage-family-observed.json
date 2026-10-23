@@ -1,0 +1,345 @@
+{
+  "scope": "family",
+  "can_view_deployment": false,
+  "filters": {
+    "days": 28,
+    "role": "all",
+    "feature": "all"
+  },
+  "period": {
+    "start": "2026-09-26",
+    "end": "2026-10-23",
+    "previous_start": "2026-08-29",
+    "previous_end": "2026-09-25",
+    "timezone": "UTC"
+  },
+  "collection": {
+    "started_at": "2026-08-14T12:00:00+00:00",
+    "retention_days": 90,
+    "history_complete": true,
+    "previous_history_complete": true,
+    "notes": [
+      "Meaningful activity is an accepted human action; visits are separate. Completed activities are submitted homework, chores or projects and logged reading, movement or positive habits. Rewards and approvals are engagement but not additional completed activities.",
+      "Collection begins with this deployment; earlier activity is not reconstructed. Empty or partial history does not establish zero earlier usage. Live-check families, MCP and background automation are excluded.",
+      "Raw usage is retained for 90 UTC calendar days with daily cleanup. Account and family deletion also remove linked usage; historical totals can change after deletion.",
+      "Visits count accounts seen in the foreground once per UTC day, including multiple devices. Visits have no feature attribution; a feature filter does not change visit counts.",
+      "The weekly summary is the latest seven UTC days including today and honors role and feature filters. Onboarding and family retention include all roles and features.",
+      "Reliability counts and workflow abandonment are unavailable here; use the existing error monitoring for error investigations."
+    ]
+  },
+  "summary": {
+    "current": {
+      "active_families": 1,
+      "active_children": 1,
+      "active_parents": 1,
+      "completed_activities": 3,
+      "actions": 4,
+      "visitors": 2
+    },
+    "previous": {
+      "active_families": 1,
+      "active_children": 1,
+      "active_parents": 0,
+      "completed_activities": 1,
+      "actions": 1,
+      "visitors": 1
+    }
+  },
+  "trend": [
+    {
+      "date": "2026-09-26",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-09-27",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-09-28",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-09-29",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-09-30",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-01",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-02",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-03",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-04",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-05",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-06",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-07",
+      "active_families": 1,
+      "active_people": 1,
+      "completed_activities": 1,
+      "visitors": 1
+    },
+    {
+      "date": "2026-10-08",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-09",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-10",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-11",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-12",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-13",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-14",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-15",
+      "active_families": 1,
+      "active_people": 1,
+      "completed_activities": 1,
+      "visitors": 1
+    },
+    {
+      "date": "2026-10-16",
+      "active_families": 1,
+      "active_people": 1,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-17",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-18",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-19",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-20",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-21",
+      "active_families": 1,
+      "active_people": 1,
+      "completed_activities": 1,
+      "visitors": 1
+    },
+    {
+      "date": "2026-10-22",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 0
+    },
+    {
+      "date": "2026-10-23",
+      "active_families": 0,
+      "active_people": 0,
+      "completed_activities": 0,
+      "visitors": 1
+    }
+  ],
+  "features": [
+    {
+      "feature": "homework",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    },
+    {
+      "feature": "chores",
+      "actors": 2,
+      "actions": 4,
+      "completed_activities": 3
+    },
+    {
+      "feature": "projects",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    },
+    {
+      "feature": "reading",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    },
+    {
+      "feature": "movement",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    },
+    {
+      "feature": "habits",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    },
+    {
+      "feature": "rewards",
+      "actors": 0,
+      "actions": 0,
+      "completed_activities": 0
+    }
+  ],
+  "onboarding": {
+    "families_created": 0,
+    "child_added": 0,
+    "first_activity": 0,
+    "first_parent_approval": 0,
+    "coverage": "Families created during the selected period after collection began; steps progress through the report end. All roles and features are included. Deleted accounts and families are excluded."
+  },
+  "retention": {
+    "week_1": {
+      "cohort_start": "2026-10-05",
+      "cohort_end": "2026-10-11",
+      "return_start": "2026-10-12",
+      "return_end": "2026-10-18",
+      "history_complete": true,
+      "eligible_families": 1,
+      "returned_families": 1,
+      "rate": 1.0
+    },
+    "week_4": {
+      "cohort_start": "2026-09-14",
+      "cohort_end": "2026-09-20",
+      "return_start": "2026-10-12",
+      "return_end": "2026-10-18",
+      "history_complete": true,
+      "eligible_families": 1,
+      "returned_families": 1,
+      "rate": 1.0
+    },
+    "definition": "Families active in the week one or four weeks before the latest fully completed UTC Monday–Sunday week, returning in that latest week. Activity requires a meaningful human action. Both full weeks need observed history. Scope applies; date-range, role and feature filters do not alter these whole-family cohorts."
+  },
+  "friction": {
+    "pending_reviews": 3,
+    "median_approval_hours": 24.0,
+    "coverage": [
+      "homework",
+      "chores"
+    ],
+    "notes": "Pending reviews are the current backlog regardless of date or role. Median approval time covers parent-approved homework and chores decided during the selected period; the child role filter has no approvals. Both honor the feature filter.",
+    "unavailable": [
+      "workflow_abandonment",
+      "failed_saves",
+      "sign_in_failures",
+      "request_latency"
+    ]
+  },
+  "weekly_summary": {
+    "start": "2026-10-17",
+    "end": "2026-10-23",
+    "active_families": 1,
+    "active_children": 1,
+    "active_parents": 0,
+    "completed_activities": 1,
+    "actions": 1,
+    "visitors": 2
+  }
+}

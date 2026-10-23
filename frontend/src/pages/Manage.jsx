@@ -991,6 +991,11 @@ function AdminSection() {
   return (
     <div className="space-y-4">
       <ParchmentCard className="space-y-2">
+        <h2 className="font-display text-lede text-ink-primary">Usage</h2>
+        <p className="text-body text-ink-secondary">See meaningful activity, returning families, feature adoption and review queues.</p>
+        <Link to="/manage/usage" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">Open usage dashboard</Link>
+      </ParchmentCard>
+      <ParchmentCard className="space-y-2">
         <h2 className="font-display text-lede text-ink-primary">RPG content</h2>
         <p className="text-body text-ink-secondary">
           Manage challenges and items, audit rewards, and compare draft changes before publishing.

@@ -5,7 +5,7 @@
   <article class="article">
     <p class="eyebrow">Your family's information</p>
     <h1>Privacy policy</h1>
-    <p class="date">Last updated: October 17, 2026</p>
+    <p class="date">Last updated: October 23, 2026</p>
     <p>The Abby Project is a family app for projects, chores, homework, work sessions, skills, rewards, and personal journals. This policy explains how the app uses information entered by family members and information connected through Google.</p>
 
     <section>
@@ -13,6 +13,13 @@
       <p>Abby stores account and family details and the content you choose to add, including projects, chores, homework, time records, journal entries, and attachments. It uses these records to provide family planning, progress, rewards, and memory features.</p>
       <p>Parents manage accounts and family responsibilities. Account access is scoped to the family and the member's role. Personal journal and academic reflection entries are private by default. Their author chooses whether to share them with parents; being a parent does not grant ordinary in-app access to another member's private journal.</p>
       <p>Deployment operators administer the servers, database, backups, and support systems. Private in-app content is not encrypted against those operators; administrative access can include stored account records and content. Contact the operator with privacy or access questions.</p>
+    </section>
+
+    <section id="usage">
+      <h2>App usage measurements</h2>
+      <p>Abby records a signed-in member's foreground visit at most once per UTC day and selected successful actions, such as submitting work, logging reading or movement, checking a habit, requesting a reward and approving work. Usage records contain account and family links, the member's role, a timestamp, an action category and an internal saved-record reference used to avoid counting retries twice.</p>
+      <p>These measurements do not collect journal content, written notes, project or assignment titles, files, navigation URLs, IP addresses or screen recordings. Automated background work and assistant calls are excluded from human action counts. Designated live-check households are excluded from usage reports.</p>
+      <p>Staff parents can read aggregate usage reports for their own family. A deployment superuser can also read aggregate totals across families. Reports do not list member names or the contents of saved work. Daily cleanup removes individual usage events older than 90 days; deleting an account or closing its family also removes its linked usage events. Operational logs and backups have the separate retention limits described below.</p>
     </section>
 
     <section id="ai">

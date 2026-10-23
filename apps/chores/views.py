@@ -7,6 +7,7 @@ from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.response import Response
 
 from config.permissions import IsParent
+from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin, RoleFilteredQuerySetMixin, WriteReadSerializerMixin,
     get_child_or_404,
@@ -212,6 +213,10 @@ class ChoreViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 {"error": "You've already submitted this chore for today."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        record_action(
+            request.user, "chores", "submitted",
+            source="chores.chorecompletion", source_id=completion.pk,
+        )
         return Response(
             ChoreCompletionSerializer(completion).data,
             status=status.HTTP_201_CREATED,
@@ -270,6 +275,7 @@ class ChoreCompletionViewSet(
     approval_service = ChoreService
     approval_approve_method = "approve_completion"
     approval_reject_method = "reject_completion"
+    usage_feature = "chores"
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
