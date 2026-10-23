@@ -28,7 +28,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
   // Children see only appearances they own, from the self-scoped stable.
   // Species-wide codex discovery does not identify a potion appearance.
   const restricted = useSurpriseRestricted();
-  const { data: stable, error: stableError } = useApi(restricted ? getStable : noStable, [refreshRevision, restricted]);
+  const { data: stable, error: stableError, reload: reloadStable } = useApi(restricted ? getStable : noStable, [refreshRevision, restricted]);
   const ownership = restricted ? (stableError ? null : stable) : undefined;
   const [selected, setSelected] = useState(null);
 
@@ -112,6 +112,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
   return (
     <div className="space-y-5">
       <ErrorAlert message={error} onRetry={reload} />
+      {restricted && stableError && <ErrorAlert message="Your companions could not be loaded, so their pictures are hidden for now." onRetry={reloadStable} />}
       <IncipitBand
         letter="C"
         title="Collection"

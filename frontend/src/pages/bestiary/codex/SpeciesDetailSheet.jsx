@@ -78,7 +78,9 @@ export default function SpeciesDetailSheet({ species, onClose, ownership }) {
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {eligible.map((potion) => {
                 const owned = ownedPotionIds.has(potion.id);
-                const hidden = restricted && !owned;
+                // A child's grown art and form name also need the stable to
+                // confirm that exact appearance; a failed read reveals nothing.
+                const hidden = restricted && !(owned && ownedAppearanceStages(ownership, species, potion).includes('grown'));
                 const rarity = acquisitionRarity(species, potion);
                 return (
                   <div

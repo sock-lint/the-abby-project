@@ -5,6 +5,7 @@ may update explanatory text without changing trials, unlocks or reward rules.
 """
 from __future__ import annotations
 
+import re
 from functools import lru_cache
 from typing import Any
 
@@ -246,8 +247,53 @@ def _trained_state(user, slug: str) -> bool:
     return bool(flags.get(f"{slug}_trained"))
 
 
+# The owner's child surprise rule: the Guide names Base Chick's later forms
+# only once this child's own exact Base Chick reached them. Parents and staff
+# read the full reference. The authored examples use these two names.
+_SURPRISE_FORMS = {"Fledgling": "middle", "Bird": "grown"}
+_SURPRISE_WORD = re.compile(r"\b(Fledgling|Bird)\b( appearance)?")
+_REACHED = {"baby": {"baby"}, "middle": {"baby", "middle"}, "grown": {"baby", "middle", "grown"}}
+
+
+def _surprise_restricted(user) -> bool:
+    return getattr(user, "role", None) != "parent" and not getattr(user, "is_staff", False)
+
+
+def _base_chick_stages(user) -> set[str]:
+    """Server-confirmed stages of the user's exact Base Chick appearance."""
+
+    from apps.pets.lifecycle import companion_lifecycle_stage
+    from apps.pets.models import UserMount, UserPet
+
+    exact = {"species__slug": "chick", "species__sprite_key": "cute-chick", "potion__slug": "base"}
+    stages = {companion_lifecycle_stage(pet) for pet in UserPet.objects.filter(user=user, **exact).select_related("species", "potion")}
+    if UserMount.objects.filter(user=user, **exact).exists():
+        stages.add("grown")
+    return set().union(*(_REACHED[stage] for stage in stages))
+
+
+def _withhold_forms(value, reached: set[str]):
+    if isinstance(value, str):
+        def replace(match):
+            stage = _SURPRISE_FORMS[match.group(1)]
+            if stage in reached:
+                return match.group(0)
+            if match.group(2):
+                return f"{stage}{match.group(2)}"
+            return f"{stage} form" if value[:match.start()].endswith("→ ") else f"its {stage} form"
+        return _SURPRISE_WORD.sub(replace, value)
+    if isinstance(value, list):
+        return [_withhold_forms(item, reached) for item in value]
+    if isinstance(value, dict):
+        return {key: _withhold_forms(item, reached) for key, item in value.items()}
+    return value
+
+
 def serialize_lorebook(user) -> dict[str, Any]:
     catalog = load_lorebook_catalog()
+    if _surprise_restricted(user):
+        reached = _base_chick_stages(user)
+        catalog = [_withhold_forms(entry, reached) for entry in catalog]
     unlocks = compute_lorebook_unlocks(user)
     serialized = []
     unlocked_count = 0

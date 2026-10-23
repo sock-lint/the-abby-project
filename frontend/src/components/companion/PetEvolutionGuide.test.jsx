@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import PetEvolutionGuide from './PetEvolutionGuide';
 import { server } from '../../test/server';
 import { renderWithProviders } from '../../test/render';
+import { useAuth } from '../../hooks/useApi';
 
 const creature = { id: 1, species: { slug: 'chick', sprite_key: 'cute-chick' }, potion: { slug: 'base' }, evolution_stage: 'fledgling', growth_points: 65 };
 
@@ -51,7 +52,9 @@ describe('PetEvolutionGuide child surprise', () => {
   const wolf = { slug: 'meshtint-wolf', sprite_key: 'meshtint-wolf', name: 'Wolf' };
   async function asAccount(account, ui) {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json(account)));
-    renderWithProviders(ui);
+    // Render only once the account resolved, as the application does.
+    function Ready({ children }) { const { user } = useAuth(); return user ? children : null; }
+    renderWithProviders(<Ready>{ui}</Ready>);
     return within(await screen.findByRole('list', { name: 'Pet growth stages' }));
   }
 

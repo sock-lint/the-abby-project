@@ -32,7 +32,18 @@ Ice appearance. Children keep the selected egg icon, ingredient controls,
 generic stage thresholds, incubation and hatching. Hatch, evolution, care and
 expedition reveals of owned companions are unchanged. Ordinary parents keep
 the owned-egg family preview, and staff keep the full Explore companions
-section. The hatch form explains an already owned species/potion
+section.
+
+The same rule covers challenges and the Guide. Elemental challenge
+illustrations depict their Baby companion, so a child sees one only after
+hatching that exact species and potion; ordinary challenge artwork, rewards and
+progress are unchanged. Catalog descriptions that name a later or elemental
+form (Shadow Trail, Ember/Frost Summit) start with their requirement until the
+child reaches that form. The Guide's Pets and Mounts copy, practice steps and
+parent notes name Base Chick's Fledgling and Bird only after the child's own
+Base Chick reached them; other potions and legacy rows do not count. Django
+applies the Guide rule to the `/api/lorebook/` response, so every route that
+renders it, including Manage → Guide, receives the same child copy. The hatch form explains an already owned species/potion
 pair before submission, including pets that have already grown; the server
 validates ownership, availability and compatibility before accepting incubation.
 

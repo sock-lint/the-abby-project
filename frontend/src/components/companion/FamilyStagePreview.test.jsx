@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../test/server';
+import { useAuth } from '../../hooks/useApi';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/render';
 import FamilyStagePreview from './FamilyStagePreview';
@@ -112,7 +113,9 @@ describe('Family stage preview allowances', () => {
 
   it('shows a child without an explicit allowance only the natural egg', async () => {
     server.use(http.get('*/api/auth/me/', () => HttpResponse.json({ id: 5, role: 'child', is_staff: false })));
-    renderWithProviders(<FamilyStagePreview item={wolfEgg()} potion={{ slug: 'base', name: 'Base' }} initialStage="grown" />);
+    // Render only once the account resolved, as the application does.
+    function Ready({ children }) { const { user } = useAuth(); return user ? children : null; }
+    renderWithProviders(<Ready><FamilyStagePreview item={wolfEgg()} potion={{ slug: 'base', name: 'Base' }} initialStage="grown" /></Ready>);
     expect(await screen.findByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('button', { name: 'Baby' })).toBeNull();
     expect(screen.queryByText(/Wolf Pup|Werewolf/)).toBeNull();
