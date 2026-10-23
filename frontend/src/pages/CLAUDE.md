@@ -519,7 +519,9 @@ response never becomes an empty-pin claim. Reflection follows work, then the
 since-last-visit recap, status shortcuts and collapsed Rewards & earnings.
 The automatic daily bonus uses the same challenge response inside that earnings
 disclosure; its closed summary acknowledges a confirmed award. Recent items,
-savings and badges follow. Saved accordion preferences remain honored.
+savings and badges follow. Recent items and badges share collapsed disclosures
+with counts, latest-earned summaries and horizontal card rails. Saved accordion
+preferences remain honored independently for each section.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 
