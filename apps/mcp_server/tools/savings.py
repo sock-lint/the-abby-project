@@ -4,10 +4,10 @@ from __future__ import annotations
 from typing import Any
 
 from apps.projects.models import SavingsGoal
-from apps.projects.savings_service import SavingsGoalService
+from apps.projects.savings_service import SavingsGoalService, SavingsGoalTargetError
 
 from ..context import get_current_user, resolve_target_user
-from ..errors import MCPNotFoundError, safe_tool
+from ..errors import MCPNotFoundError, MCPValidationError, safe_tool
 from ..schemas import (
     CreateSavingsGoalIn,
     DeleteSavingsGoalIn,
@@ -67,7 +67,10 @@ def update_savings_goal(params: UpdateSavingsGoalIn) -> dict[str, Any]:
     except SavingsGoal.DoesNotExist:
         raise MCPNotFoundError(f"Savings goal {params.goal_id} not found.")
     data = params.model_dump(exclude={"goal_id"}, exclude_unset=True)
-    goal = SavingsGoalService.update_goal(goal, **data)
+    try:
+        goal = SavingsGoalService.update_goal(goal, **data)
+    except SavingsGoalTargetError as exc:
+        raise MCPValidationError(str(exc), field_errors={"target_amount": [str(exc)]}) from exc
     return savings_goal_to_dict(goal)
 
 

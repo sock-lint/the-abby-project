@@ -486,6 +486,7 @@ class SavingsGoal(CreatedAtModel):
     reward_start_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
     reward_rate_snapshot = models.DecimalField(max_digits=10, decimal_places=4, default=2)
     legacy_coin_reward = models.PositiveIntegerField(null=True, blank=True)
+    legacy_target_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     reward_qualifies = models.BooleanField(default=False)
 
     @transaction.atomic

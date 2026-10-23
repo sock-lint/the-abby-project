@@ -16,6 +16,10 @@ from apps.notifications.services import defer_push_until_commit
 logger = logging.getLogger(__name__)
 
 
+class SavingsGoalTargetError(ValueError):
+    """An accepted savings promise cannot keep its payout at a lower target."""
+
+
 class SavingsGoalService:
     @classmethod
     @transaction.atomic
@@ -34,6 +38,13 @@ class SavingsGoalService:
         from .models import SavingsGoal, User
         User.objects.select_for_update(no_key=True).get(pk=goal.user_id)
         fresh = SavingsGoal.objects.select_for_update().get(pk=goal.pk, user_id=goal.user_id)
+        if fresh.reward_policy_version == 1 and "target_amount" in data:
+            if fresh.legacy_target_amount is None:
+                raise SavingsGoalTargetError("The accepted savings target snapshot is unavailable.")
+            if data["target_amount"] < fresh.legacy_target_amount:
+                raise SavingsGoalTargetError(
+                    f"This accepted goal keeps its original ${fresh.legacy_target_amount:.2f} target. "
+                    "Create a new goal for a lower amount.")
         if (fresh.reward_policy_version == 2 and "target_amount" in data
                 and data["target_amount"] != fresh.target_amount):
             # A newly chosen target recognizes only future saving. Otherwise
@@ -86,8 +97,10 @@ class SavingsGoalService:
         qualifying_new = None
         for goal in pending:
             legacy = goal.reward_policy_version == 1
-            if legacy and goal.legacy_coin_reward is None:
+            if legacy and (goal.legacy_coin_reward is None or goal.legacy_target_amount is None):
                 raise ValueError("The accepted savings reward snapshot is unavailable.")
+            if legacy and goal.target_amount < goal.legacy_target_amount:
+                raise SavingsGoalTargetError("The goal is below its accepted savings target.")
             floor = max(goal.reward_start_balance, progress.recognized_balance)
             new_savings = max(Decimal("0"), goal.target_amount - floor)
             coins = goal.legacy_coin_reward if legacy else int(new_savings * goal.reward_rate_snapshot)

@@ -595,5 +595,8 @@ class SavingsGoalSerializer(serializers.ModelSerializer):
         return SavingsGoalService.create_goal(**validated_data)
 
     def update(self, instance, validated_data):
-        from .savings_service import SavingsGoalService
-        return SavingsGoalService.update_goal(instance, **validated_data)
+        from .savings_service import SavingsGoalService, SavingsGoalTargetError
+        try:
+            return SavingsGoalService.update_goal(instance, **validated_data)
+        except SavingsGoalTargetError as exc:
+            raise serializers.ValidationError({"target_amount": [str(exc)]}) from exc

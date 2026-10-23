@@ -97,13 +97,18 @@ new savings counts as a qualifying milestone for drops, challenges and savings
 badges; the other goals still complete visibly. Legacy completions retain each
 accepted reward event.
 
-The additive migration freezes each existing goal's old Coin promise and
-marks existing goals as eligible under their established policy. It seeds
+The additive migration freezes each existing goal's accepted target and old
+Coin promise, and marks existing goals as eligible under their established policy. It seeds
 high-water history without ledger writes, notifications or completion rewards.
 Existing accepted goals retain their fixed payouts. REST, pulse and MCP reads
 never settle goals; explicit goal changes and money ledger writes own
 completion. Client cards and completion toasts do not invent target-times-rate
 payouts. Actual Coin awards remain in the server's ledger and notifications.
+An accepted legacy goal can be renamed or given a higher target while keeping
+its original Coin promise. Its target cannot be lowered below the frozen
+accepted amount; REST and MCP return a field validation error. A lower target
+requires a new prospective goal, so a large accepted payout cannot be claimed
+by changing its original requirement to an already funded smaller amount.
 
 ## Future challenge windows
 

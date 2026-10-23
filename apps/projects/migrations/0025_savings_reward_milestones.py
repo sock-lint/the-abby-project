@@ -14,11 +14,15 @@ def freeze_existing_savings(apps, schema_editor):
     rate = max(Decimal('0'), Decimal(str(getattr(settings, 'COINS_PER_SAVINGS_GOAL_DOLLAR', 2))))
     # Only pre-cutover rows have policy 1. Null distinguishes an unfrozen
     # promise from a real zero-Coin promise, making this step retry-safe.
-    for goal in Goal.objects.using(alias).filter(reward_policy_version=1, legacy_coin_reward__isnull=True).iterator():
-        Goal.objects.using(alias).filter(pk=goal.pk).update(
-            legacy_coin_reward=max(0, int(goal.target_amount * rate)),
-            reward_rate_snapshot=rate, reward_qualifies=True,
-        )
+    for goal in Goal.objects.using(alias).filter(reward_policy_version=1).filter(
+            models.Q(legacy_coin_reward__isnull=True) | models.Q(legacy_target_amount__isnull=True)).iterator():
+        frozen = {}
+        if goal.legacy_coin_reward is None:
+            frozen.update(legacy_coin_reward=max(0, int(goal.target_amount * rate)),
+                reward_rate_snapshot=rate, reward_qualifies=True)
+        if goal.legacy_target_amount is None:
+            frozen['legacy_target_amount'] = goal.target_amount
+        Goal.objects.using(alias).filter(pk=goal.pk).update(**frozen)
     balances = dict(Money.objects.using(alias).values('user_id').annotate(
         amount=models.Sum('amount')).values_list('user_id', 'amount'))
     completed = dict(Goal.objects.using(alias).filter(is_completed=True).values('user_id').annotate(
@@ -43,6 +47,11 @@ class Migration(migrations.Migration):
             model_name='savingsgoal',
             name='legacy_coin_reward',
             field=models.PositiveIntegerField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name='savingsgoal',
+            name='legacy_target_amount',
+            field=models.DecimalField(blank=True, decimal_places=2, max_digits=8, null=True),
         ),
         migrations.AddField(
             model_name='savingsgoal',

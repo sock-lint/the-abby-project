@@ -12,7 +12,7 @@ from apps.achievements.criteria import _savings_goal_completed
 from apps.achievements.models import Badge, UserBadge
 from apps.achievements.services import BadgeService
 from apps.mcp_server.context import override_user
-from apps.mcp_server.errors import MCPNotFoundError
+from apps.mcp_server.errors import MCPNotFoundError, MCPValidationError
 from apps.mcp_server.schemas import ListSavingsGoalsIn, UpdateSavingsGoalIn
 from apps.mcp_server.shapes import savings_goal_to_dict
 from apps.mcp_server.tools.savings import list_savings_goals, update_savings_goal
@@ -135,7 +135,7 @@ class SavingsRewardIntegrityTests(TestCase):
 
     def test_legacy_goals_keep_each_frozen_award_and_qualifying_event_in_shared_batch(self):
         legacy = [SavingsGoal.objects.create(user=self.child, title=f"Accepted {target}",
-            target_amount=target, reward_policy_version=1, legacy_coin_reward=target * 2)
+            target_amount=target, reward_policy_version=1, legacy_coin_reward=target * 2, legacy_target_amount=target)
             for target in (30, 50)]
         new = self.create("New seventy-five", "75.00")
         with patch("apps.rpg.services.GameLoopService.on_task_completed") as game:
@@ -305,20 +305,84 @@ class SavingsRewardIntegrityTests(TestCase):
     def test_migration_preserves_fixed_legacy_promises_and_existing_balances(self):
         old = SavingsGoal.objects.create(user=self.child, title="Already accepted", target_amount=50,
             reward_policy_version=1)
-        self.money("50.00", hooked=False)
+        self.money("10.00", hooked=False)
         CoinLedger.objects.create(user=self.child, amount=700, reason="adjustment", description="Synthetic existing balance")
         migration = import_module("apps.projects.migrations.0025_savings_reward_milestones")
         migration.freeze_existing_savings(apps, None)
         old.refresh_from_db()
         self.assertEqual(old.legacy_coin_reward, 100)
         self.assertEqual(CoinLedger.objects.filter(user=self.child).count(), 1)
-        self.assertEqual(SavingsRewardProgress.objects.get(user=self.child).recognized_balance, Decimal("50.00"))
+        self.assertEqual(SavingsRewardProgress.objects.get(user=self.child).recognized_balance, Decimal("10.00"))
         with override_settings(COINS_PER_SAVINGS_GOAL_DOLLAR=9):
             migration.freeze_existing_savings(apps, None)
-            SavingsGoalService.update_goal(old, target_amount=Decimal("40.00"))
+            response = self.client.patch(f"/api/savings-goals/{old.pk}/", {"target_amount": "40.00"})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(self.savings_coins(), 0)
+            old.refresh_from_db()
+            self.assertEqual(old.target_amount, Decimal("50.00"))
+            self.money("40.00")
         self.assertEqual(self.savings_coins(), 100)
         old.refresh_from_db()
         self.assertTrue(old.is_completed and old.reward_qualifies)
+        self.assertEqual(old.legacy_coin_reward, 100)
+        self.assertEqual(old.legacy_target_amount, Decimal("50.00"))
+        self.assertEqual(old.reward_start_balance, Decimal("0.00"))
+        SavingsGoalService.check_and_complete(self.child)
+        self.assertEqual(self.savings_coins(), 100)
+
+    def test_legacy_thousand_dollar_target_cannot_be_lowered_to_mint_its_frozen_promise(self):
+        old = SavingsGoal.objects.create(user=self.child, title="Accepted thousand", target_amount=1000,
+            reward_policy_version=1)
+        self.money("10.00", hooked=False)
+        import_module("apps.projects.migrations.0025_savings_reward_milestones").freeze_existing_savings(apps, None)
+        with patch("apps.rpg.services.GameLoopService.on_task_completed") as game:
+            response = self.client.patch(f"/api/savings-goals/{old.pk}/", {
+                "target_amount": "1.00", "title": "Changed in same rejected write"})
+        self.assertEqual(response.status_code, 400, {"response": response.data, "savings_coins": self.savings_coins()})
+        self.assertIn("target_amount", response.data)
+        old.refresh_from_db()
+        self.assertEqual(old.title, "Accepted thousand")
+        self.assertEqual(old.target_amount, Decimal("1000.00"))
+        self.assertFalse(old.is_completed)
+        self.assertEqual(self.savings_coins(), 0)
+        game.assert_not_called()
+
+    def test_mcp_legacy_target_reduction_returns_domain_validation_without_awards(self):
+        old = SavingsGoal.objects.create(user=self.child, title="Accepted MCP target", target_amount=1000,
+            reward_policy_version=1)
+        self.money("10.00", hooked=False)
+        import_module("apps.projects.migrations.0025_savings_reward_milestones").freeze_existing_savings(apps, None)
+        with override_user(self.family.parents[0]), self.assertRaises(MCPValidationError) as error:
+            update_savings_goal(UpdateSavingsGoalIn(goal_id=old.pk, target_amount=Decimal("1.00")))
+        self.assertEqual(error.exception.code, "invalid_request")
+        self.assertIn("target_amount", error.exception.field_errors)
+        old.refresh_from_db()
+        self.assertEqual(old.target_amount, Decimal("1000.00"))
+        self.assertFalse(old.is_completed)
+        self.assertEqual(self.savings_coins(), 0)
+
+    def test_legacy_metadata_same_and_higher_targets_keep_original_accepted_promise(self):
+        old = SavingsGoal.objects.create(user=self.child, title="Accepted fifty", target_amount=50,
+            reward_policy_version=1)
+        self.money("10.00", hooked=False)
+        import_module("apps.projects.migrations.0025_savings_reward_milestones").freeze_existing_savings(apps, None)
+        same = self.client.patch(f"/api/savings-goals/{old.pk}/", {
+            "target_amount": "50.00", "title": "Renamed legacy", "icon": "star"})
+        self.assertEqual(same.status_code, 200, same.data)
+        raised = self.client.patch(f"/api/savings-goals/{old.pk}/", {"target_amount": "75.00"})
+        self.assertEqual(raised.status_code, 200, raised.data)
+        self.money("40.00")
+        old.refresh_from_db()
+        self.assertFalse(old.is_completed)
+        self.assertEqual(old.legacy_coin_reward, 100)
+        self.assertEqual(old.legacy_target_amount, Decimal("50.00"))
+        self.assertEqual(old.title, "Renamed legacy")
+        self.assertEqual(old.icon, "star")
+        self.money("25.00")
+        self.assertEqual(self.savings_coins(), 100)
+        old.refresh_from_db()
+        self.assertTrue(old.is_completed and old.reward_qualifies)
+        self.assertEqual(old.legacy_target_amount, Decimal("50.00"))
         self.assertEqual(old.legacy_coin_reward, 100)
         self.assertEqual(old.reward_start_balance, Decimal("0.00"))
         SavingsGoalService.check_and_complete(self.child)
@@ -331,6 +395,7 @@ class SavingsRewardIntegrityTests(TestCase):
         migration.freeze_existing_savings(apps, None)
         old.refresh_from_db()
         self.assertTrue(old.is_completed and old.reward_qualifies)
+        self.assertEqual(old.legacy_target_amount, Decimal("100.00"))
         self.assertEqual(SavingsRewardProgress.objects.get(user=self.child).recognized_balance, Decimal("100.00"))
         self.assertEqual(self.savings_coins(), 0)
         self.assertTrue(_savings_goal_completed(self.child, {"count": 1}))
