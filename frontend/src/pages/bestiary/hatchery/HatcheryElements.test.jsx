@@ -80,7 +80,7 @@ describe('Elemental Hatchery choices', () => {
     expect(start.calls[0].body).toEqual({ egg_item_id: String(egg.id), potion_item_id: String(item.id), request_id: expect.any(String) });
   });
 
-  it.each([[0, fire], [1, ice], [4, fire]])('keeps the selected owned egg %i preview with its exact $slug potion when discovery is hidden', async (index, potion) => {
+  it.each([[0, fire], [1, ice], [4, fire]])('keeps the selected egg %i preview with its exact $slug potion when discovery is hidden and previews are unrestricted', async (index, potion) => {
     page([], { showDiscovery: false });
     const egg = eggs[index].item;
     const item = potions.find((entry) => entry.item.metadata.variant === potion.slug).item;

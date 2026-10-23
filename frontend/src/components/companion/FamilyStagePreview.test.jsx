@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { server } from '../../test/server';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/render';
 import FamilyStagePreview from './FamilyStagePreview';
@@ -89,5 +91,30 @@ describe('Hatchery family stage previews', () => {
       expect(screen.queryByRole('button', { name: 'Show 3D preview' })).toBeNull();
       expect(screen.getByRole('img', { name: `Ice ${form} artwork unavailable` })).toHaveTextContent('🐾');
     }
+  });
+});
+
+describe('Family stage preview allowances', () => {
+  const wolfEgg = () => ({ ...rosterEgg(), slug: 'meshtint-wolf-egg', pet_species_slug: 'meshtint-wolf', metadata: { species: 'meshtint-wolf' }, name: 'Wolf Egg' });
+
+  it('offers only allowed stages and clamps a selection the allowance no longer covers', async () => {
+    const user = userEvent.setup(), item = wolfEgg(), potion = { slug: 'base', name: 'Base' };
+    const view = renderWithProviders(<FamilyStagePreview item={item} potion={potion} stages={['baby', 'middle', 'grown']} />, { withAuth: false });
+    await user.click(screen.getByRole('button', { name: 'Grown' }));
+    expect(screen.getByRole('heading', { name: 'Werewolf' })).toBeInTheDocument();
+    view.rerender(<FamilyStagePreview item={item} potion={potion} stages={['baby']} />);
+    expect(screen.queryByRole('heading', { name: 'Werewolf' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Grown' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Middle' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('heading', { name: 'Wolf Egg' })).toBeInTheDocument();
+  });
+
+  it('shows a child without an explicit allowance only the natural egg', async () => {
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json({ id: 5, role: 'child', is_staff: false })));
+    renderWithProviders(<FamilyStagePreview item={wolfEgg()} potion={{ slug: 'base', name: 'Base' }} initialStage="grown" />);
+    expect(await screen.findByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('button', { name: 'Baby' })).toBeNull();
+    expect(screen.queryByText(/Wolf Pup|Werewolf/)).toBeNull();
   });
 });

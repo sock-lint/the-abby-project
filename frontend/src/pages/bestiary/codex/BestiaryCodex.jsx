@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getPetCodex } from '../../../api';
+import { getPetCodex, getStable } from '../../../api';
 import { useApi } from '../../../hooks/useApi';
 import Loader from '../../../components/Loader';
 import EmptyState from '../../../components/EmptyState';
@@ -12,8 +12,10 @@ import BestiaryFolio from './BestiaryFolio';
 import SpeciesDetailSheet from './SpeciesDetailSheet';
 import { groupSpeciesByChapter, totalRarityCounts } from './codex.constants';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
+import { useSurpriseRestricted } from '../../../companion/previewAccess';
 
 const STORAGE_KEY = 'bestiary:codex:active-chapter';
+const noStable = async () => null;
 
 /**
  * BestiaryCodex — collection cards for every authored species, grouped by
@@ -23,6 +25,11 @@ const STORAGE_KEY = 'bestiary:codex:active-chapter';
  */
 export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
   const { data, loading, error, reload } = useApi(getPetCodex, [refreshRevision]);
+  // Children see only appearances they own, from the self-scoped stable.
+  // Species-wide codex discovery does not identify a potion appearance.
+  const restricted = useSurpriseRestricted();
+  const { data: stable, error: stableError } = useApi(restricted ? getStable : noStable, [refreshRevision, restricted]);
+  const ownership = restricted ? (stableError ? null : stable) : undefined;
   const [selected, setSelected] = useState(null);
 
   // User-clicked chapter override. Persists across renders without a
@@ -139,6 +146,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
           rarityCounts={activeChapter.rarityCounts}
           totalPotions={totalPotions}
           onSelect={setSelected}
+          ownership={ownership}
         />
       )}
 
@@ -146,6 +154,7 @@ export default function BestiaryCodex({ refreshRevision = 0 } = {}) {
         <SpeciesDetailSheet
           species={species.find((entry) => entry.id === selected.id) || selected}
           onClose={() => setSelected(null)}
+          ownership={ownership}
         />
       )}
     </div>

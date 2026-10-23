@@ -17,9 +17,22 @@ identify one ownership path; stages never create four separate species.
 Pets → **Hatchery** (`/bestiary?tab=hatchery`) lists every owned egg and its
 quantity, including remaining unavailable/custom eggs outside the exact
 prelaunch retirement list below.
-Available eggs can be selected and their family artwork and four-stage guide
-inspected even without a potion. Selecting or previewing an egg changes no
-inventory or progress. The hatch form explains an already owned species/potion
+Available eggs can be selected and their four-stage guide inspected even
+without a potion. Selecting or previewing an egg changes no inventory or
+progress.
+
+**Child surprise previews.** Companion artwork, 3D and form names stay a
+surprise for children until hatching. A non-staff child sees them only for an
+exact species and potion appearance they own, and only for stages it reached:
+Baby ownership shows Baby, Middle shows Baby and Middle, and confirmed
+evolution adds Grown. Growth points alone never unlock a form. Ownership comes
+from the self-scoped stable response; missing, failed or legacy potion data
+without a slug reveals nothing, and Base never stands in for an owned Fire or
+Ice appearance. Children keep the selected egg icon, ingredient controls,
+generic stage thresholds, incubation and hatching. Hatch, evolution, care and
+expedition reveals of owned companions are unchanged. Ordinary parents keep
+the owned-egg family preview, and staff keep the full Explore companions
+section. The hatch form explains an already owned species/potion
 pair before submission, including pets that have already grown; the server
 validates ownership, availability and compatibility before accepting incubation.
 
