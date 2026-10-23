@@ -199,6 +199,24 @@ class HatcheryDiscoveryTests(TestCase):
         ice = self.paths(potion="ice")[0]
         self.assertTrue(ice["attempt"]["id"].startswith("goal:"))
 
+    def test_accepted_goal_waiting_for_its_first_window_keeps_its_own_reward_reachable(self):
+        definition = self.definition()
+        # Enrollment can save the goal before its first window: a non-matching
+        # fact sets starts_at after that fact, so no occurrence exists yet.
+        goal = ChallengeGoal.objects.create(
+            user=self.child, family=self.child.family, is_catalog=True, catalog_definition=definition,
+            name=definition.name, description="", metric="count", target=definition.target_value,
+            unit="actions", trigger_filter=definition.trigger_filter, starts_at=self.now,
+            ends_at=self.now + timedelta(days=180),
+            reward_items=[{"item_id": row.item_id, "quantity": row.quantity} for row in definition.reward_items.all()],
+        )
+        self.assertFalse(goal.occurrences.exists())
+        waiting = self.paths()[0]
+        self.assertTrue(waiting["offer_available"], "Its first window will open with this saved reward.")
+        self.assertIsNone(waiting["attempt"])
+        definition.reward_items.filter(item=self.ingredients["fire"]).update(item=self.ingredients["ice"])
+        self.assertFalse(self.paths(potion="ice")[0]["offer_available"])
+
     def test_expired_saved_attempt_and_latest_retry_use_native_status_without_writes(self):
         definition = self.definition()
         previous = self.accepted(definition, expired=True, progress=4)
