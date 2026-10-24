@@ -138,6 +138,14 @@ class SavingsGoalService:
                 "recognized_ranges": [[0, int(balance * 100)]] if balance > 0 else []})
         settlements = []
         qualifying_new = None
+        # Every pending accepted legacy goal keeps its fixed promise for its
+        # original $0-target range. Newer identities are not paid for those
+        # dollars first, so the outcome cannot depend on how deposits split.
+        reserved = progress.recognized_ranges
+        for limit in SavingsGoal.objects.filter(user=user, is_completed=False, reward_policy_version=1,
+                                               legacy_target_amount__isnull=False).values_list(
+                                                   "legacy_target_amount", flat=True):
+            reserved = _claim_savings_range(reserved, Decimal("0"), limit)[1]
         for goal in pending:
             legacy = goal.reward_policy_version == 1
             if legacy and (goal.legacy_coin_reward is None or goal.legacy_target_amount is None):
@@ -146,7 +154,8 @@ class SavingsGoalService:
                 raise SavingsGoalTargetError("The goal is below its accepted savings target.")
             start = Decimal("0") if legacy else goal.reward_start_balance
             end = goal.legacy_target_amount if legacy else goal.target_amount
-            new_savings, progress.recognized_ranges = _claim_savings_range(progress.recognized_ranges, start, end)
+            new_savings, reserved = _claim_savings_range(reserved, start, end)
+            _, progress.recognized_ranges = _claim_savings_range(progress.recognized_ranges, start, end)
             coins = goal.legacy_coin_reward if legacy else int(new_savings * goal.reward_rate_snapshot)
             settlements.append((goal, coins))
             if not legacy and new_savings > 0:

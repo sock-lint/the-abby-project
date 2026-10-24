@@ -277,6 +277,26 @@ class SavingsRewardIntegrityTests(TestCase):
         game.assert_called_once()
         self.assertEqual(game.call_args.args[2], {"savings_goal_id": later.pk})
 
+    def test_pending_legacy_promise_pays_the_same_whether_deposits_are_split_or_combined(self):
+        totals = []
+        for deposits in (["100.00"], ["50.00", "50.00"]):
+            SavingsGoal.objects.filter(user=self.child).delete()
+            SavingsRewardProgress.objects.filter(user=self.child).delete()
+            PaymentLedger.objects.filter(user=self.child).delete()
+            CoinLedger.objects.filter(user=self.child).delete()
+            legacy = SavingsGoal.objects.create(user=self.child, title="Accepted hundred", target_amount=100,
+                reward_policy_version=1)
+            import_module("apps.projects.migrations.0025_savings_reward_milestones").freeze_existing_savings(apps, None)
+            new = self.create("New fifty", "50.00")
+            for amount in deposits:
+                self.money(amount)
+            legacy.refresh_from_db()
+            new.refresh_from_db()
+            totals.append((self.savings_coins(), legacy.reward_qualifies, new.reward_qualifies))
+        # The pending legacy goal keeps its frozen 200-Coin promise for its
+        # original $0-$100 range; the newer goal cannot be paid for it first.
+        self.assertEqual(totals, [(200, True, False), (200, True, False)])
+
     def test_legacy_goals_keep_each_frozen_award_and_qualifying_event_in_shared_batch(self):
         legacy = [SavingsGoal.objects.create(user=self.child, title=f"Accepted {target}",
             target_amount=target, reward_policy_version=1, legacy_coin_reward=target * 2, legacy_target_amount=target)

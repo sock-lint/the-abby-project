@@ -128,6 +128,9 @@ requires a new prospective goal, so a large accepted payout cannot be claimed
 by changing its original requirement to an already funded smaller amount.
 Legacy completion reserves coverage only through its frozen accepted target;
 a raised target updates admission without erasing another old goal's unpaid gap.
+While a legacy goal is pending, its $0–frozen-target range is reserved for its
+fixed promise: a newer goal reaching that range first completes without Coins
+for those dollars, so split and combined deposits pay the same total.
 
 ## Future challenge windows
 
