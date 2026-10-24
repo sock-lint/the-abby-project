@@ -26,10 +26,13 @@ class UsageApiResponseFixtureTests(APITestCase):
         self.clock = patch("django.utils.timezone.now", return_value=NOW)
         self.clock.start()
         self.addCleanup(self.clock.stop)
+        # date_joined's default is bound before the clock patch, so pin it to
+        # the fixture clock; the real wall clock must not change any report.
+        joined = NOW - timedelta(hours=1)
         self.household = make_family(
             "Synthetic usage household", family_id=81,
-            parents=[{"id": 21, "username": "usage-parent", "is_staff": True}],
-            children=[{"id": 22, "username": "usage-child"}],
+            parents=[{"id": 21, "username": "usage-parent", "is_staff": True, "date_joined": joined}],
+            children=[{"id": 22, "username": "usage-child", "date_joined": joined}],
         )
         self.parent = self.household.parents[0]
         self.child = self.household.children[0]
@@ -60,8 +63,6 @@ class UsageApiResponseFixtureTests(APITestCase):
             self.assertEqual(decision.status_code, 200, decision.data)
         self.assertEqual(self.client.post("/api/usage/visit/", {}, format="json").status_code, 204)
 
-        # date_joined's default is bound before the clock patch, so pin it to
-        # the fixture clock; the real wall clock must not change the cohort.
         joined = NOW - timedelta(hours=1)
         foreign = make_family(
             "Other synthetic household", family_id=82,
