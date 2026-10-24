@@ -372,7 +372,9 @@ def _occurrence(goal, at):
         existing = goal.occurrences.filter(starts_at=start).first()
         if existing is not None:
             return existing
-        future = bool(goal.is_catalog and goal.repeat_days and goal.occurrences.exists())
+        # Cycle 0 is the accepted window; any later cycle is a future offer.
+        future = bool(goal.is_catalog and goal.repeat_days
+                      and (start != goal.starts_at or goal.occurrences.exists()))
         if future:
             # User admission precedes definition rows, matching legacy starts
             # and reviewed reconciliation. A bundled/publication writer must
