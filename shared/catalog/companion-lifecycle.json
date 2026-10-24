@@ -163,7 +163,9 @@
       "species_slug": "meshtint-snake",
       "sprite_key": "meshtint-snake",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",
@@ -176,7 +178,9 @@
       "species_slug": "meshtint-hermit-crab",
       "sprite_key": "meshtint-hermit-crab",
       "potion_slugs": [
-        "base"
+        "base",
+        "fire",
+        "ice"
       ],
       "names": {
         "egg": "Egg",

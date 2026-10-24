@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stripVTControlCharacters } from 'node:util';
 import { createHash } from 'node:crypto';
-import { evaluationPin } from './elemental-evaluation-server.mjs';
+import { evaluationPin, evaluationPins, snakeCrabEvaluationPin } from './elemental-evaluation-server.mjs';
 import { chooseDropdown as chooseSharedDropdown } from './dropdown-helpers.js';
 
 // Real SwiftShader scene changes measured up to 12.5s before click completion.
@@ -26,18 +26,33 @@ const expansionManifest = installedManifest('abby-elemental-dragon-mushroom');
 const rosterManifest = installedManifest('meshtint-companion-roster');
 const roster = JSON.parse(readFileSync(new URL('../../shared/catalog/companion-roster.json', import.meta.url), 'utf8'));
 const evaluationRoot = process.env.ABBY_ELEMENTAL_EVALUATION_ROOT;
-const evaluationManifest = evaluationRoot ? JSON.parse(readFileSync(`${evaluationRoot}/manifest.json`, 'utf8')) : null;
-const canonicalBeeBatPin = lock.releases.find(({ family_id }) => family_id === evaluationPin.family_id);
-if (canonicalBeeBatPin && Object.entries(evaluationPin).some(([key, value]) => canonicalBeeBatPin[key] !== value)) {
-  throw new Error('Active Bee/Bat pin differs from the exact accepted release.');
+const evaluationBytes = evaluationRoot ? readFileSync(`${evaluationRoot}/manifest.json`) : null;
+const selectedEvaluationPin = evaluationBytes && evaluationPins.find(({ manifest_sha256 }) =>
+  createHash('sha256').update(evaluationBytes).digest('hex') === manifest_sha256);
+if (evaluationBytes && !selectedEvaluationPin) throw new Error('Private elemental evaluation manifest is not pinned.');
+const evaluationManifest = evaluationBytes ? JSON.parse(evaluationBytes.toString('utf8')) : null;
+for (const accepted of evaluationPins) {
+  const canonical = lock.releases.find(({ family_id }) => family_id === accepted.family_id);
+  if (canonical && Object.entries(accepted).some(([key, value]) => canonical[key] !== value)) {
+    throw new Error(`Active elemental pin differs from the exact verified release: ${accepted.family_id}`);
+  }
 }
-const canonicalBeeBatManifest = installedManifest(evaluationPin.family_id);
-const beeBatManifest = evaluationManifest || canonicalBeeBatManifest;
+const beeBatManifest = evaluationManifest?.family_id === evaluationPin.family_id ? evaluationManifest : installedManifest(evaluationPin.family_id);
+const snakeCrabManifest = evaluationManifest?.family_id === snakeCrabEvaluationPin.family_id ? evaluationManifest : installedManifest(snakeCrabEvaluationPin.family_id);
 const beeBatSpecies = beeBatManifest ? ['meshtint-bee', 'meshtint-bat'] : [];
-const beeBatDelivery = evaluationManifest ? 'evaluation' : 'canonical';
-const expansionSpecies = ['meshtint-dragon', 'meshtint-mushroom', ...beeBatSpecies];
+const snakeCrabSpecies = snakeCrabManifest ? ['meshtint-snake', 'meshtint-hermit-crab'] : [];
+const reviewSpecies = [...beeBatSpecies, ...snakeCrabSpecies];
+const evaluationSpecies = evaluationManifest ? [...new Set(evaluationManifest.appearance_bindings.stages.map(({ species_slug }) => species_slug))] : [];
+const expansionSpecies = ['meshtint-dragon', 'meshtint-mushroom', ...reviewSpecies];
 const allSpecies = ['chick', 'meshtint-wolf', ...expansionSpecies];
-const releaseFor = (species) => beeBatSpecies.includes(species) ? beeBatManifest : expansionSpecies.includes(species) ? expansionManifest : manifest;
+const elementalManifests = [manifest, expansionManifest, beeBatManifest, snakeCrabManifest].filter(Boolean);
+const releaseBySpecies = new Map(elementalManifests.flatMap((release) => [...new Set(release.appearance_bindings.stages.map(({ species_slug }) => species_slug))]
+  .map((species) => [species, release])));
+const releaseFor = (species) => releaseBySpecies.get(species);
+const uiImageIds = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
+  'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
+  ...(beeBatManifest ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : []),
+  ...(snakeCrabManifest ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : [])];
 const stages = ['baby', 'middle', 'grown'];
 const fullMotions = process.env.ABBY_ELEMENTAL_FULL_MOTIONS === '1';
 let server, origin;
@@ -78,7 +93,7 @@ async function open(page, species = 'chick', potion = 'fire') {
   await chooseDropdown(page.getByRole('combobox', { name: 'Fixture species' }), species);
   await chooseDropdown(page.getByRole('combobox', { name: 'Fixture potion' }), potion);
   await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-elemental-installed', 'true');
-  const explicit = beeBatSpecies.includes(species) && Boolean(evaluationManifest);
+  const explicit = evaluationSpecies.includes(species);
   await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-delivery-mode', explicit ? 'evaluation' : 'canonical');
   await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-explicit-staged-prop', String(explicit));
   return { errors, mutations, requests };
@@ -137,7 +152,7 @@ for (const species of allSpecies) {
       const release = releaseFor(species);
       test.skip(!release, 'Exact private elemental payloads are not installed; this artwork check was not executed.');
       const { errors, mutations, requests } = await open(page, species, potion);
-      if (beeBatSpecies.includes(species)) await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-populated-woodland', 'true');
+      if (reviewSpecies.includes(species)) await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-populated-woodland', 'true');
       let rendered = 0;
       for (const stage of stages) {
         if (expansionSpecies.includes(species)) await observePlayback(page);
@@ -146,7 +161,7 @@ for (const species of allSpecies) {
         if (expansionSpecies.includes(species)) expect(await page.evaluate(() => window.__elementalHistory.some(({ status }) => status === 'evolving'))).toBe(false);
         await expect(page.getByLabel('Fixture diagnostics')).toHaveAttribute('data-appearance-id', `${species}-${potion}-${stage}`);
         await page.screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-live.png`), fullPage: true });
-        if (beeBatSpecies.includes(species)) await page.locator('.companion-preview').screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-owner-preview.png`) });
+        if (reviewSpecies.includes(species)) await page.locator('.companion-preview').screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-owner-preview.png`) });
         await page.getByRole('button', { name: 'Reload saved companion', exact: true }).click();
         await resting(page, stage);
         await page.getByText('More motions', { exact: true }).click();
@@ -185,12 +200,14 @@ for (const species of allSpecies) {
       await page.getByRole('button', { name: 'Unmount presentation', exact: true }).click();
       await expect(page.locator('canvas')).toHaveCount(0);
       expect(errors).toEqual([]); expect(mutations).toEqual([]);
-      if (beeBatSpecies.includes(species)) {
+      if (reviewSpecies.includes(species)) {
         const delivered = requests.filter((url) => release.files.some(({ path }) => new URL(url).pathname.endsWith(`/${path}`)));
         expect(delivered.length).toBeGreaterThan(0);
-        const prefix = beeBatDelivery === 'evaluation' ? '/__abby_elemental_evaluation__/' : `/avatar/shared/${evaluationPin.directory}/`;
+        const explicit = evaluationSpecies.includes(species), delivery = explicit ? 'evaluation' : 'canonical';
+        const pin = explicit ? selectedEvaluationPin : lock.releases.find(({ family_id }) => family_id === release.family_id);
+        const prefix = explicit ? '/__abby_elemental_evaluation__/' : `/avatar/shared/${pin.directory}/`;
         expect(delivered.every((url) => new URL(url).pathname.includes(prefix))).toBe(true);
-        info.annotations.push({ type: 'release-delivery', description: `${beeBatDelivery}; explicit staged prop ${Boolean(evaluationManifest)}` });
+        info.annotations.push({ type: 'release-delivery', description: `${delivery}; explicit staged prop ${explicit}; ${release.family_id}` });
       }
       info.annotations.push({ type: 'native-takes-rendered', description: String(rendered) });
       info.annotations.push({ type: 'woodland', description: 'See fixture diagnostics: private populated Woodland is independently required.' });
@@ -203,18 +220,16 @@ test('all installed exact portraits and catalog images use exact 256px art in a 
   const { errors, mutations } = await open(page);
   await chooseDropdown(page.getByRole('combobox', { name: 'Fixture surface' }), 'portraits');
   const gallery = page.getByRole('region', { name: 'Elemental portrait and catalog images' });
-  await expect(gallery.locator('img')).toHaveCount(beeBatManifest ? 50 : 34);
+  await expect(gallery.locator('img')).toHaveCount(allSpecies.length * 6 + uiImageIds.length);
   // Inspect every row so browser-native lazy images load before decoding.
   for (const image of await gallery.locator('img').all()) await image.scrollIntoViewIfNeeded();
   await expect.poll(() => gallery.locator('img').evaluateAll((images) => images.every((image) => image.complete && image.naturalWidth === 256))).toBe(true);
-  for (const binding of [...manifest.appearance_bindings.stages, ...expansionManifest.appearance_bindings.stages, ...(beeBatManifest?.appearance_bindings.stages || [])].filter(({ motion }) => motion === 'idle')) {
+  for (const binding of elementalManifests.flatMap((release) => release.appearance_bindings.stages).filter(({ motion }) => motion === 'idle')) {
     const portrait = releaseFor(binding.species_slug).assets.find(({ id }) => id === binding.portrait_asset_id).variants.find(({ id }) => id === binding.portrait_variant_id);
     await expect(gallery.getByTestId(`${binding.species_slug}-${binding.potion_slug}-${binding.lifecycle_stage}`).locator('img')).toHaveAttribute('src', new RegExp(portrait.file));
   }
-  for (const id of ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
-    'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
-    ...(beeBatManifest ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : [])]) {
-    const asset = [...manifest.assets, ...expansionManifest.assets, ...(beeBatManifest?.assets || [])].find((entry) => entry.id === id);
+  for (const id of uiImageIds) {
+    const asset = elementalManifests.flatMap((release) => release.assets).find((entry) => entry.id === id);
     const image = asset.variants.find(({ id: variantId }) => variantId === 'icon');
     await expect(gallery.getByTestId(id).locator('img')).toHaveAttribute('src', new RegExp(image.file));
   }
@@ -310,7 +325,7 @@ for (const species of expansionSpecies) {
       for (const stage of stages) {
         await page.getByRole('button', { name: `Set ${stage}`, exact: true }).click();
         await resting(page, stage);
-        await expect(page.getByRole('button', { name: /^(Fly|Walk|Hop|Play) together$/, exact: true })).toBeDisabled();
+        await expect(page.getByRole('button', { name: 'Look around', exact: true })).toBeDisabled();
         await expect(page.getByRole('button', { name: 'Existing care control', exact: true })).toBeEnabled();
         await page.screenshot({ path: info.outputPath(`${species}-${potion}-${stage}-reduced-motion.png`), fullPage: true });
       }
@@ -341,7 +356,7 @@ for (const species of expansionSpecies) {
           const variantId = potion === 'base' ? baseFamily.stages[stage].default_variant_id
             : stageBinding(releaseFor(species), species, potion, stage).variant_id;
           await resting(page, stage, 'Companion playback', card, variantId);
-          const playButton = card.getByRole('button', { name: /^(Fly|Walk|Hop|Play) together$/, exact: true });
+          const playButton = card.getByRole('button', { name: 'Look around', exact: true });
           if (reduced === 'reduce') await expect(playButton).toBeDisabled();
           else await expect(playButton).toBeEnabled();
         }
@@ -363,9 +378,9 @@ test('exact Base, Fire and Ice loader instances isolate materials, textures, mut
     const evaluation = (await import(/* @vite-ignore */ modulePath)).default;
     return (await import('/e2e/elemental-inspection.js')).inspectElementalMaterialIsolation(evaluation);
   });
-  expect(result.instances).toBe(beeBatManifest ? 48 : 24);
+  expect(result.instances).toBe(expansionSpecies.length * stages.length * 4);
   expect(result.independent).toBe(true);
-  expect(result.groups).toHaveLength(beeBatManifest ? 12 : 6);
+  expect(result.groups).toHaveLength(expansionSpecies.length * stages.length);
   expect(result.groups.map(({ species, stage }) => `${species}/${stage}`).sort()).toEqual(
     expansionSpecies.flatMap((species) => stages.map((stage) => `${species}/${stage}`)).sort());
   for (const group of result.groups) {
@@ -390,7 +405,7 @@ test('private evaluation delivery is pinned, read-only and limited to its verifi
   expect(response.ok()).toBe(true);
   const source = await response.text();
   if (evaluationManifest) {
-    expect(source).toContain(evaluationPin.manifest_sha256);
+    expect(source).toContain(selectedEvaluationPin.manifest_sha256);
     expect(source).not.toContain(evaluationRoot);
   } else expect(source).toBe('export default null;');
   expect((await request.post(`${origin}/__abby_elemental_evaluation__/module.js`)).status()).toBe(405);

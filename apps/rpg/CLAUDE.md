@@ -46,6 +46,17 @@ Coverage lives in `tests/test_catalog_support.py`,
 the asset preparation/license boundary is
 [`content/rpg/react-three-fiber-assets.md`](../../content/rpg/react-three-fiber-assets.md).
 
+Snake/Hermit Crab Fire/Ice preparation lives in the unregistered
+`content/rpg/prepared/elemental-snake-hermit-crab` pack. Default startup does
+not load it or expose its four proposed challenges. Its existing natural eggs
+and Uncommon species tiers stay intact. Explicit loading under the production
+27-pair policy fails atomically; tests exercise future integration through a
+scoped synthetic 31-pair policy. Additional registered families may author full
+Base/Fire/Ice compatibility only when their exact species/sprite identity has
+positive support for all three. Existing adopted families retain their authoring
+allowance under narrower rollback policies. Proposed challenge image handles
+come from the receiving descriptor and do not establish artwork publication.
+
 ## Models
 - `CharacterProfile` (level, streaks, cosmetic slots, `streak_freeze_expires_at`, boost timers, `active_trophy_badge`). Level caches the tier of total saved skill XP using `XP_THRESHOLDS` (0..6), refreshed by direct and badge XP writes. Character responses include read-only `total_xp`, `xp_in_level` and `xp_needed_for_level` (band width; both band fields are zero at level 6). Migration 0028 normalizes legacy cached levels without granting XP or rewards; appearance-only updates preserve saved levels.
 - `PerfectDayReceipt` — unique `(user, day)` award guard, committed atomically with the counter, 15 coins, activity and notification; `historical` identifies receipts reconstructed from typed legacy Perfect Day events without altering rewards.

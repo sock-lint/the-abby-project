@@ -345,6 +345,17 @@ The owner-accepted Bee/Bat adoption adds their four exact elemental pairs and
 one-time Hive/Cave guarantees through the server policy. Runtime delivery still
 requires canonical publication/readback and the ordinary MAIN release gates.
 
+Snake/Hermit Crab remains private evaluation only. Its separate
+`assets.snake-hermit-crab.evaluation.lock.json` pins the verified candidate for
+the e2e-only loopback server; normal delivery stays on thirteen releases and
+twenty-seven supported pairs. Keep candidate files outside Vite source globs.
+The fixture routes staged art by exact family and image identity, preserving
+canonical Bee/Bat and the earlier independent evaluation locks. Native takes
+come from `appearance_bindings` v1 without renaming source IDs; the Middle
+Snake's supplied `slither-foward-*` spelling is intentional. No Evolve clip is
+supplied, so confirmed growth selects that element's destination idle. Private
+browser screenshots do not establish owner artwork or physical-phone acceptance.
+
 ### Collection navigation (October 2026)
 
 `TomeShelf` and `TomeSpine` retain their existing APIs while rendering wrapping Meadow collection cards. All-`vessel` sets render compact wrapping filter pills at every width. One tablist provides a single tab stop, Left/Right wrapping and Home/End selection; mount and pointer changes do not scroll the page or move unrelated focus. Badges, Lorebook and other collections share this control. Skills uses its separate Wayfinder hierarchy. See `components/README.md` for the descriptor and accessibility contract; `/__design` demonstrates both patterns with local synthetic examples.

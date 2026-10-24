@@ -91,6 +91,8 @@ describe('Challenge illustrations under the child surprise rule', () => {
   it.each([
     ['review-bee-fire-acquisition-icon', 'meshtint-bee', 'fire'], ['review-bee-ice-acquisition-icon', 'meshtint-bee', 'ice'],
     ['review-bat-fire-acquisition-icon', 'meshtint-bat', 'fire'], ['review-bat-ice-acquisition-icon', 'meshtint-bat', 'ice'],
+    ['review-snake-fire-acquisition-icon', 'meshtint-snake', 'fire'], ['review-snake-ice-acquisition-icon', 'meshtint-snake', 'ice'],
+    ['review-hermit-crab-fire-acquisition-icon', 'meshtint-hermit-crab', 'fire'], ['review-hermit-crab-ice-acquisition-icon', 'meshtint-hermit-crab', 'ice'],
   ])('gates the %s acquisition illustration by its exact appearance', async (icon, slug, variant) => {
     const species = { id: 6, slug, name: slug, sprite_key: slug };
     const goal = buildChallengeGoal({ id: `goal:${icon}`, name: icon, origin: 'catalog', catalog_icon: icon });

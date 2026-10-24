@@ -20,10 +20,13 @@ const evaluationStage = evaluation ? stagedElementalRelease(
   { schema_version: 1, releases: [evaluation.pin] },
   { [`../avatar/shared/${evaluation.pin.directory}/manifest.json`]: evaluation.manifestUrl }, evaluation.pin.family_id,
 ) : undefined;
-if (evaluation && !evaluationStage) throw new Error('Exact Bee/Bat evaluation bindings are unavailable.');
+if (evaluation && !evaluationStage) throw new Error('Exact elemental evaluation bindings are unavailable.');
 const canonicalBeeBat = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-bee-bat');
-const beeBatAvailable = Boolean(evaluationStage || canonicalBeeBat);
-const usesEvaluation = (family) => Boolean(evaluation && ['meshtint-bee', 'meshtint-bat'].includes(family.slug));
+const canonicalSnakeCrab = stagedElementalRelease(undefined, undefined, undefined, undefined, 'abby-elemental-snake-hermit-crab');
+const available = (familyId, canonical) => Boolean(canonical || evaluationStage?.release.family_id === familyId);
+const beeBatAvailable = available('abby-elemental-bee-bat', canonicalBeeBat);
+const snakeCrabAvailable = available('abby-elemental-snake-hermit-crab', canonicalSnakeCrab);
+const usesEvaluation = (family) => Boolean(evaluation && elementalFamilyId(family.slug) === evaluation.pin.family_id);
 // Canonical checks leave these real components on their ordinary active-lock defaults.
 const elementalProps = (family) => usesEvaluation(family) ? { elemental: evaluationStage } : {};
 const families = [
@@ -35,6 +38,10 @@ const families = [
     { slug: 'meshtint-bee', sprite_key: 'meshtint-bee', name: 'Bee', egg: 'meshtint-bee-egg' },
     { slug: 'meshtint-bat', sprite_key: 'meshtint-bat', name: 'Bat', egg: 'meshtint-bat-egg' },
   ] : []),
+  ...(snakeCrabAvailable ? [
+    { slug: 'meshtint-snake', sprite_key: 'meshtint-snake', name: 'Snake', egg: 'meshtint-snake-egg' },
+    { slug: 'meshtint-hermit-crab', sprite_key: 'meshtint-hermit-crab', name: 'Hermit Crab', egg: 'meshtint-hermit-crab-egg' },
+  ] : []),
 ];
 const stages = ['baby', 'middle', 'grown'];
 const potionFor = (slug) => ({ id: slug === 'base' ? 901 : slug === 'fire' ? 902 : 903, slug,
@@ -42,7 +49,9 @@ const potionFor = (slug) => ({ id: slug === 'base' ? 901 : slug === 'fire' ? 902
 const storageKey = 'abby_synthetic_elemental_fixture';
 const uiImages = ['item-fire-potion', 'item-ice-potion', 'challenge-ember-nest', 'challenge-frost-nest', 'challenge-ember-trail', 'challenge-frost-trail',
   'challenge-ember-grove', 'challenge-frost-grove', 'challenge-ember-summit', 'challenge-frost-summit',
-  ...(beeBatAvailable ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : [])];
+  ...(beeBatAvailable ? ['review-bee-fire-acquisition-icon', 'review-bee-ice-acquisition-icon', 'review-bat-fire-acquisition-icon', 'review-bat-ice-acquisition-icon'] : []),
+  ...(snakeCrabAvailable ? ['review-snake-fire-acquisition-icon', 'review-snake-ice-acquisition-icon', 'review-hermit-crab-fire-acquisition-icon', 'review-hermit-crab-ice-acquisition-icon'] : [])];
+const evaluationImageIds = new Set(evaluation?.release.assets.filter(({ kind }) => kind === 'image').map(({ id }) => id) || []);
 function loadFixture() {
   try {
     const saved = JSON.parse(localStorage.getItem(storageKey));
@@ -69,7 +78,7 @@ function Portraits() {
         </figure>;
       })))}
       {uiImages.map((id) => <figure key={id} data-testid={id} className="min-w-0 text-center">
-        <CatalogIcon {...(evaluation && id.startsWith('review-') ? { elemental: evaluationStage } : {})} assetId={id} icon="✨" size={64} alt={id} />
+        <CatalogIcon {...(evaluationImageIds.has(id) ? { elemental: evaluationStage } : {})} assetId={id} icon="✨" size={64} alt={id} />
         <figcaption className="text-caption break-words">{id}</figcaption>
       </figure>)}
     </div>
