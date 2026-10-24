@@ -251,6 +251,12 @@ but grants no direct recognition reward or extra activity credit.
 Chronicle milestone criteria, including Turning Point and Life Chronicler,
 remain in `excluded_badge_criteria`; their rewards and dependent unlocks are
 not assumed. Modeled journal-entry and journal-streak badges remain separate.
+Live birthday celebrations evaluate Chronicle and badge-count achievements
+after saving a new annual entry. Each newly earned badge receives its ordinary
+badge loot; the scheduled birthday gift remains a separate reward. The Lab
+has no birth date or annual celebration history, so `birthdays_logged` badges,
+their loot and dependent unlocks remain excluded. A 365-day forecast does not
+assume a birthday or add the birthday gift.
 Live Perfect Day awards one Uncommon-or-better draw per new daily receipt.
 Its Common tier is excluded before selection, with remaining supported tiers
 renormalized. The Lab binds that live rarity rule but adds no Perfect Day
