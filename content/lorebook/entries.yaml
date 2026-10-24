@@ -100,7 +100,7 @@ entries:
       - "Only new reading sessions dated today in the family's timezone count toward this reward. Pages, chapters, ratings, finishing books, optional reflections, edits, and older sessions do not earn extra rewards. Deleting a rewarded session never rearms the day."
       - "The daily reading reward records streak activity and one drop opportunity at a 20% base rate plus normal streak and Drop Charm bonuses. Reading drops use the existing food and coin-pouch catalog. A separate first-activity check-in bonus can also apply."
       - "Each earned daily Reading Adventure counts once toward challenges that explicitly ask for reading; individual extra logs, edits and deletions do not add more credit. Reading stays outside unfiltered challenges and the daily bonus. Saved legacy quests can also match it for 5 base boss damage or one collection step."
-      - "Reading Companion offers a Chick egg, Base potion and two Birdseed after 3 daily Adventures within 14 days. Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. Reading Voyager offers the Bookworm title after 20 within 45 days. These challenges add reading XP and items, with no authored Coin payout."
+      - "Reading Companion offers a Chick egg, Base potion and two Birdseed after 3 daily Adventures at your own pace, with no deadline. Reading Routine offers two Birdseed after 5 Adventures in each seven-day window. After Reading Companion and Reading Comprehension level 1, your next earned daily Adventure opens Reading Voyager: 20 Adventures in 84 days for the Bookworm title. These challenges add reading XP and items, with no authored Coin payout."
     parent_knobs:
       settings:
         - key: HOMEWORK_LATE_CUTOFF_DAYS

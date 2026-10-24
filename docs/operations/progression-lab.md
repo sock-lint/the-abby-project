@@ -399,10 +399,11 @@ Default `loadrpgcontent` loads the initial seed, `reading-adventures` and
 `collector-reading-2026` (from `content/rpg/bundled/`, baked into the image
 rather than the host-mounted `content/rpg/packs/`) in one transaction. Explicit `--pack` loads only that
 pack; dry runs roll back the complete default batch. The initial pack is unchanged.
-Three daily Reading Adventures within 14 days grant a supported Chick egg, Base
-potion and two Birdseed. A repeating five-in-seven-days goal provides care food;
-a twenty-in-45-days goal offers the existing Bookworm title. These goals author
-no Coins. Existing general quest/badge bonuses still apply and are modeled.
+Three daily Reading Adventures, with no deadline, grant a supported Chick egg,
+Base potion and two Birdseed. A repeating five-in-seven-days goal provides care
+food. After that Companion and Reading Comprehension level 1, the next earned
+daily Adventure opens a twenty-in-84-days goal for the existing Bookworm title.
+These goals author no Coins. Existing general quest/badge bonuses still apply and are modeled.
 
 After Full Ark (15 species), three sequential chapters require 5, 10 and 20 new
 daily Reading Adventures and grant a title, frame and title. These six new
