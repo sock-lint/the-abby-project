@@ -33,7 +33,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`frontend/src/pages/CLAUDE.md`](frontend/src/pages/CLAUDE.md) | Page primitives · Quests hub · Atlas hub · Frontispiece · Yearbook |
 
 ## Stack
-- **Backend:** Django 5.2 LTS, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Pillow 12.3, Python 3.12
+- **Backend:** Django 5.2 LTS, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Pillow 13.0, Python 3.12
 - **Frontend:** React 19, Vite 8, Tailwind 4, Framer Motion, React Router 7, lucide-react; optional R3F 9/Three.js companion presentation and Capacitor 8 development shells
 - **Deploy:** Coolify builds the native Docker Compose application from `main`, preserving its private build inputs, runtime configuration, and volumes. Node builds the React bundle; Django serves it + the API via WhiteNoise from one origin. Compose services include `db`, `redis`, `django`, `celery_worker`, `celery_beat`, and `printer_listener` (single-replica by design — see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md)). The self-hosted `deploy-platform` CI runner tests, builds/scans a public validation image, and invokes Coolify after validation; see [`docs/operations/platform-deployment.md`](docs/operations/platform-deployment.md).
 - **Observability:** Self-hosted Sentry at `logs.neato.digital` — error tracking, performance tracing, and release automation with source map upload via `@sentry/vite-plugin`. JSON-structured logging (opt-in via `LOG_JSON=1`).
