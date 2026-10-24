@@ -12,6 +12,7 @@ const ROUTE_TITLES = {
   '/profile/customize': 'Customize avatar',
   '/clock': 'Time tracking',
   '/manage': 'Manage',
+  '/manage/usage': 'Usage',
   '/activity': 'Activity',
   '/settings': 'Settings',
 };

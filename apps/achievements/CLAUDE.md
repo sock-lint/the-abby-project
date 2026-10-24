@@ -88,6 +88,12 @@ kinds do not contribute. New firsts and graduation milestones evaluate the
 `chronicle` and `badges` scopes in their marker transaction; duplicate writers
 do not replay awards. See `apps/chronicle/tests/test_milestone_badges.py`.
 
+New birthday entries from the direct Chronicle service and scheduled task also
+evaluate `chronicle` and `badges` under that account lock. Birthday thresholds
+and newly eligible badge-count achievements use the ordinary one-drop-per-badge
+award path. The scheduled birthday coin gift remains separate, and existing
+entries do not backfill rewards. See `apps/chronicle/tests/test_birthday_badges.py`.
+
 Every newly created `UserBadge` also receives one `badge_earned` drop through
 `DropService.award_accomplishment`, including badges with no XP or Coin bonus.
 The earned marker, payout, loot and salvage share the existing account-locked

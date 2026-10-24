@@ -145,7 +145,7 @@
   "freshness": "current",
   "binding": {
     "engine_version": "2026-10-22.1",
-    "rules_fingerprint": "91e444b137a53062daab39660451c049e0cb62988701ebcdc55cc9b15f90c4cb",
+    "rules_fingerprint": "901226b051c27c69e9008cbacf83aeea08d25037efe8ab793a340db493f2b282",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "0067a147c82882479b5b8e700a0bd88566df47d6cf7bd520a6cb5d64f1b98a94",
     "source_commit": "unavailable"
@@ -321,7 +321,7 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "91e444b137a53062daab39660451c049e0cb62988701ebcdc55cc9b15f90c4cb",
+    "rules_fingerprint": "901226b051c27c69e9008cbacf83aeea08d25037efe8ab793a340db493f2b282",
     "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -4711,11 +4711,11 @@
       "eligible_challenges": 2,
       "finite_breakdown": {
         "quest": 2,
-        "cosmetic": 1,
-        "middle": 1,
         "mount": 1,
-        "pet": 1,
-        "badge": 1
+        "middle": 1,
+        "badge": 1,
+        "cosmetic": 1,
+        "pet": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 8,
@@ -7162,7 +7162,7 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "91e444b137a53062daab39660451c049e0cb62988701ebcdc55cc9b15f90c4cb",
+    "rules_fingerprint": "901226b051c27c69e9008cbacf83aeea08d25037efe8ab793a340db493f2b282",
     "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {
@@ -11552,11 +11552,11 @@
       "eligible_challenges": 2,
       "finite_breakdown": {
         "quest": 2,
-        "cosmetic": 1,
-        "middle": 1,
         "mount": 1,
-        "pet": 1,
-        "badge": 1
+        "middle": 1,
+        "badge": 1,
+        "cosmetic": 1,
+        "pet": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 13,

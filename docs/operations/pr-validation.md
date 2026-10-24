@@ -132,6 +132,13 @@ Fixtures do not replace permission, family-scoping or transaction tests. Add
 affected endpoint tests, React interactions and PostgreSQL concurrency checks
 when behavior changes. Retired Unity consumers remain reference source.
 
+The Usage report adds `config.tests.test_usage_api_contract_fixtures` and
+`src/api/usageContractFixtures.test.js` to the required fixture job. Focused
+behavioral checks are `apps.usage` and the frontend Usage dashboard/visit tests;
+`npm run test:pwa -- e2e/usage-dashboard.pw.js` exercises the actual app route,
+scope selection, denied access, keyboard refresh and 320/390/1280px layouts with
+synthetic responses. These tests never contact production.
+
 Private art does not enter hosted CI. Public builds exercise DOM/2D fallback;
 local/private builds also validate converted models. Physical phones, signed
 updates and lifecycle/media integration need acceptance outside these checks.

@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from config.permissions import IsParent
+from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin, ParentWritePermissionMixin,
     RoleFilteredQuerySetMixin, WriteReadSerializerMixin, resolve_target_user,
@@ -71,6 +72,10 @@ class RewardViewSet(WriteReadSerializerMixin, ParentWritePermissionMixin, viewse
                 },
                 status=status.HTTP_409_CONFLICT,
             )
+        record_action(
+            request.user, "rewards", "requested",
+            source="rewards.rewardredemption", source_id=redemption.pk,
+        )
         return Response(
             RewardRedemptionSerializer(redemption).data,
             status=status.HTTP_201_CREATED,
@@ -165,6 +170,7 @@ class RewardRedemptionViewSet(
         "reward__item_definition", "user", "item_definition_snapshot",
     )
     approval_service = RewardService
+    usage_feature = "rewards"
     _APPROVAL_ACTIONS = ("approve", "reject", "deliver")
 
     @action(detail=True, methods=["post"], permission_classes=[IsParent])

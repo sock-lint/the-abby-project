@@ -248,7 +248,9 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             )
 
         try:
-            result = HabitService.log_tap(request.user, habit, direction)
+            result = HabitService.log_tap(
+                request.user, habit, direction, usage_actor=request.user,
+            )
         except ValueError as exc:
             return Response(
                 {"error": str(exc)},

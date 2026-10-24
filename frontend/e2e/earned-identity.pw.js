@@ -74,6 +74,7 @@ async function fixture(page, { parent = false, longNames = false, failedAvatar =
   let maker = parent ? { ...identity, id: 901, username: 'synthetic-maker', display_name: 'Alex Maker', avatar: null,
     active_frame: frames.find((frame) => frame.slug === 'frame-steampunk'), active_title: selectedTitle } : identity;
   const mutations = [];
+  const usageVisits = [];
   let holdSave;
   let releaseSave;
   let pulseReads = 0;
@@ -88,6 +89,15 @@ async function fixture(page, { parent = false, longNames = false, failedAvatar =
     if (url.pathname === '/synthetic-avatar-missing.png') return route.fulfill({ status: 404, body: '' });
     if (!url.pathname.startsWith('/api/')) return route.continue();
     const reply = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    if (url.pathname === '/api/usage/visit/' && request.method() === 'POST') {
+      // Foreground measurement is separate from edits to saved identity. Keep
+      // its allowed request exact; all other mutations retain the guard below.
+      expect(url.search).toBe('');
+      const body = request.postDataJSON();
+      expect(body).toEqual({});
+      usageVisits.push(body);
+      return route.fulfill({ status: 204 });
+    }
     if (request.method() !== 'GET') {
       const body = request.postDataJSON();
       mutations.push({ path: url.pathname, method: request.method(), body });
@@ -131,7 +141,7 @@ async function fixture(page, { parent = false, longNames = false, failedAvatar =
     return reply(responses[url.pathname] ?? []);
   });
   return {
-    mutations, pulseReads: () => pulseReads,
+    mutations, usageVisits, pulseReads: () => pulseReads,
     frame: (family) => { identity = { ...identity, active_frame: frames.find((frame) => frame.slug === `frame-${family}`) }; },
     holdNextSave: () => { holdSave = new Promise((resolve) => { releaseSave = resolve; }); },
     releaseSave: () => { releaseSave?.(); holdSave = undefined; },
@@ -306,6 +316,7 @@ for (const width of [320, 375, 1280]) {
     await expect(signature.locator('[data-portrait-frame="laurel"]')).toBeVisible();
     await fitsViewport(page, signature);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(state.usageVisits).toEqual([{}, {}, {}]);
     expect(state.mutations).toEqual([]);
   });
 }
