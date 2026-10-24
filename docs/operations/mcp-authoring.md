@@ -283,7 +283,10 @@ previous file intact when a write is interrupted before replacement.
    `content_digest`, using the same actor/family and explicit confirmation.
    Changed source bytes, changed catalog state, an expired plan or a different
    actor requires another preview. The publication and its receipt commit
-   together. Retrying a completed publication returns its existing receipt.
+   together. Retrying a completed publication returns its existing receipt,
+   including after `delete_content_pack` disposes of the draft directory. The
+   current actor, family, scope, confirmation and reviewed digest must still
+   match; this retry does not read or recreate source files.
 
 `load_content_pack` follows the same reviewed-publication contract; it cannot
 bypass a preview. Its `dry_run` option creates a preview. Stable pack-owned
@@ -324,6 +327,9 @@ Explicit proposed project/challenge payouts are assumptions, not discovered
 server-approved reward amounts. Drop expectations use current eligible pools;
 expected item value is not spendable Coins. Affordability is conditional on
 the supplied scenario, not a promise of when a child will earn a reward.
+Reading availability uses the native award service's exact current or retained
+taxonomy identity. Renames preserve that destination; distinct competing
+identities make XP unavailable. The forecast reads only global catalog data.
 
 For actual outcomes, use `list_coin_ledger` and `get_economy_audit` with
 `mcp:read`. Dates follow the target family's timezone. Ledger pagination uses a

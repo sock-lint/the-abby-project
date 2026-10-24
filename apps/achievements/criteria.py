@@ -150,6 +150,31 @@ def _projects_completed(user, c):
     return user.assigned_projects.filter(status="completed").count() >= c.get("count", 1)
 
 
+def _project_category_identity(name):
+    """Resolve the legacy case-insensitive category name without redirecting it."""
+    from apps.achievements.models import SkillCategory
+    from apps.rpg.models import RPGContentOverride
+
+    if not isinstance(name, str) or not name:
+        return None
+    # A bounded metadata read preserves the checker's case-insensitive names
+    # while requiring the same exact original-identity/provenance shape as
+    # installed XP destinations. Excess or competing candidates fail closed.
+    sources = list(RPGContentOverride.objects.filter(
+        model_label="achievements.skillcategory", source_lookup__name__iexact=name,
+        values___authoring={"version": 1, "source": "mcp"},
+    ).order_by("pk").values_list("object_id", "source_lookup")[:1001])
+    if len(sources) > 1000:
+        return None
+    retained_ids = [object_id for object_id, lookup in sources
+                    if isinstance(lookup, dict) and set(lookup) == {"name"}
+                    and isinstance(lookup["name"], str)]
+    matches = list(SkillCategory.objects.filter(
+        models.Q(name__iexact=name) | models.Q(pk__in=retained_ids),
+    ).order_by("pk")[:2])
+    return matches[0] if len(matches) == 1 else None
+
+
 @criterion(Badge.CriteriaType.CATEGORY_PROJECTS, scopes={"project"})
 def _category_projects(user, c):
     count = c.get("count", 3)
@@ -159,8 +184,9 @@ def _category_projects(user, c):
             status="completed", category__isnull=False,
         ).values("category").annotate(n=Count("id")).filter(n__gte=1)
         return cats.count() >= category_count
-    return user.assigned_projects.filter(
-        status="completed", category__name__iexact=c.get("category"),
+    category = _project_category_identity(c.get("category"))
+    return category is not None and user.assigned_projects.filter(
+        status="completed", category=category,
     ).count() >= count
 
 
@@ -551,13 +577,13 @@ def _category_mastery(user, c):
     unreachable for younger children.
     """
     from apps.achievements.models import Skill, SkillCategory
+    from apps.achievements.source_identity import resolve_source_identity
 
     category_name = c.get("category")
     if not category_name:
         return False
-    try:
-        category = SkillCategory.objects.get(name=category_name)
-    except SkillCategory.DoesNotExist:
+    category = resolve_source_identity(SkillCategory, {"name": category_name})
+    if category is None:
         return False
     min_level = int(c.get("min_level", 3))
     required_skill_ids = set(

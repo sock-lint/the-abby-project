@@ -19,7 +19,7 @@ from django.db.models import Count, Max, Q, Sum
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from apps.achievements.models import Skill, XP_THRESHOLDS
+from apps.achievements.models import XP_THRESHOLDS
 from apps.achievements.services import SkillService
 from apps.creations.services import CreationService
 from apps.movement.services import MovementSessionService
@@ -322,7 +322,7 @@ def _drop_pools(level, triggers):
 
 def _scenario_projection(scenario):
     reading = scenario.reading_minutes_per_day >= ReadingRewardService.TARGET_MINUTES
-    reading_skill = Skill.objects.filter(name=ReadingRewardService.SKILL_NAME, category__name="Language Arts").exists()
+    reading_skill = ReadingRewardService._reading_skill() is not None
     movement = scenario.movement_sessions_per_day[:MovementSessionService.DAILY_REWARD_LIMIT]
     creation_count = min(scenario.creations_per_day, CreationService.DAILY_XP_LIMIT)
     creation_weights = [CreationService.PRIMARY_WEIGHT, CreationService.SECONDARY_WEIGHT] if scenario.creation_secondary_skill else [1]

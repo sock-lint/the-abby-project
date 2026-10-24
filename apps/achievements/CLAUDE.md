@@ -48,6 +48,13 @@ canonical rows remain supported. Retirement preserves these installed routes,
 and normal unlock eligibility still controls credit. Labels never redirect saved
 receipts or cause past awards to be replayed.
 
+Named `category_mastery` and single-category `category_projects` criteria also
+retain the original category identity after MCP renames. Mastery keeps exact
+name matching; project criteria keep case-insensitive matching. Exact versioned
+MCP provenance may retain an original name, while distinct competing current or
+retained categories fail closed. Retirement preserves eligibility and earned
+badge history; plural project-category counts keep their existing behavior.
+
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be
 removed. Incoming relationships, saved homework-template skill tags, challenge reward/gate snapshots, retained

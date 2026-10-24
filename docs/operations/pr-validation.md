@@ -112,6 +112,12 @@ with main settings: `test_habit_daily_authority_concurrency`,
 checks cover a cross-family catalog edit between preparation and commit, source
 read/write fences, and continued unrelated-family activity during computation.
 
+Run `apps.achievements.tests.test_mastery_source_identity` for named badge
+criteria across taxonomy edits, and `test_reading_forecast_identity` and
+`test_deleted_pack_publication_replay` under `apps.mcp_server.tests` for native
+Reading forecast parity and completed publication retries after source disposal.
+These use synthetic registered MCP calls with native award/receipt controls.
+
 Progression Lab's incubation projection is covered by
 `apps.rpg.tests.test_progression_incubation`, its real API fixture producer,
 and the React Lab tests. Check consumed ingredients without early ownership,
