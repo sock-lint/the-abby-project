@@ -162,6 +162,43 @@ class CatalogReconciliationTests(TestCase):
         goal.refresh_from_db()
         self.assertEqual(goal.catalog_definition_id, self.canonical.pk)
 
+    def unopened(self, definition=None):
+        # Enrolled before its start (e.g. by a non-matching activity), so its
+        # only one-time window has not been saved yet.
+        definition = definition or self.source
+        return ChallengeGoal.objects.create(
+            user=self.child, family=self.child.family, catalog_definition=definition, is_catalog=True,
+            name="Frozen name", description="Frozen description", metric="count", target=1, unit="actions",
+            trigger_filter=definition.trigger_filter, timezone_name="America/Phoenix",
+            starts_at=self.at - timedelta(hours=1), ends_at=self.at + timedelta(days=6), coin_reward=5,
+        )
+
+    def coins(self):
+        return list(CoinLedger.objects.filter(user=self.child).order_by("pk").values_list("amount", flat=True))
+
+    def test_cooperative_exception_keeps_an_unopened_personal_window_payable(self):
+        QuestDefinition.objects.filter(pk=self.canonical.pk).update(is_cooperative=True)
+        goal = self.unopened()
+        self.publish(acknowledge_cooperative_transition=True)
+        goal.refresh_from_db()
+        self.assertEqual(goal.catalog_definition_id, self.canonical.pk)
+        window = goal.occurrences.get()
+        self.assertEqual((window.starts_at, window.ends_at), (goal.starts_at, goal.ends_at))
+        ingest_activity(self.child, "habit", "h-1", "habit_log")
+        self.assertEqual(self.coins(), [5])
+        with self.assertRaisesMessage(ValueError, "accepted individual version"):
+            QuestService.start_co_op_quest(self.canonical.pk, [self.child, self.sibling])
+
+    def test_overlap_keeps_an_unopened_alias_window_payable(self):
+        self.saved(self.canonical)
+        goal = self.unopened()
+        self.publish()
+        goal.refresh_from_db()
+        self.assertEqual(goal.catalog_definition_id, self.source.pk)
+        self.assertEqual(goal.occurrences.count(), 1)
+        ingest_activity(self.child, "habit", "h-1", "habit_log")
+        self.assertEqual(self.coins(), [5])
+
     def test_cooperative_transition_cannot_cancel_a_standing_personal_repeat_rule(self):
         QuestDefinition.objects.filter(pk__in=[self.source.pk, self.canonical.pk]).update(is_repeatable=True)
         QuestDefinition.objects.filter(pk=self.canonical.pk).update(is_cooperative=True)

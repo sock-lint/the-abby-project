@@ -247,6 +247,21 @@ def get_reconciliation(actor, preview_id):
         return deepcopy(receipt.stats.get("published_response", receipt.stats["preview_response"]))
 
 
+def _open_saved_one_time_windows(source_id, bindings):
+    # Enrollment can precede a one-time goal's start (an earlier non-matching
+    # activity), leaving its accepted window unopened. Retirement opens no new
+    # windows, so save each open source window before linking or superseding.
+    from .goals import _occurrence
+    now = timezone.now()
+    goals = (ChallengeGoal.objects.filter(pk__in=[row[0] for row in bindings if row[3] == source_id],
+                                          repeat_weekly=False, repeat_days=0)
+             .exclude(occurrences__isnull=False).order_by("pk"))
+    for goal in goals:
+        at = max(goal.starts_at, now)
+        if goal.ends_at is None or at < goal.ends_at:
+            _occurrence(goal, at)
+
+
 @transaction.atomic
 def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooperative_transition=False):
     preview_id = _uuid(preview_id)
@@ -289,6 +304,7 @@ def publish_reconciliation(actor, preview_id, content_digest, acknowledge_cooper
         list(ChallengeGoal.objects.select_for_update(no_key=True).filter(pk__in=[row[0] for row in bindings])
              .order_by("pk").values_list("pk", flat=True))
         source_id, canonical_id = ids
+        _open_saved_one_time_windows(source_id, bindings)
         canonical_users = {row[1] for row in bindings if row[3] == canonical_id}
         for pk, user_id, _, definition_id, _, _ in bindings:
             if definition_id == source_id and user_id not in canonical_users:

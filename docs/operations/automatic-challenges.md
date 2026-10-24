@@ -60,7 +60,9 @@ Publication retains both definitions and their creator/source provenance.
 Where no canonical goal already exists, it moves only a catalog goal's
 definition link, preserving that goal's ID, cadence, timestamps and promises.
 Additional accepted alias windows remain payable but cannot open another
-repeat cycle. A shared account/catalog admission order and a fresh definition
+repeat cycle. An enrolled one-time source goal whose only window has not
+opened yet (enrollment can precede its start) has that window saved first, so
+retirement cannot cancel it. A shared account/catalog admission order and a fresh definition
 check prevent stale first enrollment from recreating an alias goal during
 publication. See `apps/quests/reconciliation.py` and its PostgreSQL tests.
 

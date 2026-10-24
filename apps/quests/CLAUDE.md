@@ -147,7 +147,9 @@ The reconciliation migration never replays activity or pays rewards.
 Runtime maintenance uses `reconciliation.py` and dedicated native/MCP
 preview/get/publish receipts, with explicit source/canonical IDs. It retains
 creator provenance and accepted history; a sole alias catalog goal can change
-only its definition FK to continue its existing repeat cadence. Conflicting
+only its definition FK to continue its existing repeat cadence. Publication
+first saves the only window of an enrolled one-time source goal that has not
+opened yet, so retirement cannot cancel it. Conflicting
 rules/rewards and unsupported ownership, alias or dependency states fail
 closed. A one-time cooperative difference needs explicit publication
 acknowledgment; repeating personal-to-cooperative conversions are refused.
