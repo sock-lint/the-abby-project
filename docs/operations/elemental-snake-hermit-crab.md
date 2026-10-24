@@ -1,10 +1,20 @@
 # Fire and Ice Snake and Hermit Crab preparation
 
-The owner returned the immutable private Snake/Hermit Crab candidate for PR #336.
-The receiving checks pass, and this change prepares actual application review
-through an isolated loopback delivery path. Artwork acceptance, canonical
-publication and acquisition activation remain pending. Pet stats remain deferred.
-The six released elemental families and saved data remain supported.
+The owner accepted all twelve Fire/Ice Snake and Hermit Crab appearances shown
+at application revision `d4c34c5d` and authorized exact runtime publication,
+guaranteed challenge activation, and PR #336 through the ordinary MAIN merge,
+deployment and live verification process. No repeat artwork approval or
+regeneration is needed. Canonical publication/readback and application activation
+remain pending. Pet stats remain deferred. The six released elemental families
+and saved data remain supported.
+
+The established scoped publisher and permanent write coordinator are in
+**Prepare Fire and Ice assets**. This application retains its GET-only reader;
+the exact publication handoff is prepared for the owner to copy to that
+workshop. The application's canonical version-index read returned `NoSuchKey` / HTTP 404 on
+October 24 before publication. That is historical probe evidence, not a claim
+about every possible partial object or coordinator reservation. A returned
+canonical receipt and fresh readback must precede normal delivery/activation.
 
 ## Prepared identities and acquisition
 
@@ -12,7 +22,9 @@ The six released elemental families and saved data remain supported.
 handles agreed with the application and the exact verified candidate digest.
 Preparation state is `private_evaluation`; `artwork_accepted` and
 `acquisition_active` are false. A verified digest and ID agreement are not artwork
-acceptance or canonical delivery. The positive server policy and registered
+acceptance or canonical delivery. The later owner acceptance above supersedes
+historical pending-artwork labels; these delivery flags stay inactive until
+canonical readback. The positive server policy and registered
 content packs remain the acquisition authority. Presentation metadata grants no
 ownership, progress, stage access or reward eligibility.
 
@@ -152,7 +164,12 @@ unit fixtures exercise routing and failure handling without asserting real art.
 
 Independent image review inspected all twelve delivered portraits, all four
 Baby-only acquisition images and three comparison sheets without a blocking
-defect. This is private artwork inspection, not owner or current-app acceptance.
+defect. The actual private app run at `d4c34c5d` then passed seventeen cases,
+all twelve forms, all 218 native takes, 66 exact portraits/icons, both existing
+elemental Bird evolutions and 18 material groups / 72 independent instances.
+Its source-bound original previews are the appearances the owner accepted.
+That private run remains separate from canonical delivery and the refreshed
+application's final validation.
 The workshop snapshot records `origin/main` at `b19820fc` with thirteen pins,
 separately from an older eleven-pin primary checkout. Against application
 preparation head `2ac2933f`, six snapshot files differ for the expected resolver,
@@ -165,13 +182,14 @@ hatch, all twelve stages, every native take, exact portraits/icons, destination
 idle, reduced motion, material isolation, instance disposal, persistence and
 missing-file recovery. If no Evolve take exists, retain the same element's
 destination idle. Report desktop/browser checks separately from physical-phone
-and native-shell acceptance; neither has been performed for this pending art.
+and native-shell acceptance; neither has been performed for this release.
 
 ## Later activation and rollback
 
-Keep the preparation PR draft through actual app review. After actual
-app review and explicit owner acceptance, obtain canonical publication through
-the scoped asset session. Verify the canonical version index, manifest and all
+Keep the PR draft through canonical readback and application activation checks.
+Owner appearance acceptance and release authorization are recorded above;
+obtain canonical publication through the scoped asset session. Verify the
+canonical version index, manifest and all
 payloads with the application's normal GET-only import before adding its pin.
 Then update the accepted descriptor, positive support policy and registered
 content together; test the full 31-pair catalog and default-loader acquisition.

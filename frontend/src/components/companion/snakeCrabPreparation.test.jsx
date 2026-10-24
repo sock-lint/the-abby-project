@@ -23,11 +23,11 @@ function withBasePortrait(children) {
   return <SpriteCatalogContext value={{ getSpriteMeta: () => ({ url: '/synthetic-base-only.png', frames: 1 }) }}>{children}</SpriteCatalogContext>;
 }
 
-describe('unpublished Snake/Hermit Crab artwork preparation', () => {
+describe('Snake/Hermit Crab missing artwork and explicit staging', () => {
   it.each(pairs)('keeps %s %s owned-care and return controls usable without borrowing Base artwork', async (species, potion) => {
     const user = userEvent.setup(), care = vi.fn(), claim = vi.fn(), fetch = vi.spyOn(globalThis, 'fetch');
     const creature = { ...snakeCrabCreature(species, potion), name: 'Maple', species: { slug: species, sprite_key: species, icon: '🐾' } };
-    render(withBasePortrait(<CompanionPreview variant="primary" creature={creature} onInteract={care}>
+    render(withBasePortrait(<CompanionPreview variant="primary" creature={creature} elemental={null} onInteract={care}>
       <button type="button" onClick={claim}>Claim saved expedition loot</button>
     </CompanionPreview>));
     expect(screen.getByRole('img', { name: 'Maple, your companion' }).tagName).toBe('SPAN');
@@ -45,7 +45,7 @@ describe('unpublished Snake/Hermit Crab artwork preparation', () => {
 
   it.each(pairs)('shows exact %s %s stage names and explicit unavailable art while preserving its natural egg', async (species, potion) => {
     const user = userEvent.setup(), item = snakeCrabEgg(species), element = potion === 'fire' ? 'Fire' : 'Ice';
-    renderWithProviders(withBasePortrait(<FamilyStagePreview item={item} potion={{ slug: potion, name: element }} />), { withAuth: false });
+    renderWithProviders(withBasePortrait(<FamilyStagePreview item={item} potion={{ slug: potion, name: element }} elemental={null} />), { withAuth: false });
     expect(screen.getByRole('button', { name: 'Egg' })).toHaveAttribute('aria-pressed', 'true');
     for (const [index, stage] of ['Baby', 'Middle', 'Grown'].entries()) {
       await user.click(screen.getByRole('button', { name: stage }));
