@@ -7,7 +7,7 @@ Covers the 8 new criterion checkers:
 - ``_badges_earned_count`` — universal badge-collector ladder
 - ``_co_op_project_completed`` — completed collaborative projects
 - ``_boss_quests_completed`` / ``_collection_quests_completed`` — quest subtype ladders
-- ``_chronicle_milestones_logged`` — Chronicle MILESTONE-kind entries
+- ``_chronicle_milestones_logged`` — Chronicle MILESTONE and FIRST_EVER entries
 - ``_cosmetic_set_owned`` — owning every slug in a named cosmetic set
 
 Plus a regression test for the ``_category_mastery`` fix: locked-by-default
@@ -19,10 +19,6 @@ from datetime import date
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
-
-CACHE_OVERRIDE = {
-    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-}
 
 from apps.achievements.criteria import (
     _badges_earned_count,
@@ -36,6 +32,10 @@ from apps.achievements.criteria import (
     _habit_taps_lifetime,
 )
 from apps.projects.models import User
+
+CACHE_OVERRIDE = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
@@ -190,7 +190,7 @@ class ChronicleMilestonesCriterionTests(TestCase):
             username="child", password="pw", role="child",
         )
 
-    def test_chronicle_milestones_logged_counts_milestone_kind_only(self):
+    def test_chronicle_milestones_logged_counts_milestone_and_first_kinds_only(self):
         from apps.chronicle.models import ChronicleEntry
 
         ChronicleEntry.objects.create(
@@ -203,6 +203,12 @@ class ChronicleMilestonesCriterionTests(TestCase):
             occurred_on=date(2026, 6, 1), chapter_year=2025,
             title="Another milestone",
         )
+        ChronicleEntry.objects.create(
+            user=self.user, kind=ChronicleEntry.Kind.FIRST_EVER,
+            event_slug="first_project_completed",
+            occurred_on=date(2026, 6, 2), chapter_year=2025,
+            title="First project",
+        )
         # Different kind — must NOT count.
         ChronicleEntry.objects.create(
             user=self.user, kind=ChronicleEntry.Kind.BIRTHDAY,
@@ -210,8 +216,8 @@ class ChronicleMilestonesCriterionTests(TestCase):
             title="Birthday",
         )
 
-        self.assertTrue(_chronicle_milestones_logged(self.user, {"count": 2}))
-        self.assertFalse(_chronicle_milestones_logged(self.user, {"count": 3}))
+        self.assertTrue(_chronicle_milestones_logged(self.user, {"count": 3}))
+        self.assertFalse(_chronicle_milestones_logged(self.user, {"count": 4}))
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)

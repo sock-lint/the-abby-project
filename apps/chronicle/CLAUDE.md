@@ -30,6 +30,31 @@ Celery tasks: `chronicle-birthday-check` (00:20, grants `BIRTHDAY_COINS_PER_YEAR
 
 Event hooks call into `ChronicleService` from `GameLoopService`, `ExchangeService.approve`, `PetService.hatch_incubation`/`feed_pet`.
 
+New `record_first` entries and graduation milestones evaluate the `chronicle`
+and `badges` scopes under the account lock in the entry transaction. Turning
+Point and Life Chronicler count both `first_ever` and `milestone`; other history
+kinds, including private journals and grades, do not count. A payout failure
+rolls back the new recognition entry for retry. Existing-entry replay does not
+evaluate or backfill awards, and firsts without an explicit date use the active
+Django local day. Regression coverage is in `tests/test_milestone_badges.py`.
+If graduation recognition fails, the chapter task still completes later
+children's transitions, then requests at most three Celery retries five minutes
+apart. Its internal `transition_date` retains the original June 1 across midnight;
+saved markers prevent successful children from being paid again. Other chapter
+failures retain their existing error behavior.
+
+Both birthday writers take the same account lock before saving a new annual
+entry, then evaluate `chronicle` and `badges` in that transaction. Each new badge
+receives its ordinary payout and one accomplishment drop; birthdays create no
+extra activity or direct drop. Only the scheduled task grants the existing
+birthday coin gift. Replaying an existing entry backfills neither badges nor
+gifts. Award failure rolls back the entry and all rewards; the task finishes
+later children before requesting up to three retries five minutes apart, retaining
+the original `birthday_date` across midnight. Optional birthday notification
+inserts use a savepoint so their failure cannot invalidate the gift or badge
+awards. See `tests/test_birthday_badges.py` and the PostgreSQL competing-writer
+checks in `tests/test_birthday_concurrency.py`.
+
 ## Gotchas
 
 - **Age-aware Chronicle**: `User.date_of_birth` + `User.grade_entry_year` (both nullable) feed computed properties `age_years`, `current_grade`, `school_year_label` (Freshman/Sophomore/Junior/Senior through grade 12; `"Age {n} · YYYY-YY"` after). `ChronicleEntry.chapter_year` is the August-starting year — named `chapter` not `school` because the same field keeps working post-HS. `ChronicleService.record_first` uses a partial unique index on `(user, event_slug) where kind=first_ever` for emit-once semantics, returning `None` on duplicate. `CharacterProfile.unlocks` JSONField is scaffolded for future feature-pack gates (Driver's Ed, First Job, College Prep) — no UI, no readers in the current release. The birthday coin gift is tunable via `BIRTHDAY_COINS_PER_YEAR` (default 100 × age_years). Full-screen `BirthdayCelebrationModal` fires at App boot when `/api/chronicle/pending-celebration/` returns an unviewed BIRTHDAY entry; dismiss hits `POST /api/chronicle/{id}/mark-viewed/`. Graduation is a milestone inside the timeline, not a terminal state — the app keeps rolling chapters forever, labels flip to age-based after grade 12.

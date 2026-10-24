@@ -195,7 +195,7 @@ describe('ChildDashboard', () => {
     await waitFor(() => expect(screen.getByLabelText(/find a pet/i)).toBeInTheDocument());
   });
 
-  it('uses the recent-drop serializer fields for catalog artwork, rarity, and satchel navigation', async () => {
+  it('collapses recent items with a latest-item summary and opens its artwork and inventory link from the keyboard', async () => {
     const user = userEvent.setup();
     renderDashboard([
       http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
@@ -207,6 +207,13 @@ describe('ChildDashboard', () => {
       }])),
     ], { 'sky-potion': { url: '/sprites/sky-potion.png', frames: 1 } });
 
+    const disclosure = await screen.findByRole('button', { name: /recent items/i });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    expect(disclosure).toHaveTextContent('1 item · latest: Sky potion');
+    expect(screen.queryByRole('button', { name: 'Sky potion — open inventory' })).not.toBeInTheDocument();
+    disclosure.focus();
+    await user.keyboard('{Enter}');
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
     const card = await screen.findByRole('button', { name: 'Sky potion — open inventory' });
     expect(screen.getByRole('img', { name: 'Sky potion' })).toHaveAttribute('src', '/sprites/sky-potion.png');
     expect(card).toHaveClass('border-royal/40', 'bg-royal/10');
@@ -235,11 +242,44 @@ describe('ChildDashboard', () => {
       ])),
     ]);
 
-    const items = await screen.findByRole('region', { name: 'Recent items' });
+    const disclosure = await screen.findByRole('button', { name: /recent items/i });
+    expect(disclosure).toHaveTextContent('2 items · latest: Oats');
+    await user.click(disclosure);
+    const items = disclosure.closest('section');
     expect(within(items).getByRole('button', { name: 'Oats × 3 — open inventory' })).toHaveTextContent('Oats × 3');
     expect(within(items).getByRole('button', { name: 'Moon frame (converted to coins) — open inventory' })).toHaveTextContent('Converted to coins');
     await user.click(within(items).getByRole('button', { name: /view inventory/i }));
     expect(screen.getByTestId('location')).toHaveTextContent('/treasury?tab=satchel');
+  });
+
+  it('remembers the recent-items disclosure separately from recent badges', async () => {
+    const user = userEvent.setup();
+    const handlers = [
+      http.get('*/api/auth/me/', () => HttpResponse.json(buildUser())),
+      http.get('*/api/dashboard/', () => HttpResponse.json({
+        next_actions: [], recent_badges: [{ badge__id: 9, badge__name: 'Kind helper', badge__icon: '🏅' }],
+      })),
+      http.get('*/api/drops/recent/', () => HttpResponse.json([
+        { id: 17, item_name: 'Sky potion', item_icon: '🧪', item_rarity: 'rare', quantity: 1 },
+      ])),
+    ];
+    const first = renderDashboard(handlers);
+    await user.click(await screen.findByRole('button', { name: /recent items/i }));
+    expect(screen.getByRole('button', { name: /recent items/i })).toHaveAttribute('aria-expanded', 'true');
+    first.unmount();
+
+    const second = renderDashboard(handlers);
+    const disclosure = await screen.findByRole('button', { name: /recent items/i });
+    expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('button', { name: 'Sky potion — open inventory' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /recent badges/i })).toHaveAttribute('aria-expanded', 'false');
+    await user.click(disclosure);
+    expect(disclosure).toHaveAttribute('aria-expanded', 'false');
+    second.unmount();
+
+    renderDashboard(handlers);
+    expect(await screen.findByRole('button', { name: /recent items/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('button', { name: 'Sky potion — open inventory' })).not.toBeInTheDocument();
   });
 
   it('opens earned badges when a recent accolade is selected', async () => {

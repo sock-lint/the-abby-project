@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import BestiaryHub from './index.jsx';
 import { AuthProvider } from '../../hooks/useApi.js';
 import { server } from '../../test/server.js';
-import { buildUser } from '../../test/factories.js';
+import { buildParent, buildUser } from '../../test/factories.js';
 import { selectDropdown } from '../../test/selectDropdown.js';
 import { spyHandler } from '../../test/spy.js';
 
@@ -65,6 +65,27 @@ describe('BestiaryHub', () => {
     expect(screen.getByRole('tab', { name: 'Hatchery' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Party' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Satchel' })).toBeNull();
+  });
+
+  it.each([
+    ['staff parent', buildParent({ is_staff: true }), true],
+    ['staff child', buildUser({ is_staff: true }), true],
+    ['regular parent', buildParent({ is_staff: false }), false],
+    ['regular child', buildUser({ is_staff: false }), false],
+    ['parent without a staff flag', buildParent(), false],
+    ['child without a staff flag', buildUser(), false],
+  ])('shows Explore companions only to staff: %s', async (_name, account, visible) => {
+    stubAll();
+    server.use(http.get('*/api/auth/me/', () => HttpResponse.json(account)));
+    render(<MemoryRouter initialEntries={['/bestiary?tab=hatchery']}><AuthProvider><BestiaryHub /></AuthProvider></MemoryRouter>);
+    await screen.findByRole('region', { name: 'Find hatching supplies' });
+    if (visible) {
+      expect(screen.getByRole('region', { name: 'Explore companions' })).toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole('region', { name: 'Explore companions' })).toBeNull();
+      expect(screen.queryByRole('combobox', { name: 'Explore a family' })).toBeNull();
+    }
+    expect(screen.getByRole('link', { name: 'View challenge rewards' })).toHaveAttribute('href', '/quests?tab=trials');
   });
 
   it('shows a newly hatched pet when returning to already visited Companions and Collection tabs', async () => {

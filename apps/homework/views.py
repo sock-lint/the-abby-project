@@ -9,6 +9,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.debug import sensitive_post_parameters, sensitive_variables
 
 from config.permissions import IsParent
+from apps.usage.services import record_action
 from config.viewsets import (
     ApprovalActionMixin,
     RoleFilteredQuerySetMixin,
@@ -140,6 +141,10 @@ class HomeworkAssignmentViewSet(
             )
         except HomeworkError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        record_action(
+            request.user, "homework", "submitted",
+            source="homework.homeworksubmission", source_id=submission.pk,
+        )
         return Response(
             HomeworkSubmissionSerializer(submission).data,
             status=status.HTTP_201_CREATED,
@@ -210,6 +215,7 @@ class HomeworkSubmissionViewSet(
     approval_service = HomeworkService
     approval_approve_method = "approve_submission"
     approval_reject_method = "reject_submission"
+    usage_feature = "homework"
 
     def get_queryset(self):
         qs = self.get_role_filtered_queryset(super().get_queryset())
@@ -325,7 +331,7 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], url_path="create-assignment")
     def create_assignment(self, request, pk=None):
         template = self.get_object()
         assigned_to_id = request.data.get("assigned_to_id")
@@ -342,6 +348,11 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
             return child_not_found_response()
 
         try:
+            due_date = serializers.DateField().run_validation(due_date)
+        except serializers.ValidationError as exc:
+            raise serializers.ValidationError({"due_date": exc.detail}) from exc
+
+        try:
             assignment = HomeworkService.create_from_template(
                 template, child, due_date,
             )
@@ -354,6 +365,11 @@ class HomeworkTemplateViewSet(viewsets.ModelViewSet):
             ).data,
             status=status.HTTP_201_CREATED,
         )
+
+    @action(detail=True, methods=["post"], url_path="create_assignment", url_name="create-assignment-legacy")
+    def create_assignment_legacy(self, request, pk=None):
+        """Retain the original underscore URL for existing API callers."""
+        return self.create_assignment(request, pk=pk)
 
 
 class HomeworkDashboardView(APIView):

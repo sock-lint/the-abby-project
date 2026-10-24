@@ -129,7 +129,7 @@ class ClockService:
 
     @classmethod
     @transaction.atomic
-    def clock_out(cls, user, notes=""):
+    def clock_out(cls, user, notes="", *, usage_actor=None):
         """Clock out the current active entry."""
         from django.contrib.auth import get_user_model
 
@@ -212,6 +212,12 @@ class ClockService:
                     },
                 )
 
+        if usage_actor is not None and entry.duration_minutes > 0:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "projects", "completed",
+                source="timecards.timeentry", source_id=entry.pk,
+            )
         return entry
 
     @classmethod
@@ -392,7 +398,7 @@ class TimecardService:
 
     @staticmethod
     @transaction.atomic
-    def approve_timecard(timecard, parent_user, notes=""):
+    def approve_timecard(timecard, parent_user, notes="", *, usage_actor=None):
         """Approve a timecard and stamp audit fields atomically.
 
         Uses ``finalize_decision`` now that Timecard inherits from
@@ -435,6 +441,12 @@ class TimecardService:
             scopes={"time", "badges"},
         )
 
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "projects", "approved",
+                source="timecards.timecard", source_id=locked.pk,
+            )
         timecard.refresh_from_db()
         return timecard
 

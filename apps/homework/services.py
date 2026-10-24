@@ -374,7 +374,7 @@ class HomeworkService:
     # ------------------------------------------------------------------
     @staticmethod
     @transaction.atomic
-    def approve_submission(submission, parent, notes=""):
+    def approve_submission(submission, parent, notes="", *, usage_actor=None):
         """Parent approves. Awards XP + evaluates badges + fires RPG loop.
 
         Homework no longer pays money or coins — approval just routes
@@ -486,6 +486,12 @@ class HomeworkService:
             {"assignment_id": assignment.id, "submission_id": submission.pk, "on_time": on_time},
         )
 
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "homework", "approved",
+                source="homework.homeworksubmission", source_id=submission.pk,
+            )
         return submission
 
     @staticmethod

@@ -12,7 +12,7 @@ import {
   getParents, createParent, updateParent, deleteParent, resetParentPassword,
   deactivateParent, reactivateParent,
   adminPing, adminCreateFamily,
-  listOAuthApplications, revokeOAuthApplication,
+  listOAuthApplications, deleteOAuthApplication, revokeOAuthApplication,
   listOAuthTokens, revokeOAuthToken,
   getTemplates, updateTemplate, deleteTemplate, createProjectFromTemplate,
   getAllCategories, unlinkGoogleAccount,
@@ -991,6 +991,11 @@ function AdminSection() {
   return (
     <div className="space-y-4">
       <ParchmentCard className="space-y-2">
+        <h2 className="font-display text-lede text-ink-primary">Usage</h2>
+        <p className="text-body text-ink-secondary">See meaningful activity, returning families, feature adoption and review queues.</p>
+        <Link to="/manage/usage" className="inline-flex min-h-11 items-center font-semibold text-sheikah-teal-deep underline">Open usage dashboard</Link>
+      </ParchmentCard>
+      <ParchmentCard className="space-y-2">
         <h2 className="font-display text-lede text-ink-primary">RPG content</h2>
         <p className="text-body text-ink-secondary">
           Manage challenges and items, audit rewards, and compare draft changes before publishing.
@@ -1045,11 +1050,14 @@ function OAuthClientsCard() {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [removalError, setRemovalError] = useState(null);
+  const [removing, setRemoving] = useState(false);
   const [confirm, setConfirm] = useState(null);
 
   const refresh = async () => {
     setLoading(true);
     setError(null);
+    setRemovalError(null);
     try {
       const [appsRes, tokensRes] = await Promise.all([
         listOAuthApplications(),
@@ -1082,6 +1090,21 @@ function OAuthClientsCard() {
       setError(err.message);
     }
   };
+  const handleRemoveApp = async (clientId) => {
+    setRemoving(true);
+    setRemovalError(null);
+    try {
+      await deleteOAuthApplication(clientId);
+      await refresh();
+    } catch (err) {
+      if (err.status === 409 && err.response?.code === 'application_in_use') {
+        await refresh();
+      }
+      setRemovalError(err.message);
+    } finally {
+      setRemoving(false);
+    }
+  };
 
   return (
     <ParchmentCard>
@@ -1097,7 +1120,7 @@ function OAuthClientsCard() {
         A browser&apos;s “Authentication complete” message alone does not confirm
         that Codex accepted the callback.
       </p>
-      <ErrorAlert message={error} onRetry={refresh} />
+      <ErrorAlert message={error || removalError} onRetry={refresh} />
       {loading ? (
         <Loader />
       ) : !error && (
@@ -1111,23 +1134,41 @@ function OAuthClientsCard() {
               and clients used by other users. Registration happens before sign-in and
               does not confirm that a user authorized access.
             </p>
+            <p className="text-body text-ink-whisper mb-2">
+              Remove unused registrations to clear old attempts. Clients with active
+              access tokens, refresh tokens, or pending sign-in attempts stay protected
+              for every user.
+            </p>
             {apps.length === 0 ? (
               <EmptyState>No OAuth clients have registered yet.</EmptyState>
             ) : (
               <ul className="space-y-2">
                 {apps.map((app) => (
-                  <li key={app.client_id} className="flex items-center justify-between p-2 rounded border border-ink-page-shadow bg-ink-page">
+                  <li key={app.client_id} className="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-ink-page-shadow bg-ink-page">
                     <div className="min-w-0">
                       <div className="font-semibold text-ink-primary truncate">{app.name}</div>
                       <div className="text-tiny text-ink-whisper font-mono truncate">{app.client_id}</div>
                     </div>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      onClick={() => setConfirm({ kind: 'app', clientId: app.client_id, name: app.name })}
-                    >
-                      Revoke all tokens
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        disabled={removing}
+                        onClick={() => setConfirm({ kind: 'app', clientId: app.client_id, name: app.name })}
+                      >
+                        Revoke all tokens
+                      </Button>
+                      {app.can_delete === true && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          disabled={removing}
+                          onClick={() => setConfirm({ kind: 'registration', clientId: app.client_id, name: app.name })}
+                        >
+                          Remove registration
+                        </Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -1162,6 +1203,7 @@ function OAuthClientsCard() {
                     <Button
                       variant="danger"
                       size="sm"
+                      disabled={removing}
                       onClick={() => setConfirm({ kind: 'token', tokenId: t.id, name: t.application_name || '(unknown)' })}
                     >
                       Revoke
@@ -1175,17 +1217,22 @@ function OAuthClientsCard() {
       )}
       {confirm && (
         <ConfirmDialog
-          title={confirm.kind === 'app' ? `Revoke all tokens for "${confirm.name}"?` : `Revoke this token?`}
+          title={confirm.kind === 'registration'
+            ? `Remove registration for "${confirm.name}"?`
+            : confirm.kind === 'app' ? `Revoke all tokens for "${confirm.name}"?` : `Revoke this token?`}
           message={
-            confirm.kind === 'app'
-              ? 'All access and refresh tokens for this client will be revoked for every user. The client registration will remain.'
-              : 'This will immediately disconnect the client using this token.'
+            confirm.kind === 'registration'
+              ? 'This permanently removes the unused client registration. The client will need to register again to connect. Abby will check that no user has active tokens or a pending sign-in before removing it.'
+              : confirm.kind === 'app'
+                ? 'All access and refresh tokens for this client will be revoked for every user. The client registration will remain.'
+                : 'This will immediately disconnect the client using this token.'
           }
-          confirmLabel="Revoke"
+          confirmLabel={confirm.kind === 'registration' ? 'Remove registration' : 'Revoke'}
           onConfirm={async () => {
             const c = confirm;
             setConfirm(null);
-            if (c.kind === 'app') await handleRevokeApp(c.clientId);
+            if (c.kind === 'registration') await handleRemoveApp(c.clientId);
+            else if (c.kind === 'app') await handleRevokeApp(c.clientId);
             else if (c.kind === 'token') await handleRevokeToken(c.tokenId);
           }}
           onCancel={() => setConfirm(null)}

@@ -144,8 +144,8 @@
   "stale": false,
   "freshness": "current",
   "binding": {
-    "engine_version": "2026-10-21.1",
-    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
+    "engine_version": "2026-10-22.1",
+    "rules_fingerprint": "e4a51283ef9875ea6e6994b8b79e5bf328c18b54c74a37efcf4d0a8e954e35be",
     "feedback_fingerprint": "e48b6a84e78cf99918cd2f84fdcf62c8e0b24c97c337976b6a049beea11d9bf0",
     "catalog_fingerprint": "0067a147c82882479b5b8e700a0bd88566df47d6cf7bd520a6cb5d64f1b98a94",
     "source_commit": "unavailable"
@@ -321,8 +321,8 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
-    "engine_version": "2026-10-21.1",
+    "rules_fingerprint": "e4a51283ef9875ea6e6994b8b79e5bf328c18b54c74a37efcf4d0a8e954e35be",
+    "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -332,6 +332,7 @@
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
+        "First hatch, evolution, automatic challenge, legendary badge, 30/60/100-day streak and assumed approved exchange each add one scoped recognition check for modeled badges",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -343,7 +344,7 @@
         "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
         "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
         "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
-        "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
+        "Chronicle entries, milestone badge criteria and their rewards; other unmodeled badge criteria, cosmetic equipping and cosmetic-only starter cover gift",
         "Production deployment/asset delivery verification and player retention/engagement predictions"
       ],
       "assumptions": [
@@ -4709,12 +4710,12 @@
       "longest_novelty_gap_p50": 23,
       "eligible_challenges": 2,
       "finite_breakdown": {
-        "cosmetic": 1,
         "quest": 2,
-        "pet": 1,
         "mount": 1,
         "middle": 1,
-        "badge": 1
+        "badge": 1,
+        "cosmetic": 1,
+        "pet": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 8,
@@ -7161,8 +7162,8 @@
       "system_challenges": 2,
       "nonrepeatable_challenges": 2
     },
-    "rules_fingerprint": "812f438aca6ce37b745228cb602ea12bab7fc3c92b727bae201696e754af777b",
-    "engine_version": "2026-10-21.1",
+    "rules_fingerprint": "e4a51283ef9875ea6e6994b8b79e5bf328c18b54c74a37efcf4d0a8e954e35be",
+    "engine_version": "2026-10-22.1",
     "source_commit": "unavailable",
     "coverage": {
       "modeled": [
@@ -7172,6 +7173,7 @@
         "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
         "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
         "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
+        "First hatch, evolution, automatic challenge, legendary badge, 30/60/100-day streak and assumed approved exchange each add one scoped recognition check for modeled badges",
         "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
         "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
         "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -7183,7 +7185,7 @@
         "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
         "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
         "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
-        "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
+        "Chronicle entries, milestone badge criteria and their rewards; other unmodeled badge criteria, cosmetic equipping and cosmetic-only starter cover gift",
         "Production deployment/asset delivery verification and player retention/engagement predictions"
       ],
       "assumptions": [
@@ -11549,12 +11551,12 @@
       "longest_novelty_gap_p50": 11,
       "eligible_challenges": 2,
       "finite_breakdown": {
-        "cosmetic": 1,
         "quest": 2,
-        "pet": 1,
         "mount": 1,
         "middle": 1,
-        "badge": 1
+        "badge": 1,
+        "cosmetic": 1,
+        "pet": 1
       },
       "level_p50": 4,
       "inventory_units_p50": 13,

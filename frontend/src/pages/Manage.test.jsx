@@ -688,6 +688,7 @@ describe('Manage — Admin tab', () => {
     );
     await user.click(screen.getByRole('tab', { name: /^Admin$/ }));
     expect(screen.getByRole('link', { name: 'Open progression lab' })).toHaveAttribute('href', '/manage/progression-lab');
+    expect(screen.getByRole('link', { name: 'Open usage dashboard' })).toHaveAttribute('href', '/manage/usage');
     expect(screen.getByRole('link', { name: 'Manage RPG content' })).toHaveAttribute('href', '/manage/rpg-content');
     await user.type(await screen.findByLabelText(/family name/i), 'New House');
     await user.type(screen.getByLabelText(/sign-in name/i), 'founder');

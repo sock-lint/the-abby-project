@@ -8,8 +8,24 @@ import { importReleases, verifyImport, writePreparedRelease } from '@abby-assets
 import { SHARED_ASSET_SECRET_NAMES, sharedAssetsEnvironment, sharedAssetsRequired } from './shared-assets-config.mjs';
 import { importSharedAssets } from './shared-assets.mjs';
 import { verifySupplementals } from './companion-supplementals.mjs';
+import { verifyBuiltPayloads } from './verify-built-shared-assets.mjs';
 
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+
+test('finished builds retain exact pinned runtime JSON bytes alongside images and models', async (t) => {
+  const output = await mkdtemp(join(tmpdir(), 'abby-built-shared-json-'));
+  t.after(() => rm(output, { recursive: true, force: true }));
+  const json = Buffer.from('{"synthetic":"runtime document"}\n');
+  const image = Buffer.from('synthetic image');
+  const files = [json, image].map((bytes) => ({ sha256: hash(bytes), bytes: bytes.length }));
+  await writeFile(join(output, 'runtime-checked.json'), json);
+  await writeFile(join(output, 'image-checked.png'), image);
+  await verifyBuiltPayloads(output, files);
+  await writeFile(join(output, 'runtime-checked.json'), '{"synthetic":"different bytes"}\n');
+  await assert.rejects(verifyBuiltPayloads(output, files), /1 pinned file\(s\) missing/);
+  await rm(join(output, 'runtime-checked.json'));
+  await assert.rejects(verifyBuiltPayloads(output, files), /1 pinned file\(s\) missing/);
+});
 
 async function localImport(t) {
   const root = await mkdtemp(join(tmpdir(), 'abby-local-release-import-'));

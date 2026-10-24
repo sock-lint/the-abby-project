@@ -36,9 +36,10 @@ TRIGGERS = {
 def approved_policy(*pairs):
     policy = deepcopy(json.loads(POLICY_PATH.read_text()))
     # Start from the previous 19-pair release even after production activation.
-    # A selective test must not inherit the other three newly approved pairs.
+    # A selective test must not inherit the other three expansion pairs or
+    # elemental pairs introduced by later batches.
     for row in policy["pets"]:
-        if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom"}:
+        if row["species_slug"] in {"meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat"}:
             row["potion_slugs"] = ["base"]
     for species, potion in pairs:
         row = next(row for row in policy["pets"] if row["species_slug"] == species)
@@ -65,16 +66,16 @@ class ElementalExpansionPathTests(TestCase):
         drops.start()
         self.addCleanup(drops.stop)
 
-    def test_shipped_policy_adds_only_the_four_approved_pairs_and_exact_source(self):
+    def test_shipped_policy_retains_the_expansion_pairs_and_exact_source(self):
         policy = json.loads(POLICY_PATH.read_text())
         pairs = {(row["species_slug"], potion) for row in policy["pets"] for potion in row["potion_slugs"]}
         base_species = {row["species_slug"] for row in policy["pets"]}
-        elemental_species = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom"}
+        elemental_species = {"chick", "meshtint-wolf", "meshtint-dragon", "meshtint-mushroom", "meshtint-bee", "meshtint-bat"}
         self.assertEqual(pairs, {(species, "base") for species in base_species} | {
             (species, potion) for species in elemental_species for potion in ("fire", "ice")
         })
         self.assertEqual(len(base_species), 15)
-        self.assertEqual(len(available_pet_pairs()), 23)
+        self.assertEqual(len(available_pet_pairs()), 27)
         descriptor = json.loads(POLICY_PATH.with_name("elemental-expansion.json").read_text())["release"]
         source = next(row for row in policy["sources"] if row["id"] == descriptor["family_id"])
         self.assertEqual((source["release_version"], source["manifest_sha256"]),

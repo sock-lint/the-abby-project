@@ -233,7 +233,7 @@ class Economy:
         self.increment("money_exchanged_cents", cents)
         self.increment("coins_exchanged", coins)
         # Live lifetime positive-Coin criteria include exchange credits. The
-        # exchange itself does not trigger a badge evaluation.
+        # first approved exchange also checks Chronicle and meta badges.
         trial.coin_award(coins, "money_exchange")
 
     def _purchase(self, trial, row):

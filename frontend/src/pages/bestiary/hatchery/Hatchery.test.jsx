@@ -18,12 +18,18 @@ vi.mock('../../../pedestal/PedestalPreview', () => ({
   default: ({ eggAssetId = 'normal-egg' }) => <div role="img" aria-label="Decorative model preview" data-egg={eggAssetId} />,
 }));
 
-beforeEach(() => server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({ species: ['chick', 'meshtint-bat', 'meshtint-dragon', 'fox'].map((slug) => ({ slug, available_potions: [{ slug: 'base', name: 'Base' }] })) }))));
+beforeEach(() => server.use(http.get('*/api/pets/codex/', () => HttpResponse.json({
+  species: ['chick', 'meshtint-bat', 'meshtint-dragon', 'fox'].map((slug) => ({
+    slug, name: ({ chick: 'Chick', 'meshtint-bat': 'Bat', 'meshtint-dragon': 'Dragon', fox: 'Fox' })[slug],
+    sprite_key: slug === 'chick' ? 'cute-chick' : slug,
+    available_potions: [{ slug: 'base', name: 'Base' }],
+  })),
+}))));
 
 function renderHatchery() {
   return render(
     <MemoryRouter>
-      <Hatchery />
+      <Hatchery showDiscovery />
     </MemoryRouter>,
   );
 }
@@ -32,20 +38,32 @@ describe('Hatchery', () => {
   it.each([
     ['meshtint-mushroom', 'Mushroom', 'Ember Grove and Frost Grove', 10],
     ['meshtint-dragon', 'Dragon', 'Ember Summit and Frost Summit', 50],
-  ])('shows %s guaranteed challenge hints only after the server makes both appearances available', async (slug, name, challenges, count) => {
+  ])('shows %s guaranteed challenge targets from the current server catalog', async (slug, name, challenges, count) => {
     const egg = { id: 11, slug: `${slug}-egg`, name: `${name} Egg`, item_type: 'egg', pet_species_slug: slug, pet_species_name: name, metadata: { species: slug } };
     server.use(
       http.get('*/api/pets/stable/', () => HttpResponse.json({ pets: [], mounts: [] })),
       http.get('*/api/inventory/', () => HttpResponse.json([{ id: 1, quantity: 1, item: egg }])),
-      http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{ slug, available_potions: ['base', 'fire', 'ice'].map((potion) => ({ slug: potion, name: potion })) }] })),
+      http.get('*/api/pets/codex/', () => HttpResponse.json({ species: [{
+        slug, name, sprite_key: slug,
+        available_potions: ['base', 'fire', 'ice'].map((potion) => ({
+          slug: potion, name: potion === 'fire' ? 'Fire' : potion === 'ice' ? 'Ice' : 'Base',
+          acquisition_challenges: potion === 'base' ? [] : [{
+            definition_id: potion === 'fire' ? 91 : 92,
+            name: challenges.split(' and ')[potion === 'fire' ? 0 : 1],
+            offer_available: true, target: String(count + 2), duration_days: 180,
+            attempt: null, path: '/quests?tab=trials',
+          }],
+        })),
+      }] })),
     );
     const user = userEvent.setup();
     renderHatchery();
     await selectDropdown(user, await screen.findByRole('combobox', { name: 'Egg' }), '11');
-    expect(screen.getByRole('heading', { name: 'Earn Fire and Ice appearances' })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`${challenges} each reward a ${name} egg and their matching potion after ${count} qualifying accomplishments`))).toBeInTheDocument();
-    const hint = screen.getByRole('heading', { name: 'Earn Fire and Ice appearances' }).parentElement;
-    expect(within(hint).getByRole('link', { name: 'View challenge rewards' })).toHaveAttribute('href', '/quests?tab=trials');
+    const discovery = within(screen.getByRole('region', { name: 'Explore companions' }));
+    await user.click(discovery.getByRole('button', { name: 'Fire appearance' }));
+    expect(discovery.getByRole('heading', { name: challenges.split(' and ')[0] })).toBeInTheDocument();
+    expect(discovery.getByText(/Challenge target:/)).toHaveTextContent(String(count + 2));
+    expect(discovery.getByRole('link', { name: 'View ' + challenges.split(' and ')[0] })).toHaveAttribute('href', '/quests?tab=trials');
   });
 
   it('keeps Dragon acquisition hints dormant while the server offers only Base', async () => {

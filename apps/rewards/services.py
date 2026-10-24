@@ -267,7 +267,7 @@ class RewardService:
 
     @staticmethod
     @transaction.atomic
-    def approve(redemption, parent, notes=""):
+    def approve(redemption, parent, notes="", *, usage_actor=None):
         User.objects.select_for_update(no_key=True).get(pk=redemption.user_id)
         _lock_decision(redemption)
         if redemption.status != RewardRedemption.Status.PENDING:
@@ -284,6 +284,12 @@ class RewardService:
             },
         )
         RewardService._maybe_credit_digital_item(redemption)
+        if usage_actor is not None:
+            from apps.usage.services import record_action
+            record_action(
+                usage_actor, "rewards", "approved",
+                source="rewards.rewardredemption", source_id=redemption.pk,
+            )
         return redemption
 
     @staticmethod
