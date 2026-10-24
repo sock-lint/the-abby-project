@@ -41,7 +41,6 @@ import WellbeingCard from './dashboard/WellbeingCard';
 import useChallenges from '../hooks/useChallenges';
 import PinnedChallengeCard from '../components/dashboard/PinnedChallengeCard';
 import ExploreChallengesLink from '../components/dashboard/ExploreChallengesLink';
-import TodayIdentity from '../components/dashboard/TodayIdentity';
 
 const VISIBLE_LOG_CAP = 5;
 
@@ -145,8 +144,6 @@ export default function ChildDashboard({ data, reload }) {
         title="Today"
         kicker={`${weekday} · ${dateStr}`}
       />
-
-      <TodayIdentity identity={rpg?.identity} />
 
       {actionError && (
         // Audit M8: surface fast-action errors. Auto-dismissable so a
@@ -360,26 +357,31 @@ export default function ChildDashboard({ data, reload }) {
       )}
 
       {recentDrops?.length > 0 && (
-        <section aria-label="Recent items">
-          <SectionHeader
-            title="Recent items"
-            kicker="Items earned through your activity"
-            className="mb-3"
-          />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {recentDrops.map((d) => (
+        <AccordionSection
+          index={1}
+          title="Recent items"
+          kicker="Items earned through your activity"
+          icon={<Sparkles size={18} />}
+          tone="ember"
+          count={recentDrops.length}
+          peek={`${recentDrops.length} item${recentDrops.length !== 1 ? 's' : ''} · latest: ${recentDrops[0]?.item_name}`}
+        >
+          <ScrollRail>
+            {recentDrops.map((d, i) => (
               <motion.button
                 key={d.id}
                 type="button"
-                whileHover={{ y: -2 }}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: i * 0.05 }}
                 onClick={() => navigate('/treasury?tab=satchel')}
                 aria-label={`${d.item_name}${d.quantity > 1 ? ` × ${d.quantity}` : ''}${d.was_salvaged ? ' (converted to coins)' : ''} — open inventory`}
-                className={`min-w-0 p-3 rounded-2xl border text-center hover:brightness-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-[filter] ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
+                className={`shrink-0 w-28 min-w-0 text-center p-3 rounded-xl border hover:border-gold-leaf/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-royal transition-colors ${RARITY_COLORS[d.item_rarity] || 'bg-ink-page-aged border-ink-page-shadow'}`}
               >
-                <div className="flex h-10 items-center justify-center mb-2">
+                <div className="flex h-10 items-center justify-center mb-1">
                   <CatalogIcon assetId={d.item_catalog_icon} spriteKey={d.item_sprite_key} icon={d.item_icon || '📦'} size={40} alt={d.item_name} />
                 </div>
-                <div className="font-body text-body font-semibold text-ink-primary break-words leading-snug">
+                <div className="font-body text-caption font-semibold text-ink-primary break-words leading-snug">
                   {d.item_name}{d.quantity > 1 && <span> × {d.quantity}</span>}
                 </div>
                 {d.was_salvaged && (
@@ -387,16 +389,16 @@ export default function ChildDashboard({ data, reload }) {
                 )}
               </motion.button>
             ))}
-          </div>
+          </ScrollRail>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => navigate('/treasury?tab=satchel')}
-            className="mt-2 -ml-3 text-sheikah-teal-deep!"
+            className="mt-3 -ml-3 font-script text-caption text-sheikah-teal-deep! hover:underline"
           >
             View inventory →
           </Button>
-        </section>
+        </AccordionSection>
       )}
 
       {savings_goals?.length > 0 && (

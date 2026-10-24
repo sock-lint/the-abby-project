@@ -11,6 +11,7 @@ from django.views.generic import RedirectView, TemplateView
 from config.oauth_views import (
     AbbyAuthorizationView,
     AdminApplicationListView,
+    AdminApplicationDeleteView,
     AdminApplicationRevokeTokensView,
     AdminTokenListView,
     AdminTokenRevokeView,
@@ -105,6 +106,7 @@ urlpatterns = [
     path("api/", include("apps.quests.urls")),
     path("api/", include("apps.google_integration.urls")),
     path("api/", include("apps.activity.urls")),
+    path("api/", include("apps.usage.urls")),
     path("api/", include("apps.chronicle.urls")),
     path("api/", include("apps.creations.urls")),
     path("api/", include("apps.lorebook.urls")),
@@ -122,6 +124,7 @@ urlpatterns = [
     # ``adminPing()`` → ``/admin/families/`` probe, so we don't need a
     # second ping endpoint here.
     path("api/admin/oauth/applications/", AdminApplicationListView.as_view()),
+    path("api/admin/oauth/applications/<str:client_id>/", AdminApplicationDeleteView.as_view()),
     path(
         "api/admin/oauth/applications/<str:client_id>/tokens/",
         AdminApplicationRevokeTokensView.as_view(),

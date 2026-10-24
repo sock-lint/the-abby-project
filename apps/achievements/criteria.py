@@ -804,13 +804,12 @@ def _chronicle_milestones_logged(user, c):
 
         {"count": 3}  # default: 3
 
-    Distinct from ``BIRTHDAYS_LOGGED`` (which counts BIRTHDAY kind) — this
-    is for ``MILESTONE`` kind only, which fires on graduation, first-ever
-    events, etc.
+    Count saved ``MILESTONE`` entries, such as graduation, and ``FIRST_EVER``
+    entries. Birthday, journal, grade and other history kinds do not count.
     """
     from apps.chronicle.models import ChronicleEntry
     return ChronicleEntry.objects.filter(
-        user=user, kind=ChronicleEntry.Kind.MILESTONE,
+        user=user, kind__in=[ChronicleEntry.Kind.MILESTONE, ChronicleEntry.Kind.FIRST_EVER],
     ).count() >= int(c.get("count", 3))
 
 

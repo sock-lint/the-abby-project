@@ -80,6 +80,7 @@ describe('Google authorization API contracts', () => {
       expect(receipt.token).toMatch(/^[a-f0-9]{40}$/);
       expect(receipt.user.family.id).toBe(901);
       expect(receipt.user.google_linked).toBe(true);
+      expect(receipt.user.usage_collection_enabled).toBe(true);
     } else expect(receipt).toEqual({ mode: 'link', linked: true });
   });
 });

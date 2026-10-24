@@ -7,11 +7,13 @@ Habitica-inspired RPG layer: character profiles, streaks, drops, consumables (14
 [`shared/catalog/asset-support.json`](../../shared/catalog/asset-support.json)
 is the positive production registry; `catalog_support.py` provides the shared
 selectors used by pets, inventory, drops, expeditions, quest item rewards,
-digital shop offers and development grants. Chick and exact namespaced Wolf, Dragon and Mushroom accept Base, Fire and Ice;
-the other eleven prepared families accept Base only (23 exact pairs). Fire/Ice
-potions remain excluded from random pools. Eight one-time challenges guarantee
-exact egg/potion bundles. The Dragon/Mushroom artwork is owner-accepted; its
-rollout requires canonical publication/readback and ordinary MAIN deployment gates. Egg/potion typed FKs take precedence over
+digital shop offers and development grants. Chick and exact namespaced Wolf,
+Dragon, Mushroom, Bee and Bat accept Base, Fire and Ice; the other nine prepared
+families accept Base only (27 exact pairs). Fire/Ice potions remain excluded
+from random pools. Twelve one-time challenges guarantee exact egg/potion
+bundles. The Bee/Bat artwork is owner-accepted; this branch prepares its
+activation, held for canonical publication/readback and ordinary MAIN gates.
+Egg/potion typed FKs take precedence over
 legacy metadata, whose names/slugs must resolve to an approved catalog row.
 Artwork filenames and generic icons do not establish supported acquisition.
 The shipped roster contains fifteen families. The owner's unused-content
@@ -108,6 +110,11 @@ after its own Uncommon-or-better draw. Each newly earned counter badge has its
 separate ordinary badge drop, preserving one draw per accomplishment. Pending,
 ineligible and already receipted days never evaluate or backfill those awards.
 
+New accomplishment payouts also call `chronicle.recognition.safe_record_firsts`
+for Yearbook recognition, without replaying activity or rewards. Recognition
+has its own savepoint, so a failed first-event write leaves the payout intact.
+Normal activity can record both a source first and a newly reached streak first.
+
 Species acquisition rarity is authored with `egg_rarity`; supported families
 span 5 Common, 5 Uncommon, 3 Rare, 1 Epic and 1 Legendary. Five nonrepeatable
 Companion Trails guarantee supported Rare+ eggs plus a Base potion through
@@ -180,6 +187,10 @@ best-effort policy and leave the quest retryable.
   transition as live care. Reachable badges include obtainable companions,
   and the rules fingerprint binds the production care hooks. The projection
   keeps all awards in memory and never calls household award writers.
+  Modeled first hatch/evolution, automatic challenge, legendary badge, streak
+  and approved exchange boundaries retain their once-only scoped badge checks.
+  Chronicle rows and milestone-badge rewards remain excluded; those checks can
+  recognize only criteria already supported by the forecast.
   Reports and metadata record `pet_incubation_policy`, including the installed
   elapsed duration and one unfinished slot. Ingredients are reserved during
   active care; readiness advances over inactive days, and the next active
@@ -282,6 +293,19 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - `BASE_DROP_RATES` — dict of `TriggerType` → base drop probability (clock_out 0.40, chore_complete 0.30, homework_complete 0.35, homework_created 0.15, milestone_complete 0.80, project_complete 1.00, badge_earned 1.00, quest_complete 1.00, perfect_day 1.00, habit_log 0.15, savings_goal_complete 0.80, journal_entry 0.20, creation_logged 0.25). `journal_entry` was bumped from 0.10 → 0.20 in the 2026-05 progression-UX pass — the DB unique constraint on `(user, occurred_on) where kind=journal` already throttles journals to one per local day, so a higher rate is fairness-rebalancing against `habit_log` (which can fire 4+ taps/day at 0.15) rather than a farm risk. Clock-out separately has one drop opportunity per family-local day after 10 cumulative completed non-homework minutes; zero-minute closes cannot enter the game loop. Three other triggers are daily-capped at the service layer: `homework_created` (first-of-day only via `HomeworkDailyCounter`), `journal_entry` (one per local day, DB-enforced via partial unique constraint on `ChronicleEntry`), and `creation_logged` (first 2 per local day via `CreationDailyCounter`). The two counter-backed gates share the `config.base_models.DailyCounterModel` abstract + `config.services.bump_daily_counter` helper. All three close streak/drop/quest farming at source — counter rows survive both soft-delete and hard-delete, so collusion-style resets (create → delete → create) don't re-arm.
 - `STREAK_DROP_BONUS_PER_DAY = 0.05` and `STREAK_DROP_BONUS_CAP = 0.50` — streak adds up to +50% to base drop rate.
 
+`StreakService.bonus_for_streak` is the pure shared calculation for check-in
+Coins and the additive streak drop rate. Award paths retain their original
+unrounded math and whole-Coin truncation. `bonus_status` projects those rates
+without granting rewards, advancing streaks or consuming freezes. Dashboard
+`rpg.streak_bonus` and pulse `header.streak_bonus` expose the same projection:
+active only after activity on the current server reward date (America/Phoenix),
+with a 0–1 flame intensity normalized to the configured check-in multiplier
+cap. Saved counts can outlast a missed day; inactive projections report zero
+Coins/drop bonus/intensity and a 1× rate while preserving those counts. The
+reported check-in Coins are the total daily amount at that rate, not another
+award or an independent reward receipt. The projection does not claim a
+multiplier for all Coins or XP.
+
 ## Key entry points
 - `services.py` — `GameLoopService.on_task_completed` (single entry point), `StreakService`, `DropService`, `ConsumableService`, `CosmeticService`, `_BOOSTABLE_COIN_REASONS`, `_STACK_SAFE_EFFECTS`, boost-multiplier helpers.
 - `signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
@@ -295,8 +319,8 @@ These are intentionally NOT in settings — they're game-design constants, not d
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`.
 
 Prepared roster adoption registers 14 namespaced families plus Chick.
-The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom elemental pairs;
-the other eleven families remain Base only. The content loader rejects
+The Fire/Ice policy adds exact Chick/Wolf/Dragon/Mushroom/Bee/Bat elemental
+pairs; the other nine families remain Base only. The content loader rejects
 existing identity collisions before upserts and applies the namespace once.
 `companion_catalog.py` reconciles stale egg/potion drop configuration and digital
 shop offers idempotently; it never deletes item/species definitions, quest reward
@@ -319,6 +343,11 @@ challenge images require the exact system collection definition. These read-only
 image IDs do not enable acquisition. The exact Fire/Ice runtime is canonically
 published and verified, with application rollout through the ordinary MAIN gates;
 see `docs/operations/fire-ice-companions.md`.
+Bee/Bat challenge names bind their unchanged `review-...-acquisition-icon`
+art handles through `shared/catalog/elemental-bee-bat-bindings.json`. Hive
+requires 5 qualifying accomplishments and Cave 10 within 180 days; each exact
+natural egg/global potion bundle is one-time with zero authored Coins/XP.
+Their canonical release publication/readback remains a rollout gate.
 
 `retired_catalog.py` owns the exact owner-approved prelaunch retirement list.
 Default `loadrpgcontent` attempts it once before bundled upserts and records
@@ -353,3 +382,13 @@ are outside the list. No old species is migrated into a different new family.
 Default-loader dry runs and later bundled-load failures roll back the marker,
 settlement and cleanup together. See the adoption runbook for the exact scope;
 this implementation does not establish a production release.
+
+
+The native saved progression notebook also supports MCP through
+`apps/mcp_server/tools/progression_experiments.py`. Optional
+`include_observations=False` detail projections omit both household checkpoint
+payloads and their database query; native web callers keep the existing default.
+Comparisons/decisions remain design evidence rather than permission to publish.
+Quest rerolls exclude already enrolled modern identities and completed one-time
+legacy aliases before choosing a random candidate. When no eligible candidate
+exists, inventory remains unchanged; repeatable alternatives retain native rules.

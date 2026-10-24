@@ -172,6 +172,8 @@ class PetCodexView(APIView):
 
     def get(self, request):
         user = request.user
+        from .discovery import acquisition_challenges
+
         species_qs = [species for species in PetSpecies.objects.prefetch_related("available_potions").order_by("name") if pet_is_available(species)]
 
         owned_pets = [(pet.species_id, pet.pk) for pet in UserPet.objects.filter(user=user).select_related("species", "potion")
@@ -205,7 +207,9 @@ class PetCodexView(APIView):
         mounts_possible = sum(available_pet_variants(species).count() for species in entries)
 
         return Response({
-            "species": PetCodexEntrySerializer(entries, many=True).data,
+            "species": PetCodexEntrySerializer(entries, many=True, context={
+                "acquisition_challenges": acquisition_challenges(user),
+            }).data,
             "potions": PotionTypeSerializer(potions_qs, many=True).data,
             "totals": {
                 "species": total_species,

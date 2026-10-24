@@ -242,6 +242,21 @@ weekly payment settlement, birthdays, grades, consumable use/boosts,
 Perfect Day and legacy/co-op campaigns remain outside the model. Unmodeled badge criteria
 are listed individually. The workbench does not verify production deployment
 or artwork delivery and does not inspect existing children's progress.
+The first modeled hatch, evolution, automatic challenge completion, legendary
+badge, 30/60/100-day streak and assumed approved money exchange each run the
+live scoped Chronicle/meta badge check once, after the same preceding rewards.
+These markers exist only in memory; no Chronicle record or notification is
+created. The check can award an eligible modeled badge and its ordinary loot,
+but grants no direct recognition reward or extra activity credit.
+Chronicle milestone criteria, including Turning Point and Life Chronicler,
+remain in `excluded_badge_criteria`; their rewards and dependent unlocks are
+not assumed. Modeled journal-entry and journal-streak badges remain separate.
+Live birthday celebrations evaluate Chronicle and badge-count achievements
+after saving a new annual entry. Each newly earned badge receives its ordinary
+badge loot; the scheduled birthday gift remains a separate reward. The Lab
+has no birth date or annual celebration history, so `birthdays_logged` badges,
+their loot and dependent unlocks remain excluded. A 365-day forecast does not
+assume a birthday or add the birthday gift.
 Live Perfect Day awards one Uncommon-or-better draw per new daily receipt.
 Its Common tier is excluded before selection, with remaining supported tiers
 renormalized. The Lab binds that live rarity rule but adds no Perfect Day

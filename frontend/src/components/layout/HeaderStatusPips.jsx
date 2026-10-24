@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, DollarSign, Flame, Stamp } from 'lucide-react';
+import { Clock, DollarSign, Stamp } from 'lucide-react';
 import { CoinIcon } from '../icons/JournalIcons';
+import HeaderStreakFlame from './HeaderStreakFlame';
+import { streakBonusStage } from '../../streak/bonusPresentation';
 import { getDashboard } from '../../api';
 import { useApi } from '../../hooks/useApi';
 import { usePulse } from '../../providers/pulseContext';
@@ -9,7 +11,8 @@ import useParentPendingCounts from '../../hooks/useParentPendingCounts';
 import useScrollFades from '../../hooks/useScrollFades';
 import { formatDuration } from '../../utils/format';
 
-function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) {
+function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel, description }) {
+  const descriptionId = useId();
   const toneClasses = {
     ink: 'text-ink-secondary bg-ink-page-aged border-ink-page-shadow/60 hover:bg-ink-page',
     ember: 'text-ember-deep bg-ember/10 border-ember/25 hover:bg-ember/15',
@@ -43,10 +46,13 @@ function Pip({ icon, label, tone = 'ink', active = false, onClick, ariaLabel }) 
       type="button"
       onClick={onClick}
       aria-label={ariaLabel || label}
-      className={`inline-flex shrink-0 items-center gap-1.5 min-w-11 h-11 px-3 rounded-2xl border text-caption font-body font-bold tabular-nums transition-colors ${toneClasses} ${active || bumped ? 'ring-2 ring-inset ring-sheikah-teal/25' : ''}`}
+      aria-describedby={description ? descriptionId : undefined}
+      title={description}
+      className={`inline-flex shrink-0 items-center gap-1.5 min-w-11 h-11 px-2 rounded-2xl border text-caption font-body font-bold tabular-nums transition-colors ${toneClasses} ${active || bumped ? 'ring-2 ring-inset ring-sheikah-teal/25' : ''}`}
     >
       <span className="shrink-0 flex items-center">{icon}</span>
       <span className="leading-none text-ink-primary">{label}</span>
+      {description && <span id={descriptionId} className="sr-only">{description}</span>}
     </button>
   );
 }
@@ -86,6 +92,10 @@ export default function HeaderStatusPips({ user }) {
   const coins = pulse?.header?.coin_balance ?? dashboard?.coin_balance ?? 0;
   const streak = pulse?.header?.streak_days
     ?? dashboard?.rpg?.login_streak ?? dashboard?.streak_days ?? 0;
+  // Once a heartbeat arrives, its bonus is authoritative, including false,
+  // zero, or missing during a rolling deploy. Never revive a stale mount bonus.
+  const streakBonus = pulse?.header ? pulse.header.streak_bonus : dashboard?.rpg?.streak_bonus;
+  const streakStage = streakBonusStage(streakBonus);
   const weekEarnings = dashboard?.this_week?.earnings ?? 0;
 
   const pips = useMemo(() => {
@@ -133,10 +143,14 @@ export default function HeaderStatusPips({ user }) {
     } else {
       out.push({
         key: 'streak',
-        icon: <Flame size={14} />,
+        icon: <HeaderStreakFlame stage={streakStage} />,
         label: String(streak),
-        tone: streak > 0 ? 'ember' : 'ink',
+        tone: streakStage !== 'unknown' && streakBonus.active_today ? 'ember' : 'ink',
         ariaLabel: `${streak}-day streak`,
+        description: streakStage === 'unknown' ? 'Streak bonus is unavailable.'
+          : streakBonus.active_today
+            ? `Daily check-in: ${streakBonus.check_in_coins} Coins at ${streakBonus.check_in_multiplier}×. Streak drop chance: +${Math.round(streakBonus.drop_bonus * 100)} percentage points.`
+            : 'Streak bonus is inactive. Complete an activity to start today’s check-in.',
         onClick: () => navigate('/sigil'),
       });
       out.push({
@@ -149,7 +163,7 @@ export default function HeaderStatusPips({ user }) {
       });
     }
     return out;
-  }, [activeTimer, isParent, pending, attentionReady, attentionIncomplete, streak, coins, weekEarnings, navigate]);
+  }, [activeTimer, isParent, pending, attentionReady, attentionIncomplete, streak, streakBonus, streakStage, coins, weekEarnings, navigate]);
 
   // A larger count can change scrollWidth without resizing the rail itself.
   // Refresh the cues after each new set of labels as well as on scroll/resize.
@@ -164,7 +178,9 @@ export default function HeaderStatusPips({ user }) {
       : pip.right > rail.right ? pip.right - rail.right : 0;
     // Browser focus scrolling can leave a partially visible button clipped.
     // Reveal it within this rail without scrolling the page or moving focus.
-    if (delta) strip.scrollTo?.({ left: Math.max(0, strip.scrollLeft + delta), behavior: 'auto' });
+    // Bounds include CSS zoom; scrollLeft is in unscaled layout pixels.
+    const scale = strip.clientWidth ? rail.width / strip.clientWidth : 1;
+    if (delta) strip.scrollTo?.({ left: Math.max(0, strip.scrollLeft + delta / scale), behavior: 'auto' });
     onScroll();
   };
 
@@ -194,6 +210,7 @@ export default function HeaderStatusPips({ user }) {
             active={p.active}
             onClick={p.onClick}
             ariaLabel={p.ariaLabel}
+            description={p.description}
           />
         ))}
       </div>

@@ -7,6 +7,13 @@ vi.mock('../rpg/CatalogIcon', () => ({
 }));
 
 describe('CharacterTitle', () => {
+  it('keeps the saved artwork and accessible full title without a compact text label', () => {
+    render(<CharacterTitle compact title={{ name: 'Chore Hero', icon: '🧹', catalog_icon: 'item-title-chore-hero' }} />);
+    expect(screen.getByRole('img', { name: 'Title: Chore Hero' })).toHaveAttribute('title', 'Chore Hero');
+    expect(screen.getByText('🧹')).toHaveAttribute('data-title-icon', 'item-title-chore-hero');
+    expect(screen.queryByText('Chore Hero')).not.toBeInTheDocument();
+  });
+
   it('uses the title’s own name and icon instead of a shared crown', () => {
     render(<CharacterTitle title={{ name: 'Chore Hero', icon: '🧹', catalog_icon: 'item-title-chore-hero' }} />);
     expect(screen.getByText('Chore Hero')).toBeInTheDocument();

@@ -56,7 +56,7 @@ class CatalogApiResponseFixtureTests(APITestCase):
         for pk, item in enumerate((self.egg, self.potion, self.accessory, self.frame), 71):
             UserInventory.objects.create(id=pk, user=self.child, item=item, quantity=1)
 
-    def test_current_catalog_and_preserved_collection_responses(self):
+    def test_current_catalog_response(self):
         catalog = self.assert_response_fixture(self.client.get("/api/pets/codex/"), "pets-supported-catalog.json")
         self.assertEqual(len(catalog["species"]), 15)
         self.assertEqual({species["slug"] for species in catalog["species"]},
@@ -65,9 +65,12 @@ class CatalogApiResponseFixtureTests(APITestCase):
         for species in catalog["species"]:
             self.assertEqual(species["lifecycle_stages"], ["egg", "baby", "middle", "grown"])
             self.assertEqual([potion["slug"] for potion in species["available_potions"]], ["base"])
+            self.assertEqual(species["available_potions"][0]["acquisition_challenges"], [])
         self.assertEqual({rarity: sum(species["rarity"] == rarity for species in catalog["species"])
                           for rarity in ("common", "uncommon", "rare", "epic", "legendary")},
                          {"common": 5, "uncommon": 5, "rare": 3, "epic": 1, "legendary": 1})
+
+    def test_preserved_collection_responses(self):
         self.assert_response_fixture(self.client.get("/api/pets/stable/"), "pets-preserved-collection.json")
         self.assert_response_fixture(self.client.get("/api/cosmetics/catalog/"), "cosmetics-supported-catalog.json")
         self.assert_response_fixture(self.client.get("/api/inventory/"), "items-preserved-inventory.json")

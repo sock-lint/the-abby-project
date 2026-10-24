@@ -25,4 +25,9 @@ describe('RouteAnnouncer', () => {
     expect(document.title).toBe('Tasks — The Abby Project');
     expect(screen.getByRole('status')).toHaveTextContent('Navigated to Tasks');
   });
+
+  it('names the staff usage route', () => {
+    renderWithProviders(<RouteAnnouncer />, { withAuth: false, route: '/manage/usage' });
+    expect(document.title).toBe('Usage — The Abby Project');
+  });
 });

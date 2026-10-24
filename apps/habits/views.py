@@ -207,7 +207,9 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = HabitWriteSerializer(habit, data=request.data, partial=True)
+        serializer = HabitWriteSerializer(
+            habit, data=request.data, partial=True, context=self.get_serializer_context(),
+        )
         serializer.is_valid(raise_exception=True)
         tags = serializer.validated_data.pop("skill_tags", None)
         habit = serializer.save()
@@ -246,7 +248,9 @@ class HabitViewSet(WriteReadSerializerMixin, viewsets.ModelViewSet):
             )
 
         try:
-            result = HabitService.log_tap(request.user, habit, direction)
+            result = HabitService.log_tap(
+                request.user, habit, direction, usage_actor=request.user,
+            )
         except ValueError as exc:
             return Response(
                 {"error": str(exc)},

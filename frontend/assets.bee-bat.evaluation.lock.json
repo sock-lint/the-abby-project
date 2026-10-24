@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "releases": [
+    {
+      "directory": "abby-elemental-bee-bat/1.0.0/7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+      "family_id": "abby-elemental-bee-bat",
+      "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5",
+      "release_version": "1.0.0"
+    }
+  ]
+}

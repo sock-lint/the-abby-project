@@ -24,7 +24,8 @@ from apps.achievements.models import XP_THRESHOLDS
 from apps.achievements import criteria as badge_criteria
 from apps.achievements.criteria import criteria_types_for_scopes
 from apps.achievements.services import BadgeService, SkillService
-from apps.chronicle.services import JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL
+from apps.chronicle import firsts as chronicle_firsts, recognition as chronicle_recognition
+from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL
 from apps.creations.services import CreationService
 from apps.habits.services import HabitService
 from apps.movement.services import MovementSessionService
@@ -59,6 +60,7 @@ from apps.rpg.services import (
     DropService,
     ConsumableService,
     StreakService,
+    _step_chronicle_firsts,
 )
 from apps.rpg import inventory as inventory_rules
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
@@ -91,7 +93,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-21.1"
+ENGINE_VERSION = "2026-10-22.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -254,6 +256,8 @@ def rules_fingerprint(*, incubation_policy=None):
         "badge_criteria_registry": {str(key): f"{fn.__module__}.{fn.__qualname__}"
                                     for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
         "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
+        "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
+        "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
         "inventory_badge_hook": inspect.getsource(BadgeService.evaluate_inventory_badges),
         "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
@@ -313,6 +317,7 @@ def rules_fingerprint(*, incubation_policy=None):
                 DropService.process_drops,
                 ConsumableService.use,
                 StreakService.record_activity,
+                StreakService.bonus_for_streak,
                 HabitService.log_tap,
                 goals._award,
                 QuestService._award_quest_rewards,
@@ -333,6 +338,12 @@ def rules_fingerprint(*, incubation_policy=None):
                 BadgeService._award_badge_xp,
                 BadgeService._award_badge_coins,
                 BadgeService.evaluate_badges,
+                ChronicleService.record_first,
+                chronicle_firsts.slug_for,
+                chronicle_firsts.slugs_for,
+                chronicle_recognition.record_firsts,
+                chronicle_recognition.safe_record_firsts,
+                _step_chronicle_firsts,
                 ReadingRewardService.credit_new_session,
                 TimecardService.generate_weekly_timecard,
                 quote_print_coins,
@@ -357,6 +368,7 @@ def coverage(catalog):
             "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
             "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
             "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
+            "First hatch, evolution, automatic challenge, legendary badge, 30/60/100-day streak and assumed approved exchange each add one scoped recognition check for modeled badges",
             "One elapsed-time egg incubation, explicit active-visit hatching, rarity/authored food growth, evolution and bounded mount expeditions with same-trip cosmetic duplicate avoidance",
             "Opt-in anonymous real-world reward and print purchases, calendar cost/resource budgets, assumed wages and parent-approved money-to-Coins top-ups",
             "Hypothetical shared per-child daily Coin income envelopes for expeditions, expedition salvage and opened Coin pouches",
@@ -368,7 +380,7 @@ def coverage(catalog):
             "Private family chores, habits, reward offers/budgets and redemptions; digital shop fulfillment, parent goals and co-op/legacy quests",
             "Consumable use and XP/Coin/drop/growth boosts; consumable drops remain held inventory",
             "Perfect Day (live completion loot is Uncommon-or-better), manual grants, time-of-day and approval-delay effects",
-            "Unmodeled badge criteria and cosmetic equipping; cosmetic-only starter cover gift",
+            "Chronicle entries, milestone badge criteria and their rewards; other unmodeled badge criteria, cosmetic equipping and cosmetic-only starter cover gift",
             "Production deployment/asset delivery verification and player retention/engagement predictions",
         ],
         "assumptions": [
@@ -498,6 +510,7 @@ class Trial:
             if info[0] and any(self.skill_info[required][1] != info[1] for required, _level in info[3])
         }
         self.badges, self.completed_quests, self.seen_items = set(), set(), set()
+        self.recognized_firsts = set()
         self.pets, self.pending_expeditions, self.quest_windows = {}, [], {}
         self.expedition_launch_day_by_species = {}
         self.habit_strength = [0] * self.config["habits_per_day"]
@@ -591,6 +604,7 @@ class Trial:
         self.milestones.setdefault("first_pet", self.day)
         self.record("hatch", target=pending.species.name)
         self.evaluate_badges(scopes={"pet", "badges"})
+        self.recognize_first("first_pet_hatched")
 
     def _enabled_triggers(self):
         c = self.config
@@ -1019,6 +1033,19 @@ class Trial:
         self.source_totals[source]["coins"] += amount
         self.reward_commitment.paid(amount, source)
         self.record(source, coins=amount)
+        if source == "money_exchange":
+            self.recognize_first("first_exchange_approved")
+
+    def recognize_first(self, event_slug):
+        """Mirror one saved-first badge check, without inventing Chronicle rows."""
+        if event_slug in self.recognized_firsts:
+            return
+        self.recognized_firsts.add(event_slug)
+        self.evaluate_badges(scopes={"chronicle", "badges"})
+
+    def recognize_event_firsts(self, trigger, context=None):
+        for event_slug, _title, _icon in chronicle_firsts.slugs_for(trigger, context or {}):
+            self.recognize_first(event_slug)
 
     def award_xp(self, pool, tags, source):
         credited = 0
@@ -1126,6 +1153,7 @@ class Trial:
                 self.counters["qualifying_minutes_today"] += context.get("duration_minutes", 0)
                 if self.counters["qualifying_minutes_today"] >= 10:
                     self.daily_bonus(tags)
+        self.recognize_event_firsts(trigger, {**context, "streak": self.streak})
         self.update_progress()
 
     def daily_bonus(self, tags):
@@ -1185,6 +1213,7 @@ class Trial:
                                 egg_potion_ids=promised_potions)
             self.record("challenge_completed", target=q.name)
             self.drop("quest_complete")
+            self.recognize_event_firsts("quest_complete")
             self.milestones.setdefault("first_challenge", self.day)
 
     def _badge_matches(self, badge):
@@ -1296,12 +1325,18 @@ class Trial:
             return
         self._evaluating_badges = True
         self._pending_badge_scopes = [requested]
+        newly_earned = []
         try:
             while self._pending_badge_scopes:
-                self._evaluate_badge_pass(scopes=self._pending_badge_scopes.pop(0))
+                newly_earned.extend(self._evaluate_badge_pass(scopes=self._pending_badge_scopes.pop(0)))
         finally:
             self._evaluating_badges = False
             self._pending_badge_scopes = []
+        # Live recognition starts only after every queued inventory pass has
+        # finished and released the evaluation context.
+        for badge in newly_earned:
+            if badge.rarity == "legendary":
+                self.recognize_event_firsts("badge_earned", {"rarity": badge.rarity})
 
     def _evaluate_badge_pass(self, *, scopes=None):
         key = frozenset(scopes) if scopes else None
@@ -1310,10 +1345,12 @@ class Trial:
             self._badge_scope_cache[key] = [
                 b for b in self.catalog.badges if relevant is None or b.criteria_type in relevant
             ]
+        newly_earned = []
         for badge in self._badge_scope_cache[key]:
             if badge.pk in self.badges or not self._badge_matches(badge):
                 continue
             self.badges.add(badge.pk)
+            newly_earned.append(badge)
             if badge.award_coins:
                 self.coin_award(int(settings.COINS_PER_BADGE_RARITY.get(badge.rarity, 0)), "badges")
             active = [pk for pk in self.xp if pk in self.unlocked and SkillService.level_for_xp(self.xp[pk]) > 0]
@@ -1327,6 +1364,7 @@ class Trial:
                 self.record("badges", xp=each * len(active), target=badge.name)
             self.record("badge_earned", target=badge.name)
             self.drop("badge_earned")
+        return newly_earned
 
     def start_incubation(self):
         if self.pending_incubation is not None:
@@ -1389,6 +1427,7 @@ class Trial:
                         self.milestones.setdefault("first_mount", self.day)
                         self.record("evolution", target=pet.species.name)
                         self.evaluate_badges(scopes={"pet", "badges"})
+                        self.recognize_first("first_mount_evolved")
         for pk in sorted(self.inventory):
             item = self.catalog.items[pk]
             if item.item_type == "coin_pouch" and self.inventory[pk] > 0:

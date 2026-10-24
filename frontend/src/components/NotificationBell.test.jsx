@@ -369,15 +369,15 @@ describe('NotificationBell', () => {
     await waitFor(() => expect(screen.queryByText('0')).toBeNull());
   });
 
-  it('shows the unread badge when count > 0', async () => {
-    renderBell({ unread: 3 });
-    await waitFor(() => expect(screen.getByText('3')).toBeInTheDocument());
-  });
-
-  it('clamps large counts to 9+', async () => {
-    renderBell({ unread: 42 });
-    await waitFor(() => expect(screen.getByText('9+')).toBeInTheDocument());
-  });
+  it.each([[1, '1'], [9, '9'], [10, '9+'], [42, '9+']])(
+    'shows %i unread with a readable capped badge and an exact accessible count',
+    async (unread, label) => {
+      renderBell({ unread });
+      const bell = await screen.findByRole('button', { name: `Notifications (${unread} unread)` });
+      expect(within(bell).getByText(label, { exact: true })).toHaveAttribute('aria-hidden', 'true');
+      expect(bell).toHaveAttribute('aria-expanded', 'false');
+    },
+  );
 
   it('renders no badge before the first heartbeat lands', async () => {
     // A missed or not-yet-arrived beat must leave the bell quiet rather than

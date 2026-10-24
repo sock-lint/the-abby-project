@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Lock } from 'lucide-react';
 import ParchmentCard from '../../../components/journal/ParchmentCard';
-import RpgSprite from '../../../components/rpg/RpgSprite';
+import SpeciesPortrait from './SpeciesPortrait';
 import { loreOneLiner } from './bestiary.constants';
 import { RARITY_TEXT_COLORS } from '../../../constants/colors';
 import { isCatalogAvailable } from '../../../utils/catalogAvailability';
@@ -12,7 +12,7 @@ import { isCatalogAvailable } from '../../../utils/catalogAvailability';
  * render as a debossed silhouette intaglio with a lock chip — same
  * visual vocabulary as the Reliquary Codex's locked sigils.
  */
-export default function SpeciesTile({ species, totalPotions, onSelect }) {
+export default function SpeciesTile({ species, totalPotions, onSelect, ownership }) {
   const variants = Array.isArray(species.available_potions) ? species.available_potions.filter(isCatalogAvailable) : null;
   const total = variants ? variants.length : totalPotions;
   const owned = variants ? variants.filter((potion) => species.owned_mount_potion_ids?.includes(potion.id)).length : species.owned_mount_potion_ids?.length || 0;
@@ -58,12 +58,7 @@ export default function SpeciesTile({ species, totalPotions, onSelect }) {
     >
       <ParchmentCard className="text-center cursor-pointer transition-all">
         <div className="flex items-center justify-center h-14 mb-1">
-          <RpgSprite
-            spriteKey={species.sprite_key}
-            icon={species.icon}
-            size={56}
-            alt={species.name}
-          />
+          <SpeciesPortrait species={species} ownership={ownership} size={56} />
         </div>
         <div className="font-display text-sm text-ink-primary font-medium leading-tight">
           {species.name}

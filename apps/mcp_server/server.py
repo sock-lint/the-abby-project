@@ -73,14 +73,15 @@ class ScopedFastMCP(FastMCP):
     async def list_tools(self):
         tools = await super().list_tools()
         scopes = get_current_scopes()
-        return [tool for tool in tools if policy_for(tool.name).scope in scopes]
+        return [tool for tool in tools if policy_for(tool.name).required_scopes <= scopes]
 
     async def call_tool(self, name: str, arguments: dict[str, Any]):
         try:
             entry = self._tool_manager.get_tool(name)
             if entry is None:
                 raise MCPNotFoundError("Unknown tool.", code="unknown_tool")
-            require_scope(policy_for(name).scope)
+            for scope in sorted(policy_for(name).required_scopes):
+                require_scope(scope)
             try:
                 parsed = entry.fn_metadata.pre_parse_json(arguments)
                 # Preserve FastMCP's JSON-encoded params compatibility, while
@@ -138,6 +139,9 @@ def mcp_capabilities() -> str:
         "reviewed_content_editing": {"required_scopes": ["mcp:catalog", "mcp:author", "mcp:publish"], "purpose": "Select existing definitions, save a private revision, preview, compare progression and publish the exact reviewed plan."},
         "editorial_content": {"required_scopes": ["mcp:catalog", "mcp:author", "mcp:publish"], "purpose": "Draft and publish textual Lorebook/affirmation changes; retirement preserves saved identities."},
         "progression_planning": {"required_scopes": ["mcp:catalog"], "purpose": "Inspect installed rules and run bounded anonymous progression scenarios; no household selectors or awards."},
+        "saved_progression_experiments": {"required_scopes": ["mcp:author"], "purpose": "Save private hypotheses, compare server-generated forecasts and record design decisions. Household checkpoints are redacted without mcp:read; decisions never publish or change rewards."},
+        "progression_observations": {"required_scopes": ["mcp:read"], "purpose": "Inspect bounded current-family economy aggregates; no account selectors, private notes or inferred policy validation."},
+        "progression_checkpoints": {"required_scopes": ["mcp:author", "mcp:read"], "purpose": "Save a bounded current-family observation checkpoint in an actor-owned experiment with a stable request UUID."},
         "household_rpg_management": {"required_scopes": ["mcp:read", "mcp:write"], "purpose": "Inspect and control challenge attempts/future schedules, frozen expeditions and physical reward delivery."},
         "content_publication": {"required_scopes": ["mcp:publish"], "purpose": "Apply the exact reviewed publication plan after confirmation."},
     }
@@ -199,7 +203,8 @@ def tool(*tool_args: Any, **tool_kwargs: Any) -> Callable[[Callable[..., Any]], 
 
         @functools.wraps(fn)
         async def adapted(**kwargs: Any) -> Any:
-            require_scope(policy.scope)
+            for scope in sorted(policy.required_scopes):
+                require_scope(scope)
             if policy.scope in {AUTHOR_SCOPE, CATALOG_SCOPE, PUBLISH_SCOPE}:
                 require_staff_parent()
             if policy.destructive:
@@ -270,6 +275,7 @@ def _load_tool_modules() -> None:
         pets,
         portfolio,
         projects,
+        progression_experiments,
         quests,
         reading,
         reading_maintenance,

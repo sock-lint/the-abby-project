@@ -14,7 +14,7 @@ MCP (Model Context Protocol) server with OAuth 2.1 + PKCE auth. The `/mcp/*` end
 - **Scopes and consent** — `mcp:catalog`, `mcp:author`, `mcp:publish`, `mcp:read` and `mcp:write` are independent grants. New consent defaults to global catalog reads without household data and always shows the requested permissions. Discovery and invocation enforce `tool_policy.py`; unknown tool names fail registration. All tools publish read-only/destructive/idempotency/open-world annotations. Destructive operations additionally require top-level `arguments.confirmation: true` after the client obtains user confirmation; annotations and flags do not establish human or Google-data consent by themselves.
 - **Existing connections** — broad `mcp` tokens and unbound tokens must reconnect. Do not upgrade old grants or infer write permission. Losing staff status, being deactivated or changing away from parent also blocks existing access and refresh. Migrate the new grant-binding table before serving the changed OAuth endpoints.
 - **Login throttle** — `/oauth/login/` has a transport-peer `oauth_login` throttle (10/minute by default), sharing the configured Django cache. It ignores client-supplied forwarded-IP headers; clients behind one proxy share this conservative limit. Rejected attempts receive HTTP 429 before password authentication once the configured limit is reached.
-- **Admin surface** — `/manage → Admin → OAuth clients` (the [`OAuthClientsCard`](/frontend/src/pages/Manage.jsx) sub-section) distinguishes server-wide registered Applications from the current user's unexpired AccessTokens. DCR precedes authorization; a registration does not mean consent or sign-in completed. An empty token list means no current unexpired access token for this user, not proof about another user or the client's callback outcome. Client-wide revocation affects every user of that registration; single-token revocation is caller-owned. Gated by the existing `adminPing()` probe (no second ping needed). Backed by `/api/admin/oauth/applications/` + `/api/admin/oauth/tokens/` (and matching DELETE endpoints), all on `IsStaffParent` semantics.
+- **Admin surface** — `/manage → Admin → OAuth clients` (the [`OAuthClientsCard`](/frontend/src/pages/Manage.jsx) sub-section) distinguishes server-wide registered Applications from the current user's unexpired AccessTokens. DCR precedes authorization; a registration does not mean consent or sign-in completed. An empty token list means no current unexpired access token for this user, not proof about another user or the client's callback outcome. Client-wide revocation affects every user of that registration; single-token revocation is caller-owned. A registration is removable only when no user has an unexpired access token, unrevoked refresh token or unexpired authorization code for it. The applications list exposes server-calculated `can_delete`; `DELETE /api/admin/oauth/applications/<client_id>/` rechecks eligibility transactionally and returns 409 if the registration became active. Revoke its tokens first to disconnect a retained connection; revocation itself keeps the registration. Gated by the existing `adminPing()` probe (no second ping needed). Backed by `/api/admin/oauth/applications/` + `/api/admin/oauth/tokens/` (and matching DELETE endpoints), all on `IsStaffParent` semantics.
 - **Test factory** — [`make_oauth_token(user, *, application=None, resource=None, scope='mcp:read', expires_in_seconds=3600)`](/config/tests/factories.py) mints an `AccessToken` row directly so MCP tests don't have to do the PKCE round-trip. Returns `(access_token, "Bearer <token>")`. The end-to-end PKCE flow (DCR → authorize → token → refresh) is covered exactly once in [`config/tests/test_oauth.py::EndToEndPKCEFlowTests`](/config/tests/test_oauth.py).
 - **Env vars** — `MCP_PUBLIC_BASE_URL` is the single switch (e.g. `https://abby.bos.lol/mcp`). [`config/settings.py`](/config/settings.py) derives `SITE_URL` (origin stripped from it → OAuth issuer + endpoint URLs) and `MCP_RESOURCE_URL` (the RFC 8707 resource indicator, equals `MCP_PUBLIC_BASE_URL` verbatim) from that one value. When `MCP_PUBLIC_BASE_URL` is empty, both fall back to `http://localhost:8000` for local dev. Production deployments MUST set it — otherwise the discovery JSON advertises `localhost` endpoints that Cowork / mcp-remote can't reach. Other settings: `OAUTH2_PROVIDER` dict + `LOGIN_URL='/oauth/login/'` in [`config/settings.py`](/config/settings.py).
 
@@ -64,7 +64,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 264 tools across 36 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 274 tools across 37 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 `list_homework` and `get_homework` share an active-assignment queryset scoped to
 the parent's family or the child's own assignments. Foreign and missing detail
@@ -224,3 +224,46 @@ separate reviewed changes. Taxonomy hard deletes remove only unused, unmanaged
 leaves. Referenced or managed definitions report `taxonomy_in_use`; saved progress,
 earned badges, tags and challenge promises are preserved. REST shares the same
 deletion service. Reviewed publication/versioning governs source retirement.
+
+
+### Saved progression experiments
+
+`progression_experiments.py` wraps the native private notebook: list/get,
+create/save, paired comparison/get, append-only decision, household observation
+read and saved checkpoint. Notebook tools require `mcp:author`; author-only
+results set `observations_redacted=true` and avoid loading checkpoint payloads.
+Capturing a checkpoint requires both author and read grants in discovery and
+invocation. Household aggregates require `mcp:read`; no target selectors or
+private journal/ledger prose are accepted. Staff-parent and current actor/family
+checks apply under family/member locks to reads, mutations and replays.
+Comparison simulations and checkpoint aggregates run outside those locks so
+unrelated same-family activity is not stalled: `experiment_evidence_once`
+holds them only for the receipt check and the final save, which rechecks current
+authority, revision and limits. Its large report is read after that commit, and
+authority and the saved result are rechecked under the locks before returning
+it. A PostgreSQL advisory lock scoped to the actor/operation/UUID makes an
+identical concurrent retry wait and then replay, without another simulation,
+quota, comparison or checkpoint. `get_progression_observations` and
+`get_progression_comparison` likewise check authority, read their aggregate or
+saved report without household locks and recheck it before returning. The
+get, create, save and decision tools take one `request_catalog_binding()` snapshot
+of the global catalog before locking when the experiment already has comparisons,
+so lock holders normally reuse it (a comparison saved between that check and the
+lock falls back to building freshness under the lock); compare, capture and the
+comparison read compute freshness with no household lock held. Receipt existence
+checks and decisions lock or read result rows without loading report JSON.
+
+Migrate `0005_mcpexperimentmutationreceipt` before serving these tools. The
+separate UUID-result receipt stores only request digests and exact saved result
+identities, retaining tombstones after result deletion. Actor/family deletion
+removes its private receipt identities. Replays reread current authorized state,
+skip simulation and comparison quota, and never publish or alter live rewards.
+Native revisions, stale-evidence decisions, five-per-minute comparisons and
+notebook/evidence limits remain authoritative. The ordinary integer-result MCP
+receipt contract remains unchanged.
+
+`list_challenges` supports bounded signed modern/legacy continuation pages, and
+`get_challenge` reads exact saved IDs. Both retain current-account locks and
+saved-state-only serialization. Pagination never calls materializing `list_goals`.
+Catalog new-choice availability also uses native automatic-trigger support;
+retained unsupported definitions remain inspectable with explicit reasons.

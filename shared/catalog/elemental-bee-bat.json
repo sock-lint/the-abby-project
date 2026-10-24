@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "release": {
+    "family_id": "abby-elemental-bee-bat",
+    "release_version": "1.0.0",
+    "manifest_sha256": "7cce23a080a2a018fd5e4f55041c8f861df383ac857b94c543b3f331b13699e5"
+  },
+  "families": [
+    {
+      "species_slug": "meshtint-bee",
+      "sprite_key": "meshtint-bee",
+      "egg_item_slug": "meshtint-bee-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Hive",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-bee-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Hive",
+          "target_count": 5,
+          "window_days": 180,
+          "catalog_icon": "review-bee-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-bee-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-bee-ice-acquisition-icon"
+        }
+      ]
+    },
+    {
+      "species_slug": "meshtint-bat",
+      "sprite_key": "meshtint-bat",
+      "egg_item_slug": "meshtint-bat-egg",
+      "challenges": [
+        {
+          "potion_slug": "fire",
+          "name": "Ember Cave",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-bat-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "name": "Frost Cave",
+          "target_count": 10,
+          "window_days": 180,
+          "catalog_icon": "review-bat-ice-acquisition-icon"
+        }
+      ],
+      "review_icons": [
+        {
+          "potion_slug": "fire",
+          "asset_id": "review-bat-fire-acquisition-icon"
+        },
+        {
+          "potion_slug": "ice",
+          "asset_id": "review-bat-ice-acquisition-icon"
+        }
+      ]
+    }
+  ]
+}

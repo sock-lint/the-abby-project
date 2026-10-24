@@ -23,6 +23,7 @@
       "timezone": "America/Phoenix",
       "default_theme": "hyrule"
     },
-    "is_staff": false
+    "is_staff": false,
+    "usage_collection_enabled": true
   }
 }

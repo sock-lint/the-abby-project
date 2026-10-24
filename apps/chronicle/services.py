@@ -210,32 +210,48 @@ class ChronicleService:
         occurred_on: Optional[date] = None,
         metadata: Optional[dict] = None,
     ) -> Optional[ChronicleEntry]:
-        """Write a FIRST_EVER entry. Returns None if already exists for this (user, event_slug)."""
+        """Save and recognize a new first once; return None for an existing slug."""
         if not event_slug:
             raise ValueError("event_slug is required for record_first")
-        day = occurred_on or date.today()
+        from apps.achievements.services import BadgeService, _lock_award_user
+
         related_type, related_id = (related or ("", None))
-        try:
-            with transaction.atomic():
-                return ChronicleEntry.objects.create(
-                    user=user,
-                    kind=ChronicleEntry.Kind.FIRST_EVER,
-                    occurred_on=day,
-                    chapter_year=_chapter_year_for(day),
-                    title=title,
-                    summary=summary,
-                    icon_slug=icon_slug,
-                    event_slug=event_slug,
-                    related_object_type=related_type,
-                    related_object_id=related_id,
-                    metadata=metadata or {},
-                )
-        except IntegrityError:
-            return None
+        with transaction.atomic():
+            _lock_award_user(user)
+            day = occurred_on or timezone.localdate()
+            try:
+                with transaction.atomic():
+                    entry = ChronicleEntry.objects.create(
+                        user=user,
+                        kind=ChronicleEntry.Kind.FIRST_EVER,
+                        occurred_on=day,
+                        chapter_year=_chapter_year_for(day),
+                        title=title,
+                        summary=summary,
+                        icon_slug=icon_slug,
+                        event_slug=event_slug,
+                        related_object_type=related_type,
+                        related_object_id=related_id,
+                        metadata=metadata or {},
+                    )
+            except IntegrityError:
+                if ChronicleEntry.objects.filter(
+                    user=user, kind=ChronicleEntry.Kind.FIRST_EVER, event_slug=event_slug,
+                ).exists():
+                    return None
+                raise
+            # Keep the marker and its newly eligible awards together. Payout
+            # failures must propagate, rather than look like duplicate firsts.
+            BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
+            return entry
 
     @staticmethod
+    @transaction.atomic
     def record_birthday(user, *, on_date: Optional[date] = None) -> ChronicleEntry:
-        """Idempotent. Keyed on (user, kind=BIRTHDAY, occurred_on)."""
+        """Save a birthday and its new badges once, without granting a gift."""
+        from apps.achievements.services import BadgeService, _lock_award_user
+
+        _lock_award_user(user)
         day = on_date or date.today()
         age = None
         if user.date_of_birth:
@@ -243,7 +259,7 @@ class ChronicleService:
             if (day.month, day.day) < (user.date_of_birth.month, user.date_of_birth.day):
                 age -= 1
         title = f"Turned {age}" if age is not None else "Birthday"
-        entry, _ = ChronicleEntry.objects.get_or_create(
+        entry, created = ChronicleEntry.objects.get_or_create(
             user=user,
             kind=ChronicleEntry.Kind.BIRTHDAY,
             occurred_on=day,
@@ -253,6 +269,8 @@ class ChronicleService:
                 "icon_slug": "birthday-candle",
             },
         )
+        if created:
+            BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
         return entry
 
     @staticmethod

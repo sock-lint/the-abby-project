@@ -7,6 +7,36 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Usage monitoring
+
+`/manage/usage` is a lazy staff-parent report linked from Manage → Admin. Its
+default is the current family; only the server's `can_view_deployment` capability
+offers all-family aggregates. Date, role and feature changes immediately remove
+the previous report. Account, family, role and credential changes also discard
+old state and abort pending reads. A failed same-filter refresh labels its
+retained snapshot stale; a permission denial removes it.
+
+Four summary cards, an accessible daily/weekly activity line and exact-count
+table, feature adoption, onboarding, observed returning-family cohorts, review
+queue and the latest seven-day summary present server counts. Coverage labels
+describe the sections whose filters differ. Incomplete history and immature
+return windows never become a zero-percent result or a complete comparison.
+The trend leaves precollection dates unplotted and unavailable in its exact
+table; first-day and mixed-week counts retain a partial-history label.
+
+The authenticated `UsageVisitCapture` sends only `{}` to `/api/usage/visit/`
+on visible foreground navigation or visibility resumption, at most once per
+credential/account UTC day in memory. Server uniqueness deduplicates across
+devices. StrictMode shares the attempted measurement; failed or uncertain POSTs
+are not replayed that day. No background timer, route, query, journal text,
+duration or session recording enters that request.
+The read-only authenticated identity field `usage_collection_enabled: false`
+suppresses the visit request for server-designated observer accounts; the
+backend also excludes them independently. Missing fields preserve collection
+for older ordinary-account responses.
+Synthetic fixtures exercise the Django/React response contract; see
+[`Usage monitoring`](../../../docs/operations/usage-monitoring.md).
+
 ## Progression lab
 
 Challenges expose up to three available one-time catalog goals under Explore
@@ -145,7 +175,7 @@ centers the owned Archer character and its saved basic customization.
 Legacy `/play/` bookmarks redirect to React Pets; Unity is retired.
 
 Pets keeps the existing `companions`, `mounts`, `codex` and `hatchery` tab IDs.
-The Collection and Hatchery tabs advertise the 15 supported Base-potion families. Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete path in companion previews and species details; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
+The Collection tab and the staff-only Hatchery Explore companions section advertise the 15 supported Base-potion families; for children, Collection shows only owned appearances and reached forms (see the child surprise rule in `frontend/CLAUDE.md`). Every family has four lifecycle stages: Egg in inventory, Baby after hatching, Middle from 50 server-confirmed growth, and Grown after confirmed evolution at 100. Exact Base Chick retains the familiar Chick, Fledgling and Bird form names. Shared `PetEvolutionGuide` shows the complete stage path in companion previews and species details, naming a child only forms their exact appearance reached; care, collection, Today, grown-pet and expedition labels use the same form names while nicknames and saved species identities stay intact. `OwnedPetGrid` and `OwnedMountGrid`
 also render remaining unavailable/custom rows under Saved collection in their
 respective tabs, retaining feeding/evolution, activation, expedition
 launch/history/claim and recovery controls. The owner-approved prelaunch
@@ -495,8 +525,8 @@ Flattens the `/api/portfolio/` response (`{projects, homework}`) into one unifie
 
 The inside-cover plate of the journal — personal author-portrait rather than a dashboard. Architecture in [`pages/character/`](/frontend/src/pages/character/):
 
-- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — compact identity/name/level header with the uploaded profile picture and its frame (initial fallback), separately labeled saved avatar preview, compact trophy and real streak statistics. “Customize avatar” opens the dedicated `/profile/customize` screen; Profile does not contain wardrobe editing controls.
-- `components/identity/ProfilePortrait` supplies the same distinct frame artwork in Profile, collection previews, navigation, Today and project signatures. `CharacterTitle` uses the selected title's own icon and live label. Profile's confirmed cosmetic/trophy writes refresh the existing pulse so the worn identity changes throughout the shell without another poller. Project signatures use only the server's read-only `maker_signature`, never the viewing parent's look; incomplete projects say “Project by”, completed ones “Made by”.
+- [`SigilFrontispiece.jsx`](/frontend/src/pages/character/SigilFrontispiece.jsx) — shared `IdentitySummary` puts the framed profile picture, docked confirmed level and title/featured-badge chips above picture and saved avatar controls, matching the header and account menu. The separately labeled saved avatar preview, trophy picker and real streak statistics remain available. “Customize avatar” opens the dedicated `/profile/customize` screen; Profile does not contain wardrobe editing controls.
+- `components/identity/ProfilePortrait` supplies the same distinct frame artwork in Profile, collection previews, navigation and project signatures. `CharacterTitle` uses the selected title's own icon and live label. Profile's confirmed cosmetic/trophy writes refresh the existing pulse so the worn identity changes throughout the shell without another poller. Project signatures use only the server's read-only `maker_signature`, never the viewing parent's look; incomplete projects say “Project by”, completed ones “Made by”.
 - [`avatar-customize/`](/frontend/src/pages/avatar-customize/) — the live preview remains beside the options on desktop and above them on phones, with a separately scrolling options panel and Save/Undo actions. Layout measures the marked shell header and bottom navigation. The authenticated avatar catalog supplies base-specific appearance controls and compatible shared accessory choices. Base identity and equipment are saved separately in `avatar_configuration`: a Knight can reuse the same bow/quiver IDs as an Archer when its attachment bindings are prepared; source pack is provenance, not an equipment restriction. Only prepared base avatars are offered. Current Archer configuration maps to the existing private renderer, including fitted hood hair and saved ordinary hair under a crown. Drafts remain in memory for the same account and credential; Save adopts the confirmed server configuration, failed saves retain the draft, Undo restores the saved look, and the editor Back action asks before discarding. Wardrobe changes do not acquire inventory, grant XP/Coins or change earned cosmetics.
   A reviewed private v2 release renders the 2,880 identity combinations with supplied Idle and requires empty wardrobe slots. Schema 3 adds all wardrobe modules to each complete matching rig, with source-derived rigid bone attachments and palette texture aliases; the frontend can resolve 276,480 combined selections after that release is verified and reviewed. Only the selected pieces render. The hood uses supplied fitted hat hair while retaining the saved underlying hairstyle; the crown retains that hairstyle. Equipment never changes identity-based framing. Older static releases retain the original 64 appearances, and older releases never omit an unsupported saved piece just to render a different look. Missing private models/textures or renderer failure keeps customization and existing Profile controls usable. Idle pauses offscreen, in background tabs and for reduced motion; costume and wardrobe changes reset loading and local playback.
 - [`TrophySlot.jsx`](/frontend/src/pages/character/TrophySlot.jsx) + [`TrophyBadgePicker.jsx`](/frontend/src/pages/character/TrophyBadgePicker.jsx) — a wide `AchievementCard` pairs the kit's blank base and gold overlay around the real badge artwork, live name, rarity, and chooser action. The empty slot says "Choose an earned badge"; absent or failed private art preserves the same readable controls. The `BottomSheet` groups earned badges through `groupBadgesByCollection` and displays them in matching tall cards: selecting a badge sets the trophy, and selecting the current trophy clears it (null payload). Generic kit icons do not replace actual badge identities. The older measured frame remains in earned badge details and design examples.
@@ -519,7 +549,9 @@ response never becomes an empty-pin claim. Reflection follows work, then the
 since-last-visit recap, status shortcuts and collapsed Rewards & earnings.
 The automatic daily bonus uses the same challenge response inside that earnings
 disclosure; its closed summary acknowledges a confirmed award. Recent items,
-savings and badges follow. Saved accordion preferences remain honored.
+savings and badges follow. Recent items and badges share collapsed disclosures
+with counts, latest-earned summaries and horizontal card rails. Saved accordion
+preferences remain honored independently for each section.
 An empty priority feed says No urgent tasks right now: this filtered feed cannot
 prove that all work is complete or that a family has never assigned anything.
 

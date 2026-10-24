@@ -254,6 +254,7 @@ class ApprovalActionMixin:
     approval_service = None
     approval_approve_method = "approve"
     approval_reject_method = "reject"
+    usage_feature = None
 
     _APPROVAL_ACTIONS = ("approve", "reject")
 
@@ -280,7 +281,12 @@ class ApprovalActionMixin:
         instance = self.get_object()
         service_method = getattr(self.approval_service, method_name)
         try:
-            service_method(instance, request.user, notes=request.data.get("notes", ""))
+            options = {"notes": request.data.get("notes", "")}
+            if self.usage_feature and method_name == self.approval_approve_method:
+                # Only the authenticated API path opts into human usage;
+                # shared MCP/background services retain their normal behavior.
+                options["usage_actor"] = request.user
+            service_method(instance, request.user, **options)
         except instance.__class__.DoesNotExist:
             # Withdrawal may delete the request after get_object, while the
             # decision service waits for its fresh row lock.
