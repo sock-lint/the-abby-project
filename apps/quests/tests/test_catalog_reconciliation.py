@@ -162,7 +162,7 @@ class CatalogReconciliationTests(TestCase):
         goal.refresh_from_db()
         self.assertEqual(goal.catalog_definition_id, self.canonical.pk)
 
-    def unopened(self, definition=None):
+    def unopened(self, definition=None, *, starts=timedelta(hours=-1), ends=timedelta(days=6)):
         # Enrolled before its start (e.g. by a non-matching activity), so its
         # only one-time window has not been saved yet.
         definition = definition or self.source
@@ -170,7 +170,7 @@ class CatalogReconciliationTests(TestCase):
             user=self.child, family=self.child.family, catalog_definition=definition, is_catalog=True,
             name="Frozen name", description="Frozen description", metric="count", target=1, unit="actions",
             trigger_filter=definition.trigger_filter, timezone_name="America/Phoenix",
-            starts_at=self.at - timedelta(hours=1), ends_at=self.at + timedelta(days=6), coin_reward=5,
+            starts_at=self.at + starts, ends_at=self.at + ends, coin_reward=5,
         )
 
     def coins(self):
@@ -188,6 +188,24 @@ class CatalogReconciliationTests(TestCase):
         self.assertEqual(self.coins(), [5])
         with self.assertRaisesMessage(ValueError, "accepted individual version"):
             QuestService.start_co_op_quest(self.canonical.pk, [self.child, self.sibling])
+
+    def test_ended_unopened_window_still_pays_a_repaired_fact_dated_inside_it(self):
+        from apps.quests.activity import retry_pending_activity
+        from apps.quests.models import ChallengeActivity, ChallengeEnrollment
+        QuestDefinition.objects.filter(pk=self.canonical.pk).update(is_cooperative=True)
+        goal = self.unopened(starts=timedelta(days=-8), ends=timedelta(days=-1))
+        ChallengeEnrollment.objects.create(user=self.child, starts_at=self.at - timedelta(days=10),
+                                           timezone_name="America/Phoenix")
+        when = self.at - timedelta(days=1, hours=1)
+        # The state a failed evaluation leaves: an unprocessed fact, no window.
+        ChallengeActivity.objects.create(user=self.child, source_type="habit", source_id="late",
+                                         trigger_type="habit_log", occurred_at=when,
+                                         occurred_on=when.date(), context={})
+        self.publish(acknowledge_cooperative_transition=True)
+        window = goal.occurrences.get()
+        self.assertEqual((window.starts_at, window.ends_at), (goal.starts_at, goal.ends_at))
+        retry_pending_activity(user=self.child)
+        self.assertEqual(self.coins(), [5])
 
     def test_overlap_keeps_an_unopened_alias_window_payable(self):
         self.saved(self.canonical)

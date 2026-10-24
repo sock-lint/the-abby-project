@@ -250,16 +250,15 @@ def get_reconciliation(actor, preview_id):
 def _open_saved_one_time_windows(source_id, bindings):
     # Enrollment can precede a one-time goal's start (an earlier non-matching
     # activity), leaving its accepted window unopened. Retirement opens no new
-    # windows, so save each open source window before linking or superseding.
+    # windows, so save each source window before linking or superseding, as
+    # list_goals would; an ended one remains available to repaired facts.
     from .goals import _occurrence
     now = timezone.now()
     goals = (ChallengeGoal.objects.filter(pk__in=[row[0] for row in bindings if row[3] == source_id],
                                           repeat_weekly=False, repeat_days=0)
              .exclude(occurrences__isnull=False).order_by("pk"))
     for goal in goals:
-        at = max(goal.starts_at, now)
-        if goal.ends_at is None or at < goal.ends_at:
-            _occurrence(goal, at)
+        _occurrence(goal, max(goal.starts_at, now))
 
 
 @transaction.atomic
