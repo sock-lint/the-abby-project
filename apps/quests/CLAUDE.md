@@ -2,6 +2,12 @@
 
 Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+Saved legacy participant IDs and contributions survive household moves. API,
+pulse and MCP projections pass the observer's family to participant serializers;
+current labels are visible only within that family. Departed members use
+`Former participant`, preserving history without exposing their new household's
+profile edits. A serializer without observer context masks mixed-family labels.
+
 Explicit `trigger_filter.skill_category_id` in private quest creation is rechecked
 by `reference_locks.lock_filter_category` inside the write transaction, after the
 definition INSERT has acquired its catalog-table write lock. PostgreSQL
@@ -143,6 +149,20 @@ conflicts. Supersession preserves all saved history and accepted reward promises
 only future duplicate enrollment/repeat windows stop. Use the shared query helpers
 for new offers and equivalent definition identities for legacy completion guards.
 The reconciliation migration never replays activity or pays rewards.
+
+Runtime maintenance uses `reconciliation.py` and dedicated native/MCP
+preview/get/publish receipts, with explicit source/canonical IDs. It retains
+creator provenance and accepted history; a sole alias catalog goal can change
+only its definition FK to continue its existing repeat cadence. Publication
+first saves the only window of an enrolled one-time source goal that has not
+opened yet, so retirement cannot cancel it. Conflicting
+rules/rewards and unsupported ownership, alias or dependency states fail
+closed. A one-time cooperative difference needs explicit publication
+acknowledgment; repeating personal-to-cooperative conversions are refused.
+The reconciliation admission mutex precedes sorted family/member locks, then
+catalog/definition admission; never acquire another account lock after the
+catalog fence. New acceptance rechecks its definition under a shared row lock
+after taxonomy admission. See the [maintenance workflow](../../docs/operations/automatic-challenges.md#review-unresolved-duplicate-pairs).
 
 Future reward policy v2 is explicit catalog data:
 `trigger_filter.reward_policy_version: 2` marks timed individual global
@@ -361,7 +381,7 @@ DST. React includes the year in saved periods and the exact exclusive deadline
 in goal details; showing only the final included date must not imply that a
 rolling period accepts work through the end of that entire day.
 
-The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit.
+The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit. The fallback uses `apps.achievements.source_identity` to retain the installed destination after MCP renames/reparenting or retirement; missing or ambiguous identities receive no invented credit. Explicit source tags keep precedence, and saved bonus receipts are never backfilled after taxonomy changes.
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.
 

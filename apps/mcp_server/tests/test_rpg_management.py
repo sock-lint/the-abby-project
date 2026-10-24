@@ -275,7 +275,7 @@ class RPGManagementTests(TestCase):
                 finally:
                     targets.update(**original)
 
-    def test_inactive_child_history_is_readable_but_all_management_writes_stay_denied(self):
+    def test_inactive_child_history_and_saved_delivery_remain_available_but_new_progress_stays_denied(self):
         original, weekly = self.catalog_attempt(), self.weekly()
         trip, redemption = self.make_trip(), self.make_redemption(approved=True)
         before_coins = list(CoinLedger.objects.values_list("pk", "amount"))
@@ -296,7 +296,6 @@ class RPGManagementTests(TestCase):
                                           "request_id": str(uuid4()), "paused": True},
             "start_expedition": {"mount_id": self.mount.pk, "tier": "short", "request_id": str(uuid4())},
             "claim_expedition": {"expedition_id": trip.pk},
-            "deliver_reward_redemption": {"redemption_id": redemption.pk},
         }
         for name, params in writes.items():
             with self.subTest(write=name), override_user(self.parent, scopes=frozenset({"mcp:write"})):
@@ -305,12 +304,19 @@ class RPGManagementTests(TestCase):
                 })
                 self.assertTrue(result.isError)
                 self.assertEqual(result.structuredContent["error"]["code"], "not_found")
+        with override_user(self.parent, scopes=frozenset({"mcp:write"})):
+            result = async_to_sync(mcp.call_tool)("deliver_reward_redemption", {
+                "params": {"user_id": self.child.pk, "redemption_id": redemption.pk}, "confirmation": True,
+            })
+        delivered = result.structuredContent if hasattr(result, "structuredContent") else result[1]
+        self.assertNotIn("error", delivered, delivered)
+        self.assertEqual(delivered["status"], "fulfilled")
         self.assertEqual(list(CoinLedger.objects.values_list("pk", "amount")), before_coins)
         self.assertFalse(MCPMutationReceipt.objects.exists())
         trip.refresh_from_db()
         redemption.refresh_from_db()
         self.assertEqual(trip.status, "active")
-        self.assertEqual(redemption.status, "approved")
+        self.assertEqual(redemption.status, "fulfilled")
 
     def test_expired_catalog_retry_is_exact_and_never_replays_old_sources(self):
         original = self.catalog_attempt()

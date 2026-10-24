@@ -127,6 +127,10 @@ class LorebookViewTests(APITestCase):
         self.assertIn("ten cumulative newly logged minutes", mechanics)
         self.assertIn("counts once toward challenges that explicitly ask for reading", mechanics)
         self.assertIn("Reading stays outside unfiltered challenges and the daily bonus", mechanics)
+        self.assertIn("3 daily Adventures at your own pace, with no deadline", mechanics)
+        self.assertIn("After Reading Companion and Reading Comprehension level 1", mechanics)
+        self.assertIn("your next earned daily Adventure opens Reading Voyager: 20 Adventures in 84 days", mechanics)
+        self.assertIn("no authored Coin payout", mechanics)
 
     def test_child_trained_flag_reads_from_lorebook_flags(self):
         self.client.force_authenticate(self.child)

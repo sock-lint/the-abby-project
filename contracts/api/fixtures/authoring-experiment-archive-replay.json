@@ -1,0 +1,13 @@
+{
+  "kind": "experiment",
+  "id": "00000000-0000-4000-8000-000000000003",
+  "is_archived": false,
+  "revision": 3,
+  "published_at": null,
+  "request_id": "10000000-0000-4000-8000-000000000003",
+  "replayed": true,
+  "operation": {
+    "is_archived": true,
+    "revision": 2
+  }
+}

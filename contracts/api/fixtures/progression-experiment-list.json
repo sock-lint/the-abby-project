@@ -2,6 +2,7 @@
   "schema_version": 1,
   "limits": {
     "max_experiments": 20,
+    "max_archived_experiments": 100,
     "max_comparisons": 20,
     "max_observations": 20,
     "max_comparison_work_units": 20000,
@@ -222,8 +223,12 @@
       "name": "100-Coin starting experiment",
       "hypothesis": "Test income and first-reward pacing before changing live grants.",
       "revision": 1,
+      "is_archived": false,
       "updated_at": "2026-10-18T12:00:00+00:00",
       "latest_decision": null
     }
-  ]
+  ],
+  "total": 1,
+  "has_more": false,
+  "next_after": null
 }

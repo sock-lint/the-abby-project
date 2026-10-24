@@ -403,6 +403,12 @@ WRITE_TOOLS = WRITE_TOOLS | {"update_reading_book", "update_reading_session", "d
 DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "save_content_draft", "publish_content_draft", "save_editorial_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
 IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | {"update_reading_book", "update_reading_session", "delete_reading_book", "delete_reading_session", "publish_content_draft", "publish_editorial_draft", "retry_challenge", "update_challenge_schedule", "start_expedition", "claim_expedition", "deliver_reward_redemption"}
 
+# Reconciliation uses a dedicated receipt, separate from editable content drafts.
+AUTHOR_TOOLS = AUTHOR_TOOLS | {"preview_challenge_reconciliation", "get_challenge_reconciliation"}
+PUBLISH_TOOLS = PUBLISH_TOOLS | {"publish_challenge_reconciliation"}
+DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | {"publish_challenge_reconciliation"}
+IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | {"preview_challenge_reconciliation", "publish_challenge_reconciliation"}
+
 @dataclass(frozen=True)
 class ToolPolicy:
     scope: str
@@ -416,6 +422,11 @@ class ToolPolicy:
     def required_scopes(self) -> frozenset[str]:
         return frozenset({self.scope}) | self.additional_scopes
 
+
+_ARCHIVE_TOOLS = {"set_content_draft_archived", "set_editorial_draft_archived", "set_progression_experiment_archived"}
+AUTHOR_TOOLS = AUTHOR_TOOLS | _ARCHIVE_TOOLS
+DESTRUCTIVE_TOOLS = DESTRUCTIVE_TOOLS | _ARCHIVE_TOOLS
+IDEMPOTENT_WRITES = IDEMPOTENT_WRITES | _ARCHIVE_TOOLS
 
 def policy_for(name: str) -> ToolPolicy:
     if name in READ_TOOLS:
@@ -435,6 +446,7 @@ def policy_for(name: str) -> ToolPolicy:
         "get_content_pack", "list_content_packs", "read_pack_file",
         "get_content_draft", "list_content_drafts", "get_editorial_draft", "list_editorial_drafts",
         "list_progression_experiments", "get_progression_experiment", "get_progression_comparison",
+        "get_challenge_reconciliation",
     }
     return ToolPolicy(
         scope=scope,

@@ -155,6 +155,33 @@ class ReadingCompanionContentTests(ReadingChallengeReceiptTests):
         with patch("django.utils.timezone.now", return_value=NOW):
             ContentPack("content/rpg/bundled/reading-adventures", namespace="reading-adventures-").load()
 
+    def test_shipped_milestones_complete_for_a_twice_weekly_new_reader(self):
+        for day in range(85):
+            if day % 7 >= 2:
+                continue
+            with patch("django.utils.timezone.now", return_value=NOW + timedelta(days=day)):
+                response = self.session()
+            self.assertEqual(response.status_code, 201, response.data)
+            companion = ChallengeOccurrence.objects.get(goal__catalog_definition__name="Reading Companion")
+            self.assertIsNone(companion.ends_at)
+            if day < 15:
+                # Completing Companion is not enough: real reading XP must also
+                # reach level 1 before a new daily Adventure opens Voyager.
+                self.assertFalse(ChallengeOccurrence.objects.filter(
+                    goal__catalog_definition__name="Reading Voyager").exists())
+            if day == 7:
+                self.assertEqual((companion.status, companion.progress), ("completed", 3))
+            if day == 15:
+                voyager = ChallengeOccurrence.objects.get(goal__catalog_definition__name="Reading Voyager")
+                self.assertEqual(voyager.progress, 1)
+                self.assertEqual(voyager.starts_at, NOW + timedelta(days=15))
+                self.assertEqual(voyager.ends_at - voyager.starts_at, timedelta(days=84))
+        voyager.refresh_from_db()
+        self.assertEqual((voyager.status, voyager.progress), ("completed", 20))
+        self.assertEqual(voyager.completed_at, NOW + timedelta(days=84))
+        self.assertEqual(voyager.reward_receipt["coins"], 0)
+        self.assertEqual(UserInventory.objects.get(user=self.child, item__slug="title-bookworm").quantity, 1)
+
     def test_three_daily_adventures_grant_supported_hatch_ingredients_and_weekly_care(self):
         for day in range(5):
             with patch("django.utils.timezone.now", return_value=NOW + timedelta(days=day)):

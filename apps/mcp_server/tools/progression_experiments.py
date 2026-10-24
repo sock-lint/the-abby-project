@@ -61,17 +61,17 @@ def _serialize(actor, experiment, result_kind, result_id):
     return _detail(actor, experiment.pk)
 
 
-def _freshness_snapshot(actor, experiment_id):
+def _freshness_snapshot(actor, experiment_id, *, for_decision=False):
     """Build today's catalog binding before household locks when a reply needs it.
 
-    Experiments without saved comparisons never read freshness; an unknown
-    experiment falls back to computing it on demand inside the native service.
+    Ordinary replies without saved comparisons skip freshness. A decision
+    always prepares its source-bound snapshot before entering household locks.
     """
-    if experiment_id is None or not ProgressionComparison.objects.filter(
+    if not for_decision and (experiment_id is None or not ProgressionComparison.objects.filter(
         experiment_id=experiment_id, experiment__actor=actor, experiment__family_id=actor.family_id,
-    ).exists():
+    ).exists()):
         return nullcontext()
-    return experiments.request_catalog_binding()
+    return experiments.request_catalog_binding(for_decision=for_decision)
 
 
 def _mutate(params, operation, create):
@@ -82,7 +82,7 @@ def _mutate(params, operation, create):
     experiment_id = getattr(params, "experiment_id", None) or MCPExperimentMutationReceipt.objects.filter(
         actor=actor, operation=operation, request_id=params.request_id,
     ).values_list("experiment_id", flat=True).first()
-    with _freshness_snapshot(actor, experiment_id):
+    with _freshness_snapshot(actor, experiment_id, for_decision=operation == "record_progression_decision"):
         return experiment_mutation_once(
             actor=actor, operation=operation, request_id=params.request_id,
             payload=params.model_dump(mode="json", exclude={"request_id"}, exclude_unset=True),
@@ -121,20 +121,13 @@ def _comparison_quota(actor):
 def list_progression_experiments(params: ListProgressionExperimentsIn) -> ProgressionExperimentListOut:
     """List this staff parent's private saved hypotheses, in bounded UUID order.
 
-    Follow next_after with after. The native notebook contains at most twenty
-    experiments; this returns summaries and never household observations.
+    Follow next_after with after. Active entries appear by default; use
+    include_archived for retained history. Summaries never contain observations.
     """
     actor = _actor()
     with authorized_household(actor, actor) as (fresh_actor, _):
-        result = _call(experiments.list_experiments, fresh_actor)
-        rows = sorted(result["experiments"], key=lambda row: row["id"])
-        total = len(rows)
-        if params.after is not None:
-            rows = [row for row in rows if row["id"] > str(params.after)]
-        more = len(rows) > params.limit
-        rows = rows[:params.limit]
-        return {**result, "experiments": rows, "total": total, "has_more": more,
-                "next_after": rows[-1]["id"] if more else None}
+        return _call(experiments.list_experiments, fresh_actor, include_archived=params.include_archived,
+                     after=params.after, limit=params.limit)
 
 
 @tool()
@@ -264,6 +257,9 @@ def _saved_for_write(actor, experiment_id):
     ).first()
     if experiment is None:
         raise MCPNotFoundError("Experiment not found.")
+    if experiment.is_archived:
+        raise MCPValidationError("This experiment is archived; restore it before making changes.",
+                                 code="progression_experiment_conflict")
     return experiment
 
 

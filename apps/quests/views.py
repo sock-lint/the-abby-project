@@ -26,7 +26,7 @@ class ActiveQuestView(APIView):
         quest = QuestService.get_active_quest(request.user)
         if not quest:
             return Response(None)
-        return Response(QuestSerializer(quest).data)
+        return Response(QuestSerializer(quest, context={"observer_family_id": request.user.family_id}).data)
 
 
 class AvailableQuestsView(APIView):
@@ -55,7 +55,7 @@ class StartQuestView(APIView):
             quest = QuestService.start_quest(request.user, definition_id, scroll_item_id)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(QuestSerializer(quest).data, status=status.HTTP_201_CREATED)
+        return Response(QuestSerializer(quest, context={"observer_family_id": request.user.family_id}).data, status=status.HTTP_201_CREATED)
 
 
 class QuestHistoryView(APIView):
@@ -66,7 +66,7 @@ class QuestHistoryView(APIView):
         quests = Quest.objects.filter(
             participants__user=request.user,
         ).exclude(status="active").select_related("definition")[:20]
-        return Response(QuestSerializer(quests, many=True).data)
+        return Response(QuestSerializer(quests, many=True, context={"observer_family_id": request.user.family_id}).data)
 
 
 class CreateQuestView(APIView):
@@ -199,7 +199,7 @@ class FamilyActiveQuestsView(APIView):
             rows.append({
                 "child_id": child.pk,
                 "child_name": child.display_label,
-                "quest": QuestSerializer(quest).data if quest else None,
+                "quest": QuestSerializer(quest, context={"observer_family_id": request.user.family_id}).data if quest else None,
             })
         return Response({"results": rows})
 
@@ -219,7 +219,7 @@ class AssignQuestView(APIView):
             quest = QuestService.start_quest(child, pk)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(QuestSerializer(quest).data, status=status.HTTP_201_CREATED)
+        return Response(QuestSerializer(quest, context={"observer_family_id": request.user.family_id}).data, status=status.HTTP_201_CREATED)
 
 
 class StartCoOpQuestView(APIView):
@@ -248,7 +248,7 @@ class StartCoOpQuestView(APIView):
             quest = QuestService.start_co_op_quest(pk, children)
         except ValueError as exc:
             return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-        return Response(QuestSerializer(quest).data, status=status.HTTP_201_CREATED)
+        return Response(QuestSerializer(quest, context={"observer_family_id": request.user.family_id}).data, status=status.HTTP_201_CREATED)
 
 
 class DailyChallengeView(APIView):

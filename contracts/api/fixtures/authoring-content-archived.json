@@ -1,0 +1,13 @@
+{
+  "kind": "content",
+  "id": "00000000-0000-4000-8000-000000000001",
+  "is_archived": true,
+  "revision": 2,
+  "published_at": null,
+  "request_id": "10000000-0000-4000-8000-000000000001",
+  "replayed": false,
+  "operation": {
+    "is_archived": true,
+    "revision": 2
+  }
+}

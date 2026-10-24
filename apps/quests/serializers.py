@@ -131,7 +131,12 @@ class QuestDefinitionSerializer(serializers.ModelSerializer):
 
 
 class QuestParticipantSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.display_label", read_only=True)
+    user_name = serializers.SerializerMethodField()
+
+    def get_user_name(self, obj):
+        from .participants import participant_label
+
+        return participant_label(obj, self.context.get("participant_family_id"))
 
     class Meta:
         model = QuestParticipant
@@ -155,7 +160,16 @@ class QuestSerializer(serializers.ModelSerializer):
             accepted_reward_items(obj), many=True, context=self.context,
         ).data
         return data
-    participants = QuestParticipantSerializer(many=True, read_only=True)
+    participants = serializers.SerializerMethodField()
+
+    def get_participants(self, obj):
+        from .participants import participant_visibility
+
+        request = self.context.get("request")
+        family_id = self.context.get("observer_family_id", getattr(getattr(request, "user", None), "family_id", None))
+        rows, family_id = participant_visibility(obj.participants.all(), family_id)
+        return QuestParticipantSerializer(rows, many=True,
+            context={**self.context, "participant_family_id": family_id}).data
     progress_percent = serializers.IntegerField(read_only=True)
     effective_target = serializers.IntegerField(read_only=True)
 

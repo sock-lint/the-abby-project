@@ -1,18 +1,18 @@
 # Reading Voyager milestone implementation
 
-This implementation prepares the selected untimed Companion and 84-day,
-milestone-gated Voyager for review. It adds native support and an exact private
-draft preparation command; deployment does not activate the policy or change
-bundled Reading Voyager/Lorebook content. Activation remains a separately
-reviewed Workbench publication after deployment of this implementation.
+The untimed Reading Companion and milestone-gated 84-day Reading Voyager were
+published through the reviewed Workbench draft on October 21, 2026. The bundled
+definitions and Lorebook now describe that same policy, so fresh installations
+and the help reference agree with the published rules. The earlier native-support
+deployment and private preparation command did not activate it themselves.
+Published database overrides and accepted attempts retain their existing authority.
 
 ## Selected candidate
 
 Reading Companion is a one-time onboarding milestone: three daily Reading
 Adventures, at the child's own pace, with no deadline. Its existing 0 authored
 Coins, 20 Reading Comprehension XP, Chick Egg, Base Potion and two Birdseed
-remain the reward promise. The private draft prepares this change together
-with Voyager; neither definition changes when the implementation is deployed.
+remain the reward promise. Companion and Voyager were published together.
 
 Reading Voyager requires the same child's completed global Reading Companion
 and unlocked Language Arts::Reading Comprehension at level 1. Its next newly
@@ -90,9 +90,10 @@ YAML override retention, MCP catalog exports and Lab snapshots
 carry the same exact IDs. Catalog and rules fingerprints invalidate stale
 comparisons when those rules change.
 
-## Prepare for review
+## Historical baseline preparation
 
-An operator can explicitly run the command against the intended application:
+For an installation still using the original 14-day Companion and 45-day
+ungated Voyager, an operator can explicitly prepare the reviewed candidate:
 
 ```bash
 python manage.py prepare_reading_voyager --actor-id <active-staff-parent-id>
@@ -114,6 +115,9 @@ bounded accepted-goal/legacy preflight before activation. This is a prelaunch
 change; any synthetic or saved attempts still retain their recorded promises.
 Coordinate active bundled YAML and Lorebook copy when publishing, respecting saved
 database overrides. Existing goals are not migrated to a longer window.
+The published application and fresh installations already match the selected
+policy; the command deliberately refuses those updated definitions as baseline
+drift rather than preparing another publication.
 
 ## Observe after rollout
 

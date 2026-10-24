@@ -3,13 +3,14 @@ import math
 from contextlib import contextmanager
 from types import SimpleNamespace
 
+from apps.rpg.authoring_archive import list_authoring
 from apps.rpg.content import workbench
 from apps.rpg.content.errors import ContentAuthorPermissionDenied, ContentObjectNotFound
 from apps.rpg.content.loader import ContentPackError
 from apps.rpg.content.workbench_validation import (
     CREATE_ITEM_TYPES, ITEM_BEHAVIOR_FIELDS, ITEM_FIELDS, QUEST_FIELDS, supported_challenge_triggers,
 )
-from apps.rpg.models import ItemDefinition, RPGContentDraft
+from apps.rpg.models import ItemDefinition
 from apps.rpg.progression import describe_progression, normalize_config, simulate_progression
 from apps.rpg.progression_views import ProgressionSimulationThrottle
 from apps.rpg.workbench_views import WorkbenchSimulationThrottle
@@ -106,20 +107,9 @@ def get_content_workbench(params: WorkbenchReferencesIn) -> WorkbenchReferencesO
 def list_content_drafts(params: ListContentDraftsIn) -> ContentDraftListOut:
     """Read only this author's same-family draft summaries, in stable UUID order."""
     with _authorized_actor() as actor:
-        queryset = RPGContentDraft.objects.filter(actor=actor, family_id=actor.family_id)
-        if params.published is not None:
-            queryset = queryset.filter(published_at__isnull=not params.published)
-        total = queryset.count()
-        if params.after is not None:
-            queryset = queryset.filter(pk__gt=params.after)
-        rows = list(queryset.order_by("pk")[:params.limit + 1])
-        more = len(rows) > params.limit
-        rows = rows[:params.limit]
-        return {"drafts": [{
-            "id": str(row.pk), "name": row.name, "revision": row.revision,
-            "published_at": row.published_at.isoformat() if row.published_at else None,
-            "updated_at": row.updated_at.isoformat(),
-        } for row in rows], "total": total, "has_more": more, "next_after": str(rows[-1].pk) if more else None}
+        page = _call(list_authoring, actor, "content", include_archived=params.include_archived,
+                     after=params.after, limit=params.limit, published=params.published)
+        return {"drafts": page.pop("rows"), **page}
 
 
 @tool()

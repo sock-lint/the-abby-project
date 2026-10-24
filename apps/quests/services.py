@@ -123,8 +123,9 @@ class QuestService:
             raise ValueError("Ask a parent to assign this shared challenge to at least two children.")
         if (definition.trigger_filter or {}).get("distinct_active_days") is True:
             raise ValueError("This challenge counts active days automatically. Pin it to follow your progress.")
-        from .reference_locks import admit_definition_choices
+        from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
+        admit_definition_identity(definition)
         definition_ids = equivalent_definition_ids(definition)
         if ChallengeGoal.objects.filter(user=user, catalog_definition_id__in=definition_ids).exists():
             raise ValueError("This challenge progresses automatically. Pin it to follow your progress.")
@@ -225,8 +226,9 @@ class QuestService:
             raise ValueError("This challenge needs companion artwork that is not currently available.")
         if (definition.trigger_filter or {}).get("distinct_active_days") is True:
             raise ValueError("This challenge counts active days automatically. Pin it to follow your progress.")
-        from .reference_locks import admit_definition_choices
+        from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
+        admit_definition_identity(definition)
         definition_ids = equivalent_definition_ids(definition)
         personal_goals = ChallengeGoal.objects.filter(user__in=users, catalog_definition_id__in=definition_ids)
         if definition.is_cooperative:

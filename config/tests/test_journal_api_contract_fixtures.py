@@ -11,6 +11,9 @@ from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
 from apps.chronicle.models import ChronicleEntry
+from apps.mcp_server.context import override_user
+from apps.mcp_server.schemas import UpdateCategoryIn, UpdateSkillIn
+from apps.mcp_server.tools import achievements
 from apps.rewards.models import CoinLedger
 from apps.wellbeing.models import DailyWellbeingEntry
 from apps.wellbeing.services import WellbeingService
@@ -153,3 +156,32 @@ class JournalApiResponseFixtureTests(APITestCase):
         self.assertEqual(receipt["xp_awarded"], 15)
         self.assert_response_fixture(response, "journal-coins-already-received.json", status=201)
         self.assertEqual(CoinLedger.objects.filter(user=self.child, amount=2).count(), 1)
+
+    def test_journal_receipt_preserves_fixed_skill_identities_after_taxonomy_renames(self):
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        with override_user(self.parent):
+            achievements.update_category(UpdateCategoryIn(
+                category_id=self.writing.category_id, name="Written Expression",
+            ))
+            achievements.update_skill(UpdateSkillIn(skill_id=self.writing.pk, name="Story Craft"))
+            achievements.update_skill(UpdateSkillIn(skill_id=self.vocabulary.pk, name="Word Power"))
+
+        response = self.post()
+        self.assertEqual(response.status_code, 201, response.content)
+        receipt = response.json()["reward_receipt"]
+        self.assertEqual(receipt["status"], "awarded")
+        self.assertEqual(receipt["xp_awarded"], 15)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.writing).xp_points, 10)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.vocabulary).xp_points, 5)
+        self.assertEqual(
+            {row["skill_id"]: row["xp"] for row in receipt["skills"]},
+            {self.writing.pk: 10, self.vocabulary.pk: 5},
+        )
+        created = self.assert_response_fixture(response, "journal-renamed-taxonomy.json", status=201)
+        original_ledger = list(CoinLedger.objects.filter(user=self.child).values_list("pk", "amount"))
+        self.assertEqual(self.post().json(), created)
+        self.assertEqual(self.client.get("/api/chronicle/journal/today/").json(), created)
+        self.assertEqual(list(CoinLedger.objects.filter(user=self.child).values_list("pk", "amount")), original_ledger)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.writing).xp_points, 10)
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=self.vocabulary).xp_points, 5)

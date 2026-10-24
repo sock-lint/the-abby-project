@@ -33,7 +33,7 @@ Deep subsystem details live next to the code they describe, in subtree CLAUDE.md
 | [`frontend/src/pages/CLAUDE.md`](frontend/src/pages/CLAUDE.md) | Page primitives · Quests hub · Atlas hub · Frontispiece · Yearbook |
 
 ## Stack
-- **Backend:** Django 5.2 LTS, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Pillow 12.3, Python 3.12
+- **Backend:** Django 5.2 LTS, DRF 3.15, PostgreSQL 16, Redis 7, Celery 5.4 + Beat, Gunicorn, Pillow 13.0, Python 3.12
 - **Frontend:** React 19, Vite 8, Tailwind 4, Framer Motion, React Router 7, lucide-react; optional R3F 9/Three.js companion presentation and Capacitor 8 development shells
 - **Deploy:** Coolify builds the native Docker Compose application from `main`, preserving its private build inputs, runtime configuration, and volumes. Node builds the React bundle; Django serves it + the API via WhiteNoise from one origin. Compose services include `db`, `redis`, `django`, `celery_worker`, `celery_beat`, and `printer_listener` (single-replica by design — see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md)). The self-hosted `deploy-platform` CI runner tests, builds/scans a public validation image, and invokes Coolify after validation; see [`docs/operations/platform-deployment.md`](docs/operations/platform-deployment.md).
 - **Observability:** Self-hosted Sentry at `logs.neato.digital` — error tracking, performance tracing, and release automation with source map upload via `@sentry/vite-plugin`. JSON-structured logging (opt-in via `LOG_JSON=1`).
@@ -489,7 +489,7 @@ Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guar
 - Milestone completion rewards: `ProjectMilestone.save()` commits the status and one permanent `MilestoneCompletionRewardReceipt` with XP, money and completion effects. Reopening, reassignment and concurrent completions cannot pay again. The backfill recognizes completed status/timestamps and correctly typed `milestone.complete` activity; project-wide ledger rows cannot identify a milestone. MCP uses the signal's XP once and retains its existing bonus Coins only for the first receipt, in the same transaction.
 - RPG character auto-creation: `apps/rpg/signals.py` — `post_save` on `accounts.User` creates `CharacterProfile`.
 - 3D printing: `apps/printing/matching.py` (the deterministic request↔job contract), `apps/printing/jobs.py::PrinterJobTracker.handle` (one merged MQTT report in, timeline rows out), `apps/printing/listener.py` + `management/commands/run_printer_listener.py` (the single connection), `apps/printing/fanout.py` (how everything else reads printer state) → see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md).
-- MCP server: `apps/mcp_server/` — 264 tools across 36 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
+- MCP server: `apps/mcp_server/` — 280 tools across 39 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.
 
 ## Prospective Coin earning

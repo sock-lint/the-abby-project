@@ -54,7 +54,7 @@ def art_policy(*pairs):
 class ElementalAvailabilityTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
 
     def setUp(self):
         family = make_family("Elemental discovery", parents=[{"username": "element-parent"}],
@@ -228,7 +228,7 @@ class ElementalAvailabilityTests(TestCase):
 class ElementalCompanionPathTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
 
     def setUp(self):
         family = make_family("Elemental paths", children=[{"username": "element-trails-child"}])

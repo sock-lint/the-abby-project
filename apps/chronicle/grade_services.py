@@ -22,9 +22,9 @@ class GradeRequestConflictError(Exception):
 
 
 def _grade_xp_tags():
-    from apps.achievements.models import Skill
+    from apps.achievements.source_identity import resolve_fixed_skill
 
-    skill = Skill.objects.filter(category__name="Life Skills", name="Time Management").first()
+    skill = resolve_fixed_skill("Life Skills", "Time Management")
     return [_JournalTag(skill=skill, xp_weight=1)] if skill else []
 
 

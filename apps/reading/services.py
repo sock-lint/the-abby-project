@@ -10,8 +10,9 @@ from django.db.models import Count, Max, Q, RestrictedError, Sum
 from django.utils import timezone
 from rest_framework.exceptions import APIException, NotFound, ValidationError
 
-from apps.achievements.models import Skill
+from apps.achievements.models import Skill, SkillCategory
 from apps.achievements.services import AwardService
+from apps.achievements.source_identity import resolve_source_identity
 from apps.families.models import Family
 from apps.notifications.services import defer_push_until_commit
 from apps.quests.activity import household_timezone
@@ -209,6 +210,18 @@ class ReadingRewardService:
     BASE_COINS = 5
     SKILL_NAME = "Reading Comprehension"
 
+    @staticmethod
+    def _source_identity(model, lookup):
+        """Keep Reading's original resolution seam on the shared identity rules."""
+        return resolve_source_identity(model, lookup)
+
+    @classmethod
+    def _reading_skill(cls):
+        category = cls._source_identity(SkillCategory, {"name": "Language Arts"})
+        if category is None:
+            return None
+        return cls._source_identity(Skill, {"name": cls.SKILL_NAME, "category_id": category.pk})
+
     @classmethod
     @transaction.atomic
     def credit_new_session(cls, user, session):
@@ -245,7 +258,7 @@ class ReadingRewardService:
             daily.save(update_fields=["minutes_credited", "updated_at"])
             return
 
-        skill = Skill.objects.filter(name=cls.SKILL_NAME, category__name="Language Arts").first()
+        skill = cls._reading_skill()
         tags = [SimpleNamespace(skill=skill, xp_weight=1)] if skill is not None else []
         # Observe only entries created by this direct reading award. Badge,
         # check-in and drop Coins have their own reasons and receipts.
