@@ -2,6 +2,23 @@
 
 Non-monetary Coins economy + parent-approved reward shop + money→coins exchange. Parallel to `apps/payments/` (money ledger).
 
+## Price planning
+
+Parent shop forms and anonymous Lab offers share an editable planning guide:
+50 Coins per active day initially, with Small (3 days / 150 Coins), Medium
+(10 days / 500 Coins), and Big (30 days / 1,500 Coins) suggestions. Actual
+earnings vary. Parents can change the estimate, enter a custom day target or
+set any exact price. Suggestions copy a price only after an explicit click;
+changing the guide never recalculates an existing or entered price. Only
+`cost_coins` is saved for real offers; Lab uses its explicit `coin_price`.
+
+Newly created missing bundled Streak Freeze offers cost 150 Coins. Startup
+seeding preserves every existing family offer, including earlier 60-Coin
+prices and parent edits. It cannot infer ownership from a name or price.
+Accepted redemption prices and existing balances stay intact. New anonymous
+Lab offers use 150 Coins; saved scenarios retain their entered prices and the
+backend's older omitted-price normalization stays compatible.
+
 ## Available offers and earlier promises (October 2026)
 
 The owner-authorized prelaunch retirement is an exact, one-time exception to
@@ -83,6 +100,11 @@ does not count the same redemption twice or repeat its badge payout.
   The print request holds its fixed quote and ledger links; no real money moves.
 - `RewardService` — `request_redemption` locks/re-reads the authoritative offer before eligibility, price and stock checks, then holds coins and reserves one stock atomically. Stale instances and concurrent buyers cannot sell the final item twice; the loser receives the existing **409 Conflict** with `{error, code: "out_of_stock", similar: [...]}`. `approve` stamps and credits the saved digital item once, including combined offers; a real-world component awaits delivery even when pre-approval is disabled. `deliver` requires a parent in the child's family and records only the handover receipt, without another Coin debit/refund or inventory grant. `POST /api/redemptions/{id}/deliver/` accepts `{}` and returns the full redemption; fulfilled retries return the original result, while pending/denied/canceled or malformed digital-only approved requests return 409. `GET /api/redemptions/?status=approved` is the separate delivery queue; pending approval filters remain unchanged. `reject` refunds the saved price and restores stock only when the request reserved a finite unit and the current offer still uses finite stock. An unlimited request cannot invent a unit after a later stock limit; returning a finite offer to unlimited retains unlimited stock.
 - `ExchangeService` — `request_exchange` (validate balance, snapshot rate, notify parents), `approve` (atomic debit `PaymentLedger` + credit `CoinLedger` + chronicle first-ever hook), `reject` (no ledger side-effects — money was never held).
+
+MCP handover permits an inactive child still in the parent's current family,
+matching REST's saved-promise workflow. The actor must remain an active parent;
+both scalar resolution and the locked household boundary enforce membership.
+Delivery and replay keep the original Coin and digital-inventory receipts.
 
 Digital item fulfillment uses the shared locked inventory grant, so a delivered
 collection piece immediately evaluates collection badges within the redemption

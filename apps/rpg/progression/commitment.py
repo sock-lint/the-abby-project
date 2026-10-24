@@ -29,6 +29,7 @@ GAUGES = ("outstanding_direct_coins", "outstanding_pouch_coins", "contingent_sal
 POUCH_SOURCES = ("activity_random", "expeditions", "authored", "other", "preexisting")
 ASSUMPTIONS = [
     "This fixed opt-in design experiment changes only synthetic new reward commitments. No live reward rule, inventory or expedition is changed.",
+    "The installed control uses the current production expedition rates and smaller versioned random pouches. This separate prototype retains its 10/25/50 expedition table and original pouch face values.",
     "One child's mounts share 75 Coins of new expedition commitments per calendar day; random activity pouches share a separate 25 Coins. Unused allocation does not bank.",
     "Direct expedition Coins are established first: short 10, standard 25, long 50, reduced before launch if less allocation remains. Later trips may promise zero Coins.",
     "Each item slot filters unaffordable entries before recalculating the existing rarity and companion weights. Pouches reserve their full face value; every cosmetic reserves its positive duplicate-salvage value even while unowned. Empty slots and changed acquisition paths are reported.",

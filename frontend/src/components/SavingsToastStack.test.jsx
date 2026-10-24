@@ -41,7 +41,8 @@ describe('SavingsToastStack', () => {
     await waitFor(() =>
       expect(screen.getByText(/Savings goal reached/i)).toBeInTheDocument(),
     );
-    expect(screen.getByText(/Bike · \+200 coins/)).toBeInTheDocument();
+    expect(screen.getByText('Bike')).toBeInTheDocument();
+    expect(screen.queryByText(/\+200 coins/)).not.toBeInTheDocument();
   });
 
   it('does not re-toast a goal that was already complete on the first beat', async () => {

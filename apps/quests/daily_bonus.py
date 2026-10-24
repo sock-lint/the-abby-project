@@ -71,6 +71,7 @@ def process_daily_bonus(user, activity):
         return None
     from apps.achievements.models import Skill
     from apps.achievements.services import AwardService
+    from apps.achievements.source_identity import resolve_fixed_skill
     from apps.rewards.models import CoinLedger
 
     get_user_model().objects.select_for_update(no_key=True).get(pk=user.pk)
@@ -91,7 +92,7 @@ def process_daily_bonus(user, activity):
 
     skill_rows = activity.context.get("skill_tags") or []
     if not skill_rows:
-        persistence = Skill.objects.filter(category__name="Life Skills", name="Persistence").first()
+        persistence = resolve_fixed_skill("Life Skills", "Persistence")
         skill_rows = [{"skill_id": persistence.pk, "xp_weight": 1}] if persistence else []
     skills = {skill.pk: skill for skill in Skill.objects.filter(pk__in=[row["skill_id"] for row in skill_rows])}
     tags = [SimpleNamespace(skill=skills[row["skill_id"]], xp_weight=row["xp_weight"])

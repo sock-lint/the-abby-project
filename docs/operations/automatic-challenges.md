@@ -25,6 +25,47 @@ payable, while the superseded goal cannot create another repeat window. Legacy
 completion and active-window guards consider equivalent definition identities.
 There is no retroactive reward clawback or activity replay.
 
+### Review unresolved duplicate pairs
+
+The native reconciliation service and three dedicated MCP tools provide an
+explicit maintenance path for one conflicting pair at a time. Select the
+retained source and the creatorless canonical definition by their exact IDs;
+names and primary-key order never choose the winner. Both must be unresolved
+same-name system roots. The service refuses incompatible rules, periods,
+rewards, tags and milestone gates, along with source ownership or dependency
+states that it cannot safely preserve.
+
+Use `preview_challenge_reconciliation` with a stable `client_request_id`, then
+inspect `get_challenge_reconciliation`. These require an active staff parent
+and `mcp:author`. The preview records the chosen pair, provenance categories,
+rule differences and preservation policy without changing the catalog. It
+contains no household identities, usage records or counts. Reuse the UUID and
+exact pair after an uncertain response; changed details conflict.
+
+After reviewing the exact preview, `publish_challenge_reconciliation` requires
+`mcp:publish`, its preview ID and content digest, and top-level
+`confirmation: true`. A one-time personal/cooperative difference also requires
+`acknowledge_cooperative_transition: true`. That acknowledgment applies to the
+reviewed pair: existing personal windows keep their promises, while future
+offers use the selected canonical assignment rules. Other behavioral
+differences, including a repeating personal-to-cooperative conversion, require
+a separate content decision and are not merged here.
+
+Expired or changed catalog/ownership/history bindings require a new preview
+UUID. Current account and family authority is checked on reads and replays.
+Successful publication has one durable receipt and cannot repeat the mapping
+or any reward. Installing this workflow does not automatically reconcile data.
+
+Publication retains both definitions and their creator/source provenance.
+Where no canonical goal already exists, it moves only a catalog goal's
+definition link, preserving that goal's ID, cadence, timestamps and promises.
+Additional accepted alias windows remain payable but cannot open another
+repeat cycle. An enrolled one-time source goal whose only window has not
+opened yet (enrollment can precede its start) has that window saved first, so
+retirement cannot cancel it. A shared account/catalog admission order and a fresh definition
+check prevent stale first enrollment from recreating an alias goal during
+publication. See `apps/quests/reconciliation.py` and its PostgreSQL tests.
+
 An explicitly cooperative catalog definition requires a parent to choose at
 least two children from the same family under Family challenges. The resulting
 saved campaign has one shared progress total and uses the existing co-op payout

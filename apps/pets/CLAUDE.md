@@ -74,6 +74,12 @@ Accepted trips retain their frozen rewards. See
 - `PetService` — `start_incubation`, `current_incubation`, `hatch_incubation`, `feed_pet`, `evolve`, `set_active_pet`, `set_active_mount`, `auto_grow_companions`, `happiness_for_pet`, `get_stable(user)` (returns dict with pets, mounts, totals for StableView).
 - `ExpeditionService` (`apps/pets/expeditions.py`) — `start`, `claim`, `list_for_user`. `TIER_CONFIG` (short/standard/long). Exceptions: `ExpeditionError`, `ExpeditionNotFound`.
 
+New expeditions have 3 / 7 / 15 base Coins for 2 / 4 / 8 hours, with existing
+variation, item slots and claim-time Lucky Coin behavior. Newly rolled pouch
+items use the reduced versioned definitions before freezing loot. Existing
+trips keep their saved Coins and exact item IDs; claim never applies the new
+random-award resolver. See [Coin pacing](../../docs/operations/coin-economy.md).
+
 ### Growth transactions
 
 Incubation starts acquire the achievements user gate before inventory writes,
@@ -147,15 +153,18 @@ the shared user-before-profile/inventory/progress order.
 Every mount read/activation response carries `expedition_available`,
 `expedition_available_at` and `expedition_available_in_seconds`. A mount is
 available only with no active/unclaimed expedition on any owned appearance of
-its species and no species expedition started that Django local day. Claimed
-and expired runs still use today's allowance.
-When that allowance is used, the timestamp names the next local midnight and
-the integer gives a rounded-up server-relative wait. Available mounts return
+its species, no species expedition started that family-local day, and fewer
+than two expedition starts across all of the child's species that day. Claimed
+and expired runs still use both daily allowances.
+When either daily allowance is used, the timestamp names the next family-local
+midnight, serialized in the current Django timezone, and the integer gives a
+rounded-up server-relative wait. Available mounts return
 null/zero; active trips return null/null because collecting the return requires
 an explicit claim first. These read-only fields match `ExpeditionService.start`
-and do not change its rules. Use the current Django timezone, independently of
-family or phone settings. Readiness, remaining seconds and availability share
-a server snapshot; serialized reads never claim a trip or award anything.
+and share its family-day bounds; the phone timezone does not change eligibility.
+Readiness, remaining seconds and availability share one cached server clock
+snapshot, including across midnight. Serialized reads never claim a trip or
+award anything.
 
 `DailyExpeditionCard` presents ready, away, returned and explored-today states
 on both Companions' grown Bird home and Grown pets. The card opens the existing
@@ -222,7 +231,7 @@ check-in rewards, XP or growth rules are introduced by these interactions.
 
 - **Mount expeditions** (`apps/pets/expeditions.py` + `apps/pets/models.py::MountExpedition`, added 2026-05-10): Finch-inspired offline play loop. A user sends their mount on a 2/4/8h run via `ExpeditionLaunchSheet` on `/bestiary?tab=mounts`; the mount returns with coins + 1-3 items. Tier durations + coin/item budgets live in `TIER_CONFIG` in [`expeditions.py`](expeditions.py) (short=2h/15c/1, standard=4h/35c/2, long=8h/75c/3). **Loot is rolled at start and locked to the row's `loot` JSON field** — slow-claim users get the same payout regardless of when they tap through. Daily cap of one expedition per mount per local day enforced by both a service-level `started_at__date=today` check and a partial unique constraint on `(mount, status='active')` so a concurrent double-start surfaces a friendly error before hitting `IntegrityError`. Cross-user mount IDs return `MountExpedition not found` from the service, mapped to **404** in `StartExpeditionView` / `ClaimExpeditionView` (existence-leak prevention, matching the MCP `get_in_family` pattern). On claim:
   - `_materialize_loot` posts coins via `CoinService.award_coins(reason=CoinLedger.Reason.EXPEDITION)` — the `EXPEDITION` reason **is** on the `_BOOSTABLE_COIN_REASONS` whitelist so Lucky Coin doubles the haul. Adding a new earn-kind reason without checking this whitelist is the bug shape that bit Daily Challenge originally; pinned by `test_lucky_coin_doubles_expedition_payout` in [`tests/test_expeditions.py`](tests/test_expeditions.py).
-  - Cosmetic-dupe salvage path mirrors `DropService` — owned cosmetics get auto-converted to `coin_value` instead of stacking dupes. The loot row records `salvaged_to_coins` so the claim modal can render the salvage ribbon.
+  - New expeditions freeze cosmetic duplicate salvage at at most 10 Coins per slot when launched; older loot without that snapshot retains its established full-value claim path. The loot row records `salvaged_to_coins` so the claim modal can render the salvage ribbon.
   - `GameLoopService.on_task_completed(user, TriggerType.EXPEDITION_RETURNED, {drops_allowed: False, ...})` fires for streak / quest-progress credit. **`drops_allowed=False` is load-bearing**: loot was already rolled at start, the claim must not double-dip the trigger's bonus drop roll. Same precedent as `homework_created`.
   - New loot uses fixed conditional tier budgets: short 70/25/5 Common/Uncommon/Rare; standard 50/35/13/2 through Epic; long 35/35/22/7/1 through Legendary. Unlisted tiers are excluded and absent tiers renormalize. Authored weights choose within a tier, so catalog size cannot dilute another tier. Unowned cosmetics precede duplicate salvage within their tier/category. The fallback is the union of positive `CLOCK_OUT` + `CHORE_COMPLETE` entries; current seed content in that fallback is mostly food/pouches/eggs, not cosmetics. Saved pre-rolled loot remains unchanged.
 
@@ -261,3 +270,7 @@ identity, protected-reference or resource-validation conflicts roll back all
 retirement writes and warn while startup continues without a success marker;
 the explicit manual command remains strict. Dry runs and later bundled-load
 failures roll back resources, deletion and the completion marker together.
+
+## Prospective Coin limits
+
+New starts share a two-expedition daily allowance per child across every species and potion appearance. The family-local interval counts all saved launch receipts, including claimed, expired and older launches; claiming or retrying cannot reset the allowance. Existing active trips remain claimable in full. Per-species limits still apply inside this shared allowance. New trips use 3/7/15 base Coins and freeze smaller random pouch identities and each cosmetic slot's `salvage_coins_snapshot` before acceptance. Claim-time Lucky Coin eligibility remains unchanged; saved items and old loot are never rerolled or capped at claim.

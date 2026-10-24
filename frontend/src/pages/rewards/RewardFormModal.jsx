@@ -10,6 +10,7 @@ import { TextField, SelectField, TextAreaField, CheckboxField, IconPicker } from
 import { downscaleImage } from '../../utils/image';
 import { normalizeList } from '../../utils/api';
 import { isCatalogAvailable } from '../../utils/catalogAvailability';
+import RewardPriceGuide from '../../components/rewards/RewardPriceGuide';
 
 const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const FULFILLMENT_KINDS = [
@@ -17,6 +18,18 @@ const FULFILLMENT_KINDS = [
   { value: 'digital_item', label: 'Digital item' },
   { value: 'both', label: 'Both' },
 ];
+
+function pouchCoinAmount(item) {
+  const metadata = item?.metadata;
+  if (metadata && (typeof metadata !== 'object' || Array.isArray(metadata))) return null;
+  // Match pouch opening: a false/zero metadata value falls back to coin_value;
+  // numeric strings must be integers, while numeric values truncate toward zero.
+  const value = metadata?.coins || item?.coin_value || 0;
+  if (typeof value !== 'number' && typeof value !== 'boolean'
+      && (typeof value !== 'string' || !/^[+-]?\d+$/.test(value.trim()))) return null;
+  const coins = Math.trunc(Number(value));
+  return Number.isSafeInteger(coins) && coins > 0 ? coins : null;
+}
 
 export default function RewardFormModal({ reward, onClose, onSaved }) {
   const isEdit = !!reward;
@@ -37,6 +50,14 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
     item_definition: reward?.item_definition || '',
   });
   const [imageFile, setImageFile] = useState(null);
+  const selectedItem = itemCatalog.find((item) => String(item.id) === String(form.item_definition));
+  const pouchCoins = selectedItem?.item_type === 'coin_pouch' ? pouchCoinAmount(selectedItem) : null;
+  // This form saves parseInt(cost_coins), including exponent-form number input.
+  const submittedCost = parseInt(form.cost_coins);
+  const warnPouchGain = form.fulfillment_kind !== 'real_world'
+    && (form.stock === '' || form.stock === null)
+    && Number.isSafeInteger(submittedCost) && submittedCost >= 0
+    && pouchCoins !== null && pouchCoins > submittedCost;
 
   const onField = (k) => (e) => {
     const val = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
@@ -84,7 +105,8 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
         <TextField label="Name" value={form.name} onChange={onField('name')} required />
         <TextAreaField label="Description" value={form.description} onChange={onField('description')} rows={2} />
         <IconPicker label="Icon (emoji)" value={form.icon} onChange={(icon) => set({ icon })} placeholder="🎁" disabled={saving} />
-        <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required />
+        <TextField label="Cost (coins)" type="number" min="0" value={form.cost_coins} onChange={onField('cost_coins')} required disabled={saving} />
+        <RewardPriceGuide onApply={(cost_coins) => set({ cost_coins })} disabled={saving} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <SelectField label="Rarity" value={form.rarity} onChange={onField('rarity')}>
             {RARITIES.map((r) => (
@@ -137,6 +159,11 @@ export default function RewardFormModal({ reward, onClose, onSaved }) {
               </option>
             ))}
           </SelectField>
+        )}
+        {warnPouchGain && (
+          <p role="status" className="rounded-lg border border-ink-page-shadow p-3 text-caption text-ink-secondary">
+            This unlimited offer costs {submittedCost} Coins and its pouch pays {pouchCoins} Coins, a net gain of {pouchCoins - submittedCost} Coins per purchase. You can still save this offer.
+          </p>
         )}
         <div className="flex flex-wrap gap-x-4 gap-y-2">
           <CheckboxField

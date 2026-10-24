@@ -32,18 +32,22 @@ def _request_value(value):
 
 
 @contextmanager
-def authorized_household(actor, target, *, allow_inactive_target=False):
+def authorized_household(actor, target, *, allow_inactive_target=False, lock_family_members=False):
     """Recheck authority under Family -> sorted member locks for native writes."""
     User = get_user_model()
     with transaction.atomic():
         family = Family.objects.select_for_update(no_key=True).filter(pk=actor.family_id).first()
         if family is None:
             raise MCPPermissionDenied("Your family is no longer available.")
-        members = {
-            member.pk: member for member in User.objects.select_for_update(no_key=True).filter(
+        if lock_family_members:
+            # Family-wide queries and co-op writes must acquire older targets
+            # before a newer actor, in one batch rather than nested guards.
+            member_rows = User.objects.select_for_update(no_key=True).filter(family=family).order_by("pk")
+        else:
+            member_rows = User.objects.select_for_update(no_key=True).filter(
                 pk__in={actor.pk, target.pk}, family=family,
             ).order_by("pk")
-        }
+        members = {member.pk: member for member in member_rows}
         fresh_actor, fresh_target = members.get(actor.pk), members.get(target.pk)
         if (fresh_actor is None or not fresh_actor.is_active
                 or (fresh_actor.role, fresh_actor.is_staff) != (actor.role, actor.is_staff)):
@@ -56,6 +60,9 @@ def authorized_household(actor, target, *, allow_inactive_target=False):
 
         fresh_actor.family = family
         fresh_target.family = family
+        # Only this immutable cohort was locked. A later join must wait for
+        # another request rather than extending authority without a row lock.
+        fresh_actor._mcp_locked_member_ids = frozenset(members)
         yield fresh_actor, fresh_target
 
 

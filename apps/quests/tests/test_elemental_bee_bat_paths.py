@@ -54,7 +54,7 @@ def bee_bat_policy(*pairs):
 class ElementalBeeBatPathTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command("loadrpgcontent", stdout=StringIO())
+        call_command("loadrpgcontent", pack="content/rpg/initial", stdout=StringIO())
 
     def setUp(self):
         household = make_family(

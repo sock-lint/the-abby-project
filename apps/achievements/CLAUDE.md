@@ -40,6 +40,14 @@ live in `tests/test_badge_availability_queries.py`.
 
 ## Services
 
+`source_identity.py` resolves installed journal, grade, Reading and daily-bonus XP
+destinations by their exact current or retained original category/skill identity.
+Retained matches require exact version-1 MCP authoring provenance in
+`RPGContentOverride`. Distinct competing identities fail closed; source-less
+canonical rows remain supported. Retirement preserves these installed routes,
+and normal unlock eligibility still controls credit. Labels never redirect saved
+receipts or cause past awards to be replayed.
+
 Taxonomy deletion is shared by REST and MCP through
 `apps.rpg.content.taxonomy_deletion.delete_taxonomy`. Only unused leaves may be
 removed. Incoming relationships, saved homework-template skill tags, challenge reward/gate snapshots, retained
@@ -79,6 +87,12 @@ an approved zero-dollar week preserves its eligibility for later badge evaluatio
 kinds do not contribute. New firsts and graduation milestones evaluate the
 `chronicle` and `badges` scopes in their marker transaction; duplicate writers
 do not replay awards. See `apps/chronicle/tests/test_milestone_badges.py`.
+
+New birthday entries from the direct Chronicle service and scheduled task also
+evaluate `chronicle` and `badges` under that account lock. Birthday thresholds
+and newly eligible badge-count achievements use the ordinary one-drop-per-badge
+award path. The scheduled birthday coin gift remains separate, and existing
+entries do not backfill rewards. See `apps/chronicle/tests/test_birthday_badges.py`.
 
 Every newly created `UserBadge` also receives one `badge_earned` drop through
 `DropService.award_accomplishment`, including badges with no XP or Coin bonus.

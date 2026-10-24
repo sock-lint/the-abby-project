@@ -15,6 +15,7 @@ from django.utils import timezone
 from apps.mcp_server.catalog import audit_catalog_rows, catalog_queryset, catalog_row
 from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.quests.reward_items import freeze_legacy_quest_promises
+from apps.rpg.authoring_archive import ensure_active_capacity, locked_author, require_writable
 from apps.rpg.models import ContentPackEntry, ContentPackPublication, ItemDefinition, RPGContentDraft, RPGContentOverride
 
 from .loader import ContentPack, ContentPackError, LoadStats
@@ -47,6 +48,7 @@ def _draft(actor, draft_id, *, lock=False):
 
 
 def _revision(draft, revision, *, writable=True):
+    require_writable(draft)
     if type(revision) is not int or revision != draft.revision:
         raise WorkbenchConflict("Draft revision changed; reload the draft before continuing.")
     if writable and draft.published_at:
@@ -57,28 +59,30 @@ def draft_payload(draft):
     plan = receipt_payload(draft.preview) if draft.preview_id else None
     if plan:
         plan["audits"] = draft.preview.stats.get("audits", {"findings": [], "incomplete": False})
-    return {"id": str(draft.pk), "name": draft.name, "revision": draft.revision, "changes": deepcopy(draft.changes),
+    return {"id": str(draft.pk), "name": draft.name, "revision": draft.revision, "is_archived": draft.is_archived, "changes": deepcopy(draft.changes),
             "preview": plan, "simulation": deepcopy(draft.simulation) or None,
             "published_at": draft.published_at.isoformat() if draft.published_at else None,
             "updated_at": draft.updated_at.isoformat()}
 
 
+@transaction.atomic
 def get_draft(actor, draft_id):
+    actor = locked_author(actor)
     return draft_payload(_draft(actor, draft_id))
 
 
 @transaction.atomic
 def create_draft(actor, name):
-    require_actor(actor)
+    actor = locked_author(actor)
     if not isinstance(name, str) or not name.strip() or len(name) > 100:
         raise ContentPackError("Draft name must be nonempty text of at most 100 characters.")
-    if RPGContentDraft.objects.filter(actor=actor, family=actor.family, published_at__isnull=True).count() >= 30:
-        raise ContentPackError("At most 30 unpublished drafts may be kept per author.")
+    ensure_active_capacity("content", actor)
     return draft_payload(RPGContentDraft.objects.create(actor=actor, family=actor.family, name=name.strip()))
 
 
 @transaction.atomic
 def save_draft(actor, draft_id, revision, changes, *, name=None):
+    actor = locked_author(actor)
     draft = _draft(actor, draft_id, lock=True)
     _revision(draft, revision)
     validate_changes(actor, changes)
@@ -98,8 +102,9 @@ def _pack(draft):
     return f"wb-{draft.pk.hex}"
 
 
-def _source(draft):
-    return _digest({"draft": str(draft.pk), "revision": draft.revision, "changes": draft.changes})
+def _source(draft, *, revision=None):
+    return _digest({"draft": str(draft.pk), "revision": draft.revision if revision is None else revision,
+                    "changes": draft.changes})
 
 
 def _state(snapshot):
@@ -181,7 +186,9 @@ def _apply(draft, *, publication=None):
             # Earlier changes in this same draft may have just retained a
             # source identity that was not present during preflight.
             validate_source_identity(obj)
-            if QuestDefinition.objects.filter(name=obj.name, superseded_by__isnull=True).exclude(pk=obj.pk).exists():
+            # Private household titles do not reserve public catalog names.
+            if QuestDefinition.objects.filter(is_system=True, name=obj.name,
+                    superseded_by__isnull=True).exclude(pk=obj.pk).exists():
                 raise ContentPackError("Challenge name collides with existing content; choose a distinct name.")
         else:
             validate_item_runtime(obj)
@@ -240,6 +247,7 @@ def _apply(draft, *, publication=None):
 
 @transaction.atomic
 def preview_draft(actor, draft_id, revision):
+    actor = locked_author(actor)
     _catalog_lock()
     draft = _draft(actor, draft_id, lock=True)
     _revision(draft, revision)
@@ -262,13 +270,15 @@ def preview_draft(actor, draft_id, revision):
     return draft_payload(draft)
 
 
-def _reviewed(draft, preview_id, *, content_digest=None):
+def _reviewed(draft, preview_id, *, content_digest=None, published_revision=None):
     plan = draft.preview
     if plan is None or str(plan.pk) != str(preview_id) or plan.actor_id != draft.actor_id or plan.family_id != draft.family_id:
         raise WorkbenchConflict("Publication preview not found for this draft, actor and family.")
     if content_digest is not None and content_digest != plan.content_digest:
         raise WorkbenchConflict("Content digest does not match the reviewed preview.")
-    if _source(draft) != plan.content_digest:
+    if published_revision is not None and not (draft.published_at and plan.published_at):
+        raise WorkbenchConflict("Only a completed publication may use its original preview revision.")
+    if _source(draft, revision=published_revision) != plan.content_digest:
         raise WorkbenchConflict("Draft content changed; preview it again.")
     if not plan.published_at and plan.expires_at <= timezone.now():
         raise WorkbenchConflict("Publication preview expired; preview it again.")
@@ -308,6 +318,7 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None, *, author
     # detached calculation. An outer atomic would retain PostgreSQL locks even
     # after these inner blocks exit.
     with (authorize() if authorize else nullcontext(actor)) as current_actor, transaction.atomic():
+        current_actor = locked_author(current_actor)
         _catalog_lock()
         draft = _draft(current_actor, draft_id, lock=True)
         _revision(draft, revision)
@@ -322,6 +333,7 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None, *, author
     comparison = {"baseline": simulate_progression(config, catalog=baseline, incubation_policy=incubation_policy),
                   "proposed": simulate_progression(config, catalog=proposed, incubation_policy=incubation_policy)}
     with (authorize() if authorize else nullcontext(actor)) as current_actor, transaction.atomic():
+        current_actor = locked_author(current_actor)
         _catalog_lock()
         draft = _draft(current_actor, draft_id, lock=True)
         _revision(draft, revision)
@@ -338,12 +350,19 @@ def simulate_draft(actor, draft_id, revision, preview_id, config=None, *, author
 
 @transaction.atomic
 def publish_draft(actor, draft_id, revision, preview_id, content_digest):
+    actor = locked_author(actor)
     _catalog_lock()
     draft = _draft(actor, draft_id, lock=True)
+    if draft.published_at:
+        # Archive/restore changes organization and its revision, not the
+        # completed publication. Prove the exact original operation before
+        # returning its current saved state; never apply catalog changes here.
+        if type(revision) is not int or revision < 1:
+            raise WorkbenchConflict("Supply the original reviewed publication revision.")
+        _reviewed(draft, preview_id, content_digest=content_digest, published_revision=revision)
+        return draft_payload(draft)
     _revision(draft, revision, writable=False)
     plan = _reviewed(draft, preview_id, content_digest=content_digest)
-    if draft.published_at:
-        return draft_payload(draft)
     before = _current(draft, plan)
     expected = {"preview_id": str(plan.pk), "revision": draft.revision, "content_digest": plan.content_digest}
     if any(draft.simulation.get(key) != value for key, value in expected.items()):
@@ -449,8 +468,8 @@ def describe_workbench(actor):
             found.extend(challenge_trigger_findings(objects))
         findings.extend(found)
         any_incomplete = any_incomplete or incomplete
-    drafts = RPGContentDraft.objects.filter(actor=actor, family=actor.family).only(
-        "id", "name", "revision", "published_at", "updated_at")
+    drafts = RPGContentDraft.objects.filter(actor=actor, family=actor.family, is_archived=False).only(
+        "id", "name", "revision", "is_archived", "published_at", "updated_at")
     visible_drafts = [*drafts.filter(published_at__isnull=True).order_by("-updated_at")[:30],
                       *drafts.filter(published_at__isnull=False).order_by("-updated_at")[:70]]
     return {"catalog": catalog,
@@ -463,6 +482,6 @@ def describe_workbench(actor):
                 "storage": "Bundled YAML supplies defaults; published database overrides survive content reloads."},
             "audits": {"findings": findings, "incomplete": any_incomplete},
             "simulation": describe_progression(),
-            "drafts": [{"id": str(draft.pk), "name": draft.name, "revision": draft.revision,
+            "drafts": [{"id": str(draft.pk), "name": draft.name, "revision": draft.revision, "is_archived": draft.is_archived,
                 "published_at": draft.published_at.isoformat() if draft.published_at else None,
                 "updated_at": draft.updated_at.isoformat()} for draft in visible_drafts]}

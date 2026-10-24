@@ -1,5 +1,5 @@
 """Staff-parent content authoring with private drafts and explicit publication."""
-from rest_framework.exceptions import APIException, NotFound, ValidationError
+from rest_framework.exceptions import APIException, NotFound, PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
@@ -7,6 +7,9 @@ from rest_framework.views import APIView
 
 from config.permissions import IsStaffParent
 
+from .archive_views import content_draft_page
+from .authoring_archive import AuthoringArchiveConflict
+from .content.errors import ContentAuthorPermissionDenied
 from .content.loader import ContentPackError
 from .content.workbench import (
     WorkbenchConflict, WorkbenchNotFound, create_draft, describe_workbench, get_draft, preview_draft,
@@ -35,13 +38,17 @@ def _body(request, required, optional=()):
 class _WorkbenchView(APIView):
     permission_classes = [IsAuthenticated, IsStaffParent]
 
+    allowed_query = set()
+
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        if set(request.query_params) - {"_abby_session", "_abby_retry"}:
+        if set(request.query_params) - {"_abby_session", "_abby_retry"} - self.allowed_query:
             raise ValidationError({"detail": "Content Workbench accepts no account or query selectors."})
 
     def handle_exception(self, exc):
-        if isinstance(exc, WorkbenchConflict):
+        if isinstance(exc, ContentAuthorPermissionDenied):
+            exc = PermissionDenied("Authoring requires an active staff parent in the current family.")
+        elif isinstance(exc, (WorkbenchConflict, AuthoringArchiveConflict)):
             exc = _Conflict({"detail": str(exc)})
         elif isinstance(exc, WorkbenchNotFound):
             exc = NotFound({"detail": str(exc)})
@@ -56,6 +63,11 @@ class ContentWorkbenchView(_WorkbenchView):
 
 
 class ContentDraftListView(_WorkbenchView):
+    allowed_query = {"include_archived", "after", "limit", "published"}
+
+    def get(self, request):
+        return Response(content_draft_page(request))
+
     def post(self, request):
         data = _body(request, ("name",))
         return Response(create_draft(request.user, data["name"]), status=201)

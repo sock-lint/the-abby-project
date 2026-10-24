@@ -20,15 +20,17 @@ quests:
 
   - slug: first-week-freshman
     name: First Week of Freshman Year
-    description: Survive the first week of high school by keeping the routine alive. Log 5 habits to clear it.
+    description: Keep your routine going with a positive habit on 5 different days in this seven-day window.
     quest_type: collection
     target_value: 5
     duration_days: 7
-    coin_reward: 200
+    coin_reward: 20
     xp_reward: 150
     is_repeatable: false
     trigger_filter:
       allowed_triggers: [habit_log]
+      distinct_active_days: true
+      reward_policy_version: 2
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Life Skills::Time Management", weight: 2}

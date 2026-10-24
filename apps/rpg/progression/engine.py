@@ -22,10 +22,12 @@ from apps.quests import milestone_eligibility as milestone_rules
 
 from apps.achievements.models import XP_THRESHOLDS
 from apps.achievements import criteria as badge_criteria
+from apps.achievements import source_identity as fixed_xp_identity
 from apps.achievements.criteria import criteria_types_for_scopes
 from apps.achievements.services import BadgeService, SkillService
 from apps.chronicle import firsts as chronicle_firsts, recognition as chronicle_recognition
-from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL
+from apps.chronicle.grade_services import GRADE_XP_POOL, _grade_xp_tags
+from apps.chronicle.services import ChronicleService, JOURNAL_SKILL_WEIGHTS, JOURNAL_XP_POOL, _journal_xp_tags
 from apps.creations.services import CreationService
 from apps.habits.services import HabitService
 from apps.movement.services import MovementSessionService
@@ -63,6 +65,7 @@ from apps.rpg.services import (
     _step_chronicle_firsts,
 )
 from apps.rpg import inventory as inventory_rules
+from apps.rpg import coin_policy
 from apps.wellbeing.services import GRATITUDE_FIRST_OF_DAY_COINS
 
 from .catalog import load_catalog
@@ -93,7 +96,7 @@ from .challenge_gates import (
 
 
 SCHEMA_VERSION = 1
-ENGINE_VERSION = "2026-10-22.1"
+ENGINE_VERSION = "2026-10-23.1"
 SECONDS_PER_DAY = 86400
 MAX_WORK_UNITS = 10000
 DEFAULTS = {
@@ -256,9 +259,17 @@ def rules_fingerprint(*, incubation_policy=None):
         "badge_criteria_registry": {str(key): f"{fn.__module__}.{fn.__qualname__}"
                                     for key, fn in badge_criteria._CRITERIA_CHECKERS.items()},
         "badge_service_source": inspect.getsource(inspect.getmodule(BadgeService)),
+        "fixed_xp_source_identity_source": inspect.getsource(fixed_xp_identity),
         "chronicle_first_mapping_source": inspect.getsource(chronicle_firsts),
         "chronicle_recognition_source": inspect.getsource(chronicle_recognition),
         "inventory_grant_source": inspect.getsource(inventory_rules),
+        "random_pouch_policy_source": inspect.getsource(coin_policy),
+        "random_pouch_replacements": dict(coin_policy.RANDOM_POUCH_REPLACEMENTS),
+        "random_pouch_values": dict(coin_policy.RANDOM_POUCH_VALUES),
+        "installed_random_reward_limits": {
+            "expeditions_per_child_day": coin_policy.EXPEDITION_DAILY_LIMIT,
+            "cosmetic_salvage_per_draw": coin_policy.RANDOM_COSMETIC_SALVAGE_LIMIT,
+        },
         "inventory_badge_hook": inspect.getsource(BadgeService.evaluate_inventory_badges),
         "pet_incubation_policy": dict(_capture_incubation_policy(incubation_policy)),
         "seconds_per_day": SECONDS_PER_DAY,
@@ -293,6 +304,7 @@ def rules_fingerprint(*, incubation_policy=None):
         "badge_coins": settings.COINS_PER_BADGE_RARITY,
         "reading": [ReadingRewardService.TARGET_MINUTES, ReadingRewardService.BASE_XP, ReadingRewardService.BASE_COINS],
         "journal": [JOURNAL_XP_POOL, JOURNAL_SKILL_WEIGHTS, GRATITUDE_FIRST_OF_DAY_COINS],
+        "grade": GRADE_XP_POOL,
         "creations": [CreationService.BASELINE_XP, CreationService.DAILY_XP_LIMIT],
         "movement": [
             MovementSessionService.DAILY_REWARD_LIMIT,
@@ -326,6 +338,8 @@ def rules_fingerprint(*, incubation_policy=None):
                 growth_thresholds,
                 promised_potion_ids,
                 process_daily_bonus,
+                _journal_xp_tags,
+                _grade_xp_tags,
                 ClockService.clock_out,
                 PetService.feed_pet,
                 PetService.start_incubation,
@@ -345,6 +359,8 @@ def rules_fingerprint(*, incubation_policy=None):
                 chronicle_recognition.safe_record_firsts,
                 _step_chronicle_firsts,
                 ReadingRewardService.credit_new_session,
+                ReadingRewardService._reading_skill,
+                ReadingRewardService._source_identity,
                 TimecardService.generate_weekly_timecard,
                 quote_print_coins,
                 normalize_economy,
@@ -365,7 +381,8 @@ def coverage(catalog):
             "New child with zero XP, Coins and owned companions/inventory",
             "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
             "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
-            "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+            "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
+            "Parallel automatic catalog challenges, with distinct active days for marked future windows, guaranteed companion trails and eligible badge criteria",
             "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
             "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
             "First hatch, evolution, automatic challenge, legendary badge, 30/60/100-day streak and assumed approved exchange each add one scoped recognition check for modeled badges",
@@ -391,9 +408,10 @@ def coverage(catalog):
             "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
             "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
             "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
-            "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+            "Installed control shares two expedition launches per child/day as well as one per species across potion appearances; an unclaimed trip blocks its species. The separate commitment prototype retains its explicit standalone launch assumptions",
+            "New control expedition cosmetic salvage is frozen at launch at at most 10 Coins; old saved trips retain their values. New ordinary duplicate draws use the same ceiling",
             "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
-            "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+            "New source events advance every matching challenge; marked distinct-active-day challenges count one qualifying day per occurrence, while other challenge durations remain deadlines rather than minimum waits",
             "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
             "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
             "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -483,6 +501,7 @@ class Trial:
         self.economy = Economy(self.config["economy"]) if self.config["economy"]["enabled"] else None
         self.reward_budget = RewardBudget(self.config["reward_budget"])
         self.reward_commitment = RewardCommitment(self.config["reward_commitment"])
+        self._items_by_slug = {getattr(item, "slug", ""): item for item in catalog.items.values()}
         self.expedition_budget = ExpeditionBudget(self.config["expedition_budget"])
         self.challenge_gates = ChallengeGates(self.config["challenge_gates"], catalog)
         self.rng = random.Random(seed)
@@ -513,6 +532,7 @@ class Trial:
         self.recognized_firsts = set()
         self.pets, self.pending_expeditions, self.quest_windows = {}, [], {}
         self.expedition_launch_day_by_species = {}
+        self.expedition_launches_by_day = Counter()
         self.habit_strength = [0] * self.config["habits_per_day"]
         self.source_totals, self.sink_totals = defaultdict(Counter), defaultdict(Counter)
         self.milestones, self.trace, self.events = {}, [], []
@@ -627,6 +647,8 @@ class Trial:
 
     def _expedition_launch_capacity(self):
         requested = self.config["expeditions_per_day"]
+        if not self.reward_commitment.enabled:
+            requested = min(requested, coin_policy.EXPEDITION_DAILY_LIMIT)
         cap = self.config["expedition_budget"]["daily_launches"]
         return requested if cap is None else min(requested, cap)
 
@@ -737,6 +759,8 @@ class Trial:
             ),
             Decimal(0),
         )
+        if quest.trigger_filter.get("distinct_active_days") is True:
+            per_day = min(per_day, Decimal(1))
         # Windows can begin on any weekday after badge unlock. Use the largest
         # possible active-day count; never declare an impossible target reachable.
         # Untimed milestones have no expiry. Bound the routine-capacity subset
@@ -761,7 +785,7 @@ class Trial:
     def _obtainable_drop_items(self, trigger, *, installed=False):
         budgets = drop_tier_weights(trigger)
         return {
-            entry.item_id for entry in self.catalog.pools.get(trigger, [])
+            self._random_reward_item(entry.item).pk for entry in self.catalog.pools.get(trigger, [])
             if entry.min_level <= max(XP_THRESHOLDS) and entry.weight > 0
             and budgets.get(entry.item.rarity, 0) > 0
             and (installed or not self.reward_commitment.enabled or self.reward_commitment.allows(entry.item))
@@ -931,7 +955,7 @@ class Trial:
                     tier = self.config["expedition_tier"]
                     for level in XP_THRESHOLDS:
                         entries, weights = self._source_pool("expedition_returned", level, tier)
-                        renewable = {entry.item_id for entry, weight in zip(entries, weights)
+                        renewable = {self._random_reward_item(entry.item).pk for entry, weight in zip(entries, weights)
                                           if weight > 0 and TIER_CONFIG[tier]["rarity_weights"].get(entry.item.rarity, 0) > 0
                                           and (installed or not self.reward_commitment.enabled
                                                or self.reward_commitment.allows(entry.item, tier=tier))}
@@ -1068,7 +1092,7 @@ class Trial:
             if all(self.xp[required] >= XP_THRESHOLDS.get(level, math.inf) for required, level in prerequisites):
                 self.unlocked.add(pk)
 
-    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False, egg_potion_ids=()):
+    def grant_item(self, pk, quantity, source, *, salvage_cosmetic=False, salvage_egg=False, egg_potion_ids=(), salvage_coins=None):
         item = self.catalog.items.get(pk)
         if not item or quantity <= 0:
             return
@@ -1080,9 +1104,15 @@ class Trial:
             salvage_cosmetic
             and item.item_type in COSMETIC_TYPES
             and self.inventory[pk] > 0
-            and (source != "expeditions" or item.coin_value > 0)
+            and (source != "expeditions" or
+                 (salvage_coins if salvage_coins is not None else item.coin_value) > 0)
         ) or duplicate_egg:
-            self.coin_award(item.coin_value * quantity, f"{source}_salvage")
+            amount = item.coin_value
+            if salvage_coins is not None:
+                amount = salvage_coins
+            elif source == "drops" and not self.reward_commitment.enabled and not duplicate_egg:
+                amount = coin_policy.random_cosmetic_salvage_coins(item)
+            self.coin_award(amount * quantity, f"{source}_salvage")
             return
         self.inventory[pk] += quantity
         self.reward_commitment.grant_pouch(item, quantity, source)
@@ -1090,6 +1120,16 @@ class Trial:
         self.source_totals[source]["items"] += quantity
         self.record(source, items=quantity, target=item.display_name)
         self.evaluate_inventory_badges()
+
+    def _random_reward_item(self, item):
+        """Resolve new random grants against this detached catalog snapshot.
+
+        The separate commitment prototype retains its established original
+        face-value policy. Authored grants and claims never call this helper.
+        """
+        if self.reward_commitment.enabled:
+            return item
+        return coin_policy.resolve_random_pouch(item, items_by_slug=self._items_by_slug)
 
     def consume(self, pk, quantity, source):
         self.inventory[pk] -= quantity
@@ -1108,9 +1148,10 @@ class Trial:
         entries, weights = self.eligible_pool(trigger, record_filtered=True)
         if entries and sum(weights) > 0:
             entry = self.rng.choices(entries, weights=weights, k=1)[0]
+            item = self._random_reward_item(entry.item)
             if self.reward_commitment.enabled:
                 self.reward_commitment.reserve_item(entry.item, self.day)
-            self.grant_item(entry.item_id, 1, "drops", salvage_cosmetic=True)
+            self.grant_item(item.pk, 1, "drops", salvage_cosmetic=True)
             self.counters["drops"] += 1
         elif self.reward_commitment.enabled:
             self.reward_commitment.totals["activity_empty_drops"] += 1
@@ -1182,16 +1223,23 @@ class Trial:
             if q.pk not in self.quest_windows:
                 if self._has_milestones(q) and amount <= 0:
                     continue
-                self.quest_windows[q.pk] = {"start": self.day, "progress": Decimal(0), "paid": False}
+                self.quest_windows[q.pk] = {"start": self.day, "progress": Decimal(0), "paid": False,
+                                           "credited_days": set()}
                 self.challenge_gates.unlock_days.setdefault(q.pk, self.day)
             window = self.quest_windows[q.pk]
             if q.duration_days is not None and self.day >= window["start"] + q.duration_days:
                 if not q.is_repeatable:
                     continue
                 periods = (self.day - window["start"]) // q.duration_days
-                window.update(start=window["start"] + periods * q.duration_days, progress=Decimal(0), paid=False)
+                window.update(start=window["start"] + periods * q.duration_days,
+                              progress=Decimal(0), paid=False, credited_days=set())
             if window["paid"]:
                 continue
+            if amount > 0 and q.trigger_filter.get("distinct_active_days"):
+                credited_days = window.setdefault("credited_days", set())
+                if self.day in credited_days:
+                    continue
+                credited_days.add(self.day)
             window["progress"] += amount
             if window["progress"] < q.target_value:
                 continue
@@ -1449,7 +1497,8 @@ class Trial:
             self.coin_award(expedition["coins"], "expeditions")
             salvage_before = self.source_totals["expeditions_salvage"]["coins"] if self.reward_commitment.enabled else 0
             for pk in expedition["items"]:
-                self.grant_item(pk, 1, "expeditions", salvage_cosmetic=True)
+                self.grant_item(pk, 1, "expeditions", salvage_cosmetic=True,
+                                salvage_coins=expedition.get("salvage_coin_values", {}).get(pk))
             self.expedition_budget.claim(expedition)
             if self.reward_commitment.enabled:
                 salvage_paid = self.source_totals["expeditions_salvage"]["coins"] - salvage_before
@@ -1470,7 +1519,11 @@ class Trial:
                 continue
             available.append(pair)
             seen_species.add(species_id)
-        allowed_launches = self.expedition_budget.prepare_launches(self.day, self.config["expeditions_per_day"], len(available))
+        requested = self.config["expeditions_per_day"]
+        if not self.reward_commitment.enabled:
+            requested = min(requested, max(0, coin_policy.EXPEDITION_DAILY_LIMIT
+                                          - self.expedition_launches_by_day[self.day]))
+        allowed_launches = self.expedition_budget.prepare_launches(self.day, requested, len(available))
         for pair in available[:allowed_launches]:
             coins = (self.reward_commitment.reserve_direct(self.day, tier) if self.reward_commitment.enabled
                      else max(1, int(tier_config["base_coins"] * (0.85 + self.rng.random() * 0.30))))
@@ -1485,11 +1538,12 @@ class Trial:
                 if not entries or not any(weights):
                     break
                 entry = self.rng.choices(entries, weights=weights, k=1)[0]
+                item = self._random_reward_item(entry.item)
                 if self.reward_commitment.enabled:
                     self.reward_commitment.reserve_item(entry.item, self.day, expedition=True)
                     if entry.item.item_type in COSMETIC_TYPES:
                         salvage_reserve += item_liability(entry.item, expedition=True)
-                items.append(entry.item_id)
+                items.append(item.pk)
                 if entry.item.item_type in COSMETIC_TYPES:
                     owned.add(entry.item_id)
             self.expedition_budget.promise_items(self.day, permitted_slots, len(items))
@@ -1501,10 +1555,15 @@ class Trial:
                     "coins": coins,
                     "items": items,
                     "budget_promised_items": len(items),
+                    **({"salvage_coin_values": {
+                        pk: coin_policy.random_cosmetic_salvage_coins(self.catalog.items[pk])
+                        for pk in items if self.catalog.items[pk].item_type in COSMETIC_TYPES
+                    }} if not self.reward_commitment.enabled else {}),
                     **({"salvage_reserve": salvage_reserve} if self.reward_commitment.enabled else {}),
                 }
             )
             self.expedition_launch_day_by_species[pair[0]] = self.day
+            self.expedition_launches_by_day[self.day] += 1
             if self.reward_commitment.enabled:
                 totals = self.reward_commitment.totals
                 totals["expedition_launches"] += 1

@@ -24,6 +24,7 @@ from ..schemas import (
     UnequipCosmeticIn,
     UseConsumableIn,
 )
+from ..retries import authorized_household
 from ..server import tool
 from ..shapes import inventory_entry_to_dict, item_definition_to_dict, many
 
@@ -39,11 +40,12 @@ def list_inventory(params: ListInventoryIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    qs = UserInventory.objects.select_related("item", "item__pet_species").filter(user=target)
-    if params.item_type:
-        qs = qs.filter(item__item_type=params.item_type)
-    qs = qs.order_by("item__item_type", "item__rarity", "item__name")
-    return {"inventory": many(qs, inventory_entry_to_dict)}
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        qs = UserInventory.objects.select_related("item", "item__pet_species").filter(user=target)
+        if params.item_type:
+            qs = qs.filter(item__item_type=params.item_type)
+        qs = qs.order_by("item__item_type", "item__rarity", "item__name")
+        return {"inventory": many(qs, inventory_entry_to_dict)}
 
 
 @tool()
@@ -57,7 +59,8 @@ def use_consumable(params: UseConsumableIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    return ConsumableService.use(target, params.item_id)
+    with authorized_household(user, target) as (user, target):
+        return ConsumableService.use(target, params.item_id)
 
 
 @tool()
@@ -66,34 +69,35 @@ def list_cosmetics(params: ListCosmeticsIn) -> dict[str, Any]:
     """Return owned cosmetics grouped by slot, plus current equipped state."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    owned = CosmeticService.list_owned_cosmetics(target)
-    profile, _ = CharacterProfile.objects.get_or_create(user=target)
+    with authorized_household(user, target) as (user, target):
+        owned = CosmeticService.list_owned_cosmetics(target)
+        profile, _ = CharacterProfile.objects.get_or_create(user=target)
 
-    grouped = {
-        slot: [item_definition_to_dict(item) for item in items]
-        for slot, items in owned.items()
-    }
-    equipped = {
-        "active_frame": (
-            item_definition_to_dict(profile.active_frame) if profile.active_frame else None
-        ),
-        "active_title": (
-            item_definition_to_dict(profile.active_title) if profile.active_title else None
-        ),
-        "active_theme": (
-            item_definition_to_dict(profile.active_theme) if profile.active_theme else None
-        ),
-        "active_pet_accessory": (
-            item_definition_to_dict(profile.active_pet_accessory)
-            if profile.active_pet_accessory else None
-        ),
-    }
-    trophy = profile.active_trophy_badge
-    return {
-        "owned": grouped,
-        "equipped": equipped,
-        "active_trophy_badge_id": trophy.id if trophy else None,
-    }
+        grouped = {
+            slot: [item_definition_to_dict(item) for item in items]
+            for slot, items in owned.items()
+        }
+        equipped = {
+            "active_frame": (
+                item_definition_to_dict(profile.active_frame) if profile.active_frame else None
+            ),
+            "active_title": (
+                item_definition_to_dict(profile.active_title) if profile.active_title else None
+            ),
+            "active_theme": (
+                item_definition_to_dict(profile.active_theme) if profile.active_theme else None
+            ),
+            "active_pet_accessory": (
+                item_definition_to_dict(profile.active_pet_accessory)
+                if profile.active_pet_accessory else None
+            ),
+        }
+        trophy = profile.active_trophy_badge
+        return {
+            "owned": grouped,
+            "equipped": equipped,
+            "active_trophy_badge_id": trophy.id if trophy else None,
+        }
 
 
 @tool()
@@ -102,7 +106,8 @@ def equip_cosmetic(params: EquipCosmeticIn) -> dict[str, Any]:
     """Equip a cosmetic to its slot. Caller must own one in inventory."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    return CosmeticService.equip(target, params.item_id)
+    with authorized_household(user, target) as (user, target):
+        return CosmeticService.equip(target, params.item_id)
 
 
 @tool()
@@ -111,7 +116,8 @@ def unequip_cosmetic(params: UnequipCosmeticIn) -> dict[str, Any]:
     """Clear a cosmetic slot."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    return CosmeticService.unequip(target, params.slot)
+    with authorized_household(user, target) as (user, target):
+        return CosmeticService.unequip(target, params.slot)
 
 
 @tool()
@@ -125,25 +131,26 @@ def set_trophy_badge(params: SetTrophyBadgeIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    profile, _ = CharacterProfile.objects.get_or_create(user=target)
+    with authorized_household(user, target) as (user, target):
+        profile, _ = CharacterProfile.objects.get_or_create(user=target)
 
-    if params.badge_id is None:
-        profile.active_trophy_badge = None
+        if params.badge_id is None:
+            profile.active_trophy_badge = None
+            profile.save(update_fields=["active_trophy_badge", "updated_at"])
+            return {"active_trophy_badge_id": None}
+
+        try:
+            badge = Badge.objects.get(pk=params.badge_id)
+        except Badge.DoesNotExist:
+            raise MCPNotFoundError(f"Badge {params.badge_id} not found.")
+        if not UserBadge.objects.filter(user=target, badge=badge).exists():
+            raise MCPPermissionDenied(
+                "You can only choose a trophy from badges you've earned.",
+            )
+        profile.active_trophy_badge = badge
         profile.save(update_fields=["active_trophy_badge", "updated_at"])
-        return {"active_trophy_badge_id": None}
-
-    try:
-        badge = Badge.objects.get(pk=params.badge_id)
-    except Badge.DoesNotExist:
-        raise MCPNotFoundError(f"Badge {params.badge_id} not found.")
-    if not UserBadge.objects.filter(user=target, badge=badge).exists():
-        raise MCPPermissionDenied(
-            "You can only choose a trophy from badges you've earned.",
-        )
-    profile.active_trophy_badge = badge
-    profile.save(update_fields=["active_trophy_badge", "updated_at"])
-    return {
-        "active_trophy_badge_id": badge.id,
-        "name": badge.name,
-        "rarity": badge.rarity,
-    }
+        return {
+            "active_trophy_badge_id": badge.id,
+            "name": badge.name,
+            "rarity": badge.rarity,
+        }

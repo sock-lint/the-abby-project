@@ -179,19 +179,21 @@ def _autofill_journal_title(title: str, body: str, occurred_on: date) -> str:
 
 
 def _journal_xp_tags():
-    """Resolve the two hardcoded Language Arts skills by name.
+    """Resolve the two installed Language Arts skill identities.
 
-    Returns an empty list on a fresh DB that hasn't loaded the skill catalog
-    yet — ``AwardService.grant`` then no-ops on the XP branch, which is the
-    correct fallback (no XP awarded, but the rest of the flow continues).
+    Display edits and retirement retain their destinations. Missing or
+    ambiguous identities receive no invented XP; the journal still saves.
     """
-    from apps.achievements.models import Skill
+    from apps.achievements.models import Skill, SkillCategory
+    from apps.achievements.source_identity import resolve_source_identity
+
+    category = resolve_source_identity(SkillCategory, {"name": "Language Arts"})
+    if category is None:
+        return []
 
     tags = []
     for name, weight in JOURNAL_SKILL_WEIGHTS:
-        skill = Skill.objects.filter(
-            category__name="Language Arts", name=name,
-        ).first()
+        skill = resolve_source_identity(Skill, {"name": name, "category_id": category.pk})
         if skill is not None:
             tags.append(_JournalTag(skill=skill, xp_weight=weight))
     return tags
@@ -246,8 +248,12 @@ class ChronicleService:
             return entry
 
     @staticmethod
+    @transaction.atomic
     def record_birthday(user, *, on_date: Optional[date] = None) -> ChronicleEntry:
-        """Idempotent. Keyed on (user, kind=BIRTHDAY, occurred_on)."""
+        """Save a birthday and its new badges once, without granting a gift."""
+        from apps.achievements.services import BadgeService, _lock_award_user
+
+        _lock_award_user(user)
         day = on_date or date.today()
         age = None
         if user.date_of_birth:
@@ -255,7 +261,7 @@ class ChronicleService:
             if (day.month, day.day) < (user.date_of_birth.month, user.date_of_birth.day):
                 age -= 1
         title = f"Turned {age}" if age is not None else "Birthday"
-        entry, _ = ChronicleEntry.objects.get_or_create(
+        entry, created = ChronicleEntry.objects.get_or_create(
             user=user,
             kind=ChronicleEntry.Kind.BIRTHDAY,
             occurred_on=day,
@@ -265,6 +271,8 @@ class ChronicleService:
                 "icon_slug": "birthday-candle",
             },
         )
+        if created:
+            BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
         return entry
 
     @staticmethod

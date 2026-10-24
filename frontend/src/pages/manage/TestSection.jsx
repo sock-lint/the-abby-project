@@ -702,9 +702,9 @@ function MarkExpeditionReadyCard({ kids }) {
         ))}
       </SelectField>
       <SelectField label="Tier" value={form.tier} onChange={set('tier')}>
-        <option value="short">short (2h, ~15c)</option>
-        <option value="standard">standard (4h, ~35c)</option>
-        <option value="long">long (8h, ~75c)</option>
+        <option value="short">short (2h, ~3c)</option>
+        <option value="standard">standard (4h, ~7c)</option>
+        <option value="long">long (8h, ~15c)</option>
       </SelectField>
     </DevToolCard>
   );

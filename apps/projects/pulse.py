@@ -34,7 +34,6 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
     from apps.rpg.models import CharacterProfile
     from apps.rpg.identity import IDENTITY_RELATED_FIELDS, earned_identity
     from apps.projects.models import SavingsGoal
-    from apps.projects.savings_service import SavingsGoalService
     from apps.projects.serializers import SavingsGoalSerializer
     from apps.quests.serializers import QuestSerializer
     from apps.quests.services import QuestService
@@ -58,11 +57,6 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
         user=user, voided=False,
     ).order_by("-created_at")[:20] if row.context.get("_receipt")] if is_child else []
 
-    # Mirrors SavingsGoalViewSet.list — completion detection runs on read so
-    # a goal whose target was edited below the current balance completes
-    # without waiting for another ledger write. This is the one intentional
-    # write in the payload and it is idempotent.
-    SavingsGoalService.check_and_complete(user)
     savings_goals = SavingsGoal.objects.filter(user=user)
 
     expeditions_ready = ExpeditionService.list_for_user(user, ready_only=True)
@@ -76,7 +70,7 @@ def build_pulse(user, *, request=None) -> dict[str, Any]:
         "unread_count": unread_count,
         "notifications": NotificationSerializer(notifications, many=True).data,
         "recent_drops": DropLogSerializer(drops, many=True).data,
-        "active_quest": QuestSerializer(active_quest).data if active_quest else None,
+        "active_quest": QuestSerializer(active_quest, context={"observer_family_id": user.family_id}).data if active_quest else None,
         "challenge_receipts": receipts,
         "companion_growth": {"events": _companion_growth(profile)},
         "identity": earned_identity(user, profile, request=request),

@@ -1242,7 +1242,9 @@ class ContentPack:
                     if link is not None:
                         self.stats.bump("created" if r_created else "updated", "quest_reward")
 
-                if self.pack_key:
+                clear_v2_rewards = ((entry.get("trigger_filter") or {}).get("reward_policy_version") == 2
+                                    and entry.get("reward_items") == [])
+                if self.pack_key or clear_v2_rewards:
                     removed, _ = QuestRewardItem.objects.filter(quest_definition=quest).exclude(item_id__in=desired_reward_ids).delete()
                     self.stats.bump("retired", "quest_reward", removed)
 

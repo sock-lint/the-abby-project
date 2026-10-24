@@ -239,7 +239,7 @@ quests:
   # existing TriggerType values (see apps/rpg/constants.py).
 
   - name: Weekly Reset
-    description: Log 5 habits in a single week. Auto-renews — your baseline loop.
+    description: Log a positive habit on 5 different days in this seven-day window. Auto-renews with a fresh window.
     icon: "🔄"
     sprite_key: quest-weekly-reset
     quest_type: collection
@@ -247,13 +247,13 @@ quests:
     duration_days: 7
     trigger_filter:
       allowed_triggers: [habit_log]
-    coin_reward: 20
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 10
     xp_reward: 40
     is_repeatable: true
     is_system: true
-    reward_items:
-      - slug: pouch-small
-        quantity: 1
+    reward_items: []
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
 
@@ -313,21 +313,21 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: Pantry Patroller
-    description: Do 10 household chores in a week — keep the house humming.
+    description: Complete an approved household chore on 5 different days in this seven-day window.
     icon: "🏠"
     sprite_key: quest-pantry-patroller
     quest_type: collection
-    target_value: 10
+    target_value: 5
     duration_days: 7
     trigger_filter:
       allowed_triggers: [chore_complete]
-    coin_reward: 35
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 10
     xp_reward: 70
     is_repeatable: true
     is_system: true
-    reward_items:
-      - slug: pouch-medium
-        quantity: 1
+    reward_items: []
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Cooking::Meal Planning", weight: 1}
@@ -461,15 +461,17 @@ quests:
   # of "any task"). Delete via cleanup_rpg_catalog.
 
   - name: Seven Nights of Stories
-    description: "Keep a comforting routine going with 5 positive habit taps. Any habit counts; taps need not be on consecutive days."
+    description: "Earn a Reading Adventure on 5 different days in this seven-day window. Each day requires ten newly logged reading minutes; the days need not be consecutive."
     icon: "📖"
     sprite_key: quest-seven-nights
     quest_type: collection
     target_value: 5
     duration_days: 7
     trigger_filter:
-      allowed_triggers: [habit_log]
-    coin_reward: 150
+      allowed_triggers: [reading_logged]
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 20
     xp_reward: 50
     is_system: true
     reward_items:
@@ -480,7 +482,7 @@ quests:
       - {skill: "Life Skills::Persistence", weight: 1}
 
   - name: First Week of Freshman Year
-    description: "A school-themed challenge: log 5 positive habit taps during its seven-day window."
+    description: "Keep your routine going with a positive habit on 5 different days in this seven-day window."
     icon: "🎒"
     sprite_key: quest-first-week-freshman
     quest_type: collection
@@ -488,7 +490,9 @@ quests:
     duration_days: 7
     trigger_filter:
       allowed_triggers: [habit_log]
-    coin_reward: 200
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 20
     xp_reward: 150
     is_system: true
     reward_items:
@@ -531,13 +535,12 @@ quests:
     duration_days: 1
     trigger_filter:
       allowed_triggers: [habit_log]
-    coin_reward: 10
+      reward_policy_version: 2
+    coin_reward: 2
     xp_reward: 20
     is_repeatable: true
     is_system: true
-    reward_items:
-      - slug: pouch-small
-        quantity: 1
+    reward_items: []
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 1}
       - {skill: "Physical::Mindfulness", weight: 1}
@@ -663,7 +666,7 @@ quests:
       - {skill: "Life Skills::Project Planning", weight: 1}
 
   - name: Comeback Kid
-    description: "Rebuild momentum with 3 positive habit taps during this seven-day challenge. Available even without a streak reset."
+    description: "Rebuild momentum with a positive habit on 3 different days in this seven-day window. Available even without a streak reset."
     icon: "🔥"
     sprite_key: quest-comeback-kid
     quest_type: collection
@@ -671,7 +674,9 @@ quests:
     duration_days: 7
     trigger_filter:
       allowed_triggers: [habit_log]
-    coin_reward: 40
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 10
     xp_reward: 60
     is_repeatable: true
     is_system: true
@@ -946,21 +951,23 @@ quests:
       - {skill: "Life Skills::Communication", weight: 1}
 
   - name: Comeback Kid II
-    description: Longer-form recovery quest. 7 days to rebuild — log 10 habits or chores. For kids returning after a longer pause.
+    description: Rebuild your routine with a positive habit or approved chore on 5 different days in this seven-day window.
     icon: "🔥"
     sprite_key: quest-comeback-kid-ii
     quest_type: collection
-    target_value: 10
+    target_value: 5
     duration_days: 7
     trigger_filter:
       allowed_triggers: [habit_log, chore_complete]
-    coin_reward: 80
+      distinct_active_days: true
+      reward_policy_version: 2
+    coin_reward: 15
     xp_reward: 120
     is_repeatable: true
     is_system: true
     reward_items:
       - slug: streak-freeze
-        quantity: 2
+        quantity: 1
     skill_tags:
       - {skill: "Life Skills::Persistence", weight: 2}
       - {skill: "Physical::Mindfulness", weight: 1}

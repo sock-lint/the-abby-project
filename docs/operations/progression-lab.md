@@ -69,7 +69,9 @@ No eligible children or ledger entries means insufficient evidence. More than
 100 eligible children or 100,000 ledger rows returns a capacity state with
 unavailable totals, rather than a partial or zero sample.
 
-These observations measure today's installed uncapped rules. They cannot
+These observations measure today's installed rules, including the
+[smaller new expedition and random-pouch payouts](coin-economy.md). Those
+rules have no shared per-child daily Coin cap. The observations cannot
 validate a 100-Coin policy that has not been deployed, estimate family costs,
 or establish content exhaustion/retention. They do not read journals, report
 child identities or aggregate other households. A saved decision and review
@@ -251,6 +253,12 @@ but grants no direct recognition reward or extra activity credit.
 Chronicle milestone criteria, including Turning Point and Life Chronicler,
 remain in `excluded_badge_criteria`; their rewards and dependent unlocks are
 not assumed. Modeled journal-entry and journal-streak badges remain separate.
+Live birthday celebrations evaluate Chronicle and badge-count achievements
+after saving a new annual entry. Each newly earned badge receives its ordinary
+badge loot; the scheduled birthday gift remains a separate reward. The Lab
+has no birth date or annual celebration history, so `birthdays_logged` badges,
+their loot and dependent unlocks remain excluded. A 365-day forecast does not
+assume a birthday or add the birthday gift.
 Live Perfect Day awards one Uncommon-or-better draw per new daily receipt.
 Its Common tier is excluded before selection, with remaining supported tiers
 renormalized. The Lab binds that live rarity rule but adds no Perfect Day
@@ -393,10 +401,11 @@ Default `loadrpgcontent` loads the initial seed, `reading-adventures` and
 `collector-reading-2026` (from `content/rpg/bundled/`, baked into the image
 rather than the host-mounted `content/rpg/packs/`) in one transaction. Explicit `--pack` loads only that
 pack; dry runs roll back the complete default batch. The initial pack is unchanged.
-Three daily Reading Adventures within 14 days grant a supported Chick egg, Base
-potion and two Birdseed. A repeating five-in-seven-days goal provides care food;
-a twenty-in-45-days goal offers the existing Bookworm title. These goals author
-no Coins. Existing general quest/badge bonuses still apply and are modeled.
+Three daily Reading Adventures, with no deadline, grant a supported Chick egg,
+Base potion and two Birdseed. A repeating five-in-seven-days goal provides care
+food. After that Companion and Reading Comprehension level 1, the next earned
+daily Adventure opens a twenty-in-84-days goal for the existing Bookworm title.
+These goals author no Coins. Existing general quest/badge bonuses still apply and are modeled.
 
 After Full Ark (15 species), three sequential chapters require 5, 10 and 20 new
 daily Reading Adventures and grant a title, frame and title. These six new

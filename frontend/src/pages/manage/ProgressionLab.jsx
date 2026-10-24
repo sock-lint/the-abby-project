@@ -30,6 +30,7 @@ import ChallengeDiscoveryReport from './ChallengeDiscoveryReport';
 import VoyagerFeedbackReport from './VoyagerFeedbackReport';
 import ProgressionChallengeGateControls from './ProgressionChallengeGateControls';
 import ProgressionChallengeGateReport from './ProgressionChallengeGateReport';
+import { NEW_REWARD_PLANNING_PRICE } from '../../components/rewards/rewardPricing';
 
 const ROUTINE_FIELDS = [
   ['active_days_per_week', 'Active days per week', 'Visits occur on the first N days of each repeating week.'],
@@ -218,7 +219,7 @@ function AccountProgressionLab() {
                   onExample={() => {
                     const economy = JSON.parse(JSON.stringify(metadata.economy_defaults));
                     economy.enabled = true;
-                    economy.offers = [{ ...metadata.economy_offer_defaults, key: 'example-outing', label: 'Example outing', coin_price: 100, repeat_every_days: 7, family_cost_cents: 500 }];
+                    economy.offers = [{ ...metadata.economy_offer_defaults, key: 'example-outing', label: 'Example outing', coin_price: NEW_REWARD_PLANNING_PRICE, repeat_every_days: 7, family_cost_cents: 500 }];
                     setConfig((previous) => ({ ...previous, horizon_days: 90, trials: 10, economy }));
                     setFieldErrors({});
                   }} />}

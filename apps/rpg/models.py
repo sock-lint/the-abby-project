@@ -403,6 +403,7 @@ class RPGContentDraft(TimestampedModel):
     family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
     name = models.CharField(max_length=100)
     revision = models.PositiveIntegerField(default=1)
+    is_archived = models.BooleanField(default=False)
     changes = models.JSONField(default=list)
     preview = models.ForeignKey(ContentPackPublication, null=True, blank=True, on_delete=models.SET_NULL)
     simulation = models.JSONField(default=dict, blank=True)
@@ -436,6 +437,7 @@ class RPGEditorialDraft(TimestampedModel):
     section = models.CharField(max_length=20, choices=[("lorebook", "Lorebook"), ("affirmations", "Affirmations")])
     name = models.CharField(max_length=100)
     revision = models.PositiveIntegerField(default=1)
+    is_archived = models.BooleanField(default=False)
     changes = models.JSONField(default=list)
     preview = models.JSONField(default=dict)
     published_at = models.DateTimeField(null=True)
@@ -471,6 +473,7 @@ class ProgressionExperiment(TimestampedModel):
     name = models.CharField(max_length=100)
     hypothesis = models.TextField()
     revision = models.PositiveIntegerField(default=1)
+    is_archived = models.BooleanField(default=False)
     config = models.JSONField(default=dict)
     candidate_daily_coins = models.PositiveIntegerField(default=100, null=True)
     candidate_policy = models.CharField(max_length=20, default="envelope", choices=[
@@ -480,6 +483,23 @@ class ProgressionExperiment(TimestampedModel):
     ])
     candidate_expedition_budget = models.JSONField(default=dict)
     targets = models.JSONField(default=list)
+
+
+class AuthoringArchiveReceipt(CreatedAtModel):
+    """Compact operation identities; saved authoring evidence stays on its source."""
+
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    family = models.ForeignKey("families.Family", on_delete=models.CASCADE)
+    kind = models.CharField(max_length=20)
+    request_id = models.UUIDField()
+    object_id = models.UUIDField()
+    request_digest = models.CharField(max_length=64)
+    result_revision = models.PositiveIntegerField()
+    result_is_archived = models.BooleanField()
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["actor", "kind", "request_id"],
+                                              name="rpg_archive_actor_request")]
 
 
 class ProgressionComparison(CreatedAtModel):

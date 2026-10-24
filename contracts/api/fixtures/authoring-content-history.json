@@ -1,0 +1,15 @@
+{
+  "drafts": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Retained synthetic work",
+      "revision": 2,
+      "is_archived": true,
+      "updated_at": "2026-10-22T12:00:00+00:00",
+      "published_at": null
+    }
+  ],
+  "total": 1,
+  "has_more": false,
+  "next_after": null
+}

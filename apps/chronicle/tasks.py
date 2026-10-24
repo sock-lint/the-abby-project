@@ -16,43 +16,63 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
-@shared_task(name="apps.chronicle.tasks.chronicle_birthday_check")
-def chronicle_birthday_check() -> dict:
+@shared_task(name="apps.chronicle.tasks.chronicle_birthday_check", bind=True, max_retries=3)
+def chronicle_birthday_check(self, *, birthday_date: str | None = None) -> dict:
     """Fires daily. For each child whose DOB month/day == today:
     - idempotently create a BIRTHDAY entry
-    - on first creation, grant BIRTHDAY_COINS_PER_YEAR × age_years coins
+    - on first creation, grant the fixed BIRTHDAY_COIN_GIFT
     - fire a BIRTHDAY notification
+    - recognize newly eligible badges and their ordinary accomplishment loot
+
+    Failed awards roll back that child's entry and gift, without blocking later
+    children. At most three retries retain the original birthday across midnight.
     """
+    from apps.achievements.services import BadgeService, _lock_award_user
     from apps.families.queries import children_across_families
 
-    today = date.today()
-    coins_per_year = getattr(settings, "BIRTHDAY_COINS_PER_YEAR", 100)
+    today = date.fromisoformat(birthday_date) if birthday_date is not None else date.today()
+    birthday_gift = getattr(settings, "BIRTHDAY_COIN_GIFT", 200)
 
     results = {"birthdays": 0, "gifts": 0}
+    birthday_error = None
     for _family, user in children_across_families(
         active_only=False,
         date_of_birth__month=today.month,
         date_of_birth__day=today.day,
     ):
-        with transaction.atomic():
-            entry, created = ChronicleEntry.objects.get_or_create(
-                user=user,
-                kind=ChronicleEntry.Kind.BIRTHDAY,
-                occurred_on=today,
-                defaults={
-                    "chapter_year": today.year if today.month >= 8 else today.year - 1,
-                    "title": f"Turned {user.age_years}" if user.age_years else "Birthday",
-                    "icon_slug": "birthday-candle",
-                },
-            )
+        try:
+            with transaction.atomic():
+                _lock_award_user(user)
+                entry, created = ChronicleEntry.objects.get_or_create(
+                    user=user,
+                    kind=ChronicleEntry.Kind.BIRTHDAY,
+                    occurred_on=today,
+                    defaults={
+                        "chapter_year": today.year if today.month >= 8 else today.year - 1,
+                        "title": f"Turned {user.age_years}" if user.age_years else "Birthday",
+                        "icon_slug": "birthday-candle",
+                    },
+                )
+                gifted = bool(created and user.age_years)
+                if gifted:
+                    amount = birthday_gift
+                    _award_birthday_coins(user, amount)
+                    entry.metadata["gift_coins"] = amount
+                    entry.save(update_fields=["metadata"])
+                    _send_birthday_notification(user, amount)
+                if created:
+                    BadgeService.evaluate_badges(user, scopes={"chronicle", "badges"})
             results["birthdays"] += 1
-            if created and user.age_years:
-                amount = coins_per_year * user.age_years
-                _award_birthday_coins(user, amount)
-                entry.metadata["gift_coins"] = amount
-                entry.save(update_fields=["metadata"])
-                results["gifts"] += 1
-                _send_birthday_notification(user, amount)
+            results["gifts"] += int(gifted)
+        except Exception as exc:
+            if birthday_error is None:
+                birthday_error = exc
+            logger.exception("Birthday recognition failed for user %s", user.pk)
+
+    if birthday_error is not None:
+        raise self.retry(
+            exc=birthday_error, kwargs={"birthday_date": today.isoformat()}, countdown=300,
+        )
 
     return results
 
@@ -71,12 +91,13 @@ def _award_birthday_coins(user, amount: int) -> None:
 def _send_birthday_notification(user, coin_amount: int) -> None:
     try:
         from apps.notifications.models import Notification, NotificationType
-        Notification.objects.create(
-            user=user,
-            notification_type=NotificationType.BIRTHDAY,
-            title=f"Happy birthday, {user.display_label}!",
-            message=f"Your Timeline has a new entry and {coin_amount} coins have been added to your coin balance.",
-        )
+        with transaction.atomic():
+            Notification.objects.create(
+                user=user,
+                notification_type=NotificationType.BIRTHDAY,
+                title=f"Happy birthday, {user.display_label}!",
+                message=f"Your Timeline has a new entry and {coin_amount} coins have been added to your coin balance.",
+            )
     except Exception:
         logger.exception("Birthday notification failed")
 

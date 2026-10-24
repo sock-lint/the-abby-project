@@ -429,6 +429,7 @@ def _savings_goal_completed(user, c):
     return SavingsGoal.objects.filter(
         user=user,
         is_completed=True,
+        reward_qualifies=True,
     ).count() >= int(c.get("count", 1))
 
 

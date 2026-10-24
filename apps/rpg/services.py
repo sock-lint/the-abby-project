@@ -36,6 +36,7 @@ from django.utils import timezone
 from apps.rpg.catalog_icons import item_catalog_icon
 
 from .catalog_support import available_random_items, item_is_available, random_item_is_available
+from .coin_policy import random_cosmetic_salvage_coins, resolve_random_pouch
 
 from apps.rpg.constants import TriggerType
 from apps.rpg.models import CharacterProfile
@@ -425,10 +426,11 @@ class DropService:
         if not any(weights):
             return []
         selected = random.choices(items, weights=weights, k=1)[0]
-        item = selected.item
+        item = resolve_random_pouch(selected.item)
 
         # Check for salvage (cosmetics already owned)
         was_salvaged = False
+        salvage_coins = 0
         is_cosmetic = item.item_type in (
             ItemDefinition.ItemType.COSMETIC_FRAME,
             ItemDefinition.ItemType.COSMETIC_TITLE,
@@ -440,11 +442,12 @@ class DropService:
             existing = UserInventory.objects.filter(user=user, item=item).first()
             if existing:
                 was_salvaged = True
-                if item.coin_value > 0:
+                salvage_coins = random_cosmetic_salvage_coins(item)
+                if salvage_coins > 0:
                     from apps.rewards.models import CoinLedger
                     from apps.rewards.services import CoinService
                     CoinService.award_coins(
-                        user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
+                        user, salvage_coins, CoinLedger.Reason.ADJUSTMENT,
                         description=f"Salvaged duplicate: {item.display_name}",
                     )
 
@@ -465,7 +468,7 @@ class DropService:
         drop_log = DropLog.objects.create(
             user=user, item=item, trigger_type=trigger_type,
             quantity=1, was_salvaged=was_salvaged,
-            salvage_coins=item.coin_value if was_salvaged else 0,
+            salvage_coins=salvage_coins,
         )
 
         ActivityLogService.record(
@@ -1165,6 +1168,9 @@ class ConsumableService:
             weights = tier_balanced_weights(eligible, MYSTERY_TIER_WEIGHTS, authored_weights=weights)
             if not any(weights):
                 raise ValueError("Mystery box has no eligible items to grant")
+            # Owned boxes retain their original effect and candidate values.
+            # The smaller pouch substitution applies only to new activity
+            # draws and accepted expedition loot, before ownership begins.
             granted = random.choices(eligible, weights=weights, k=1)[0]
             grant_item(profile.user, granted)
             return {
@@ -1219,8 +1225,8 @@ class ConsumableService:
             # Rolls a random eligible QuestDefinition and starts it. Eligibility
             # mirrors QuestService.start_quest's guards: not already active,
             # system quest (parent quests can be hand-picked), badge gate passed.
-            # Milestone reading definitions open automatically on fresh reading;
-            # picking one here cannot create a legacy countdown instead.
+            # Milestone reading and distinct-day definitions progress
+            # automatically; neither can start a legacy countdown here.
             from apps.achievements.models import UserBadge
             from apps.quests.models import ChallengeGoal, Quest
             from apps.quests.queries import active_system_definitions
@@ -1258,6 +1264,7 @@ class ConsumableService:
                     "reward_items__item__pet_species__available_potions", "reward_items__item__potion_type"
                 )
                 if (q.required_badge_id is None or q.required_badge_id in user_badge_ids)
+                and (q.trigger_filter or {}).get("distinct_active_days") is not True
                 and definition_is_available(q)
                 and not has_milestone_gate(q)
             ]

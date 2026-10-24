@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 
 from apps.chronicle.models import ChronicleEntry
-from apps.chronicle.tasks import chronicle_birthday_check
+from apps.chronicle.tasks import chronicle_birthday_check, chronicle_chapter_transition
 from apps.rewards.models import CoinLedger
 
 User = get_user_model()
@@ -28,7 +28,7 @@ class BirthdayCheckTests(TestCase):
         chronicle_birthday_check()
 
         entry = ChronicleEntry.objects.get(user=self.user, kind="birthday", occurred_on=date(2026, 4, 21))
-        self.assertEqual(entry.metadata.get("gift_coins"), 1500)  # 100 × 15
+        self.assertEqual(entry.metadata.get("gift_coins"), 200)
         self.assertEqual(
             CoinLedger.objects.filter(user=self.user, reason="adjustment").count(), 1
         )
@@ -60,17 +60,14 @@ class BirthdayCheckTests(TestCase):
         # Only our `self.user` (DOB matches today) gets an entry.
         self.assertEqual(ChronicleEntry.objects.filter(kind="birthday").count(), 1)
 
-    @override_settings(BIRTHDAY_COINS_PER_YEAR=50)
+    @override_settings(BIRTHDAY_COIN_GIFT=125)
     @patch("apps.chronicle.tasks.date")
     def test_setting_overrides_coin_amount(self, mock_date):
         mock_date.today.return_value = date(2026, 4, 21)
         mock_date.side_effect = lambda *a, **k: date(*a, **k)
         chronicle_birthday_check()
         entry = ChronicleEntry.objects.get(user=self.user, kind="birthday")
-        self.assertEqual(entry.metadata.get("gift_coins"), 750)  # 50 × 15
-
-
-from apps.chronicle.tasks import chronicle_chapter_transition
+        self.assertEqual(entry.metadata.get("gift_coins"), 125)
 
 
 class ChapterTransitionTests(TestCase):

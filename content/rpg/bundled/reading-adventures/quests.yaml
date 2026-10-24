@@ -2,11 +2,11 @@
 # All rewards reuse supported catalog identities; no new authored Coin payouts.
 quests:
   - name: Reading Companion
-    description: "Complete 3 daily Reading Adventures within 14 days. Each Adventure needs ten newly logged reading or listening minutes in your family's day. Meet a Chick with an egg, a Base potion and two Birdseed."
+    description: "Complete 3 daily Reading Adventures at your own pace, with no deadline. Each Adventure needs ten newly logged reading or listening minutes in your family's day. Meet a Chick with an egg, a Base potion and two Birdseed."
     icon: "🐤"
     quest_type: collection
     target_value: 3
-    duration_days: 14
+    duration_days: null
     trigger_filter:
       allowed_triggers: [reading_logged]
     coin_reward: 0
@@ -37,11 +37,14 @@ quests:
       - {skill: "Language Arts::Reading Comprehension", weight: 1}
 
   - name: Reading Voyager
-    description: "Complete 20 daily Reading Adventures within 45 days. Ten newly logged reading or listening minutes counts once each family-local day. Celebrate your reading rhythm with the Bookworm title."
+    description: "Unlock by completing Reading Companion and reaching Reading Comprehension level 1. Complete 20 daily Reading Adventures within 84 days after this challenge opens. Each Adventure needs ten newly logged reading or listening minutes and counts once each family-local day. Earn the Bookworm title."
     icon: "📚"
     quest_type: collection
     target_value: 20
-    duration_days: 45
+    duration_days: 84
+    prerequisite_quest: Reading Companion
+    required_skill: "Language Arts::Reading Comprehension"
+    required_skill_level: 1
     trigger_filter:
       allowed_triggers: [reading_logged]
     coin_reward: 0

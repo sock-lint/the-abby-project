@@ -25,17 +25,6 @@ import {
   isRecentlyEarned,
 } from '../../components/atlas/mastery.constants';
 
-// Coin-per-dollar multiplier for the completion bonus. Mirrored from
-// ``settings.COINS_PER_SAVINGS_GOAL_DOLLAR`` — when/if this tunable moves,
-// surface it via the /api/dashboard/ or /api/settings/ payload instead of
-// hardcoding it in two places.
-const COINS_PER_DOLLAR = 2;
-
-function coinBonusFor(target) {
-  const n = Number(target || 0);
-  return Number.isFinite(n) ? Math.round(n * COINS_PER_DOLLAR) : 0;
-}
-
 function clampPct(pct) {
   if (!Number.isFinite(pct)) return 0;
   return Math.max(0, Math.min(100, pct));
@@ -87,10 +76,7 @@ function GoalCard({ goal, onDelete }) {
             aria-label={`${goal.title} progress`}
           />
           <p className="mt-2 font-script text-caption text-ink-whisper">
-            Reach your goal to earn{' '}
-            <span className="text-gold-leaf font-semibold">
-              +{coinBonusFor(target)} coins
-            </span>
+            Coin bonuses celebrate new savings milestones.
           </p>
         </div>
       </div>
@@ -115,7 +101,6 @@ function CompletedHoardSeal({ goal }) {
         month: 'short', day: 'numeric', year: 'numeric',
       })
     : '—';
-  const bonus = coinBonusFor(goal.target_amount);
   return (
     <div
       data-hoard-seal="true"
@@ -134,7 +119,7 @@ function CompletedHoardSeal({ goal }) {
         Completed {completed}
       </div>
       <div className="mt-auto pt-1 text-micro font-rune uppercase tracking-wider text-gold-leaf">
-        +{bonus} coins · {formatCurrency(goal.target_amount)}
+        Goal reached · {formatCurrency(goal.target_amount)}
       </div>
     </div>
   );
@@ -180,6 +165,9 @@ function CreateGoalSheet({ onClose, onCreated }) {
   return (
     <BottomSheet title="New savings goal" onClose={onClose} disabled={busy} dirty={dirty}>
       <form onSubmit={handleSubmit} className="space-y-3">
+        <p className="text-caption text-ink-secondary">
+          Coin bonuses reward new savings. Goals already covered by your balance do not earn another bonus.
+        </p>
         <TextField
           label="What are you saving for?"
           value={title}
@@ -226,9 +214,8 @@ function CreateGoalSheet({ onClose, onCreated }) {
  *
  * Design model: aspirational balance tracker. Money stays fully liquid;
  * ``current_amount`` is computed server-side from the live payment
- * balance. Crossing a goal's target auto-fires the completion pipeline
- * (coin bonus + badge evaluation + notification) from
- * ``SavingsGoalService.check_and_complete``.
+ * balance. Explicit goal and balance writes settle server-owned milestone
+ * rewards. Displaying a completed goal does not imply a Coin payout.
  *
  * Visual model: illuminated-manuscript ledger. Each active hoard is a
  * stanza with a gilt-filling drop-cap (IlluminatedVersal). Each completed

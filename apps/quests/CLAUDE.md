@@ -2,6 +2,12 @@
 
 Automatic challenges track every relevant goal independently of its pin. The legacy boss/collection engine, co-op rows, rage shields and daily-challenge promises remain available for saved work. Shared source ingestion is driven by the game-loop activity seam; feature flows must not create contribution or reward rows directly.
 
+Saved legacy participant IDs and contributions survive household moves. API,
+pulse and MCP projections pass the observer's family to participant serializers;
+current labels are visible only within that family. Departed members use
+`Former participant`, preserving history without exposing their new household's
+profile edits. A serializer without observer context masks mixed-family labels.
+
 Explicit `trigger_filter.skill_category_id` in private quest creation is rechecked
 by `reference_locks.lock_filter_category` inside the write transaction, after the
 definition INSERT has acquired its catalog-table write lock. PostgreSQL
@@ -143,6 +149,48 @@ conflicts. Supersession preserves all saved history and accepted reward promises
 only future duplicate enrollment/repeat windows stop. Use the shared query helpers
 for new offers and equivalent definition identities for legacy completion guards.
 The reconciliation migration never replays activity or pays rewards.
+
+Runtime maintenance uses `reconciliation.py` and dedicated native/MCP
+preview/get/publish receipts, with explicit source/canonical IDs. It retains
+creator provenance and accepted history; a sole alias catalog goal can change
+only its definition FK to continue its existing repeat cadence. Publication
+first saves the only window of an enrolled one-time source goal that has not
+opened yet, so retirement cannot cancel it. Conflicting
+rules/rewards and unsupported ownership, alias or dependency states fail
+closed. A one-time cooperative difference needs explicit publication
+acknowledgment; repeating personal-to-cooperative conversions are refused.
+The reconciliation admission mutex precedes sorted family/member locks, then
+catalog/definition admission; never acquire another account lock after the
+catalog fence. New acceptance rechecks its definition under a shared row lock
+after taxonomy admission. See the [maintenance workflow](../../docs/operations/automatic-challenges.md#review-unresolved-duplicate-pairs).
+
+Future reward policy v2 is explicit catalog data:
+`trigger_filter.reward_policy_version: 2` marks timed individual global
+collections. `distinct_active_days: true` counts one day per saved household
+timezone using accepted activity timestamps; repeated actions on that day
+remain factual contributions but cannot increase day progress. Voiding an
+unpaid fact recomputes distinct days without erasing another valid same-day
+fact. The public unit is `active days`; the existing response shape stays intact.
+Private quest authoring and legacy campaign starts cannot bypass these rules.
+
+New enrollments use the versioned offer. A later recurring window adopts that
+definition's current marked rules and reward links while keeping its original
+anchor and cadence. Existing occurrence snapshots, progress, XP, Coins, item
+promises and receipts stay unchanged, including delayed completion. Active
+legacy campaigns still hold bundled definition changes until they end. Unkeyed
+loading clears old future item links only for v2 entries explicitly declaring
+`reward_items: []`, after freezing old legacy item promises. Other unkeyed
+loads retain their existing preservation rules. Parent-authored definitions
+retain their own rules.
+Unreconciled same-name catalog identities keep their accepted windows but cannot
+create future cycles; canonical reconciliation remains a separate reviewed action.
+
+The bundled First Week and Stories offers pay 20 Coins each after five habit
+days or five daily Reading Adventures respectively. Weekly Reset pays 10 after
+five habit days; Pantry Patroller pays 10 after five chore days; Comeback Kid
+pays 10 after three habit days, and Comeback Kid II pays 15 after five habit or
+chore days. Daily Rituals retains three actions in one day for 2 Coins. Their
+prior accepted versions retain their full earlier rewards.
 
 `QuestDefinition.is_cooperative` marks catalog offers that require parent
 assignment to at least two same-family children. They use the existing shared
@@ -333,7 +381,7 @@ DST. React includes the year in saved periods and the exact exclusive deadline
 in goal details; showing only the final included date must not imply that a
 rolling period accepts work through the end of that entire day.
 
-The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit.
+The daily bonus qualifies through approved work/completed projects or milestones, or ten cumulative project/movement minutes. Its day comes from the trusted accepted/saved `occurred_at` timestamp in the family timezone, while parent challenge periods continue to use `occurred_on` for the original work day. Minutes accumulate within the same half-open family-local timestamp range. Explicit completed legacy settlement retains its original promised date. The bonus pays automatically once per family-local day; Today access and a rotation task are not prerequisites. XP uses explicit source skill tags or the category-qualified Life Skills::Persistence fallback and reports only actual unlocked-skill credit. The fallback uses `apps.achievements.source_identity` to retain the installed destination after MCP renames/reparenting or retirement; missing or ambiguous identities receive no invented credit. Explicit source tags keep precedence, and saved bonus receipts are never backfilled after taxonomy changes.
 
 See [automatic challenge operations](../../docs/operations/automatic-challenges.md) for cutover, repair and validation. Real server responses and the React consumer checks live in `config/tests/test_challenge_api_contract_fixtures.py`, `contracts/api/fixtures/challenge*.json`, and `frontend/src/api/challengeContractFixtures.test.js`.
 

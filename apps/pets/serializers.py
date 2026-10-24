@@ -1,5 +1,4 @@
 import math
-from datetime import datetime, time, timedelta
 
 from django.utils import timezone
 from django.utils.functional import cached_property
@@ -8,6 +7,8 @@ from .models import MountExpedition, PetIncubation, PetSpecies, PotionType, User
 from .lifecycle import LIFECYCLE_STAGES, companion_lifecycle_stage
 from .rarity import companion_rarity
 from .services import bird_evolution_stage
+from .expeditions import expedition_day_bounds
+from apps.rpg.coin_policy import EXPEDITION_DAILY_LIMIT
 from apps.rpg.catalog_support import available_pet_variants, pet_is_available, potion_is_available
 from apps.rpg.catalog_icons import species_catalog_icon
 
@@ -282,22 +283,30 @@ class UserMountSerializer(serializers.ModelSerializer):
     def expedition_as_of(self):
         return timezone.now()
 
-    @cached_property
-    def expedition_today(self):
-        # Match ExpeditionService.start's current Django local-day policy.
-        # Neither a family's timezone nor the phone's clock authorizes a run.
-        return timezone.localdate(self.expedition_as_of)
+    def _expedition_bounds(self, obj):
+        if not hasattr(self, "_expedition_bounds_by_owner"):
+            self._expedition_bounds_by_owner = {}
+        if obj.user_id not in self._expedition_bounds_by_owner:
+            self._expedition_bounds_by_owner[obj.user_id] = expedition_day_bounds(obj.user, self.expedition_as_of)
+        return self._expedition_bounds_by_owner[obj.user_id]
 
-    def _expedition_used_today(self, obj):
+    def _expeditions_today(self, obj):
         if not hasattr(self, "_expedition_today_by_owner"):
             self._expedition_today_by_owner = {}
         if obj.user_id not in self._expedition_today_by_owner:
-            self._expedition_today_by_owner[obj.user_id] = set(
+            day_start, next_day = self._expedition_bounds(obj)
+            self._expedition_today_by_owner[obj.user_id] = list(
                 MountExpedition.objects.filter(
-                    mount__user_id=obj.user_id, started_at__date=self.expedition_today,
+                    mount__user_id=obj.user_id, started_at__gte=day_start, started_at__lt=next_day,
                 ).values_list("mount__species_id", flat=True)
             )
-        return obj.species_id in self._expedition_today_by_owner[obj.user_id]
+        return self._expedition_today_by_owner[obj.user_id]
+
+    def _expedition_used_today(self, obj):
+        return obj.species_id in self._expeditions_today(obj)
+
+    def _child_allowance_used(self, obj):
+        return len(self._expeditions_today(obj)) >= EXPEDITION_DAILY_LIMIT
 
     def _species_has_active_expedition(self, obj):
         # An unclaimed trip on any potion appearance occupies this species'
@@ -314,28 +323,27 @@ class UserMountSerializer(serializers.ModelSerializer):
         return obj.species_id in self._active_expedition_species_by_owner[obj.user_id]
 
     def get_expedition_available(self, obj):
-        return not self._species_has_active_expedition(obj) and not self._expedition_used_today(obj)
+        return (not self._species_has_active_expedition(obj)
+                and not self._expedition_used_today(obj) and not self._child_allowance_used(obj))
 
     def get_expedition_available_at(self, obj):
         # An unclaimed trip requires an explicit claim, so no timestamp can
         # promise another launch. Otherwise today's run resets at midnight.
-        if self._species_has_active_expedition(obj) or not self._expedition_used_today(obj):
+        if self._species_has_active_expedition(obj):
             return None
-        return serializers.DateTimeField().to_representation(self.next_expedition_day)
+        if not self._expedition_used_today(obj) and not self._child_allowance_used(obj):
+            return None
+        return serializers.DateTimeField().to_representation(self._next_expedition_day(obj))
 
-    @cached_property
-    def next_expedition_day(self):
-        next_day = self.expedition_today + timedelta(days=1)
-        return timezone.make_aware(
-            datetime.combine(next_day, time.min), timezone.get_current_timezone(),
-        )
+    def _next_expedition_day(self, obj):
+        return self._expedition_bounds(obj)[1]
 
     def get_expedition_available_in_seconds(self, obj):
         if self._species_has_active_expedition(obj):
             return None
-        if not self._expedition_used_today(obj):
+        if not self._expedition_used_today(obj) and not self._child_allowance_used(obj):
             return 0
-        return max(0, math.ceil((self.next_expedition_day - self.expedition_as_of).total_seconds()))
+        return max(0, math.ceil((self._next_expedition_day(obj) - self.expedition_as_of).total_seconds()))
 
 
 class MountExpeditionSerializer(serializers.ModelSerializer):

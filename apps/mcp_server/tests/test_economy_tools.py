@@ -179,6 +179,19 @@ class AnonymousPreviewTests(EconomyTestCase):
         self.assertNotEqual(original["rules_fingerprint"], updated["rules_fingerprint"])
         self.assertNotIn("family", str(updated).lower())
 
+    @override_settings(BIRTHDAY_COIN_GIFT=200)
+    def test_rules_describe_fixed_future_gift_and_shared_random_reward_limits(self):
+        rules = self.query_tool(get_economy_rules, GetEconomyRulesIn())
+        self.assertEqual(rules["coins_per_dollar"], 10)
+        self.assertEqual(rules["birthday_coins_per_year"], 0)
+        self.assertEqual(rules["birthday_coin_gift"], 200)
+        self.assertEqual(rules["future_random_rewards"]["expeditions_per_child_day"], 2)
+        self.assertEqual(rules["future_random_rewards"]["duplicate_cosmetic_salvage_max"], 10)
+        with override_settings(BIRTHDAY_COIN_GIFT=250):
+            changed = self.query_tool(get_economy_rules, GetEconomyRulesIn())
+        self.assertEqual(changed["birthday_coin_gift"], 250)
+        self.assertNotEqual(rules["rules_fingerprint"], changed["rules_fingerprint"])
+
     def test_reading_boosts_rounding_and_streak_checkin_stack_exactly_once(self):
         normal = self.preview(days=1, reading_minutes_per_day=10, target_cost_coins=16)
         boosted = self.preview(days=1, reading_minutes_per_day=10, coin_boost=True, xp_boost=True, drop_boost=True, target_cost_coins=16)

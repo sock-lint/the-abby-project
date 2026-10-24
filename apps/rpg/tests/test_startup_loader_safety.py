@@ -55,7 +55,7 @@ class StartupLoaderSafetyTests(TestCase):
         self.reload()
         self.assert_custom_offer_unchanged(reward)
         seed = Reward.objects.get(family=self.default_family, name="Streak Freeze")
-        self.assertEqual(seed.cost_coins, 60)
+        self.assertEqual(seed.cost_coins, 150)
         self.assertFalse(seed.requires_parent_approval)
         self.assertEqual(seed.item_definition.slug, "streak-freeze")
 

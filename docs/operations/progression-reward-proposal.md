@@ -1,5 +1,10 @@
 # Expedition and Coin-pouch design experiment
 
+The installed economy's separate [payout reduction](coin-economy.md) uses
+3 / 7 / 15 expedition Coins and smaller, versioned random pouches. The
+10 / 25 / 50 table below belongs only to this historical commitment prototype;
+it is not the installed economy or an automatic further reduction from it.
+
 The owner selected 100 automatic Coins per child per day as the starting
 experiment. The existing Progression Lab models a hypothetical income
 envelope: it omits excess expedition Coins, expedition cosmetic salvage and

@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, StrictBool
 
 from .schemas import _Base
 
@@ -38,11 +38,13 @@ class PublishEditorialDraftIn(EditorialRevisionIn):
 
 
 class ListEditorialDraftsIn(_Base):
+    include_archived: StrictBool = False
     after: UUID | None = None
     limit: int = Field(default=30, ge=1, le=50)
 
 
 class EditorialDraftResult(_Base):
+    is_archived: bool
     id: UUID
     section: Literal["lorebook", "affirmations"]
     name: str
@@ -53,6 +55,8 @@ class EditorialDraftResult(_Base):
 
 
 class EditorialDraftSummary(_Base):
+    is_archived: bool
+    updated_at: str
     id: UUID
     section: Literal["lorebook", "affirmations"]
     name: str
@@ -62,6 +66,8 @@ class EditorialDraftSummary(_Base):
 
 
 class EditorialDraftPage(_Base):
+    total: int
+    has_more: bool
     drafts: list[EditorialDraftSummary]
     next_after: UUID | None
 

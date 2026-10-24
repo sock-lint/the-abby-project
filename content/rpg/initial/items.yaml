@@ -895,3 +895,70 @@ items:
     rarity: legendary
     coin_value: 500
     metadata: {coins: 500}
+
+  # Reduced versions for NEW random awards only. Original definitions above
+  # retain every owned pouch and authored/frozen promise. Draw originals with
+  # unchanged odds, then substitute these identities before granting/saving.
+  # Exclude replacements from raw pools to avoid doubling pouch candidates.
+  - slug: pouch-small-v2
+    name: Small Coin Pouch (1 Coin)
+    icon: "👛"
+    sprite_key: money-purse
+    item_type: coin_pouch
+    rarity: common
+    coin_value: 1
+    metadata: {coins: 1, no_random_drop: true}
+
+  - slug: pouch-rupee-v2
+    name: Loose Rupee (2 Coins)
+    icon: "💎"
+    sprite_key: rupee
+    item_type: coin_pouch
+    rarity: common
+    coin_value: 2
+    metadata: {coins: 2, no_random_drop: true}
+
+  - slug: pouch-medium-v2
+    name: Medium Coin Pouch (3 Coins)
+    icon: "💰"
+    sprite_key: bronze-coin-stack
+    item_type: coin_pouch
+    rarity: uncommon
+    coin_value: 3
+    metadata: {coins: 3, no_random_drop: true}
+
+  - slug: pouch-large-v2
+    name: Large Coin Pouch (10 Coins)
+    icon: "💎"
+    sprite_key: silver-coin-stack
+    item_type: coin_pouch
+    rarity: rare
+    coin_value: 10
+    metadata: {coins: 10, no_random_drop: true}
+
+  - slug: pouch-gold-v2
+    name: Gold Stack (20 Coins)
+    icon: "🪙"
+    sprite_key: gold-coin-stack
+    item_type: coin_pouch
+    rarity: epic
+    coin_value: 20
+    metadata: {coins: 20, no_random_drop: true}
+
+  - slug: pouch-treasure-v2
+    name: Treasure Hoard (50 Coins)
+    icon: "🏆"
+    sprite_key: large-gold-coin-stack
+    item_type: coin_pouch
+    rarity: legendary
+    coin_value: 50
+    metadata: {coins: 50, no_random_drop: true}
+
+  - slug: pouch-mega-v2
+    name: Mega Hoard (100 Coins)
+    icon: "💎"
+    sprite_key: large-gold-coin-stack
+    item_type: coin_pouch
+    rarity: legendary
+    coin_value: 100
+    metadata: {coins: 100, no_random_drop: true}

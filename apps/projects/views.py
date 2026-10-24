@@ -915,17 +915,9 @@ class SavingsGoalViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    def list(self, request, *args, **kwargs):
-        # Running completion detection here — rather than only from
-        # ``PaymentService.record_entry`` — guarantees any goal whose
-        # target was edited down below the current balance auto-completes
-        # on the next list fetch without requiring another ledger write.
+    def perform_destroy(self, instance):
         from .savings_service import SavingsGoalService
-        SavingsGoalService.check_and_complete(request.user)
-        return super().list(request, *args, **kwargs)
-
-
-
+        SavingsGoalService.delete_goal(instance)
 
 class GreenlightImportView(APIView):
     """Compatibility route: preview only; reconciliation requires selection."""

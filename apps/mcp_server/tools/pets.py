@@ -33,6 +33,7 @@ from ..schemas import (
     ListMountsIn,
     ListPetsIn,
 )
+from ..retries import authorized_household
 from ..server import tool
 from ..shapes import many, user_mount_to_dict, user_pet_to_dict
 
@@ -43,8 +44,9 @@ def list_pets(params: ListPetsIn) -> dict[str, Any]:
     """List a user's pets (children forced to self)."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    qs = UserPet.objects.select_related("species", "potion").filter(user=target)
-    return {"pets": many(qs, user_pet_to_dict)}
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        qs = UserPet.objects.select_related("species", "potion").filter(user=target)
+        return {"pets": many(qs, user_pet_to_dict)}
 
 
 @tool()
@@ -53,8 +55,9 @@ def list_mounts(params: ListMountsIn) -> dict[str, Any]:
     """List a user's evolved mounts."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    qs = UserMount.objects.select_related("species", "potion").filter(user=target)
-    return {"mounts": many(qs, user_mount_to_dict)}
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        qs = UserMount.objects.select_related("species", "potion").filter(user=target)
+        return {"mounts": many(qs, user_mount_to_dict)}
 
 
 @tool()
@@ -63,14 +66,15 @@ def get_pet_stable(params: GetPetStableIn) -> dict[str, Any]:
     """Aggregate stable view: pets + mounts + collection stats."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    raw = PetService.get_stable(target)
-    return {
-        "pets": many(raw["pets"], user_pet_to_dict),
-        "mounts": many(raw["mounts"], user_mount_to_dict),
-        "total_pets": raw["total_pets"],
-        "total_mounts": raw["total_mounts"],
-        "total_possible": raw["total_possible"],
-    }
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        raw = PetService.get_stable(target)
+        return {
+            "pets": many(raw["pets"], user_pet_to_dict),
+            "mounts": many(raw["mounts"], user_mount_to_dict),
+            "total_pets": raw["total_pets"],
+            "total_mounts": raw["total_mounts"],
+            "total_possible": raw["total_possible"],
+        }
 
 
 def _incubation_body(incubation, now):
@@ -84,10 +88,12 @@ def _incubation_body(incubation, now):
 @safe_tool
 def get_pet_incubation(params: GetPetIncubationIn) -> dict[str, Any]:
     """Read the current incubating or ready egg. Reads never hatch a pet."""
-    target = resolve_target_user(get_current_user(), params.user_id)
-    now = timezone.now()
-    return {**_incubation_body(PetService.current_incubation(target), now),
-            "duration_seconds": PetService.incubation_duration_seconds()}
+    user = get_current_user()
+    target = resolve_target_user(user, params.user_id)
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        now = timezone.now()
+        return {**_incubation_body(PetService.current_incubation(target), now),
+                "duration_seconds": PetService.incubation_duration_seconds()}
 
 
 @tool()
@@ -98,9 +104,11 @@ def start_pet_incubation(params: StartPetIncubationIn) -> dict[str, Any]:
     Retry identical ingredients with the same request_id after an uncertain
     result. Only one unhatched incubation can be active for the account.
     """
-    target = resolve_target_user(get_current_user(), params.user_id)
-    incubation, _ = PetService.start_incubation(target, params.egg_item_id, params.potion_item_id, params.request_id)
-    return _incubation_body(incubation, timezone.now())
+    user = get_current_user()
+    target = resolve_target_user(user, params.user_id)
+    with authorized_household(user, target) as (user, target):
+        incubation, _ = PetService.start_incubation(target, params.egg_item_id, params.potion_item_id, params.request_id)
+        return _incubation_body(incubation, timezone.now())
 
 
 @tool()
@@ -110,13 +118,15 @@ def claim_pet_incubation(params: ClaimPetIncubationIn) -> dict[str, Any]:
 
     Exact-ID retries return the same saved pet without another reward.
     """
-    target = resolve_target_user(get_current_user(), params.user_id)
-    try:
-        incubation, pet, freshly_hatched = PetService.hatch_incubation(target, params.incubation_id)
-    except IncubationNotFound as exc:
-        raise MCPNotFoundError(str(exc)) from exc
-    return {**_incubation_body(incubation, timezone.now()),
-            "pet": user_pet_to_dict(pet), "freshly_hatched": freshly_hatched}
+    user = get_current_user()
+    target = resolve_target_user(user, params.user_id)
+    with authorized_household(user, target) as (user, target):
+        try:
+            incubation, pet, freshly_hatched = PetService.hatch_incubation(target, params.incubation_id)
+        except IncubationNotFound as exc:
+            raise MCPNotFoundError(str(exc)) from exc
+        return {**_incubation_body(incubation, timezone.now()),
+                "pet": user_pet_to_dict(pet), "freshly_hatched": freshly_hatched}
 
 
 @tool()
@@ -130,9 +140,10 @@ def feed_pet(params: FeedPetIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    result = PetService.feed_pet(target, params.pet_id, params.food_item_id)
-    pet = UserPet.objects.select_related("species", "potion").get(pk=params.pet_id)
-    return {**result, "pet": user_pet_to_dict(pet)}
+    with authorized_household(user, target) as (user, target):
+        result = PetService.feed_pet(target, params.pet_id, params.food_item_id)
+        pet = UserPet.objects.select_related("species", "potion").get(pk=params.pet_id, user=target)
+        return {**result, "pet": user_pet_to_dict(pet)}
 
 
 @tool()
@@ -141,8 +152,9 @@ def activate_pet(params: ActivatePetIn) -> dict[str, Any]:
     """Mark a pet as active (deactivates any prior active pet)."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    pet = PetService.set_active_pet(target, params.pet_id)
-    return user_pet_to_dict(pet)
+    with authorized_household(user, target) as (user, target):
+        pet = PetService.set_active_pet(target, params.pet_id)
+        return user_pet_to_dict(pet)
 
 
 @tool()
@@ -151,5 +163,6 @@ def activate_mount(params: ActivateMountIn) -> dict[str, Any]:
     """Mark a mount as active (deactivates any prior active mount)."""
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    mount = PetService.set_active_mount(target, params.mount_id)
-    return user_mount_to_dict(mount)
+    with authorized_household(user, target) as (user, target):
+        mount = PetService.set_active_mount(target, params.mount_id)
+        return user_mount_to_dict(mount)

@@ -15,6 +15,7 @@ Mirrors ``/api/chronicle/*``. Two distinct surfaces:
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import date
 from typing import Any
 
@@ -26,9 +27,10 @@ from apps.chronicle.models import ChronicleEntry
 from apps.chronicle.services import ChronicleService, JournalAlreadyExistsError
 
 from ..context import (
-    get_current_user, get_in_family, require_parent, resolve_target_user,
+    get_current_user, require_parent, resolve_target_user,
 )
 from ..errors import MCPNotFoundError, MCPPermissionDenied, MCPValidationError, safe_tool
+from ..retries import authorized_household
 from ..schemas import (
     CreateManualEntryIn,
     DeleteChronicleEntryIn,
@@ -47,6 +49,25 @@ from ..shapes import chronicle_entry_to_dict, many
 
 def _chapter_year_for(d: date) -> int:
     return d.year if d.month >= 8 else d.year - 1
+
+
+@contextmanager
+def _authorized_entry(actor, entry_id):
+    # Resolve only identity before locking Family -> sorted members. Never
+    # materialize prose until current authority and visibility are rechecked.
+    owner_id = visible_chronicle_entries(actor, ChronicleEntry.objects.all()).filter(
+        pk=entry_id,
+    ).values_list("user_id", flat=True).first()
+    if owner_id is None:
+        raise MCPNotFoundError(f"ChronicleEntry {entry_id} not found.")
+    target = resolve_target_user(actor, owner_id)
+    with authorized_household(actor, target) as (actor, target):
+        entry = visible_chronicle_entries(
+            actor, ChronicleEntry.objects.select_for_update(of=("self",)).filter(user=target),
+        ).filter(pk=entry_id).first()
+        if entry is None:
+            raise MCPNotFoundError(f"ChronicleEntry {entry_id} not found.")
+        yield entry
 
 
 @tool()
@@ -70,13 +91,14 @@ def list_chronicle_entries(params: ListChronicleEntriesIn) -> dict[str, Any]:
     """
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
-    qs = visible_chronicle_entries(user, ChronicleEntry.objects.filter(user=target))
-    if params.chapter_year is not None:
-        qs = qs.filter(chapter_year=params.chapter_year)
-    if params.kind:
-        qs = qs.filter(kind=params.kind)
-    qs = qs.order_by("-occurred_on", "-created_at")[: params.limit]
-    return {"entries": many(qs, chronicle_entry_to_dict)}
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
+        qs = visible_chronicle_entries(user, ChronicleEntry.objects.filter(user=target))
+        if params.chapter_year is not None:
+            qs = qs.filter(chapter_year=params.chapter_year)
+        if params.kind:
+            qs = qs.filter(kind=params.kind)
+        qs = qs.order_by("-occurred_on", "-created_at")[: params.limit]
+        return {"entries": many(qs, chronicle_entry_to_dict)}
 
 
 @tool()
@@ -93,32 +115,33 @@ def get_chronicle_summary(params: GetChronicleSummaryIn) -> dict[str, Any]:
 
     user = get_current_user()
     target = resolve_target_user(user, params.user_id)
+    with authorized_household(user, target, allow_inactive_target=True) as (user, target):
 
-    entries = list(
-        visible_chronicle_entries(user, ChronicleEntry.objects.filter(user=target))
-        .order_by("-chapter_year", "-occurred_on"),
-    )
-    by_year: dict[int, list] = defaultdict(list)
-    for e in entries:
-        by_year[e.chapter_year].append(e)
+        entries = list(
+            visible_chronicle_entries(user, ChronicleEntry.objects.filter(user=target))
+            .order_by("-chapter_year", "-occurred_on"),
+        )
+        by_year: dict[int, list] = defaultdict(list)
+        for e in entries:
+            by_year[e.chapter_year].append(e)
 
-    # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
-    # returns the wrong day around midnight Phoenix (it's already next-day
-    # in UTC), causing today's birthday / today's journal to vanish from
-    # the lookup.
-    today = timezone.localdate()
-    current_chapter = _chapter_year_for(today)
+        # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
+        # returns the wrong day around midnight Phoenix (it's already next-day
+        # in UTC), causing today's birthday / today's journal to vanish from
+        # the lookup.
+        today = timezone.localdate()
+        current_chapter = _chapter_year_for(today)
 
-    chapters = []
-    for year in sorted(by_year.keys(), reverse=True):
-        is_current = year == current_chapter
-        chapters.append({
-            "chapter_year": year,
-            "is_current": is_current,
-            "stats": _stats_for(target, year, by_year[year], is_current),
-            "entries": [chronicle_entry_to_dict(e) for e in by_year[year]],
-        })
-    return {"chapters": chapters, "current_chapter_year": current_chapter}
+        chapters = []
+        for year in sorted(by_year.keys(), reverse=True):
+            is_current = year == current_chapter
+            chapters.append({
+                "chapter_year": year,
+                "is_current": is_current,
+                "stats": _stats_for(target, year, by_year[year], is_current),
+                "entries": [chronicle_entry_to_dict(e) for e in by_year[year]],
+            })
+        return {"chapters": chapters, "current_chapter_year": current_chapter}
 
 
 @tool()
@@ -131,15 +154,11 @@ def mark_chronicle_viewed(params: MarkChronicleViewedIn) -> dict[str, Any]:
     entry (low-impact alone but violates the scoping doctrine).
     """
     user = get_current_user()
-    qs = visible_chronicle_entries(user, ChronicleEntry.objects.all())
-    try:
-        entry = qs.get(pk=params.entry_id)
-    except ChronicleEntry.DoesNotExist:
-        raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
-    if entry.viewed_at is None:
-        entry.viewed_at = timezone.now()
-        entry.save(update_fields=["viewed_at"])
-    return chronicle_entry_to_dict(entry)
+    with _authorized_entry(user, params.entry_id) as entry:
+        if entry.viewed_at is None:
+            entry.viewed_at = timezone.now()
+            entry.save(update_fields=["viewed_at"])
+        return chronicle_entry_to_dict(entry)
 
 
 @tool()
@@ -147,22 +166,23 @@ def mark_chronicle_viewed(params: MarkChronicleViewedIn) -> dict[str, Any]:
 def get_pending_celebration(params: GetPendingCelebrationIn) -> dict[str, Any]:
     """Return today's unviewed BIRTHDAY entry for the caller, or ``null``."""
     user = get_current_user()
-    # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
-    # returns the wrong day around midnight Phoenix (it's already next-day
-    # in UTC), causing today's birthday / today's journal to vanish from
-    # the lookup.
-    today = timezone.localdate()
-    entry = (
-        ChronicleEntry.objects.filter(
-            user=user,
-            kind=ChronicleEntry.Kind.BIRTHDAY,
-            occurred_on=today,
-            viewed_at__isnull=True,
+    with authorized_household(user, user) as (user, _):
+        # Audit H11: use Phoenix-local date, not server UTC. ``date.today()``
+        # returns the wrong day around midnight Phoenix (it's already next-day
+        # in UTC), causing today's birthday / today's journal to vanish from
+        # the lookup.
+        today = timezone.localdate()
+        entry = (
+            ChronicleEntry.objects.filter(
+                user=user,
+                kind=ChronicleEntry.Kind.BIRTHDAY,
+                occurred_on=today,
+                viewed_at__isnull=True,
+            )
+            .order_by("-created_at")
+            .first()
         )
-        .order_by("-created_at")
-        .first()
-    )
-    return {"entry": chronicle_entry_to_dict(entry) if entry else None}
+        return {"entry": chronicle_entry_to_dict(entry) if entry else None}
 
 
 @tool()
@@ -170,12 +190,13 @@ def get_pending_celebration(params: GetPendingCelebrationIn) -> dict[str, Any]:
 def get_today_journal(params: GetTodayJournalIn) -> dict[str, Any]:
     """Return today's journal entry for the caller, or ``null`` if none."""
     user = get_current_user()
-    entry = ChronicleEntry.objects.filter(
-        user=user,
-        kind=ChronicleEntry.Kind.JOURNAL,
-        occurred_on=timezone.localdate(),
-    ).first()
-    return {"entry": chronicle_entry_to_dict(entry) if entry else None}
+    with authorized_household(user, user) as (user, _):
+        entry = ChronicleEntry.objects.filter(
+            user=user,
+            kind=ChronicleEntry.Kind.JOURNAL,
+            occurred_on=timezone.localdate(),
+        ).first()
+        return {"entry": chronicle_entry_to_dict(entry) if entry else None}
 
 
 @tool()
@@ -195,17 +216,18 @@ def write_journal(params: WriteJournalIn) -> dict[str, Any]:
     and fires the streak / drop / quest game loop.
     """
     user = get_current_user()
-    try:
-        entry = ChronicleService.write_journal(
-            user, title=params.title, summary=params.summary,
-        )
-    except JournalAlreadyExistsError as exc:
-        existing_id = exc.entry.id if exc.entry else None
-        raise MCPValidationError(
-            f"You already wrote a journal entry today (id={existing_id}). "
-            f"Use update_journal to edit it.",
-        )
-    return chronicle_entry_to_dict(entry)
+    with authorized_household(user, user) as (user, _):
+        try:
+            entry = ChronicleService.write_journal(
+                user, title=params.title, summary=params.summary,
+            )
+        except JournalAlreadyExistsError as exc:
+            existing_id = exc.entry.id if exc.entry else None
+            raise MCPValidationError(
+                f"You already wrote a journal entry today (id={existing_id}). "
+                f"Use update_journal to edit it.",
+            )
+        return chronicle_entry_to_dict(entry)
 
 
 @tool()
@@ -224,17 +246,18 @@ def update_journal(params: UpdateJournalIn) -> dict[str, Any]:
     403-vs-404 status. Scoping here closes the leak.
     """
     user = get_current_user()
-    try:
-        entry = ChronicleEntry.objects.get(pk=params.entry_id, user=user)
-    except ChronicleEntry.DoesNotExist:
-        raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
-    try:
-        updated = ChronicleService.update_journal(
-            user, entry, title=params.title, summary=params.summary,
-        )
-    except DRFPermissionDenied as exc:
-        raise MCPPermissionDenied(str(exc))
-    return chronicle_entry_to_dict(updated)
+    with authorized_household(user, user) as (user, _):
+        try:
+            entry = ChronicleEntry.objects.select_for_update().get(pk=params.entry_id, user=user)
+        except ChronicleEntry.DoesNotExist:
+            raise MCPNotFoundError(f"ChronicleEntry {params.entry_id} not found.")
+        try:
+            updated = ChronicleService.update_journal(
+                user, entry, title=params.title, summary=params.summary,
+            )
+        except DRFPermissionDenied as exc:
+            raise MCPPermissionDenied(str(exc))
+        return chronicle_entry_to_dict(updated)
 
 
 @tool()
@@ -258,20 +281,21 @@ def create_manual_entry(params: CreateManualEntryIn) -> dict[str, Any]:
     parent = require_parent()
 
     target = resolve_target_user(parent, params.user_id)
-    if getattr(target, "role", None) != "child":
-        raise MCPNotFoundError(f"Child {params.user_id} not found.")
+    with authorized_household(parent, target) as (parent, target):
+        if getattr(target, "role", None) != "child":
+            raise MCPNotFoundError(f"Child {params.user_id} not found.")
 
-    entry = ChronicleEntry.objects.create(
-        user=target,
-        kind=ChronicleEntry.Kind.MANUAL,
-        chapter_year=_chapter_year_for(params.occurred_on),
-        title=params.title,
-        summary=params.summary,
-        icon_slug=params.icon_slug,
-        occurred_on=params.occurred_on,
-        metadata=params.metadata,
-    )
-    return chronicle_entry_to_dict(entry)
+        entry = ChronicleEntry.objects.create(
+            user=target,
+            kind=ChronicleEntry.Kind.MANUAL,
+            chapter_year=_chapter_year_for(params.occurred_on),
+            title=params.title,
+            summary=params.summary,
+            icon_slug=params.icon_slug,
+            occurred_on=params.occurred_on,
+            metadata=params.metadata,
+        )
+        return chronicle_entry_to_dict(entry)
 
 
 @tool()
@@ -283,22 +307,19 @@ def update_manual_entry(params: UpdateManualEntryIn) -> dict[str, Any]:
     manual chronicle row.
     """
     parent = require_parent()
-    entry = get_in_family(
-        ChronicleEntry, params.entry_id, actor=parent,
-        family_path="user__family",
-    )
-    if entry.kind != ChronicleEntry.Kind.MANUAL:
-        raise MCPPermissionDenied(
-            "Only manual entries are editable. Birthdays / firsts / recaps are immutable history.",
-        )
+    with _authorized_entry(parent, params.entry_id) as entry:
+        if entry.kind != ChronicleEntry.Kind.MANUAL:
+            raise MCPPermissionDenied(
+                "Only manual entries are editable. Birthdays / firsts / recaps are immutable history.",
+            )
 
-    updates = params.model_dump(exclude={"entry_id"}, exclude_unset=True)
-    for field, value in updates.items():
-        setattr(entry, field, value)
-    if "occurred_on" in updates:
-        entry.chapter_year = _chapter_year_for(entry.occurred_on)
-    entry.save()
-    return chronicle_entry_to_dict(entry)
+        updates = params.model_dump(exclude={"entry_id"}, exclude_unset=True)
+        for field, value in updates.items():
+            setattr(entry, field, value)
+        if "occurred_on" in updates:
+            entry.chapter_year = _chapter_year_for(entry.occurred_on)
+        entry.save()
+        return chronicle_entry_to_dict(entry)
 
 
 @tool()
@@ -309,13 +330,10 @@ def delete_chronicle_entry(params: DeleteChronicleEntryIn) -> dict[str, Any]:
     Audit C8: family-scope so a parent can't delete another family's row.
     """
     parent = require_parent()
-    entry = get_in_family(
-        ChronicleEntry, params.entry_id, actor=parent,
-        family_path="user__family",
-    )
-    if entry.kind != ChronicleEntry.Kind.MANUAL:
-        raise MCPPermissionDenied(
-            "Only manual entries are deletable. Birthdays / firsts / recaps are immutable history.",
-        )
-    entry.delete()
-    return {"deleted": True, "entry_id": params.entry_id}
+    with _authorized_entry(parent, params.entry_id) as entry:
+        if entry.kind != ChronicleEntry.Kind.MANUAL:
+            raise MCPPermissionDenied(
+                "Only manual entries are deletable. Birthdays / firsts / recaps are immutable history.",
+            )
+        entry.delete()
+        return {"deleted": True, "entry_id": params.entry_id}

@@ -20,6 +20,9 @@ from rest_framework.authtoken.models import Token
 from rest_framework.test import APITestCase
 
 from apps.achievements.models import Skill, SkillCategory, SkillProgress
+from apps.mcp_server.context import override_user
+from apps.mcp_server.schemas import UpdateCategoryIn, UpdateSkillIn
+from apps.mcp_server.tools import achievements
 from apps.movement.models import MovementSession, MovementType, MovementTypeSkillTag
 from apps.quests.models import QuestDefinition, QuestRewardItem, QuestSkillTag
 from apps.rewards.models import CoinLedger
@@ -916,6 +919,30 @@ class ChallengeApiResponseFixtureTests(APITestCase):
         self.assertTrue(daily["awarded"])
         self.assertEqual(daily["xp_awarded"], 0)
         self.assertEqual(sum(SkillProgress.objects.filter(user=self.child).values_list("xp_points", flat=True)), 0)
+
+    def test_daily_receipt_preserves_fallback_skill_identity_after_taxonomy_renames(self):
+        category = SkillCategory.objects.create(id=24, name="Life Skills")
+        persistence = Skill.objects.create(id=25, name="Persistence", category=category)
+        self.parent.is_staff = True
+        self.parent.save(update_fields=["is_staff"])
+        with override_user(self.parent):
+            achievements.update_category(UpdateCategoryIn(category_id=category.pk, name="Everyday Growth"))
+            achievements.update_skill(UpdateSkillIn(skill_id=persistence.pk, name="Keep Going"))
+        # An untagged real movement session selects the daily bonus's fixed
+        # Persistence destination instead of borrowing a source activity tag.
+        self.running.skill_tags.all().delete()
+        self.authenticate(self.child)
+        response = self.log_run("0.75")
+        self.assertEqual(response.status_code, 201, response.content)
+        response = self.client.get("/api/challenges/")
+        daily = response.json()["daily_bonus"]
+        self.assertTrue(daily["awarded"])
+        self.assertEqual((daily["xp_reward"], daily["xp_awarded"]), (20, 20))
+        self.assertEqual(SkillProgress.objects.get(user=self.child, skill=persistence).xp_points, 20)
+        saved = self.assert_response_fixture(response, "challenges-renamed-taxonomy-daily.json")
+        original_state = self.state()
+        self.assertEqual(self.client.get("/api/challenges/").json(), saved)
+        self.assertEqual(self.state(), original_state)
 
     def test_catalog_preview_and_actual_grants_use_the_same_supported_art_policy(self):
         frame = ItemDefinition.objects.create(id=61, name="Fixture frame", slug="fixture-frame", item_type="cosmetic_frame")
