@@ -76,7 +76,9 @@ function Preview({ creature, kind, variant, stage, enabled, setEnabled, animate,
   const label = creatureLabel(creature, kind);
   const name = creature?.name?.trim() || label;
   const showScene = enabled && appearance && !failed;
-  const missingElementalArtwork = isElementalCompanion(creature?.species, creature?.potion) && !appearance;
+  // The scene kill switch is a display choice, not a failed artwork lookup.
+  const missingElementalArtwork = import.meta.env.VITE_COMPANION_3D !== 'false'
+    && isElementalCompanion(creature?.species, creature?.potion) && !appearance;
   const reducedMotion = usePrefersReducedMotion();
   const evolutionMotionEnabled = animate && !reducedMotion;
   useEffect(() => {
