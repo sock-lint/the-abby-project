@@ -353,7 +353,6 @@ def _occurrence(goal, at):
             pk=goal.pk, catalog_definition__isnull=False,
             catalog_definition__superseded_by__isnull=True, catalog_definition__is_cooperative=False,
         ).exists()
-        or not active_system_definitions().filter(pk=goal.catalog_definition_id).exists()
     )
     if retired:
         # Retirement retains saved promises and history, without new cycles.

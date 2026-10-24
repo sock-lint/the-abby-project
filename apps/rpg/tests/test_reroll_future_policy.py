@@ -46,7 +46,8 @@ class FuturePolicyRerollTests(TestCase):
             trigger_filter__distinct_active_days=True,
         ).values_list("pk", flat=True))
         self.assertTrue(active_day_ids)
-        QuestDefinition.objects.exclude(pk__in=active_day_ids).update(is_system=False)
+        # Untimed onboarding must stay system-owned; rerolls already exclude it.
+        QuestDefinition.objects.exclude(pk__in=active_day_ids).exclude(duration_days=None).update(is_system=False)
         with patch("apps.rpg.services.random.choice", side_effect=lambda rows: rows[0]) as choose:
             with self.assertRaisesMessage(ValueError, "No eligible quests to reroll into"):
                 ConsumableService.use(self.child, self.reroll.pk)
