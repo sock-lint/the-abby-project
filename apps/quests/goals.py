@@ -220,9 +220,10 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
             (definition.pk, status) in legacy_statuses for status in ("active", "completed")
         ):
             continue
-        from .reference_locks import admit_definition_choices
+        from .reference_locks import admit_definition_choices, admit_definition_identity
         try:
             admit_definition_choices(definition)
+            admit_definition_identity(definition)
         except ValueError:
             # Only a new promise needs fresh choice admission. Saved legacy
             # windows and existing goals retain their reward references.

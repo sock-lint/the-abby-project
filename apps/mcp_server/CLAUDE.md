@@ -64,7 +64,7 @@ also apply to this history filter.
 
 Prepared-art tools are `register_sprite`, `register_sprite_batch`, `list_sprites`, `get_sprite`, `delete_sprite`, `update_sprite_metadata`, plus filesystem pack registration through `register_sprite_assets`. Writes require staff parent and `mcp:publish`. AI image/sprite generation, rerolling and prompt/playbook tools are retired. Historical sprite images and stored metadata remain readable.
 
-The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 277 tools across 38 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
+The complete [tool inventory](../../docs/mcp-tools.md) records the enforced scope and confirmation requirement for all 280 tools across 39 modules. Names do not determine permission: `get_daily_challenge` and `list_cosmetics` can create records and require `mcp:write`.
 
 Inventory, companion and Chronicle tools retain fresh actor/target authority
 under Family then sorted member locks through domain work and serialization.
@@ -197,6 +197,16 @@ catalog. Pack publication requires the same actor/family, expiring preview ID,
 source digest and exact reviewed catalog diff. Unowned legacy drafts require
 reconciliation. Author/proposal audit actor FKs preserve evidence with SET_NULL
 when accounts are deleted; do not block existing account deletion with PROTECT.
+
+`challenge_reconciliation.py` provides dedicated preview/get/publish tools for
+one explicit conflicting system-definition pair. Author reads/plans and
+confirmed publication use separate scopes and concrete global-only results.
+The native service owns fresh account authorization and mutex-first admission:
+do not put an outer `authorized_household` transaction around preview/publish.
+Receipts bind exact source, ownership and accepted-goal state without exposing
+household identities or counts; cooperative differences need a separate strict
+acknowledgment. Source rows, accepted promises and repeat cadence are preserved.
+See [canonical reconciliation](../../docs/operations/mcp-authoring.md#canonical-challenge-reconciliation).
 
 `challenges.py` uses the current goal serializer/service, required UUID creation,
 saved-state-only audit and self/family pins. Reads never call materializing

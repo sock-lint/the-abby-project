@@ -27,6 +27,32 @@ def admit_definition_choices(definition):
     admit_references(Skill, ids)
 
 
+def admit_definition_identity(definition):
+    """Fence NEW acceptance after taxonomy admission, before its INSERT.
+
+    A loader may introduce a conflicting root after a caller loaded an offer.
+    SHARE (not KEY SHARE) excludes alias updates until this acceptance commits.
+    Publication takes its category prefix before definition write locks, so this
+    must follow admit_definition_choices. Saved promises never use this gate.
+    """
+    from django.db import connection
+    from .models import QuestDefinition
+    from .queries import active_system_definitions
+
+    if not connection.in_atomic_block:
+        raise RuntimeError("Definition admission requires an atomic write.")
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT id FROM " + connection.ops.quote_name(QuestDefinition._meta.db_table)
+                           + " WHERE id = %s FOR SHARE", [definition.pk])
+            cursor.fetchall()
+    # This separate statement deliberately samples AFTER any row-lock wait.
+    current = QuestDefinition.objects.filter(pk=definition.pk).values("is_system", "superseded_by_id").first()
+    if (current is None or current["superseded_by_id"] is not None
+            or (current["is_system"] and not active_system_definitions().filter(pk=definition.pk).exists())):
+        raise ValueError("This challenge's catalog identity changed. Refresh and choose its current offer.")
+
+
 def lock_definition_write():
     """Admit private tag replacements before taking taxonomy row locks."""
     from django.db import connection
