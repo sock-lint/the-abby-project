@@ -23,6 +23,7 @@ DAY = date(2026, 4, 21)
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
     COINS_PER_BADGE_RARITY={"common": 7, "uncommon": 13, "rare": 23, "epic": 37},
     BIRTHDAY_COINS_PER_YEAR=100,
+    BIRTHDAY_COIN_GIFT=200,
     RPG_ASSET_SUPPORT_POLICY=None,
 )
 class BirthdayBadgeTests(TestCase):
@@ -80,9 +81,9 @@ class BirthdayBadgeTests(TestCase):
         gifts = CoinLedger.objects.filter(user=self.child, description="birthday_gift")
         self.assertEqual(gifts.count(), int(gift))
         if gift:
-            self.assertEqual(gifts.get().amount, 1500)
+            self.assertEqual(gifts.get().amount, 200)
             entry = ChronicleEntry.objects.get(user=self.child, kind="birthday", occurred_on=DAY)
-            self.assertEqual(entry.metadata["gift_coins"], 1500)
+            self.assertEqual(entry.metadata["gift_coins"], 200)
 
     def test_scheduled_birthday_awards_and_gift_are_not_replayed(self):
         badge = self.badge()
@@ -151,7 +152,7 @@ class BirthdayBadgeTests(TestCase):
         self.assertEqual(UserBadge.objects.filter(user=self.child, badge=badge).count(), 1)
         self.assertEqual(DropLog.objects.filter(user=self.child).count(), 1)
         self.assertFalse(CoinLedger.objects.filter(user=self.child, reason="badge_bonus").exists())
-        self.assertEqual(CoinLedger.objects.get(user=self.child, description="birthday_gift").amount, 1500)
+        self.assertEqual(CoinLedger.objects.get(user=self.child, description="birthday_gift").amount, 200)
 
     def test_birthday_badge_unlocks_meta_badge_with_one_drop_per_new_badge(self):
         birthday = self.badge(xp=20)

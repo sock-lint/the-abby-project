@@ -659,9 +659,9 @@ describe('shared Django response fixtures through the React API client', () => {
   });
 
   it.each([
-    ['short', 61, shortExpedition, 15, 1],
-    ['standard', 62, standardExpedition, 35, 2],
-    ['long', 63, longExpedition, 75, 3],
+    ['short', 61, shortExpedition, 3, 1],
+    ['standard', 62, standardExpedition, 7, 2],
+    ['long', 63, longExpedition, 15, 3],
   ])('starts a %s expedition with the owned mount ID and preserves locked planned loot', async (tier, mountId, response, plannedCoins, slots) => {
     const calls = [];
     setToken(loginResponse.token);
@@ -747,11 +747,11 @@ describe('shared Django response fixtures through the React API client', () => {
   });
 
   it.each([
-    ['fresh claim', claimedExpedition, true, 15],
+    ['fresh claim', claimedExpedition, true, 3],
     ['repeat claim', repeatedExpeditionClaim, false, 0],
-    ['boosted claim', boostedExpeditionClaim, true, 30],
-    ['duplicate cosmetic salvage', salvageExpeditionClaim, true, 15],
-    ['archived planned item', archivedItemExpeditionClaim, true, 15],
+    ['boosted claim', boostedExpeditionClaim, true, 6],
+    ['duplicate cosmetic salvage', salvageExpeditionClaim, true, 3],
+    ['archived planned item', archivedItemExpeditionClaim, true, 3],
   ])('claims %s with an empty POST and preserves actual coins separately from planned item slots', async (_label, response, freshlyClaimed, actualCoins) => {
     const calls = [];
     setToken(loginResponse.token);
@@ -773,8 +773,9 @@ describe('shared Django response fixtures through the React API client', () => {
     }]);
     if (!freshlyClaimed) expect(result.items).toEqual(claimedExpedition.items);
     if (result.items[0].salvaged_to_coins) {
-      expect(result.items[0].salvaged_to_coins).toBe(20);
-      expect(result.coins_awarded).toBe(15);
+      expect(result.items[0].salvage_coins_snapshot).toBe(10);
+      expect(result.items[0].salvaged_to_coins).toBe(10);
+      expect(result.coins_awarded).toBe(3);
     }
   });
 

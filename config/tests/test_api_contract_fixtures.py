@@ -541,8 +541,8 @@ class SharedApiResponseFixtureTests(APITestCase):
 
     def test_expedition_start_tiers_lock_loot_without_awarding_or_changing_inventory(self):
         self.seed_expeditions()
-        # Exercise all three durations concurrently with separate species.
-        # Extra colors of Fox share its allowance and cannot add a third run.
+        # Exercise all three saved durations across two launch days. The
+        # shared child allowance permits only two starts on the same day.
         owl = PetSpecies.objects.create(
             id=45, slug="fixture-owl", name="Owl", icon="🦉", sprite_key="owl",
             description="A synthetic night companion.", food_preference="berries",
@@ -551,10 +551,10 @@ class SharedApiResponseFixtureTests(APITestCase):
         UserMount.objects.filter(pk=63).update(species=owl)
         before = self.expedition_reward_state()
         for index, (tier, duration, coins, slots) in enumerate((
-            ("short", 7200, 15, 1), ("standard", 14400, 35, 2), ("long", 28800, 75, 3),
+            ("short", 7200, 3, 1), ("standard", 14400, 7, 2), ("long", 28800, 15, 3),
         )):
             with self.subTest(tier=tier):
-                now = FIXED_NOW + timedelta(seconds=index - 2)
+                now = FIXED_NOW + timedelta(days=-1 if index == 0 else 0, seconds=index - 2)
                 response = self.start_fixture_expedition(tier, 61 + index, now)
                 body = self.assert_response_fixture(response, f"expedition-start-{tier}.json", status=201)
                 expedition = MountExpedition.objects.get(pk=body["id"])
@@ -574,7 +574,7 @@ class SharedApiResponseFixtureTests(APITestCase):
         self.assertEqual({mount["active_expedition"]["id"] for mount in stable["mounts"]}, {103, 104, 105})
         with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2)):
             ready = self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready.json")["expeditions"]
-        self.assertEqual([(row["id"], row["status"], row["is_ready"], row["seconds_remaining"]) for row in ready], [(103, "active", True, -2)])
+        self.assertEqual([(row["id"], row["status"], row["is_ready"], row["seconds_remaining"]) for row in ready], [(103, "active", True, -86402)])
         self.assertEqual(self.expedition_reward_state(), before)
 
     def test_empty_expedition_lists_exclude_ready_foreign_and_sibling_rows_without_writes(self):
@@ -621,7 +621,7 @@ class SharedApiResponseFixtureTests(APITestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 response = self.client.post("/api/expeditions/103/claim/", {}, format="json")
             body = self.assert_response_fixture(response, "expedition-claim.json")
-            self.assertEqual((body["expedition_id"], body["freshly_claimed"], body["coins_awarded"]), (103, True, 15))
+            self.assertEqual((body["expedition_id"], body["freshly_claimed"], body["coins_awarded"]), (103, True, 3))
             self.assertEqual(body["items"], planned["items"])
             self.assertEqual(body["items"][0]["name"], "Berry Bowl")
             self.assertEqual(UserInventory.objects.get(user=self.child, item=self.preferred_food).quantity, 3)
@@ -684,10 +684,11 @@ class SharedApiResponseFixtureTests(APITestCase):
         with patch("django.utils.timezone.now", return_value=FIXED_NOW + timedelta(hours=2, seconds=5)):
             self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-salvage.json")
             body = self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-claim-salvage.json")
-            self.assertEqual(body["coins_awarded"], 15)
-            self.assertEqual(body["items"][0]["salvaged_to_coins"], 20)
-            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.EXPEDITION).amount, 15)
-            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.ADJUSTMENT).amount, 20)
+            self.assertEqual(body["coins_awarded"], 3)
+            self.assertEqual(body["items"][0]["salvage_coins_snapshot"], 10)
+            self.assertEqual(body["items"][0]["salvaged_to_coins"], 10)
+            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.EXPEDITION).amount, 3)
+            self.assertEqual(CoinLedger.objects.get(user=self.child, reason=CoinLedger.Reason.ADJUSTMENT).amount, 10)
             self.assertEqual(UserInventory.objects.get(user=self.child, item=cosmetic).quantity, 1)
             before = (self.expedition_reward_state(), self.expedition_rows_state())
             repeat = self.client.post("/api/expeditions/103/claim/", {}, format="json").json()
@@ -703,7 +704,7 @@ class SharedApiResponseFixtureTests(APITestCase):
             self.assert_response_fixture(self.client.get("/api/expeditions/?ready=true"), "expeditions-ready-claim.json")
             body = self.assert_response_fixture(self.client.post("/api/expeditions/103/claim/", {}, format="json"), "expedition-claim-archived-item.json")
         self.assertEqual(body["items"], planned)
-        self.assertEqual(body["coins_awarded"], 15)
+        self.assertEqual(body["coins_awarded"], 3)
         self.assertEqual(list(UserInventory.objects.order_by("pk").values_list("pk", "quantity")), before_inventory)
         self.assertFalse(UserInventory.objects.filter(item_id=71).exists())
 

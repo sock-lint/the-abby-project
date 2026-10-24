@@ -27,6 +27,7 @@ from apps.quests.activity import household_timezone
 from apps.reading.services import ReadingRewardService
 from apps.rewards.models import CoinLedger
 from apps.rpg import services as rpg
+from apps.rpg import coin_policy
 from apps.rpg.catalog_support import random_item_is_available
 from apps.rpg.companion_catalog import companion_drop_weights
 from apps.rpg.constants import TriggerType
@@ -49,7 +50,14 @@ def economy_rules():
         "coins_per_hour": settings.COINS_PER_HOUR,
         "coins_per_dollar": settings.COINS_PER_DOLLAR,
         "badge_coins_by_rarity": dict(settings.COINS_PER_BADGE_RARITY),
-        "birthday_coins_per_year": settings.BIRTHDAY_COINS_PER_YEAR,
+        # Retain the numeric legacy field while describing the fixed policy.
+        "birthday_coins_per_year": 0,
+        "birthday_coin_gift": settings.BIRTHDAY_COIN_GIFT,
+        "future_random_rewards": {
+            "expeditions_per_child_day": coin_policy.EXPEDITION_DAILY_LIMIT,
+            "duplicate_cosmetic_salvage_max": coin_policy.RANDOM_COSMETIC_SALVAGE_LIMIT,
+            "preservation": "Saved trip loot, owned consumables and accepted challenge rewards keep their promises; these limits govern new grants and launches.",
+        },
         "xp_thresholds": dict(XP_THRESHOLDS),
         "check_in": {
             "base_coins": rpg.BASE_CHECK_IN_COINS,

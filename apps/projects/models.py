@@ -454,6 +454,17 @@ class ProjectCollaborator(models.Model):
         return f"{self.user} on {self.project.title} ({self.pay_split_percent}%)"
 
 
+class SavingsRewardProgress(models.Model):
+    """Lifetime coverage and admission boundary, independent of goal rows."""
+
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name="savings_reward_progress")
+    recognized_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    # Ordered, merged [start, end] pairs in integer cents. The maximum alone
+    # cannot represent unpaid lower gaps reserved to older unchanged goals.
+    recognized_ranges = models.JSONField(default=list)
+
+
 class SavingsGoal(CreatedAtModel):
     """A savings target set by the child.
 
@@ -474,6 +485,25 @@ class SavingsGoal(CreatedAtModel):
     icon = models.CharField(max_length=50, blank=True)
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
+    reward_policy_version = models.PositiveSmallIntegerField(default=2)
+    reward_start_balance = models.DecimalField(max_digits=14, decimal_places=2, default=0)
+    reward_rate_snapshot = models.DecimalField(max_digits=10, decimal_places=4, default=2)
+    legacy_coin_reward = models.PositiveIntegerField(null=True, blank=True)
+    legacy_target_amount = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    reward_qualifies = models.BooleanField(default=False)
+
+    @transaction.atomic
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.reward_policy_version == 2:
+            from apps.payments.services import PaymentService
+            User.objects.select_for_update(no_key=True).get(pk=self.user_id)
+            balance = max(Decimal("0"), PaymentService.get_balance(self.user))
+            progress, _ = SavingsRewardProgress.objects.select_for_update().get_or_create(user_id=self.user_id,
+                defaults={"recognized_balance": balance,
+                    "recognized_ranges": [[0, int(balance * 100)]] if balance > 0 else []})
+            self.reward_start_balance = max(balance, progress.recognized_balance)
+            self.reward_rate_snapshot = Decimal(str(getattr(settings, "COINS_PER_SAVINGS_GOAL_DOLLAR", 2)))
+        super().save(*args, **kwargs)
 
     class Meta:
         ordering = ["-created_at"]

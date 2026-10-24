@@ -7,8 +7,8 @@ the loot is materialized into ``CoinLedger`` + ``UserInventory`` and the
 single ``GameLoopService`` orchestrator is invoked with ``drops_allowed=False``
 so streak/quest credit fires once without double-dipping the drop roll.
 
-Daily cap: each user's species shares one expedition per local day across
-potion appearances. The check is on ``started_at``, not ``returns_at``, so
+Daily cap: each child shares two expeditions per family-local day, and each
+species shares one across potion appearances. The check is on ``started_at``, not ``returns_at``, so
 an overnight trip uses its launch day's allowance. An unclaimed trip also
 blocks other appearances until it is explicitly collected.
 """
@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
+
+from apps.quests.activity import household_timezone
+from apps.rpg.coin_policy import EXPEDITION_DAILY_LIMIT, random_cosmetic_salvage_coins
 
 logger = logging.getLogger(__name__)
 
@@ -34,19 +37,19 @@ logger = logging.getLogger(__name__)
 TIER_CONFIG = {
     "short": {
         "duration_minutes": 120,   # 2h
-        "base_coins": 15,
+        "base_coins": 3,
         "item_slots": 1,
         "rarity_weights": {"common": 70, "uncommon": 25, "rare": 5},
     },
     "standard": {
         "duration_minutes": 240,   # 4h
-        "base_coins": 35,
+        "base_coins": 7,
         "item_slots": 2,
         "rarity_weights": {"common": 50, "uncommon": 35, "rare": 13, "epic": 2},
     },
     "long": {
         "duration_minutes": 480,   # 8h
-        "base_coins": 75,
+        "base_coins": 15,
         "item_slots": 3,
         "rarity_weights": {"common": 35, "uncommon": 35, "rare": 22, "epic": 7, "legendary": 1},
     },
@@ -64,6 +67,15 @@ class ExpeditionNotFound(ExpeditionError):
     instead of fragile message-prefix matching — a typo in the human-readable
     message used to silently downgrade 404 to 400 and leak existence.
     """
+
+
+def expedition_day_bounds(user, as_of=None):
+    """Bind launch receipts to their owner's actual family-local day."""
+    zone = household_timezone(user)
+    day = timezone.localdate(as_of or timezone.now(), timezone=zone)
+    start = datetime.combine(day, time.min, tzinfo=zone)
+    end = datetime.combine(day + timedelta(days=1), time.min, tzinfo=zone)
+    return start, end
 
 
 class ExpeditionService:
@@ -112,12 +124,21 @@ class ExpeditionService:
 
         # One clock snapshot binds this allowance to the saved launch day.
         now = timezone.now()
-        today = timezone.localdate(now)
-        already_today = species_trips.filter(started_at__date=today).exists()
+        day_start, next_day = expedition_day_bounds(user, now)
+        day_filter = {"started_at__gte": day_start, "started_at__lt": next_day}
+        already_today = species_trips.filter(**day_filter).exists()
         if already_today:
             raise ExpeditionError(
                 f"{mount.species.name} has already been out today — "
                 "they need rest before another run"
+            )
+
+        # Existing accepted launches count toward today's allowance too; they
+        # are never canceled, repriced or denied their own later claims.
+        launches = MountExpedition.objects.filter(mount__user=user, **day_filter).count()
+        if launches >= EXPEDITION_DAILY_LIMIT:
+            raise ExpeditionError(
+                f"You have used today's {EXPEDITION_DAILY_LIMIT} expedition starts — try again tomorrow"
             )
 
         config = TIER_CONFIG[tier]
@@ -301,6 +322,7 @@ class ExpeditionService:
         from apps.rpg.models import CharacterProfile, DropTable
         from apps.rpg.catalog_support import random_item_is_available
         from apps.rpg.catalog_icons import item_catalog_icon
+        from apps.rpg.coin_policy import resolve_random_pouch
 
         config = TIER_CONFIG[tier]
 
@@ -352,10 +374,10 @@ class ExpeditionService:
                 if not any(biased_weights):
                     break
                 selected = random.choices(entries, weights=biased_weights, k=1)[0]
-                item = selected.item
+                item = resolve_random_pouch(selected.item)
                 if item.item_type in COSMETIC_TYPES:
                     owned.add(item.pk)
-                items.append({
+                slot = {
                     "item_id": item.pk,
                     "quantity": 1,
                     # Snapshot display fields so the loot row reads
@@ -366,7 +388,10 @@ class ExpeditionService:
                     "item_type": item.item_type,
                     "sprite_key": item.sprite_key,
                     "catalog_icon": item_catalog_icon(item),
-                })
+                }
+                if item.item_type in COSMETIC_TYPES:
+                    slot["salvage_coins_snapshot"] = random_cosmetic_salvage_coins(item)
+                items.append(slot)
 
         return {"coins": coins, "items": items}
 
@@ -426,14 +451,17 @@ class ExpeditionService:
                 if is_cosmetic else None
             )
 
-            if is_cosmetic and existing is not None and item.coin_value > 0:
+            # Only newly accepted trips carry the smaller frozen salvage quote.
+            # A legacy slot without this key retains its original claim path.
+            salvage_coins = slot.get("salvage_coins_snapshot", item.coin_value)
+            if is_cosmetic and existing is not None and salvage_coins > 0:
                 # Salvage to coins.
                 CoinService.award_coins(
-                    user, item.coin_value, CoinLedger.Reason.ADJUSTMENT,
+                    user, salvage_coins, CoinLedger.Reason.ADJUSTMENT,
                     source=CoinLedger.Source.EXPEDITION_SALVAGE,
                     description=f"Salvaged duplicate from expedition: {item.display_name}",
                 )
-                slot["salvaged_to_coins"] = item.coin_value
+                slot["salvaged_to_coins"] = salvage_coins
                 loot_changed = True
                 continue
 

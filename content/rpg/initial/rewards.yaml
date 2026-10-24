@@ -9,7 +9,9 @@ rewards:
   - name: Streak Freeze
     description: Protect your login streak from one missed day.
     icon: "❄️"
-    cost_coins: 60
+    # Small reward: three active days at the editable 50-Coin planning estimate.
+    # Startup creates missing offers only; family-authored prices stay intact.
+    cost_coins: 150
     rarity: rare
     stock: null
     requires_parent_approval: false

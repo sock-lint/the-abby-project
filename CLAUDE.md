@@ -304,7 +304,7 @@ frontend/            → frontend/CLAUDE.md (design system / testing / PWA)
 - `HOMEWORK_LATE_CUTOFF_DAYS` (default `3`) — see `apps/homework/CLAUDE.md`.
 - `HOMEWORK_SELF_PLAN_LEAD_DAYS` (default `3`) — see `apps/homework/CLAUDE.md`.
 - `ALLOW_PARENT_SIGNUP` (default `True`) — toggles parent self-signup at deploy time.
-- `BIRTHDAY_COINS_PER_YEAR` (default `100`) — see `apps/chronicle/CLAUDE.md`.
+- `BIRTHDAY_COIN_GIFT` (default `200`) — fixed future birthday gift; earlier gifts remain unchanged. The age multiplier setting is retained only for compatibility. See `apps/chronicle/CLAUDE.md`.
 - `CELERY_BEAT_SCHEDULE`: `auto-clock-out` every 30 min; `weekly-timecards` Sun 23:55; `weekly-email-summaries` Sun 08:00; `daily-reminders` 07:00; `rpg-perfect-day` 23:55; `rpg-streak-at-risk` 19:00; `habit-decay` 00:05; `quest-expire` 00:10; `quest-boss-rage` 00:15; `chronicle-birthday-check` 00:20; `chronicle-chapter-transition` 00:25; `daily-challenge-rotation` 00:30; `print-reconcile-stale-jobs` 00:35.
 
 Per-subsystem game-design constants (drop rates, growth caps, rage shield steps) live in the subtree CLAUDE.md files for the apps that own them.
@@ -491,3 +491,9 @@ Pipeline runs on `push` to `main` or manual dispatch. A hosted current-main guar
 - 3D printing: `apps/printing/matching.py` (the deterministic request↔job contract), `apps/printing/jobs.py::PrinterJobTracker.handle` (one merged MQTT report in, timeline rows out), `apps/printing/listener.py` + `management/commands/run_printer_listener.py` (the single connection), `apps/printing/fanout.py` (how everything else reads printer state) → see [`apps/printing/CLAUDE.md`](apps/printing/CLAUDE.md).
 - MCP server: `apps/mcp_server/` — 280 tools across 39 modules; entry via `runmcp` management command or OAuth-secured HTTP at `/mcp/*`. See [`apps/mcp_server/CLAUDE.md`](apps/mcp_server/CLAUDE.md).
 - Design spec: `docs/superpowers/specs/2026-04-13-rpg-gamification-layer-design.md`; phase plans under `docs/superpowers/plans/`.
+
+## Prospective Coin earning
+
+New savings goals use a durable per-child savings high-water mark and frozen rates; deleting goals or exchanging/spending money cannot rearm earlier milestones. Existing goals receive fixed historical reward promises during the additive migration. REST/MCP reads never complete goals or pay rewards; explicit goal/balance writes own completion.
+
+Future bundled challenge windows use versioned reward budgets and distinct active days where required, preserving accepted snapshots. New expeditions share two launches per child per family-local day; new ordinary duplicate salvage is at most 10 Coins, and new trip salvage is frozen at launch. Existing balances, inventory, accepted windows, exchange quotes and shop redemption promises remain unchanged. Money exchange stays at 10 Coins per dollar. See `docs/operations/coin-economy.md`.

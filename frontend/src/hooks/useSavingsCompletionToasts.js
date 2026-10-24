@@ -4,7 +4,6 @@ import { normalizeList } from '../utils/api';
 import { usePulse } from '../providers/pulseContext';
 
 const STORAGE_KEY = STORAGE_KEYS.SEEN_SAVINGS_COMPLETIONS;
-const COINS_PER_DOLLAR = 2;
 
 function loadSeen() {
   try {
@@ -32,7 +31,8 @@ function persistSeen(set) {
  * re-toast a goal the child already saw on a prior page load.
  *
  * Returns `{ toasts, dismiss }` — same contract as `useDropToasts`.
- * Toast shape: `{ id, title, icon, coin_bonus }`.
+ * Toast shape: `{ id, title, icon }`. Completion alone does not establish a
+ * Coin payout; the server's notification owns the actual award amount.
  */
 export function useSavingsCompletionToasts() {
   const { pulse } = usePulse();
@@ -64,7 +64,6 @@ export function useSavingsCompletionToasts() {
         id: `savings-${g.id}`,
         title: g.title,
         icon: g.icon || '🏆',
-        coin_bonus: Math.round(Number(g.target_amount || 0) * COINS_PER_DOLLAR),
       })),
     ]);
   }, [pulse]);

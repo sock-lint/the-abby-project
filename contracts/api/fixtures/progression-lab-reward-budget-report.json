@@ -70,15 +70,16 @@
     "system_challenges": 1,
     "nonrepeatable_challenges": 1
   },
-  "rules_fingerprint": "1b7566d8bec3d890eafcf49d83de70a561ad2960e64840023800616975e2d26b",
-  "engine_version": "2026-10-22.1",
+  "rules_fingerprint": "a9e650897c2bb036938024408e5c8e4c1bb14713d8d782fe00e9d9b13fb48618",
+  "engine_version": "2026-10-23.1",
   "source_commit": "unavailable",
   "coverage": {
     "modeled": [
       "New child with zero XP, Coins and owned companions/inventory",
       "Reading, approved synthetic chores, positive synthetic habits, project time, journal, creations and movement",
       "Supported drops use current rarity tier budgets, authored within-tier weights and unowned cosmetic priority",
-      "Parallel automatic catalog challenges, guaranteed companion trails and eligible badge criteria",
+      "Installed random pouch grants use the current versioned face values without changing source draw odds; owned and authored pouches retain their definitions",
+      "Parallel automatic catalog challenges, with distinct active days for marked future windows, guaranteed companion trails and eligible badge criteria",
       "One guaranteed loot draw per newly earned badge and completed automatic challenge occurrence, including repeat windows",
       "Inventory grants immediately evaluate modeled collection badges; zero-XP positive habits still evaluate habit achievements",
       "First hatch, evolution, automatic challenge, legendary badge, 30/60/100-day streak and assumed approved exchange each add one scoped recognition check for modeled badges",
@@ -104,9 +105,10 @@
       "Care reserves one compatible pair, freezes its installed incubation duration and claims it at the next active visit at or after its deadline, before other activity rewards",
       "End-of-visit care starts the first compatible unowned pair when no egg is pending, opens Coin pouches and feeds all available food to the oldest unevolved pet",
       "Expeditions launch at the end of a visit and are claimed on the next active visit after return",
-      "Each species shares one daily expedition across potion appearances; an unclaimed trip blocks its other appearances, and eligible species/potion pairs are selected in stable ID order before optional global quotas",
+      "Installed control shares two expedition launches per child/day as well as one per species across potion appearances; an unclaimed trip blocks its species. The separate commitment prototype retains its explicit standalone launch assumptions",
+      "New control expedition cosmetic salvage is frozen at launch at at most 10 Coins; old saved trips retain their values. New ordinary duplicate draws use the same ceiling",
       "Challenge bundles keep their egg until every promised grown Base or elemental appearance is owned; eggs promised without a typed potion retain species-wide duplicate salvage",
-      "New source events advance every matching challenge; challenge duration is a deadline, not a minimum wait",
+      "New source events advance every matching challenge; marked distinct-active-day challenges count one qualifying day per occurrence, while other challenge durations remain deadlines rather than minimum waits",
       "Badge and challenge celebration loot does not count as activity, streak credit, daily effort or additional challenge progress",
       "Finite completion draws and authored item quantities fund distinct ingredients and food units; conservative per-target capacity proofs do not promise joint collection of all finite targets",
       "Percentile days are calendar days conditional on completion; unreached trials remain in completion_rate",
@@ -4009,12 +4011,12 @@
     "longest_novelty_gap_p50": 19,
     "eligible_challenges": 1,
     "finite_breakdown": {
-      "mount": 1,
-      "middle": 1,
-      "quest": 1,
       "badge": 1,
+      "mount": 1,
       "cosmetic": 1,
-      "pet": 1
+      "quest": 1,
+      "pet": 1,
+      "middle": 1
     },
     "level_p50": 4,
     "inventory_units_p50": 8,
@@ -5977,14 +5979,14 @@
     "assumptions": [
       "This anonymous experiment changes only new synthetic expedition launches and item promises. No live expedition, reward rule or inventory is changed.",
       "One child's mounts share the daily launch and item allocations. Null means unlimited, zero prevents the selected new commitments, and unused capacity never banks across calendar days.",
-      "Requested trips are the configured count at each active visit. Eligible trips are the smaller of that request and currently available mounts. Prevented trips are eligible trips withheld by the launch quota; unavailable mounts are reported separately.",
+      "Requested trips are the configured count after the installed control's shared daily launch allowance. Eligible trips are the smaller of that request and currently available species. Prevented trips are eligible trips withheld by this optional launch quota, not by the installed allowance; unavailable species are reported separately. The standalone commitment prototype retains its explicit launch assumptions.",
       "Nominal item slots are counted only for launched trips. Before drawing loot, the remaining item quota bounds whole slots; each successfully selected item consumes one unit, including pouches and cosmetics later salvaged. Empty eligible pools do not consume item capacity.",
       "Slots requested equal slots promised plus nominal slots withheld by the quota plus permitted slots left unfilled by the eligible pool or Coin commitment policy. Withheld nominal slots are not a counterfactual count of items that would have dropped.",
       "Item-only quotas still allow later Coin-only trips. The Coin commitment policy may also promise zero direct Coins; zero-item, zero-Coin and fully empty trips remain visible rather than being silently skipped.",
       "A saturated day exactly uses an allocation on a relevant eligible opportunity; a limited day actually withholds a trip or nominal slot. Zero allocations do not count idle or no-mount days as saturated. Each day counts at most once per measure.",
       "Frozen loot claims retain their complete item and Coin promises. Claimed and pending items count promised units, including later salvage, not retained inventory. Grandfathered units lack a new-budget reservation marker and are reported separately.",
       "For new-budget promises, slots promised equal claimed items minus grandfathered claimed items plus pending items minus grandfathered pending items. Claims do not consume a later day's allocation.",
-      "The unlimited finite denominator removes both expedition quotas while retaining the same Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
+      "The unlimited finite denominator removes both optional expedition quotas while retaining the installed allowance, Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
       "Authored challenge items, activity drops, boosts and future launch/claim concurrency are outside these expedition slot quotas. This is a design comparison, not a live reservation protocol or retention prediction."
     ]
   },

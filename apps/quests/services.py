@@ -121,6 +121,8 @@ class QuestService:
             raise ValueError("This challenge needs companion artwork that is not currently available.")
         if definition.is_cooperative:
             raise ValueError("Ask a parent to assign this shared challenge to at least two children.")
+        if (definition.trigger_filter or {}).get("distinct_active_days") is True:
+            raise ValueError("This challenge counts active days automatically. Pin it to follow your progress.")
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)
@@ -222,6 +224,8 @@ class QuestService:
         from .availability import definition_is_available
         if not definition_is_available(definition):
             raise ValueError("This challenge needs companion artwork that is not currently available.")
+        if (definition.trigger_filter or {}).get("distinct_active_days") is True:
+            raise ValueError("This challenge counts active days automatically. Pin it to follow your progress.")
         from .reference_locks import admit_definition_choices, admit_definition_identity
         admit_definition_choices(definition)
         admit_definition_identity(definition)

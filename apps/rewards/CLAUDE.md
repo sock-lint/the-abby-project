@@ -2,6 +2,23 @@
 
 Non-monetary Coins economy + parent-approved reward shop + money→coins exchange. Parallel to `apps/payments/` (money ledger).
 
+## Price planning
+
+Parent shop forms and anonymous Lab offers share an editable planning guide:
+50 Coins per active day initially, with Small (3 days / 150 Coins), Medium
+(10 days / 500 Coins), and Big (30 days / 1,500 Coins) suggestions. Actual
+earnings vary. Parents can change the estimate, enter a custom day target or
+set any exact price. Suggestions copy a price only after an explicit click;
+changing the guide never recalculates an existing or entered price. Only
+`cost_coins` is saved for real offers; Lab uses its explicit `coin_price`.
+
+Newly created missing bundled Streak Freeze offers cost 150 Coins. Startup
+seeding preserves every existing family offer, including earlier 60-Coin
+prices and parent edits. It cannot infer ownership from a name or price.
+Accepted redemption prices and existing balances stay intact. New anonymous
+Lab offers use 150 Coins; saved scenarios retain their entered prices and the
+backend's older omitted-price normalization stays compatible.
+
 ## Available offers and earlier promises (October 2026)
 
 The owner-authorized prelaunch retirement is an exact, one-time exception to

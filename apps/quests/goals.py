@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.db.models import F, Prefetch, Q, Sum, prefetch_related_objects
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from apps.rpg.catalog_icons import challenge_catalog_icon
 
@@ -89,7 +90,15 @@ def _progress_value(value):
 
 
 def _contribution_total(occurrence):
-    total = occurrence.contributions.filter(activity__voided=False).aggregate(total=Sum("amount"))["total"] or 0
+    contributions = occurrence.contributions.filter(activity__voided=False)
+    if occurrence.snapshot.get("filter", {}).get("distinct_active_days") is True:
+        # Accepted timestamps and the goal's frozen family timezone own this
+        # day, independently of client/performed dates and the server timezone.
+        total = contributions.annotate(
+            active_day=TruncDate("activity__occurred_at", tzinfo=ZoneInfo(occurrence.goal.timezone_name)),
+        ).values("active_day").distinct().count()
+    else:
+        total = contributions.aggregate(total=Sum("amount"))["total"] or 0
     return _progress_value(total)
 
 
@@ -97,25 +106,48 @@ def _midnight(day, zone):
     return datetime.combine(day, time.min, tzinfo=zone)
 
 
-def _snapshot(goal, item_catalog=None):
+def _snapshot(goal, item_catalog=None, *, future=False):
     from apps.rpg.models import ItemDefinition
     from apps.rpg.catalog_support import item_is_available
     from .reward_items import reward_item_details
+    policy = {
+        "name": goal.name, "description": goal.description, "metric": goal.metric,
+        "target": str(goal.target), "unit": goal.unit, "filter": goal.trigger_filter,
+        "coins": goal.coin_reward, "xp": goal.xp_reward, "skill_tags": goal.skill_tags,
+    }
+    rewards = goal.reward_items
+    definition = goal.catalog_definition if goal.is_catalog and goal.catalog_definition_id else None
+    if (future and definition is not None and definition.is_system and definition.created_by_id is None
+            and (definition.trigger_filter or {}).get("reward_policy_version") == 2):
+        from .validators import validate_reward_policy
+        validate_reward_policy(definition)
+        # Only a new recurring window adopts an explicitly versioned offer.
+        # Its existing anchor/cadence and all earlier snapshots stay intact.
+        if definition.duration_days != goal.repeat_days:
+            raise ValueError("A future catalog reward version must retain the accepted recurrence cadence.")
+        policy.update({
+            "name": definition.name, "description": definition.description, "metric": "count",
+            "target": str(definition.target_value),
+            "unit": "active days" if definition.trigger_filter.get("distinct_active_days") is True else "actions",
+            "filter": definition.trigger_filter, "coins": definition.coin_reward, "xp": definition.xp_reward,
+            "skill_tags": [{"skill_id": tag.skill_id, "xp_weight": tag.xp_weight}
+                           for tag in definition.skill_tags.all()],
+        })
+        rewards = [{"item_id": reward.item_id, "quantity": reward.quantity}
+                   for reward in definition.reward_items.all()]
     items = []
     catalog = item_catalog if item_catalog is not None else ItemDefinition.objects.select_related("pet_species", "potion_type").in_bulk(
-        [row["item_id"] for row in goal.reward_items],
+        [row["item_id"] for row in rewards],
     )
-    for row in goal.reward_items:
+    for row in rewards:
         item = catalog.get(row["item_id"])
         if item and item_is_available(item):
             items.append({**row, **reward_item_details(item)})
     return {
-        "name": goal.name, "description": goal.description, "metric": goal.metric,
-        "target": str(goal.target), "unit": goal.unit, "filter": goal.trigger_filter,
+        **policy,
         "movement_type_id": goal.movement_type_id,
         "movement_type_name": goal.movement_type.name if goal.movement_type_id else None,
-        "coins": goal.coin_reward, "xp": goal.xp_reward,
-        "skill_tags": goal.skill_tags, "items": items,
+        "items": items,
         "catalog_name": goal.catalog_definition.name if goal.catalog_definition_id else None,
         "catalog_type": goal.catalog_definition.quest_type if goal.catalog_definition_id else None,
         **({"catalog_gate": {**goal.catalog_gate_snapshot,
@@ -256,7 +288,9 @@ def _catalog_goals(user, *, gate_activity=None, gated_only=False):
         goal, created = ChallengeGoal.objects.get_or_create(user=user, catalog_definition=definition, defaults={
             "is_catalog": True, "family": user.family, "name": definition.name, "description": definition.description,
             "metric": "damage" if definition.quest_type == "boss" else "count",
-            "target": definition.target_value, "unit": "damage" if definition.quest_type == "boss" else "actions",
+            "target": definition.target_value,
+            "unit": ("active days" if (definition.trigger_filter or {}).get("distinct_active_days") is True
+                     else "damage" if definition.quest_type == "boss" else "actions"),
             "trigger_filter": definition.trigger_filter, "timezone_name": enrollment.timezone_name,
             "starts_at": starts_at, "ends_at": (starts_at + timedelta(days=definition.duration_days)
                                                   if definition.duration_days is not None else None),
@@ -283,7 +317,9 @@ def _occurrence_window(goal, at):
         # Calendar-day arithmetic retains the household clock across DST changes.
         local_start, local_at = start.astimezone(zone), at.astimezone(zone)
         elapsed = (local_at.replace(tzinfo=None) - local_start.replace(tzinfo=None)).total_seconds()
-        cycle = int(elapsed // (goal.repeat_days * 86400))
+        # A later instant in a DST-repeated hour can have an earlier wall time;
+        # it still belongs to the cycle containing the anchor or a later one.
+        cycle = max(0, int(elapsed // (goal.repeat_days * 86400)))
         start = local_start + timedelta(days=cycle * goal.repeat_days)
         end = start + timedelta(days=goal.repeat_days)
     return start, end
@@ -338,7 +374,28 @@ def _occurrence(goal, at):
         existing = goal.occurrences.filter(starts_at=start).first()
         if existing is not None:
             return existing
-        snapshot = _snapshot(goal)
+        # Cycle 0 is the accepted window; any later cycle is a future offer.
+        # Compare in the window's own zone so a DST-repeated hour still matches.
+        # Other saved rows (e.g. a pre-anchor window from older window math)
+        # never reprice the accepted cycle.
+        future = bool(goal.is_catalog and goal.repeat_days
+                      and start != _occurrence_window(goal, goal.starts_at)[0])
+        if future:
+            # User admission precedes definition rows, matching legacy starts
+            # and reviewed reconciliation. A bundled/publication writer must
+            # retain this row while replacing its reward and skill links.
+            definition = active_system_definitions().select_for_update(no_key=True).filter(
+                pk=goal.catalog_definition_id,
+            ).first()
+            if definition is None:
+                return None
+            if ((definition.trigger_filter or {}).get("reward_policy_version") == 2
+                    and definition.duration_days != goal.repeat_days):
+                # A changed cadence needs a separately accepted schedule;
+                # hold the new window without invalidating the saved one.
+                return None
+            goal.catalog_definition = definition
+        snapshot = _snapshot(goal, future=future)
     # These references belong to an accepted standing rule or schedule version,
     # not a fresh taxonomy choice. Creation/enrollment and future setup edits
     # admit new references under their write locks. Rechecking here would cancel
@@ -648,6 +705,8 @@ def _what_counts(snapshot, *, catalog=False):
                         ("savings_goal_id", "for the selected savings goal")):
         if filters.get(key):
             text += f" {detail}"
+    if filters.get("distinct_active_days") is True:
+        text += "; counts once per active day in the saved household timezone"
     return text
 
 

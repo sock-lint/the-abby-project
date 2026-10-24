@@ -197,7 +197,10 @@ def audit_catalog_rows(section, rows):
             except ValidationError as exc:
                 findings.append(_finding("invalid_milestone_gate", section, row, "; ".join(exc.messages), "error"))
             try:
-                validate_trigger_filter(row.trigger_filter)
+                validate_trigger_filter(row.trigger_filter,
+                                        allow_catalog_policy=row.is_system and row.created_by_id is None)
+                from apps.quests.validators import validate_reward_policy
+                validate_reward_policy(row)
             except (ValidationError, TypeError, ValueError) as exc:
                 detail = "; ".join(exc.messages) if isinstance(exc, ValidationError) else "Malformed trigger filter."
                 findings.append(_finding("invalid_trigger_filter", section, row, detail, "error"))

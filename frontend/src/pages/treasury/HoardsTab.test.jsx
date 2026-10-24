@@ -53,10 +53,11 @@ describe('HoardsTab', () => {
     expect(screen.getByRole('heading', { name: 'Savings goals' })).toBeInTheDocument();
     expect(screen.getByText(/1 active goal · 40% average progress/)).toBeInTheDocument();
 
-    // Active stanza details — current/target amounts + coin bonus copy.
+    // Goal progress does not establish the amount of a server-owned reward.
     expect(screen.getByText('$20.00')).toBeInTheDocument();
     expect(screen.getByText(/\$50\.00/)).toBeInTheDocument();
-    expect(screen.getByText(/\+100 coins/)).toBeInTheDocument(); // 50 * 2
+    expect(screen.getByText(/coin bonuses celebrate new savings milestones/i)).toBeInTheDocument();
+    expect(screen.queryByText(/\+100 coins/)).not.toBeInTheDocument();
 
     // Two Atlas drop-caps: one in the IncipitBand hero, one in the stanza.
     const versals = container.querySelectorAll('[data-versal="true"]');

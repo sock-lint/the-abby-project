@@ -164,6 +164,34 @@ catalog/definition admission; never acquire another account lock after the
 catalog fence. New acceptance rechecks its definition under a shared row lock
 after taxonomy admission. See the [maintenance workflow](../../docs/operations/automatic-challenges.md#review-unresolved-duplicate-pairs).
 
+Future reward policy v2 is explicit catalog data:
+`trigger_filter.reward_policy_version: 2` marks timed individual global
+collections. `distinct_active_days: true` counts one day per saved household
+timezone using accepted activity timestamps; repeated actions on that day
+remain factual contributions but cannot increase day progress. Voiding an
+unpaid fact recomputes distinct days without erasing another valid same-day
+fact. The public unit is `active days`; the existing response shape stays intact.
+Private quest authoring and legacy campaign starts cannot bypass these rules.
+
+New enrollments use the versioned offer. A later recurring window adopts that
+definition's current marked rules and reward links while keeping its original
+anchor and cadence. Existing occurrence snapshots, progress, XP, Coins, item
+promises and receipts stay unchanged, including delayed completion. Active
+legacy campaigns still hold bundled definition changes until they end. Unkeyed
+loading clears old future item links only for v2 entries explicitly declaring
+`reward_items: []`, after freezing old legacy item promises. Other unkeyed
+loads retain their existing preservation rules. Parent-authored definitions
+retain their own rules.
+Unreconciled same-name catalog identities keep their accepted windows but cannot
+create future cycles; canonical reconciliation remains a separate reviewed action.
+
+The bundled First Week and Stories offers pay 20 Coins each after five habit
+days or five daily Reading Adventures respectively. Weekly Reset pays 10 after
+five habit days; Pantry Patroller pays 10 after five chore days; Comeback Kid
+pays 10 after three habit days, and Comeback Kid II pays 15 after five habit or
+chore days. Daily Rituals retains three actions in one day for 2 Coins. Their
+prior accepted versions retain their full earlier rewards.
+
 `QuestDefinition.is_cooperative` marks catalog offers that require parent
 assignment to at least two same-family children. They use the existing shared
 `Quest`/`QuestParticipant` engine, never new individual automatic enrollment or

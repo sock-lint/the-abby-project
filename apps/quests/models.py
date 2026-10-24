@@ -3,7 +3,7 @@ from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
-from apps.quests.validators import validate_trigger_filter, validate_untimed_reading
+from apps.quests.validators import validate_reward_policy, validate_trigger_filter, validate_untimed_reading
 from config.base_models import TimestampedModel
 
 
@@ -81,7 +81,9 @@ class QuestDefinition(TimestampedModel):
 
     def clean(self):
         super().clean()
-        validate_trigger_filter(self.trigger_filter)
+        validate_trigger_filter(self.trigger_filter,
+                                allow_catalog_policy=self.is_system and self.created_by_id is None)
+        validate_reward_policy(self)
         validate_untimed_reading(self)
         from .milestone_eligibility import validate_milestone_gate
         validate_milestone_gate(self)

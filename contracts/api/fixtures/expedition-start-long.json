@@ -15,7 +15,7 @@
   "potion_name": "Fire",
   "potion_slug": "fire",
   "loot": {
-    "coins": 75,
+    "coins": 15,
     "items": [
       {
         "item_id": 71,

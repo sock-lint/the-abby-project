@@ -20,14 +20,14 @@ GAUGES = ("pending_items", "grandfathered_pending_items")
 ASSUMPTIONS = [
     "This anonymous experiment changes only new synthetic expedition launches and item promises. No live expedition, reward rule or inventory is changed.",
     "One child's mounts share the daily launch and item allocations. Null means unlimited, zero prevents the selected new commitments, and unused capacity never banks across calendar days.",
-    "Requested trips are the configured count at each active visit. Eligible trips are the smaller of that request and currently available mounts. Prevented trips are eligible trips withheld by the launch quota; unavailable mounts are reported separately.",
+    "Requested trips are the configured count after the installed control's shared daily launch allowance. Eligible trips are the smaller of that request and currently available species. Prevented trips are eligible trips withheld by this optional launch quota, not by the installed allowance; unavailable species are reported separately. The standalone commitment prototype retains its explicit launch assumptions.",
     "Nominal item slots are counted only for launched trips. Before drawing loot, the remaining item quota bounds whole slots; each successfully selected item consumes one unit, including pouches and cosmetics later salvaged. Empty eligible pools do not consume item capacity.",
     "Slots requested equal slots promised plus nominal slots withheld by the quota plus permitted slots left unfilled by the eligible pool or Coin commitment policy. Withheld nominal slots are not a counterfactual count of items that would have dropped.",
     "Item-only quotas still allow later Coin-only trips. The Coin commitment policy may also promise zero direct Coins; zero-item, zero-Coin and fully empty trips remain visible rather than being silently skipped.",
     "A saturated day exactly uses an allocation on a relevant eligible opportunity; a limited day actually withholds a trip or nominal slot. Zero allocations do not count idle or no-mount days as saturated. Each day counts at most once per measure.",
     "Frozen loot claims retain their complete item and Coin promises. Claimed and pending items count promised units, including later salvage, not retained inventory. Grandfathered units lack a new-budget reservation marker and are reported separately.",
     "For new-budget promises, slots promised equal claimed items minus grandfathered claimed items plus pending items minus grandfathered pending items. Claims do not consume a later day's allocation.",
-    "The unlimited finite denominator removes both expedition quotas while retaining the same Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
+    "The unlimited finite denominator removes both optional expedition quotas while retaining the installed allowance, Coin policy and routine. Unavailable targets are excluded acquisition paths, not extra playable runway; this loss cannot be added to the separate Coin-policy comparator.",
     "Authored challenge items, activity drops, boosts and future launch/claim concurrency are outside these expedition slot quotas. This is a design comparison, not a live reservation protocol or retention prediction.",
 ]
 

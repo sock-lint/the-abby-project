@@ -340,7 +340,7 @@ describe('Progression lab', () => {
     expect(screen.getByRole('textbox', { name: 'Reward name' })).toHaveValue('Example outing');
     await user.click(screen.getByRole('button', { name: 'Run simulation' }));
     await waitFor(() => expect(simulation.calls).toHaveLength(1));
-    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, economy: { enabled: true, offers: [{ key: 'example-outing', family_cost_cents: 500 }] } });
+    expect(simulation.calls[0].body).toMatchObject({ active_days_per_week: 3, economy: { enabled: true, offers: [{ key: 'example-outing', coin_price: 150, family_cost_cents: 500 }] } });
     await user.click(screen.getByText('Load a saved routine'));
     await user.upload(screen.getByLabelText('Saved routine'), new File([JSON.stringify(report)], 'old-report.json', { type: 'application/json' }));
     expect(await screen.findByText(/Saved routine loaded/)).toBeVisible();

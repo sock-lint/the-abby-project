@@ -26,6 +26,7 @@ from config.tests.factories import make_family
     PASSWORD_HASHERS=["django.contrib.auth.hashers.MD5PasswordHasher"],
     COINS_PER_BADGE_RARITY={"common": 7},
     BIRTHDAY_COINS_PER_YEAR=100,
+    BIRTHDAY_COIN_GIFT=200,
     RPG_ASSET_SUPPORT_POLICY=None,
 )
 class BirthdayConcurrencyTests(TransactionTestCase):
@@ -136,9 +137,9 @@ class BirthdayConcurrencyTests(TransactionTestCase):
     def _assert_rewards(self, *, gifted):
         entry = ChronicleEntry.objects.get(user=self.child, kind=ChronicleEntry.Kind.BIRTHDAY)
         self.assertEqual(entry.occurred_on, self.day)
-        self.assertEqual(entry.metadata.get("gift_coins"), 1500 if gifted else None)
+        self.assertEqual(entry.metadata.get("gift_coins"), 200 if gifted else None)
         gifts = CoinLedger.objects.filter(user=self.child, description="birthday_gift")
-        self.assertEqual(list(gifts.values_list("amount", flat=True)), [1500] if gifted else [])
+        self.assertEqual(list(gifts.values_list("amount", flat=True)), [200] if gifted else [])
         self.assertEqual(
             Notification.objects.filter(user=self.child, notification_type="birthday").count(),
             1 if gifted else 0,

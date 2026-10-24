@@ -1,7 +1,7 @@
 import { selectDropdown, openDropdown } from '../../test/selectDropdown';
 import { describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RewardFormModal from './RewardFormModal.jsx';
 import { server } from '../../test/server.js';
@@ -13,6 +13,210 @@ vi.mock('framer-motion', async () => {
 });
 
 describe('RewardFormModal', () => {
+  it.each(['digital_item', 'both'])('warns about an unlimited underpriced pouch for %s and still saves the chosen offer', async (kind) => {
+    const user = userEvent.setup();
+    const forms = [];
+    const create = spyHandler('post', /\/api\/rewards\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 4 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 21, name: 'Test pouch', item_type: 'coin_pouch', metadata: { coins: 100 }, coin_value: 200 },
+    ])), create.handler);
+    render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.type(screen.getByLabelText('Name'), 'Pouch offer');
+    await user.type(screen.getByLabelText('Cost (coins)'), '60');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Fulfillment' }), kind);
+    const items = await openDropdown(user, screen.getByRole('combobox', { name: 'Inventory item' }));
+    await user.click(await items.findByRole('option', { name: /Test pouch/ }));
+    expect(screen.getByRole('status')).toHaveTextContent('This unlimited offer costs 60 Coins and its pouch pays 100 Coins, a net gain of 40 Coins per purchase.');
+    expect(screen.getByRole('button', { name: 'Create' })).toBeEnabled();
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ cost_coins: '60', stock: '', item_definition: '21', fulfillment_kind: kind });
+  });
+
+  it.each([
+    [{}, 100], [{ coins: 0 }, 100], [{ coins: '100' }, 200], [{ coins: 100.9 }, 200],
+  ])('uses the pouch opening payout for metadata %j and coin value %s', async (metadata, coinValue) => {
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 21, name: 'Test pouch', item_type: 'coin_pouch', metadata, coin_value: coinValue },
+    ])));
+    render(<RewardFormModal reward={{ id: 3, name: 'Pouch offer', cost_coins: 60, fulfillment_kind: 'digital_item', item_definition: 21 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(await screen.findByRole('status')).toHaveTextContent('its pouch pays 100 Coins, a net gain of 40 Coins');
+  });
+
+  it('updates the warning as stock, price, selected item and fulfillment change', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 21, name: 'Test pouch', item_type: 'coin_pouch', metadata: { coins: 100 } },
+      { id: 22, name: 'Test food', item_type: 'food', coin_value: 200 },
+    ])));
+    render(<RewardFormModal reward={{ id: 3, name: 'Pouch offer', cost_coins: 60, fulfillment_kind: 'digital_item', item_definition: 21 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    expect(await screen.findByRole('status')).toHaveTextContent('net gain of 40 Coins');
+    const stock = screen.getByLabelText('Stock (blank = unlimited)');
+    await user.type(stock, '1');
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.clear(stock);
+    await user.type(stock, '0');
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.clear(stock);
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    const cost = screen.getByLabelText('Cost (coins)');
+    await user.clear(cost);
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.type(cost, '100');
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.clear(cost);
+    await user.type(cost, '101');
+    expect(screen.queryByRole('status')).toBeNull();
+    await user.clear(cost);
+    await user.type(cost, '0');
+    expect(screen.getByRole('status')).toHaveTextContent('costs 0 Coins');
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Inventory item' }), '22');
+    expect(screen.queryByRole('status')).toBeNull();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Inventory item' }), '21');
+    expect(screen.getByRole('status')).toBeInTheDocument();
+    await selectDropdown(user, screen.getByRole('combobox', { name: 'Fulfillment' }), 'real_world');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it.each([
+    [{}, 0], [{ coins: 'unknown' }, 200], [{ coins: '100.5' }, 200], [{ coins: '0' }, 200],
+  ])('does not invent a pouch payout from metadata %j and coin value %s', async (metadata, coinValue) => {
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 21, name: 'Test pouch', item_type: 'coin_pouch', metadata, coin_value: coinValue },
+    ])));
+    render(<RewardFormModal reward={{ id: 3, name: 'Pouch offer', cost_coins: 0, fulfillment_kind: 'digital_item', item_definition: 21 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Inventory item' })).toHaveTextContent('Test pouch'));
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('uses the submitted integer price for an exponent-form number input', async () => {
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([
+      { id: 21, name: 'Test pouch', item_type: 'coin_pouch', metadata: { coins: 100 } },
+    ])));
+    render(<RewardFormModal reward={{ id: 3, name: 'Pouch offer', cost_coins: 60, fulfillment_kind: 'digital_item', item_definition: 21 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await screen.findByRole('status');
+    fireEvent.change(screen.getByLabelText('Cost (coins)'), { target: { value: '1e2' } });
+    expect(screen.getByRole('status')).toHaveTextContent('costs 1 Coins and its pouch pays 100 Coins, a net gain of 99 Coins');
+  });
+
+  it.each([
+    ['Small', 3, 150], ['Medium', 10, 500], ['Big', 30, 1500],
+  ])('copies the %s active-day suggestion only on click and submits its exact price', async (size, days, coins) => {
+    const user = userEvent.setup();
+    const forms = [];
+    const create = spyHandler('post', /\/api\/rewards\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 4 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), create.handler);
+    render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.type(screen.getByLabelText('Name'), 'Family outing');
+    await user.click(screen.getByRole('button', { name: `${size} · ${days} active days · ${coins} Coins` }));
+    expect(screen.getByLabelText('Cost (coins)')).toHaveValue(coins);
+    expect(create.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ name: 'Family outing', cost_coins: String(coins) });
+  });
+
+  it('preserves an existing exact price while editing the planning estimate and submits a custom override', async () => {
+    const user = userEvent.setup();
+    const forms = [];
+    const update = spyHandler('patch', /\/api\/rewards\/3\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 3 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), update.handler);
+    render(<RewardFormModal reward={{ id: 3, name: 'Outing', cost_coins: 713 }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const cost = screen.getByLabelText('Cost (coins)');
+    const daily = screen.getByLabelText('Estimated Coins per active day');
+    expect(cost).toHaveValue(713);
+    await user.clear(daily);
+    await user.type(daily, '40');
+    expect(cost).toHaveValue(713);
+    await user.click(screen.getByRole('button', { name: 'Small · 3 active days · 120 Coins' }));
+    expect(cost).toHaveValue(120);
+    await user.clear(cost);
+    await user.type(cost, '137');
+    await user.type(screen.getByLabelText('Description'), ' together');
+    expect(cost).toHaveValue(137);
+    expect(update.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(await forms[0]).toEqual(expect.objectContaining({ cost_coins: '137' }));
+    expect(Object.keys(await forms[0])).not.toContain('estimated_coins_per_day');
+  });
+
+  it('applies a custom active-day target and leaves exact-price saving available with an invalid guide estimate', async () => {
+    const user = userEvent.setup();
+    const forms = [];
+    const create = spyHandler('post', /\/api\/rewards\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 4 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), create.handler);
+    render(<RewardFormModal onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.type(screen.getByLabelText('Name'), 'Trip');
+    await user.clear(screen.getByLabelText('Desired active days'));
+    await user.type(screen.getByLabelText('Desired active days'), '9');
+    await user.click(screen.getByRole('button', { name: 'Use 450 Coins for 9 active days' }));
+    expect(screen.getByLabelText('Cost (coins)')).toHaveValue(450);
+    await user.clear(screen.getByLabelText('Estimated Coins per active day'));
+    await user.type(screen.getByLabelText('Estimated Coins per active day'), '0');
+    expect(screen.getByRole('button', { name: /^Small/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Use custom price' })).toBeDisabled();
+    expect(screen.getByLabelText('Cost (coins)')).toHaveValue(450);
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ cost_coins: '450' });
+  });
+
+  it.each([0, 713])('keeps an existing price of %s when only the planning estimate and description change', async (price) => {
+    const user = userEvent.setup();
+    const forms = [];
+    const update = spyHandler('patch', /\/api\/rewards\/3\/$/, ({ request }) => {
+      forms.push(request.clone().formData().then((form) => Object.fromEntries(form)));
+      return { id: 3 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), update.handler);
+    render(<RewardFormModal reward={{ id: 3, name: 'Outing', cost_coins: price }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await user.clear(screen.getByLabelText('Estimated Coins per active day'));
+    await user.type(screen.getByLabelText('Estimated Coins per active day'), '80');
+    await user.type(screen.getByLabelText('Description'), 'Family choice');
+    expect(update.calls).toHaveLength(0);
+    await user.click(screen.getByRole('button', { name: 'Update' }));
+    await waitFor(() => expect(update.calls).toHaveLength(1));
+    expect(await forms[0]).toMatchObject({ cost_coins: String(price), description: 'Family choice' });
+  });
+
+  it('disables price suggestions and exact-price edits until the saved request finishes', async () => {
+    const user = userEvent.setup();
+    let release;
+    const pending = new Promise((resolve) => { release = resolve; });
+    const onSaved = vi.fn();
+    const create = spyHandler('post', /\/api\/rewards\/$/, async () => {
+      await pending;
+      return { id: 4 };
+    });
+    server.use(http.get('*/api/items/catalog/', () => HttpResponse.json([])), create.handler);
+    render(<RewardFormModal onClose={vi.fn()} onSaved={onSaved} />);
+    await user.type(screen.getByLabelText('Name'), 'Trip');
+    await user.click(screen.getByRole('button', { name: 'Small · 3 active days · 150 Coins' }));
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+    await waitFor(() => expect(create.calls).toHaveLength(1));
+    expect(screen.getByLabelText('Cost (coins)')).toBeDisabled();
+    expect(screen.getByLabelText('Estimated Coins per active day')).toBeDisabled();
+    expect(screen.getByLabelText('Desired active days')).toBeDisabled();
+    expect(screen.getByRole('button', { name: /^Medium/ })).toBeDisabled();
+    release();
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button', { name: /^Medium/ })).toBeEnabled();
+  });
+
   it.each(['create', 'edit'])('saves a selected icon in the multipart reward %s request only after submit', async (mode) => {
     const user = userEvent.setup();
     const forms = [];

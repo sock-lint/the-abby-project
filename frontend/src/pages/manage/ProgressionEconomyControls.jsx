@@ -2,6 +2,8 @@ import Button from '../../components/Button';
 import SectionHeader from '../../components/SectionHeader';
 import { CheckboxField, DateField, SelectField, TextField } from '../../components/form';
 import { withPrintQuotes } from './progressionLabScenario';
+import RewardPriceGuide from '../../components/rewards/RewardPriceGuide';
+import { NEW_REWARD_PLANNING_PRICE } from '../../components/rewards/rewardPricing';
 
 function Numeric({ label, value, onChange, limit, help, nullable = false, minimum = 0 }) {
   return <TextField label={label} type="number" step="1" min={Math.max(limit?.min ?? minimum, minimum)} max={limit?.max} required={!nullable} value={value ?? ''} helpText={help} onChange={(event) => onChange(event.target.value === '' ? (nullable ? null : '') : Number(event.target.value))} />;
@@ -24,7 +26,7 @@ export default function ProgressionEconomyControls({ economy, metadata, onChange
     let index = 1;
     while (economy.offers.some((offer) => offer.key === `reward-${index}`)) index += 1;
     update('offers', [...economy.offers, { ...metadata.economy_offer_defaults, key: `reward-${index}`, kind,
-      label: kind === 'printing' ? 'New print' : 'New reward', ...(kind === 'printing' ? { print_minutes: 45 } : {}) }]);
+      label: kind === 'printing' ? 'New print' : 'New reward', ...(kind === 'printing' ? { print_minutes: 45 } : { coin_price: NEW_REWARD_PLANNING_PRICE }) }]);
   };
   const move = (index, direction) => {
     const offers = [...economy.offers];
@@ -34,7 +36,7 @@ export default function ProgressionEconomyControls({ economy, metadata, onChange
   return <section aria-label="Purchasing assumptions" className="space-y-3 border-t border-ink-page-shadow pt-4">
     <SectionHeader as="h3" title="Purchasing and family costs">Anonymous scenario offers only. The family shop and saved accounts stay unchanged. Digital item delivery is outside this model.</SectionHeader>
     <CheckboxField label="Model purchases and family costs" checked={economy.enabled} onChange={(event) => update('enabled', event.target.checked)} />
-    {!economy.offers.length && <div className="space-y-2"><Button variant="secondary" onClick={onExample}>Load purchasing example (90 days, 10 children)</Button><p className="text-caption text-ink-secondary">Replaces purchasing assumptions with one editable example and explicitly sets the forecast to 90 days and 10 children. Activity choices stay as entered. These example prices are not balance recommendations.</p></div>}
+    {!economy.offers.length && <div className="space-y-2"><Button variant="secondary" onClick={onExample}>Load purchasing example (90 days, 10 children)</Button><p className="text-caption text-ink-secondary">Replaces purchasing assumptions with one editable example and explicitly sets the forecast to 90 days and 10 children. Activity choices stay as entered. The price starts with the three-active-day planning guide; adjust the price and family cost for your scenario.</p></div>}
     {economy.enabled && <>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <DateField label="Purchasing start date" value={economy.start_date} min="2000-01-01" max="2100-12-31" required onChange={(event) => update('start_date', event.target.value)} helpText="Sets actual calendar months for budgets; activity day 1 starts on this date." />
@@ -60,6 +62,7 @@ export default function ProgressionEconomyControls({ economy, metadata, onChange
             <Money label="Family cost per purchase ($)" value={offer.family_cost_cents} limit={limits.offer.family_cost_cents} onChange={(value) => updateOffer(index, 'family_cost_cents', value)} help="Your planning estimate, separate from the Coin price. Coins have no cash-out value." />
             {offer.kind === 'printing' && <><Numeric label="Print minutes" value={offer.print_minutes} limit={limits.offer.print_minutes} minimum={1} onChange={(value) => updateOffer(index, 'print_minutes', value)} /><Numeric label="Filament grams" value={offer.print_grams} limit={limits.offer.print_grams} onChange={(value) => updateOffer(index, 'print_grams', value)} /></>}
           </div>
+          {offer.kind === 'real_world' && <RewardPriceGuide onApply={(coins) => updateOffer(index, 'coin_price', coins)} maximumPrice={limits.offer.coin_price.max} />}
           {offer.kind === 'printing' && <p className="text-body text-ink-secondary">{economy.printing.minutes_per_coin === null ? 'No print rate is set: this print costs 0 Coins in the scenario.' : Number.isFinite(offer.coin_price) ? `Scenario print quote: ${offer.coin_price} Coins for ${offer.print_minutes} minutes at ${economy.printing.minutes_per_coin} minutes per Coin, rounded up.` : 'Enter valid print minutes and a rate to calculate the quote.'}</p>}
         </fieldset>)}
         <div className="flex flex-wrap gap-2"><Button variant="secondary" disabled={economy.offers.length >= limits.max_offers} onClick={() => addOffer('real_world')}>Add reward offer</Button><Button variant="secondary" disabled={economy.offers.length >= limits.max_offers} onClick={() => addOffer('printing')}>Add print offer</Button></div>

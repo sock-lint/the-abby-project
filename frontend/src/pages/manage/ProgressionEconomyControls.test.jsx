@@ -12,6 +12,22 @@ function Controls({ initial = economyDefaults, changed, example = () => {} }) {
 }
 
 describe('Purchasing assumptions', () => {
+  it('starts new offers at the small-reward guide and changes an existing price only after applying a suggestion', async () => {
+    const changed = vi.fn();
+    const { user } = renderWithProviders(<Controls initial={{ ...economyDefaults, enabled: true, offers: [{ ...offerDefaults, key: 'existing', coin_price: 713 }] }} changed={changed} />, { withAuth: false });
+    const existing = within(screen.getByRole('group', { name: 'Reward 1' }));
+    expect(existing.getByRole('spinbutton', { name: 'Price (Coins)' })).toHaveValue(713);
+    const daily = existing.getByLabelText('Estimated Coins per active day');
+    await user.clear(daily);
+    await user.type(daily, '40');
+    expect(changed).not.toHaveBeenCalled();
+    expect(existing.getByRole('spinbutton', { name: 'Price (Coins)' })).toHaveValue(713);
+    await user.click(existing.getByRole('button', { name: 'Medium · 10 active days · 400 Coins' }));
+    expect(changed.mock.lastCall[0].offers[0].coin_price).toBe(400);
+    await user.click(screen.getByRole('button', { name: 'Add reward offer' }));
+    expect(changed.mock.lastCall[0].offers.map((offer) => offer.coin_price)).toEqual([400, 150]);
+  });
+
   it('starts off and accepts dollar costs as integer cents without confusing blank limits with zero', async () => {
     const changed = vi.fn();
     const { user } = renderWithProviders(<Controls changed={changed} />, { withAuth: false });

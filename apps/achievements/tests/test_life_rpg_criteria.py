@@ -19,14 +19,6 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 
-# Some criteria touch models whose signals reach for Redis/Celery. Use an
-# in-memory cache so the test env stays self-contained even when the
-# project_complete signal can't be patched (e.g. when it runs before the
-# per-test `@patch` decorator takes effect).
-CACHE_OVERRIDE = {
-    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
-}
-
 from apps.achievements.criteria import (
     _bounty_completed,
     _chore_completions,
@@ -43,6 +35,12 @@ from apps.achievements.criteria import (
     _streak_freeze_used,
 )
 from apps.projects.models import User
+
+
+# Some criteria touch models whose signals reach for Redis/Celery.
+CACHE_OVERRIDE = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
 
 
 @override_settings(CACHES=CACHE_OVERRIDE, CELERY_TASK_ALWAYS_EAGER=True)
@@ -260,6 +258,8 @@ class SavingsGoalCriterionTests(TestCase):
         # not the derived current_amount.
         self.assertFalse(_savings_goal_completed(self.user, {"count": 1}))
         goal.is_completed = True
+        # The completion service also records genuine milestone eligibility.
+        goal.reward_qualifies = True
         goal.save()
         self.assertTrue(_savings_goal_completed(self.user, {"count": 1}))
 
