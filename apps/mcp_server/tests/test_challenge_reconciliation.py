@@ -15,6 +15,7 @@ from apps.mcp_server.context import override_user
 from apps.mcp_server.server import mcp, mcp_capabilities
 from apps.quests.goals import list_goals
 from apps.quests.models import ChallengeGoal, ChallengeOccurrence, QuestDefinition
+from apps.quests.tests.test_policy_reconciliation import make_policy_pair
 from apps.rewards.models import CoinLedger
 from apps.rpg.models import ContentPackPublication, UserInventory
 from config.tests.factories import make_family
@@ -100,6 +101,91 @@ class ChallengeReconciliationToolTests(TransactionTestCase):
         self.assertTrue(registered[PUBLISH].annotations.destructiveHint)
         self.assertIn("confirmation", registered[PUBLISH].parameters["properties"])
 
+    def test_registered_policy_acknowledgement_is_a_separate_strict_boolean(self):
+        registered = {entry.name: entry for entry in mcp._tool_manager.list_tools()}
+        parameters = registered[PUBLISH].parameters
+        publish_input = parameters["$defs"]["PublishChallengeReconciliationIn"]["properties"]
+        self.assertEqual(publish_input["acknowledge_policy_transition"]["type"], "boolean")
+        self.assertIs(publish_input["acknowledge_policy_transition"]["default"], False)
+        output = registered[PUBLISH].output_schema
+        self.assertIn("requires_policy_acknowledgement", output["required"])
+        self.assertIn("acknowledged_policy_transition", output["required"])
+        for value in (1, "true", None):
+            with self.subTest(acknowledgement=value):
+                params = {"preview_id": str(uuid4()), "content_digest": "0" * 64,
+                          "acknowledge_policy_transition": value}
+                self.payload(self.call(PUBLISH, params, scopes=("mcp:publish",), confirmation=True),
+                             error="invalid_input")
+        self.assertEqual(ContentPackPublication.objects.count(), 0)
+
+    def test_old_immutable_receipts_receive_false_policy_defaults_only_on_the_wire(self):
+        source, canonical = self.pair()
+        plan, _ = self.preview(source, canonical)
+        published = self.payload(self.publish(plan))
+        receipt = ContentPackPublication.objects.get(pk=plan["preview_id"])
+        stats = deepcopy(receipt.stats)
+        for key in ("preview_response", "published_response"):
+            stats[key].pop("requires_policy_acknowledgement", None)
+            stats[key].pop("acknowledged_policy_transition", None)
+        ContentPackPublication.objects.filter(pk=receipt.pk).update(stats=stats)
+        recovered = self.payload(self.call(GET, {"preview_id": plan["preview_id"]}))
+        self.assertIs(recovered["requires_policy_acknowledgement"], False)
+        self.assertIs(recovered["acknowledged_policy_transition"], False)
+        self.assertEqual(recovered, published)
+        self.assertEqual(self.payload(self.publish(plan)), recovered)
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.stats, stats)
+
+    def test_policy_acknowledgement_is_forwarded_independently_of_cooperation(self):
+        source, canonical = self.pair()
+        plan, _ = self.preview(source, canonical)
+        with patch("apps.quests.reconciliation.publish_reconciliation", return_value=plan) as publish:
+            self.assertEqual(self.payload(self.publish(plan, acknowledge_policy_transition=True)), plan)
+        self.assertEqual(publish.call_args.kwargs, {
+            "acknowledge_cooperative_transition": False, "acknowledge_policy_transition": True,
+        })
+
+    def test_policy_projection_keeps_differences_typed_and_global_only(self):
+        source, canonical = self.pair()
+        plan, _ = self.preview(source, canonical)
+        plan["requires_policy_acknowledgement"] = True
+        old_filter = {"allowed_triggers": ["habit_log"]}
+        new_filter = {**old_filter, "distinct_active_days": True, "reward_policy_version": 2}
+        plan["canonical_definition"]["trigger_filter"] = new_filter
+        plan["differences"] = [
+            {"field": "description", "source": "Three taps", "canonical": "Three different days"},
+            {"field": "trigger_filter", "source": old_filter, "canonical": new_filter},
+            {"field": "coin_reward", "source": 40, "canonical": 10},
+            {"field": "reward_items", "source": [{"item_id": 73119, "quantity": 1}], "canonical": []},
+        ]
+        with patch("apps.quests.reconciliation.get_reconciliation", return_value=plan):
+            self.assertEqual(self.payload(self.call(GET, {"preview_id": plan["preview_id"]})), plan)
+        malformed = []
+        for value in (True, "2", 2.0, 3):
+            candidate = deepcopy(plan)
+            candidate["canonical_definition"]["trigger_filter"]["reward_policy_version"] = value
+            malformed.append(candidate)
+        for key, value in (("distinct_active_days", 1), ("project_id", 73119)):
+            candidate = deepcopy(plan)
+            candidate["differences"][1]["canonical"][key] = value
+            malformed.append(candidate)
+        for difference in (
+            {"field": "xp_reward", "source": 20, "canonical": 10},
+            {"field": "coin_reward", "source": True, "canonical": 10},
+            {"field": "reward_items", "source": [{"item_id": 73119, "quantity": 1, "user_id": 73119}],
+             "canonical": []},
+        ):
+            candidate = deepcopy(plan)
+            candidate["differences"] = [difference]
+            malformed.append(candidate)
+        for candidate in malformed:
+            with self.subTest(candidate=candidate), patch(
+                "apps.quests.reconciliation.get_reconciliation", return_value=candidate,
+            ):
+                result = self.call(GET, {"preview_id": plan["preview_id"]})
+                self.payload(result, error="internal_error")
+                self.assertNotIn("73119", json.dumps(result.structuredContent))
+
     def test_wrong_scope_does_not_reach_native_authoring(self):
         for name, params in (
             (PREVIEW, {"source_definition_id": 1, "canonical_definition_id": 2, "client_request_id": str(uuid4())}),
@@ -176,6 +262,35 @@ class ChallengeReconciliationToolTests(TransactionTestCase):
         self.assertEqual(self.payload(self.publish(plan, acknowledge_cooperative_transition=True)), published)
         self.payload(self.publish(plan), error="invalid_request")
 
+    def test_supported_policy_pairs_require_separate_acknowledgement_including_completed_replay(self):
+        for name in ("Daily Rituals", "Comeback Kid"):
+            with self.subTest(name=name):
+                source, canonical = make_policy_pair(self.actor, name)
+                before = (CoinLedger.objects.count(), UserInventory.objects.count(), ChallengeOccurrence.objects.count())
+                plan, params = self.preview(source, canonical)
+                self.assertTrue(plan["requires_policy_acknowledgement"])
+                self.assertFalse(plan["requires_cooperative_acknowledgement"])
+                self.assertFalse(plan["acknowledged_policy_transition"])
+                self.assertEqual(plan["canonical_definition"]["trigger_filter"]["reward_policy_version"], 2)
+                self.assertEqual(self.payload(self.call(GET, {"preview_id": plan["preview_id"]})), plan)
+                self.assertEqual(self.payload(self.call(PREVIEW, params)), plan)
+                self.payload(self.publish(plan), error="invalid_request")
+                self.payload(self.publish(plan, acknowledge_cooperative_transition=True), error="invalid_request")
+                source.refresh_from_db()
+                self.assertIsNone(source.superseded_by_id)
+                published = self.payload(self.publish(plan, acknowledge_policy_transition=True))
+                self.assertTrue(published["acknowledged_policy_transition"])
+                self.assertFalse(published["acknowledged_cooperative_transition"])
+                source.refresh_from_db()
+                self.assertEqual((source.superseded_by_id, source.created_by_id), (canonical.pk, self.actor.pk))
+                self.payload(self.publish(plan), error="invalid_request")
+                self.payload(self.publish(plan, acknowledge_cooperative_transition=True), error="invalid_request")
+                self.assertEqual(self.payload(self.publish(plan, acknowledge_policy_transition=True)), published)
+                self.assertEqual(self.payload(self.call(GET, {"preview_id": plan["preview_id"]})), published)
+                self.assertEqual(self.payload(self.call(PREVIEW, params)), plan)
+                self.assertEqual((CoinLedger.objects.count(), UserInventory.objects.count(),
+                                  ChallengeOccurrence.objects.count()), before)
+
     def test_strict_arguments_fail_before_any_native_receipt_or_catalog_write(self):
         valid = {"source_definition_id": 1, "canonical_definition_id": 2, "client_request_id": str(uuid4())}
         invalid_previews = [
@@ -184,6 +299,7 @@ class ChallengeReconciliationToolTests(TransactionTestCase):
             {**valid, "canonical_definition_id": True}, {**valid, "canonical_definition_id": 1},
             {**valid, "client_request_id": "invalid"}, {**valid, "client_request_id": 1},
             {**valid, "user_id": self.child.pk}, {**valid, "acknowledge_cooperative_transition": True},
+            {**valid, "acknowledge_policy_transition": True},
         ]
         for params in invalid_previews:
             with self.subTest(params=params):

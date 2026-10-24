@@ -205,7 +205,11 @@ The native service owns fresh account authorization and mutex-first admission:
 do not put an outer `authorized_household` transaction around preview/publish.
 Receipts bind exact source, ownership and accepted-goal state without exposing
 household identities or counts; cooperative differences need a separate strict
-acknowledgment. Source rows, accepted promises and repeat cadence are preserved.
+acknowledgment. The installed v1-to-v2 transitions for Daily Rituals and Comeback
+Kid require the independent strict `acknowledge_policy_transition` flag when
+their preview requires it; the adapter never admits differences itself. Old
+immutable receipts expose false policy flags without rewriting saved evidence.
+Source rows, accepted promises and repeat cadence are preserved.
 See [canonical reconciliation](../../docs/operations/mcp-authoring.md#canonical-challenge-reconciliation).
 
 `challenges.py` uses the current goal serializer/service, required UUID creation,

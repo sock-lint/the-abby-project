@@ -465,17 +465,37 @@ Publish takes `preview_id` and `content_digest`. The server also verifies its
 expiring catalog, source-ownership and accepted-goal bindings. A cooperative
 difference on a one-time pair requires `acknowledge_cooperative_transition: true`
 in `params` in addition to transport confirmation. Repeating personal-to-cooperative
-conversions, other incompatible behavior, unsupported
-claims and alias/dependency states are refused. Stale or expired plans need a
-fresh preview UUID. Successful publication replays its stored receipt after
-current authorization without another history rewrite or reward.
+conversions are refused.
+
+Two installed repeating policy transitions are also supported: Daily Rituals
+from 10 Coins and one Small Coin Pouch to 2 Coins without an item, and Comeback
+Kid from 40 Coins for three positive habit taps to 10 Coins for activity on three
+different days. Comeback Kid keeps the same Streak Freeze reward. Both
+transitions retain their original target, duration, XP, skill tags and gates;
+the canonical definition carries `reward_policy_version: 2`. The preview shows
+the exact changed description, filter, Coins and item rows where applicable,
+and sets `requires_policy_acknowledgement: true`. Publication then requires the
+separate strict `params.acknowledge_policy_transition: true`, including when
+recovering a completed publication. This acknowledges the displayed future
+policy, independently of cooperative acknowledgement and transport confirmation.
+Other policy differences remain refused; the flag cannot authorize an arbitrary
+edit or a different source/canonical pair.
+
+Unsupported claims, alias/dependency states and other incompatible behavior are
+refused. Stale or expired plans need a fresh preview UUID. Successful publication
+replays its stored receipt after current authorization without another history
+rewrite or reward. Older receipts expose false policy acknowledgement flags in
+the result without rewriting their saved preview or publication evidence. An
+unpublished preview created before this workflow upgrade needs a fresh preview
+UUID; its older binding cannot authorize publication after the upgrade.
 
 Both definition rows and their original provenance remain. Accepted windows,
 contributions, payments and reward promises stay intact. Only an eligible sole
 alias goal's definition FK moves to retain its existing cadence; additional
-accepted aliases cannot create more repeat windows. The preview and receipt
-never expose account/goal IDs or usage counts. No content data changes merely
-because these tools are installed. See the [challenge runbook](automatic-challenges.md#review-unresolved-duplicate-pairs)
+accepted aliases cannot create more repeat windows. A future policy transition
+changes only subsequent eligible windows; accepted rules and rewards stay saved.
+The preview and receipt never expose account/goal IDs or usage counts. No content
+data changes merely because these tools are installed. See the [challenge runbook](automatic-challenges.md#review-unresolved-duplicate-pairs)
 for the preservation and admission boundary.
 
 ### Existing definition editing
