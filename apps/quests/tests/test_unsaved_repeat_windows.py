@@ -91,6 +91,22 @@ class UnsavedRepeatWindowTests(TestCase):
         self.fact("once-1", self.now + timedelta(hours=1))
         self.assertEqual(list(goal.occurrences.values_list("starts_at", flat=True)), [goal.starts_at])
 
+    def test_saved_pre_anchor_history_cannot_reprice_the_accepted_first_cycle(self):
+        original = self.definition(name="Historic weekly", coins=40)
+        goal = self.enroll_without_window(original)
+        # Earlier window math could save a row ending at the anchor during a
+        # DST-repeated hour; such history must not make cycle 0 a future offer.
+        ChallengeOccurrence.objects.create(goal=goal, starts_at=goal.starts_at - timedelta(days=7),
+            ends_at=goal.starts_at, snapshot={"coins": 40, "filter": goal.trigger_filter})
+        QuestDefinition.objects.filter(pk=original.pk).update(coin_reward=10, trigger_filter={
+            "allowed_triggers": ["habit_log"], "reward_policy_version": 2, "distinct_active_days": True})
+        self.fact("historic-1", goal.starts_at + timedelta(days=2))
+        self.fact("historic-2", goal.starts_at + timedelta(days=2, minutes=5))
+        window = goal.occurrences.order_by("-starts_at").first()
+        self.assertEqual(goal.occurrences.count(), 2)
+        self.assertEqual((window.snapshot["coins"], window.snapshot["filter"]), (40, goal.trigger_filter))
+        self.assertEqual(self.coins(), [40])
+
     def test_later_unsaved_cycle_adopts_the_current_versioned_offer(self):
         original = self.definition(name="Old weekly", coins=40)
         goal = self.enroll_without_window(original)

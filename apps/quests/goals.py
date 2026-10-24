@@ -376,8 +376,10 @@ def _occurrence(goal, at):
             return existing
         # Cycle 0 is the accepted window; any later cycle is a future offer.
         # Compare in the window's own zone so a DST-repeated hour still matches.
+        # Other saved rows (e.g. a pre-anchor window from older window math)
+        # never reprice the accepted cycle.
         future = bool(goal.is_catalog and goal.repeat_days
-                      and (start != _occurrence_window(goal, goal.starts_at)[0] or goal.occurrences.exists()))
+                      and start != _occurrence_window(goal, goal.starts_at)[0])
         if future:
             # User admission precedes definition rows, matching legacy starts
             # and reviewed reconciliation. A bundled/publication writer must
