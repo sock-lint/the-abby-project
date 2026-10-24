@@ -7,6 +7,36 @@ Use the [UI language table](../../CLAUDE.md#ui-language-october-2026) for tab,
 action and help wording. Historical names in the architecture below describe
 stable routes and component identifiers, not the labels to show users.
 
+## Usage monitoring
+
+`/manage/usage` is a lazy staff-parent report linked from Manage → Admin. Its
+default is the current family; only the server's `can_view_deployment` capability
+offers all-family aggregates. Date, role and feature changes immediately remove
+the previous report. Account, family, role and credential changes also discard
+old state and abort pending reads. A failed same-filter refresh labels its
+retained snapshot stale; a permission denial removes it.
+
+Four summary cards, an accessible daily/weekly activity line and exact-count
+table, feature adoption, onboarding, observed returning-family cohorts, review
+queue and the latest seven-day summary present server counts. Coverage labels
+describe the sections whose filters differ. Incomplete history and immature
+return windows never become a zero-percent result or a complete comparison.
+The trend leaves precollection dates unplotted and unavailable in its exact
+table; first-day and mixed-week counts retain a partial-history label.
+
+The authenticated `UsageVisitCapture` sends only `{}` to `/api/usage/visit/`
+on visible foreground navigation or visibility resumption, at most once per
+credential/account UTC day in memory. Server uniqueness deduplicates across
+devices. StrictMode shares the attempted measurement; failed or uncertain POSTs
+are not replayed that day. No background timer, route, query, journal text,
+duration or session recording enters that request.
+The read-only authenticated identity field `usage_collection_enabled: false`
+suppresses the visit request for server-designated observer accounts; the
+backend also excludes them independently. Missing fields preserve collection
+for older ordinary-account responses.
+Synthetic fixtures exercise the Django/React response contract; see
+[`Usage monitoring`](../../../docs/operations/usage-monitoring.md).
+
 ## Progression lab
 
 Challenges expose up to three available one-time catalog goals under Explore

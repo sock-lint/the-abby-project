@@ -420,6 +420,8 @@ export const handlers = [
   http.delete(/\/api\/printers\/\d+\/$/, nullBody),
 
   // Activity log (parent-only)
+  http.post('*/api/usage/visit/', () => HttpResponse.json({ recorded: true })),
+  http.get('*/api/admin/usage/', () => new HttpResponse(null, { status: 403 })),
   http.get('*/api/activity/', () =>
     HttpResponse.json({ results: [], next: null, previous: null })),
 

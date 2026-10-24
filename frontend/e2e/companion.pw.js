@@ -113,9 +113,17 @@ async function fixture(page, pet = chick, { mounts = [], avatarPreferences = ava
   await page.addInitScript(() => localStorage.setItem('abby_auth_token', 'synthetic-browser-profile-session'));
   await page.route('**/api/**', async (route) => {
     const request = route.request();
-    const path = new URL(request.url()).pathname;
+    const url = new URL(request.url());
+    const path = url.pathname;
     // Vite source modules also contain /src/api/. Only mock real API routes.
     if (!path.startsWith('/api/')) return route.continue();
+    if (path === '/api/usage/visit/' && request.method() === 'POST') {
+      // Only the empty foreground-visit contract is measurement. Companion,
+      // appearance and unexpected data writes remain recorded below.
+      expect(url.search).toBe('');
+      expect(request.postDataJSON()).toEqual({});
+      return route.fulfill({ status: 204 });
+    }
     if (request.method() !== 'GET') {
       const body = request.postDataJSON();
       mutations.push({ url: request.url(), method: request.method(), body });

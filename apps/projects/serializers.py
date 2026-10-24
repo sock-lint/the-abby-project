@@ -64,10 +64,19 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class AuthenticatedUserSerializer(UserSerializer):
-    """Current-account identity; staff status is read-only presentation data."""
+    """Current-account identity; capabilities are read-only presentation data."""
+
+    usage_collection_enabled = serializers.SerializerMethodField()
+
+    def get_usage_collection_enabled(self, obj):
+        from apps.families.models import LiveTestFamily
+
+        # A private ownership receipt identifies observer households. Names,
+        # slugs and client input cannot exempt an ordinary household.
+        return not LiveTestFamily.objects.filter(family_id=obj.family_id).exists()
 
     class Meta(UserSerializer.Meta):
-        fields = [*UserSerializer.Meta.fields, "is_staff"]
+        fields = [*UserSerializer.Meta.fields, "is_staff", "usage_collection_enabled"]
         read_only_fields = fields
 
 
